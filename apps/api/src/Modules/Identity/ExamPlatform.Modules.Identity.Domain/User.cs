@@ -79,6 +79,10 @@ public sealed class User : AggregateRoot
     /// <summary>Marks the account verified and active, e.g. after the first successful OTP login.</summary>
     public void Activate() => Status = UserStatus.Active;
 
+    /// <summary>Changes the name shown in the UI.</summary>
+    /// <param name="displayName">The new display name.</param>
+    public void UpdateDisplayName(string displayName) => DisplayName = displayName;
+
     /// <summary>
     /// Computes this user's age band as of a given instant. Recomputed on demand
     /// rather than stored, since "is this person a minor" can change as time passes.
