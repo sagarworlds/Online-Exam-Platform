@@ -1,0 +1,40 @@
+<div class="page">
+  <h1>Register</h1>
+
+  @if (errorMessage()) {
+    <p class="error-message">{{ errorMessage() }}</p>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <div class="field">
+      <label for="register-display-name">Display name</label>
+      <input id="register-display-name" type="text" formControlName="displayName" />
+    </div>
+
+    <div class="field">
+      <label for="register-dob">Date of birth</label>
+      <input id="register-dob" type="date" formControlName="dateOfBirth" />
+    </div>
+
+    <div class="field">
+      <label for="register-channel">Verify by</label>
+      <select id="register-channel" formControlName="channel">
+        <option value="Email">Email</option>
+        <option value="Sms">SMS</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="register-destination">
+        {{ form.value.channel === 'Sms' ? 'Phone number' : 'Email address' }}
+      </label>
+      <input id="register-destination" type="text" formControlName="destination" />
+    </div>
+
+    <button type="submit" class="primary" [disabled]="form.invalid || submitting()">Create account</button>
+  </form>
+
+  <p class="link-row">
+    <a routerLink="/login">Already have an account? Log in</a>
+  </p>
+</div>
