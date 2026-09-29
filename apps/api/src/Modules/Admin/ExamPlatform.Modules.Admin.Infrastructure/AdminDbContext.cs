@@ -44,5 +44,6 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
         });
 
         modelBuilder.ApplyUtcDateTimeConversion();
+        modelBuilder.ApplyClientGeneratedGuidKeys();
     }
 }

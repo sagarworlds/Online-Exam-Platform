@@ -100,5 +100,6 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
         });
 
         modelBuilder.ApplyUtcDateTimeConversion();
+        modelBuilder.ApplyClientGeneratedGuidKeys();
     }
 }

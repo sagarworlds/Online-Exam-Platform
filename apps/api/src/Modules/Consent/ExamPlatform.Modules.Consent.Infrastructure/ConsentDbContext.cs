@@ -37,5 +37,6 @@ public sealed class ConsentDbContext(DbContextOptions<ConsentDbContext> options)
         });
 
         modelBuilder.ApplyUtcDateTimeConversion();
+        modelBuilder.ApplyClientGeneratedGuidKeys();
     }
 }
