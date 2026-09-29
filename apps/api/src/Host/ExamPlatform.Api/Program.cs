@@ -66,6 +66,12 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
+// Enums as JSON strings everywhere (e.g. "PrivacyNotice"), not their numeric values —
+// matches how query-string enum binding already works, so the API is consistent
+// whether a value arrives via a route/query parameter or a JSON request body.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
 builder.Services.AddExceptionHandler<DomainExceptionHandler>();
