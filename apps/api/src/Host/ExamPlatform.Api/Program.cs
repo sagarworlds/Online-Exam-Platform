@@ -18,9 +18,6 @@ var builder = WebApplication.CreateBuilder(args);
 // the same singleton Clock/dispatcher instead of each registering its own.
 builder.Services.AddSharedKernel();
 
-var jwtSigningKey = builder.Configuration["Jwt:SigningKey"]
-    ?? throw new InvalidOperationException("Configuration value 'Jwt:SigningKey' is required.");
-
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -29,6 +26,15 @@ builder.Services
         // default remapping to long ClaimTypes URIs — every module reads claims by
         // their literal JWT name (see Identity.Infrastructure's JwtTokenGenerator).
         options.MapInboundClaims = false;
+
+        // Read the signing key here, inside the options delegate, rather than into a
+        // variable above: JwtBearerOptions is materialized lazily (on first request,
+        // after the host has fully built), so a value captured earlier — e.g. before a
+        // test's WebApplicationFactory finishes layering its configuration overrides on
+        // top of builder.Configuration — can go stale and silently sign with one key
+        // while this validates against another.
+        var jwtSigningKey = builder.Configuration["Jwt:SigningKey"]
+            ?? throw new InvalidOperationException("Configuration value 'Jwt:SigningKey' is required.");
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
