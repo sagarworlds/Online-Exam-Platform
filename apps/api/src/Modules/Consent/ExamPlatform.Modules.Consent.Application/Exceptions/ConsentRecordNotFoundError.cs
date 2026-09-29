@@ -7,4 +7,7 @@ public sealed class ConsentRecordNotFoundError() : DomainException("No matching 
 {
     /// <inheritdoc />
     public override string ErrorCode => "consent_record_not_found";
+
+    /// <inheritdoc />
+    public override int HttpStatusCode => 404;
 }

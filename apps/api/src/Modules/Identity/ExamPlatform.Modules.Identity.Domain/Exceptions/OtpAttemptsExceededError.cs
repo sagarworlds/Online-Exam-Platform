@@ -7,4 +7,7 @@ public sealed class OtpAttemptsExceededError() : DomainException("Too many incor
 {
     /// <inheritdoc />
     public override string ErrorCode => "otp_attempts_exceeded";
+
+    /// <inheritdoc />
+    public override int HttpStatusCode => 429;
 }

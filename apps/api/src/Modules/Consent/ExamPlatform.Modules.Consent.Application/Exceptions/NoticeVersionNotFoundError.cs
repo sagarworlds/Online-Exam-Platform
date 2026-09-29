@@ -7,4 +7,7 @@ public sealed class NoticeVersionNotFoundError() : DomainException("No matching 
 {
     /// <inheritdoc />
     public override string ErrorCode => "notice_version_not_found";
+
+    /// <inheritdoc />
+    public override int HttpStatusCode => 404;
 }

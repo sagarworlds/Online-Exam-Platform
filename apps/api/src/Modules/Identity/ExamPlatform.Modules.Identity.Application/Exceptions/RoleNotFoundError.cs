@@ -7,4 +7,7 @@ public sealed class RoleNotFoundError() : DomainException("No matching role was 
 {
     /// <inheritdoc />
     public override string ErrorCode => "role_not_found";
+
+    /// <inheritdoc />
+    public override int HttpStatusCode => 404;
 }

@@ -7,4 +7,7 @@ public sealed class UserNotFoundError() : DomainException("No matching user was 
 {
     /// <inheritdoc />
     public override string ErrorCode => "user_not_found";
+
+    /// <inheritdoc />
+    public override int HttpStatusCode => 404;
 }

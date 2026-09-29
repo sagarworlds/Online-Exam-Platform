@@ -7,4 +7,7 @@ public sealed class AccountLockedError() : DomainException("This account cannot 
 {
     /// <inheritdoc />
     public override string ErrorCode => "account_locked";
+
+    /// <inheritdoc />
+    public override int HttpStatusCode => 403;
 }

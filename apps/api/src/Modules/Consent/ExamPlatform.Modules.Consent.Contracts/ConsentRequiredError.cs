@@ -12,4 +12,7 @@ public sealed class ConsentRequiredError() : DomainException("Active consent is 
 {
     /// <inheritdoc />
     public override string ErrorCode => "consent_required";
+
+    /// <inheritdoc />
+    public override int HttpStatusCode => 403;
 }

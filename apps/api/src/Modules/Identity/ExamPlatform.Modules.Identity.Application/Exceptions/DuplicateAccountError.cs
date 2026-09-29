@@ -7,4 +7,7 @@ public sealed class DuplicateAccountError() : DomainException("An account alread
 {
     /// <inheritdoc />
     public override string ErrorCode => "duplicate_account";
+
+    /// <inheritdoc />
+    public override int HttpStatusCode => 409;
 }

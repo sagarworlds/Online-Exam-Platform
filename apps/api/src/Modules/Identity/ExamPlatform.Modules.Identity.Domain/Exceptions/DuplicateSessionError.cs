@@ -13,4 +13,7 @@ public sealed class DuplicateSessionError() : DomainException("An active session
 {
     /// <inheritdoc />
     public override string ErrorCode => "duplicate_session";
+
+    /// <inheritdoc />
+    public override int HttpStatusCode => 409;
 }

@@ -7,4 +7,7 @@ public sealed class InvalidCredentialsError() : DomainException("Incorrect email
 {
     /// <inheritdoc />
     public override string ErrorCode => "invalid_credentials";
+
+    /// <inheritdoc />
+    public override int HttpStatusCode => 401;
 }

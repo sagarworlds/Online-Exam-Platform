@@ -7,4 +7,7 @@ public sealed class OtpChallengeNotFoundError() : DomainException("This OTP chal
 {
     /// <inheritdoc />
     public override string ErrorCode => "otp_challenge_not_found";
+
+    /// <inheritdoc />
+    public override int HttpStatusCode => 404;
 }

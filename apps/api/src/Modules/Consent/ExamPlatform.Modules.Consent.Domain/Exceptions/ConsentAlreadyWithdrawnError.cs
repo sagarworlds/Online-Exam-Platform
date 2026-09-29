@@ -7,4 +7,7 @@ public sealed class ConsentAlreadyWithdrawnError() : DomainException("This conse
 {
     /// <inheritdoc />
     public override string ErrorCode => "consent_already_withdrawn";
+
+    /// <inheritdoc />
+    public override int HttpStatusCode => 409;
 }
