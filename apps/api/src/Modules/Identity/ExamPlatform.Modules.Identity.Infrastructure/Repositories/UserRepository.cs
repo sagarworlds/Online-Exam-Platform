@@ -7,7 +7,12 @@ namespace ExamPlatform.Modules.Identity.Infrastructure.Repositories;
 /// <summary>EF Core-backed <see cref="IUserRepository"/>.</summary>
 public sealed class UserRepository(IdentityDbContext context) : IUserRepository
 {
-    private IQueryable<User> Loaded() => context.Users.Include(u => u.Roles).Include(u => u.Sessions);
+    // ThenInclude(Permissions) matters: without it, every role loads with an empty
+    // Permissions collection, so RBAC and JwtTokenGenerator's "perm" claims would
+    // silently see no permissions at all for any user, however their roles are configured.
+    private IQueryable<User> Loaded() => context.Users
+        .Include(u => u.Roles).ThenInclude(r => r.Permissions)
+        .Include(u => u.Sessions);
 
     /// <inheritdoc />
     public Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
