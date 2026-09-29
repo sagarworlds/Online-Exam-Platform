@@ -60,4 +60,12 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
 
     /// <inheritdoc />
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapIdentityEndpoints();
+
+    /// <inheritdoc />
+    public async Task MigrateAndSeedAsync(IServiceProvider services, CancellationToken cancellationToken)
+    {
+        var db = services.GetRequiredService<IdentityDbContext>();
+        await db.Database.MigrateAsync(cancellationToken);
+        await IdentitySeeder.SeedAsync(db, cancellationToken);
+    }
 }

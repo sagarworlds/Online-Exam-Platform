@@ -33,4 +33,13 @@ public sealed class ConsentModuleInstaller : IModuleInstaller
 
     /// <inheritdoc />
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapConsentEndpoints();
+
+    /// <inheritdoc />
+    public async Task MigrateAndSeedAsync(IServiceProvider services, CancellationToken cancellationToken)
+    {
+        var db = services.GetRequiredService<ConsentDbContext>();
+        await db.Database.MigrateAsync(cancellationToken);
+        var clock = services.GetRequiredService<Clock>();
+        await ConsentSeeder.SeedAsync(db, clock.UtcNow, cancellationToken);
+    }
 }

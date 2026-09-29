@@ -23,4 +23,15 @@ public interface IModuleInstaller
     /// <summary>Maps the module's HTTP endpoints onto the application's routing surface.</summary>
     /// <param name="endpoints">The endpoint route builder to map routes onto.</param>
     void MapEndpoints(IEndpointRouteBuilder endpoints);
+
+    /// <summary>
+    /// Applies this module's pending EF Core migrations and any idempotent startup
+    /// seeding. Called by the Host in Development only — routed through this
+    /// interface, rather than the Host resolving the module's <c>DbContext</c>
+    /// directly, so the Host never needs a reference to a module's Infrastructure
+    /// project (module boundary rule, ADR 0001).
+    /// </summary>
+    /// <param name="services">The request-scoped service provider to resolve this module's services from.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task MigrateAndSeedAsync(IServiceProvider services, CancellationToken cancellationToken);
 }

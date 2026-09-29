@@ -33,4 +33,11 @@ public sealed class AdminModuleInstaller : IModuleInstaller
 
     /// <inheritdoc />
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapAdminEndpoints();
+
+    /// <inheritdoc />
+    public async Task MigrateAndSeedAsync(IServiceProvider services, CancellationToken cancellationToken)
+    {
+        var db = services.GetRequiredService<AdminDbContext>();
+        await db.Database.MigrateAsync(cancellationToken);
+    }
 }

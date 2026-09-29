@@ -2,16 +2,12 @@ using System.Text;
 using System.Threading.RateLimiting;
 using ExamPlatform.Api;
 using ExamPlatform.Modules.Admin.Endpoints;
-using ExamPlatform.Modules.Admin.Infrastructure;
 using ExamPlatform.Modules.Consent.Endpoints;
-using ExamPlatform.Modules.Consent.Infrastructure;
 using ExamPlatform.Modules.Identity.Endpoints;
-using ExamPlatform.Modules.Identity.Infrastructure;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 
@@ -111,21 +107,15 @@ foreach (var module in modules)
 // Development-only convenience: migrate and seed every module's schema on startup so
 // `dotnet run` gives a ready-to-use database without a separate migration step. A real
 // deployment pipeline runs migrations explicitly instead (see README quickstart).
+// Routed through each module's own MigrateAndSeedAsync rather than the Host resolving
+// a DbContext directly, so the Host never references a module's Infrastructure project.
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
-
-    var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-    await identityDb.Database.MigrateAsync();
-    await IdentitySeeder.SeedAsync(identityDb, CancellationToken.None);
-
-    var consentDb = scope.ServiceProvider.GetRequiredService<ConsentDbContext>();
-    await consentDb.Database.MigrateAsync();
-    var clock = scope.ServiceProvider.GetRequiredService<Clock>();
-    await ConsentSeeder.SeedAsync(consentDb, clock.UtcNow, CancellationToken.None);
-
-    var adminDb = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
-    await adminDb.Database.MigrateAsync();
+    foreach (var module in modules)
+    {
+        await module.MigrateAndSeedAsync(scope.ServiceProvider, CancellationToken.None);
+    }
 }
 
 app.Run();
