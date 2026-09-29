@@ -1,0 +1,6 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\ExamPlatform.Modules.Consent.Application\ExamPlatform.Modules.Consent.Application.csproj" />
+    <ProjectReference Include="..\ExamPlatform.Modules.Consent.Infrastructure\ExamPlatform.Modules.Consent.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

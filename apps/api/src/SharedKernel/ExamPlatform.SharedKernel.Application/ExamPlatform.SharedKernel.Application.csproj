@@ -1,0 +1,5 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\ExamPlatform.SharedKernel.Domain\ExamPlatform.SharedKernel.Domain.csproj" />
+  </ItemGroup>
+</Project>

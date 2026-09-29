@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\..\Modules\Identity\ExamPlatform.Modules.Identity.Endpoints\ExamPlatform.Modules.Identity.Endpoints.csproj" />
+    <ProjectReference Include="..\..\Modules\Consent\ExamPlatform.Modules.Consent.Endpoints\ExamPlatform.Modules.Consent.Endpoints.csproj" />
+    <ProjectReference Include="..\..\Modules\Admin\ExamPlatform.Modules.Admin.Endpoints\ExamPlatform.Modules.Admin.Endpoints.csproj" />
+    <ProjectReference Include="..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
+    <ProjectReference Include="..\..\SharedKernel\ExamPlatform.SharedKernel.Infrastructure\ExamPlatform.SharedKernel.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Scalar.AspNetCore" />
+  </ItemGroup>
+</Project>

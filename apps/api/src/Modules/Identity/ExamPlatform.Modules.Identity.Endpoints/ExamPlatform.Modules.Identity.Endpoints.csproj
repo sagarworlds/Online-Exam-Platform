@@ -1,0 +1,6 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\ExamPlatform.Modules.Identity.Application\ExamPlatform.Modules.Identity.Application.csproj" />
+    <ProjectReference Include="..\ExamPlatform.Modules.Identity.Infrastructure\ExamPlatform.Modules.Identity.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
