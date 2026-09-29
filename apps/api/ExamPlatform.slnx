@@ -1,0 +1,46 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Host/">
+    <Project Path="src/Host/ExamPlatform.Api/ExamPlatform.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Admin/">
+    <Project Path="src/Modules/Admin/ExamPlatform.Modules.Admin.Application/ExamPlatform.Modules.Admin.Application.csproj" />
+    <Project Path="src/Modules/Admin/ExamPlatform.Modules.Admin.Contracts/ExamPlatform.Modules.Admin.Contracts.csproj" />
+    <Project Path="src/Modules/Admin/ExamPlatform.Modules.Admin.Domain/ExamPlatform.Modules.Admin.Domain.csproj" />
+    <Project Path="src/Modules/Admin/ExamPlatform.Modules.Admin.Endpoints/ExamPlatform.Modules.Admin.Endpoints.csproj" />
+    <Project Path="src/Modules/Admin/ExamPlatform.Modules.Admin.Infrastructure/ExamPlatform.Modules.Admin.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Consent/">
+    <Project Path="src/Modules/Consent/ExamPlatform.Modules.Consent.Application/ExamPlatform.Modules.Consent.Application.csproj" />
+    <Project Path="src/Modules/Consent/ExamPlatform.Modules.Consent.Contracts/ExamPlatform.Modules.Consent.Contracts.csproj" />
+    <Project Path="src/Modules/Consent/ExamPlatform.Modules.Consent.Domain/ExamPlatform.Modules.Consent.Domain.csproj" />
+    <Project Path="src/Modules/Consent/ExamPlatform.Modules.Consent.Endpoints/ExamPlatform.Modules.Consent.Endpoints.csproj" />
+    <Project Path="src/Modules/Consent/ExamPlatform.Modules.Consent.Infrastructure/ExamPlatform.Modules.Consent.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/ExamPlatform.Modules.Identity.Application/ExamPlatform.Modules.Identity.Application.csproj" />
+    <Project Path="src/Modules/Identity/ExamPlatform.Modules.Identity.Domain/ExamPlatform.Modules.Identity.Domain.csproj" />
+    <Project Path="src/Modules/Identity/ExamPlatform.Modules.Identity.Endpoints/ExamPlatform.Modules.Identity.Endpoints.csproj" />
+    <Project Path="src/Modules/Identity/ExamPlatform.Modules.Identity.Infrastructure/ExamPlatform.Modules.Identity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/SharedKernel/">
+    <Project Path="src/SharedKernel/ExamPlatform.SharedKernel.Application/ExamPlatform.SharedKernel.Application.csproj" />
+    <Project Path="src/SharedKernel/ExamPlatform.SharedKernel.Domain/ExamPlatform.SharedKernel.Domain.csproj" />
+    <Project Path="src/SharedKernel/ExamPlatform.SharedKernel.Infrastructure/ExamPlatform.SharedKernel.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ExamPlatform.ArchitectureTests/ExamPlatform.ArchitectureTests.csproj" />
+    <Project Path="tests/ExamPlatform.IntegrationTests/ExamPlatform.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/" />
+  <Folder Name="/tests/Modules/Admin/">
+    <Project Path="tests/Modules/Admin/ExamPlatform.Modules.Admin.UnitTests/ExamPlatform.Modules.Admin.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Consent/">
+    <Project Path="tests/Modules/Consent/ExamPlatform.Modules.Consent.UnitTests/ExamPlatform.Modules.Consent.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Identity/">
+    <Project Path="tests/Modules/Identity/ExamPlatform.Modules.Identity.UnitTests/ExamPlatform.Modules.Identity.UnitTests.csproj" />
+  </Folder>
+</Solution>

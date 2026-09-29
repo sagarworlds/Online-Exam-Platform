@@ -1,0 +1,8 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\ExamPlatform.Modules.Consent.Domain\ExamPlatform.Modules.Consent.Domain.csproj" />
+    <ProjectReference Include="..\ExamPlatform.Modules.Consent.Contracts\ExamPlatform.Modules.Consent.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
+    <ProjectReference Include="..\..\Admin\ExamPlatform.Modules.Admin.Contracts\ExamPlatform.Modules.Admin.Contracts.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NetArchTest.Rules" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SharedKernel\ExamPlatform.SharedKernel.Domain\ExamPlatform.SharedKernel.Domain.csproj" />
+    <ProjectReference Include="..\..\src\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
+    <ProjectReference Include="..\..\src\SharedKernel\ExamPlatform.SharedKernel.Infrastructure\ExamPlatform.SharedKernel.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\ExamPlatform.Modules.Identity.Domain\ExamPlatform.Modules.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\ExamPlatform.Modules.Identity.Application\ExamPlatform.Modules.Identity.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\ExamPlatform.Modules.Identity.Infrastructure\ExamPlatform.Modules.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\ExamPlatform.Modules.Identity.Endpoints\ExamPlatform.Modules.Identity.Endpoints.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Consent\ExamPlatform.Modules.Consent.Domain\ExamPlatform.Modules.Consent.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Consent\ExamPlatform.Modules.Consent.Contracts\ExamPlatform.Modules.Consent.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Consent\ExamPlatform.Modules.Consent.Application\ExamPlatform.Modules.Consent.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Consent\ExamPlatform.Modules.Consent.Infrastructure\ExamPlatform.Modules.Consent.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Consent\ExamPlatform.Modules.Consent.Endpoints\ExamPlatform.Modules.Consent.Endpoints.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Admin\ExamPlatform.Modules.Admin.Domain\ExamPlatform.Modules.Admin.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Admin\ExamPlatform.Modules.Admin.Contracts\ExamPlatform.Modules.Admin.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Admin\ExamPlatform.Modules.Admin.Application\ExamPlatform.Modules.Admin.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Admin\ExamPlatform.Modules.Admin.Infrastructure\ExamPlatform.Modules.Admin.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Admin\ExamPlatform.Modules.Admin.Endpoints\ExamPlatform.Modules.Admin.Endpoints.csproj" />
+    <ProjectReference Include="..\..\src\Host\ExamPlatform.Api\ExamPlatform.Api.csproj" />
+  </ItemGroup>
+
+</Project>

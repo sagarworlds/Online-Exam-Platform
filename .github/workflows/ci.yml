@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "sp/**", "SP/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test-api:
+    name: Build & test API (.NET)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore ExamPlatform.slnx
+        working-directory: apps/api
+
+      - name: Build
+        run: dotnet build ExamPlatform.slnx --no-restore -c Release
+        working-directory: apps/api
+
+      # Integration tests use Testcontainers (Npgsql), which needs the Docker
+      # daemon already running on the runner — true by default on GitHub-hosted
+      # ubuntu-latest, so no extra services: block is needed here.
+      - name: Test
+        run: >
+          dotnet test ExamPlatform.slnx --no-build -c Release
+          --collect:"XPlat Code Coverage" --results-directory ./coverage
+        working-directory: apps/api
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage
+          path: apps/api/coverage
+          retention-days: 7
+
+  lint-build-test-web:
+    name: Lint, build & test web (Angular)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/web
+
+      - name: Lint
+        run: npm run lint
+        working-directory: apps/web
+
+      - name: Build
+        run: npm run build
+        working-directory: apps/web
+
+      - name: Test
+        run: npm test -- --watch=false
+        working-directory: apps/web

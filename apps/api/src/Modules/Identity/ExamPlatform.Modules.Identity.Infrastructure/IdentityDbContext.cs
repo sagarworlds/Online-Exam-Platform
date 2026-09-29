@@ -1,0 +1,105 @@
+using ExamPlatform.Modules.Identity.Domain;
+using ExamPlatform.SharedKernel.Infrastructure;
+using Microsoft.EntityFrameworkCore;
+
+namespace ExamPlatform.Modules.Identity.Infrastructure;
+
+/// <summary>
+/// The Identity module's persistence context, scoped to the <c>identity</c>
+/// Postgres schema. Has no <see cref="DbSet{TEntity}"/> for any other module's
+/// entities — the module boundary rule ("modules never reach into each other's
+/// tables") is therefore a compiler-enforced fact, not a convention.
+/// </summary>
+public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : DbContext(options)
+{
+    /// <summary>Registered accounts.</summary>
+    public DbSet<User> Users => Set<User>();
+
+    /// <summary>RBAC roles.</summary>
+    public DbSet<Role> Roles => Set<Role>();
+
+    /// <summary>RBAC permissions.</summary>
+    public DbSet<Permission> Permissions => Set<Permission>();
+
+    /// <summary>Outstanding and historical OTP challenges.</summary>
+    public DbSet<OtpChallenge> OtpChallenges => Set<OtpChallenge>();
+
+    /// <summary>Outstanding and historical password reset tokens.</summary>
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+
+    /// <inheritdoc />
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.HasDefaultSchema("identity");
+
+        modelBuilder.Entity<User>(b =>
+        {
+            b.ToTable("Users");
+            b.HasKey(u => u.Id);
+            b.Property(u => u.Email).HasMaxLength(320);
+            b.Property(u => u.PhoneNumber).HasMaxLength(20);
+            b.Property(u => u.PasswordHash);
+            b.Property(u => u.DisplayName).IsRequired().HasMaxLength(200);
+            b.Property(u => u.Status).HasConversion<string>().HasMaxLength(30);
+            b.HasIndex(u => u.Email).IsUnique().HasFilter("\"Email\" IS NOT NULL");
+            b.HasIndex(u => u.PhoneNumber).IsUnique().HasFilter("\"PhoneNumber\" IS NOT NULL");
+            b.Ignore(u => u.DomainEvents);
+
+            b.HasMany(u => u.Roles).WithMany().UsingEntity(j => j.ToTable("UserRoles"));
+            b.Navigation(u => u.Roles).HasField("_roles").UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            b.HasMany(u => u.Sessions).WithOne().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+            b.Navigation(u => u.Sessions).HasField("_sessions").UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        modelBuilder.Entity<UserSession>(b =>
+        {
+            b.ToTable("UserSessions");
+            b.HasKey(s => s.Id);
+            b.Property(s => s.SessionTokenHash).IsRequired();
+            b.Property(s => s.RevokedReason).HasConversion<string>().HasMaxLength(30);
+        });
+
+        modelBuilder.Entity<Role>(b =>
+        {
+            b.ToTable("Roles");
+            b.HasKey(r => r.Id);
+            b.Property(r => r.Name).IsRequired().HasMaxLength(100);
+            b.HasIndex(r => r.Name).IsUnique();
+
+            b.HasMany(r => r.Permissions).WithMany().UsingEntity(j => j.ToTable("RolePermissions"));
+            b.Navigation(r => r.Permissions).HasField("_permissions").UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        modelBuilder.Entity<Permission>(b =>
+        {
+            b.ToTable("Permissions");
+            b.HasKey(p => p.Id);
+            b.Property(p => p.Code).IsRequired().HasMaxLength(150);
+            b.Property(p => p.Description).HasMaxLength(500);
+            b.HasIndex(p => p.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<OtpChallenge>(b =>
+        {
+            b.ToTable("OtpChallenges");
+            b.HasKey(c => c.Id);
+            b.Property(c => c.Destination).IsRequired().HasMaxLength(320);
+            b.Property(c => c.CodeHash).IsRequired();
+            b.Property(c => c.Channel).HasConversion<string>().HasMaxLength(20);
+            b.Property(c => c.Purpose).HasConversion<string>().HasMaxLength(30);
+            b.Ignore(c => c.DomainEvents);
+        });
+
+        modelBuilder.Entity<PasswordResetToken>(b =>
+        {
+            b.ToTable("PasswordResetTokens");
+            b.HasKey(t => t.Id);
+            b.Property(t => t.TokenHash).IsRequired();
+            b.Ignore(t => t.DomainEvents);
+        });
+
+        modelBuilder.ApplyUtcDateTimeConversion();
+        modelBuilder.ApplyClientGeneratedGuidKeys();
+    }
+}

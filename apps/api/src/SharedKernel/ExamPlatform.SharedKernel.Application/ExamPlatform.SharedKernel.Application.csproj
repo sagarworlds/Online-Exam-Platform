@@ -1,0 +1,10 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <!-- Needed for IEndpointRouteBuilder/IServiceCollection/IConfiguration used by IModuleInstaller,
+         so this stays a plain library (no Web SDK) while still seeing ASP.NET Core types. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ExamPlatform.SharedKernel.Domain\ExamPlatform.SharedKernel.Domain.csproj" />
+  </ItemGroup>
+</Project>
