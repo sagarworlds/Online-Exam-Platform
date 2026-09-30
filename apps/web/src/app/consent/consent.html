@@ -1,0 +1,33 @@
+<div class="page page--wide">
+  <h1>Consent</h1>
+
+  <div class="card">
+    @for (row of rows(); track row.purpose) {
+      <div class="consent-row">
+        <div>
+          <strong>{{ row.label }}</strong>
+          @if (row.status) {
+            <span
+              class="badge"
+              [class.badge--active]="row.status.isActive"
+              [class.badge--inactive]="!row.status.isActive"
+            >
+              {{ row.status.isActive ? 'Active' : 'Not granted' }}
+            </span>
+          }
+          @if (row.error) {
+            <p class="error-message">{{ row.error }}</p>
+          }
+        </div>
+
+        @if (row.busy) {
+          <span>…</span>
+        } @else if (row.status?.isActive) {
+          <button type="button" class="primary" (click)="withdraw(row.purpose)">Withdraw</button>
+        } @else {
+          <button type="button" class="primary" (click)="grant(row.purpose)">Grant</button>
+        }
+      </div>
+    }
+  </div>
+</div>

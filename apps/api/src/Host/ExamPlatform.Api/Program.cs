@@ -2,8 +2,12 @@ using System.Text;
 using System.Threading.RateLimiting;
 using ExamPlatform.Api;
 using ExamPlatform.Modules.Admin.Endpoints;
+using ExamPlatform.Modules.Batch.Endpoints;
 using ExamPlatform.Modules.Consent.Endpoints;
+using ExamPlatform.Modules.ExamAuthoring.Endpoints;
+using ExamPlatform.Modules.Guardian.Endpoints;
 using ExamPlatform.Modules.Identity.Endpoints;
+using ExamPlatform.Modules.Invite.Endpoints;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -86,6 +90,10 @@ IModuleInstaller[] modules =
     new IdentityModuleInstaller(),
     new ConsentModuleInstaller(),
     new AdminModuleInstaller(),
+    new ExamAuthoringModuleInstaller(),
+    new BatchModuleInstaller(),
+    new InviteModuleInstaller(),
+    new GuardianModuleInstaller(),
 ];
 
 foreach (var module in modules)

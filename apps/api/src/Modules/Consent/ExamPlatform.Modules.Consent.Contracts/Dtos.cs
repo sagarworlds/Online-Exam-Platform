@@ -5,7 +5,12 @@ namespace ExamPlatform.Modules.Consent.Contracts;
 /// <param name="Purpose">What the consent covers.</param>
 /// <param name="IsActive">Whether an active (not withdrawn) consent record exists.</param>
 /// <param name="ConsentRecordId">The relevant consent record's id, if one exists.</param>
-public sealed record ConsentStatusDto(Guid SubjectId, ConsentPurpose Purpose, bool IsActive, Guid? ConsentRecordId);
+/// <param name="CurrentNoticeVersionId">
+/// The most recently effective notice version for this purpose, if one has been seeded —
+/// what a caller should pass as <see cref="RecordConsentRequest.NoticeVersionId"/> to grant.
+/// </param>
+public sealed record ConsentStatusDto(
+    Guid SubjectId, ConsentPurpose Purpose, bool IsActive, Guid? ConsentRecordId, Guid? CurrentNoticeVersionId);
 
 /// <summary>A single consent ledger entry.</summary>
 /// <param name="ConsentRecordId">The record's id.</param>

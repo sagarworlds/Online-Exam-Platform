@@ -3,6 +3,10 @@
     <ProjectReference Include="..\..\Modules\Identity\ExamPlatform.Modules.Identity.Endpoints\ExamPlatform.Modules.Identity.Endpoints.csproj" />
     <ProjectReference Include="..\..\Modules\Consent\ExamPlatform.Modules.Consent.Endpoints\ExamPlatform.Modules.Consent.Endpoints.csproj" />
     <ProjectReference Include="..\..\Modules\Admin\ExamPlatform.Modules.Admin.Endpoints\ExamPlatform.Modules.Admin.Endpoints.csproj" />
+    <ProjectReference Include="..\..\Modules\ExamAuthoring\ExamPlatform.Modules.ExamAuthoring.Endpoints\ExamPlatform.Modules.ExamAuthoring.Endpoints.csproj" />
+    <ProjectReference Include="..\..\Modules\Batch\ExamPlatform.Modules.Batch.Endpoints\ExamPlatform.Modules.Batch.Endpoints.csproj" />
+    <ProjectReference Include="..\..\Modules\Invite\ExamPlatform.Modules.Invite.Endpoints\ExamPlatform.Modules.Invite.Endpoints.csproj" />
+    <ProjectReference Include="..\..\Modules\Guardian\ExamPlatform.Modules.Guardian.Endpoints\ExamPlatform.Modules.Guardian.Endpoints.csproj" />
     <ProjectReference Include="..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
     <ProjectReference Include="..\..\SharedKernel\ExamPlatform.SharedKernel.Infrastructure\ExamPlatform.SharedKernel.Infrastructure.csproj" />
   </ItemGroup>

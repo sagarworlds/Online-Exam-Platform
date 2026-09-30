@@ -20,6 +20,8 @@ docs/adr/   Architecture decision records
 
 Slice 1: stack ADR, monorepo scaffold, and the engineering-only pieces of Milestone M1 — RBAC + OTP/password login (FR-1–FR-4), a consent ledger (FR-44), and an audit log (FR-40). India-region infrastructure and DPDP/legal artifacts are out of scope for this slice (see ADR 0001's follow-ups).
 
+Slice 2: an Angular frontend for the above — registration, OTP verification, password login (with the 2FA hand-off for `RequiresTwoFactor` roles), password reset, a profile page, and a consent grant/status/withdraw page. CI/CD and India-region infrastructure-as-code remain deferred, per ADR 0001's follow-ups; the milestone's invite lifecycle, guardian consent portal, and batches belong to M3, not this slice.
+
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (or install via your OS package manager — e.g. `apt-get install dotnet-sdk-10.0` on recent Ubuntu)
@@ -59,7 +61,7 @@ npm install
 npm start   # ng serve, http://localhost:4200
 ```
 
-The landing page calls the API's `/v1/health` endpoint to confirm the two are wired together.
+The app shell's health widget calls the API's `/v1/health` endpoint to confirm the two are wired together. From there: `/register` → `/verify-otp` → `/profile` walks through account creation, and `/login` supports both password and one-time-code sign-in. `/profile` and `/consent` require being signed in.
 
 ## Running tests
 

@@ -1,17 +1,29 @@
-<main class="landing">
-  <h1>Online Exam Platform</h1>
-  <p class="subtitle">Angular 22 web app — proving the API is reachable before anything else is built.</p>
+<header class="nav">
+  <a class="brand" routerLink="/">Online Exam Platform</a>
+  <nav>
+    @if (authSession.isAuthenticated()) {
+      <a routerLink="/profile">Profile</a>
+      <a routerLink="/consent">Consent</a>
+      <button type="button" (click)="logout()">Log out</button>
+    } @else {
+      <a routerLink="/login">Log in</a>
+      <a routerLink="/register">Register</a>
+    }
+  </nav>
+</header>
 
+<router-outlet />
+
+<footer class="health-widget">
   @switch (health().state) {
     @case ('checking') {
-      <p class="status status--checking">Checking API health…</p>
+      <span class="status status--checking">Checking API…</span>
     }
     @case ('healthy') {
-      <p class="status status--healthy">API is healthy.</p>
+      <span class="status status--healthy">API is healthy.</span>
     }
     @case ('unhealthy') {
-      <p class="status status--unhealthy">API is unreachable: {{ health().reason }}</p>
+      <span class="status status--unhealthy">API is unreachable: {{ health().reason }}</span>
     }
   }
-
-</main>
+</footer>
