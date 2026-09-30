@@ -4,7 +4,15 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace ExamPlatform.IntegrationTests;
 
-/// <summary>Generates JWT tokens for integration tests with realistic claim sets.</summary>
+/// <summary>
+/// Hand-signs JWTs that have no Identity session behind them: no <c>sid</c> claim,
+/// no persisted user, and role names that are not seeded. Kept only for negative
+/// tests that need such a token (e.g. proving a sid-less token is rejected); every
+/// test that needs an authenticated caller signs in with
+/// <see cref="TestSessions.SignInAsAsync"/> instead. Never add <c>perm</c> claims
+/// here — permission tests must get their claims from the real seeded roles, or
+/// they stop proving that the seeded RBAC data actually grants access.
+/// </summary>
 public static class TestJwtTokenBuilder
 {
     private static readonly string SigningKey = "integration-test-only-signing-key-at-least-32-bytes";

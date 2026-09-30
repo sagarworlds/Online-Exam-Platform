@@ -12,7 +12,7 @@ public class GuardianFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     public async Task CreateGuardian_WithValidData_ReturnsCreatedResponse()
     {
         using var client = factory.CreateClient();
-        var token = TestJwtTokenBuilder.GenerateGuardianToken();
+        var token = (await factory.SignInAsAsync("Guardian")).AccessToken;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var request = new CreateGuardianRequest(
@@ -31,7 +31,7 @@ public class GuardianFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     public async Task LinkCandidate_WithValidData_ReturnsCreatedResponse()
     {
         using var client = factory.CreateClient();
-        var token = TestJwtTokenBuilder.GenerateGuardianToken();
+        var token = (await factory.SignInAsAsync("Guardian")).AccessToken;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var guardianRequest = new CreateGuardianRequest("guardian@example.com", "John Guardian", null);

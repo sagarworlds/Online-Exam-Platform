@@ -13,9 +13,11 @@ namespace ExamPlatform.IntegrationTests;
 /// so integration tests exercise actual module wiring, EF Core migrations, and
 /// HTTP routing rather than a hand-assembled subset of it. OTP delivery is
 /// swapped for <see cref="CapturingOtpSender"/> so tests can read codes directly
-/// instead of scraping log output.
+/// instead of scraping log output. Not sealed: a suite that needs different
+/// settings (e.g. a low rate limit to provoke a 429) subclasses it and overrides
+/// <see cref="AdditionalConfiguration"/>.
 /// </summary>
-public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:16")
         .WithDatabase("examplatform")
@@ -32,6 +34,15 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <inheritdoc />
     Task IAsyncLifetime.DisposeAsync() => _postgres.DisposeAsync().AsTask();
 
+    /// <summary>
+    /// Extra configuration layered over the factory's own settings (connection string,
+    /// JWT keys); a key given here wins over the same key set by the factory. Subclasses
+    /// that override this should start from <c>base.AdditionalConfiguration</c>, so any
+    /// test-wide settings declared here keep applying.
+    /// </summary>
+    protected virtual IReadOnlyDictionary<string, string?> AdditionalConfiguration { get; } =
+        new Dictionary<string, string?>();
+
     /// <inheritdoc />
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -40,13 +51,20 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         // in Development, and the fresh container has no schema without it.
         builder.UseEnvironment("Development");
 
-        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
+        var settings = new Dictionary<string, string?>
         {
             ["ConnectionStrings:Postgres"] = _postgres.GetConnectionString(),
             ["Jwt:SigningKey"] = "integration-test-only-signing-key-at-least-32-bytes",
             ["Jwt:Issuer"] = "exam-platform-tests",
             ["Jwt:Audience"] = "exam-platform-tests-clients",
-        }));
+        };
+
+        foreach (var (key, value) in AdditionalConfiguration)
+        {
+            settings[key] = value;
+        }
+
+        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(settings));
 
         builder.ConfigureTestServices(services => services.AddSingleton<IOtpSender>(OtpSender));
     }

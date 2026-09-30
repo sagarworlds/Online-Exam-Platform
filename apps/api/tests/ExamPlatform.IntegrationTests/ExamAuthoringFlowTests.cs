@@ -11,7 +11,7 @@ public class ExamAuthoringFlowTests(ApiFactory factory) : IClassFixture<ApiFacto
     public async Task CreateExam_WithValidData_ReturnsCreatedResponse()
     {
         using var client = factory.CreateClient();
-        var token = TestJwtTokenBuilder.GenerateAdminToken();
+        var token = (await factory.SignInAsAsync("SuperAdmin")).AccessToken;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var seriesId = Guid.NewGuid();

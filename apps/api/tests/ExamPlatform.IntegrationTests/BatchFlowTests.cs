@@ -12,7 +12,7 @@ public class BatchFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     public async Task CreateBatch_WithValidData_ReturnsCreatedResponse()
     {
         using var client = factory.CreateClient();
-        var token = TestJwtTokenBuilder.GenerateAdminToken();
+        var token = (await factory.SignInAsAsync("SuperAdmin")).AccessToken;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var examId = Guid.NewGuid();
@@ -35,7 +35,7 @@ public class BatchFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     public async Task AddBatchMember_WithValidData_ReturnsNoContent()
     {
         using var client = factory.CreateClient();
-        var token = TestJwtTokenBuilder.GenerateAdminToken();
+        var token = (await factory.SignInAsAsync("SuperAdmin")).AccessToken;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var createRequest = new CreateBatchRequest(Guid.NewGuid(), "Test Batch", null, 50, Guid.NewGuid());
