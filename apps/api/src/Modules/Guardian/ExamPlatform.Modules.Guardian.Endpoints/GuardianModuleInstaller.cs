@@ -37,7 +37,7 @@ public sealed class GuardianModuleInstaller : IModuleInstaller
     /// <inheritdoc />
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // TODO: Map Guardian endpoints (/v1/guardians/*)
+        endpoints.MapGuardianEndpoints();
     }
 
     /// <inheritdoc />

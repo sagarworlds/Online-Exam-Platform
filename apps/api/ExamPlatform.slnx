@@ -67,4 +67,16 @@
   <Folder Name="/tests/Modules/Identity/">
     <Project Path="tests/Modules/Identity/ExamPlatform.Modules.Identity.UnitTests/ExamPlatform.Modules.Identity.UnitTests.csproj" />
   </Folder>
+  <Folder Name="/tests/Modules/ExamAuthoring/">
+    <Project Path="tests/Modules/ExamAuthoring/ExamPlatform.Modules.ExamAuthoring.UnitTests/ExamPlatform.Modules.ExamAuthoring.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Batch/">
+    <Project Path="tests/Modules/Batch/ExamPlatform.Modules.Batch.UnitTests/ExamPlatform.Modules.Batch.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Invite/">
+    <Project Path="tests/Modules/Invite/ExamPlatform.Modules.Invite.UnitTests/ExamPlatform.Modules.Invite.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Guardian/">
+    <Project Path="tests/Modules/Guardian/ExamPlatform.Modules.Guardian.UnitTests/ExamPlatform.Modules.Guardian.UnitTests.csproj" />
+  </Folder>
 </Solution>

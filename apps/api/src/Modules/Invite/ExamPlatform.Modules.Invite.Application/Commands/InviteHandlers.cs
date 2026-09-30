@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using MediatR;
 using InviteAggregate = ExamPlatform.Modules.Invite.Domain.Invite;
 using ExamPlatform.Modules.Invite.Application.Dtos;
@@ -10,6 +11,10 @@ public class CreateInviteHandler(IInviteRepository repository, IInviteUnitOfWork
 {
     public async Task<InviteDto> Handle(CreateInviteCommand command, CancellationToken cancellationToken)
     {
+        var emailValidator = new EmailAddressAttribute();
+        if (!emailValidator.IsValid(command.Email))
+            throw new ArgumentException("Email must be a valid email address", nameof(command.Email));
+
         var invite = new InviteAggregate(
             command.ExamId,
             command.BatchMemberId,
