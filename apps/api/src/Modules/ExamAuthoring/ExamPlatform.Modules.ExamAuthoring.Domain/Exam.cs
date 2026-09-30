@@ -1,12 +1,13 @@
 using ExamPlatform.SharedKernel.Domain;
 using ExamPlatform.Modules.ExamAuthoring.Domain.Events;
+using ExamPlatform.Modules.ExamAuthoring.Domain.Exceptions;
 
 namespace ExamPlatform.Modules.ExamAuthoring.Domain;
 
 /// Exam aggregate root (FR-11, FR-12, FR-13). Manages sections, questions, config, and scheduling.
 public class Exam : AggregateRoot
 {
-    public Guid Id { get; set; }
+    public new Guid Id => base.Id;
     public Guid? SeriesId { get; set; }
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
@@ -25,11 +26,11 @@ public class Exam : AggregateRoot
     private readonly List<ExamSection> _sections = [];
     public IReadOnlyList<ExamSection> Sections => _sections.AsReadOnly();
 
-    private Exam() { }
+    private Exam() : base(Guid.Empty) { }
 
     public Exam(Guid? seriesId, string name, string? description, DateTime scheduledStartTime, DateTime scheduledEndTime, Guid createdBy)
+        : base(Guid.NewGuid())
     {
-        Id = Guid.NewGuid();
         SeriesId = seriesId;
         Name = name;
         Description = description;

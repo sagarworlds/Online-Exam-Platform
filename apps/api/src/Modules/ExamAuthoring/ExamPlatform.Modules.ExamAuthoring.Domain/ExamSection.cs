@@ -1,3 +1,5 @@
+using ExamPlatform.Modules.ExamAuthoring.Domain.Exceptions;
+
 namespace ExamPlatform.Modules.ExamAuthoring.Domain;
 
 public class ExamSection
