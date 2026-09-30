@@ -42,11 +42,12 @@ public class ExamAuthoringDbContext(DbContextOptions<ExamAuthoringDbContext> opt
         {
             s.HasKey(x => x.Id);
             s.Property(x => x.Id).ValueGeneratedNever();
+            s.Property(x => x.ExamId).IsRequired();
             s.Property(x => x.Name).HasMaxLength(255).IsRequired();
 
             s.HasMany(x => x.Questions)
                 .WithOne()
-                .HasForeignKey("SectionId")
+                .HasForeignKey(q => q.SectionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             s.ToTable("ExamSections", "examAuthoring");

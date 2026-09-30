@@ -21,9 +21,9 @@ import { ExamApiService } from '../exam-api.service';
             formControlName="startTime"
             class="form-control"
           />
-          <div *ngIf="form.get('startTime')?.invalid && form.get('startTime')?.touched" class="error-text">
-            Start time is required
-          </div>
+          @if (form.get('startTime')?.invalid && form.get('startTime')?.touched) {
+            <div class="error-text">Start time is required</div>
+          }
         </div>
 
         <div class="form-group">
@@ -34,9 +34,9 @@ import { ExamApiService } from '../exam-api.service';
             formControlName="endTime"
             class="form-control"
           />
-          <div *ngIf="form.get('endTime')?.invalid && form.get('endTime')?.touched" class="error-text">
-            End time is required
-          </div>
+          @if (form.get('endTime')?.invalid && form.get('endTime')?.touched) {
+            <div class="error-text">End time is required</div>
+          }
         </div>
 
         <div class="form-group">
@@ -73,7 +73,9 @@ import { ExamApiService } from '../exam-api.service';
           <a routerLink="/exams" class="btn btn-secondary">Cancel</a>
         </div>
 
-        <div *ngIf="error" class="error-message">{{ error }}</div>
+        @if (error) {
+          <div class="error-message">{{ error }}</div>
+        }
       </form>
     </div>
   `,

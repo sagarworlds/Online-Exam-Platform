@@ -24,9 +24,9 @@ import { AuthSessionService } from '../../auth/auth-session.service';
             placeholder="Enter candidate ID"
             class="form-control"
           />
-          <div *ngIf="form.get('candidateId')?.invalid && form.get('candidateId')?.touched" class="error-text">
-            Candidate ID is required
-          </div>
+          @if (form.get('candidateId')?.invalid && form.get('candidateId')?.touched) {
+            <div class="error-text">Candidate ID is required</div>
+          }
         </div>
 
         <div class="form-group">
@@ -38,9 +38,9 @@ import { AuthSessionService } from '../../auth/auth-session.service';
             placeholder="candidate@example.com"
             class="form-control"
           />
-          <div *ngIf="form.get('candidateEmail')?.invalid && form.get('candidateEmail')?.touched" class="error-text">
-            Valid email is required
-          </div>
+          @if (form.get('candidateEmail')?.invalid && form.get('candidateEmail')?.touched) {
+            <div class="error-text">Valid email is required</div>
+          }
         </div>
 
         <div class="actions">
@@ -50,10 +50,14 @@ import { AuthSessionService } from '../../auth/auth-session.service';
           <a routerLink="/guardian" class="btn btn-secondary">Cancel</a>
         </div>
 
-        <div *ngIf="error" class="error-message">{{ error }}</div>
-        <div *ngIf="success" class="success-message">
-          Candidate linked successfully! A verification link has been sent to the candidate.
-        </div>
+        @if (error) {
+          <div class="error-message">{{ error }}</div>
+        }
+        @if (success) {
+          <div class="success-message">
+            Candidate linked successfully! A verification link has been sent to the candidate.
+          </div>
+        }
       </form>
     </div>
   `,

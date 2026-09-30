@@ -16,36 +16,48 @@ import { InviteDto } from '../invite.models';
         <a routerLink="/invites/create" class="btn btn-primary">Create New Invite</a>
       </div>
 
-      <div *ngIf="loading" class="loading">Loading invites...</div>
-      <div *ngIf="error" class="error">{{ error }}</div>
+      @if (loading) {
+        <div class="loading">Loading invites...</div>
+      }
+      @if (error) {
+        <div class="error">{{ error }}</div>
+      }
 
-      <div *ngIf="!loading && invites.length === 0" class="empty">
-        No invitations found. <a routerLink="/invites/create">Create one now</a>
-      </div>
+      @if (!loading && invites.length === 0) {
+        <div class="empty">
+          No invitations found. <a routerLink="/invites/create">Create one now</a>
+        </div>
+      }
 
-      <div *ngIf="!loading && invites.length > 0" class="invite-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Email</th>
-              <th>Status</th>
-              <th>Sent</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let invite of invites">
-              <td>{{ invite.email }}</td>
-              <td><span class="status" [class]="'status-' + invite.status">{{ invite.status }}</span></td>
-              <td>{{ invite.sentAt | date: 'short' }}</td>
-              <td>
-                <button *ngIf="invite.status === 'Sent'" class="btn btn-tertiary" (click)="generateCode(invite.id)">Generate Code</button>
-                <button *ngIf="invite.status === 'Sent'" class="btn btn-danger" (click)="revokeInvite(invite.id)">Revoke</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      @if (!loading && invites.length > 0) {
+        <div class="invite-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Sent</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (invite of invites; track invite.id) {
+              <tr>
+                <td>{{ invite.email }}</td>
+                <td><span class="status" [class]="'status-' + invite.status">{{ invite.status }}</span></td>
+                <td>{{ invite.sentAt | date: 'short' }}</td>
+                <td>
+                  @if (invite.status === 'Sent') {
+                    <button class="btn btn-tertiary" (click)="generateCode(invite.id)">Generate Code</button>
+                    <button class="btn btn-danger" (click)="revokeInvite(invite.id)">Revoke</button>
+                  }
+                </td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     </div>
   `,
   styles: [`

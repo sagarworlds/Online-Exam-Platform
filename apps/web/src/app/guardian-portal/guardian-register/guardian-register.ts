@@ -23,9 +23,9 @@ import { AuthSessionService } from '../../auth/auth-session.service';
             placeholder="guardian@example.com"
             class="form-control"
           />
-          <div *ngIf="form.get('email')?.invalid && form.get('email')?.touched" class="error-text">
-            Valid email is required
-          </div>
+          @if (form.get('email')?.invalid && form.get('email')?.touched) {
+            <div class="error-text">Valid email is required</div>
+          }
         </div>
 
         <div class="form-group">
@@ -37,9 +37,9 @@ import { AuthSessionService } from '../../auth/auth-session.service';
             placeholder="Enter your full name"
             class="form-control"
           />
-          <div *ngIf="form.get('fullName')?.invalid && form.get('fullName')?.touched" class="error-text">
-            Full name is required
-          </div>
+          @if (form.get('fullName')?.invalid && form.get('fullName')?.touched) {
+            <div class="error-text">Full name is required</div>
+          }
         </div>
 
         <div class="form-group">
@@ -60,10 +60,14 @@ import { AuthSessionService } from '../../auth/auth-session.service';
           <a routerLink="/login" class="btn btn-secondary">Back to Login</a>
         </div>
 
-        <div *ngIf="error" class="error-message">{{ error }}</div>
-        <div *ngIf="success" class="success-message">
-          Registration successful! You can now link candidates to your account.
-        </div>
+        @if (error) {
+          <div class="error-message">{{ error }}</div>
+        }
+        @if (success) {
+          <div class="success-message">
+            Registration successful! You can now link candidates to your account.
+          </div>
+        }
       </form>
     </div>
   `,

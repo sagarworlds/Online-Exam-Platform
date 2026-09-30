@@ -16,26 +16,34 @@ import { BatchDto } from '../batch.models';
         <a routerLink="/batches/create" class="btn btn-primary">Create New Batch</a>
       </div>
 
-      <div *ngIf="loading" class="loading">Loading batches...</div>
-      <div *ngIf="error" class="error">{{ error }}</div>
+      @if (loading) {
+        <div class="loading">Loading batches...</div>
+      }
+      @if (error) {
+        <div class="error">{{ error }}</div>
+      }
 
-      <div *ngIf="!loading && batches.length === 0" class="empty">
-        No batches found. <a routerLink="/batches/create">Create one now</a>
-      </div>
+      @if (!loading && batches.length === 0) {
+        <div class="empty">
+          No batches found. <a routerLink="/batches/create">Create one now</a>
+        </div>
+      }
 
-      <div *ngIf="!loading && batches.length > 0" class="batch-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Status</th>
-              <th>Members</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let batch of batches">
+      @if (!loading && batches.length > 0) {
+        <div class="batch-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Members</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (batch of batches; track batch.id) {
+              <tr>
               <td><strong>{{ batch.name }}</strong></td>
               <td><span class="status" [class]="'status-' + batch.status">{{ batch.status }}</span></td>
               <td>{{ batch.activeMemberCount }} / {{ batch.maxMembers }}</td>
@@ -45,9 +53,11 @@ import { BatchDto } from '../batch.models';
                 <button class="btn btn-tertiary" (click)="viewBatch(batch.id)">View</button>
               </td>
             </tr>
-          </tbody>
-        </table>
-      </div>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     </div>
   `,
   styles: [`

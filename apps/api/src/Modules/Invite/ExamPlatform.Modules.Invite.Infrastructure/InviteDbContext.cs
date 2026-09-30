@@ -34,6 +34,7 @@ public class InviteDbContext(DbContextOptions<InviteDbContext> options) : DbCont
         {
             c.HasKey(x => x.Id);
             c.Property(x => x.Id).ValueGeneratedNever();
+            c.Property(x => x.InviteId).IsRequired();
             c.Property(x => x.Code).HasMaxLength(8).IsRequired();
             c.ToTable("InviteCodes", "invite");
         });

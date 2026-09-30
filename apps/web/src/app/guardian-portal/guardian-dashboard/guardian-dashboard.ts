@@ -28,38 +28,50 @@ import { AuthSessionService } from '../../auth/auth-session.service';
         </div>
       </div>
 
-      <div *ngIf="loading" class="loading">Loading candidates...</div>
-      <div *ngIf="error" class="error">{{ error }}</div>
+      @if (loading) {
+        <div class="loading">Loading candidates...</div>
+      }
+      @if (error) {
+        <div class="error">{{ error }}</div>
+      }
 
-      <div *ngIf="!loading && links.length === 0" class="empty">
-        No candidates linked yet. <a routerLink="/guardian/link-candidate">Link a candidate</a>
-      </div>
-
-      <div *ngIf="!loading && links.length > 0" class="candidates-section">
-        <h3>Linked Candidates</h3>
-        <div class="candidates-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Candidate Email</th>
-                <th>Status</th>
-                <th>Verified</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let link of links">
-                <td>{{ link.candidateEmail }}</td>
-                <td><span class="status" [class]="'status-' + link.status">{{ link.status }}</span></td>
-                <td>{{ link.verifiedAt ? (link.verifiedAt | date: 'short') : '-' }}</td>
-                <td>
-                  <button *ngIf="link.status !== 'Revoked'" class="btn btn-danger" (click)="revokeLink(link)">Revoke</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      @if (!loading && links.length === 0) {
+        <div class="empty">
+          No candidates linked yet. <a routerLink="/guardian/link-candidate">Link a candidate</a>
         </div>
-      </div>
+      }
+
+      @if (!loading && links.length > 0) {
+        <div class="candidates-section">
+          <h3>Linked Candidates</h3>
+          <div class="candidates-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Candidate Email</th>
+                  <th>Status</th>
+                  <th>Verified</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (link of links; track link.id) {
+                <tr>
+                  <td>{{ link.candidateEmail }}</td>
+                  <td><span class="status" [class]="'status-' + link.status">{{ link.status }}</span></td>
+                  <td>{{ link.verifiedAt ? (link.verifiedAt | date: 'short') : '-' }}</td>
+                  <td>
+                    @if (link.status !== 'Revoked') {
+                      <button class="btn btn-danger" (click)="revokeLink(link)">Revoke</button>
+                    }
+                  </td>
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
     </div>
   `,
   styles: [`

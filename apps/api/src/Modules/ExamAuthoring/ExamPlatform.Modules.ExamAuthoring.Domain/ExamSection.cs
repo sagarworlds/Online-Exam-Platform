@@ -5,6 +5,7 @@ namespace ExamPlatform.Modules.ExamAuthoring.Domain;
 public class ExamSection
 {
     public Guid Id { get; set; }
+    public Guid ExamId { get; set; }
     public string Name { get; set; } = null!;
     public int? TimeSeconds { get; set; }
     public int Order { get; set; }
@@ -15,9 +16,10 @@ public class ExamSection
 
     private ExamSection() { }
 
-    public ExamSection(string name, int? timeSeconds, int order)
+    public ExamSection(Guid examId, string name, int? timeSeconds, int order)
     {
         Id = Guid.NewGuid();
+        ExamId = examId;
         Name = name;
         TimeSeconds = timeSeconds;
         Order = order;
@@ -30,7 +32,7 @@ public class ExamSection
         if (exists)
             throw new DuplicateQuestionError(questionVersionId, Id);
 
-        _questions.Add(new ExamQuestion(questionVersionId, order));
+        _questions.Add(new ExamQuestion(Id, questionVersionId, order));
     }
 
     public void RemoveQuestion(Guid questionVersionId)
