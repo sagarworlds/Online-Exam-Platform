@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\SharedKernel\ExamPlatform.SharedKernel.Infrastructure\ExamPlatform.SharedKernel.Infrastructure.csproj" />
+    <ProjectReference Include="..\ExamPlatform.Modules.Batch.Application\ExamPlatform.Modules.Batch.Application.csproj" />
+    <ProjectReference Include="..\ExamPlatform.Modules.Batch.Domain\ExamPlatform.Modules.Batch.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+  </ItemGroup>
+</Project>
