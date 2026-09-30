@@ -54,6 +54,30 @@ public class InviteFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Created, codeResponse.StatusCode);
     }
 
+    // Accepting looks the code up among the invite's existing codes, so this only passes if the
+    // invite is reloaded *with* its codes on the second request.
+    [Fact]
+    public async Task AcceptInvite_WithGeneratedCode_ReturnsNoContent()
+    {
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", TestJwtTokenBuilder.GenerateAdminToken());
+
+        var inviteResponse = await client.PostAsJsonAsync(
+            "/v1/invites",
+            new CreateInviteRequest(Guid.NewGuid(), Guid.NewGuid(), "candidate@example.com", Guid.NewGuid()));
+        inviteResponse.EnsureSuccessStatusCode();
+        var inviteId = (await inviteResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        var codeResponse = await client.PostAsJsonAsync($"/v1/invites/{inviteId}/codes", new GenerateInviteCodeRequest(72));
+        codeResponse.EnsureSuccessStatusCode();
+        var codeId = (await codeResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        var accept = await client.PostAsJsonAsync($"/v1/invites/{inviteId}/accept", new AcceptInviteRequest(codeId));
+
+        Assert.Equal(HttpStatusCode.NoContent, accept.StatusCode);
+    }
+
     [Fact]
     public async Task CreateInvite_WithoutAuth_ReturnsUnauthorized()
     {

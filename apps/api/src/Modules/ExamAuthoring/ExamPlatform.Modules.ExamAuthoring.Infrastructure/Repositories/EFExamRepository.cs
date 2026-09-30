@@ -9,10 +9,11 @@ public class EFExamRepository(ExamAuthoringDbContext context) : IExamRepository
 {
     public void Add(Exam exam) => context.Exams.Add(exam);
 
-    // Tracked on purpose: handlers mutate the aggregate and rely on the unit of work's change
-    // tracking to INSERT new children; an explicit DbSet.Update would flag them Modified instead.
+    // Tracked, with children loaded, on purpose: the aggregate's rules (duplicate/capacity/
+    // validity checks) read its child collection, and handlers rely on change tracking to
+    // INSERT new children; an explicit DbSet.Update would flag them Modified instead.
     public async Task<Exam?> GetByIdAsync(Guid examId, CancellationToken cancellationToken = default) =>
-        await context.Exams.FirstOrDefaultAsync(e => e.Id == examId, cancellationToken);
+        await context.Exams.Include(e => e.Sections).ThenInclude(s => s.Questions).FirstOrDefaultAsync(e => e.Id == examId, cancellationToken);
 
     public async Task<Exam> GetByIdOrThrowAsync(Guid examId, CancellationToken cancellationToken = default)
     {

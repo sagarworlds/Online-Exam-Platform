@@ -8,10 +8,11 @@ namespace ExamPlatform.Modules.Invite.Infrastructure;
 public class EFInviteRepository(InviteDbContext context) : IInviteRepository
 {
     public void Add(InviteAggregate invite) => context.Invites.Add(invite);
-    // Tracked on purpose: handlers mutate the aggregate and rely on the unit of work's change
-    // tracking to INSERT new children; an explicit DbSet.Update would flag them Modified instead.
+    // Tracked, with children loaded, on purpose: the aggregate's rules (duplicate/capacity/
+    // validity checks) read its child collection, and handlers rely on change tracking to
+    // INSERT new children; an explicit DbSet.Update would flag them Modified instead.
     public async Task<InviteAggregate?> GetByIdAsync(Guid inviteId, CancellationToken cancellationToken = default) =>
-        await context.Invites.FirstOrDefaultAsync(i => i.Id == inviteId, cancellationToken);
+        await context.Invites.Include(i => i.Codes).FirstOrDefaultAsync(i => i.Id == inviteId, cancellationToken);
     public async Task<InviteAggregate> GetByIdOrThrowAsync(Guid inviteId, CancellationToken cancellationToken = default)
     {
         var invite = await GetByIdAsync(inviteId, cancellationToken);

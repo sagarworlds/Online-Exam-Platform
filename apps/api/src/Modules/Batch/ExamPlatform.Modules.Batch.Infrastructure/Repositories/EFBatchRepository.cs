@@ -15,9 +15,11 @@ public class EFBatchRepository(BatchDbContext context) : IBatchRepository
 
     public async Task<BatchAggregate?> GetByIdAsync(Guid batchId, CancellationToken cancellationToken = default)
     {
-        // Tracked on purpose: handlers mutate the aggregate and rely on the unit of work's change
-        // tracking to INSERT new children; an explicit DbSet.Update would flag them Modified instead.
+        // Tracked, with children loaded, on purpose: the aggregate's rules (duplicate/capacity/
+        // validity checks) read its child collection, and handlers rely on change tracking to
+        // INSERT new children; an explicit DbSet.Update would flag them Modified instead.
         return await context.Batches
+            .Include(b => b.Members)
             .FirstOrDefaultAsync(b => b.Id == batchId, cancellationToken);
     }
 
