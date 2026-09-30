@@ -480,8 +480,7 @@ Compliance-sensitive features (consent, RBAC, audit) have explicit test coverage
 
 ## License
 
-[Add your license here — e.g., MIT, Apache 2.0]
-
+MIT
 ---
 
 **Last Updated:** 2026-09-30 | **Status**: ✅ M1 & M3 Complete, Deployed to Main
