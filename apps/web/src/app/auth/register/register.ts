@@ -3,7 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AuthApiService } from '../auth-api.service';
-import { OtpChannel } from '../auth.models';
+import { OtpChannel, VerifyOtpNavigationState } from '../auth.models';
 import {
   MAX_DISPLAY_NAME_LENGTH,
   dateOfBirthErrorMessage,
@@ -65,10 +65,13 @@ export class Register {
         otpChannel: channel,
       })
       .subscribe({
-        next: ({ otpChallengeId }) =>
+        next: ({ otpChallengeId }) => {
+          const state: VerifyOtpNavigationState = { destination };
           this.router.navigate(['/verify-otp'], {
-            queryParams: { challengeId: otpChallengeId, purpose: 'Registration', destination },
-          }),
+            queryParams: { challengeId: otpChallengeId, purpose: 'Registration' },
+            state,
+          });
+        },
         // Rules only the server can check (contact_channel_mismatch, a duplicate
         // account, ...) and any drift from the client-side checks come back as a
         // ProblemDetails whose detail is already actionable.

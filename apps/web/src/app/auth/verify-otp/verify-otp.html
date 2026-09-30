@@ -1,8 +1,14 @@
 <div class="page">
   <h1>Verify code</h1>
 
-  @if (destination) {
-    <p>We sent a code to {{ destination }}.</p>
+  @if (maskedDestination) {
+    <!-- Login copy never confirms the account exists: the API answers unknown,
+         locked and staff accounts the same way and silently sends nothing. -->
+    @if (isRegistration) {
+      <p>We've sent a code to {{ maskedDestination }}.</p>
+    } @else {
+      <p>If an account exists for {{ maskedDestination }}, we've sent a code.</p>
+    }
   }
 
   @if (errorMessage()) {
