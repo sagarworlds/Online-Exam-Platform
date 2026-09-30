@@ -37,7 +37,7 @@ public sealed class BatchModuleInstaller : IModuleInstaller
     /// <inheritdoc />
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // TODO: Map Batch endpoints (/v1/batches/*)
+        endpoints.MapBatchEndpoints();
     }
 
     /// <inheritdoc />
