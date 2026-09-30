@@ -93,6 +93,12 @@
   box-shadow: var(--focus-ring);
 }
 
+.field-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
 .field-error {
   color: var(--danger);
   font-size: 0.85rem;

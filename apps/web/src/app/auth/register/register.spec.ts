@@ -1,7 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
+import { vi } from 'vitest';
 import { environment } from '../../../environments/environment';
 import { toLocalIsoDate } from '../validators';
 import { Register } from './register';
@@ -61,6 +62,25 @@ describe('Register', () => {
 
     expect(submitButton.disabled).toBe(true);
     expect(compiled.querySelector('#register-display-name-error')?.textContent).toContain('Enter a display name.');
+  });
+
+  it('passes the destination to verify-otp as navigation state, not in the URL', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const { fixture, submitButton } = render();
+
+    fixture.componentInstance['form'].patchValue({
+      displayName: 'Ada',
+      destination: 'ada@example.com',
+      dateOfBirth: '2000-01-01',
+    });
+    fixture.detectChanges();
+    submitButton.click();
+    httpMock.expectOne(`${environment.apiBaseUrl}/v1/auth/register`).flush({ otpChallengeId: 'challenge-1' });
+
+    expect(navigate).toHaveBeenCalledWith(['/verify-otp'], {
+      queryParams: { challengeId: 'challenge-1', purpose: 'Registration' },
+      state: { destination: 'ada@example.com' },
+    });
   });
 
   it('shows the server error when the API rejects the date of birth', () => {

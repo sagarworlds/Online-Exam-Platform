@@ -3,6 +3,12 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AuthApiService } from '../auth-api.service';
+import {
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  newPasswordErrorMessage,
+  visibleErrorMessage,
+} from '../validators';
 
 @Component({
   selector: 'app-password-reset-confirm',
@@ -17,10 +23,23 @@ export class PasswordResetConfirm {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly submitted = signal(false);
 
+  protected readonly minPasswordLength = MIN_PASSWORD_LENGTH;
+  protected readonly maxPasswordLength = MAX_PASSWORD_LENGTH;
+
   protected readonly form = this.formBuilder.nonNullable.group({
     resetCode: ['', Validators.required],
-    newPassword: ['', Validators.required],
+    // Only the length rules are checked here; the API's weak_password detail
+    // covers the rest (e.g. containing the email) and is shown as-is.
+    newPassword: [
+      '',
+      [Validators.required, Validators.minLength(MIN_PASSWORD_LENGTH), Validators.maxLength(MAX_PASSWORD_LENGTH)],
+    ],
   });
+
+  /** Inline message for the new password field, once the user has interacted with it. */
+  protected newPasswordError(): string | null {
+    return visibleErrorMessage(this.form.controls.newPassword, newPasswordErrorMessage);
+  }
 
   protected submit(): void {
     if (this.form.invalid || this.submitting()) {

@@ -5,7 +5,7 @@ import { extractErrorMessage } from '../../shared/problem-details';
 import { AuthApiService } from '../auth-api.service';
 import { AuthSessionService } from '../auth-session.service';
 import { landingRoute } from '../landing-route';
-import { AuthResult, OtpChannel } from '../auth.models';
+import { AuthResult, OtpChannel, VerifyOtpNavigationState } from '../auth.models';
 import { SessionEndReason, isSessionEndReason } from '../session-end-reason';
 
 /** Banner copy for each reason the API gives when it refuses a session (see authInterceptor). */
@@ -81,10 +81,13 @@ export class Login {
     const channel: OtpChannel = destination.includes('@') ? 'Email' : 'Sms';
 
     this.authApi.requestOtp({ channel, destination }).subscribe({
-      next: ({ otpChallengeId }) =>
+      next: ({ otpChallengeId }) => {
+        const state: VerifyOtpNavigationState = { destination };
         this.router.navigate(['/verify-otp'], {
-          queryParams: { challengeId: otpChallengeId, purpose: 'Login', destination, ...this.returnUrlParam() },
-        }),
+          queryParams: { challengeId: otpChallengeId, purpose: 'Login', ...this.returnUrlParam() },
+          state,
+        });
+      },
       error: (error: unknown) => {
         this.submitting.set(false);
         this.errorMessage.set(extractErrorMessage(error));

@@ -3,7 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AuthApiService } from '../auth-api.service';
-import { OtpChannel } from '../auth.models';
+import { OtpChannel, VerifyOtpNavigationState } from '../auth.models';
 import {
   MAX_DISPLAY_NAME_LENGTH,
   dateOfBirthErrorMessage,
@@ -66,10 +66,18 @@ export class Register {
         otpChannel: channel,
       })
       .subscribe({
-        next: ({ otpChallengeId }) =>
+        next: ({ otpChallengeId }) => {
+          const state: VerifyOtpNavigationState = { destination };
           this.router.navigate(['/verify-otp'], {
+<<<<<<< HEAD
             queryParams: { challengeId: otpChallengeId, purpose: 'Registration', destination, ...this.returnUrlParam() },
           }),
+=======
+            queryParams: { challengeId: otpChallengeId, purpose: 'Registration' },
+            state,
+          });
+        },
+>>>>>>> 3f1e9b1 (fix(web): guide staff to password + 2FA, enforce password length, keep contact details out of URLs (FR-3, NFR-6))
         // Rules only the server can check (contact_channel_mismatch, a duplicate
         // account, ...) and any drift from the client-side checks come back as a
         // ProblemDetails whose detail is already actionable.

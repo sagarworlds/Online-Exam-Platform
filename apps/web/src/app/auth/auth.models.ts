@@ -10,6 +10,15 @@ export interface RequestOtpResponse {
   otpChallengeId: string;
 }
 
+/**
+ * Router navigation state the login and registration pages pass to /verify-otp.
+ * The destination travels here, never as a query parameter, so the email or
+ * phone number stays out of the URL, browser history and server/proxy logs (NFR-6).
+ */
+export interface VerifyOtpNavigationState {
+  destination: string;
+}
+
 export interface VerifyOtpRequest {
   otpChallengeId: string;
   code: string;

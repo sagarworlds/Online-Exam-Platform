@@ -13,6 +13,17 @@ export const MAX_DISPLAY_NAME_LENGTH = 200;
  */
 export const MAX_PLAUSIBLE_AGE_YEARS = 120;
 
+/**
+ * Password length bounds. Must match PasswordPolicy's MinLength and MaxLength
+ * in the backend Identity application layer; change both together. The API
+ * favours length over composition rules (NIST 800-63B) and also rejects
+ * passwords containing the email's local part, which only it can check.
+ */
+export const MIN_PASSWORD_LENGTH = 12;
+
+/** Upper password length bound; see {@link MIN_PASSWORD_LENGTH}. */
+export const MAX_PASSWORD_LENGTH = 128;
+
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -109,6 +120,30 @@ export function displayNameErrorMessage(errors: ValidationErrors | null): string
   }
   if (errors['maxlength']) {
     return `Display name must be ${MAX_DISPLAY_NAME_LENGTH} characters or fewer.`;
+  }
+  return null;
+}
+
+/**
+ * Message for the first problem with a new password validated by
+ * `Validators.required`, `Validators.minLength(MIN_PASSWORD_LENGTH)` and
+ * `Validators.maxLength(MAX_PASSWORD_LENGTH)`.
+ *
+ * @param errors The control's current errors.
+ * @returns A sentence to show under the field, or null when there is nothing to report.
+ */
+export function newPasswordErrorMessage(errors: ValidationErrors | null): string | null {
+  if (errors === null) {
+    return null;
+  }
+  if (errors['required']) {
+    return 'Enter a new password.';
+  }
+  if (errors['minlength']) {
+    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+  if (errors['maxlength']) {
+    return `Password must be ${MAX_PASSWORD_LENGTH} characters or fewer.`;
   }
   return null;
 }
