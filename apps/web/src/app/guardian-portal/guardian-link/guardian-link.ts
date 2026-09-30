@@ -101,7 +101,7 @@ export class GuardianLink implements OnInit {
     if (!this.form.valid) return;
 
     const session = this.authSession.session();
-    if (!session?.sub) {
+    if (!session?.userId) {
       this.error = 'Not authenticated';
       return;
     }
@@ -115,7 +115,7 @@ export class GuardianLink implements OnInit {
       candidateEmail: this.form.value.candidateEmail,
     };
 
-    this.guardianApi.linkCandidate(session.sub, request).subscribe({
+    this.guardianApi.linkCandidate(session.userId, request).subscribe({
       next: () => {
         this.loading = false;
         this.success = true;

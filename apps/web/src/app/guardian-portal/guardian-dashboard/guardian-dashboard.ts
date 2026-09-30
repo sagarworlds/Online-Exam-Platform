@@ -113,11 +113,11 @@ export class GuardianDashboard implements OnInit {
 
   ngOnInit() {
     const session = this.authSession.session();
-    if (!session?.sub) {
+    if (!session?.userId) {
       this.error = 'Not authenticated';
       return;
     }
-    this.guardianId = session.sub;
+    this.guardianId = session.userId;
     this.loadLinks();
   }
 

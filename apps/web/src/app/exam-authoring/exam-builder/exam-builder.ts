@@ -148,7 +148,7 @@ export class ExamBuilder implements OnInit {
     this.error = '';
 
     const session = this.authSession.session();
-    if (!session?.sub) {
+    if (!session?.userId) {
       this.error = 'Not authenticated';
       this.loading = false;
       return;
@@ -160,7 +160,7 @@ export class ExamBuilder implements OnInit {
       seriesId: this.form.value.seriesId,
     };
 
-    this.examApi.createExam(request, session.sub).subscribe({
+    this.examApi.createExam(request, session.userId).subscribe({
       next: () => {
         this.loading = false;
         this.router.navigate(['/exams']);

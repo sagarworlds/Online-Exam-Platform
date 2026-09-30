@@ -9,8 +9,10 @@ public class EFExamRepository(ExamAuthoringDbContext context) : IExamRepository
 {
     public void Add(Exam exam) => context.Exams.Add(exam);
 
+    // Tracked on purpose: handlers mutate the aggregate and rely on the unit of work's change
+    // tracking to INSERT new children; an explicit DbSet.Update would flag them Modified instead.
     public async Task<Exam?> GetByIdAsync(Guid examId, CancellationToken cancellationToken = default) =>
-        await context.Exams.AsNoTracking().FirstOrDefaultAsync(e => e.Id == examId, cancellationToken);
+        await context.Exams.FirstOrDefaultAsync(e => e.Id == examId, cancellationToken);
 
     public async Task<Exam> GetByIdOrThrowAsync(Guid examId, CancellationToken cancellationToken = default)
     {
@@ -21,6 +23,4 @@ public class EFExamRepository(ExamAuthoringDbContext context) : IExamRepository
 
     public async Task<IReadOnlyList<Exam>> ListBySeriesAsync(Guid seriesId, CancellationToken cancellationToken = default) =>
         await context.Exams.AsNoTracking().Where(e => e.SeriesId == seriesId).ToListAsync(cancellationToken);
-
-    public void Update(Exam exam) => context.Exams.Update(exam);
 }

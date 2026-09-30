@@ -9,5 +9,4 @@ public interface IBatchRepository
     Task<BatchAggregate?> GetByIdAsync(Guid batchId, CancellationToken cancellationToken = default);
     Task<BatchAggregate> GetByIdOrThrowAsync(Guid batchId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<BatchAggregate>> ListByExamAsync(Guid examId, CancellationToken cancellationToken = default);
-    void Update(BatchAggregate batch);
 }

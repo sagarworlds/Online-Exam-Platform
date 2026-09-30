@@ -10,5 +10,4 @@ public interface IGuardianRepository
     Task<GuardianAggregate> GetByIdOrThrowAsync(Guid guardianId, CancellationToken cancellationToken = default);
     Task<GuardianAggregate?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<GuardianAggregate>> ListByCandidateAsync(Guid candidateId, CancellationToken cancellationToken = default);
-    void Update(GuardianAggregate guardian);
 }

@@ -8,8 +8,10 @@ namespace ExamPlatform.Modules.Guardian.Infrastructure;
 public class EFGuardianRepository(GuardianDbContext context) : IGuardianRepository
 {
     public void Add(GuardianAggregate guardian) => context.Guardians.Add(guardian);
+    // Tracked on purpose: handlers mutate the aggregate and rely on the unit of work's change
+    // tracking to INSERT new children; an explicit DbSet.Update would flag them Modified instead.
     public async Task<GuardianAggregate?> GetByIdAsync(Guid guardianId, CancellationToken cancellationToken = default) =>
-        await context.Guardians.AsNoTracking().FirstOrDefaultAsync(g => g.Id == guardianId, cancellationToken);
+        await context.Guardians.FirstOrDefaultAsync(g => g.Id == guardianId, cancellationToken);
     public async Task<GuardianAggregate> GetByIdOrThrowAsync(Guid guardianId, CancellationToken cancellationToken = default)
     {
         var guardian = await GetByIdAsync(guardianId, cancellationToken);
@@ -20,7 +22,6 @@ public class EFGuardianRepository(GuardianDbContext context) : IGuardianReposito
         await context.Guardians.AsNoTracking().FirstOrDefaultAsync(g => g.Email == email, cancellationToken);
     public async Task<IReadOnlyList<GuardianAggregate>> ListByCandidateAsync(Guid candidateId, CancellationToken cancellationToken = default) =>
         await context.Guardians.AsNoTracking().Where(g => g.CandidateLinks.Any(l => l.CandidateId == candidateId)).ToListAsync(cancellationToken);
-    public void Update(GuardianAggregate guardian) => context.Guardians.Update(guardian);
 }
 
 public class GuardianUnitOfWork(GuardianDbContext context) : IGuardianUnitOfWork

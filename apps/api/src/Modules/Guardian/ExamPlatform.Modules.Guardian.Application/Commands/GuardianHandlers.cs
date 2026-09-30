@@ -36,7 +36,6 @@ public class LinkCandidateHandler(IGuardianRepository repository, IGuardianUnitO
         var guardian = await repository.GetByIdOrThrowAsync(command.GuardianId, cancellationToken);
         var verificationToken = Guid.NewGuid().ToString("N");
         var link = guardian.LinkCandidate(command.CandidateId, command.CandidateEmail, verificationToken);
-        repository.Update(guardian);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new GuardianLinkDto(
@@ -74,7 +73,6 @@ public class RevokeGuardianLinkHandler(IGuardianRepository repository, IGuardian
         if (link != null)
         {
             link.Revoke();
-            repository.Update(guardian);
             await unitOfWork.SaveChangesAsync(cancellationToken);
         }
     }
@@ -87,7 +85,6 @@ public class UnlinkCandidateHandler(IGuardianRepository repository, IGuardianUni
     {
         var guardian = await repository.GetByIdOrThrowAsync(command.GuardianId, cancellationToken);
         guardian.UnlinkCandidate(command.CandidateId);
-        repository.Update(guardian);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
