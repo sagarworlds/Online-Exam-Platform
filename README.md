@@ -476,12 +476,6 @@ Compliance-sensitive features (consent, RBAC, audit) have explicit test coverage
 - 🐛 **Issues & Bugs**: [GitHub Issues](https://github.com/sagarworlds/Online-Exam-Platform/issues)
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/sagarworlds/Online-Exam-Platform/discussions)
 
----
 
-## License
-
-[Add your license here — e.g., MIT, Apache 2.0]
-
----
 
 **Last Updated:** 2026-09-30 | **Status**: ✅ M1 & M3 Complete, Deployed to Main
