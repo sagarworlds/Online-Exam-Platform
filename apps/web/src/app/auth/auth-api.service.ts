@@ -46,6 +46,16 @@ export class AuthApiService {
     return this.http.post<void>(`${this.baseUrl}/auth/password-reset/reset`, request);
   }
 
+  /**
+   * Revokes the caller's current session on the server (FR-4), so the bearer
+   * token stops working everywhere, not just in this browser. Completes with
+   * no value on 204; errors with an HttpErrorResponse otherwise (e.g. 401 when
+   * the session was already revoked or superseded).
+   */
+  logout(): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/auth/logout`, null);
+  }
+
   getProfile(): Observable<UserProfileDto> {
     return this.http.get<UserProfileDto>(`${this.baseUrl}/me/profile`);
   }

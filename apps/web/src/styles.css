@@ -77,6 +77,14 @@ button.primary:disabled {
   margin-bottom: 1rem;
 }
 
+.info-message {
+  color: #1e429f;
+  background: #e8f0fe;
+  border-radius: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
 .link-row {
   margin-top: 1rem;
   display: flex;
