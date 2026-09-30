@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Net.Http.Headers;
 using ExamPlatform.Modules.Batch.Endpoints;
 
@@ -40,8 +41,8 @@ public class BatchFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var createRequest = new CreateBatchRequest(Guid.NewGuid(), "Test Batch", null, 50, Guid.NewGuid());
         var createResponse = await client.PostAsJsonAsync("/v1/batches", createRequest);
         createResponse.EnsureSuccessStatusCode();
-        var batch = await createResponse.Content.ReadFromJsonAsync<dynamic>();
-        var batchId = batch!.id;
+        var batch = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var batchId = batch.GetProperty("id").GetGuid();
 
         var memberRequest = new AddBatchMemberRequest("candidate@example.com", "+91-9876543210");
         var memberResponse = await client.PostAsJsonAsync($"/v1/batches/{batchId}/members", memberRequest);

@@ -10,5 +10,4 @@ public interface IInviteRepository
     Task<InviteAggregate> GetByIdOrThrowAsync(Guid inviteId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<InviteAggregate>> ListByBatchMemberAsync(Guid batchMemberId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<InviteAggregate>> ListByExamAsync(Guid examId, CancellationToken cancellationToken = default);
-    void Update(InviteAggregate invite);
 }

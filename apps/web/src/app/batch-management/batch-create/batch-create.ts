@@ -123,7 +123,7 @@ export class BatchCreate implements OnInit {
     this.error = '';
 
     const session = this.authSession.session();
-    if (!session?.sub) {
+    if (!session?.userId) {
       this.error = 'Not authenticated';
       this.loading = false;
       return;
@@ -136,7 +136,7 @@ export class BatchCreate implements OnInit {
       maxMembers: parseInt(this.form.value.maxMembers),
     };
 
-    this.batchApi.createBatch(request, session.sub).subscribe({
+    this.batchApi.createBatch(request, session.userId).subscribe({
       next: () => {
         this.loading = false;
         this.router.navigate(['/batches']);

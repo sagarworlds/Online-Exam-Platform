@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Net.Http.Headers;
 using ExamPlatform.Modules.Invite.Endpoints;
 
@@ -44,8 +45,8 @@ public class InviteFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
             Guid.NewGuid());
         var inviteResponse = await client.PostAsJsonAsync("/v1/invites", inviteRequest);
         inviteResponse.EnsureSuccessStatusCode();
-        var invite = await inviteResponse.Content.ReadFromJsonAsync<dynamic>();
-        var inviteId = invite!.id;
+        var invite = await inviteResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var inviteId = invite.GetProperty("id").GetGuid();
 
         var codeRequest = new GenerateInviteCodeRequest(72);
         var codeResponse = await client.PostAsJsonAsync($"/v1/invites/{inviteId}/codes", codeRequest);
