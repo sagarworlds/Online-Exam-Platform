@@ -1,6 +1,7 @@
 using System.Text;
 using System.Threading.RateLimiting;
 using ExamPlatform.Api;
+using ExamPlatform.Api.RateLimiting;
 using ExamPlatform.Modules.Admin.Endpoints;
 using ExamPlatform.Modules.Batch.Endpoints;
 using ExamPlatform.Modules.Consent.Endpoints;
@@ -12,6 +13,7 @@ using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 
@@ -60,17 +62,40 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy => policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod());
 });
 
+// A global, per-IP fixed-window limiter (NFR-5: rate limiting), in-process for now — see
+// ADR 0001's note on why Redis isn't wired in yet. Its limits come from configuration
+// and are checked at startup, so a zero or negative value fails the boot instead of
+// surfacing as a 500 on the first request.
+builder.Services.AddOptions<GlobalRateLimitOptions>()
+    .Bind(builder.Configuration.GetSection(GlobalRateLimitOptions.SectionName))
+    .Validate(
+        limits => limits.PermitLimit > 0 && limits.WindowSeconds > 0,
+        $"{GlobalRateLimitOptions.SectionName}:PermitLimit and :WindowSeconds must both be positive.")
+    .ValidateOnStart();
+
 builder.Services.AddRateLimiter(options =>
 {
-    // A single global, per-IP limiter for this slice (NFR-5: rate limiting). Scoping a
-    // stricter limit specifically to OTP-request endpoints is a follow-up once real
-    // traffic patterns exist — see ADR 0001's note on why Redis isn't wired in yet.
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1) }));
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = RateLimitRejectionWriter.WriteProblemDetailsAsync;
 });
+
+// The limiter reads its limits through IOptions<GlobalRateLimitOptions> when
+// RateLimiterOptions is first materialized, not from values captured here: the same
+// staleness concern as the JWT signing key above, since a test's WebApplicationFactory
+// layers its configuration overrides (e.g. a raised limit) on after this line runs.
+builder.Services.AddOptions<RateLimiterOptions>()
+    .Configure<IOptions<GlobalRateLimitOptions>>((options, globalLimits) =>
+    {
+        var limits = globalLimits.Value;
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = limits.PermitLimit,
+                    Window = TimeSpan.FromSeconds(limits.WindowSeconds),
+                }));
+    });
 
 // Enums as JSON strings everywhere (e.g. "PrivacyNotice"), not their numeric values —
 // matches how query-string enum binding already works, so the API is consistent

@@ -41,7 +41,12 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// test-wide settings declared here keep applying.
     /// </summary>
     protected virtual IReadOnlyDictionary<string, string?> AdditionalConfiguration { get; } =
-        new Dictionary<string, string?>();
+        new Dictionary<string, string?>
+        {
+            // Every TestServer request lands in the same client-IP partition, so the
+            // production default (60/min) would make busier suites flake with 429s.
+            ["RateLimiting:Global:PermitLimit"] = "100000",
+        };
 
     /// <inheritdoc />
     protected override void ConfigureWebHost(IWebHostBuilder builder)
