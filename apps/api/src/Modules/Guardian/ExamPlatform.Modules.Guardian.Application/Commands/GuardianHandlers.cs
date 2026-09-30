@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using MediatR;
 using GuardianAggregate = ExamPlatform.Modules.Guardian.Domain.Guardian;
 using ExamPlatform.Modules.Guardian.Application.Dtos;
@@ -10,6 +11,13 @@ public class CreateGuardianHandler(IGuardianRepository repository, IGuardianUnit
 {
     public async Task<GuardianDto> Handle(CreateGuardianCommand command, CancellationToken cancellationToken)
     {
+        var emailValidator = new EmailAddressAttribute();
+        if (!emailValidator.IsValid(command.Email))
+            throw new ArgumentException("Email must be a valid email address", nameof(command.Email));
+
+        if (string.IsNullOrWhiteSpace(command.FullName))
+            throw new ArgumentException("FullName cannot be empty or whitespace", nameof(command.FullName));
+
         var guardian = new GuardianAggregate(command.Email, command.FullName, command.Phone);
         repository.Add(guardian);
         await unitOfWork.SaveChangesAsync(cancellationToken);

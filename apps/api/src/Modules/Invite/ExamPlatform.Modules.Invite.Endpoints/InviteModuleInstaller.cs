@@ -37,7 +37,7 @@ public sealed class InviteModuleInstaller : IModuleInstaller
     /// <inheritdoc />
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // TODO: Map Invite endpoints (/v1/invites/*)
+        endpoints.MapInviteEndpoints();
     }
 
     /// <inheritdoc />

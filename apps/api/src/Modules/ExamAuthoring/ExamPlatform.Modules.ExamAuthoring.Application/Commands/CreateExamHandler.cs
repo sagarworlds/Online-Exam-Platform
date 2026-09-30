@@ -10,6 +10,9 @@ public class CreateExamHandler(IExamRepository examRepository, IExamAuthoringUni
 {
     public async Task<ExamDto> Handle(CreateExamCommand command, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(command.Name))
+            throw new ArgumentException("Name cannot be empty or whitespace", nameof(command.Name));
+
         var exam = new Exam(
             command.SeriesId,
             command.Name,

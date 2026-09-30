@@ -10,6 +10,9 @@ public class CreateBatchHandler(IBatchRepository repository, IBatchUnitOfWork un
 {
     public async Task<BatchDto> Handle(CreateBatchCommand command, CancellationToken cancellationToken)
     {
+        if (command.MaxMembers <= 0)
+            throw new ArgumentException("MaxMembers must be greater than zero", nameof(command.MaxMembers));
+
         var batch = new BatchAggregate(
             command.ExamId,
             command.Name,
