@@ -34,7 +34,7 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
     /// <inheritdoc />
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // TODO: Map ExamAuthoring endpoints (/v1/exams/*)
+        endpoints.MapExamAuthoringEndpoints();
     }
 
     /// <inheritdoc />
