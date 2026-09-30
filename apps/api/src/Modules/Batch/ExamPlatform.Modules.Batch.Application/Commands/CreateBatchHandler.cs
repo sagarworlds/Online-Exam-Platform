@@ -49,7 +49,6 @@ public class AddBatchMemberHandler(IBatchRepository repository, IBatchUnitOfWork
     {
         var batch = await repository.GetByIdOrThrowAsync(command.BatchId, cancellationToken);
         batch.AddMember(command.Email, command.Phone);
-        repository.Update(batch);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
@@ -61,7 +60,6 @@ public class ActivateBatchHandler(IBatchRepository repository, IBatchUnitOfWork 
     {
         var batch = await repository.GetByIdOrThrowAsync(command.BatchId, cancellationToken);
         batch.Activate();
-        repository.Update(batch);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
@@ -73,7 +71,6 @@ public class CloseBatchHandler(IBatchRepository repository, IBatchUnitOfWork uni
     {
         var batch = await repository.GetByIdOrThrowAsync(command.BatchId, cancellationToken);
         batch.Close();
-        repository.Update(batch);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

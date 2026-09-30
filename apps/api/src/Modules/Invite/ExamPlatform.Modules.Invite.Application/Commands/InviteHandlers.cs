@@ -50,7 +50,6 @@ public class GenerateInviteCodeHandler(IInviteRepository repository, IInviteUnit
     {
         var invite = await repository.GetByIdOrThrowAsync(command.InviteId, cancellationToken);
         var code = invite.GenerateCode(command.ExpiryHours);
-        repository.Update(invite);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new InviteCodeDto(code.Id, code.Code, code.ExpiresAt, code.UsedAt, code.RevokedAt);
@@ -64,7 +63,6 @@ public class AcceptInviteHandler(IInviteRepository repository, IInviteUnitOfWork
     {
         var invite = await repository.GetByIdOrThrowAsync(command.InviteId, cancellationToken);
         invite.Accept(command.InviteCodeId);
-        repository.Update(invite);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
@@ -76,7 +74,6 @@ public class DeclineInviteHandler(IInviteRepository repository, IInviteUnitOfWor
     {
         var invite = await repository.GetByIdOrThrowAsync(command.InviteId, cancellationToken);
         invite.Decline();
-        repository.Update(invite);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
@@ -88,7 +85,6 @@ public class RevokeInviteHandler(IInviteRepository repository, IInviteUnitOfWork
     {
         var invite = await repository.GetByIdOrThrowAsync(command.InviteId, cancellationToken);
         invite.Revoke();
-        repository.Update(invite);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Net.Http.Headers;
 using ExamPlatform.Modules.Guardian.Endpoints;
 
@@ -36,8 +37,8 @@ public class GuardianFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var guardianRequest = new CreateGuardianRequest("guardian@example.com", "John Guardian", null);
         var guardianResponse = await client.PostAsJsonAsync("/v1/guardians", guardianRequest);
         guardianResponse.EnsureSuccessStatusCode();
-        var guardian = await guardianResponse.Content.ReadFromJsonAsync<dynamic>();
-        var guardianId = guardian!.id;
+        var guardian = await guardianResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var guardianId = guardian.GetProperty("id").GetGuid();
 
         var linkRequest = new LinkCandidateRequest(Guid.NewGuid(), "candidate@example.com");
         var linkResponse = await client.PostAsJsonAsync($"/v1/guardians/{guardianId}/links", linkRequest);

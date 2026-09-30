@@ -25,8 +25,12 @@ public class ExamAuthoringDbContext(DbContextOptions<ExamAuthoringDbContext> opt
 
             e.OwnsOne(x => x.Config, c =>
             {
-                c.Property(x => x.MarkingScheme).HasConversion<string>();
                 c.Property(x => x.ResultReleaseMode).HasConversion<string>();
+
+                // MarkingScheme is a three-decimal value object, not a scalar, so it cannot go
+                // through a value converter; nesting it as an owned type flattens it into
+                // MarkingScheme_* columns on the Exams table.
+                c.OwnsOne(x => x.MarkingScheme);
             });
 
             e.HasMany(x => x.Sections)
@@ -51,6 +55,15 @@ public class ExamAuthoringDbContext(DbContextOptions<ExamAuthoringDbContext> opt
                 .OnDelete(DeleteBehavior.Cascade);
 
             s.ToTable("ExamSections", "examAuthoring");
+        });
+
+        // Configured explicitly (rather than left to discovery via ExamSection.Questions) so the
+        // table stays in this module's schema instead of falling into the default "public" one.
+        modelBuilder.Entity<ExamQuestion>(q =>
+        {
+            q.HasKey(x => x.Id);
+            q.Property(x => x.Id).ValueGeneratedNever();
+            q.ToTable("ExamQuestions", "examAuthoring");
         });
     }
 }

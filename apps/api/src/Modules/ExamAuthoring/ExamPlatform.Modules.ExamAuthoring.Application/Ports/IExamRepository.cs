@@ -18,5 +18,4 @@ public interface IExamRepository
     Task<IReadOnlyList<Exam>> ListBySeriesAsync(Guid seriesId, CancellationToken cancellationToken = default);
 
     /// Update an existing exam aggregate.
-    void Update(Exam exam);
 }
