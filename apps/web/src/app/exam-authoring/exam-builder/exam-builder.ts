@@ -23,9 +23,9 @@ import { AuthSessionService } from '../../auth/auth-session.service';
             placeholder="Enter exam name"
             class="form-control"
           />
-          <div *ngIf="form.get('name')?.invalid && form.get('name')?.touched" class="error-text">
-            Exam name is required
-          </div>
+          @if (form.get('name')?.invalid && form.get('name')?.touched) {
+            <div class="error-text">Exam name is required</div>
+          }
         </div>
 
         <div class="form-group">
@@ -91,7 +91,9 @@ import { AuthSessionService } from '../../auth/auth-session.service';
           <a routerLink="/exams" class="btn btn-secondary">Cancel</a>
         </div>
 
-        <div *ngIf="error" class="error-message">{{ error }}</div>
+        @if (error) {
+          <div class="error-message">{{ error }}</div>
+        }
       </form>
     </div>
   `,

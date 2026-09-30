@@ -23,9 +23,9 @@ import { AuthSessionService } from '../../auth/auth-session.service';
             placeholder="Enter exam ID"
             class="form-control"
           />
-          <div *ngIf="form.get('examId')?.invalid && form.get('examId')?.touched" class="error-text">
-            Exam ID is required
-          </div>
+          @if (form.get('examId')?.invalid && form.get('examId')?.touched) {
+            <div class="error-text">Exam ID is required</div>
+          }
         </div>
 
         <div class="form-group">
@@ -37,9 +37,9 @@ import { AuthSessionService } from '../../auth/auth-session.service';
             placeholder="Enter batch name"
             class="form-control"
           />
-          <div *ngIf="form.get('name')?.invalid && form.get('name')?.touched" class="error-text">
-            Batch name is required
-          </div>
+          @if (form.get('name')?.invalid && form.get('name')?.touched) {
+            <div class="error-text">Batch name is required</div>
+          }
         </div>
 
         <div class="form-group">
@@ -63,9 +63,9 @@ import { AuthSessionService } from '../../auth/auth-session.service';
             class="form-control"
             min="1"
           />
-          <div *ngIf="form.get('maxMembers')?.invalid && form.get('maxMembers')?.touched" class="error-text">
-            Maximum members must be greater than 0
-          </div>
+          @if (form.get('maxMembers')?.invalid && form.get('maxMembers')?.touched) {
+            <div class="error-text">Maximum members must be greater than 0</div>
+          }
         </div>
 
         <div class="actions">
@@ -75,7 +75,9 @@ import { AuthSessionService } from '../../auth/auth-session.service';
           <a routerLink="/batches" class="btn btn-secondary">Cancel</a>
         </div>
 
-        <div *ngIf="error" class="error-message">{{ error }}</div>
+        @if (error) {
+          <div class="error-message">{{ error }}</div>
+        }
       </form>
     </div>
   `,

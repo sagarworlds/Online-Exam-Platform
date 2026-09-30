@@ -23,9 +23,9 @@ import { AuthSessionService } from '../../auth/auth-session.service';
             placeholder="Enter exam ID"
             class="form-control"
           />
-          <div *ngIf="form.get('examId')?.invalid && form.get('examId')?.touched" class="error-text">
-            Exam ID is required
-          </div>
+          @if (form.get('examId')?.invalid && form.get('examId')?.touched) {
+            <div class="error-text">Exam ID is required</div>
+          }
         </div>
 
         <div class="form-group">
@@ -37,9 +37,9 @@ import { AuthSessionService } from '../../auth/auth-session.service';
             placeholder="Enter batch member ID"
             class="form-control"
           />
-          <div *ngIf="form.get('batchMemberId')?.invalid && form.get('batchMemberId')?.touched" class="error-text">
-            Batch member ID is required
-          </div>
+          @if (form.get('batchMemberId')?.invalid && form.get('batchMemberId')?.touched) {
+            <div class="error-text">Batch member ID is required</div>
+          }
         </div>
 
         <div class="form-group">
@@ -51,9 +51,9 @@ import { AuthSessionService } from '../../auth/auth-session.service';
             placeholder="candidate@example.com"
             class="form-control"
           />
-          <div *ngIf="form.get('email')?.invalid && form.get('email')?.touched" class="error-text">
-            Valid email is required
-          </div>
+          @if (form.get('email')?.invalid && form.get('email')?.touched) {
+            <div class="error-text">Valid email is required</div>
+          }
         </div>
 
         <div class="actions">
@@ -63,7 +63,9 @@ import { AuthSessionService } from '../../auth/auth-session.service';
           <a routerLink="/invites" class="btn btn-secondary">Cancel</a>
         </div>
 
-        <div *ngIf="error" class="error-message">{{ error }}</div>
+        @if (error) {
+          <div class="error-message">{{ error }}</div>
+        }
       </form>
     </div>
   `,
