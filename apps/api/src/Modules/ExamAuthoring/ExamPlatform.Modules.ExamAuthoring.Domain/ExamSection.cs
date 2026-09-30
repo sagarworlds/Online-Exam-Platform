@@ -1,3 +1,5 @@
+using ExamPlatform.Modules.ExamAuthoring.Domain.Exceptions;
+
 namespace ExamPlatform.Modules.ExamAuthoring.Domain;
 
 public class ExamSection
@@ -6,6 +8,7 @@ public class ExamSection
     public string Name { get; set; } = null!;
     public int? TimeSeconds { get; set; }
     public int Order { get; set; }
+    public bool IsDeleted { get; set; }
     private readonly List<ExamQuestion> _questions = [];
     public IReadOnlyList<ExamQuestion> Questions => _questions.AsReadOnly();
     public DateTime CreatedAt { get; set; }

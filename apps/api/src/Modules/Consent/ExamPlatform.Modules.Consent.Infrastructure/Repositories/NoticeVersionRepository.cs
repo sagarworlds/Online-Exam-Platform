@@ -10,4 +10,11 @@ public sealed class NoticeVersionRepository(ConsentDbContext context) : INoticeV
     /// <inheritdoc />
     public Task<NoticeVersion?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         context.NoticeVersions.FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<NoticeVersion?> GetCurrentAsync(ConsentPurpose purpose, CancellationToken cancellationToken) =>
+        context.NoticeVersions
+            .Where(n => n.Purpose == purpose)
+            .OrderByDescending(n => n.EffectiveFromUtc)
+            .FirstOrDefaultAsync(cancellationToken);
 }

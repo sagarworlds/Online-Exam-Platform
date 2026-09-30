@@ -1,0 +1,31 @@
+<div class="page">
+  <h1>Verify code</h1>
+
+  @if (destination) {
+    <p>We sent a code to {{ destination }}.</p>
+  }
+
+  @if (errorMessage()) {
+    <p class="error-message">{{ errorMessage() }}</p>
+  }
+
+  @if (challengeId) {
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <div class="field">
+        <label for="verify-otp-code">Code</label>
+        <input
+          id="verify-otp-code"
+          type="text"
+          inputmode="numeric"
+          formControlName="code"
+          autocomplete="one-time-code"
+        />
+      </div>
+      <button type="submit" class="primary" [disabled]="form.invalid || submitting()">Verify</button>
+    </form>
+  }
+
+  <p class="link-row">
+    <a routerLink="/login">Back to login</a>
+  </p>
+</div>

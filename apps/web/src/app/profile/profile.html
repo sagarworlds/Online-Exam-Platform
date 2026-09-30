@@ -1,0 +1,31 @@
+<div class="page">
+  <h1>Profile</h1>
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else {
+    @if (errorMessage()) {
+      <p class="error-message">{{ errorMessage() }}</p>
+    }
+    @if (saved()) {
+      <p class="success-message">Saved.</p>
+    }
+
+    @if (profile(); as p) {
+      <div class="card">
+        <p><strong>Email:</strong> {{ p.email ?? '—' }}</p>
+        <p><strong>Phone:</strong> {{ p.phoneNumber ?? '—' }}</p>
+        <p><strong>Status:</strong> {{ p.status }}</p>
+        <p><strong>Roles:</strong> {{ p.roles.join(', ') }}</p>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <div class="field">
+          <label for="profile-display-name">Display name</label>
+          <input id="profile-display-name" type="text" formControlName="displayName" />
+        </div>
+        <button type="submit" class="primary" [disabled]="form.invalid || saving()">Save</button>
+      </form>
+    }
+  }
+</div>

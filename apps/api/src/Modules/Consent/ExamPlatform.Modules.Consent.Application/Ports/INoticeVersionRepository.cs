@@ -9,4 +9,9 @@ public interface INoticeVersionRepository
     /// <param name="id">The notice version's identifier.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<NoticeVersion?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>Loads the most recently effective notice version for a purpose, or null if none exists.</summary>
+    /// <param name="purpose">What the notice must cover.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<NoticeVersion?> GetCurrentAsync(ConsentPurpose purpose, CancellationToken cancellationToken);
 }

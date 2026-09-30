@@ -29,8 +29,10 @@ public sealed class ConsentService(
     /// <inheritdoc />
     public async Task<ConsentStatusDto> GetStatusAsync(Guid subjectId, ConsentPurpose purpose, CancellationToken cancellationToken)
     {
-        var record = await consentRecordRepository.GetActiveAsync(subjectId, ToDomain(purpose), cancellationToken);
-        return new ConsentStatusDto(subjectId, purpose, record is not null, record?.Id);
+        var domainPurpose = ToDomain(purpose);
+        var record = await consentRecordRepository.GetActiveAsync(subjectId, domainPurpose, cancellationToken);
+        var currentNotice = await noticeVersionRepository.GetCurrentAsync(domainPurpose, cancellationToken);
+        return new ConsentStatusDto(subjectId, purpose, record is not null, record?.Id, currentNotice?.Id);
     }
 
     /// <inheritdoc />
