@@ -6,6 +6,18 @@ import { AuthApiService } from '../auth-api.service';
 import { AuthSessionService } from '../auth-session.service';
 import { landingRoute } from '../landing-route';
 import { AuthResult, OtpChannel } from '../auth.models';
+import { SessionEndReason, isSessionEndReason } from '../session-end-reason';
+
+/** Banner copy for each reason the API gives when it refuses a session (see authInterceptor). */
+const SESSION_END_MESSAGES: Record<SessionEndReason, string> = {
+  session_superseded: 'You were signed out because your account signed in on another device.',
+  session_revoked:
+    'You were signed out because your session was ended, for example by logging out elsewhere or resetting your password.',
+  session_expired: 'Your session expired. Please log in again.',
+  account_locked:
+    'You were signed out because your account is locked. Contact your administrator if you think this is a mistake.',
+  session_unknown: 'Your session is no longer valid. Please log in again.',
+};
 
 @Component({
   selector: 'app-login',
@@ -22,6 +34,9 @@ export class Login {
   protected readonly mode = signal<'password' | 'otp'>('password');
   protected readonly submitting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+
+  /** Why the user was signed out, when the interceptor redirected here with a known `?reason=`. */
+  protected readonly sessionEndedMessage = describeSessionEnd(this.route.snapshot.queryParamMap.get('reason'));
 
   protected readonly passwordForm = this.formBuilder.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
@@ -104,4 +119,9 @@ export class Login {
     const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
     return returnUrl ? { returnUrl } : {};
   }
+}
+
+/** Maps a `?reason=` value to its banner copy; unknown or missing reasons show no banner. */
+function describeSessionEnd(reason: string | null): string | null {
+  return isSessionEndReason(reason) ? SESSION_END_MESSAGES[reason] : null;
 }

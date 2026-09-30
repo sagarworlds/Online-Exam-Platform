@@ -49,12 +49,26 @@ describe('authInterceptor', () => {
     req.flush({});
   });
 
-  it('logs out and redirects to login on a 401 for an authenticated request', () => {
+  it('redirects to /login?reason=session_superseded when the API says the session was superseded', () => {
     setup('token-123');
     http.get('/v1/me/profile').subscribe({ error: () => undefined });
 
     const req = httpMock.expectOne('/v1/me/profile');
-    req.flush({}, { status: 401, statusText: 'Unauthorized' });
+    req.flush(
+      { status: 401, title: 'session_superseded', detail: 'This session was replaced by a newer sign-in.' },
+      { status: 401, statusText: 'Unauthorized' },
+    );
+
+    expect(logout).toHaveBeenCalled();
+    expect(navigateByUrl).toHaveBeenCalledWith('/login?reason=session_superseded');
+  });
+
+  it('logs out and redirects to plain /login on a 401 without a known session reason', () => {
+    setup('token-123');
+    http.get('/v1/me/profile').subscribe({ error: () => undefined });
+
+    const req = httpMock.expectOne('/v1/me/profile');
+    req.flush({ title: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
 
     expect(logout).toHaveBeenCalled();
     expect(navigateByUrl).toHaveBeenCalledWith('/login');

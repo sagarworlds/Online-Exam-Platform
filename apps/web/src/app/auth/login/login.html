@@ -1,6 +1,10 @@
 <div class="page">
   <h1>Log in</h1>
 
+  @if (sessionEndedMessage) {
+    <p class="info-message" role="status">{{ sessionEndedMessage }}</p>
+  }
+
   <div class="mode-toggle">
     <button type="button" [class.active]="mode() === 'password'" (click)="setMode('password')">Password</button>
     <button type="button" [class.active]="mode() === 'otp'" (click)="setMode('otp')">One-time code</button>

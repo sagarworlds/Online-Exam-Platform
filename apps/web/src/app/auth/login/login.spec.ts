@@ -73,4 +73,28 @@ describe('Login', () => {
       expect(await signIn(tokenWith([]), { returnUrl: '/invite?code=ABCD2345' })).toBe('/invite?code=ABCD2345');
     });
   });
+
+  describe('session-ended banner', () => {
+    function createWithQueryParams(params: Record<string, string>) {
+      TestBed.overrideProvider(ActivatedRoute, {
+        useValue: { snapshot: { queryParamMap: convertToParamMap(params) } },
+      });
+      const fixture = TestBed.createComponent(Login);
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('shows the signed-in-elsewhere banner for reason=session_superseded', () => {
+      const compiled = createWithQueryParams({ reason: 'session_superseded' });
+
+      const banner = compiled.querySelector('[role="status"]');
+      expect(banner?.textContent).toContain('your account signed in on another device');
+    });
+
+    it('shows no banner for an unrecognised reason', () => {
+      const compiled = createWithQueryParams({ reason: '<b>not-a-reason</b>' });
+
+      expect(compiled.querySelector('[role="status"]')).toBeNull();
+    });
+  });
 });
