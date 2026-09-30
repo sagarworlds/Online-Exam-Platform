@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.Guardian.Application;
+using ExamPlatform.Modules.Guardian.Application.Commands;
 using ExamPlatform.Modules.Guardian.Application.Ports;
 using ExamPlatform.Modules.Guardian.Infrastructure;
 using ExamPlatform.SharedKernel.Application;
@@ -25,6 +26,12 @@ public sealed class GuardianModuleInstaller : IModuleInstaller
 
         services.AddScoped<IGuardianRepository, EFGuardianRepository>();
         services.AddScoped<IGuardianUnitOfWork, GuardianUnitOfWork>();
+
+        services.AddScoped<CreateGuardianHandler>();
+        services.AddScoped<LinkCandidateHandler>();
+        services.AddScoped<VerifyGuardianLinkHandler>();
+        services.AddScoped<RevokeGuardianLinkHandler>();
+        services.AddScoped<UnlinkCandidateHandler>();
     }
 
     /// <inheritdoc />

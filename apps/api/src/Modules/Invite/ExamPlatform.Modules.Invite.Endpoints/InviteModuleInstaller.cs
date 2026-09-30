@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.Invite.Application;
+using ExamPlatform.Modules.Invite.Application.Commands;
 using ExamPlatform.Modules.Invite.Application.Ports;
 using ExamPlatform.Modules.Invite.Infrastructure;
 using ExamPlatform.SharedKernel.Application;
@@ -25,6 +26,12 @@ public sealed class InviteModuleInstaller : IModuleInstaller
 
         services.AddScoped<IInviteRepository, EFInviteRepository>();
         services.AddScoped<IInviteUnitOfWork, InviteUnitOfWork>();
+
+        services.AddScoped<CreateInviteHandler>();
+        services.AddScoped<GenerateInviteCodeHandler>();
+        services.AddScoped<AcceptInviteHandler>();
+        services.AddScoped<DeclineInviteHandler>();
+        services.AddScoped<RevokeInviteHandler>();
     }
 
     /// <inheritdoc />

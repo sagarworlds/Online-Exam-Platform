@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.Batch.Application;
+using ExamPlatform.Modules.Batch.Application.Commands;
 using ExamPlatform.Modules.Batch.Application.Ports;
 using ExamPlatform.Modules.Batch.Infrastructure;
 using ExamPlatform.Modules.Batch.Infrastructure.Repositories;
@@ -26,6 +27,11 @@ public sealed class BatchModuleInstaller : IModuleInstaller
 
         services.AddScoped<IBatchRepository, EFBatchRepository>();
         services.AddScoped<IBatchUnitOfWork, BatchUnitOfWork>();
+
+        services.AddScoped<CreateBatchHandler>();
+        services.AddScoped<AddBatchMemberHandler>();
+        services.AddScoped<ActivateBatchHandler>();
+        services.AddScoped<CloseBatchHandler>();
     }
 
     /// <inheritdoc />
