@@ -4,6 +4,15 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AuthApiService } from '../auth-api.service';
 import { OtpChannel } from '../auth.models';
+import {
+  MAX_DISPLAY_NAME_LENGTH,
+  dateOfBirthErrorMessage,
+  dateOfBirthValidator,
+  displayNameErrorMessage,
+  notBlankValidator,
+  toLocalIsoDate,
+  visibleErrorMessage,
+} from '../validators';
 
 @Component({
   selector: 'app-register',
@@ -19,12 +28,25 @@ export class Register {
   protected readonly submitting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
 
+  /** Upper bound for the date picker; dateOfBirthValidator is what actually enforces the rule. */
+  protected readonly maxDateOfBirth = toLocalIsoDate(new Date());
+
   protected readonly form = this.formBuilder.nonNullable.group({
     channel: this.formBuilder.nonNullable.control<OtpChannel>('Email'),
     destination: ['', Validators.required],
-    displayName: ['', Validators.required],
-    dateOfBirth: ['', Validators.required],
+    displayName: ['', [Validators.required, notBlankValidator, Validators.maxLength(MAX_DISPLAY_NAME_LENGTH)]],
+    dateOfBirth: ['', dateOfBirthValidator()],
   });
+
+  /** Inline message for the display name field, once the user has interacted with it. */
+  protected displayNameError(): string | null {
+    return visibleErrorMessage(this.form.controls.displayName, displayNameErrorMessage);
+  }
+
+  /** Inline message for the date of birth field, once the user has interacted with it. */
+  protected dateOfBirthError(): string | null {
+    return visibleErrorMessage(this.form.controls.dateOfBirth, dateOfBirthErrorMessage);
+  }
 
   protected submit(): void {
     if (this.form.invalid || this.submitting()) {
@@ -39,7 +61,7 @@ export class Register {
       .register({
         email: channel === 'Email' ? destination : null,
         phoneNumber: channel === 'Sms' ? destination : null,
-        displayName,
+        displayName: displayName.trim(),
         dateOfBirth,
         otpChannel: channel,
       })
@@ -48,6 +70,9 @@ export class Register {
           this.router.navigate(['/verify-otp'], {
             queryParams: { challengeId: otpChallengeId, purpose: 'Registration', destination, ...this.returnUrlParam() },
           }),
+        // Rules only the server can check (contact_channel_mismatch, a duplicate
+        // account, ...) and any drift from the client-side checks come back as a
+        // ProblemDetails whose detail is already actionable.
         error: (error: unknown) => {
           this.submitting.set(false);
           this.errorMessage.set(extractErrorMessage(error));
