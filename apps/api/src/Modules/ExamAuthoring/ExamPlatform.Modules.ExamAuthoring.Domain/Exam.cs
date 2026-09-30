@@ -53,7 +53,7 @@ public class Exam : AggregateRoot
     public void AddSection(string name, int? timeSeconds)
     {
         var order = _sections.Count + 1;
-        var section = new ExamSection(name, timeSeconds, order);
+        var section = new ExamSection(Id, name, timeSeconds, order);
         _sections.Add(section);
         UpdatedAt = DateTime.UtcNow;
     }

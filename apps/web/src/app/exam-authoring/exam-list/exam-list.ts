@@ -32,17 +32,18 @@ import { ExamDto } from '../exam.models';
       @if (!loading && exams.length > 0) {
         <div class="exam-grid">
           @for (exam of exams; track exam.id) {
-          <div class="exam-card">
-          <h3>{{ exam.name }}</h3>
-          <p>{{ exam.description }}</p>
-          <div class="exam-info">
-            <span class="status" [class]="'status-' + exam.status">{{ exam.status }}</span>
-            <span class="date">Created: {{ exam.createdAt | date: 'short' }}</span>
-          </div>
-          <div class="actions">
-            <a [routerLink]="['/exams', exam.id, 'schedule']" class="btn btn-secondary">Schedule</a>
-            <button class="btn btn-tertiary" (click)="viewExam(exam.id)">View</button>
-          </div>
+            <div class="exam-card">
+              <h3>{{ exam.name }}</h3>
+              <p>{{ exam.description }}</p>
+              <div class="exam-info">
+                <span class="status" [class]="'status-' + exam.status">{{ exam.status }}</span>
+                <span class="date">Created: {{ exam.createdAt | date: 'short' }}</span>
+              </div>
+              <div class="actions">
+                <a [routerLink]="['/exams', exam.id, 'schedule']" class="btn btn-secondary">Schedule</a>
+                <button class="btn btn-tertiary" (click)="viewExam(exam.id)">View</button>
+              </div>
+            </div>
           }
         </div>
       }
