@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\SharedKernel\ExamPlatform.SharedKernel.Infrastructure\ExamPlatform.SharedKernel.Infrastructure.csproj" />
+    <ProjectReference Include="..\ExamPlatform.Modules.ExamAuthoring.Application\ExamPlatform.Modules.ExamAuthoring.Application.csproj" />
+    <ProjectReference Include="..\ExamPlatform.Modules.ExamAuthoring.Domain\ExamPlatform.Modules.ExamAuthoring.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+  </ItemGroup>
+</Project>
