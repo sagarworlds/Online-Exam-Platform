@@ -110,7 +110,7 @@ export class InviteCreate implements OnInit {
     this.error = '';
 
     const session = this.authSession.session();
-    if (!session?.sub) {
+    if (!session?.userId) {
       this.error = 'Not authenticated';
       this.loading = false;
       return;
@@ -122,7 +122,7 @@ export class InviteCreate implements OnInit {
       email: this.form.value.email,
     };
 
-    this.inviteApi.createInvite(request, session.sub).subscribe({
+    this.inviteApi.createInvite(request, session.userId).subscribe({
       next: () => {
         this.loading = false;
         this.router.navigate(['/invites']);
