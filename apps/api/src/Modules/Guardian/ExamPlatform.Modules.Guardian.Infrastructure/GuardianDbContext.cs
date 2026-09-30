@@ -35,6 +35,9 @@ public class GuardianDbContext(DbContextOptions<GuardianDbContext> options) : Db
         {
             l.HasKey(x => x.Id);
             l.Property(x => x.Id).ValueGeneratedNever();
+            l.Property(x => x.GuardianId).IsRequired();
+            l.Property(x => x.CandidateId).IsRequired();
+            l.Property(x => x.CandidateEmail).HasMaxLength(255).IsRequired();
             l.Property(x => x.VerificationToken).HasMaxLength(255).IsRequired();
             l.Property(x => x.Status).HasConversion<string>();
             l.Property(x => x.IsDeleted);

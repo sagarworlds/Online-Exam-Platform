@@ -44,6 +44,7 @@ public class BatchDbContext(DbContextOptions<BatchDbContext> options) : DbContex
             bm.HasKey(x => x.Id);
             bm.Property(x => x.Id).ValueGeneratedNever();
 
+            bm.Property(x => x.BatchId).IsRequired();
             bm.Property(x => x.Email).HasMaxLength(255).IsRequired();
             bm.Property(x => x.Phone).HasMaxLength(20);
             bm.Property(x => x.Status).HasConversion<string>();

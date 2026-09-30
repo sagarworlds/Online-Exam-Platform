@@ -42,33 +42,43 @@ import { BatchMemberDto } from '../batch.models';
             {{ loading ? 'Adding...' : 'Add Member' }}
           </button>
         </form>
-        <div *ngIf="error" class="error-message">{{ error }}</div>
+        @if (error) {
+          <div class="error-message">{{ error }}</div>
+        }
       </div>
 
       <div class="members-section">
         <h3>Members ({{ members.length }})</h3>
-        <div *ngIf="membersLoading" class="loading">Loading members...</div>
-        <div *ngIf="!membersLoading && members.length === 0" class="empty">
-          No members added yet
-        </div>
-        <div *ngIf="!membersLoading && members.length > 0" class="members-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let member of members">
-                <td>{{ member.email }}</td>
-                <td>{{ member.phone || '-' }}</td>
-                <td><span class="status" [class]="'status-' + member.status">{{ member.status }}</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        @if (membersLoading) {
+          <div class="loading">Loading members...</div>
+        }
+        @if (!membersLoading && members.length === 0) {
+          <div class="empty">
+            No members added yet
+          </div>
+        }
+        @if (!membersLoading && members.length > 0) {
+          <div class="members-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (member of members; track member.id) {
+                <tr>
+                  <td>{{ member.email }}</td>
+                  <td>{{ member.phone || '-' }}</td>
+                  <td><span class="status" [class]="'status-' + member.status">{{ member.status }}</span></td>
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
       </div>
 
       <div class="actions">

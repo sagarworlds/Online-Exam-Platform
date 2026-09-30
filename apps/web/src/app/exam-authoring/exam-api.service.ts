@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
-import { ExamDto, CreateExamRequest, ExamConfigDto } from './exam.models';
+import { ExamDto, CreateExamRequest } from './exam.models';
 
 @Injectable({ providedIn: 'root' })
 export class ExamApiService {

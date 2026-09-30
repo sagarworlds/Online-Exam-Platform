@@ -16,15 +16,23 @@ import { ExamDto } from '../exam.models';
         <a routerLink="/exams/create" class="btn btn-primary">Create New Exam</a>
       </div>
 
-      <div *ngIf="loading" class="loading">Loading exams...</div>
-      <div *ngIf="error" class="error">{{ error }}</div>
+      @if (loading) {
+        <div class="loading">Loading exams...</div>
+      }
+      @if (error) {
+        <div class="error">{{ error }}</div>
+      }
 
-      <div *ngIf="!loading && exams.length === 0" class="empty">
-        No exams found. <a routerLink="/exams/create">Create one now</a>
-      </div>
+      @if (!loading && exams.length === 0) {
+        <div class="empty">
+          No exams found. <a routerLink="/exams/create">Create one now</a>
+        </div>
+      }
 
-      <div *ngIf="!loading && exams.length > 0" class="exam-grid">
-        <div *ngFor="let exam of exams" class="exam-card">
+      @if (!loading && exams.length > 0) {
+        <div class="exam-grid">
+          @for (exam of exams; track exam.id) {
+          <div class="exam-card">
           <h3>{{ exam.name }}</h3>
           <p>{{ exam.description }}</p>
           <div class="exam-info">
@@ -35,8 +43,9 @@ import { ExamDto } from '../exam.models';
             <a [routerLink]="['/exams', exam.id, 'schedule']" class="btn btn-secondary">Schedule</a>
             <button class="btn btn-tertiary" (click)="viewExam(exam.id)">View</button>
           </div>
+          }
         </div>
-      </div>
+      }
     </div>
   `,
   styles: [`
