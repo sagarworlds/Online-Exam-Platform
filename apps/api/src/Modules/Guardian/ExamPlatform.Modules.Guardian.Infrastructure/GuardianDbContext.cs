@@ -13,7 +13,7 @@ public class GuardianDbContext(DbContextOptions<GuardianDbContext> options) : Db
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<Guardian>(g =>
+        modelBuilder.Entity<GuardianAggregate>(g =>
         {
             g.HasKey(x => x.Id);
             g.Property(x => x.Id).ValueGeneratedNever();

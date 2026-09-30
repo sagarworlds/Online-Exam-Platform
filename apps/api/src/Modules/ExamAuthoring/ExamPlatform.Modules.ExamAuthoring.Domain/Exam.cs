@@ -22,6 +22,7 @@ public class Exam : AggregateRoot
     public Guid CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public bool IsDeleted { get; set; }
 
     private readonly List<ExamSection> _sections = [];
     public IReadOnlyList<ExamSection> Sections => _sections.AsReadOnly();

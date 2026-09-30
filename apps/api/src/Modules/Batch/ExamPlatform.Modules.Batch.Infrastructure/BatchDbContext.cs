@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using BatchAggregate = ExamPlatform.Modules.Batch.Domain.Batch;
 using ExamPlatform.Modules.Batch.Domain;
 using ExamPlatform.SharedKernel.Domain;
 
@@ -7,7 +8,7 @@ namespace ExamPlatform.Modules.Batch.Infrastructure;
 /// EF Core DbContext for Batch module (exam batches, membership, and roster management).
 public class BatchDbContext(DbContextOptions<BatchDbContext> options) : DbContext(options)
 {
-    public DbSet<Batch> Batches => Set<Batch>();
+    public DbSet<BatchAggregate> Batches => Set<BatchAggregate>();
     public DbSet<BatchMember> BatchMembers => Set<BatchMember>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -15,7 +16,7 @@ public class BatchDbContext(DbContextOptions<BatchDbContext> options) : DbContex
         base.OnModelCreating(modelBuilder);
 
         // Batch aggregate
-        modelBuilder.Entity<Batch>(b =>
+        modelBuilder.Entity<BatchAggregate>(b =>
         {
             b.HasKey(x => x.Id);
             b.Property(x => x.Id).ValueGeneratedNever();

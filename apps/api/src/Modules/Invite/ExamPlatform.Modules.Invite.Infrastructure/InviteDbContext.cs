@@ -13,7 +13,7 @@ public class InviteDbContext(DbContextOptions<InviteDbContext> options) : DbCont
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<Invite>(i =>
+        modelBuilder.Entity<InviteAggregate>(i =>
         {
             i.HasKey(x => x.Id);
             i.Property(x => x.Id).ValueGeneratedNever();
