@@ -1,5 +1,8 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Domain;
 using ExamPlatform.Modules.Identity.Infrastructure;
@@ -10,7 +13,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ExamPlatform.IntegrationTests;
 
 /// <summary>
-/// A user created and signed in by <see cref="TestSessions.SignInAsAsync"/>.
+/// A user created and signed in by <see cref="TestSessions.SignInAsAsync"/> or
+/// <see cref="TestSessions.RegisterViaApiAsync"/>.
 /// </summary>
 /// <param name="UserId">The new user's id (the token's <c>sub</c> claim).</param>
 /// <param name="SessionId">The persisted session's id (the token's <c>sid</c> claim).</param>
@@ -29,9 +33,11 @@ public sealed record SignedInTestUser(Guid UserId, Guid SessionId, string Email,
 /// <see cref="TestJwtTokenBuilder"/> only for negative tests that need a token
 /// with no session behind it.
 /// <para>
-/// The state is written straight to the database, so the login endpoints (OTP,
-/// password, and the staff password + 2FA step) are skipped by design: a test
-/// whose subject is login behaviour itself must drive those endpoints over HTTP.
+/// <see cref="SignInAsAsync"/> writes the state straight to the database, so the login
+/// endpoints (OTP, password, and the staff password + 2FA step) are skipped by design:
+/// a test whose subject is login behaviour itself must drive those endpoints over HTTP.
+/// <see cref="RegisterViaApiAsync"/> is the one helper that goes through the API, for
+/// tests that depend on what candidate self-registration itself does.
 /// </para>
 /// </summary>
 public static class TestSessions
@@ -39,6 +45,9 @@ public static class TestSessions
     // Matches the lifetime TestJwtTokenBuilder has always used; long enough for any
     // single test, short enough that a leaked test token is worthless.
     private static readonly TimeSpan DefaultSessionLifetime = TimeSpan.FromHours(1);
+
+    // An adult, so neither helper trips age-based rules unless a test asks for a minor.
+    private static readonly DateOnly DefaultDateOfBirth = new(1990, 1, 1);
 
     /// <summary>
     /// Creates an active user holding a seeded role, starts a session for it, and
@@ -88,7 +97,7 @@ public static class TestSessions
         var user = User.Register(
             email ?? $"{roleName.ToLowerInvariant()}-{Guid.NewGuid():N}@tests.local",
             phoneNumber: null,
-            dateOfBirth ?? new DateOnly(1990, 1, 1),
+            dateOfBirth ?? DefaultDateOfBirth,
             displayName: $"Test {roleName}",
             nowUtc);
         user.AssignRole(role);
@@ -114,5 +123,67 @@ public static class TestSessions
 
         var accessToken = services.GetRequiredService<ITokenGenerator>().GenerateAccessToken(user, session);
         return new SignedInTestUser(user.Id, session.Id, user.Email!, accessToken);
+    }
+
+    /// <summary>
+    /// Signs a new candidate up through the real HTTP flow: <c>POST /v1/auth/register</c>,
+    /// then <c>POST /v1/auth/otp/verify</c> with the code captured by
+    /// <see cref="CapturingOtpSender"/>. Returns the session that flow started. Use it
+    /// instead of <see cref="SignInAsAsync"/> when a test depends on what self-registration
+    /// itself does: the role it grants, the account status it sets, or the rules it applies
+    /// to the date of birth (e.g. for minors).
+    /// </summary>
+    /// <param name="factory">The factory whose API the candidate registers through.</param>
+    /// <param name="dateOfBirth">The date of birth to register with; defaults to 1990-01-01 (an adult).</param>
+    /// <param name="email">
+    /// The email to register with; defaults to a unique <c>candidate-{guid}@tests.local</c> address.
+    /// </param>
+    /// <param name="displayName">The display name to register with.</param>
+    /// <exception cref="InvalidOperationException">
+    /// The API rejected the registration or the OTP verification; the message carries its response body.
+    /// </exception>
+    public static async Task<SignedInTestUser> RegisterViaApiAsync(
+        this ApiFactory factory,
+        DateOnly? dateOfBirth = null,
+        string? email = null,
+        string displayName = "Test Candidate")
+    {
+        var address = email ?? $"candidate-{Guid.NewGuid():N}@tests.local";
+        using var client = factory.CreateClient();
+
+        var registerResponse = await client.PostAsJsonAsync("/v1/auth/register", new
+        {
+            email = address,
+            phoneNumber = (string?)null,
+            dateOfBirth = dateOfBirth ?? DefaultDateOfBirth,
+            displayName,
+            otpChannel = nameof(OtpChannel.Email),
+        });
+        var challenge = await ReadSuccessBodyAsync(registerResponse, "POST /v1/auth/register");
+
+        var verifyResponse = await client.PostAsJsonAsync("/v1/auth/otp/verify", new
+        {
+            otpChallengeId = challenge.GetProperty("otpChallengeId").GetGuid(),
+            code = factory.OtpSender.GetLastCode(address),
+        });
+        var auth = await ReadSuccessBodyAsync(verifyResponse, "POST /v1/auth/otp/verify");
+
+        var accessToken = auth.GetProperty("accessToken").GetString()
+            ?? throw new InvalidOperationException("OTP verification succeeded but returned no access token.");
+        var userId = Guid.Parse(new JwtSecurityTokenHandler().ReadJwtToken(accessToken).Subject);
+        return new SignedInTestUser(userId, auth.GetProperty("sessionId").GetGuid(), address, accessToken);
+    }
+
+    // Throws with the response body, not just the status code, so a test broken by a new
+    // validation rule (e.g. on date of birth) says which rule rejected the request.
+    private static async Task<JsonElement> ReadSuccessBodyAsync(HttpResponseMessage response, string request)
+    {
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"{request} returned {(int)response.StatusCode}: {body}");
+        }
+
+        return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 }

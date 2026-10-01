@@ -76,4 +76,26 @@ public sealed class TestSessionsTests(ApiFactory factory) : IClassFixture<ApiFac
         // "Admin" is the role the old hand-signed tokens claimed; it was never seeded.
         await Assert.ThrowsAsync<InvalidOperationException>(() => factory.SignInAsAsync("Admin"));
     }
+
+    [Fact]
+    public async Task RegisterViaApiAsync_SignsACandidateUpThroughTheApiAndReturnsAWorkingToken()
+    {
+        var dateOfBirth = new DateOnly(2001, 2, 3);
+
+        var registered = await factory.RegisterViaApiAsync(dateOfBirth);
+
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", registered.AccessToken);
+        var profile = await client.GetFromJsonAsync<JsonElement>("/v1/me/profile");
+        Assert.Equal(registered.UserId, profile.GetProperty("userId").GetGuid());
+        Assert.Equal(registered.Email, profile.GetProperty("email").GetString());
+        Assert.Equal(nameof(UserStatus.Active), profile.GetProperty("status").GetString());
+        Assert.Equal(["Candidate"], profile.GetProperty("roles").EnumerateArray().Select(r => r.GetString()));
+
+        using var scope = factory.Services.CreateScope();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var user = await identityDb.Users.Include(u => u.Sessions).SingleAsync(u => u.Id == registered.UserId);
+        Assert.Equal(dateOfBirth, user.DateOfBirth);
+        Assert.Contains(user.Sessions, s => s.Id == registered.SessionId);
+    }
 }
