@@ -59,6 +59,13 @@ public static class IdentityEndpoints
             return Results.Ok();
         });
 
+        auth.MapPost("/logout", async (HttpContext http, LogoutHandler handler, CancellationToken ct) =>
+            {
+                await handler.HandleAsync(new LogoutCommand(http.User.GetUserId(), http.User.GetSessionId()), ct);
+                return Results.NoContent();
+            })
+            .RequireAuthorization();
+
         var me = endpoints.MapGroup("/v1/me").WithTags("Identity").RequireAuthorization();
 
         me.MapGet("/profile", async (HttpContext http, GetProfileHandler handler, CancellationToken ct) =>

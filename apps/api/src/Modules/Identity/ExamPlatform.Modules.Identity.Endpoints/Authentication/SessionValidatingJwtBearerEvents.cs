@@ -16,15 +16,13 @@ namespace ExamPlatform.Modules.Identity.Endpoints.Authentication;
 /// stable reason code (e.g. <c>session_superseded</c>), which the web app reads to explain
 /// why the user was signed out.
 /// Resolved from the request's services on every request (see
-/// <see cref="Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions.EventsType"/>), so it can use scoped, per-request services.
+/// <see cref="Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions.EventsType"/>),
+/// so it can use scoped, per-request services.
 /// </summary>
 public sealed class SessionValidatingJwtBearerEvents(
     SessionValidator sessionValidator,
     ILogger<SessionValidatingJwtBearerEvents> logger) : JwtBearerEvents
 {
-    // The JWT claim that names the session; written by Identity.Infrastructure's JwtTokenGenerator.
-    private const string SessionIdClaim = "sid";
-
     // Carries the rejection from TokenValidated to Challenge, which runs later in the same request.
     private static readonly object RejectionItemKey = new();
 
@@ -34,7 +32,7 @@ public sealed class SessionValidatingJwtBearerEvents(
         // Raw claim names: the Host turns off inbound claim mapping (MapInboundClaims = false).
         var principal = context.Principal;
         var hasUserId = Guid.TryParse(principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value, out var userId);
-        var hasSessionId = Guid.TryParse(principal?.FindFirst(SessionIdClaim)?.Value, out var sessionId);
+        var hasSessionId = Guid.TryParse(principal?.FindFirst(ClaimsPrincipalExtensions.SessionIdClaim)?.Value, out var sessionId);
 
         var result = hasUserId && hasSessionId
             ? await sessionValidator.ValidateAsync(userId, sessionId, context.HttpContext.RequestAborted)

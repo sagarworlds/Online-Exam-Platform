@@ -18,8 +18,9 @@ namespace ExamPlatform.IntegrationTests;
 /// Drives the Identity module's security rules over real HTTP and a real database:
 /// the OTP brute-force lockout, replay protection, supersession of older codes,
 /// concurrency guards (FR-1, NFR-5), which accounts an OTP may sign in (FR-3), that a
-/// token stops working as soon as its session ends (FR-4), and that malformed sign-up,
-/// sign-in and profile input gets a typed 400 rather than a 500 (section 11).
+/// token stops working as soon as its session ends, including by logging out (FR-4),
+/// and that malformed sign-up, sign-in and profile input gets a typed 400 rather than a
+/// 500 (section 11).
 /// Each test arranges its own user with a unique address, so the tests are independent
 /// of each other and of the order they run in.
 /// </summary>
@@ -541,6 +542,42 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         using var client = factory.CreateClient();
 
         await AssertProblemAsync(await GetProfileAsync(client, token), HttpStatusCode.Unauthorized, "session_expired");
+    }
+
+    [Fact]
+    public async Task Logout_RevokesTheSession_AndTheTokenStopsWorking()
+    {
+        var candidate = await factory.SignInAsAsync("Candidate");
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", candidate.AccessToken);
+
+        var logoutResponse = await client.PostAsync("/v1/auth/logout", content: null);
+
+        Assert.Equal(HttpStatusCode.NoContent, logoutResponse.StatusCode);
+        await AssertProblemAsync(
+            await GetProfileAsync(client, candidate.AccessToken), HttpStatusCode.Unauthorized, "session_revoked");
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            var session = await identityDb.Set<UserSession>().SingleAsync(s => s.Id == candidate.SessionId);
+            Assert.Equal(SessionRevocationReason.LoggedOut, session.RevokedReason);
+            Assert.NotNull(session.RevokedAtUtc);
+        }
+
+        // The ended session's token cannot even log out again.
+        await AssertProblemAsync(
+            await client.PostAsync("/v1/auth/logout", content: null), HttpStatusCode.Unauthorized, "session_revoked");
+    }
+
+    [Fact]
+    public async Task Logout_WithoutToken_Returns401()
+    {
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsync("/v1/auth/logout", content: null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     // Arrange-only: no admin endpoint suspends accounts yet, so the domain method is called directly.

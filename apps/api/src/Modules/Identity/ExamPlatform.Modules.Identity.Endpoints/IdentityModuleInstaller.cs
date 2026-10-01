@@ -53,6 +53,7 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<RequestPasswordResetHandler>();
         services.AddScoped<ResetPasswordHandler>();
         services.AddScoped<AssignRoleHandler>();
+        services.AddScoped<LogoutHandler>();
         services.AddScoped<UpdateProfileHandler>();
         services.AddScoped<GetProfileHandler>();
 

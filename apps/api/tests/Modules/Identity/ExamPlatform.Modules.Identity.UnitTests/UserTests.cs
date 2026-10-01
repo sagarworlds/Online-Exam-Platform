@@ -226,6 +226,47 @@ public class UserTests
     }
 
     [Fact]
+    public void RevokeSession_OwnActiveSession_MarksLoggedOut()
+    {
+        var user = CreateAdultUser();
+        var session = user.StartNewSession("hash-1", Now, Now.AddHours(1), null, null);
+
+        user.RevokeSession(session.Id, Now.AddMinutes(5), SessionRevocationReason.LoggedOut);
+
+        Assert.False(session.IsActive(Now.AddMinutes(5)));
+        Assert.Equal(Now.AddMinutes(5), session.RevokedAtUtc);
+        Assert.Equal(SessionRevocationReason.LoggedOut, session.RevokedReason);
+    }
+
+    [Fact]
+    public void RevokeSession_AlreadyRevoked_IsNoOp()
+    {
+        var user = CreateAdultUser();
+        var superseded = user.StartNewSession("hash-1", Now, Now.AddHours(1), null, null);
+        user.StartNewSession("hash-2", Now.AddMinutes(1), Now.AddHours(1), null, null);
+
+        user.RevokeSession(superseded.Id, Now.AddMinutes(5), SessionRevocationReason.LoggedOut);
+
+        Assert.Equal(SessionRevocationReason.SupersededByNewLogin, superseded.RevokedReason);
+        Assert.Equal(Now.AddMinutes(1), superseded.RevokedAtUtc);
+    }
+
+    [Fact]
+    public void RevokeSession_ForeignSession_ThrowsSessionNotFoundError()
+    {
+        var user = CreateAdultUser();
+        var own = user.StartNewSession("hash-1", Now, Now.AddHours(1), null, null);
+        var otherUser = User.Register("other@example.com", null, new DateOnly(2000, 1, 1), "Other Candidate", Now);
+        var foreign = otherUser.StartNewSession("hash-2", Now, Now.AddHours(1), null, null);
+
+        Assert.Throws<SessionNotFoundError>(
+            () => user.RevokeSession(foreign.Id, Now.AddMinutes(5), SessionRevocationReason.LoggedOut));
+
+        Assert.True(own.IsActive(Now.AddMinutes(5)));
+        Assert.True(foreign.IsActive(Now.AddMinutes(5)));
+    }
+
+    [Fact]
     public void RequiresTwoFactor_WithRoleThatRequiresIt_ReturnsTrue()
     {
         var user = CreateAdultUser();

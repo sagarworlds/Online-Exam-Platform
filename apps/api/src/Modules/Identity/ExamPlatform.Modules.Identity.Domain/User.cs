@@ -159,6 +159,21 @@ public sealed class User : AggregateRoot
         }
     }
 
+    /// <summary>
+    /// Revokes one of this user's sessions, e.g. when the user logs out of it (FR-4).
+    /// Idempotent: a session that was already revoked keeps its original revocation time
+    /// and reason.
+    /// </summary>
+    /// <param name="sessionId">The session to revoke.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <param name="reason">Why the session is being revoked.</param>
+    /// <exception cref="SessionNotFoundError">This user has no session with that id.</exception>
+    public void RevokeSession(Guid sessionId, DateTime nowUtc, SessionRevocationReason reason)
+    {
+        var session = _sessions.FirstOrDefault(s => s.Id == sessionId) ?? throw new SessionNotFoundError();
+        session.Revoke(nowUtc, reason);
+    }
+
     /// <summary>Changes the name shown in the UI.</summary>
     /// <param name="displayName">The new display name; leading and trailing whitespace is removed.</param>
     /// <exception cref="InvalidDisplayNameError">The name is blank or too long once trimmed.</exception>
