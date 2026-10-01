@@ -32,7 +32,7 @@ internal sealed class ForwardedHeadersOptionsSetup(IConfiguration configuration)
         // append to X-Forwarded-For pick which address is treated as the caller's.
         options.ForwardLimit = 1;
 
-        foreach (var proxy in configuration.GetSection(KnownProxiesKey).Get<string[]>() ?? [])
+        foreach (var proxy in ReadList(KnownProxiesKey))
         {
             if (!IPAddress.TryParse(proxy, out var address))
             {
@@ -42,7 +42,7 @@ internal sealed class ForwardedHeadersOptionsSetup(IConfiguration configuration)
             options.KnownProxies.Add(address);
         }
 
-        foreach (var network in configuration.GetSection(KnownNetworksKey).Get<string[]>() ?? [])
+        foreach (var network in ReadList(KnownNetworksKey))
         {
             if (!System.Net.IPNetwork.TryParse(network, out var parsed))
             {
@@ -52,5 +52,21 @@ internal sealed class ForwardedHeadersOptionsSetup(IConfiguration configuration)
 
             options.KnownIPNetworks.Add(parsed);
         }
+    }
+
+    // A list, not a single value: the configuration binder drops a scalar where it expects an
+    // array (e.g. an environment variable set without an index), which would silently leave
+    // the proxy untrusted and every client behind it sharing one rate-limit partition (NFR-5).
+    private string[] ReadList(string key)
+    {
+        var section = configuration.GetSection(key);
+        if (!string.IsNullOrWhiteSpace(section.Value))
+        {
+            throw new InvalidOperationException(
+                $"{key} must be a list, but is the single value '{section.Value}'. "
+                + $"Use a JSON array, or indexed environment variables such as {key.Replace(":", "__")}__0.");
+        }
+
+        return section.Get<string[]>() ?? [];
     }
 }
