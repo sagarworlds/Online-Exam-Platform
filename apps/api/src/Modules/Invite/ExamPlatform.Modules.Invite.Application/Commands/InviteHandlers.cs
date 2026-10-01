@@ -1,15 +1,19 @@
 using System.ComponentModel.DataAnnotations;
-using MediatR;
-using InviteAggregate = ExamPlatform.Modules.Invite.Domain.Invite;
 using ExamPlatform.Modules.Invite.Application.Dtos;
 using ExamPlatform.Modules.Invite.Application.Ports;
+using InviteAggregate = ExamPlatform.Modules.Invite.Domain.Invite;
 
 namespace ExamPlatform.Modules.Invite.Application.Commands;
 
-/// Handler for CreateInviteCommand.
-public class CreateInviteHandler(IInviteRepository repository, IInviteUnitOfWork unitOfWork) : IRequestHandler<CreateInviteCommand, InviteDto>
+/// <summary>Handles <see cref="CreateInviteCommand"/>: creates a new invite aggregate.</summary>
+public sealed class CreateInviteHandler(IInviteRepository repository, IInviteUnitOfWork unitOfWork)
 {
-    public async Task<InviteDto> Handle(CreateInviteCommand command, CancellationToken cancellationToken)
+    /// <summary>Creates the invite and persists it.</summary>
+    /// <param name="command">The invite to create.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The created invite.</returns>
+    /// <exception cref="ArgumentException"><see cref="CreateInviteCommand.Email"/> is not a valid e-mail address.</exception>
+    public async Task<InviteDto> HandleAsync(CreateInviteCommand command, CancellationToken cancellationToken)
     {
         var emailValidator = new EmailAddressAttribute();
         if (!emailValidator.IsValid(command.Email))
@@ -43,10 +47,14 @@ public class CreateInviteHandler(IInviteRepository repository, IInviteUnitOfWork
         );
 }
 
-/// Handler for GenerateInviteCodeCommand.
-public class GenerateInviteCodeHandler(IInviteRepository repository, IInviteUnitOfWork unitOfWork) : IRequestHandler<GenerateInviteCodeCommand, InviteCodeDto>
+/// <summary>Handles <see cref="GenerateInviteCodeCommand"/>: adds a new code to an invite.</summary>
+public sealed class GenerateInviteCodeHandler(IInviteRepository repository, IInviteUnitOfWork unitOfWork)
 {
-    public async Task<InviteCodeDto> Handle(GenerateInviteCodeCommand command, CancellationToken cancellationToken)
+    /// <summary>Generates the code and persists it.</summary>
+    /// <param name="command">The invite and the code lifetime.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The generated code.</returns>
+    public async Task<InviteCodeDto> HandleAsync(GenerateInviteCodeCommand command, CancellationToken cancellationToken)
     {
         var invite = await repository.GetByIdOrThrowAsync(command.InviteId, cancellationToken);
         var code = invite.GenerateCode(command.ExpiryHours);
@@ -56,10 +64,13 @@ public class GenerateInviteCodeHandler(IInviteRepository repository, IInviteUnit
     }
 }
 
-/// Handler for AcceptInviteCommand.
-public class AcceptInviteHandler(IInviteRepository repository, IInviteUnitOfWork unitOfWork) : IRequestHandler<AcceptInviteCommand>
+/// <summary>Handles <see cref="AcceptInviteCommand"/>: redeems an invite code.</summary>
+public sealed class AcceptInviteHandler(IInviteRepository repository, IInviteUnitOfWork unitOfWork)
 {
-    public async Task Handle(AcceptInviteCommand command, CancellationToken cancellationToken)
+    /// <summary>Accepts the invite with the given code and persists the change.</summary>
+    /// <param name="command">The invite and the code that is redeemed.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task HandleAsync(AcceptInviteCommand command, CancellationToken cancellationToken)
     {
         var invite = await repository.GetByIdOrThrowAsync(command.InviteId, cancellationToken);
         invite.Accept(command.InviteCodeId);
@@ -67,10 +78,13 @@ public class AcceptInviteHandler(IInviteRepository repository, IInviteUnitOfWork
     }
 }
 
-/// Handler for DeclineInviteCommand.
-public class DeclineInviteHandler(IInviteRepository repository, IInviteUnitOfWork unitOfWork) : IRequestHandler<DeclineInviteCommand>
+/// <summary>Handles <see cref="DeclineInviteCommand"/>: declines a pending invite.</summary>
+public sealed class DeclineInviteHandler(IInviteRepository repository, IInviteUnitOfWork unitOfWork)
 {
-    public async Task Handle(DeclineInviteCommand command, CancellationToken cancellationToken)
+    /// <summary>Declines the invite and persists the change.</summary>
+    /// <param name="command">The invite to decline.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task HandleAsync(DeclineInviteCommand command, CancellationToken cancellationToken)
     {
         var invite = await repository.GetByIdOrThrowAsync(command.InviteId, cancellationToken);
         invite.Decline();
@@ -78,10 +92,13 @@ public class DeclineInviteHandler(IInviteRepository repository, IInviteUnitOfWor
     }
 }
 
-/// Handler for RevokeInviteCommand.
-public class RevokeInviteHandler(IInviteRepository repository, IInviteUnitOfWork unitOfWork) : IRequestHandler<RevokeInviteCommand>
+/// <summary>Handles <see cref="RevokeInviteCommand"/>: revokes an invite together with its codes.</summary>
+public sealed class RevokeInviteHandler(IInviteRepository repository, IInviteUnitOfWork unitOfWork)
 {
-    public async Task Handle(RevokeInviteCommand command, CancellationToken cancellationToken)
+    /// <summary>Revokes the invite and persists the change.</summary>
+    /// <param name="command">The invite to revoke.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task HandleAsync(RevokeInviteCommand command, CancellationToken cancellationToken)
     {
         var invite = await repository.GetByIdOrThrowAsync(command.InviteId, cancellationToken);
         invite.Revoke();

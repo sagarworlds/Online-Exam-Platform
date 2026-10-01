@@ -4,7 +4,4 @@
     <ProjectReference Include="..\ExamPlatform.Modules.Batch.Application\ExamPlatform.Modules.Batch.Application.csproj" />
     <ProjectReference Include="..\ExamPlatform.Modules.Batch.Infrastructure\ExamPlatform.Modules.Batch.Infrastructure.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="MediatR" />
-  </ItemGroup>
 </Project>

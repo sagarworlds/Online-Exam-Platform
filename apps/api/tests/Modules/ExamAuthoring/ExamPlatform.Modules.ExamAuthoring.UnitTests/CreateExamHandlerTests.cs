@@ -23,7 +23,7 @@ public class CreateExamHandlerTests
             "Comprehensive mathematics assessment",
             createdBy);
 
-        var result = await handler.Handle(command, CancellationToken.None);
+        var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.NotEqual(Guid.Empty, result.Id);
         Assert.Equal("Mathematics Final", result.Name);
@@ -48,6 +48,6 @@ public class CreateExamHandlerTests
 
         var command = new CreateExamCommand(Guid.NewGuid(), name, null, Guid.NewGuid());
 
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(command, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(command, CancellationToken.None));
     }
 }

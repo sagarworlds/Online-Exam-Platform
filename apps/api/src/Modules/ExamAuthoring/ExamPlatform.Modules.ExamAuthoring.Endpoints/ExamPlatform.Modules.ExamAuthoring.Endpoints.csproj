@@ -4,7 +4,4 @@
     <ProjectReference Include="..\ExamPlatform.Modules.ExamAuthoring.Application\ExamPlatform.Modules.ExamAuthoring.Application.csproj" />
     <ProjectReference Include="..\ExamPlatform.Modules.ExamAuthoring.Infrastructure\ExamPlatform.Modules.ExamAuthoring.Infrastructure.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="MediatR" />
-  </ItemGroup>
 </Project>

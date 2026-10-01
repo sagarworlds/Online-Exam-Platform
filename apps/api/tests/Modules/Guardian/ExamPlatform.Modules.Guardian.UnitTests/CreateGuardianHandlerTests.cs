@@ -21,7 +21,7 @@ public class CreateGuardianHandlerTests
         var phone = "+91-9876543210";
         var command = new CreateGuardianCommand(email, fullName, phone);
 
-        var result = await handler.Handle(command, CancellationToken.None);
+        var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.NotEqual(Guid.Empty, result.Id);
         Assert.Equal(email, result.Email);
@@ -44,7 +44,7 @@ public class CreateGuardianHandlerTests
 
         var command = new CreateGuardianCommand("invalid-email", "John Guardian", null);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(command, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(command, CancellationToken.None));
     }
 
     [Theory]
@@ -58,6 +58,6 @@ public class CreateGuardianHandlerTests
 
         var command = new CreateGuardianCommand("guardian@example.com", fullName, null);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(command, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(command, CancellationToken.None));
     }
 }

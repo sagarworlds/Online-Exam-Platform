@@ -4,7 +4,4 @@
     <ProjectReference Include="..\ExamPlatform.Modules.Invite.Application\ExamPlatform.Modules.Invite.Application.csproj" />
     <ProjectReference Include="..\ExamPlatform.Modules.Invite.Infrastructure\ExamPlatform.Modules.Invite.Infrastructure.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="MediatR" />
-  </ItemGroup>
 </Project>

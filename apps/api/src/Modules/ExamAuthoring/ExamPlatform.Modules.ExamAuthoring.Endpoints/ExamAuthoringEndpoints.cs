@@ -30,7 +30,7 @@ public static class ExamAuthoringEndpoints
             request.Description,
             request.CreatedBy);
 
-        var result = await handler.Handle(command, ct);
+        var result = await handler.HandleAsync(command, ct);
         return Results.Created($"/v1/exams/{result.Id}", result);
     }
 }

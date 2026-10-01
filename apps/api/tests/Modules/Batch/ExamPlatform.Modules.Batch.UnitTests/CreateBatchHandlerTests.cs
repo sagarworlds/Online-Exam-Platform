@@ -25,7 +25,7 @@ public class CreateBatchHandlerTests
             100,
             createdBy);
 
-        var result = await handler.Handle(command, CancellationToken.None);
+        var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.NotEqual(Guid.Empty, result.Id);
         Assert.Equal("Batch A", result.Name);
@@ -54,6 +54,6 @@ public class CreateBatchHandlerTests
             0,
             Guid.NewGuid());
 
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(command, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(command, CancellationToken.None));
     }
 }

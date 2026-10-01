@@ -1,14 +1,18 @@
-using MediatR;
-using BatchAggregate = ExamPlatform.Modules.Batch.Domain.Batch;
 using ExamPlatform.Modules.Batch.Application.Dtos;
 using ExamPlatform.Modules.Batch.Application.Ports;
+using BatchAggregate = ExamPlatform.Modules.Batch.Domain.Batch;
 
 namespace ExamPlatform.Modules.Batch.Application.Commands;
 
-/// Handler for CreateBatchCommand.
-public class CreateBatchHandler(IBatchRepository repository, IBatchUnitOfWork unitOfWork) : IRequestHandler<CreateBatchCommand, BatchDto>
+/// <summary>Handles <see cref="CreateBatchCommand"/>: creates a new batch aggregate.</summary>
+public sealed class CreateBatchHandler(IBatchRepository repository, IBatchUnitOfWork unitOfWork)
 {
-    public async Task<BatchDto> Handle(CreateBatchCommand command, CancellationToken cancellationToken)
+    /// <summary>Creates the batch and persists it.</summary>
+    /// <param name="command">The batch to create.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The created batch.</returns>
+    /// <exception cref="ArgumentException"><see cref="CreateBatchCommand.MaxMembers"/> is not greater than zero.</exception>
+    public async Task<BatchDto> HandleAsync(CreateBatchCommand command, CancellationToken cancellationToken)
     {
         if (command.MaxMembers <= 0)
             throw new ArgumentException("MaxMembers must be greater than zero", nameof(command.MaxMembers));
@@ -42,10 +46,13 @@ public class CreateBatchHandler(IBatchRepository repository, IBatchUnitOfWork un
         );
 }
 
-/// Handler for AddBatchMemberCommand.
-public class AddBatchMemberHandler(IBatchRepository repository, IBatchUnitOfWork unitOfWork) : IRequestHandler<AddBatchMemberCommand>
+/// <summary>Handles <see cref="AddBatchMemberCommand"/>: adds a member to an existing batch.</summary>
+public sealed class AddBatchMemberHandler(IBatchRepository repository, IBatchUnitOfWork unitOfWork)
 {
-    public async Task Handle(AddBatchMemberCommand command, CancellationToken cancellationToken)
+    /// <summary>Adds the member to the batch and persists the change.</summary>
+    /// <param name="command">The batch and the member to add.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task HandleAsync(AddBatchMemberCommand command, CancellationToken cancellationToken)
     {
         var batch = await repository.GetByIdOrThrowAsync(command.BatchId, cancellationToken);
         batch.AddMember(command.Email, command.Phone);
@@ -53,10 +60,13 @@ public class AddBatchMemberHandler(IBatchRepository repository, IBatchUnitOfWork
     }
 }
 
-/// Handler for ActivateBatchCommand.
-public class ActivateBatchHandler(IBatchRepository repository, IBatchUnitOfWork unitOfWork) : IRequestHandler<ActivateBatchCommand>
+/// <summary>Handles <see cref="ActivateBatchCommand"/>: moves a batch out of draft.</summary>
+public sealed class ActivateBatchHandler(IBatchRepository repository, IBatchUnitOfWork unitOfWork)
 {
-    public async Task Handle(ActivateBatchCommand command, CancellationToken cancellationToken)
+    /// <summary>Activates the batch and persists the change.</summary>
+    /// <param name="command">The batch to activate.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task HandleAsync(ActivateBatchCommand command, CancellationToken cancellationToken)
     {
         var batch = await repository.GetByIdOrThrowAsync(command.BatchId, cancellationToken);
         batch.Activate();
@@ -64,10 +74,13 @@ public class ActivateBatchHandler(IBatchRepository repository, IBatchUnitOfWork 
     }
 }
 
-/// Handler for CloseBatchCommand.
-public class CloseBatchHandler(IBatchRepository repository, IBatchUnitOfWork unitOfWork) : IRequestHandler<CloseBatchCommand>
+/// <summary>Handles <see cref="CloseBatchCommand"/>: closes a batch for further changes.</summary>
+public sealed class CloseBatchHandler(IBatchRepository repository, IBatchUnitOfWork unitOfWork)
 {
-    public async Task Handle(CloseBatchCommand command, CancellationToken cancellationToken)
+    /// <summary>Closes the batch and persists the change.</summary>
+    /// <param name="command">The batch to close.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task HandleAsync(CloseBatchCommand command, CancellationToken cancellationToken)
     {
         var batch = await repository.GetByIdOrThrowAsync(command.BatchId, cancellationToken);
         batch.Close();

@@ -45,7 +45,7 @@ public static class GuardianEndpoints
             request.FullName,
             request.Phone);
 
-        var result = await handler.Handle(command, ct);
+        var result = await handler.HandleAsync(command, ct);
         return Results.Created($"/v1/guardians/{result.Id}", result);
     }
 
@@ -60,7 +60,7 @@ public static class GuardianEndpoints
             request.CandidateId,
             request.CandidateEmail);
 
-        var result = await handler.Handle(command, ct);
+        var result = await handler.HandleAsync(command, ct);
         return Results.Created($"/v1/guardians/{guardianId}/links", result);
     }
 
@@ -70,7 +70,7 @@ public static class GuardianEndpoints
         CancellationToken ct)
     {
         var command = new VerifyGuardianLinkCommand(request.VerificationToken);
-        await handler.Handle(command, ct);
+        await handler.HandleAsync(command, ct);
         return Results.NoContent();
     }
 
@@ -81,7 +81,7 @@ public static class GuardianEndpoints
         CancellationToken ct)
     {
         var command = new RevokeGuardianLinkCommand(guardianId, candidateId);
-        await handler.Handle(command, ct);
+        await handler.HandleAsync(command, ct);
         return Results.NoContent();
     }
 
@@ -92,7 +92,7 @@ public static class GuardianEndpoints
         CancellationToken ct)
     {
         var command = new UnlinkCandidateCommand(guardianId, candidateId);
-        await handler.Handle(command, ct);
+        await handler.HandleAsync(command, ct);
         return Results.NoContent();
     }
 }

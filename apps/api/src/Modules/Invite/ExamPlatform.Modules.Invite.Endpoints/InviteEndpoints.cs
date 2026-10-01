@@ -46,7 +46,7 @@ public static class InviteEndpoints
             request.Email,
             request.CreatedByUserId);
 
-        var result = await handler.Handle(command, ct);
+        var result = await handler.HandleAsync(command, ct);
         return Results.Created($"/v1/invites/{result.Id}", result);
     }
 
@@ -60,7 +60,7 @@ public static class InviteEndpoints
             inviteId,
             request.ExpiryHours ?? 72);
 
-        var result = await handler.Handle(command, ct);
+        var result = await handler.HandleAsync(command, ct);
         return Results.Created($"/v1/invites/{inviteId}/codes", result);
     }
 
@@ -74,7 +74,7 @@ public static class InviteEndpoints
             inviteId,
             request.InviteCodeId);
 
-        await handler.Handle(command, ct);
+        await handler.HandleAsync(command, ct);
         return Results.NoContent();
     }
 
@@ -84,7 +84,7 @@ public static class InviteEndpoints
         CancellationToken ct)
     {
         var command = new DeclineInviteCommand(inviteId);
-        await handler.Handle(command, ct);
+        await handler.HandleAsync(command, ct);
         return Results.NoContent();
     }
 
@@ -94,7 +94,7 @@ public static class InviteEndpoints
         CancellationToken ct)
     {
         var command = new RevokeInviteCommand(inviteId);
-        await handler.Handle(command, ct);
+        await handler.HandleAsync(command, ct);
         return Results.NoContent();
     }
 }

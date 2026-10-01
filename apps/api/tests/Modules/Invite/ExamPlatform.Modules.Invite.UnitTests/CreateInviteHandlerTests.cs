@@ -22,7 +22,7 @@ public class CreateInviteHandlerTests
         var email = "candidate@example.com";
         var command = new CreateInviteCommand(examId, batchMemberId, email, createdBy);
 
-        var result = await handler.Handle(command, CancellationToken.None);
+        var result = await handler.HandleAsync(command, CancellationToken.None);
 
         Assert.NotEqual(Guid.Empty, result.Id);
         Assert.Equal(email, result.Email);
@@ -49,6 +49,6 @@ public class CreateInviteHandlerTests
             "not-an-email",
             Guid.NewGuid());
 
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(command, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(command, CancellationToken.None));
     }
 }

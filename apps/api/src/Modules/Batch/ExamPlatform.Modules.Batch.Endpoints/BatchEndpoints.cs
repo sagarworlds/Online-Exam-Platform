@@ -43,7 +43,7 @@ public static class BatchEndpoints
             request.MaxMembers,
             request.CreatedBy);
 
-        var result = await handler.Handle(command, ct);
+        var result = await handler.HandleAsync(command, ct);
         return Results.Created($"/v1/batches/{result.Id}", result);
     }
 
@@ -58,7 +58,7 @@ public static class BatchEndpoints
             request.Email,
             request.Phone);
 
-        await handler.Handle(command, ct);
+        await handler.HandleAsync(command, ct);
         return Results.NoContent();
     }
 
@@ -68,7 +68,7 @@ public static class BatchEndpoints
         CancellationToken ct)
     {
         var command = new ActivateBatchCommand(batchId);
-        await handler.Handle(command, ct);
+        await handler.HandleAsync(command, ct);
         return Results.NoContent();
     }
 
@@ -78,7 +78,7 @@ public static class BatchEndpoints
         CancellationToken ct)
     {
         var command = new CloseBatchCommand(batchId);
-        await handler.Handle(command, ct);
+        await handler.HandleAsync(command, ct);
         return Results.NoContent();
     }
 }
