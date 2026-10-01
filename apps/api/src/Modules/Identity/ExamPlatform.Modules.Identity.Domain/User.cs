@@ -79,6 +79,32 @@ public sealed class User : AggregateRoot
     /// <summary>Marks the account verified and active, e.g. after the first successful OTP login.</summary>
     public void Activate() => Status = UserStatus.Active;
 
+    /// <summary>
+    /// Blocks the account from signing in and ends every session it currently has, so a
+    /// suspension takes effect immediately rather than when the user's token expires.
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    public void Suspend(DateTime nowUtc)
+    {
+        Status = UserStatus.Suspended;
+        RevokeAllSessions(nowUtc, SessionRevocationReason.AccountSuspended);
+    }
+
+    /// <summary>
+    /// Revokes every session that is still active at <paramref name="nowUtc"/>. Sessions
+    /// that were already revoked keep their original revocation time and reason, and
+    /// expired ones are left as they are.
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <param name="reason">Why the sessions are being revoked.</param>
+    public void RevokeAllSessions(DateTime nowUtc, SessionRevocationReason reason)
+    {
+        foreach (var session in _sessions.Where(s => s.IsActive(nowUtc)))
+        {
+            session.Revoke(nowUtc, reason);
+        }
+    }
+
     /// <summary>Changes the name shown in the UI.</summary>
     /// <param name="displayName">The new display name.</param>
     public void UpdateDisplayName(string displayName) => DisplayName = displayName;

@@ -40,6 +40,41 @@ public class UserTests
     }
 
     [Fact]
+    public void Suspend_SetsStatusAndRevokesActiveSessions()
+    {
+        var user = CreateAdultUser();
+        user.Activate();
+        var session = user.StartNewSession("hash-1", Now, Now.AddHours(1), null, null);
+
+        user.Suspend(Now.AddMinutes(5));
+
+        Assert.Equal(UserStatus.Suspended, user.Status);
+        Assert.False(session.IsActive(Now.AddMinutes(5)));
+        Assert.Equal(Now.AddMinutes(5), session.RevokedAtUtc);
+        Assert.Equal(SessionRevocationReason.AccountSuspended, session.RevokedReason);
+    }
+
+    [Fact]
+    public void RevokeAllSessions_RevokesOnlyActiveSessions()
+    {
+        var user = CreateAdultUser();
+        var superseded = user.StartNewSession("hash-1", Now, Now.AddHours(1), null, null);
+        var expired = user.StartNewSession("hash-2", Now.AddMinutes(1), Now.AddMinutes(2), null, null);
+        var active = user.StartNewSession("hash-3", Now.AddMinutes(3), Now.AddHours(1), null, null);
+        var revokeAt = Now.AddMinutes(10);
+
+        user.RevokeAllSessions(revokeAt, SessionRevocationReason.LoggedOut);
+
+        // The already-revoked session keeps its original reason and time, the expired one is
+        // left untouched, and only the session that was still live is revoked now.
+        Assert.Equal(SessionRevocationReason.SupersededByNewLogin, superseded.RevokedReason);
+        Assert.Equal(Now.AddMinutes(1), superseded.RevokedAtUtc);
+        Assert.Null(expired.RevokedAtUtc);
+        Assert.Equal(SessionRevocationReason.LoggedOut, active.RevokedReason);
+        Assert.Equal(revokeAt, active.RevokedAtUtc);
+    }
+
+    [Fact]
     public void RequiresTwoFactor_WithRoleThatRequiresIt_ReturnsTrue()
     {
         var user = CreateAdultUser();

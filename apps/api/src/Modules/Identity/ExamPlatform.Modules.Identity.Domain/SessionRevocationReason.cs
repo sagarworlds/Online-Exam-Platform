@@ -10,5 +10,11 @@ public enum SessionRevocationReason
     LoggedOut,
 
     /// <summary>An administrator forcibly ended the session.</summary>
-    AdminForced
+    AdminForced,
+
+    /// <summary>The account was suspended, which ends every session it had (FR-3).</summary>
+    AccountSuspended,
+
+    /// <summary>The account's password was reset, which ends every session started with the old one (FR-3).</summary>
+    PasswordReset
 }

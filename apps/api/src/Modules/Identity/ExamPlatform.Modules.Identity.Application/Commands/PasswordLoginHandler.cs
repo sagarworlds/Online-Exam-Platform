@@ -10,6 +10,7 @@ namespace ExamPlatform.Modules.Identity.Application.Commands;
 public sealed class PasswordLoginHandler(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher,
+    LoginEligibilityPolicy eligibilityPolicy,
     OtpChallengeIssuer otpChallengeIssuer,
     LoginSessionIssuer sessionIssuer,
     IIdentityUnitOfWork unitOfWork)
@@ -33,9 +34,9 @@ public sealed class PasswordLoginHandler(
             throw new InvalidCredentialsError();
         }
 
-        if (user.Status is UserStatus.Suspended or UserStatus.Deactivated)
+        if (eligibilityPolicy.GetAccountViolation(user) is { } accountViolation)
         {
-            throw new AccountLockedError();
+            throw accountViolation;
         }
 
         if (user.RequiresTwoFactor)

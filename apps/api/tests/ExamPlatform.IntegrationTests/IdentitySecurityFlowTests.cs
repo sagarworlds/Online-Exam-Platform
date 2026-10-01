@@ -15,8 +15,8 @@ namespace ExamPlatform.IntegrationTests;
 
 /// <summary>
 /// Drives the Identity module's security rules over real HTTP and a real database:
-/// the OTP brute-force lockout, replay protection, supersession of older codes and
-/// concurrency guards (FR-1, NFR-5).
+/// the OTP brute-force lockout, replay protection, supersession of older codes,
+/// concurrency guards (FR-1, NFR-5), and which accounts an OTP may sign in (FR-3).
 /// Each test arranges its own user with a unique address, so the tests are independent
 /// of each other and of the order they run in.
 /// </summary>
@@ -129,6 +129,50 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task AdminOtpOnlyLogin_IsRefused()
+    {
+        var admin = await factory.SignInAsAsync("SuperAdmin");
+        using var client = factory.CreateClient();
+
+        var challengeId = await RequestOtpAsync(client, admin.Email);
+        var code = factory.OtpSender.GetLastCode(admin.Email);
+
+        // The right code for a Login-purpose challenge still cannot sign a 2FA-required
+        // account in (FR-3); only the TwoFactorStep code issued after its password can.
+        await AssertProblemAsync(
+            await VerifyOtpAsync(client, challengeId, code), HttpStatusCode.Forbidden, "two_factor_login_required");
+
+        using var scope = factory.Services.CreateScope();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var challenge = await identityDb.OtpChallenges.SingleAsync(c => c.Id == challengeId);
+        Assert.True(challenge.IsConsumed);
+        var user = await identityDb.Users.Include(u => u.Sessions).SingleAsync(u => u.Id == admin.UserId);
+        Assert.Equal(admin.SessionId, Assert.Single(user.Sessions).Id);
+    }
+
+    [Fact]
+    public async Task SuspendedUser_CannotCompleteOtpLogin()
+    {
+        var candidate = await factory.SignInAsAsync("Candidate");
+        using var client = factory.CreateClient();
+
+        // The code is requested while the account is still active, then the account is
+        // suspended before the code is used.
+        var challengeId = await RequestOtpAsync(client, candidate.Email);
+        var code = factory.OtpSender.GetLastCode(candidate.Email);
+        await SuspendAsync(candidate.UserId);
+
+        await AssertProblemAsync(
+            await VerifyOtpAsync(client, challengeId, code), HttpStatusCode.Forbidden, "account_locked");
+
+        using var scope = factory.Services.CreateScope();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var user = await identityDb.Users.Include(u => u.Sessions).SingleAsync(u => u.Id == candidate.UserId);
+        var session = Assert.Single(user.Sessions);
+        Assert.Equal(SessionRevocationReason.AccountSuspended, session.RevokedReason);
+    }
+
+    [Fact]
     public async Task GetOutstanding_ReturnsOnlyStillVerifiableChallengesForTheDestinationAndPurpose()
     {
         var destination = $"outstanding-{Guid.NewGuid():N}@tests.local";
@@ -172,6 +216,17 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         Assert.Equal(
             new[] { liveChallengeId, expiringNowChallengeId }.Order(),
             outstanding.Select(c => c.Id).Order());
+    }
+
+    // Arrange-only: no admin endpoint suspends accounts yet, so the domain method is called directly.
+    private async Task SuspendAsync(Guid userId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var services = scope.ServiceProvider;
+        var user = await services.GetRequiredService<IUserRepository>().GetByIdAsync(userId, CancellationToken.None)
+            ?? throw new InvalidOperationException($"User {userId} was not found.");
+        user.Suspend(services.GetRequiredService<Clock>().UtcNow);
+        await services.GetRequiredService<IIdentityUnitOfWork>().SaveChangesAsync(CancellationToken.None);
     }
 
     private static async Task<OtpChallenge> LoadChallengeAsync(IServiceScope scope, Guid challengeId) =>

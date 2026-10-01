@@ -3,8 +3,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ExamPlatform.Modules.Consent.Contracts;
+using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Domain;
 using ExamPlatform.Modules.Identity.Infrastructure;
+using ExamPlatform.SharedKernel.Application;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -129,26 +131,49 @@ public sealed class AuthConsentAuditFlowTests(ApiFactory factory) : IClassFixtur
         Assert.Equal(HttpStatusCode.Forbidden, deniedAuditResponse.StatusCode);
 
         // 6. Seed a SuperAdmin directly (arrange step — no endpoint exists to create one,
-        // since invite/admin-provisioning is out of this slice's scope), then confirm the
+        // since invite/admin-provisioning is out of this slice's scope), then sign it in the
+        // only way its role allows (FR-3: password, then a second-factor OTP) and confirm the
         // permission it carries lets it both assign a role and read the audit trail.
-        Guid adminUserId;
+        const string adminEmail = "journey-admin@example.com";
+        const string adminPassword = "journey-admin-password";
         using (var scope = factory.Services.CreateScope())
         {
             var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            var nowUtc = scope.ServiceProvider.GetRequiredService<Clock>().UtcNow;
             var superAdminRole = await identityDb.Roles.Include(r => r.Permissions).SingleAsync(r => r.Name == "SuperAdmin");
-            var admin = User.Register("journey-admin@example.com", null, new DateOnly(1990, 1, 1), "Journey Admin", DateTime.UtcNow);
+            var admin = User.Register(adminEmail, null, new DateOnly(1990, 1, 1), "Journey Admin", nowUtc);
             admin.AssignRole(superAdminRole);
+            admin.SetPasswordHash(scope.ServiceProvider.GetRequiredService<IPasswordHasher>().Hash(adminPassword));
             admin.Activate();
             await identityDb.Users.AddAsync(admin);
             await identityDb.SaveChangesAsync();
-            adminUserId = admin.Id;
         }
 
-        var adminOtpRequest = await client.PostAsJsonAsync("/v1/auth/otp/request", new { channel = "Email", destination = "journey-admin@example.com" });
+        // The OTP-only path a candidate uses cannot sign a 2FA-required account in.
+        var adminOtpRequest = await client.PostAsJsonAsync("/v1/auth/otp/request", new { channel = "Email", destination = adminEmail });
         adminOtpRequest.EnsureSuccessStatusCode();
-        var adminChallenge = await adminOtpRequest.Content.ReadFromJsonAsync<OtpChallengeResponse>(JsonOptions);
-        var adminCode = factory.OtpSender.GetLastCode("journey-admin@example.com");
-        var adminVerify = await client.PostAsJsonAsync("/v1/auth/otp/verify", new { otpChallengeId = adminChallenge!.OtpChallengeId, code = adminCode });
+        var adminOtpChallenge = await adminOtpRequest.Content.ReadFromJsonAsync<OtpChallengeResponse>(JsonOptions);
+        var adminOtpOnlyVerify = await client.PostAsJsonAsync("/v1/auth/otp/verify", new
+        {
+            otpChallengeId = adminOtpChallenge!.OtpChallengeId,
+            code = factory.OtpSender.GetLastCode(adminEmail),
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, adminOtpOnlyVerify.StatusCode);
+        var otpOnlyProblem = await adminOtpOnlyVerify.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+        Assert.Equal("two_factor_login_required", otpOnlyProblem.GetProperty("title").GetString());
+
+        var adminLogin = await client.PostAsJsonAsync("/v1/auth/login", new { email = adminEmail, password = adminPassword });
+        adminLogin.EnsureSuccessStatusCode();
+        var adminPending = await adminLogin.Content.ReadFromJsonAsync<AuthResultResponse>(JsonOptions);
+        Assert.True(adminPending!.RequiresTwoFactor);
+        Assert.Null(adminPending.AccessToken);
+        Assert.NotNull(adminPending.OtpChallengeId);
+
+        var adminVerify = await client.PostAsJsonAsync("/v1/auth/otp/verify", new
+        {
+            otpChallengeId = adminPending.OtpChallengeId,
+            code = factory.OtpSender.GetLastCode(adminEmail),
+        });
         adminVerify.EnsureSuccessStatusCode();
         var adminAuth = await adminVerify.Content.ReadFromJsonAsync<AuthResultResponse>(JsonOptions);
 
