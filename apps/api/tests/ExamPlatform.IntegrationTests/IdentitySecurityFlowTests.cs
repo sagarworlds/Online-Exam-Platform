@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -567,6 +568,23 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task AccessToken_IsValidExactlyAsLongAsItsSession()
+    {
+        var candidate = await factory.SignInAsAsync("Candidate");
+        using var scope = factory.Services.CreateScope();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var session = await identityDb.Set<UserSession>().AsNoTracking().SingleAsync(s => s.Id == candidate.SessionId);
+
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(candidate.AccessToken);
+
+        // JWT times are whole seconds, so compare at that precision. A lifetime longer than the
+        // session's would let the bearer handler accept the token after the session check's
+        // expiry, and one that starts earlier would accept it before the session began.
+        Assert.Equal(Truncate(session.ExpiresAtUtc), token.ValidTo);
+        Assert.Equal(Truncate(session.IssuedAtUtc), token.ValidFrom);
+    }
+
+    [Fact]
     public async Task Logout_RevokesTheSession_AndTheTokenStopsWorking()
     {
         var candidate = await factory.SignInAsAsync("Candidate");
@@ -754,6 +772,9 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         await services.GetRequiredService<IIdentityUnitOfWork>().SaveChangesAsync(CancellationToken.None);
         return services.GetRequiredService<ITokenGenerator>().GenerateAccessToken(user, session);
     }
+
+    // What a JWT's numeric-date claims keep of an instant: whole seconds, rounded down.
+    private static DateTime Truncate(DateTime utc) => new(utc.Ticks - utc.Ticks % TimeSpan.TicksPerSecond, DateTimeKind.Utc);
 
     // The token goes on this one request, so a test can try several tokens with one client.
     private static async Task<HttpResponseMessage> GetProfileAsync(HttpClient client, string accessToken)
