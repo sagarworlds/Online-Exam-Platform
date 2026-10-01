@@ -1,6 +1,7 @@
 using System.Net;
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Endpoints.OtpDelivery;
+using ExamPlatform.Modules.Identity.Endpoints.RateLimiting;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -64,7 +65,9 @@ public sealed class ProductionHostFactory(
 
 /// <summary>
 /// Proves a host that would write one-time codes to its log, or that has no way to deliver
-/// them, refuses to start instead of failing on the first sign-in or leaking codes (NFR-6).
+/// them, refuses to start instead of failing on the first sign-in or leaking codes (NFR-6),
+/// and that a non-positive Identity rate limit fails the boot rather than the first request
+/// (NFR-5).
 /// </summary>
 public sealed class StartupGuardTests
 {
@@ -73,7 +76,7 @@ public sealed class StartupGuardTests
     {
         using var factory = new ProductionHostFactory(OtpDeliveryOptions.DevelopmentLog);
 
-        var failure = AssertStartupFails(factory);
+        var failure = AssertStartupFails<OtpDeliveryOptions>(factory);
 
         Assert.Contains(OtpDeliveryOptions.SectionName, failure.Message);
         Assert.Contains("Production", failure.Message);
@@ -84,7 +87,7 @@ public sealed class StartupGuardTests
     {
         using var factory = new ProductionHostFactory(otpProvider: null);
 
-        var failure = AssertStartupFails(factory);
+        var failure = AssertStartupFails<OtpDeliveryOptions>(factory);
 
         Assert.Contains(OtpDeliveryOptions.SectionName, failure.Message);
         Assert.Contains("FR-39", failure.Message);
@@ -95,7 +98,7 @@ public sealed class StartupGuardTests
     {
         using var factory = new ProductionHostFactory("Carrier-Pigeon");
 
-        var failure = AssertStartupFails(factory);
+        var failure = AssertStartupFails<OtpDeliveryOptions>(factory);
 
         Assert.Contains("Carrier-Pigeon", failure.Message);
     }
@@ -113,7 +116,26 @@ public sealed class StartupGuardTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    private static OptionsValidationException AssertStartupFails(ProductionHostFactory factory)
+    [Theory]
+    [InlineData("OtpRequest", "PermitLimit", "0")]
+    [InlineData("OtpVerify", "WindowSeconds", "0")]
+    [InlineData("PasswordLogin", "PermitLimit", "-1")]
+    [InlineData("PasswordReset", "WindowSeconds", "-1")]
+    public void NonPositiveIdentityRateLimit_FailsAtStartupNamingThePolicy(string policy, string setting, string value)
+    {
+        // A non-positive limit or window is a misconfiguration: it must stop the boot, not turn
+        // into every request being rejected or a 500 when the first request builds the limiter.
+        using var factory = new ProductionHostFactory(
+            otpProvider: null,
+            allowCapturingSender: true,
+            extraSettings: new Dictionary<string, string?> { [$"Identity:RateLimits:{policy}:{setting}"] = value });
+
+        var failure = AssertStartupFails<IdentityRateLimitOptions>(factory);
+
+        Assert.Contains($"Identity:RateLimits:{policy}", failure.Message);
+    }
+
+    private static OptionsValidationException AssertStartupFails<TOptions>(ProductionHostFactory factory)
     {
         var failure = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
 
@@ -121,7 +143,7 @@ public sealed class StartupGuardTests
         // AggregateException), so look for it anywhere in the exception chain.
         var validationFailure = SelfAndInnerExceptions(failure).OfType<OptionsValidationException>().FirstOrDefault();
         Assert.True(validationFailure is not null, $"Expected an OptionsValidationException, got: {failure}");
-        Assert.Equal(typeof(OtpDeliveryOptions), validationFailure.OptionsType);
+        Assert.Equal(typeof(TOptions), validationFailure.OptionsType);
         return validationFailure;
     }
 
