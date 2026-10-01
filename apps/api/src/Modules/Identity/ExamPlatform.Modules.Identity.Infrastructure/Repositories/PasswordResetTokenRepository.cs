@@ -12,6 +12,16 @@ public sealed class PasswordResetTokenRepository(IdentityDbContext context) : IP
         context.PasswordResetTokens.FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<PasswordResetToken>> GetOutstandingForUserAsync(
+        Guid userId, DateTime nowUtc, CancellationToken cancellationToken) =>
+        await context.PasswordResetTokens
+            .Where(t => t.UserId == userId
+                && t.ConsumedAtUtc == null
+                && t.RevokedAtUtc == null
+                && t.ExpiresAtUtc >= nowUtc)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task AddAsync(PasswordResetToken token, CancellationToken cancellationToken) =>
         await context.PasswordResetTokens.AddAsync(token, cancellationToken);
 }

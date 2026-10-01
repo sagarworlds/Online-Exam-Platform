@@ -16,8 +16,10 @@ public sealed class RequestPasswordResetHandler(
     private static readonly TimeSpan Validity = TimeSpan.FromMinutes(30);
 
     /// <summary>
-    /// Issues and sends a reset token if the email matches an account.
-    /// Intentionally does not reveal whether the account exists — the response
+    /// Issues and sends a reset token if the email matches an account that signs in with a
+    /// password, and revokes that account's earlier unused reset links, so only the newest
+    /// one works (FR-3).
+    /// Intentionally does not reveal whether such an account exists — the response
     /// is the same either way, so this endpoint cannot be used to enumerate
     /// registered email addresses.
     /// </summary>
@@ -26,15 +28,25 @@ public sealed class RequestPasswordResetHandler(
     public async Task HandleAsync(RequestPasswordResetCommand command, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByEmailAsync(command.Email, cancellationToken);
-        if (user is null)
+
+        // An account without a password (candidates sign in with a one-time code only, FR-1)
+        // gets the same silent answer as an unknown email: a reset would give it a password
+        // login it never had, and a different answer would tell a caller the account exists.
+        if (user?.PasswordHash is null)
         {
             return;
+        }
+
+        var nowUtc = clock.UtcNow;
+        foreach (var earlier in await tokenRepository.GetOutstandingForUserAsync(user.Id, nowUtc, cancellationToken))
+        {
+            earlier.Revoke(nowUtc);
         }
 
         var rawToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         var tokenHash = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(rawToken)));
 
-        var resetToken = PasswordResetToken.Issue(user.Id, tokenHash, clock.UtcNow, Validity);
+        var resetToken = PasswordResetToken.Issue(user.Id, tokenHash, nowUtc, Validity);
         await tokenRepository.AddAsync(resetToken, cancellationToken);
 
         // The reset link the user receives encodes both resetToken.Id and rawToken;

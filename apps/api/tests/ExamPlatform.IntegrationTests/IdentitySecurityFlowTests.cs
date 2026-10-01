@@ -19,13 +19,17 @@ namespace ExamPlatform.IntegrationTests;
 /// the OTP brute-force lockout, replay protection, supersession of older codes,
 /// concurrency guards (FR-1, NFR-5), which accounts an OTP may sign in (FR-3), that a
 /// token stops working as soon as its session ends, including by logging out (FR-4),
-/// and that malformed sign-up, sign-in and profile input gets a typed 400 rather than a
-/// 500 (section 11).
+/// that a password reset enforces the password policy, ends every session and withdraws
+/// older reset links (FR-3), and that malformed sign-up, sign-in and profile input gets
+/// a typed 400 rather than a 500 (section 11).
 /// Each test arranges its own user with a unique address, so the tests are independent
 /// of each other and of the order they run in.
 /// </summary>
 public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
+    // Long enough for the password policy and free of any test email's local part.
+    private const string NewStrongPassword = "correct horse battery staple";
+
     [Fact]
     public async Task VerifyOtp_FiveWrongCodes_LocksTheChallengeEvenForTheCorrectCode()
     {
@@ -580,6 +584,84 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task PasswordReset_WithWeakPassword_Returns400WeakPassword()
+    {
+        var admin = await factory.SignInAsAsync("SuperAdmin", password: "the-original-password");
+        using var client = factory.CreateClient();
+        var link = await RequestPasswordResetAsync(client, admin.Email);
+
+        await AssertProblemAsync(
+            await ResetPasswordAsync(client, link, "too-short"), HttpStatusCode.BadRequest, "weak_password");
+
+        // A refused password changes nothing, so the same link still works with a stronger one.
+        Assert.Equal(HttpStatusCode.OK, (await ResetPasswordAsync(client, link, NewStrongPassword)).StatusCode);
+    }
+
+    [Fact]
+    public async Task PasswordReset_Success_EndsExistingSessionsAndInvalidatesOlderLinks()
+    {
+        const string oldPassword = "the-original-password";
+        var admin = await factory.SignInAsAsync("SuperAdmin", password: oldPassword);
+        using var client = factory.CreateClient();
+
+        var firstLink = await RequestPasswordResetAsync(client, admin.Email);
+        var secondLink = await RequestPasswordResetAsync(client, admin.Email);
+
+        // Requesting a new link withdrew the first one (FR-3).
+        await AssertProblemAsync(
+            await ResetPasswordAsync(client, firstLink, NewStrongPassword), HttpStatusCode.BadRequest, "password_reset_token_invalid");
+        Assert.Equal(HttpStatusCode.OK, (await ResetPasswordAsync(client, secondLink, NewStrongPassword)).StatusCode);
+
+        // The reset ended the session the old password started (FR-4) ...
+        await AssertProblemAsync(
+            await GetProfileAsync(client, admin.AccessToken), HttpStatusCode.Unauthorized, "session_revoked");
+        using (var scope = factory.Services.CreateScope())
+        {
+            var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            var session = await identityDb.Set<UserSession>().SingleAsync(s => s.Id == admin.SessionId);
+            Assert.Equal(SessionRevocationReason.PasswordReset, session.RevokedReason);
+        }
+
+        // ... the used link cannot be replayed, and only the new password signs in, still
+        // followed by the mandatory second factor.
+        await AssertProblemAsync(
+            await ResetPasswordAsync(client, secondLink, "yet another long passphrase"),
+            HttpStatusCode.BadRequest,
+            "password_reset_token_invalid");
+        await AssertProblemAsync(
+            await client.PostAsJsonAsync("/v1/auth/login", new { email = admin.Email, password = oldPassword }),
+            HttpStatusCode.Unauthorized,
+            "invalid_credentials");
+        var loginResponse = await client.PostAsJsonAsync("/v1/auth/login", new { email = admin.Email, password = NewStrongPassword });
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+        var pending = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(pending.GetProperty("requiresTwoFactor").GetBoolean());
+    }
+
+    [Fact]
+    public async Task PasswordReset_ForAccountWithoutPassword_AnswersLikeAnUnknownEmailAndSendsNothing()
+    {
+        var candidate = await factory.SignInAsAsync("Candidate");
+        var unknownEmail = $"nobody-{Guid.NewGuid():N}@tests.local";
+        using var client = factory.CreateClient();
+
+        var candidateResponse = await client.PostAsJsonAsync("/v1/auth/password-reset/request", new { email = candidate.Email });
+        var unknownResponse = await client.PostAsJsonAsync("/v1/auth/password-reset/request", new { email = unknownEmail });
+
+        // An OTP-only candidate (FR-1) must not gain a password login, and the answer must not
+        // tell a caller that the account exists.
+        Assert.Equal(HttpStatusCode.OK, candidateResponse.StatusCode);
+        Assert.Equal(unknownResponse.StatusCode, candidateResponse.StatusCode);
+        Assert.Equal(
+            await unknownResponse.Content.ReadAsStringAsync(), await candidateResponse.Content.ReadAsStringAsync());
+        Assert.False(factory.OtpSender.HasSentTo(candidate.Email));
+
+        using var scope = factory.Services.CreateScope();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        Assert.False(await identityDb.PasswordResetTokens.AnyAsync(t => t.UserId == candidate.UserId));
+    }
+
     // Arrange-only: no admin endpoint suspends accounts yet, so the domain method is called directly.
     private async Task SuspendAsync(Guid userId)
     {
@@ -668,6 +750,22 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         Assert.Equal(["otpChallengeId"], body.EnumerateObject().Select(p => p.Name));
         return body.GetProperty("otpChallengeId").GetGuid();
     }
+
+    // Requests a reset link and reads it back the way the email would carry it: "{tokenId}:{secret}".
+    private async Task<(Guid TokenId, string Token)> RequestPasswordResetAsync(HttpClient client, string email)
+    {
+        var response = await client.PostAsJsonAsync("/v1/auth/password-reset/request", new { email });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var parts = factory.OtpSender.GetLastCode(email).Split(':');
+        return (Guid.Parse(parts[0]), parts[1]);
+    }
+
+    private static Task<HttpResponseMessage> ResetPasswordAsync(
+        HttpClient client, (Guid TokenId, string Token) link, string newPassword) =>
+        client.PostAsJsonAsync(
+            "/v1/auth/password-reset/reset",
+            new { passwordResetTokenId = link.TokenId, token = link.Token, newPassword });
 
     private static Task<HttpResponseMessage> VerifyOtpAsync(HttpClient client, Guid challengeId, string code) =>
         client.PostAsJsonAsync("/v1/auth/otp/verify", new { otpChallengeId = challengeId, code });

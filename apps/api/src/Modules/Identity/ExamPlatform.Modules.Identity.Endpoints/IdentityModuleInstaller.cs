@@ -44,6 +44,7 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddSingleton<ITokenGenerator, JwtTokenGenerator>();
 
         services.AddSingleton<LoginEligibilityPolicy>();
+        services.AddSingleton<IPasswordPolicy, PasswordPolicy>();
         services.AddScoped<OtpChallengeIssuer>();
         services.AddScoped<LoginSessionIssuer>();
         services.AddScoped<RequestOtpHandler>();

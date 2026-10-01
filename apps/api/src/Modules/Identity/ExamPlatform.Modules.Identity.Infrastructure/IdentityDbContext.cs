@@ -110,6 +110,15 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             b.HasKey(t => t.Id);
             b.Property(t => t.TokenHash).IsRequired();
             b.Ignore(t => t.DomainEvents);
+
+            // Every reset request and every completed reset looks up the user's outstanding
+            // tokens to revoke them, so that lookup must not scan the table.
+            b.HasIndex(t => t.UserId);
+
+            // The same xmin row version as OtpChallenges: two parallel resets with one link
+            // cannot both consume it, and a reset racing a newer request cannot overwrite the
+            // revocation; the second save fails and IdentityUnitOfWork reports it as a 409.
+            b.Property<uint>(RowVersionPropertyName).IsRowVersion();
         });
 
         modelBuilder.ApplyUtcDateTimeConversion();
