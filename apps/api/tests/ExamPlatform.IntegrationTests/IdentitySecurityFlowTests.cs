@@ -640,6 +640,34 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task ParallelResets_WithOneLink_CannotBothConsumeIt()
+    {
+        var admin = await factory.SignInAsAsync("SuperAdmin", password: "the-original-password");
+        using var client = factory.CreateClient();
+        var link = await RequestPasswordResetAsync(client, admin.Email);
+
+        // Two requests that loaded the same link before either saved, as two parallel
+        // POST /v1/auth/password-reset/reset calls with it would.
+        using var firstScope = factory.Services.CreateScope();
+        using var secondScope = factory.Services.CreateScope();
+        var first = await LoadResetTokenAsync(firstScope, link.TokenId);
+        var second = await LoadResetTokenAsync(secondScope, link.TokenId);
+        var nowUtc = firstScope.ServiceProvider.GetRequiredService<Clock>().UtcNow;
+
+        Assert.True(first.IsUsable(nowUtc));
+        first.Consume(nowUtc);
+        await firstScope.ServiceProvider.GetRequiredService<IIdentityUnitOfWork>().SaveChangesAsync(CancellationToken.None);
+
+        // The second copy is stale and still looks unused; the xmin row version is what stops
+        // one link from setting two different passwords.
+        Assert.True(second.IsUsable(nowUtc));
+        second.Consume(nowUtc);
+        var conflict = await Assert.ThrowsAsync<ConcurrencyConflictError>(
+            () => secondScope.ServiceProvider.GetRequiredService<IIdentityUnitOfWork>().SaveChangesAsync(CancellationToken.None));
+        Assert.IsType<DbUpdateConcurrencyException>(conflict.InnerException);
+    }
+
+    [Fact]
     public async Task PasswordReset_ForAccountWithoutPassword_AnswersLikeAnUnknownEmailAndSendsNothing()
     {
         var candidate = await factory.SignInAsAsync("Candidate");
@@ -695,6 +723,10 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         return await client.SendAsync(request);
     }
+
+    private static async Task<PasswordResetToken> LoadResetTokenAsync(IServiceScope scope, Guid tokenId) =>
+        await scope.ServiceProvider.GetRequiredService<IPasswordResetTokenRepository>().GetByIdAsync(tokenId, CancellationToken.None)
+            ?? throw new InvalidOperationException($"Reset token {tokenId} was not found.");
 
     private static async Task<OtpChallenge> LoadChallengeAsync(IServiceScope scope, Guid challengeId) =>
         await scope.ServiceProvider.GetRequiredService<IOtpChallengeRepository>().GetByIdAsync(challengeId, CancellationToken.None)
