@@ -110,6 +110,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
 builder.Services.AddExceptionHandler<DomainExceptionHandler>();
+builder.Services.AddExceptionHandler<BadRequestExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 // Modules register themselves here; adding a future module is one array entry and

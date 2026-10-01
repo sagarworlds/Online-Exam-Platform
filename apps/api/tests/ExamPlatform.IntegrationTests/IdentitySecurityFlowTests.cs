@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using ExamPlatform.Modules.Identity.Application;
 using ExamPlatform.Modules.Identity.Application.Ports;
@@ -399,6 +400,23 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         await AssertProblemAsync(explicitNull, HttpStatusCode.BadRequest, "invalid_date_of_birth");
         await AssertNoAccountAsync(omittedEmail);
         await AssertNoAccountAsync(nullEmail);
+    }
+
+    [Theory]
+    [InlineData("/v1/auth/register", "{not json")]
+    [InlineData("/v1/auth/register", """{"email":"a@tests.local","dateOfBirth":"garbage","displayName":"A","otpChannel":"Email"}""")]
+    [InlineData("/v1/auth/register", """{"email":"a@tests.local","dateOfBirth":"1990-01-01","displayName":123,"otpChannel":"Email"}""")]
+    [InlineData("/v1/auth/otp/request", """{"channel":5,"destination":"a@tests.local"}""")]
+    [InlineData("/v1/auth/otp/verify", """{"otpChallengeId":"not-a-guid","code":"123456"}""")]
+    public async Task MalformedBody_Returns400InvalidRequest(string url, string json)
+    {
+        using var client = factory.CreateClient();
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync(url, content);
+
+        // Used to surface the framework's BadHttpRequestException as a 500.
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_request");
     }
 
     [Fact]
