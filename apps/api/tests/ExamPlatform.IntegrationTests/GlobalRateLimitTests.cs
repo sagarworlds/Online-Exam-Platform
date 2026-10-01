@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using ExamPlatform.Api.RateLimiting;
+using Microsoft.Extensions.Options;
 
 namespace ExamPlatform.IntegrationTests;
 
@@ -46,5 +48,53 @@ public sealed class GlobalRateLimitTests(LowGlobalRateLimitApiFactory factory) :
         Assert.Equal(429, problem.GetProperty("status").GetInt32());
         Assert.Equal("rate_limited", problem.GetProperty("title").GetString());
         Assert.False(string.IsNullOrWhiteSpace(problem.GetProperty("detail").GetString()));
+    }
+}
+
+/// <summary>
+/// An <see cref="ApiFactory"/> configured with a global permit limit of zero, which the
+/// Host's start-time validation must refuse.
+/// </summary>
+public sealed class ZeroGlobalRateLimitApiFactory : ApiFactory
+{
+    /// <inheritdoc />
+    protected override IReadOnlyDictionary<string, string?> AdditionalConfiguration =>
+        new Dictionary<string, string?>(base.AdditionalConfiguration)
+        {
+            ["RateLimiting:Global:PermitLimit"] = "0",
+        };
+}
+
+/// <summary>
+/// Proves a non-positive global limit fails the boot, because Program.cs validates
+/// <see cref="GlobalRateLimitOptions"/> on start, instead of surfacing as a 500 when the
+/// first request builds the limiter.
+/// </summary>
+public sealed class GlobalRateLimitValidationTests(ZeroGlobalRateLimitApiFactory factory) : IClassFixture<ZeroGlobalRateLimitApiFactory>
+{
+    [Fact]
+    public void NonPositivePermitLimit_FailsStartup()
+    {
+        var failure = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+
+        // The host may surface the validation failure directly or wrapped (e.g. in an
+        // AggregateException), so look for it anywhere in the exception chain.
+        var validationFailure = SelfAndInnerExceptions(failure).OfType<OptionsValidationException>().FirstOrDefault();
+        Assert.True(validationFailure is not null, $"Expected an OptionsValidationException, got: {failure}");
+        Assert.Equal(typeof(GlobalRateLimitOptions), validationFailure.OptionsType);
+    }
+
+    private static IEnumerable<Exception> SelfAndInnerExceptions(Exception exception)
+    {
+        yield return exception;
+
+        var inner = exception is AggregateException aggregate
+            ? aggregate.InnerExceptions
+            : exception.InnerException is { } single ? [single] : [];
+
+        foreach (var nested in inner.SelectMany(SelfAndInnerExceptions))
+        {
+            yield return nested;
+        }
     }
 }
