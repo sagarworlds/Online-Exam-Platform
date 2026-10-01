@@ -668,6 +668,27 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task ParallelResetRequests_ForAnExistingAccount_AllAnswerLikeAnUnknownEmail()
+    {
+        var admin = await factory.SignInAsAsync("SuperAdmin", password: "the-original-password");
+        using var client = factory.CreateClient();
+        var earlierLink = await RequestPasswordResetAsync(client, admin.Email);
+
+        // Every one of these revokes the same earlier link. A lost race on that row must not
+        // surface as a 409, which an unknown email can never get: that difference would tell
+        // a caller the account exists (FR-1, NFR-5).
+        var responses = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ =>
+            client.PostAsJsonAsync("/v1/auth/password-reset/request", new { email = admin.Email })));
+
+        Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
+        await AssertProblemAsync(
+            await ResetPasswordAsync(client, earlierLink, NewStrongPassword), HttpStatusCode.BadRequest, "password_reset_token_invalid");
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await ResetPasswordAsync(client, await RequestPasswordResetAsync(client, admin.Email), NewStrongPassword)).StatusCode);
+    }
+
+    [Fact]
     public async Task PasswordReset_ForAccountWithoutPassword_AnswersLikeAnUnknownEmailAndSendsNothing()
     {
         var candidate = await factory.SignInAsAsync("Candidate");

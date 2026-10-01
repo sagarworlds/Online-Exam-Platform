@@ -37,11 +37,12 @@ public sealed class RequestPasswordResetHandler(
             return;
         }
 
+        // A set-based revoke, not tracked entities: parallel requests for one account all
+        // revoke the same earlier links, and with tracked rows every loser of that race would
+        // fail with a 409, which an unknown email never gets, so the difference would tell a
+        // caller that the account exists (FR-1, NFR-5).
         var nowUtc = clock.UtcNow;
-        foreach (var earlier in await tokenRepository.GetOutstandingForUserAsync(user.Id, nowUtc, cancellationToken))
-        {
-            earlier.Revoke(nowUtc);
-        }
+        await tokenRepository.RevokeOutstandingForUserAsync(user.Id, nowUtc, cancellationToken);
 
         var rawToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         var tokenHash = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(rawToken)));

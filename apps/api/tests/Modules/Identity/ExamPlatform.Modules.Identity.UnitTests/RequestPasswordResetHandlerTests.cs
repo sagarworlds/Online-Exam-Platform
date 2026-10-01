@@ -22,8 +22,6 @@ public class RequestPasswordResetHandlerTests
     public RequestPasswordResetHandlerTests()
     {
         _userRepository.GetByEmailAsync(Email, Arg.Any<CancellationToken>()).Returns(_user);
-        _tokenRepository.GetOutstandingForUserAsync(Arg.Any<Guid>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
-            .Returns(Array.Empty<PasswordResetToken>());
         _handler = new RequestPasswordResetHandler(_userRepository, _tokenRepository, _sender, _unitOfWork, new FakeClock(Now));
     }
 
@@ -47,14 +45,17 @@ public class RequestPasswordResetHandlerTests
     public async Task HandleAsync_RevokesEarlierOutstandingTokens()
     {
         _user.SetPasswordHash("hashed-password");
-        var earlier = PasswordResetToken.Issue(_user.Id, "earlier-hash", Now.AddMinutes(-10), TimeSpan.FromMinutes(30));
-        _tokenRepository.GetOutstandingForUserAsync(_user.Id, Now, Arg.Any<CancellationToken>()).Returns([earlier]);
 
         await _handler.HandleAsync(new RequestPasswordResetCommand(Email), CancellationToken.None);
 
-        Assert.Equal(Now, earlier.RevokedAtUtc);
-        await _tokenRepository.Received(1).AddAsync(
-            Arg.Is<PasswordResetToken>(t => t.UserId == _user.Id && t.IsUsable(Now)), Arg.Any<CancellationToken>());
+        // The earlier links are revoked before the new one is added, so the new one survives.
+        Received.InOrder(() =>
+        {
+            _tokenRepository.RevokeOutstandingForUserAsync(_user.Id, Now, Arg.Any<CancellationToken>());
+            _tokenRepository.AddAsync(
+                Arg.Is<PasswordResetToken>(t => t.UserId == _user.Id && t.IsUsable(Now)), Arg.Any<CancellationToken>());
+        });
+        await _tokenRepository.DidNotReceiveWithAnyArgs().GetOutstandingForUserAsync(default, default, default);
         await _sender.Received(1).SendAsync(OtpChannel.Email, Email, Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
