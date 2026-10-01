@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using ExamPlatform.Modules.Batch.Application.Commands;
+using ExamPlatform.SharedKernel.Application.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -33,15 +35,17 @@ public static class BatchEndpoints
 
     private static async Task<IResult> CreateBatch(
         CreateBatchRequest request,
+        ClaimsPrincipal user,
         CreateBatchHandler handler,
         CancellationToken ct)
     {
+        // The creator is the authenticated caller, never a value from the body (FR-2, NFR-5).
         var command = new CreateBatchCommand(
             request.ExamId,
             request.Name,
             request.Description,
             request.MaxMembers,
-            request.CreatedBy);
+            user.GetUserId());
 
         var result = await handler.HandleAsync(command, ct);
         return Results.Created($"/v1/batches/{result.Id}", result);
@@ -83,13 +87,16 @@ public static class BatchEndpoints
     }
 }
 
-/// <summary>Request DTO for creating a batch.</summary>
+/// <summary>Request DTO for creating a batch. The creator is the caller, so it is not part of the body.</summary>
+/// <param name="ExamId">The exam the batch sits for.</param>
+/// <param name="Name">Display name of the batch.</param>
+/// <param name="Description">Optional longer description.</param>
+/// <param name="MaxMembers">Capacity of the batch; must be greater than zero.</param>
 public record CreateBatchRequest(
     Guid ExamId,
     string Name,
     string? Description,
-    int MaxMembers,
-    Guid CreatedBy);
+    int MaxMembers);
 
 /// <summary>Request DTO for adding a batch member.</summary>
 public record AddBatchMemberRequest(

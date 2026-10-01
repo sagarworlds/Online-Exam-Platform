@@ -22,21 +22,3 @@ public record GuardianLinkDto(
     DateTime? VerifiedAt,
     DateTime? RevokedAt
 );
-
-/// Request to create/register a guardian.
-public record CreateGuardianRequest(
-    string Email,
-    string FullName,
-    string? Phone = null
-);
-
-/// Request to link a guardian to a candidate.
-public record LinkCandidateRequest(
-    Guid CandidateId,
-    string CandidateEmail
-);
-
-/// Request to verify a guardian link.
-public record VerifyGuardianLinkRequest(
-    string VerificationToken
-);

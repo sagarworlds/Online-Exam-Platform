@@ -1,6 +1,7 @@
 using ExamPlatform.Modules.ExamAuthoring.Application.Dtos;
 using ExamPlatform.Modules.ExamAuthoring.Application.Ports;
 using ExamPlatform.Modules.ExamAuthoring.Domain;
+using ExamPlatform.Modules.ExamAuthoring.Domain.Exceptions;
 
 namespace ExamPlatform.Modules.ExamAuthoring.Application.Commands;
 
@@ -12,8 +13,15 @@ public sealed class CreateExamHandler(IExamRepository examRepository, IExamAutho
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The created exam.</returns>
     /// <exception cref="ArgumentException"><see cref="CreateExamCommand.Name"/> is empty or whitespace.</exception>
+    /// <exception cref="InvalidExamConfigError"><see cref="CreateExamCommand.SeriesId"/> is the empty GUID.</exception>
     public async Task<ExamDto> HandleAsync(CreateExamCommand command, CancellationToken cancellationToken)
     {
+        // A blank series is "no series" (null). The empty GUID is what a form posts when it
+        // converts a blank field, and it would be stored as a series that does not exist,
+        // so it is refused with a 400 instead of being accepted silently.
+        if (command.SeriesId == Guid.Empty)
+            throw new InvalidExamConfigError("SeriesId must be omitted or a non-empty GUID.");
+
         if (string.IsNullOrWhiteSpace(command.Name))
             throw new ArgumentException("Name cannot be empty or whitespace", nameof(command.Name));
 

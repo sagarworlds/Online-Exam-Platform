@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using ExamPlatform.Modules.Invite.Application.Commands;
+using ExamPlatform.SharedKernel.Application.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -37,14 +39,16 @@ public static class InviteEndpoints
 
     private static async Task<IResult> CreateInvite(
         CreateInviteRequest request,
+        ClaimsPrincipal user,
         CreateInviteHandler handler,
         CancellationToken ct)
     {
+        // The creator is the authenticated caller, never a value from the body (FR-2, NFR-5).
         var command = new CreateInviteCommand(
             request.ExamId,
             request.BatchMemberId,
             request.Email,
-            request.CreatedByUserId);
+            user.GetUserId());
 
         var result = await handler.HandleAsync(command, ct);
         return Results.Created($"/v1/invites/{result.Id}", result);
@@ -99,12 +103,14 @@ public static class InviteEndpoints
     }
 }
 
-/// <summary>Request DTO for creating an invite.</summary>
+/// <summary>Request DTO for creating an invite. The creator is the caller, so it is not part of the body.</summary>
+/// <param name="ExamId">The exam the candidate is invited to.</param>
+/// <param name="BatchMemberId">The batch member being invited.</param>
+/// <param name="Email">E-mail address the invite is sent to.</param>
 public record CreateInviteRequest(
     Guid ExamId,
     Guid BatchMemberId,
-    string Email,
-    Guid CreatedByUserId);
+    string Email);
 
 /// <summary>Request DTO for generating an invite code.</summary>
 public record GenerateInviteCodeRequest(
