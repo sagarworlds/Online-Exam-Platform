@@ -1,0 +1,122 @@
+name: Project automation
+
+# Keeps the "Online Exam Platform" project board (Jira-style Scrum board) in sync
+# with issue and pull-request activity, so nobody has to drag cards by hand:
+#   issue opened            -> Backlog
+#   issue reopened          -> Todo
+#   issue closed            -> Done
+#   draft PR opened         -> In Progress (and the issues it closes)
+#   PR opened / ready       -> In Review   (and the issues it closes)
+#   PR merged               -> Done        (and the issues it closes)
+#
+# Requires a repository secret PROJECT_TOKEN: a classic PAT with `project` and
+# `repo` scopes (the default GITHUB_TOKEN cannot write to user-owned projects).
+
+on:
+  issues:
+    types: [opened, reopened, closed]
+  # pull_request_target so the secret is available; this workflow never checks
+  # out or runs PR code, it only calls the GitHub API.
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, converted_to_draft, closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: project-automation-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+env:
+  PROJECT_OWNER: sagarworlds
+  PROJECT_NUMBER: "2"
+
+jobs:
+  sync-board:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add item to project
+        id: add
+        uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: https://github.com/users/${{ env.PROJECT_OWNER }}/projects/${{ env.PROJECT_NUMBER }}
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+
+      - name: Decide target status
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+          MERGED: ${{ github.event.pull_request.merged }}
+        run: |
+          status=""
+          if [ "$EVENT" = "issues" ]; then
+            case "$ACTION" in
+              opened)   status="Backlog" ;;
+              reopened) status="Todo" ;;
+              closed)   status="Done" ;;
+            esac
+          else
+            case "$ACTION" in
+              opened|reopened|ready_for_review)
+                if [ "$IS_DRAFT" = "true" ]; then status="In Progress"; else status="In Review"; fi ;;
+              converted_to_draft) status="In Progress" ;;
+              closed) if [ "$MERGED" = "true" ]; then status="Done"; fi ;;
+            esac
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "Target status: '${status:-<unchanged>}'"
+
+      - name: Move cards
+        if: steps.decide.outputs.status != ''
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          STATUS: ${{ steps.decide.outputs.status }}
+          ITEM_ID: ${{ steps.add.outputs.itemId }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Resolve project, Status field and option ids by name so renaming or
+          # re-creating the board does not require editing this workflow.
+          read -r PROJECT_ID FIELD_ID OPTION_ID < <(gh api graphql -f query='
+            query($owner:String!, $number:Int!) {
+              user(login:$owner) { projectV2(number:$number) {
+                id
+                field(name:"Status") { ... on ProjectV2SingleSelectField { id options { id name } } }
+              } }
+            }' -F owner="$PROJECT_OWNER" -F number="$PROJECT_NUMBER" \
+            --jq ".data.user.projectV2 as \$p | [\$p.id, \$p.field.id, (\$p.field.options[] | select(.name == \"$STATUS\") | .id)] | @tsv")
+
+          if [ -z "${OPTION_ID:-}" ]; then
+            echo "::error::Status option '$STATUS' not found on project $PROJECT_NUMBER"
+            exit 1
+          fi
+
+          set_status() {
+            gh api graphql -f query='
+              mutation($p:ID!, $i:ID!, $f:ID!, $o:String!) {
+                updateProjectV2ItemFieldValue(input:{projectId:$p, itemId:$i, fieldId:$f, value:{singleSelectOptionId:$o}}) { projectV2Item { id } }
+              }' -f p="$PROJECT_ID" -f i="$1" -f f="$FIELD_ID" -f o="$OPTION_ID" > /dev/null
+            echo "Moved $1 -> $STATUS"
+          }
+
+          set_status "$ITEM_ID"
+
+          # A PR also moves the issues it will close ("Closes #12"), mirroring
+          # Jira's issue-to-PR linking.
+          if [ -n "${PR_NUMBER:-}" ]; then
+            owner="${REPO%%/*}"; name="${REPO##*/}"
+            gh api graphql -f query='
+              query($owner:String!, $name:String!, $pr:Int!) {
+                repository(owner:$owner, name:$name) { pullRequest(number:$pr) {
+                  closingIssuesReferences(first:20) { nodes { projectItems(first:20) { nodes { id project { id } } } } }
+                } }
+              }' -F owner="$owner" -F name="$name" -F pr="$PR_NUMBER" \
+              --jq ".data.repository.pullRequest.closingIssuesReferences.nodes[].projectItems.nodes[] | select(.project.id == \"$PROJECT_ID\") | .id" \
+            | while read -r linked; do
+                [ -n "$linked" ] && set_status "$linked"
+              done
+          fi
