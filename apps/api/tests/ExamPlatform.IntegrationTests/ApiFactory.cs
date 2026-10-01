@@ -54,6 +54,12 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             ["Identity:RateLimits:OtpVerify:PermitLimit"] = "100000",
             ["Identity:RateLimits:PasswordLogin:PermitLimit"] = "100000",
             ["Identity:RateLimits:PasswordReset:PermitLimit"] = "100000",
+
+            // The Development host reads the developer's user-secrets, which may name a
+            // bootstrap administrator for their own database. Tests must not depend on that,
+            // so it is switched off here; BootstrapAdminApiFactory turns it on deliberately.
+            ["Identity:Bootstrap:AdminEmail"] = "",
+            ["Identity:Bootstrap:AdminPassword"] = "",
         };
 
     /// <inheritdoc />

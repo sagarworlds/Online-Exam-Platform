@@ -12,7 +12,7 @@ namespace ExamPlatform.Modules.Identity.Endpoints;
 /// <summary>Maps the Identity module's HTTP endpoints (FR-1, FR-2, FR-3, FR-4).</summary>
 public static class IdentityEndpoints
 {
-    /// <summary>Maps <c>/v1/auth/*</c>, <c>/v1/me/*</c>, and the role-assignment admin endpoint.</summary>
+    /// <summary>Maps <c>/v1/auth/*</c>, <c>/v1/me/*</c>, and the role-assignment admin endpoints.</summary>
     /// <param name="endpoints">The endpoint route builder to map onto.</param>
     public static void MapIdentityEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -95,6 +95,16 @@ public static class IdentityEndpoints
                 var command = new AssignRoleCommand(userId, request.RoleId, http.User.GetUserId(), http.User.GetPrimaryRole());
                 await handler.HandleAsync(command, ct);
                 return Results.NoContent();
+            })
+            .WithTags("Identity")
+            .RequireAuthorization("permission:identity.role.assign");
+
+        // The same permission as assigning a role: the list exists so an administrator can find the
+        // id that route takes, and anyone who may assign roles may see what there is to assign.
+        endpoints.MapGet("/v1/admin/roles", async (ListRolesHandler handler, CancellationToken ct) =>
+            {
+                var roles = await handler.HandleAsync(ct);
+                return Results.Ok(roles);
             })
             .WithTags("Identity")
             .RequireAuthorization("permission:identity.role.assign");

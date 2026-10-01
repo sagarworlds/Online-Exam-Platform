@@ -19,6 +19,8 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace ExamPlatform.Modules.Identity.Endpoints;
@@ -63,6 +65,13 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<LogoutHandler>();
         services.AddScoped<UpdateProfileHandler>();
         services.AddScoped<GetProfileHandler>();
+        services.AddScoped<ListRolesHandler>();
+
+        // Development-only first administrator (see IdentityBootstrapOptions). Bound in every
+        // environment so MigrateAndSeedAsync can tell that it was asked for and refuse it
+        // outside Development; the options are read when the seed step runs, not captured here.
+        services.AddOptions<IdentityBootstrapOptions>()
+            .Bind(configuration.GetSection(IdentityBootstrapOptions.SectionName));
 
         // Registered here, not in the Host, because Identity owns what a token's "sid" claim
         // means (FR-4); the Host keeps referencing only Identity.Endpoints (ADR 0001). The
@@ -147,5 +156,48 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         var db = services.GetRequiredService<IdentityDbContext>();
         await db.Database.MigrateAsync(cancellationToken);
         await IdentitySeeder.SeedAsync(db, cancellationToken);
+        await SeedBootstrapAdminAsync(services, db, cancellationToken);
+    }
+
+    // Creates the configured first administrator, in Development only. In any other environment
+    // the settings are ignored (with a warning, so a deployment that sets them is told why no
+    // administrator appeared): an account created from configuration is a convenience for a
+    // developer's empty database, never a way to provision staff on a real one.
+    private static async Task SeedBootstrapAdminAsync(
+        IServiceProvider services, IdentityDbContext db, CancellationToken cancellationToken)
+    {
+        var options = services.GetRequiredService<IOptions<IdentityBootstrapOptions>>().Value;
+        var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger<IdentityModuleInstaller>();
+
+        if (!services.GetRequiredService<IHostEnvironment>().IsDevelopment())
+        {
+            if (options.IsRequested)
+            {
+                logger.LogWarning(
+                    "{Section} is set but is only honoured in the Development environment; no administrator was created.",
+                    IdentityBootstrapOptions.SectionName);
+            }
+
+            return;
+        }
+
+        var outcome = await IdentityBootstrapSeeder.SeedAdminAsync(
+            db,
+            options,
+            services.GetRequiredService<IPasswordHasher>(),
+            services.GetRequiredService<IPasswordPolicy>(),
+            services.GetRequiredService<Clock>().UtcNow,
+            cancellationToken);
+
+        // The email is personal data (NFR-6), so only the outcome is logged.
+        switch (outcome)
+        {
+            case BootstrapAdminOutcome.Created:
+                logger.LogInformation("Created the development administrator configured in {Section}.", IdentityBootstrapOptions.SectionName);
+                break;
+            case BootstrapAdminOutcome.AlreadyExists:
+                logger.LogInformation("The development administrator configured in {Section} already exists; left unchanged.", IdentityBootstrapOptions.SectionName);
+                break;
+        }
     }
 }
