@@ -150,6 +150,8 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+// Before the exception handler, so error responses carry the headers too.
+app.UseMiddleware<SecurityHeadersMiddleware>(app.Environment.IsDevelopment());
 app.UseExceptionHandler();
 app.UseCors();
 app.UseRateLimiter();
