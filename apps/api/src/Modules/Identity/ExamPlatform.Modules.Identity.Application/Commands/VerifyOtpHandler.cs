@@ -25,7 +25,10 @@ public sealed class VerifyOtpHandler(
     /// <exception cref="OtpExpiredError">The challenge has expired.</exception>
     /// <exception cref="OtpAttemptsExceededError">The challenge has used up its attempts.</exception>
     /// <exception cref="OtpAlreadyUsedError">The challenge was already consumed (a replayed code).</exception>
-    /// <exception cref="ConcurrencyConflictError">A parallel verify of the same challenge saved first.</exception>
+    /// <exception cref="OtpSupersededError">A newer code was issued for the same destination and purpose.</exception>
+    /// <exception cref="ConcurrencyConflictError">
+    /// A parallel request changed the same challenge first (another verify, or a new code superseding it).
+    /// </exception>
     /// <exception cref="UserNotFoundError">The challenge's user no longer exists.</exception>
     public async Task<AuthResult> HandleAsync(VerifyOtpCommand command, CancellationToken cancellationToken)
     {

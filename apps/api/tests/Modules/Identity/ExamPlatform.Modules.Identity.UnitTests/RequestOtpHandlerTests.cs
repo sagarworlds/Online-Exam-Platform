@@ -36,6 +36,9 @@ public class RequestOtpHandlerTests
         userRepository.GetByEmailAsync("candidate@example.com", Arg.Any<CancellationToken>()).Returns(user);
 
         var challengeRepository = Substitute.For<IOtpChallengeRepository>();
+        challengeRepository
+            .GetOutstandingAsync("candidate@example.com", OtpPurpose.Login, Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<OtpChallenge>());
         var codeGenerator = Substitute.For<IOtpCodeGenerator>();
         codeGenerator.GenerateCode().Returns("123456");
         codeGenerator.Hash("123456").Returns("hashed-123456");

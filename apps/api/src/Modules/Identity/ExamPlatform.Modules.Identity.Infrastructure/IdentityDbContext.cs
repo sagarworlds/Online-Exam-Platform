@@ -93,6 +93,10 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             b.Property(c => c.Purpose).HasConversion<string>().HasMaxLength(30);
             b.Ignore(c => c.DomainEvents);
 
+            // Every OTP issue looks up the destination's outstanding challenges for the
+            // same purpose to supersede them, so that lookup must not scan the table.
+            b.HasIndex(c => new { c.Destination, c.Purpose });
+
             // Optimistic concurrency on Postgres's xmin system column (a shadow uint that
             // Npgsql maps to xmin when marked as a row version), so two parallel verifies
             // of one challenge can neither both consume it nor overwrite each other's

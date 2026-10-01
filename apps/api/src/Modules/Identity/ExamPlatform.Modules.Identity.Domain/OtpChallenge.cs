@@ -32,6 +32,12 @@ public sealed class OtpChallenge : AggregateRoot
     /// <summary>When the challenge was successfully verified, if it has been.</summary>
     public DateTime? ConsumedAtUtc { get; private set; }
 
+    /// <summary>
+    /// When a newer challenge for the same destination and purpose replaced this one, if
+    /// one has; a superseded challenge no longer accepts any code.
+    /// </summary>
+    public DateTime? SupersededAtUtc { get; private set; }
+
     /// <summary>How many verification attempts have been made so far.</summary>
     public int AttemptCount { get; private set; }
 
@@ -87,8 +93,9 @@ public sealed class OtpChallenge : AggregateRoot
     /// for anything but <see cref="OtpVerificationOutcome.Verified"/>.
     /// <para>
     /// Checked in order: an already consumed challenge is a replay and is refused
-    /// first; then an exhausted attempt budget; then expiry. Only a check that
-    /// reaches the code comparison counts as an attempt.
+    /// first; then a challenge a newer code has superseded; then an exhausted attempt
+    /// budget; then expiry. Only a check that reaches the code comparison counts as
+    /// an attempt.
     /// </para>
     /// </summary>
     /// <param name="suppliedCodeHash">Hash of the code the caller supplied, computed the same way as <see cref="CodeHash"/>.</param>
@@ -102,6 +109,11 @@ public sealed class OtpChallenge : AggregateRoot
         if (IsConsumed)
         {
             return OtpVerificationOutcome.AlreadyUsed;
+        }
+
+        if (IsSuperseded)
+        {
+            return OtpVerificationOutcome.Superseded;
         }
 
         if (AttemptCount >= MaxAttempts)
@@ -125,6 +137,26 @@ public sealed class OtpChallenge : AggregateRoot
         return OtpVerificationOutcome.Verified;
     }
 
+    /// <summary>
+    /// Retires this challenge because a newer one has been issued for the same
+    /// destination and purpose, so only the most recent code stays verifiable. A no-op
+    /// for a challenge that is already consumed (its outcome is final) or already
+    /// superseded (the first supersession time is kept).
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    public void Supersede(DateTime nowUtc)
+    {
+        if (IsConsumed || IsSuperseded)
+        {
+            return;
+        }
+
+        SupersededAtUtc = nowUtc;
+    }
+
     /// <summary>Whether this challenge has already been successfully verified.</summary>
     public bool IsConsumed => ConsumedAtUtc is not null;
+
+    /// <summary>Whether a newer challenge for the same destination and purpose has replaced this one.</summary>
+    public bool IsSuperseded => SupersededAtUtc is not null;
 }

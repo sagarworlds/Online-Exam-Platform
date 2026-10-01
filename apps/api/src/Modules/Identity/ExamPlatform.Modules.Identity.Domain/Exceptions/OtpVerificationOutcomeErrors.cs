@@ -17,6 +17,7 @@ public static class OtpVerificationOutcomeErrors
         OtpVerificationOutcome.Expired => new OtpExpiredError(),
         OtpVerificationOutcome.AttemptsExceeded => new OtpAttemptsExceededError(),
         OtpVerificationOutcome.AlreadyUsed => new OtpAlreadyUsedError(),
+        OtpVerificationOutcome.Superseded => new OtpSupersededError(),
         _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Only a failed OTP verification outcome maps to an error."),
     };
 }

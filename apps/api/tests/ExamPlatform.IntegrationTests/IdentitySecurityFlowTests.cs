@@ -15,7 +15,8 @@ namespace ExamPlatform.IntegrationTests;
 
 /// <summary>
 /// Drives the Identity module's security rules over real HTTP and a real database:
-/// the OTP brute-force lockout, replay protection and concurrency guards (FR-1, NFR-5).
+/// the OTP brute-force lockout, replay protection, supersession of older codes and
+/// concurrency guards (FR-1, NFR-5).
 /// Each test arranges its own user with a unique address, so the tests are independent
 /// of each other and of the order they run in.
 /// </summary>
@@ -97,6 +98,73 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         Assert.IsType<DbUpdateConcurrencyException>(conflict.InnerException);
     }
 
+    [Fact]
+    public async Task RequestOtp_Twice_OnlyTheLatestCodeIsAccepted()
+    {
+        var candidate = await factory.SignInAsAsync("Candidate");
+        using var client = factory.CreateClient();
+
+        var firstChallengeId = await RequestOtpAsync(client, candidate.Email);
+        var firstCode = factory.OtpSender.GetLastCode(candidate.Email);
+        var secondChallengeId = await RequestOtpAsync(client, candidate.Email);
+        var secondCode = factory.OtpSender.GetLastCode(candidate.Email);
+
+        // The first code is refused even though it is right and unexpired: the second
+        // request superseded it, so the attempt budget covers only one live code at a time.
+        await AssertProblemAsync(
+            await VerifyOtpAsync(client, firstChallengeId, firstCode), HttpStatusCode.BadRequest, "otp_superseded");
+
+        var secondVerify = await VerifyOtpAsync(client, secondChallengeId, secondCode);
+        Assert.Equal(HttpStatusCode.OK, secondVerify.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var first = await identityDb.OtpChallenges.SingleAsync(c => c.Id == firstChallengeId);
+        Assert.True(first.IsSuperseded);
+        Assert.False(first.IsConsumed);
+        Assert.Equal(0, first.AttemptCount);
+        var second = await identityDb.OtpChallenges.SingleAsync(c => c.Id == secondChallengeId);
+        Assert.True(second.IsConsumed);
+        Assert.False(second.IsSuperseded);
+    }
+
+    [Fact]
+    public async Task GetOutstanding_ReturnsOnlyStillVerifiableChallengesForTheDestinationAndPurpose()
+    {
+        var destination = $"outstanding-{Guid.NewGuid():N}@tests.local";
+        DateTime nowUtc;
+        Guid liveChallengeId;
+
+        using (var arrangeScope = factory.Services.CreateScope())
+        {
+            nowUtc = arrangeScope.ServiceProvider.GetRequiredService<Clock>().UtcNow;
+            var validity = TimeSpan.FromMinutes(10);
+            OtpChallenge Issue(string to, OtpPurpose purpose, DateTime issuedAt) =>
+                OtpChallenge.Issue(null, OtpChannel.Email, to, "code-hash", purpose, issuedAt, validity);
+
+            var live = Issue(destination, OtpPurpose.Login, nowUtc);
+            var consumed = Issue(destination, OtpPurpose.Login, nowUtc);
+            Assert.Equal(OtpVerificationOutcome.Verified, consumed.Verify("code-hash", nowUtc));
+            var superseded = Issue(destination, OtpPurpose.Login, nowUtc);
+            superseded.Supersede(nowUtc);
+            var expired = Issue(destination, OtpPurpose.Login, nowUtc.AddMinutes(-20));
+            var otherPurpose = Issue(destination, OtpPurpose.TwoFactorStep, nowUtc);
+            var otherDestination = Issue($"other-{Guid.NewGuid():N}@tests.local", OtpPurpose.Login, nowUtc);
+
+            var identityDb = arrangeScope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            identityDb.OtpChallenges.AddRange(live, consumed, superseded, expired, otherPurpose, otherDestination);
+            await identityDb.SaveChangesAsync();
+            liveChallengeId = live.Id;
+        }
+
+        // A fresh scope, so the query reads the database rather than the change tracker.
+        using var scope = factory.Services.CreateScope();
+        var outstanding = await scope.ServiceProvider.GetRequiredService<IOtpChallengeRepository>()
+            .GetOutstandingAsync(destination, OtpPurpose.Login, nowUtc, CancellationToken.None);
+
+        Assert.Equal(liveChallengeId, Assert.Single(outstanding).Id);
+    }
+
     private static async Task<OtpChallenge> LoadChallengeAsync(IServiceScope scope, Guid challengeId) =>
         await scope.ServiceProvider.GetRequiredService<IOtpChallengeRepository>().GetByIdAsync(challengeId, CancellationToken.None)
             ?? throw new InvalidOperationException($"Challenge {challengeId} was not found.");
@@ -116,6 +184,15 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return (email, body.GetProperty("otpChallengeId").GetGuid());
+    }
+
+    private static async Task<Guid> RequestOtpAsync(HttpClient client, string email)
+    {
+        var response = await client.PostAsJsonAsync("/v1/auth/otp/request", new { channel = "Email", destination = email });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.GetProperty("otpChallengeId").GetGuid();
     }
 
     private static Task<HttpResponseMessage> VerifyOtpAsync(HttpClient client, Guid challengeId, string code) =>

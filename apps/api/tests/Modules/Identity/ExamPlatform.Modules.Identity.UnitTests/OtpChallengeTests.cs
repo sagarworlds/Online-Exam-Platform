@@ -89,11 +89,56 @@ public class OtpChallengeTests
         Assert.Equal(1, challenge.AttemptCount);
     }
 
+    [Fact]
+    public void Verify_AfterSupersede_ReturnsSuperseded()
+    {
+        var challenge = CreateChallenge();
+        var supersededAt = IssuedAt.AddMinutes(1);
+        challenge.Supersede(supersededAt);
+
+        // Even the right code is refused once a newer one exists, and the refusal costs no
+        // attempt: the attempt budget belongs to the newest code alone.
+        var outcome = challenge.Verify("correct-hash", IssuedAt.AddMinutes(2));
+
+        Assert.Equal(OtpVerificationOutcome.Superseded, outcome);
+        Assert.True(challenge.IsSuperseded);
+        Assert.Equal(supersededAt, challenge.SupersededAtUtc);
+        Assert.False(challenge.IsConsumed);
+        Assert.Equal(0, challenge.AttemptCount);
+    }
+
+    [Fact]
+    public void Supersede_WhenAlreadyConsumed_IsNoOp()
+    {
+        var challenge = CreateChallenge();
+        Assert.Equal(OtpVerificationOutcome.Verified, challenge.Verify("correct-hash", IssuedAt.AddMinutes(1)));
+
+        challenge.Supersede(IssuedAt.AddMinutes(2));
+
+        // A consumed challenge's outcome is final, so a replay still reports AlreadyUsed.
+        Assert.False(challenge.IsSuperseded);
+        Assert.Null(challenge.SupersededAtUtc);
+        Assert.Equal(OtpVerificationOutcome.AlreadyUsed, challenge.Verify("correct-hash", IssuedAt.AddMinutes(3)));
+    }
+
+    [Fact]
+    public void Supersede_WhenAlreadySuperseded_KeepsTheFirstTime()
+    {
+        var challenge = CreateChallenge();
+        var firstSupersededAt = IssuedAt.AddMinutes(1);
+        challenge.Supersede(firstSupersededAt);
+
+        challenge.Supersede(IssuedAt.AddMinutes(2));
+
+        Assert.Equal(firstSupersededAt, challenge.SupersededAtUtc);
+    }
+
     [Theory]
     [InlineData(OtpVerificationOutcome.Mismatch, typeof(OtpMismatchError), "otp_mismatch")]
     [InlineData(OtpVerificationOutcome.Expired, typeof(OtpExpiredError), "otp_expired")]
     [InlineData(OtpVerificationOutcome.AttemptsExceeded, typeof(OtpAttemptsExceededError), "otp_attempts_exceeded")]
     [InlineData(OtpVerificationOutcome.AlreadyUsed, typeof(OtpAlreadyUsedError), "otp_already_used")]
+    [InlineData(OtpVerificationOutcome.Superseded, typeof(OtpSupersededError), "otp_superseded")]
     public void ToError_MapsEachFailureToItsTypedError(OtpVerificationOutcome outcome, Type expectedErrorType, string expectedErrorCode)
     {
         var error = outcome.ToError();

@@ -21,5 +21,11 @@ public enum OtpVerificationOutcome
     AttemptsExceeded,
 
     /// <summary>The challenge was already consumed by an earlier successful verify (a replay).</summary>
-    AlreadyUsed
+    AlreadyUsed,
+
+    /// <summary>
+    /// A newer challenge for the same destination and purpose replaced this one; only the
+    /// most recent code is accepted, and no attempt was counted.
+    /// </summary>
+    Superseded
 }
