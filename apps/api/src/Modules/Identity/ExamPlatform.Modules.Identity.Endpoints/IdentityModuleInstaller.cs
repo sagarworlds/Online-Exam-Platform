@@ -131,10 +131,8 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
     {
         services.AddOptions<IdentityRateLimitOptions>()
             .Bind(configuration.GetSection(IdentityRateLimitOptions.SectionName))
-            .Validate(
-                limits => limits.FindInvalidPolicy() is null,
-                $"Every {IdentityRateLimitOptions.SectionName} policy needs a positive PermitLimit and WindowSeconds.")
             .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<IdentityRateLimitOptions>, IdentityRateLimitOptionsValidator>();
 
         services.AddOptions<RateLimiterOptions>()
             .Configure<IOptions<IdentityRateLimitOptions>>((rateLimiter, identityLimits) =>
