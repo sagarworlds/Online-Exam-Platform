@@ -1,3 +1,4 @@
+using ExamPlatform.SharedKernel.Application.Security;
 using Microsoft.AspNetCore.Authorization;
 
 namespace ExamPlatform.Modules.Identity.Endpoints.Authorization;
@@ -9,7 +10,7 @@ public sealed class PermissionAuthorizationHandler : AuthorizationHandler<Permis
     protected override Task HandleRequirementAsync(
         AuthorizationHandlerContext context, PermissionRequirement requirement)
     {
-        if (context.User.Claims.Any(c => c.Type == "perm" && c.Value == requirement.PermissionCode))
+        if (context.User.HasPermission(requirement.PermissionCode))
         {
             context.Succeed(requirement);
         }

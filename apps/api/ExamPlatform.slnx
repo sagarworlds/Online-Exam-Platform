@@ -57,6 +57,9 @@
     <Project Path="tests/ExamPlatform.ArchitectureTests/ExamPlatform.ArchitectureTests.csproj" />
     <Project Path="tests/ExamPlatform.IntegrationTests/ExamPlatform.IntegrationTests.csproj" />
   </Folder>
+  <Folder Name="/tests/SharedKernel/">
+    <Project Path="tests/SharedKernel/ExamPlatform.SharedKernel.UnitTests/ExamPlatform.SharedKernel.UnitTests.csproj" />
+  </Folder>
   <Folder Name="/tests/Modules/" />
   <Folder Name="/tests/Modules/Admin/">
     <Project Path="tests/Modules/Admin/ExamPlatform.Modules.Admin.UnitTests/ExamPlatform.Modules.Admin.UnitTests.csproj" />

@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using ExamPlatform.Modules.Identity.Application.Sessions;
+using ExamPlatform.SharedKernel.Application.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
