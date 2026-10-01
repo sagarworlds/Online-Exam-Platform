@@ -324,6 +324,43 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task Register_WithoutDateOfBirth_Returns400InvalidDateOfBirth()
+    {
+        using var client = factory.CreateClient();
+        var omittedEmail = $"no-dob-{Guid.NewGuid():N}@tests.local";
+        var nullEmail = $"null-dob-{Guid.NewGuid():N}@tests.local";
+
+        // Compliance: an omitted date used to bind to 0001-01-01, which reads as an adult,
+        // so leaving it out skipped minor detection and guardian consent (FR-43).
+        var omitted = await client.PostAsJsonAsync("/v1/auth/register", new
+        {
+            email = omittedEmail,
+            displayName = "Security Candidate",
+            otpChannel = "Email",
+        });
+        var explicitNull = await PostRegisterAsync(client, nullEmail, phoneNumber: null, "Email", dateOfBirth: null);
+
+        await AssertProblemAsync(omitted, HttpStatusCode.BadRequest, "invalid_date_of_birth");
+        await AssertProblemAsync(explicitNull, HttpStatusCode.BadRequest, "invalid_date_of_birth");
+        await AssertNoAccountAsync(omittedEmail);
+        await AssertNoAccountAsync(nullEmail);
+    }
+
+    [Fact]
+    public async Task Register_WithFutureDateOfBirth_Returns400()
+    {
+        using var client = factory.CreateClient();
+        var email = $"future-dob-{Guid.NewGuid():N}@tests.local";
+        var utcToday = DateOnly.FromDateTime(factory.Services.GetRequiredService<Clock>().UtcNow);
+        var dateOfBirth = utcToday.AddDays(2).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var response = await PostRegisterAsync(client, email, phoneNumber: null, "Email", dateOfBirth);
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_date_of_birth");
+        await AssertNoAccountAsync(email);
+    }
+
+    [Fact]
     public async Task VerifyOtp_WithoutCode_CountsAsAWrongCode()
     {
         using var client = factory.CreateClient();
@@ -371,12 +408,12 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
     }
 
     private static Task<HttpResponseMessage> PostRegisterAsync(
-        HttpClient client, string? email, string? phoneNumber, string otpChannel) =>
+        HttpClient client, string? email, string? phoneNumber, string otpChannel, string? dateOfBirth = "1990-01-01") =>
         client.PostAsJsonAsync("/v1/auth/register", new
         {
             email,
             phoneNumber,
-            dateOfBirth = "1990-01-01",
+            dateOfBirth,
             displayName = "Security Candidate",
             otpChannel,
         });

@@ -21,6 +21,7 @@ public sealed class RegisterCandidateHandler(
     /// <param name="command">The candidate's registration details.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The id of the confirmation OTP challenge.</returns>
+    /// <exception cref="InvalidDateOfBirthError">The date of birth is missing or implausible.</exception>
     /// <exception cref="ContactChannelMismatchError">The chosen channel's email or phone number was not given.</exception>
     /// <exception cref="DuplicateAccountError">An account already exists for the given email or phone.</exception>
     /// <exception cref="RoleNotFoundError">The default Candidate role has not been seeded.</exception>
@@ -28,6 +29,7 @@ public sealed class RegisterCandidateHandler(
     /// <exception cref="InvalidContactError">The email or phone number is longer than the platform stores.</exception>
     public async Task<Guid> HandleAsync(RegisterCandidateCommand command, CancellationToken cancellationToken)
     {
+        var dateOfBirth = command.DateOfBirth ?? throw InvalidDateOfBirthError.Missing();
         var destination = ResolveDestination(command);
 
         if (!string.IsNullOrWhiteSpace(command.Email) &&
@@ -45,7 +47,7 @@ public sealed class RegisterCandidateHandler(
         var candidateRole = await roleRepository.GetByNameAsync(CandidateRoleName, cancellationToken)
             ?? throw new RoleNotFoundError();
 
-        var user = User.Register(command.Email, command.PhoneNumber, command.DateOfBirth, command.DisplayName, clock.UtcNow);
+        var user = User.Register(command.Email, command.PhoneNumber, dateOfBirth, command.DisplayName, clock.UtcNow);
         user.AssignRole(candidateRole);
         await userRepository.AddAsync(user, cancellationToken);
 

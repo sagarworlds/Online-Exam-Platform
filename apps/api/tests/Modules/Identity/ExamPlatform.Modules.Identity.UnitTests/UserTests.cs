@@ -7,9 +7,12 @@ namespace ExamPlatform.Modules.Identity.UnitTests;
 public class UserTests
 {
     private static readonly DateTime Now = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    private static readonly DateOnly UtcToday = DateOnly.FromDateTime(Now);
 
-    private static User CreateAdultUser() =>
-        User.Register("candidate@example.com", null, new DateOnly(2000, 1, 1), "Test Candidate", Now);
+    private static User CreateAdultUser() => RegisterBornOn(new DateOnly(2000, 1, 1));
+
+    private static User RegisterBornOn(DateOnly dateOfBirth) =>
+        User.Register("candidate@example.com", null, dateOfBirth, "Test Candidate", Now);
 
     [Theory]
     [InlineData(null, null)]
@@ -54,6 +57,51 @@ public class UserTests
 
         Assert.Equal(User.MaxEmailLength, user.Email!.Length);
         Assert.Equal(User.MaxPhoneNumberLength, user.PhoneNumber!.Length);
+    }
+
+    [Fact]
+    public void Register_WithDefaultDateOfBirth_ThrowsInvalidDateOfBirthError()
+    {
+        // 0001-01-01 is what an omitted date used to bind to, and it reads as an adult.
+        var error = Assert.Throws<InvalidDateOfBirthError>(() => RegisterBornOn(default));
+
+        Assert.Equal("invalid_date_of_birth", error.ErrorCode);
+        Assert.Equal(InvalidDateOfBirthError.Missing().Message, error.Message);
+    }
+
+    [Fact]
+    public void Register_WithFutureDateOfBirth_ThrowsInvalidDateOfBirthError()
+    {
+        var error = Assert.Throws<InvalidDateOfBirthError>(() => RegisterBornOn(UtcToday.AddDays(2)));
+
+        Assert.Equal(InvalidDateOfBirthError.InTheFuture().Message, error.Message);
+    }
+
+    [Fact]
+    public void Register_WithDateOfBirthOneDayAheadOfUtc_IsAccepted()
+    {
+        // Born "today" in India while it is still yesterday by the UTC calendar.
+        var user = RegisterBornOn(UtcToday.AddDays(1));
+
+        Assert.Equal(UtcToday.AddDays(1), user.DateOfBirth);
+    }
+
+    [Fact]
+    public void Register_OlderThan120Years_ThrowsInvalidDateOfBirthError()
+    {
+        var dateOfBirth = UtcToday.AddYears(-User.MaximumPlausibleAgeYears).AddDays(-1);
+
+        var error = Assert.Throws<InvalidDateOfBirthError>(() => RegisterBornOn(dateOfBirth));
+
+        Assert.Equal(InvalidDateOfBirthError.TooLongAgo().Message, error.Message);
+    }
+
+    [Fact]
+    public void Register_Exactly120YearsAgo_IsAccepted()
+    {
+        var dateOfBirth = UtcToday.AddYears(-User.MaximumPlausibleAgeYears);
+
+        Assert.Equal(dateOfBirth, RegisterBornOn(dateOfBirth).DateOfBirth);
     }
 
     [Fact]

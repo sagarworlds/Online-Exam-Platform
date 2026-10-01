@@ -3,6 +3,7 @@ using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Exceptions;
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Domain;
+using ExamPlatform.Modules.Identity.Domain.Exceptions;
 using NSubstitute;
 
 namespace ExamPlatform.Modules.Identity.UnitTests;
@@ -53,6 +54,18 @@ public class RegisterCandidateHandlerTests
         await _challengeRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         await _sender.DidNotReceiveWithAnyArgs().SendAsync(default, default!, default!, default);
         await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+    }
+
+    [Fact]
+    public async Task HandleAsync_MissingDateOfBirth_ThrowsAndAddsNoUser()
+    {
+        var command = Command(Email, null, OtpChannel.Email) with { DateOfBirth = null };
+
+        var error = await Assert.ThrowsAsync<InvalidDateOfBirthError>(
+            () => _handler.HandleAsync(command, CancellationToken.None));
+
+        Assert.Equal(InvalidDateOfBirthError.Missing().Message, error.Message);
+        await AssertNothingTouchedAsync();
     }
 
     [Fact]
