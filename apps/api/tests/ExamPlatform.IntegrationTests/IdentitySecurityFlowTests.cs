@@ -134,15 +134,21 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         var destination = $"outstanding-{Guid.NewGuid():N}@tests.local";
         DateTime nowUtc;
         Guid liveChallengeId;
+        Guid expiringNowChallengeId;
 
         using (var arrangeScope = factory.Services.CreateScope())
         {
-            nowUtc = arrangeScope.ServiceProvider.GetRequiredService<Clock>().UtcNow;
+            // Whole seconds, so the exact-expiry row below survives Postgres's microsecond
+            // timestamp precision unchanged and the boundary comparison is exact.
+            var clockNow = arrangeScope.ServiceProvider.GetRequiredService<Clock>().UtcNow;
+            nowUtc = new DateTime(clockNow.Ticks - (clockNow.Ticks % TimeSpan.TicksPerSecond), DateTimeKind.Utc);
             var validity = TimeSpan.FromMinutes(10);
             OtpChallenge Issue(string to, OtpPurpose purpose, DateTime issuedAt) =>
                 OtpChallenge.Issue(null, OtpChannel.Email, to, "code-hash", purpose, issuedAt, validity);
 
             var live = Issue(destination, OtpPurpose.Login, nowUtc);
+            // Expires exactly now: Verify still accepts it, so it is still outstanding.
+            var expiringNow = Issue(destination, OtpPurpose.Login, nowUtc - validity);
             var consumed = Issue(destination, OtpPurpose.Login, nowUtc);
             Assert.Equal(OtpVerificationOutcome.Verified, consumed.Verify("code-hash", nowUtc));
             var superseded = Issue(destination, OtpPurpose.Login, nowUtc);
@@ -152,9 +158,10 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
             var otherDestination = Issue($"other-{Guid.NewGuid():N}@tests.local", OtpPurpose.Login, nowUtc);
 
             var identityDb = arrangeScope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-            identityDb.OtpChallenges.AddRange(live, consumed, superseded, expired, otherPurpose, otherDestination);
+            identityDb.OtpChallenges.AddRange(live, expiringNow, consumed, superseded, expired, otherPurpose, otherDestination);
             await identityDb.SaveChangesAsync();
             liveChallengeId = live.Id;
+            expiringNowChallengeId = expiringNow.Id;
         }
 
         // A fresh scope, so the query reads the database rather than the change tracker.
@@ -162,7 +169,9 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         var outstanding = await scope.ServiceProvider.GetRequiredService<IOtpChallengeRepository>()
             .GetOutstandingAsync(destination, OtpPurpose.Login, nowUtc, CancellationToken.None);
 
-        Assert.Equal(liveChallengeId, Assert.Single(outstanding).Id);
+        Assert.Equal(
+            new[] { liveChallengeId, expiringNowChallengeId }.Order(),
+            outstanding.Select(c => c.Id).Order());
     }
 
     private static async Task<OtpChallenge> LoadChallengeAsync(IServiceScope scope, Guid challengeId) =>

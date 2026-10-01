@@ -32,6 +32,18 @@ public class OtpChallengeTests
     }
 
     [Fact]
+    public void Verify_AtExactExpiryInstant_IsStillAccepted()
+    {
+        var challenge = CreateChallenge();
+
+        // Expiry is exclusive of the instant itself; GetOutstandingAsync relies on the same
+        // boundary, so a challenge still verifiable at its expiry instant is also superseded.
+        var outcome = challenge.Verify("correct-hash", challenge.ExpiresAtUtc);
+
+        Assert.Equal(OtpVerificationOutcome.Verified, outcome);
+    }
+
+    [Fact]
     public void Verify_WithCorrectCode_ReturnsVerifiedAndConsumes()
     {
         var challenge = CreateChallenge();
