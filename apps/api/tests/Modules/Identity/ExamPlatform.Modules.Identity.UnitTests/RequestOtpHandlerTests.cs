@@ -2,6 +2,7 @@ using ExamPlatform.Modules.Identity.Application;
 using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Domain;
+using ExamPlatform.Modules.Identity.Domain.Exceptions;
 using NSubstitute;
 
 namespace ExamPlatform.Modules.Identity.UnitTests;
@@ -53,6 +54,39 @@ public class RequestOtpHandlerTests
             Arg.Any<CancellationToken>());
         await _sender.DidNotReceiveWithAnyArgs().SendAsync(default, default!, default!, default);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    // Asserts the request was refused before any lookup, so not even a decoy (which would
+    // persist the destination) was issued.
+    private async Task AssertNothingIssuedAsync()
+    {
+        Assert.Empty(_userRepository.ReceivedCalls());
+        await _challengeRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+        await _sender.DidNotReceiveWithAnyArgs().SendAsync(default, default!, default!, default);
+        await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task HandleAsync_BlankDestination_ThrowsInvalidContactError(string? destination)
+    {
+        await Assert.ThrowsAsync<InvalidContactError>(
+            () => _handler.HandleAsync(new RequestOtpCommand(OtpChannel.Email, destination!), CancellationToken.None));
+
+        await AssertNothingIssuedAsync();
+    }
+
+    [Fact]
+    public async Task HandleAsync_DestinationLongerThanAChallengeStores_ThrowsInvalidContactError()
+    {
+        var destination = new string('a', OtpChallenge.MaxDestinationLength + 1);
+
+        await Assert.ThrowsAsync<InvalidContactError>(
+            () => _handler.HandleAsync(new RequestOtpCommand(OtpChannel.Email, destination), CancellationToken.None));
+
+        await AssertNothingIssuedAsync();
     }
 
     [Fact]

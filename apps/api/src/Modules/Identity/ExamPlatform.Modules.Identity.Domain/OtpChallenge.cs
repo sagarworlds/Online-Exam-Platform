@@ -12,6 +12,12 @@ namespace ExamPlatform.Modules.Identity.Domain;
 public sealed class OtpChallenge : AggregateRoot
 {
     /// <summary>
+    /// The longest destination a challenge can hold; long enough for the longest email address
+    /// (<see cref="User.MaxEmailLength"/>), which is longer than any phone number.
+    /// </summary>
+    public const int MaxDestinationLength = User.MaxEmailLength;
+
+    /// <summary>
     /// The user this challenge is for, if one already exists. Null for a challenge issued
     /// before any account exists, and for a decoy: a challenge issued to a destination that
     /// must not get a usable code, which is never sent and whose code can never match.

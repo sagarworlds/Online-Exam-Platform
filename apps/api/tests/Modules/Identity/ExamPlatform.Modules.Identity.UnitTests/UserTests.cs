@@ -11,6 +11,51 @@ public class UserTests
     private static User CreateAdultUser() =>
         User.Register("candidate@example.com", null, new DateOnly(2000, 1, 1), "Test Candidate", Now);
 
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("", "  ")]
+    public void Register_WithoutEmailOrPhone_ThrowsContactRequiredError(string? email, string? phoneNumber)
+    {
+        var act = () => User.Register(email, phoneNumber, new DateOnly(2000, 1, 1), "Test Candidate", Now);
+
+        Assert.Throws<ContactRequiredError>(act);
+    }
+
+    [Fact]
+    public void Register_WithBlankEmailAndAPhone_StoresNoEmail()
+    {
+        var user = User.Register("  ", "+919800000000", new DateOnly(2000, 1, 1), "Test Candidate", Now);
+
+        // Null, not blank, so the account does not collide on the unique email index.
+        Assert.Null(user.Email);
+        Assert.Equal("+919800000000", user.PhoneNumber);
+    }
+
+    [Theory]
+    [InlineData(User.MaxEmailLength + 1, 0)]
+    [InlineData(0, User.MaxPhoneNumberLength + 1)]
+    public void Register_WithContactLongerThanStored_ThrowsInvalidContactError(int emailLength, int phoneLength)
+    {
+        var email = emailLength == 0 ? null : new string('a', emailLength - "@x.in".Length) + "@x.in";
+        var phoneNumber = phoneLength == 0 ? null : new string('9', phoneLength);
+
+        var act = () => User.Register(email, phoneNumber, new DateOnly(2000, 1, 1), "Test Candidate", Now);
+
+        Assert.Throws<InvalidContactError>(act);
+    }
+
+    [Fact]
+    public void Register_WithContactsAtTheStoredMaximum_IsAccepted()
+    {
+        var email = new string('a', User.MaxEmailLength - "@x.in".Length) + "@x.in";
+        var phoneNumber = new string('9', User.MaxPhoneNumberLength);
+
+        var user = User.Register(email, phoneNumber, new DateOnly(2000, 1, 1), "Test Candidate", Now);
+
+        Assert.Equal(User.MaxEmailLength, user.Email!.Length);
+        Assert.Equal(User.MaxPhoneNumberLength, user.PhoneNumber!.Length);
+    }
+
     [Fact]
     public void StartNewSession_WhenPriorActiveSessionExists_SupersedesPriorSessionAndEmitsEvent()
     {

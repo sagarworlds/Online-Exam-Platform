@@ -47,7 +47,9 @@ public sealed class VerifyOtpHandler(
         var challenge = await challengeRepository.GetByIdAsync(command.OtpChallengeId, cancellationToken)
             ?? throw new OtpChallengeNotFoundError();
 
-        var suppliedCodeHash = codeGenerator.Hash(command.Code);
+        // JSON binding does not enforce the non-nullable annotation, so a request without a
+        // code arrives as null; it is treated as a wrong code (and counted) rather than a crash.
+        var suppliedCodeHash = codeGenerator.Hash(command.Code ?? string.Empty);
         var outcome = challenge.Verify(suppliedCodeHash, clock.UtcNow);
         if (outcome != OtpVerificationOutcome.Verified)
         {

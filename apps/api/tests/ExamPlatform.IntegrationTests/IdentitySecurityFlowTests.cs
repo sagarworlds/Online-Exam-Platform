@@ -16,7 +16,8 @@ namespace ExamPlatform.IntegrationTests;
 /// <summary>
 /// Drives the Identity module's security rules over real HTTP and a real database:
 /// the OTP brute-force lockout, replay protection, supersession of older codes,
-/// concurrency guards (FR-1, NFR-5), and which accounts an OTP may sign in (FR-3).
+/// concurrency guards (FR-1, NFR-5), which accounts an OTP may sign in (FR-3), and that
+/// malformed sign-up and sign-in input gets a typed 400 rather than a 500 (section 11).
 /// Each test arranges its own user with a unique address, so the tests are independent
 /// of each other and of the order they run in.
 /// </summary>
@@ -266,6 +267,77 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
             outstanding.Select(c => c.Id).Order());
     }
 
+    [Theory]
+    [InlineData("Fax")]
+    [InlineData("5")]
+    [InlineData("Email,Sms")]
+    [InlineData(null)]
+    public async Task RequestOtp_WithUnknownChannel_Returns400(string? channel)
+    {
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/v1/auth/otp/request", new { channel, destination = $"channel-{Guid.NewGuid():N}@tests.local" });
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_otp_channel");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("   ")]
+    public async Task RequestOtp_WithBlankDestination_Returns400(string? destination)
+    {
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/v1/auth/otp/request", new { channel = "Email", destination });
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_contact");
+    }
+
+    [Theory]
+    [InlineData("Fax")]
+    [InlineData("1")]
+    public async Task Register_WithInvalidChannel_Returns400(string otpChannel)
+    {
+        using var client = factory.CreateClient();
+        var email = $"register-{Guid.NewGuid():N}@tests.local";
+
+        var response = await PostRegisterAsync(client, email, phoneNumber: null, otpChannel);
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_otp_channel");
+        await AssertNoAccountAsync(email);
+    }
+
+    [Fact]
+    public async Task Register_WithEmailChannelButOnlyPhone_Returns400()
+    {
+        using var client = factory.CreateClient();
+        var phoneNumber = UniquePhoneNumber();
+
+        var response = await PostRegisterAsync(client, email: null, phoneNumber, otpChannel: "Email");
+
+        // Used to reach the challenge insert with a null destination and fail as a 500.
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "contact_channel_mismatch");
+        using var scope = factory.Services.CreateScope();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        Assert.False(await identityDb.Users.AnyAsync(u => u.PhoneNumber == phoneNumber));
+    }
+
+    [Fact]
+    public async Task VerifyOtp_WithoutCode_CountsAsAWrongCode()
+    {
+        using var client = factory.CreateClient();
+        var (_, challengeId) = await RegisterCandidateAsync(client);
+
+        var response = await client.PostAsJsonAsync("/v1/auth/otp/verify", new { otpChallengeId = challengeId });
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "otp_mismatch");
+        using var scope = factory.Services.CreateScope();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var challenge = await identityDb.OtpChallenges.SingleAsync(c => c.Id == challengeId);
+        Assert.Equal(1, challenge.AttemptCount);
+    }
+
     // Arrange-only: no admin endpoint suspends accounts yet, so the domain method is called directly.
     private async Task SuspendAsync(Guid userId)
     {
@@ -281,22 +353,38 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         await scope.ServiceProvider.GetRequiredService<IOtpChallengeRepository>().GetByIdAsync(challengeId, CancellationToken.None)
             ?? throw new InvalidOperationException($"Challenge {challengeId} was not found.");
 
+    private async Task AssertNoAccountAsync(string email)
+    {
+        using var scope = factory.Services.CreateScope();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        Assert.False(await identityDb.Users.AnyAsync(u => u.Email == email));
+    }
+
     private static async Task<(string Email, Guid ChallengeId)> RegisterCandidateAsync(HttpClient client)
     {
         var email = $"security-{Guid.NewGuid():N}@tests.local";
-        var response = await client.PostAsJsonAsync("/v1/auth/register", new
-        {
-            email,
-            phoneNumber = (string?)null,
-            dateOfBirth = "1990-01-01",
-            displayName = "Security Candidate",
-            otpChannel = "Email",
-        });
+        var response = await PostRegisterAsync(client, email, phoneNumber: null, otpChannel: "Email");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return (email, body.GetProperty("otpChallengeId").GetGuid());
     }
+
+    private static Task<HttpResponseMessage> PostRegisterAsync(
+        HttpClient client, string? email, string? phoneNumber, string otpChannel) =>
+        client.PostAsJsonAsync("/v1/auth/register", new
+        {
+            email,
+            phoneNumber,
+            dateOfBirth = "1990-01-01",
+            displayName = "Security Candidate",
+            otpChannel,
+        });
+
+    // Unique per call, so tests never collide on the unique phone index; 13 characters,
+    // within the 20 an account stores.
+    private static string UniquePhoneNumber() =>
+        "+91" + Random.Shared.NextInt64(1_000_000_000, 10_000_000_000).ToString(CultureInfo.InvariantCulture);
 
     private static async Task<Guid> RequestOtpAsync(HttpClient client, string email)
     {

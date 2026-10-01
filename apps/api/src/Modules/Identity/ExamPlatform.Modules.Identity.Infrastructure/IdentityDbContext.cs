@@ -39,8 +39,8 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
         {
             b.ToTable("Users");
             b.HasKey(u => u.Id);
-            b.Property(u => u.Email).HasMaxLength(320);
-            b.Property(u => u.PhoneNumber).HasMaxLength(20);
+            b.Property(u => u.Email).HasMaxLength(User.MaxEmailLength);
+            b.Property(u => u.PhoneNumber).HasMaxLength(User.MaxPhoneNumberLength);
             b.Property(u => u.PasswordHash);
             b.Property(u => u.DisplayName).IsRequired().HasMaxLength(200);
             b.Property(u => u.Status).HasConversion<string>().HasMaxLength(30);
@@ -87,7 +87,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
         {
             b.ToTable("OtpChallenges");
             b.HasKey(c => c.Id);
-            b.Property(c => c.Destination).IsRequired().HasMaxLength(320);
+            b.Property(c => c.Destination).IsRequired().HasMaxLength(OtpChallenge.MaxDestinationLength);
             b.Property(c => c.CodeHash).IsRequired();
             b.Property(c => c.Channel).HasConversion<string>().HasMaxLength(20);
             b.Property(c => c.Purpose).HasConversion<string>().HasMaxLength(30);

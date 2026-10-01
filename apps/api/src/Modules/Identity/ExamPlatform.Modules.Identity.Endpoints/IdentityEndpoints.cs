@@ -1,6 +1,5 @@
 using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Queries;
-using ExamPlatform.Modules.Identity.Domain;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -18,7 +17,7 @@ public static class IdentityEndpoints
 
         auth.MapPost("/otp/request", async (RequestOtpRequest request, RequestOtpHandler handler, CancellationToken ct) =>
         {
-            var channel = Enum.Parse<OtpChannel>(request.Channel, ignoreCase: true);
+            var channel = OtpChannelParser.Parse(request.Channel);
             var challengeId = await handler.HandleAsync(new RequestOtpCommand(channel, request.Destination), ct);
             return Results.Ok(new { otpChallengeId = challengeId });
         });
@@ -33,7 +32,7 @@ public static class IdentityEndpoints
 
         auth.MapPost("/register", async (RegisterCandidateRequest request, RegisterCandidateHandler handler, CancellationToken ct) =>
         {
-            var channel = Enum.Parse<OtpChannel>(request.OtpChannel, ignoreCase: true);
+            var channel = OtpChannelParser.Parse(request.OtpChannel);
             var command = new RegisterCandidateCommand(
                 request.Email, request.PhoneNumber, request.DateOfBirth, request.DisplayName, channel);
             var challengeId = await handler.HandleAsync(command, ct);

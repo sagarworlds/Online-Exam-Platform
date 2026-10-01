@@ -1,5 +1,6 @@
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Domain;
+using ExamPlatform.Modules.Identity.Domain.Exceptions;
 
 namespace ExamPlatform.Modules.Identity.Application.Commands;
 
@@ -25,8 +26,19 @@ public sealed class RequestOtpHandler(
     /// id is returned in every case, so the response never reveals whether, or in what state,
     /// an account exists for the destination (FR-1, NFR-5).
     /// </returns>
+    /// <exception cref="InvalidContactError">
+    /// The destination is blank or longer than a challenge can store. This depends only on the
+    /// request itself, never on whether an account exists, so it reveals nothing about accounts.
+    /// </exception>
     public async Task<Guid> HandleAsync(RequestOtpCommand command, CancellationToken cancellationToken)
     {
+        // Every destination is persisted on a challenge (a decoy for unknown ones), so one the
+        // column cannot hold must be refused here rather than fail the insert as a 500.
+        if (string.IsNullOrWhiteSpace(command.Destination) || command.Destination.Length > OtpChallenge.MaxDestinationLength)
+        {
+            throw new InvalidContactError();
+        }
+
         var user = command.Channel == OtpChannel.Email
             ? await userRepository.GetByEmailAsync(command.Destination, cancellationToken)
             : await userRepository.GetByPhoneAsync(command.Destination, cancellationToken);

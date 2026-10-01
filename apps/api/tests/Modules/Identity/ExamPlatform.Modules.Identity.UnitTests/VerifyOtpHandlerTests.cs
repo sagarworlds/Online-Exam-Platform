@@ -75,6 +75,19 @@ public class VerifyOtpHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_MissingCode_CountsAsAWrongCode()
+    {
+        // A JSON body without "code" binds to null despite the non-nullable annotation.
+        await Assert.ThrowsAsync<OtpMismatchError>(
+            () => _handler.HandleAsync(Command(_challenge.Id, null!), CancellationToken.None));
+
+        // The real hasher throws on null, so the handler must hand it a non-null string.
+        _codeGenerator.Received(1).Hash(string.Empty);
+        Assert.Equal(1, _challenge.AttemptCount);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_ConsumedChallenge_ThrowsOtpAlreadyUsedError_AndMintsNoToken()
     {
         Assert.Equal(OtpVerificationOutcome.Verified, _challenge.Verify("hashed-" + CorrectCode, Now));

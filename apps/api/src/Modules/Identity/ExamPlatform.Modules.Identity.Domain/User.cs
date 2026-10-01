@@ -12,6 +12,12 @@ namespace ExamPlatform.Modules.Identity.Domain;
 /// </summary>
 public sealed class User : AggregateRoot
 {
+    /// <summary>The longest email address an account can hold: a 64-character local part, "@", and a 255-character domain.</summary>
+    public const int MaxEmailLength = 320;
+
+    /// <summary>The longest phone number an account can hold.</summary>
+    public const int MaxPhoneNumberLength = 20;
+
     private readonly List<Role> _roles = [];
     private readonly List<UserSession> _sessions = [];
 
@@ -59,12 +65,23 @@ public sealed class User : AggregateRoot
     /// <param name="dateOfBirth">Date of birth.</param>
     /// <param name="displayName">Name to show in the UI.</param>
     /// <param name="nowUtc">The current instant, for the registration event's timestamp.</param>
-    /// <exception cref="ArgumentException">Neither an email nor a phone number was supplied.</exception>
+    /// <exception cref="ContactRequiredError">Neither an email nor a phone number was supplied.</exception>
+    /// <exception cref="InvalidContactError">The email or phone number is longer than the platform stores.</exception>
     public static User Register(string? email, string? phoneNumber, DateOnly dateOfBirth, string displayName, DateTime nowUtc)
     {
-        if (string.IsNullOrWhiteSpace(email) && string.IsNullOrWhiteSpace(phoneNumber))
+        // A blank contact is stored as no contact: the unique indexes only skip nulls, so a
+        // stored "" would make every later account registered without one a duplicate.
+        email = string.IsNullOrWhiteSpace(email) ? null : email;
+        phoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber;
+
+        if (email is null && phoneNumber is null)
         {
-            throw new ArgumentException("A user must have an email address, a phone number, or both.");
+            throw new ContactRequiredError();
+        }
+
+        if (email?.Length > MaxEmailLength || phoneNumber?.Length > MaxPhoneNumberLength)
+        {
+            throw new InvalidContactError();
         }
 
         var user = new User(Guid.NewGuid(), email, phoneNumber, dateOfBirth, displayName);
