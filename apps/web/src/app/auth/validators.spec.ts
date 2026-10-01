@@ -1,9 +1,10 @@
-import { FormControl, Validators } from '@angular/forms';
+import { FormControl } from '@angular/forms';
 import {
   MAX_DISPLAY_NAME_LENGTH,
   dateOfBirthErrorMessage,
   dateOfBirthValidator,
   displayNameErrorMessage,
+  maxTrimmedLengthValidator,
   notBlankValidator,
   toLocalIsoDate,
 } from './validators';
@@ -71,13 +72,31 @@ describe('notBlankValidator', () => {
   });
 });
 
+describe('maxTrimmedLengthValidator', () => {
+  const validate = (value: string) => maxTrimmedLengthValidator(MAX_DISPLAY_NAME_LENGTH)(new FormControl(value));
+
+  it('accepts a name of exactly the limit', () => {
+    expect(validate('x'.repeat(MAX_DISPLAY_NAME_LENGTH))).toBeNull();
+  });
+
+  it('does not count the spaces the API trims away', () => {
+    expect(validate(`  ${'x'.repeat(MAX_DISPLAY_NAME_LENGTH)}  `)).toBeNull();
+  });
+
+  it('reports maxlength, like Validators.maxLength, one character over the limit', () => {
+    expect(validate('x'.repeat(MAX_DISPLAY_NAME_LENGTH + 1))).toEqual({
+      maxlength: { requiredLength: MAX_DISPLAY_NAME_LENGTH, actualLength: MAX_DISPLAY_NAME_LENGTH + 1 },
+    });
+  });
+});
+
 describe('displayNameErrorMessage', () => {
   it('asks for a name when it is blank', () => {
     expect(displayNameErrorMessage({ blank: true })).toBe('Enter a display name.');
   });
 
   it('explains the length limit shared with the API', () => {
-    const control = new FormControl('x'.repeat(MAX_DISPLAY_NAME_LENGTH + 1), Validators.maxLength(MAX_DISPLAY_NAME_LENGTH));
+    const control = new FormControl('x'.repeat(MAX_DISPLAY_NAME_LENGTH + 1), maxTrimmedLengthValidator(MAX_DISPLAY_NAME_LENGTH));
 
     expect(displayNameErrorMessage(control.errors)).toContain(`${MAX_DISPLAY_NAME_LENGTH} characters`);
   });

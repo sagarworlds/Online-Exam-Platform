@@ -79,6 +79,27 @@ export const notBlankValidator: ValidatorFn = (control: AbstractControl): Valida
 };
 
 /**
+ * Rejects a value longer than `max` characters once trimmed. The API trims a display
+ * name before applying its limit, so `Validators.maxLength`, which counts the raw
+ * value, would refuse a name the API accepts when it only overruns on stray spaces.
+ *
+ * @param max The most characters allowed after trimming.
+ * @returns A validator reporting the same `maxlength` error shape as `Validators.maxLength`;
+ *   null when the trimmed value fits (or is not a string).
+ */
+export function maxTrimmedLengthValidator(max: number): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const value: unknown = control.value;
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const actualLength = value.trim().length;
+    return actualLength > max ? { maxlength: { requiredLength: max, actualLength } } : null;
+  };
+}
+
+/**
  * Message for the first problem {@link dateOfBirthValidator} reported.
  *
  * @param errors The control's current errors.
@@ -106,7 +127,7 @@ export function dateOfBirthErrorMessage(errors: ValidationErrors | null): string
 /**
  * Message for the first problem with a display name validated by
  * `Validators.required`, {@link notBlankValidator} and
- * `Validators.maxLength(MAX_DISPLAY_NAME_LENGTH)`.
+ * `maxTrimmedLengthValidator(MAX_DISPLAY_NAME_LENGTH)`.
  *
  * @param errors The control's current errors.
  * @returns A sentence to show under the field, or null when there is nothing to report.
