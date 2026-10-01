@@ -92,6 +92,21 @@ public class RequestOtpHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_PendingTwoFactorUser_IssuesDecoyWithoutSending()
+    {
+        // Still pending verification, so a real code would have the Registration purpose;
+        // that must not become a way round password + 2FA either.
+        ArrangeUser(user => user.AssignRole(Role.Create("SuperAdmin", requiresTwoFactor: true)));
+
+        var challengeId = await _handler.HandleAsync(Command(), CancellationToken.None);
+
+        await AssertDecoyIssuedAsync(challengeId);
+        await _challengeRepository.Received(1).AddAsync(
+            Arg.Is<OtpChallenge>(c => c.Id == challengeId && c.Purpose == OtpPurpose.Registration),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_PendingUser_IssuesRegistrationPurposeChallenge()
     {
         var user = ArrangeUser();

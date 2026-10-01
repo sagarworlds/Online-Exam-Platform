@@ -186,4 +186,21 @@ public class VerifyOtpHandlerTests
         Assert.Equal("access-token", result.AccessToken);
         Assert.Single(_user.Sessions);
     }
+
+    [Fact]
+    public async Task HandleAsync_RegistrationPurposeForTwoFactorUser_ThrowsTwoFactorLoginRequired_AndDoesNotActivate()
+    {
+        // A pending staff account is the one place a Registration code could otherwise stand
+        // in for password + 2FA, so it is refused like a Login code (FR-3).
+        _user.AssignRole(Role.Create("SuperAdmin", requiresTwoFactor: true));
+        var registrationChallenge = IssueChallenge(OtpPurpose.Registration);
+
+        await Assert.ThrowsAsync<TwoFactorLoginRequiredError>(
+            () => _handler.HandleAsync(Command(registrationChallenge.Id, CorrectCode), CancellationToken.None));
+
+        Assert.True(registrationChallenge.IsConsumed);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        Assert.Equal(UserStatus.PendingVerification, _user.Status);
+        Assert.Empty(_user.Sessions);
+    }
 }
