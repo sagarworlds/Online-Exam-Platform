@@ -5,6 +5,7 @@ using ExamPlatform.Modules.Identity.Application.Queries;
 using ExamPlatform.Modules.Identity.Application.Sessions;
 using ExamPlatform.Modules.Identity.Endpoints.Authentication;
 using ExamPlatform.Modules.Identity.Endpoints.Authorization;
+using ExamPlatform.Modules.Identity.Endpoints.OtpDelivery;
 using ExamPlatform.Modules.Identity.Infrastructure;
 using ExamPlatform.Modules.Identity.Infrastructure.Repositories;
 using ExamPlatform.SharedKernel.Application;
@@ -15,6 +16,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace ExamPlatform.Modules.Identity.Endpoints;
 
@@ -40,8 +42,8 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IOtpCodeGenerator, OtpCodeGenerator>();
-        services.AddScoped<IOtpSender, LoggingOtpSender>();
         services.AddSingleton<ITokenGenerator, JwtTokenGenerator>();
+        AddOtpDelivery(services, configuration);
 
         services.AddSingleton<LoginEligibilityPolicy>();
         services.AddSingleton<IPasswordPolicy, PasswordPolicy>();
@@ -73,6 +75,29 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         // so there is no risk of a second module's registration overwriting this one.
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
         services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+    }
+
+    // Picks the IOtpSender adapter named by Identity:OtpDelivery:Provider (NFR-6). The
+    // provider is read when a sender is resolved, not here: a test's WebApplicationFactory
+    // layers its configuration on after AddModule runs, so a value captured now could be
+    // stale (the same concern as the JWT signing key in Program.cs).
+    private static void AddOtpDelivery(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<OtpDeliveryOptions>()
+            .Bind(configuration.GetSection(OtpDeliveryOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<OtpDeliveryOptions>, OtpDeliveryOptionsValidator>();
+
+        services.AddScoped<IOtpSender>(sp =>
+            sp.GetRequiredService<IOptions<OtpDeliveryOptions>>().Value.Provider switch
+            {
+                OtpDeliveryOptions.DevelopmentLog => ActivatorUtilities.CreateInstance<LoggingOtpSender>(sp),
+
+                // Unreachable once the host has started: OtpDeliveryOptionsValidator refuses
+                // any other provider at startup.
+                var provider => throw new InvalidOperationException(
+                    $"No IOtpSender adapter exists for {OtpDeliveryOptions.SectionName}:Provider '{provider}'."),
+            });
     }
 
     /// <inheritdoc />
