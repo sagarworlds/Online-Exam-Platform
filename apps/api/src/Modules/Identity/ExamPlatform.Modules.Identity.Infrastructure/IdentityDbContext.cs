@@ -12,6 +12,9 @@ namespace ExamPlatform.Modules.Identity.Infrastructure;
 /// </summary>
 public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : DbContext(options)
 {
+    /// <summary>Name of the shadow property that maps a concurrency-checked entity's Postgres <c>xmin</c> row version.</summary>
+    internal const string RowVersionPropertyName = "RowVersion";
+
     /// <summary>Registered accounts.</summary>
     public DbSet<User> Users => Set<User>();
 
@@ -89,6 +92,12 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             b.Property(c => c.Channel).HasConversion<string>().HasMaxLength(20);
             b.Property(c => c.Purpose).HasConversion<string>().HasMaxLength(30);
             b.Ignore(c => c.DomainEvents);
+
+            // Optimistic concurrency on Postgres's xmin system column (a shadow uint that
+            // Npgsql maps to xmin when marked as a row version), so two parallel verifies
+            // of one challenge can neither both consume it nor overwrite each other's
+            // attempt count: the second save fails and IdentityUnitOfWork reports it as a 409.
+            b.Property<uint>(RowVersionPropertyName).IsRowVersion();
         });
 
         modelBuilder.Entity<PasswordResetToken>(b =>
