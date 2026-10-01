@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace ExamPlatform.IntegrationTests;
@@ -27,6 +28,23 @@ public sealed class ProductionHostTests
         Assert.True(
             response.Headers.Contains("Strict-Transport-Security"),
             "A deployed host must tell browsers to use HTTPS only.");
+    }
+
+    [Fact]
+    public async Task Production_SendsHstsOnTypedErrorResponsesToo()
+    {
+        // A typed error is written by the exception handler, which clears the response headers
+        // first: HSTS must survive that, or a browser whose first response was a failed sign-in
+        // would never learn to use HTTPS only.
+        using var factory = new ProductionHostFactory(otpProvider: null, allowCapturingSender: true);
+        using var client = factory.CreateClient(HttpsClient);
+
+        var response = await client.PostAsJsonAsync(
+            "/v1/auth/otp/request", new { channel = "Carrier-Pigeon", destination = "someone@tests.local" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.True(response.Headers.Contains("Strict-Transport-Security"));
+        Assert.True(response.Headers.Contains("X-Content-Type-Options"));
     }
 
     [Theory]
