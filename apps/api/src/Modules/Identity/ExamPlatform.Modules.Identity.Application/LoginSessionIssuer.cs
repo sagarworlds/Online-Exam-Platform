@@ -17,7 +17,8 @@ public sealed class LoginSessionIssuer(ITokenGenerator tokenGenerator, Clock clo
 {
     // A login session outlives any single exam attempt's own timer (which the future
     // Exam Runtime module enforces separately via its own server-side end_time) — this
-    // is just how long the candidate stays signed in to browse/start exams.
+    // is just how long the candidate stays signed in to browse/start exams. It is also the
+    // access token's lifetime, since the token generator copies the session's expiry.
     private static readonly TimeSpan SessionValidity = TimeSpan.FromHours(12);
 
     /// <summary>Starts a new session on the user (superseding any existing one, per FR-4) and mints its access token.</summary>

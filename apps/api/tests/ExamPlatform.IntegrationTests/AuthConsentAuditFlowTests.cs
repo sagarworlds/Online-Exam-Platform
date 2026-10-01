@@ -14,7 +14,8 @@ namespace ExamPlatform.IntegrationTests;
 
 /// <summary>
 /// Drives the full attempt-adjacent journey over real HTTP against the actual
-/// Host: register → verify OTP → session supersede on a second login → consent
+/// Host: register → verify OTP → session supersede on a second login (the first token
+/// is then refused) → consent
 /// grant/withdraw → RBAC deny/allow → cross-module audit trail. One scenario,
 /// not several independent facts, since each step's assertions depend on state
 /// the previous step created — splitting it would just reintroduce that coupling
@@ -66,8 +67,8 @@ public sealed class AuthConsentAuditFlowTests(ApiFactory factory) : IClassFixtur
         Assert.Equal("Journey Candidate", profile!.DisplayName);
         var subjectId = profile.UserId;
 
-        // 3. Logging in again supersedes the first session (FR-4) — verified at the
-        // data level, since this slice does not build live per-request revocation checks.
+        // 3. Logging in again supersedes the first session (FR-4): the stored session is
+        // revoked, and the first token stops working on the very next request.
         var secondRequest = await client.PostAsJsonAsync("/v1/auth/otp/request", new { channel = "Email", destination = email });
         secondRequest.EnsureSuccessStatusCode();
         var secondChallenge = await secondRequest.Content.ReadFromJsonAsync<OtpChallengeResponse>(JsonOptions);
@@ -88,6 +89,12 @@ public sealed class AuthConsentAuditFlowTests(ApiFactory factory) : IClassFixtur
             var secondSession = await identityDb.Set<UserSession>().SingleAsync(s => s.Id == secondAuth!.SessionId);
             Assert.Null(secondSession.RevokedAtUtc);
         }
+
+        // The client still sends the first token here.
+        var supersededProfileResponse = await client.GetAsync("/v1/me/profile");
+        Assert.Equal(HttpStatusCode.Unauthorized, supersededProfileResponse.StatusCode);
+        var supersededProblem = await supersededProfileResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("session_superseded", supersededProblem.GetProperty("title").GetString());
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secondAuth!.AccessToken);
 

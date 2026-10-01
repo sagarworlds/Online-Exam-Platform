@@ -21,7 +21,15 @@ public sealed class LoginEligibilityPolicy
     /// otherwise null.
     /// </returns>
     public DomainException? GetAccountViolation(User user) =>
-        user.Status is UserStatus.Suspended or UserStatus.Deactivated ? new AccountLockedError() : null;
+        IsLocked(user.Status) ? new AccountLockedError() : null;
+
+    /// <summary>
+    /// Whether an account in this status is locked out of signing in. Also used to end
+    /// already-issued sessions of such an account (FR-4), so signing in and staying signed
+    /// in can never disagree about which statuses are locked.
+    /// </summary>
+    /// <param name="status">The account's current status.</param>
+    public bool IsLocked(UserStatus status) => status is UserStatus.Suspended or UserStatus.Deactivated;
 
     /// <summary>Checks that a verified OTP of the given purpose may complete this user's sign-in.</summary>
     /// <param name="user">The user the challenge belongs to.</param>

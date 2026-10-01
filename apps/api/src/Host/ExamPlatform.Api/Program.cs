@@ -51,6 +51,10 @@ builder.Services
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKey)),
         };
+
+        // Events are deliberately not set here: the Identity module attaches its own (see
+        // IdentityModuleInstaller), which checks every validated token's "sid" against its
+        // stored session (FR-4), since only Identity knows what a session is.
     });
 
 builder.Services.AddAuthorization();

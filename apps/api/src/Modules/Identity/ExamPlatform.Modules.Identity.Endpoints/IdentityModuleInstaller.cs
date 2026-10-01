@@ -2,11 +2,14 @@ using ExamPlatform.Modules.Identity.Application;
 using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Application.Queries;
+using ExamPlatform.Modules.Identity.Application.Sessions;
+using ExamPlatform.Modules.Identity.Endpoints.Authentication;
 using ExamPlatform.Modules.Identity.Endpoints.Authorization;
 using ExamPlatform.Modules.Identity.Infrastructure;
 using ExamPlatform.Modules.Identity.Infrastructure.Repositories;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +35,7 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IOtpChallengeRepository, OtpChallengeRepository>();
         services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
+        services.AddScoped<ISessionLookup, SessionLookup>();
         services.AddScoped<IIdentityUnitOfWork, IdentityUnitOfWork>();
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
@@ -51,6 +55,16 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<AssignRoleHandler>();
         services.AddScoped<UpdateProfileHandler>();
         services.AddScoped<GetProfileHandler>();
+
+        // Registered here, not in the Host, because Identity owns what a token's "sid" claim
+        // means (FR-4); the Host keeps referencing only Identity.Endpoints (ADR 0001). The
+        // bearer handler resolves EventsType from the request's services on every request,
+        // so the events, and the scoped DbContext behind SessionValidator, are per request.
+        services.AddScoped<SessionValidator>();
+        services.AddScoped<SessionValidatingJwtBearerEvents>();
+        services.PostConfigure<JwtBearerOptions>(
+            JwtBearerDefaults.AuthenticationScheme,
+            options => options.EventsType = typeof(SessionValidatingJwtBearerEvents));
 
         // Registered here because Identity owns what a "perm" claim means; it is the
         // only module in this slice that needs a custom IAuthorizationPolicyProvider,

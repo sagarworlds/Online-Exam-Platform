@@ -17,8 +17,9 @@ namespace ExamPlatform.IntegrationTests;
 /// <summary>
 /// Drives the Identity module's security rules over real HTTP and a real database:
 /// the OTP brute-force lockout, replay protection, supersession of older codes,
-/// concurrency guards (FR-1, NFR-5), which accounts an OTP may sign in (FR-3), and that
-/// malformed sign-up, sign-in and profile input gets a typed 400 rather than a 500 (section 11).
+/// concurrency guards (FR-1, NFR-5), which accounts an OTP may sign in (FR-3), that a
+/// token stops working as soon as its session ends (FR-4), and that malformed sign-up,
+/// sign-in and profile input gets a typed 400 rather than a 500 (section 11).
 /// Each test arranges its own user with a unique address, so the tests are independent
 /// of each other and of the order they run in.
 /// </summary>
@@ -460,6 +461,88 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         Assert.Equal(1, challenge.AttemptCount);
     }
 
+    [Fact]
+    public async Task SupersededSessionToken_IsRejectedWith401SessionSuperseded()
+    {
+        var candidate = await factory.SignInAsAsync("Candidate");
+        using var client = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, (await GetProfileAsync(client, candidate.AccessToken)).StatusCode);
+
+        // A second login (FR-4) supersedes the first session.
+        var challengeId = await RequestOtpAsync(client, candidate.Email);
+        var verifyResponse = await VerifyOtpAsync(client, challengeId, factory.OtpSender.GetLastCode(candidate.Email));
+        Assert.Equal(HttpStatusCode.OK, verifyResponse.StatusCode);
+        var newToken = (await verifyResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
+
+        var oldTokenResponse = await GetProfileAsync(client, candidate.AccessToken);
+        await AssertProblemAsync(oldTokenResponse, HttpStatusCode.Unauthorized, "session_superseded");
+        Assert.Contains("error=\"invalid_token\"", oldTokenResponse.Headers.WwwAuthenticate.ToString());
+        Assert.Equal(HttpStatusCode.OK, (await GetProfileAsync(client, newToken)).StatusCode);
+
+        // A refused token only makes the caller anonymous: endpoints that need no sign-in,
+        // such as signing in again, still answer a client that keeps sending it.
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", candidate.AccessToken);
+        await RequestOtpAsync(client, candidate.Email);
+    }
+
+    [Fact]
+    public async Task TokenWithoutSessionId_IsRejected()
+    {
+        var candidate = await factory.SignInAsAsync("Candidate");
+        using var client = factory.CreateClient();
+
+        // Correctly signed and unexpired, and its sub names a real user, but it names no session.
+        var response = await GetProfileAsync(client, TestJwtTokenBuilder.GenerateCandidateToken(candidate.UserId));
+
+        await AssertProblemAsync(response, HttpStatusCode.Unauthorized, "session_unknown");
+    }
+
+    [Fact]
+    public async Task TokenForAnotherUsersSession_IsRejected()
+    {
+        var candidate = await factory.SignInAsAsync("Candidate");
+        var other = await factory.SignInAsAsync("Candidate");
+        using var scope = factory.Services.CreateScope();
+        var services = scope.ServiceProvider;
+        var users = services.GetRequiredService<IUserRepository>();
+        var user = await users.GetByIdAsync(candidate.UserId, CancellationToken.None);
+        var otherSession = (await users.GetByIdAsync(other.UserId, CancellationToken.None))!.Sessions.Single();
+        using var client = factory.CreateClient();
+
+        // Minted with the app's own key for a live session, so only the sid/sub pairing can catch it.
+        var token = services.GetRequiredService<ITokenGenerator>().GenerateAccessToken(user!, otherSession);
+
+        await AssertProblemAsync(await GetProfileAsync(client, token), HttpStatusCode.Unauthorized, "session_unknown");
+    }
+
+    [Fact]
+    public async Task SuspendingAUser_InvalidatesTheirExistingToken()
+    {
+        var candidate = await factory.SignInAsAsync("Candidate");
+        using var client = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, (await GetProfileAsync(client, candidate.AccessToken)).StatusCode);
+
+        await SuspendAsync(candidate.UserId);
+
+        await AssertProblemAsync(
+            await GetProfileAsync(client, candidate.AccessToken), HttpStatusCode.Unauthorized, "account_locked");
+    }
+
+    // One minute past expiry is still inside the bearer handler's default five-minute clock
+    // skew, so the session check refuses it; an hour past fails the token's own lifetime
+    // check first. Both must tell the client the same thing.
+    [Theory]
+    [InlineData(1)]
+    [InlineData(60)]
+    public async Task ExpiredSessionToken_IsRejectedWith401SessionExpired(int minutesSinceExpiry)
+    {
+        var candidate = await factory.SignInAsAsync("Candidate");
+        var token = await StartPastSessionAsync(candidate.UserId, TimeSpan.FromMinutes(minutesSinceExpiry));
+        using var client = factory.CreateClient();
+
+        await AssertProblemAsync(await GetProfileAsync(client, token), HttpStatusCode.Unauthorized, "session_expired");
+    }
+
     // Arrange-only: no admin endpoint suspends accounts yet, so the domain method is called directly.
     private async Task SuspendAsync(Guid userId)
     {
@@ -469,6 +552,29 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
             ?? throw new InvalidOperationException($"User {userId} was not found.");
         user.Suspend(services.GetRequiredService<Clock>().UtcNow);
         await services.GetRequiredService<IIdentityUnitOfWork>().SaveChangesAsync(CancellationToken.None);
+    }
+
+    // Arrange-only: starts a session that ended the given time ago (it began an hour before
+    // that) and mints its token, since no real login can produce an already-expired session.
+    private async Task<string> StartPastSessionAsync(Guid userId, TimeSpan sinceExpiry)
+    {
+        using var scope = factory.Services.CreateScope();
+        var services = scope.ServiceProvider;
+        var user = await services.GetRequiredService<IUserRepository>().GetByIdAsync(userId, CancellationToken.None)
+            ?? throw new InvalidOperationException($"User {userId} was not found.");
+        var expiresAtUtc = services.GetRequiredService<Clock>().UtcNow - sinceExpiry;
+        var session = user.StartNewSession(
+            "past-session-hash", expiresAtUtc.AddHours(-1), expiresAtUtc, deviceFingerprint: null, ipAddress: null);
+        await services.GetRequiredService<IIdentityUnitOfWork>().SaveChangesAsync(CancellationToken.None);
+        return services.GetRequiredService<ITokenGenerator>().GenerateAccessToken(user, session);
+    }
+
+    // The token goes on this one request, so a test can try several tokens with one client.
+    private static async Task<HttpResponseMessage> GetProfileAsync(HttpClient client, string accessToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/me/profile");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        return await client.SendAsync(request);
     }
 
     private static async Task<OtpChallenge> LoadChallengeAsync(IServiceScope scope, Guid challengeId) =>
