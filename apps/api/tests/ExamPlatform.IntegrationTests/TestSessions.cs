@@ -28,6 +28,11 @@ public sealed record SignedInTestUser(Guid UserId, Guid SessionId, string Email,
 /// API checks sessions and permissions on every request (FR-2, FR-4). Use
 /// <see cref="TestJwtTokenBuilder"/> only for negative tests that need a token
 /// with no session behind it.
+/// <para>
+/// The state is written straight to the database, so the login endpoints (OTP,
+/// password, and the staff password + 2FA step) are skipped by design: a test
+/// whose subject is login behaviour itself must drive those endpoints over HTTP.
+/// </para>
 /// </summary>
 public static class TestSessions
 {
@@ -55,7 +60,8 @@ public static class TestSessions
     /// </param>
     /// <param name="sessionLifetime">
     /// How long the session lasts from the app clock's current time; defaults to one
-    /// hour. Tests that advance a fake clock pass a lifetime longer than the advance.
+    /// hour. Tests that advance a fake clock sign in first and pass a lifetime longer
+    /// than the advance, so the session is still live at the advanced time.
     /// </param>
     /// <exception cref="InvalidOperationException">No role named <paramref name="roleName"/> is seeded.</exception>
     public static async Task<SignedInTestUser> SignInAsAsync(
