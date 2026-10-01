@@ -45,6 +45,8 @@ public sealed class ProductionHostTests
     [Theory]
     [InlineData("ForwardedHeaders:KnownProxies:0", "not-an-address")]
     [InlineData("ForwardedHeaders:KnownNetworks:0", "10.0.0.0/99")]
+    [InlineData("ForwardedHeaders:KnownProxies", "10.1.2.3")]
+    [InlineData("ForwardedHeaders:KnownNetworks", "10.0.0.0/8")]
     public void MalformedForwardedHeadersTrust_FailsStartup(string key, string value)
     {
         using var factory = new ProductionHostFactory(
