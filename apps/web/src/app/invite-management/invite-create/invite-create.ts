@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { InviteApiService } from '../invite-api.service';
-import { AuthSessionService } from '../../auth/auth-session.service';
 
 @Component({
   selector: 'app-invite-create',
@@ -88,7 +87,6 @@ import { AuthSessionService } from '../../auth/auth-session.service';
 export class InviteCreate implements OnInit {
   private fb = inject(FormBuilder);
   private inviteApi = inject(InviteApiService);
-  private authSession = inject(AuthSessionService);
   private router = inject(Router);
 
   form!: FormGroup;
@@ -109,20 +107,13 @@ export class InviteCreate implements OnInit {
     this.loading = true;
     this.error = '';
 
-    const session = this.authSession.session();
-    if (!session?.userId) {
-      this.error = 'Not authenticated';
-      this.loading = false;
-      return;
-    }
-
     const request = {
       examId: this.form.value.examId,
       batchMemberId: this.form.value.batchMemberId,
       email: this.form.value.email,
     };
 
-    this.inviteApi.createInvite(request, session.userId).subscribe({
+    this.inviteApi.createInvite(request).subscribe({
       next: () => {
         this.loading = false;
         this.router.navigate(['/invites']);

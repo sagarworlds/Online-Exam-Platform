@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ExamApiService } from '../exam-api.service';
-import { AuthSessionService } from '../../auth/auth-session.service';
 
 @Component({
   selector: 'app-exam-builder',
@@ -121,7 +120,6 @@ import { AuthSessionService } from '../../auth/auth-session.service';
 export class ExamBuilder implements OnInit {
   private fb = inject(FormBuilder);
   private examApi = inject(ExamApiService);
-  private authSession = inject(AuthSessionService);
   private router = inject(Router);
 
   form!: FormGroup;
@@ -147,20 +145,17 @@ export class ExamBuilder implements OnInit {
     this.loading = true;
     this.error = '';
 
-    const session = this.authSession.session();
-    if (!session?.userId) {
-      this.error = 'Not authenticated';
-      this.loading = false;
-      return;
-    }
+    // The API takes null for "no series" and refuses the empty string, which is what a
+    // blank field holds, so a blank (or whitespace-only) value is sent as null.
+    const seriesId = (this.form.value.seriesId ?? '').trim();
 
     const request = {
       name: this.form.value.name,
       description: this.form.value.description,
-      seriesId: this.form.value.seriesId,
+      seriesId: seriesId === '' ? null : seriesId,
     };
 
-    this.examApi.createExam(request, session.userId).subscribe({
+    this.examApi.createExam(request).subscribe({
       next: () => {
         this.loading = false;
         this.router.navigate(['/exams']);

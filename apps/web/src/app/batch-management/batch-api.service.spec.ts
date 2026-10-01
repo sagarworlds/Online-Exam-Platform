@@ -21,16 +21,16 @@ describe('BatchApiService', () => {
     httpMock.verify();
   });
 
-  it('should create a batch', () => {
+  it('should create a batch without a createdBy field', () => {
     const request = { examId: 'exam-123', name: 'Test Batch', description: 'Test', maxMembers: 50 };
-    const userId = 'user-123';
 
-    service.createBatch(request, userId).subscribe();
+    service.createBatch(request).subscribe();
 
     const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/batches`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body.name).toBe('Test Batch');
     expect(req.request.body.maxMembers).toBe(50);
+    expect('createdBy' in req.request.body).toBe(false);
   });
 
   it('should get batches', () => {

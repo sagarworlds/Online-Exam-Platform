@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { BatchApiService } from '../batch-api.service';
-import { AuthSessionService } from '../../auth/auth-session.service';
 
 @Component({
   selector: 'app-batch-create',
@@ -100,7 +99,6 @@ import { AuthSessionService } from '../../auth/auth-session.service';
 export class BatchCreate implements OnInit {
   private fb = inject(FormBuilder);
   private batchApi = inject(BatchApiService);
-  private authSession = inject(AuthSessionService);
   private router = inject(Router);
 
   form!: FormGroup;
@@ -122,13 +120,6 @@ export class BatchCreate implements OnInit {
     this.loading = true;
     this.error = '';
 
-    const session = this.authSession.session();
-    if (!session?.userId) {
-      this.error = 'Not authenticated';
-      this.loading = false;
-      return;
-    }
-
     const request = {
       examId: this.form.value.examId,
       name: this.form.value.name,
@@ -136,7 +127,7 @@ export class BatchCreate implements OnInit {
       maxMembers: parseInt(this.form.value.maxMembers),
     };
 
-    this.batchApi.createBatch(request, session.userId).subscribe({
+    this.batchApi.createBatch(request).subscribe({
       next: () => {
         this.loading = false;
         this.router.navigate(['/batches']);

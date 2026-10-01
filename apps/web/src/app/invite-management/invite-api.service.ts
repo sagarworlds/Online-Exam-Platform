@@ -8,11 +8,10 @@ export class InviteApiService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiBaseUrl}/v1/invites`;
 
-  createInvite(request: CreateInviteRequest, userId: string) {
-    return this.http.post<InviteDto>(this.apiUrl, {
-      ...request,
-      createdByUserId: userId,
-    });
+  // The API records the caller (from the access token) as the creator, so the request
+  // carries no user id: a client-supplied one would be ignored (FR-2).
+  createInvite(request: CreateInviteRequest) {
+    return this.http.post<InviteDto>(this.apiUrl, request);
   }
 
   getInvites() {

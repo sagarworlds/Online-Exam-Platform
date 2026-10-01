@@ -8,11 +8,10 @@ export class ExamApiService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiBaseUrl}/v1/exams`;
 
-  createExam(request: CreateExamRequest, userId: string) {
-    return this.http.post<ExamDto>(this.apiUrl, {
-      ...request,
-      createdBy: userId,
-    });
+  // The API records the caller (from the access token) as the creator, so the request
+  // carries no user id: a client-supplied one would be ignored (FR-2).
+  createExam(request: CreateExamRequest) {
+    return this.http.post<ExamDto>(this.apiUrl, request);
   }
 
   getExams() {

@@ -21,15 +21,15 @@ describe('InviteApiService', () => {
     httpMock.verify();
   });
 
-  it('should create an invite', () => {
+  it('should create an invite without a createdByUserId field', () => {
     const request = { examId: 'exam-123', batchMemberId: 'member-123', email: 'test@example.com' };
-    const userId = 'user-123';
 
-    service.createInvite(request, userId).subscribe();
+    service.createInvite(request).subscribe();
 
     const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/invites`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body.email).toBe('test@example.com');
+    expect('createdByUserId' in req.request.body).toBe(false);
   });
 
   it('should revoke an invite', () => {

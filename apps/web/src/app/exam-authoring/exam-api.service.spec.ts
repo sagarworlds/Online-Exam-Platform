@@ -21,16 +21,23 @@ describe('ExamApiService', () => {
     httpMock.verify();
   });
 
-  it('should create an exam', () => {
+  it('should create an exam without a createdBy field', () => {
     const request = { seriesId: '123', name: 'Test Exam', description: 'Test' };
-    const userId = 'user-123';
 
-    service.createExam(request, userId).subscribe();
+    service.createExam(request).subscribe();
 
     const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body.name).toBe('Test Exam');
-    expect(req.request.body.createdBy).toBe(userId);
+    expect(req.request.body.seriesId).toBe('123');
+    expect('createdBy' in req.request.body).toBe(false);
+  });
+
+  it('should send a null seriesId through unchanged for a standalone exam', () => {
+    service.createExam({ seriesId: null, name: 'Standalone' }).subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams`);
+    expect(req.request.body.seriesId).toBeNull();
   });
 
   it('should get exams', () => {

@@ -33,7 +33,8 @@ export interface ExamDto {
 }
 
 export interface CreateExamRequest {
-  seriesId?: string;
+  /** Null (or omitted) creates a standalone exam; the API rejects an empty string. */
+  seriesId?: string | null;
   name: string;
   description?: string;
 }
