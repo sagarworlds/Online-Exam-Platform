@@ -24,8 +24,10 @@ public class EFInviteRepository(InviteDbContext context) : IInviteRepository
         await context.Invites.AsNoTracking().Where(i => i.ExamId == examId).ToListAsync(cancellationToken);
 }
 
-public class InviteUnitOfWork(InviteDbContext context) : IInviteUnitOfWork
+/// <summary>EF Core-backed <see cref="IInviteUnitOfWork"/>, wrapping <see cref="InviteDbContext"/>.</summary>
+public sealed class InviteUnitOfWork(InviteDbContext context) : IInviteUnitOfWork
 {
-    public async Task SaveChangesAsync(CancellationToken cancellationToken = default) =>
-        await context.SaveChangesAsync(cancellationToken);
+    /// <inheritdoc />
+    public Task<int> SaveChangesAsync(CancellationToken cancellationToken) =>
+        context.SaveChangesAsync(cancellationToken);
 }

@@ -1,8 +1,10 @@
+using ExamPlatform.SharedKernel.Application;
+
 namespace ExamPlatform.Modules.ExamAuthoring.Application;
 
-/// Unit of Work for coordinating exam authoring changes (transaction handling, domain event dispatch).
-public interface IExamAuthoringUnitOfWork
-{
-    /// Persist all changes (aggregates, domain events) in a single transaction.
-    Task SaveChangesAsync(CancellationToken cancellationToken = default);
-}
+/// <summary>
+/// The ExamAuthoring module's unit of work. A distinct interface per module (see
+/// <c>Identity.Application.IIdentityUnitOfWork</c> for the rationale) so DI cannot
+/// resolve another module's <c>DbContext</c>-backed implementation.
+/// </summary>
+public interface IExamAuthoringUnitOfWork : IUnitOfWork;
