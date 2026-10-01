@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ExamPlatform.Modules.Identity.Application;
@@ -17,7 +18,7 @@ namespace ExamPlatform.IntegrationTests;
 /// Drives the Identity module's security rules over real HTTP and a real database:
 /// the OTP brute-force lockout, replay protection, supersession of older codes,
 /// concurrency guards (FR-1, NFR-5), which accounts an OTP may sign in (FR-3), and that
-/// malformed sign-up and sign-in input gets a typed 400 rather than a 500 (section 11).
+/// malformed sign-up, sign-in and profile input gets a typed 400 rather than a 500 (section 11).
 /// Each test arranges its own user with a unique address, so the tests are independent
 /// of each other and of the order they run in.
 /// </summary>
@@ -360,6 +361,42 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         await AssertNoAccountAsync(email);
     }
 
+    public static TheoryData<string?> InvalidDisplayNames => new()
+    {
+        null,
+        "",
+        "   ",
+        new string('a', User.MaxDisplayNameLength + 1),
+    };
+
+    [Theory]
+    [MemberData(nameof(InvalidDisplayNames))]
+    public async Task UpdateProfile_WithInvalidDisplayName_Returns400(string? displayName)
+    {
+        var candidate = await factory.SignInAsAsync("Candidate");
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", candidate.AccessToken);
+
+        var response = await client.PutAsJsonAsync("/v1/me/profile", new { displayName });
+
+        // Used to reach the database and fail there (not-null or varchar(200)) as a 500.
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_display_name");
+        Assert.Equal("Test Candidate", await GetDisplayNameAsync(client));
+    }
+
+    [Fact]
+    public async Task UpdateProfile_StoresTheTrimmedDisplayName()
+    {
+        var candidate = await factory.SignInAsAsync("Candidate");
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", candidate.AccessToken);
+
+        var response = await client.PutAsJsonAsync("/v1/me/profile", new { displayName = "  Asha Rao  " });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal("Asha Rao", await GetDisplayNameAsync(client));
+    }
+
     [Fact]
     public async Task VerifyOtp_WithoutCode_CountsAsAWrongCode()
     {
@@ -405,6 +442,12 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return (email, body.GetProperty("otpChallengeId").GetGuid());
+    }
+
+    private static async Task<string?> GetDisplayNameAsync(HttpClient authenticatedClient)
+    {
+        var profile = await authenticatedClient.GetFromJsonAsync<JsonElement>("/v1/me/profile");
+        return profile.GetProperty("displayName").GetString();
     }
 
     private static Task<HttpResponseMessage> PostRegisterAsync(

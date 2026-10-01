@@ -104,6 +104,64 @@ public class UserTests
         Assert.Equal(dateOfBirth, RegisterBornOn(dateOfBirth).DateOfBirth);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void UpdateDisplayName_Blank_ThrowsInvalidDisplayNameError(string? displayName)
+    {
+        var user = CreateAdultUser();
+
+        Assert.Throws<InvalidDisplayNameError>(() => user.UpdateDisplayName(displayName!));
+        Assert.Equal("Test Candidate", user.DisplayName);
+    }
+
+    [Fact]
+    public void UpdateDisplayName_Over200Chars_ThrowsInvalidDisplayNameError()
+    {
+        var user = CreateAdultUser();
+
+        Assert.Throws<InvalidDisplayNameError>(() => user.UpdateDisplayName(new string('a', User.MaxDisplayNameLength + 1)));
+    }
+
+    [Fact]
+    public void UpdateDisplayName_TrimsWhitespace()
+    {
+        var user = CreateAdultUser();
+
+        user.UpdateDisplayName("  Asha Rao \t");
+
+        Assert.Equal("Asha Rao", user.DisplayName);
+    }
+
+    [Fact]
+    public void UpdateDisplayName_200CharsOnceTrimmed_IsAccepted()
+    {
+        var user = CreateAdultUser();
+        var name = new string('a', User.MaxDisplayNameLength);
+
+        // The limit applies to the stored, trimmed name, so surrounding spaces do not count.
+        user.UpdateDisplayName("  " + name + "  ");
+
+        Assert.Equal(name, user.DisplayName);
+    }
+
+    [Fact]
+    public void Register_WithBlankDisplayName_ThrowsInvalidDisplayNameError()
+    {
+        var act = () => User.Register("candidate@example.com", null, new DateOnly(2000, 1, 1), "  ", Now);
+
+        Assert.Throws<InvalidDisplayNameError>(act);
+    }
+
+    [Fact]
+    public void Register_TrimsDisplayName()
+    {
+        var user = User.Register("candidate@example.com", null, new DateOnly(2000, 1, 1), " Asha Rao ", Now);
+
+        Assert.Equal("Asha Rao", user.DisplayName);
+    }
+
     [Fact]
     public void StartNewSession_WhenPriorActiveSessionExists_SupersedesPriorSessionAndEmitsEvent()
     {

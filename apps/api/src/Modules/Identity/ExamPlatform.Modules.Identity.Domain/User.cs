@@ -21,6 +21,9 @@ public sealed class User : AggregateRoot
     /// <summary>How many years back a date of birth may lie; anything older is refused as implausible.</summary>
     public const int MaximumPlausibleAgeYears = 120;
 
+    /// <summary>The longest display name an account can hold, after trimming.</summary>
+    public const int MaxDisplayNameLength = 200;
+
     private readonly List<Role> _roles = [];
     private readonly List<UserSession> _sessions = [];
 
@@ -69,11 +72,12 @@ public sealed class User : AggregateRoot
     /// Date of birth: not later than one day after today (UTC) and not more than
     /// <see cref="MaximumPlausibleAgeYears"/> years before it.
     /// </param>
-    /// <param name="displayName">Name to show in the UI.</param>
+    /// <param name="displayName">Name to show in the UI; leading and trailing whitespace is removed.</param>
     /// <param name="nowUtc">The current instant, for the registration event's timestamp and the date-of-birth check.</param>
     /// <exception cref="ContactRequiredError">Neither an email nor a phone number was supplied.</exception>
     /// <exception cref="InvalidContactError">The email or phone number is longer than the platform stores.</exception>
     /// <exception cref="InvalidDateOfBirthError">The date of birth is unset, in the future, or implausibly long ago.</exception>
+    /// <exception cref="InvalidDisplayNameError">The display name is blank or too long once trimmed.</exception>
     public static User Register(string? email, string? phoneNumber, DateOnly dateOfBirth, string displayName, DateTime nowUtc)
     {
         // A blank contact is stored as no contact: the unique indexes only skip nulls, so a
@@ -93,7 +97,7 @@ public sealed class User : AggregateRoot
 
         EnsurePlausibleDateOfBirth(dateOfBirth, nowUtc);
 
-        var user = new User(Guid.NewGuid(), email, phoneNumber, dateOfBirth, displayName);
+        var user = new User(Guid.NewGuid(), email, phoneNumber, dateOfBirth, NormalizeDisplayName(displayName));
         user.AddDomainEvent(new UserRegisteredEvent(user.Id, nowUtc));
         return user;
     }
@@ -156,8 +160,19 @@ public sealed class User : AggregateRoot
     }
 
     /// <summary>Changes the name shown in the UI.</summary>
-    /// <param name="displayName">The new display name.</param>
-    public void UpdateDisplayName(string displayName) => DisplayName = displayName;
+    /// <param name="displayName">The new display name; leading and trailing whitespace is removed.</param>
+    /// <exception cref="InvalidDisplayNameError">The name is blank or too long once trimmed.</exception>
+    public void UpdateDisplayName(string displayName) => DisplayName = NormalizeDisplayName(displayName);
+
+    // Trimmed first, so a name of only spaces counts as blank and the length limit applies to
+    // what is stored; the column shares MaxDisplayNameLength, so a valid name always fits it.
+    private static string NormalizeDisplayName(string? displayName)
+    {
+        var trimmed = displayName?.Trim();
+        return string.IsNullOrEmpty(trimmed) || trimmed.Length > MaxDisplayNameLength
+            ? throw new InvalidDisplayNameError()
+            : trimmed;
+    }
 
     /// <summary>
     /// Computes this user's age band as of a given instant. Recomputed on demand

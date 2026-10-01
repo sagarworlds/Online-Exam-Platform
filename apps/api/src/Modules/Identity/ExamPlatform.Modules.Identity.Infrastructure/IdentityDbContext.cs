@@ -42,7 +42,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             b.Property(u => u.Email).HasMaxLength(User.MaxEmailLength);
             b.Property(u => u.PhoneNumber).HasMaxLength(User.MaxPhoneNumberLength);
             b.Property(u => u.PasswordHash);
-            b.Property(u => u.DisplayName).IsRequired().HasMaxLength(200);
+            b.Property(u => u.DisplayName).IsRequired().HasMaxLength(User.MaxDisplayNameLength);
             b.Property(u => u.Status).HasConversion<string>().HasMaxLength(30);
             b.HasIndex(u => u.Email).IsUnique().HasFilter("\"Email\" IS NOT NULL");
             b.HasIndex(u => u.PhoneNumber).IsUnique().HasFilter("\"PhoneNumber\" IS NOT NULL");

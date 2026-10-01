@@ -27,6 +27,7 @@ public sealed class RegisterCandidateHandler(
     /// <exception cref="RoleNotFoundError">The default Candidate role has not been seeded.</exception>
     /// <exception cref="ContactRequiredError">Neither an email nor a phone number was given.</exception>
     /// <exception cref="InvalidContactError">The email or phone number is longer than the platform stores.</exception>
+    /// <exception cref="InvalidDisplayNameError">The display name is blank or too long once trimmed.</exception>
     public async Task<Guid> HandleAsync(RegisterCandidateCommand command, CancellationToken cancellationToken)
     {
         var dateOfBirth = command.DateOfBirth ?? throw InvalidDateOfBirthError.Missing();
