@@ -295,6 +295,54 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_contact");
     }
 
+    [Fact]
+    public async Task RequestOtp_WithDestinationLongerThanAChallengeStores_Returns400()
+    {
+        using var client = factory.CreateClient();
+        var destination = new string('a', OtpChallenge.MaxDestinationLength + 1 - "@tests.local".Length) + "@tests.local";
+
+        var response = await client.PostAsJsonAsync("/v1/auth/otp/request", new { channel = "Email", destination });
+
+        // Used to reach the decoy challenge insert and fail there (varchar(320)) as a 500.
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_contact");
+    }
+
+    [Fact]
+    public async Task Register_WithEmailLongerThanStored_Returns400()
+    {
+        using var client = factory.CreateClient();
+        var email = new string('a', User.MaxEmailLength + 1 - "@tests.local".Length) + "@tests.local";
+
+        var response = await PostRegisterAsync(client, email, phoneNumber: null, otpChannel: "Email");
+
+        // Used to reach the user insert and fail there (varchar(320)) as a 500.
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_contact");
+    }
+
+    [Fact]
+    public async Task Register_TwoPhoneOnlyAccountsWithBlankEmails_AreBothCreated()
+    {
+        using var client = factory.CreateClient();
+        var firstPhone = UniquePhoneNumber();
+        var secondPhone = UniquePhoneNumber();
+
+        var first = await PostRegisterAsync(client, email: "", firstPhone, otpChannel: "Sms");
+        var second = await PostRegisterAsync(client, email: "", secondPhone, otpChannel: "Sms");
+
+        // A blank email used to be stored as "", so the second account collided with the
+        // first on the unique email index (which only skips nulls) and failed as a 500.
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var emails = await identityDb.Users
+            .Where(u => u.PhoneNumber == firstPhone || u.PhoneNumber == secondPhone)
+            .Select(u => u.Email)
+            .ToListAsync();
+        Assert.Equal(2, emails.Count);
+        Assert.All(emails, Assert.Null);
+    }
+
     [Theory]
     [InlineData("Fax")]
     [InlineData("1")]
