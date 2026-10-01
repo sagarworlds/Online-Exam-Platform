@@ -171,17 +171,20 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+// The API description and its browsable UI are a development aid, not part of the deployed
+// surface: they would hand an attacker a map of every route. One flag both maps them below
+// and exempts the UI from the Content-Security-Policy, so the two cannot drift apart.
+var apiReferenceEnabled = app.Environment.IsDevelopment();
+
 // Before the exception handler, so error responses carry the headers too.
-app.UseMiddleware<SecurityHeadersMiddleware>(app.Environment.IsDevelopment());
+app.UseMiddleware<SecurityHeadersMiddleware>(apiReferenceEnabled);
 app.UseExceptionHandler();
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// The API description and its browsable UI are a development aid, not part of the
-// deployed surface: they would hand an attacker a map of every route.
-if (app.Environment.IsDevelopment())
+if (apiReferenceEnabled)
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
