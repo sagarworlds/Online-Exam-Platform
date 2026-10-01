@@ -11,7 +11,11 @@ namespace ExamPlatform.Modules.Identity.Domain;
 /// </summary>
 public sealed class OtpChallenge : AggregateRoot
 {
-    /// <summary>The user this challenge is for, if one already exists (absent for a first-time registration OTP).</summary>
+    /// <summary>
+    /// The user this challenge is for, if one already exists. Null for a challenge issued
+    /// before any account exists, and for a decoy: a challenge issued to a destination that
+    /// must not get a usable code, which is never sent and whose code can never match.
+    /// </summary>
     public Guid? UserId { get; private set; }
 
     /// <summary>How the code was delivered.</summary>
@@ -64,7 +68,7 @@ public sealed class OtpChallenge : AggregateRoot
     }
 
     /// <summary>Issues a new OTP challenge.</summary>
-    /// <param name="userId">The existing user this is for, or null for a pre-registration challenge.</param>
+    /// <param name="userId">The existing user this is for, or null for a pre-registration or decoy challenge.</param>
     /// <param name="channel">How the code is being delivered.</param>
     /// <param name="destination">The email address or phone number the code is sent to.</param>
     /// <param name="codeHash">Hash of the generated code.</param>

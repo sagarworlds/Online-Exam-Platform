@@ -158,6 +158,23 @@ public class VerifyOtpHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_VerifiedChallengeWithoutUser_ThrowsOtpMismatchError()
+    {
+        // A decoy's code can never match; this forces a match to pin down that even then
+        // the answer is the ordinary wrong-code error, not a "no such user" that would
+        // reveal the challenge was a decoy.
+        var userless = OtpChallenge.Issue(
+            null, OtpChannel.Email, Destination, "hashed-" + CorrectCode, OtpPurpose.Login, Now, TimeSpan.FromMinutes(10));
+        _challengeRepository.GetByIdAsync(userless.Id, Arg.Any<CancellationToken>()).Returns(userless);
+
+        await Assert.ThrowsAsync<OtpMismatchError>(
+            () => _handler.HandleAsync(Command(userless.Id, CorrectCode), CancellationToken.None));
+
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        _tokenGenerator.DidNotReceiveWithAnyArgs().GenerateAccessToken(default!, default!);
+    }
+
+    [Fact]
     public async Task HandleAsync_RegistrationPurpose_ActivatesUser()
     {
         var registrationChallenge = IssueChallenge(OtpPurpose.Registration);

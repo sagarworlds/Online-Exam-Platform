@@ -149,18 +149,11 @@ public sealed class AuthConsentAuditFlowTests(ApiFactory factory) : IClassFixtur
             await identityDb.SaveChangesAsync();
         }
 
-        // The OTP-only path a candidate uses cannot sign a 2FA-required account in.
+        // The OTP-only path a candidate uses cannot sign a 2FA-required account in: it answers
+        // as usual, but with a decoy challenge, and no code is ever sent to the admin.
         var adminOtpRequest = await client.PostAsJsonAsync("/v1/auth/otp/request", new { channel = "Email", destination = adminEmail });
         adminOtpRequest.EnsureSuccessStatusCode();
-        var adminOtpChallenge = await adminOtpRequest.Content.ReadFromJsonAsync<OtpChallengeResponse>(JsonOptions);
-        var adminOtpOnlyVerify = await client.PostAsJsonAsync("/v1/auth/otp/verify", new
-        {
-            otpChallengeId = adminOtpChallenge!.OtpChallengeId,
-            code = factory.OtpSender.GetLastCode(adminEmail),
-        });
-        Assert.Equal(HttpStatusCode.Forbidden, adminOtpOnlyVerify.StatusCode);
-        var otpOnlyProblem = await adminOtpOnlyVerify.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
-        Assert.Equal("two_factor_login_required", otpOnlyProblem.GetProperty("title").GetString());
+        Assert.False(factory.OtpSender.HasSentTo(adminEmail));
 
         var adminLogin = await client.PostAsJsonAsync("/v1/auth/login", new { email = adminEmail, password = adminPassword });
         adminLogin.EnsureSuccessStatusCode();

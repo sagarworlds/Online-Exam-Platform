@@ -129,25 +129,73 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
     }
 
     [Fact]
-    public async Task AdminOtpOnlyLogin_IsRefused()
+    public async Task RequestOtp_ForStaffAccount_SendsNothing_AndPasswordPlusTwoFactorStillWorks()
     {
-        var admin = await factory.SignInAsAsync("SuperAdmin");
+        const string password = "staff-account-password";
+        var admin = await factory.SignInAsAsync("SuperAdmin", password: password);
         using var client = factory.CreateClient();
 
-        var challengeId = await RequestOtpAsync(client, admin.Email);
-        var code = factory.OtpSender.GetLastCode(admin.Email);
-
-        // The right code for a Login-purpose challenge still cannot sign a 2FA-required
-        // account in (FR-3); only the TwoFactorStep code issued after its password can.
+        // The OTP-only path answers a 2FA-required account like any other, but with a decoy:
+        // no code is sent, and no code can complete it (FR-3).
+        var decoyChallengeId = await RequestOtpAsync(client, admin.Email);
+        Assert.False(factory.OtpSender.HasSentTo(admin.Email));
         await AssertProblemAsync(
-            await VerifyOtpAsync(client, challengeId, code), HttpStatusCode.Forbidden, "two_factor_login_required");
+            await VerifyOtpAsync(client, decoyChallengeId, "000000"), HttpStatusCode.BadRequest, "otp_mismatch");
+
+        var loginResponse = await client.PostAsJsonAsync("/v1/auth/login", new { email = admin.Email, password });
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+        var pending = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(pending.GetProperty("requiresTwoFactor").GetBoolean());
+
+        var verifyResponse = await VerifyOtpAsync(
+            client, pending.GetProperty("otpChallengeId").GetGuid(), factory.OtpSender.GetLastCode(admin.Email));
+        Assert.Equal(HttpStatusCode.OK, verifyResponse.StatusCode);
+        var auth = await verifyResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(string.IsNullOrEmpty(auth.GetProperty("accessToken").GetString()));
+    }
+
+    [Fact]
+    public async Task RequestOtp_ForUnknownDestination_Returns200WithChallengeIdAndSendsNothing()
+    {
+        var email = $"nobody-{Guid.NewGuid():N}@tests.local";
+        using var client = factory.CreateClient();
+
+        var challengeId = await RequestOtpAsync(client, email);
+
+        Assert.False(factory.OtpSender.HasSentTo(email));
+
+        // The decoy is a real, persisted challenge, so verifying it answers exactly like a
+        // real one: wrong codes count, and the sixth try is locked out, never a 404.
+        for (var i = 0; i < 5; i++)
+        {
+            await AssertProblemAsync(
+                await VerifyOtpAsync(client, challengeId, "000000"), HttpStatusCode.BadRequest, "otp_mismatch");
+        }
+
+        await AssertProblemAsync(
+            await VerifyOtpAsync(client, challengeId, "000000"), HttpStatusCode.TooManyRequests, "otp_attempts_exceeded");
 
         using var scope = factory.Services.CreateScope();
         var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         var challenge = await identityDb.OtpChallenges.SingleAsync(c => c.Id == challengeId);
-        Assert.True(challenge.IsConsumed);
-        var user = await identityDb.Users.Include(u => u.Sessions).SingleAsync(u => u.Id == admin.UserId);
-        Assert.Equal(admin.SessionId, Assert.Single(user.Sessions).Id);
+        Assert.Null(challenge.UserId);
+        Assert.Equal(email, challenge.Destination);
+    }
+
+    [Fact]
+    public async Task RequestOtp_ForSuspendedAccount_SendsNothing()
+    {
+        var candidate = await factory.SignInAsAsync("Candidate");
+        await SuspendAsync(candidate.UserId);
+        using var client = factory.CreateClient();
+
+        var challengeId = await RequestOtpAsync(client, candidate.Email);
+
+        Assert.False(factory.OtpSender.HasSentTo(candidate.Email));
+        using var scope = factory.Services.CreateScope();
+        var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var challenge = await identityDb.OtpChallenges.SingleAsync(c => c.Id == challengeId);
+        Assert.Null(challenge.UserId);
     }
 
     [Fact]
@@ -255,7 +303,10 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         var response = await client.PostAsJsonAsync("/v1/auth/otp/request", new { channel = "Email", destination = email });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
+        // Every request, for any destination or account state, must get this same shape,
+        // or the response itself would tell a caller which accounts exist (FR-1, NFR-5).
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(["otpChallengeId"], body.EnumerateObject().Select(p => p.Name));
         return body.GetProperty("otpChallengeId").GetGuid();
     }
 

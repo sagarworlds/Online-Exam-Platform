@@ -46,4 +46,32 @@ public class OtpChallengeIssuerTests
             Arg.Any<CancellationToken>());
         await _sender.Received(1).SendAsync(OtpChannel.Email, Destination, "123456", Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task IssueDecoyAsync_PersistsUnmatchableChallengeAndSendsNothing()
+    {
+        _codeGenerator.Hash(Arg.Any<string>()).Returns(call => "hashed-" + call.Arg<string>());
+        var earlier = EarlierChallenge(Now.AddMinutes(-1));
+        _challengeRepository
+            .GetOutstandingAsync(Destination, OtpPurpose.Login, Now, Arg.Any<CancellationToken>())
+            .Returns(new[] { earlier });
+        OtpChallenge? stored = null;
+        _challengeRepository
+            .When(r => r.AddAsync(Arg.Any<OtpChallenge>(), Arg.Any<CancellationToken>()))
+            .Do(call => stored = call.Arg<OtpChallenge>());
+
+        var challengeId = await _issuer.IssueDecoyAsync(OtpChannel.Email, Destination, OtpPurpose.Login, CancellationToken.None);
+
+        // Stored like a real challenge, so verifying it answers like one, but with no user
+        // and the hash of 64 random hex characters, which no 6-digit code can match.
+        Assert.NotNull(stored);
+        Assert.Equal(challengeId, stored.Id);
+        Assert.Null(stored.UserId);
+        Assert.Equal(OtpPurpose.Login, stored.Purpose);
+        Assert.Equal(Destination, stored.Destination);
+        Assert.Matches("^hashed-[0-9A-F]{64}$", stored.CodeHash);
+        Assert.Equal(Now, earlier.SupersededAtUtc);
+        _codeGenerator.DidNotReceive().GenerateCode();
+        await _sender.DidNotReceiveWithAnyArgs().SendAsync(default, default!, default!, default);
+    }
 }

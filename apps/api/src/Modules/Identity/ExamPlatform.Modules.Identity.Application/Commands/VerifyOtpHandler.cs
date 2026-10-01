@@ -26,7 +26,9 @@ public sealed class VerifyOtpHandler(
     /// <param name="command">The challenge id and supplied code.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="OtpChallengeNotFoundError">No challenge matches the given id.</exception>
-    /// <exception cref="OtpMismatchError">The code is wrong; the attempt has been recorded.</exception>
+    /// <exception cref="OtpMismatchError">
+    /// The code is wrong; the attempt has been recorded. Every code for a decoy challenge is wrong.
+    /// </exception>
     /// <exception cref="OtpExpiredError">The challenge has expired.</exception>
     /// <exception cref="OtpAttemptsExceededError">The challenge has used up its attempts.</exception>
     /// <exception cref="OtpAlreadyUsedError">The challenge was already consumed (a replayed code).</exception>
@@ -58,9 +60,14 @@ public sealed class VerifyOtpHandler(
         // From here on the challenge is consumed, so every refusal below is saved first:
         // a code refused here (e.g. a Login-purpose code for a staff account) must not be
         // retryable once the reason for the refusal goes away.
-        var user = challenge.UserId is { } userId
-            ? await userRepository.GetByIdAsync(userId, cancellationToken)
-            : null;
+        if (challenge.UserId is not { } userId)
+        {
+            // Only a decoy has no user, and its code can never match, so this is unreachable;
+            // answering as a wrong code keeps it indistinguishable from a real challenge anyway.
+            throw await SaveThenRejectAsync(new OtpMismatchError(), cancellationToken);
+        }
+
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken);
         if (user is null)
         {
             throw await SaveThenRejectAsync(new UserNotFoundError(), cancellationToken);
