@@ -5,6 +5,7 @@ import { UserProfileDto } from '../auth/auth.models';
 import {
   MAX_DISPLAY_NAME_LENGTH,
   displayNameErrorMessage,
+  maxTrimmedLengthValidator,
   notBlankValidator,
   visibleErrorMessage,
 } from '../auth/validators';
@@ -26,7 +27,7 @@ export class Profile {
   protected readonly profile = signal<UserProfileDto | null>(null);
 
   protected readonly form = this.formBuilder.nonNullable.group({
-    displayName: ['', [Validators.required, notBlankValidator, Validators.maxLength(MAX_DISPLAY_NAME_LENGTH)]],
+    displayName: ['', [Validators.required, notBlankValidator, maxTrimmedLengthValidator(MAX_DISPLAY_NAME_LENGTH)]],
   });
 
   constructor() {

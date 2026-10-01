@@ -9,6 +9,7 @@ import {
   dateOfBirthErrorMessage,
   dateOfBirthValidator,
   displayNameErrorMessage,
+  maxTrimmedLengthValidator,
   notBlankValidator,
   toLocalIsoDate,
   visibleErrorMessage,
@@ -33,7 +34,7 @@ export class Register {
   protected readonly form = this.formBuilder.nonNullable.group({
     channel: this.formBuilder.nonNullable.control<OtpChannel>('Email'),
     destination: ['', Validators.required],
-    displayName: ['', [Validators.required, notBlankValidator, Validators.maxLength(MAX_DISPLAY_NAME_LENGTH)]],
+    displayName: ['', [Validators.required, notBlankValidator, maxTrimmedLengthValidator(MAX_DISPLAY_NAME_LENGTH)]],
     dateOfBirth: ['', dateOfBirthValidator()],
   });
 
