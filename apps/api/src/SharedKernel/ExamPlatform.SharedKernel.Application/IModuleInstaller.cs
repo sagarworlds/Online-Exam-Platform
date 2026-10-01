@@ -25,12 +25,19 @@ public interface IModuleInstaller
     void MapEndpoints(IEndpointRouteBuilder endpoints);
 
     /// <summary>
-    /// Applies this module's pending EF Core migrations and any idempotent startup
-    /// seeding. Called by the Host in Development only — routed through this
-    /// interface, rather than the Host resolving the module's <c>DbContext</c>
-    /// directly, so the Host never needs a reference to a module's Infrastructure
-    /// project (module boundary rule, ADR 0001).
+    /// Applies this module's pending EF Core migrations and then any idempotent seeding
+    /// of its reference data. The Host calls it for every module when it is run with
+    /// <c>--migrate-and-seed</c> (the deployment path) or with
+    /// <c>Database:MigrateAndSeedOnStartup</c> enabled (the Development default), and
+    /// never otherwise (ADR 0002). Routed through this interface, rather than the Host
+    /// resolving the module's <c>DbContext</c> directly, so the Host never needs a
+    /// reference to a module's Infrastructure project (module boundary rule, ADR 0001).
     /// </summary>
+    /// <remarks>
+    /// Must be safe to run any number of times, and is run by one process at a time:
+    /// seeding is additive and idempotent, but two concurrent runs can race on a
+    /// unique index.
+    /// </remarks>
     /// <param name="services">The request-scoped service provider to resolve this module's services from.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task MigrateAndSeedAsync(IServiceProvider services, CancellationToken cancellationToken);

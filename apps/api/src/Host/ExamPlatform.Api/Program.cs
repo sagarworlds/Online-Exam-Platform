@@ -173,18 +173,36 @@ foreach (var module in modules)
     module.MapEndpoints(app);
 }
 
-// Development-only convenience: migrate and seed every module's schema on startup so
-// `dotnet run` gives a ready-to-use database without a separate migration step. A real
-// deployment pipeline runs migrations explicitly instead (see README quickstart).
+// Schema and reference data (roles, permissions, notice versions) are applied by each module's
+// own idempotent MigrateAndSeedAsync, never by EF migration bundles, which would apply the
+// schema but skip the seeders and leave a database where registration fails (ADR 0002).
+// There are two ways in:
+//  - `ExamPlatform.Api.dll --migrate-and-seed` runs every module once and exits without
+//    starting the web host. A deployment runs it as ONE pre-deploy job or init container, so
+//    two replicas never race to insert the same role or permission.
+//  - Database:MigrateAndSeedOnStartup=true does the same at the start of a normal run. It is
+//    on in Development, so `dotnet run` gives a ready-to-use database, and off elsewhere.
 // Routed through each module's own MigrateAndSeedAsync rather than the Host resolving
 // a DbContext directly, so the Host never references a module's Infrastructure project.
-if (app.Environment.IsDevelopment())
+var migrateAndSeedOnly = args.Contains("--migrate-and-seed", StringComparer.Ordinal);
+var migrateAndSeedOnStartup = app.Configuration.GetValue(
+    "Database:MigrateAndSeedOnStartup", defaultValue: app.Environment.IsDevelopment());
+if (migrateAndSeedOnly || migrateAndSeedOnStartup)
 {
     using var scope = app.Services.CreateScope();
     foreach (var module in modules)
     {
         await module.MigrateAndSeedAsync(scope.ServiceProvider, CancellationToken.None);
+        app.Logger.LogInformation("Migrated and seeded {ModuleName}", module.ModuleName);
     }
+}
+
+// Returns before app.Run(): the web host is never started, so a deployment job ends as soon as
+// the database is ready, and the startup checks that belong to a serving host (such as the
+// OTP delivery options' ValidateOnStart) are not run by it.
+if (migrateAndSeedOnly)
+{
+    return;
 }
 
 app.Run();

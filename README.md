@@ -208,6 +208,18 @@ ASPNETCORE_ENVIRONMENT=Development dotnet run \
 - Reference data seeds (RBAC roles/permissions, consent versions)
 - No manual setup required ✅
 
+This happens because `Database:MigrateAndSeedOnStartup` is `true` in the Development environment. It is `false` everywhere else; see [Migrate and Seed a Deployed Environment](#migrate-and-seed-a-deployed-environment).
+
+**First administrator (optional):** staff sign in with a password plus a second-factor code, and nothing in the app creates a staff account, so a fresh development database has no administrator. To get one, store its credentials in [user-secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) before the first run (the password stays out of the repository):
+
+```bash
+cd apps/api
+dotnet user-secrets set "Identity:Bootstrap:AdminEmail" "admin@example.test" --project src/Host/ExamPlatform.Api
+dotnet user-secrets set "Identity:Bootstrap:AdminPassword" "<a passphrase of at least 12 characters>" --project src/Host/ExamPlatform.Api
+```
+
+On startup an active `SuperAdmin` with that email is created if no account has it; an existing account is never changed. Sign in at `/login` with the email and password, then enter the code printed in the API log. The setting is honoured in the Development environment only and is ignored (with a warning) anywhere else.
+
 **Endpoints once running:**
 - 🏥 Health Check: `http://localhost:5080/v1/health`
 - 📖 API Docs (Scalar UI): `http://localhost:5080/scalar/v1`
@@ -303,6 +315,18 @@ dotnet ef migrations add AddNewTable \
   --context ExamAuthoringDbContext \
   --output-dir Migrations
 ```
+
+#### Migrate and Seed a Deployed Environment
+
+Roles, permissions and consent notice versions are reference data written by each module's idempotent seeder, not by EF migrations. Applying only the migrations (for example with an EF migration bundle) therefore leaves a database where registration fails because the `Candidate` role does not exist. Outside Development nothing migrates or seeds on its own, so a deployment runs the Host once with `--migrate-and-seed` before the web replicas start:
+
+```bash
+ASPNETCORE_ENVIRONMENT=Production ConnectionStrings__Postgres="Host=...;Database=...;Username=...;Password=..." dotnet ExamPlatform.Api.dll --migrate-and-seed
+```
+
+It applies every module's pending migrations and seeders, logs `Migrated and seeded <Module>` for each, and exits with code 0 without starting the web host, so the connection string is the only setting it needs. Run it as a pre-deploy job or an init container, and as **one** process at a time: two concurrent runs can race on the unique indexes of `Roles.Name` and `Permissions.Code`. Seeding only ever adds missing data, so running it on every deploy is safe. Permissions are copied into the access token at sign-in, so users get a newly added permission the next time they sign in.
+
+`Database:MigrateAndSeedOnStartup` does the same at the start of a normal run. Leave it `false` (the default outside Development) when several replicas start together. The reasoning is in [ADR 0002](./docs/adr/0002-migrations-and-reference-data-seeding.md).
 
 #### View Migrations
 
