@@ -8,7 +8,9 @@ namespace ExamPlatform.Modules.Identity.Application;
 /// <summary>
 /// Shared "generate, store, send" logic for issuing an OTP challenge, used by
 /// every login-adjacent flow (candidate login, registration confirmation, staff
-/// 2FA step) so the generation/hashing/sending steps can never drift between them.
+/// 2FA step) so the generation/hashing/sending steps can never drift between them,
+/// plus the never-sent decoy that candidate login issues instead when a destination
+/// must not get a usable code (<see cref="IssueDecoyAsync"/>).
 /// Does not commit the unit of work — the calling handler decides when to save,
 /// so a challenge can be persisted atomically alongside other changes (e.g. a
 /// newly created <see cref="User"/> during registration, or the earlier challenges
