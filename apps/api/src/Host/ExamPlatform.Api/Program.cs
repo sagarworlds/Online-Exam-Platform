@@ -12,6 +12,7 @@ using ExamPlatform.Modules.Invite.Endpoints;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -101,6 +102,10 @@ builder.Services.AddOptions<RateLimiterOptions>()
                 }));
     });
 
+// Trust X-Forwarded-For/-Proto only from the proxies named in ForwardedHeaders:*, so the
+// per-IP limiters below see the real client behind a load balancer (NFR-5).
+builder.Services.AddSingleton<IConfigureOptions<ForwardedHeadersOptions>, ForwardedHeadersOptionsSetup>();
+
 // Enums as JSON strings everywhere (e.g. "PrivacyNotice"), not their numeric values —
 // matches how query-string enum binding already works, so the API is consistent
 // whether a value arrives via a route/query parameter or a JSON request body.
@@ -133,14 +138,32 @@ foreach (var module in modules)
 
 var app = builder.Build();
 
+// First, so everything after it (rate limiting, logging, HSTS) sees the forwarded client
+// address and scheme. Without it every client behind a proxy shares one rate-limit
+// partition, and a header from an untrusted sender must never choose its own partition.
+app.UseForwardedHeaders();
+
+// HSTS is for browsers talking to a deployed host over HTTPS; in Development it would
+// pin localhost to HTTPS. TLS ends at the proxy, so there is no UseHttpsRedirection.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
 app.UseExceptionHandler();
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapOpenApi();
-app.MapScalarApiReference();
+// The API description and its browsable UI are a development aid, not part of the
+// deployed surface: they would hand an attacker a map of every route.
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
+}
+
 app.MapHealthChecks("/v1/health");
 
 foreach (var module in modules)

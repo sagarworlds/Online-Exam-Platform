@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using ExamPlatform.Modules.Identity.Application;
 using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Ports;
@@ -6,12 +7,14 @@ using ExamPlatform.Modules.Identity.Application.Sessions;
 using ExamPlatform.Modules.Identity.Endpoints.Authentication;
 using ExamPlatform.Modules.Identity.Endpoints.Authorization;
 using ExamPlatform.Modules.Identity.Endpoints.OtpDelivery;
+using ExamPlatform.Modules.Identity.Endpoints.RateLimiting;
 using ExamPlatform.Modules.Identity.Infrastructure;
 using ExamPlatform.Modules.Identity.Infrastructure.Repositories;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +47,7 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddSingleton<IOtpCodeGenerator, OtpCodeGenerator>();
         services.AddSingleton<ITokenGenerator, JwtTokenGenerator>();
         AddOtpDelivery(services, configuration);
+        AddRateLimitPolicies(services, configuration);
 
         services.AddSingleton<LoginEligibilityPolicy>();
         services.AddSingleton<IPasswordPolicy, PasswordPolicy>();
@@ -99,6 +103,40 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
                     $"No IOtpSender adapter exists for {OtpDeliveryOptions.SectionName}:Provider '{provider}'."),
             });
     }
+
+    // Adds Identity's named rate-limit policies (NFR-5) onto the Host's rate limiter, which
+    // owns only the global limit. The limits are read when RateLimiterOptions is first
+    // materialized, not captured here, for the same reason as the OTP provider above: a
+    // test's WebApplicationFactory layers configuration on after AddModule runs.
+    private static void AddRateLimitPolicies(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<IdentityRateLimitOptions>()
+            .Bind(configuration.GetSection(IdentityRateLimitOptions.SectionName))
+            .Validate(
+                limits => limits.FindInvalidPolicy() is null,
+                $"Every {IdentityRateLimitOptions.SectionName} policy needs a positive PermitLimit and WindowSeconds.")
+            .ValidateOnStart();
+
+        services.AddOptions<RateLimiterOptions>()
+            .Configure<IOptions<IdentityRateLimitOptions>>((rateLimiter, identityLimits) =>
+            {
+                var limits = identityLimits.Value;
+                AddPolicy(rateLimiter, IdentityRateLimitPolicies.OtpRequest, limits.OtpRequest);
+                AddPolicy(rateLimiter, IdentityRateLimitPolicies.OtpVerify, limits.OtpVerify);
+                AddPolicy(rateLimiter, IdentityRateLimitPolicies.PasswordLogin, limits.PasswordLogin);
+                AddPolicy(rateLimiter, IdentityRateLimitPolicies.PasswordReset, limits.PasswordReset);
+            });
+    }
+
+    private static void AddPolicy(
+        RateLimiterOptions rateLimiter, string policyName, IdentityRateLimitOptions.FixedWindowSettings settings) =>
+        rateLimiter.AddPolicy(policyName, httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = settings.PermitLimit,
+                Window = TimeSpan.FromSeconds(settings.WindowSeconds),
+            }));
 
     /// <inheritdoc />
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapIdentityEndpoints();

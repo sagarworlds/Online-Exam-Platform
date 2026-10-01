@@ -21,7 +21,11 @@ namespace ExamPlatform.IntegrationTests;
 /// Whether to apply the override documented on <c>OtpDeliveryOptionsValidator</c>: drop the
 /// options validator and register <see cref="CapturingOtpSender"/>.
 /// </param>
-public sealed class ProductionHostFactory(string? otpProvider, bool allowCapturingSender = false) : WebApplicationFactory<Program>
+/// <param name="extraSettings">More configuration to layer on, e.g. a <c>ForwardedHeaders</c> list.</param>
+public sealed class ProductionHostFactory(
+    string? otpProvider,
+    bool allowCapturingSender = false,
+    IReadOnlyDictionary<string, string?>? extraSettings = null) : WebApplicationFactory<Program>
 {
     /// <inheritdoc />
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -38,6 +42,11 @@ public sealed class ProductionHostFactory(string? otpProvider, bool allowCapturi
         if (otpProvider is not null)
         {
             settings["Identity:OtpDelivery:Provider"] = otpProvider;
+        }
+
+        foreach (var (key, value) in extraSettings ?? new Dictionary<string, string?>())
+        {
+            settings[key] = value;
         }
 
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(settings));

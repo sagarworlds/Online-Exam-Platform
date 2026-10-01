@@ -1,7 +1,9 @@
 using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Queries;
+using ExamPlatform.Modules.Identity.Endpoints.RateLimiting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 
 namespace ExamPlatform.Modules.Identity.Endpoints;
@@ -20,7 +22,8 @@ public static class IdentityEndpoints
             var channel = OtpChannelParser.Parse(request.Channel);
             var challengeId = await handler.HandleAsync(new RequestOtpCommand(channel, request.Destination), ct);
             return Results.Ok(new { otpChallengeId = challengeId });
-        });
+        })
+            .RequireRateLimiting(IdentityRateLimitPolicies.OtpRequest);
 
         auth.MapPost("/otp/verify", async (VerifyOtpRequest request, HttpContext http, VerifyOtpHandler handler, CancellationToken ct) =>
         {
@@ -28,7 +31,8 @@ public static class IdentityEndpoints
                 request.OtpChallengeId, request.Code, DeviceFingerprint(http), ClientIp(http));
             var result = await handler.HandleAsync(command, ct);
             return Results.Ok(result);
-        });
+        })
+            .RequireRateLimiting(IdentityRateLimitPolicies.OtpVerify);
 
         auth.MapPost("/register", async (RegisterCandidateRequest request, RegisterCandidateHandler handler, CancellationToken ct) =>
         {
@@ -37,27 +41,31 @@ public static class IdentityEndpoints
                 request.Email, request.PhoneNumber, request.DateOfBirth, request.DisplayName, channel);
             var challengeId = await handler.HandleAsync(command, ct);
             return Results.Ok(new { otpChallengeId = challengeId });
-        });
+        })
+            .RequireRateLimiting(IdentityRateLimitPolicies.OtpRequest);
 
         auth.MapPost("/login", async (PasswordLoginRequest request, HttpContext http, PasswordLoginHandler handler, CancellationToken ct) =>
         {
             var command = new PasswordLoginCommand(request.Email, request.Password, DeviceFingerprint(http), ClientIp(http));
             var result = await handler.HandleAsync(command, ct);
             return Results.Ok(result);
-        });
+        })
+            .RequireRateLimiting(IdentityRateLimitPolicies.PasswordLogin);
 
         auth.MapPost("/password-reset/request", async (RequestPasswordResetRequest request, RequestPasswordResetHandler handler, CancellationToken ct) =>
         {
             await handler.HandleAsync(new RequestPasswordResetCommand(request.Email), ct);
             return Results.Ok();
-        });
+        })
+            .RequireRateLimiting(IdentityRateLimitPolicies.PasswordReset);
 
         auth.MapPost("/password-reset/reset", async (ResetPasswordRequest request, ResetPasswordHandler handler, CancellationToken ct) =>
         {
             await handler.HandleAsync(
                 new ResetPasswordCommand(request.PasswordResetTokenId, request.Token, request.NewPassword), ct);
             return Results.Ok();
-        });
+        })
+            .RequireRateLimiting(IdentityRateLimitPolicies.PasswordReset);
 
         auth.MapPost("/logout", async (HttpContext http, LogoutHandler handler, CancellationToken ct) =>
             {

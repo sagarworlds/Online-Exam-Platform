@@ -46,6 +46,14 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             // Every TestServer request lands in the same client-IP partition, so the
             // production default (60/min) would make busier suites flake with 429s.
             ["RateLimiting:Global:PermitLimit"] = "100000",
+
+            // Same reason for the Identity policies: a suite signs many users in and out
+            // from the one client IP, far beyond what a real client would do. The 429
+            // tests use LowAuthRateLimitApiFactory to bring individual ones back down.
+            ["Identity:RateLimits:OtpRequest:PermitLimit"] = "100000",
+            ["Identity:RateLimits:OtpVerify:PermitLimit"] = "100000",
+            ["Identity:RateLimits:PasswordLogin:PermitLimit"] = "100000",
+            ["Identity:RateLimits:PasswordReset:PermitLimit"] = "100000",
         };
 
     /// <inheritdoc />
