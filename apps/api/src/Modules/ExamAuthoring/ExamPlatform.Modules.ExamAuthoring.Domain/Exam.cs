@@ -62,6 +62,12 @@ public class Exam : AggregateRoot
     /// </summary>
     public static readonly DateTime NotScheduledAt = DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc);
 
+    /// <summary>The longest name an exam may have.</summary>
+    public const int MaxNameLength = 255;
+
+    /// <summary>The longest description an exam may have.</summary>
+    public const int MaxDescriptionLength = 1000;
+
     /// <summary>The longest name an exam section may have.</summary>
     public const int MaxSectionNameLength = 255;
 
@@ -133,6 +139,66 @@ public class Exam : AggregateRoot
     {
         EnsureDraft();
 
+        var trimmed = CleanSectionName(name, timeSeconds);
+
+        var section = new ExamSection(Id, trimmed, timeSeconds, _sections.Count + 1);
+        _sections.Add(section);
+        UpdatedAt = DateTime.UtcNow;
+        return section;
+    }
+
+    /// <summary>Renames a section and sets its time limit.</summary>
+    /// <param name="sectionId">The section to change.</param>
+    /// <param name="name">The section's new name; leading and trailing whitespace is removed.</param>
+    /// <param name="timeSeconds">The section's new time limit, or <see langword="null"/> for none.</param>
+    /// <exception cref="ExamNotDraftError">The exam is already published. A section's time limit changes how long a candidate has, so it is fixed with the rest of the exam.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="InvalidExamConfigError">The name is blank or too long, or the time limit is not positive.</exception>
+    public void EditSection(Guid sectionId, string? name, int? timeSeconds)
+    {
+        EnsureDraft();
+
+        var section = GetSection(sectionId) ?? throw new SectionNotFoundError(sectionId);
+        var trimmed = CleanSectionName(name, timeSeconds);
+
+        section.Name = trimmed;
+        section.TimeSeconds = timeSeconds;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Changes the name and description candidates see. Unlike the questions and the schedule this may change after
+    /// publishing, for the reason the answer review may: it changes nothing that is asked or scored, so correcting a
+    /// typo in the title of an exam that is already open does no harm.
+    /// </summary>
+    /// <param name="name">The exam's new name; leading and trailing whitespace is removed.</param>
+    /// <param name="description">The new description; blank means none.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The name is blank or too long, or the description is too long.</exception>
+    public void Describe(string? name, string? description, DateTime nowUtc)
+    {
+        EnsureNotArchived();
+
+        var trimmedName = name?.Trim();
+        if (string.IsNullOrEmpty(trimmedName))
+            throw new InvalidExamConfigError("An exam needs a name.");
+        if (trimmedName.Length > MaxNameLength)
+            throw new InvalidExamConfigError($"An exam name must be at most {MaxNameLength} characters.");
+
+        var trimmedDescription = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        if (trimmedDescription?.Length > MaxDescriptionLength)
+            throw new InvalidExamConfigError($"An exam description must be at most {MaxDescriptionLength} characters.");
+
+        Name = trimmedName;
+        Description = trimmedDescription;
+        UpdatedAt = nowUtc;
+    }
+
+    // Checks a section's name and time limit and returns the name cleaned up. One rule for a new section and an edited
+    // one, so the two can never disagree about what a section may be.
+    private static string CleanSectionName(string? name, int? timeSeconds)
+    {
         var trimmed = name?.Trim();
         if (string.IsNullOrEmpty(trimmed))
             throw new InvalidExamConfigError("A section needs a name.");
@@ -141,10 +207,7 @@ public class Exam : AggregateRoot
         if (timeSeconds is <= 0)
             throw new InvalidExamConfigError("A section time limit must be positive.");
 
-        var section = new ExamSection(Id, trimmed, timeSeconds, _sections.Count + 1);
-        _sections.Add(section);
-        UpdatedAt = DateTime.UtcNow;
-        return section;
+        return trimmed;
     }
 
     /// <summary>Appends a question to a section.</summary>

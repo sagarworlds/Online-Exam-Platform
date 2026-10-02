@@ -29,6 +29,19 @@ public sealed record AddSectionCommand(Guid ExamId, string? Name, int? TimeSecon
 /// <param name="QuestionId">The question's id in the question bank.</param>
 public sealed record AddExamQuestionCommand(Guid ExamId, Guid SectionId, Guid QuestionId);
 
+/// <summary>Changes the name and description candidates see.</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="Name">The new name, or null if the caller did not send it.</param>
+/// <param name="Description">The new description; blank means none.</param>
+public sealed record UpdateExamDetailsCommand(Guid ExamId, string? Name, string? Description);
+
+/// <summary>Renames a section of a draft exam and sets its time limit.</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="SectionId">The section to change.</param>
+/// <param name="Name">The new name, or null if the caller did not send it.</param>
+/// <param name="TimeSeconds">The new time limit, or null for none.</param>
+public sealed record EditSectionCommand(Guid ExamId, Guid SectionId, string? Name, int? TimeSeconds);
+
 /// <summary>Takes a section, with its questions, out of a draft exam.</summary>
 /// <param name="ExamId">The exam.</param>
 /// <param name="SectionId">The section to remove.</param>

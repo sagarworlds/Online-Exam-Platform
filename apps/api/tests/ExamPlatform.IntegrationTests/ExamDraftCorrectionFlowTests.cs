@@ -100,6 +100,76 @@ public sealed class ExamDraftCorrectionFlowTests(ApiFactory factory) : IClassFix
     }
 
     [Fact]
+    public async Task ARenamedSection_KeepsItsPlaceAndQuestions_AndTheNewTimeLimitIsShown()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var questionId = await CreateQuestionAsync(admin, "In the section", "A", "B");
+        var examId = await CreateExamAsync(admin, "Draft", [questionId], TimeSpan.FromHours(1), publish: false);
+        var sectionId = await FirstSectionAsync(admin, examId);
+
+        var response = await admin.PutAsJsonAsync($"/v1/exams/{examId}/sections/{sectionId}", new { name = "  Algebra  ", timeSeconds = 1800 });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var section = (await ReadExamAsync(admin, examId)).GetProperty("sections")[0];
+        Assert.Equal("Algebra", section.GetProperty("name").GetString());
+        Assert.Equal(1800, section.GetProperty("timeSeconds").GetInt32());
+        Assert.Equal(1, section.GetProperty("order").GetInt32());
+        Assert.Equal(questionId, section.GetProperty("questions")[0].GetProperty("questionId").GetGuid());
+    }
+
+    [Fact]
+    public async Task EditingASection_WithBadInput_Returns400_AndOnAPublishedOrUnknownOneIsRefused()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var draft = await CreateExamAsync(admin, "Draft", [await CreateQuestionAsync(admin, "Q1", "A", "B")], TimeSpan.FromHours(1), publish: false);
+        var draftSection = await FirstSectionAsync(admin, draft);
+        var published = await CreateExamAsync(admin, "Published", [await CreateQuestionAsync(admin, "Q2", "A", "B")], TimeSpan.FromMinutes(-5));
+        var publishedSection = await FirstSectionAsync(admin, published);
+
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{draft}/sections/{draftSection}", new { name = "  " }), HttpStatusCode.BadRequest, "invalid_exam_config");
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{draft}/sections/{draftSection}", new { name = "Fine", timeSeconds = 0 }), HttpStatusCode.BadRequest, "invalid_exam_config");
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{draft}/sections/{Guid.NewGuid()}", new { name = "Fine" }), HttpStatusCode.NotFound, "section_not_found");
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{published}/sections/{publishedSection}", new { name = "Too late" }), HttpStatusCode.Conflict, "exam_not_draft");
+
+        Assert.Equal("Section A", (await ReadExamAsync(admin, draft)).GetProperty("sections")[0].GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task TheNameAndDescription_CanBeChanged_InADraftAndInAPublishedExam()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var draft = await CreateExamAsync(admin, "Typo in the titel", [], TimeSpan.FromHours(1), publish: false);
+        var published = await CreateExamAsync(admin, "Another titel", [await CreateQuestionAsync(admin, "Q", "A", "B")], TimeSpan.FromMinutes(-5));
+
+        var changed = await admin.PutAsJsonAsync($"/v1/exams/{draft}/details", new { name = " Fixed title ", description = "Chapters 1 to 4" });
+        var changedPublished = await admin.PutAsJsonAsync($"/v1/exams/{published}/details", new { name = "Another title", description = (string?)null });
+
+        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+        var body = await JsonAsync(changed);
+        Assert.Equal("Fixed title", body.GetProperty("name").GetString());
+        Assert.Equal("Chapters 1 to 4", body.GetProperty("description").GetString());
+        Assert.Equal("Fixed title", (await ReadExamAsync(admin, draft)).GetProperty("name").GetString());
+        Assert.Equal(HttpStatusCode.OK, changedPublished.StatusCode);
+        var stillPublished = await ReadExamAsync(admin, published);
+        Assert.Equal("Another title", stillPublished.GetProperty("name").GetString());
+        Assert.Equal("Published", stillPublished.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task ChangingTheDetails_WithABlankOrTooLongName_Returns400_AndOfAnUnknownExam_404()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var examId = await CreateExamAsync(admin, "Keep this name", [], TimeSpan.FromHours(1), publish: false);
+
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{examId}/details", new { name = "  " }), HttpStatusCode.BadRequest, "invalid_exam_config");
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{examId}/details", new { name = new string('x', 256) }), HttpStatusCode.BadRequest, "invalid_exam_config");
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{examId}/details", new { name = "Fine", description = new string('x', 1001) }), HttpStatusCode.BadRequest, "invalid_exam_config");
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{Guid.NewGuid()}/details", new { name = "Fine" }), HttpStatusCode.NotFound, "exam_not_found");
+
+        Assert.Equal("Keep this name", (await ReadExamAsync(admin, examId)).GetProperty("name").GetString());
+    }
+
+    [Fact]
     public async Task TakingASectionOut_OfAPublishedExam_Returns409_AndChangesNothing()
     {
         using var admin = await factory.AdminClientAsync();

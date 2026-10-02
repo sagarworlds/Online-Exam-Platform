@@ -56,6 +56,43 @@ public sealed class AddSectionHandler(IExamRepository repository, IExamAuthoring
     }
 }
 
+/// <summary>Handles <see cref="UpdateExamDetailsCommand"/>.</summary>
+public sealed class UpdateExamDetailsHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
+{
+    /// <summary>Changes the exam's name and description and saves.</summary>
+    /// <param name="command">The new details.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The name is blank or too long, or the description is too long.</exception>
+    public async Task<ExamDto> HandleAsync(UpdateExamDetailsCommand command, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.Describe(command.Name, command.Description, clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await dtos.ToDtoAsync(exam, cancellationToken);
+    }
+}
+
+/// <summary>Handles <see cref="EditSectionCommand"/>.</summary>
+public sealed class EditSectionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
+{
+    /// <summary>Renames the section, sets its time limit and saves.</summary>
+    /// <param name="command">The new name and time limit.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="InvalidExamConfigError">The name is blank or too long, or the time limit is not positive.</exception>
+    public async Task HandleAsync(EditSectionCommand command, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.EditSection(command.SectionId, command.Name, command.TimeSeconds);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
 /// <summary>Handles <see cref="RemoveSectionCommand"/>.</summary>
 public sealed class RemoveSectionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
 {

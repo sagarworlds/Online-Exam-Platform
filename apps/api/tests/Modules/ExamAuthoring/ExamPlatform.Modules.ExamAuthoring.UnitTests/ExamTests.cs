@@ -240,6 +240,151 @@ public class ExamTests
         Assert.Single(section.Questions);
     }
 
+    // ---- renaming a section ---------------------------------------------------------------------------
+
+    [Fact]
+    public void EditSection_RenamesIt_SetsItsTimeLimit_AndKeepsItsQuestionsAndPlace()
+    {
+        var exam = NewExam();
+        exam.AddSection("First", null);
+        var section = exam.AddSection("Second", 600);
+        var question = exam.AddQuestion(section.Id, Guid.NewGuid(), QuestionPlacement.Unfiled);
+
+        exam.EditSection(section.Id, "  Geometry ", 1800);
+
+        Assert.Equal("Geometry", section.Name);
+        Assert.Equal(1800, section.TimeSeconds);
+        Assert.Equal(2, section.Order);
+        Assert.Equal([question.Id], section.Questions.Select(q => q.Id));
+    }
+
+    [Fact]
+    public void EditSection_WithoutATimeLimit_RemovesTheLimit()
+    {
+        var exam = NewExam();
+        var section = exam.AddSection("Timed", 600);
+
+        exam.EditSection(section.Id, "Timed", null);
+
+        Assert.Null(section.TimeSeconds);
+    }
+
+    [Theory]
+    [InlineData(null, 600)]
+    [InlineData("", 600)]
+    [InlineData("   ", 600)]
+    [InlineData("Fine", 0)]
+    [InlineData("Fine", -5)]
+    public void EditSection_WithABadNameOrTimeLimit_Throws_AndChangesNothing(string? name, int timeSeconds)
+    {
+        var exam = NewExam();
+        var section = exam.AddSection("Original", 600);
+
+        var error = Assert.Throws<InvalidExamConfigError>(() => exam.EditSection(section.Id, name, timeSeconds));
+
+        Assert.Equal(400, error.HttpStatusCode);
+        Assert.Equal("Original", section.Name);
+        Assert.Equal(600, section.TimeSeconds);
+    }
+
+    [Fact]
+    public void EditSection_WithATooLongName_Throws() =>
+        Assert.Throws<InvalidExamConfigError>(() =>
+        {
+            var exam = NewExam();
+            exam.EditSection(exam.AddSection("S", null).Id, new string('x', Exam.MaxSectionNameLength + 1), null);
+        });
+
+    [Fact]
+    public void EditSection_OfAnUnknownSection_ThrowsSectionNotFound() =>
+        Assert.Throws<SectionNotFoundError>(() => NewExam().EditSection(Guid.NewGuid(), "Name", null));
+
+    [Fact]
+    public void EditSection_OfAPublishedExam_ThrowsNotDraft()
+    {
+        // The time limit decides how long a candidate has, so it is fixed with the rest of a published exam.
+        var exam = ExamReadyToPublish();
+        var section = exam.Sections[0];
+        exam.Publish(Now);
+
+        Assert.Throws<ExamNotDraftError>(() => exam.EditSection(section.Id, "Renamed", 60));
+        Assert.Equal("Algebra", section.Name);
+    }
+
+    // ---- describing the exam ----------------------------------------------------------------------------
+
+    [Fact]
+    public void Describe_ChangesTheNameAndDescription_TrimmedAndStamped()
+    {
+        var exam = NewExam();
+
+        exam.Describe("  Maths mock 2  ", "  Chapters 1 to 4  ", Now);
+
+        Assert.Equal("Maths mock 2", exam.Name);
+        Assert.Equal("Chapters 1 to 4", exam.Description);
+        Assert.Equal(Now, exam.UpdatedAt);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Describe_WithABlankDescription_ClearsIt(string? description)
+    {
+        var exam = new Exam(null, "Maths", "Old description", Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid());
+
+        exam.Describe("Maths", description, Now);
+
+        Assert.Null(exam.Description);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Describe_WithABlankName_Throws_AndChangesNothing(string? name)
+    {
+        var exam = NewExam();
+
+        var error = Assert.Throws<InvalidExamConfigError>(() => exam.Describe(name, "Description", Now));
+
+        Assert.Equal(400, error.HttpStatusCode);
+        Assert.Equal("Maths", exam.Name);
+        Assert.Null(exam.Description);
+    }
+
+    [Fact]
+    public void Describe_WithATooLongNameOrDescription_Throws()
+    {
+        var exam = NewExam();
+
+        Assert.Throws<InvalidExamConfigError>(() => exam.Describe(new string('x', Exam.MaxNameLength + 1), null, Now));
+        Assert.Throws<InvalidExamConfigError>(() => exam.Describe("Maths", new string('x', Exam.MaxDescriptionLength + 1), Now));
+        exam.Describe(new string('x', Exam.MaxNameLength), new string('y', Exam.MaxDescriptionLength), Now); // the limits themselves are allowed
+    }
+
+    [Fact]
+    public void Describe_StillWorksOnAPublishedExam()
+    {
+        // Correcting a typo in the title of an exam that is already open changes nothing that is asked or scored.
+        var exam = ExamReadyToPublish();
+        exam.Publish(Now);
+
+        exam.Describe("Maths mock (corrected)", null, Now);
+
+        Assert.Equal("Maths mock (corrected)", exam.Name);
+        Assert.Equal(ExamStatus.Published, exam.Status);
+    }
+
+    [Fact]
+    public void Describe_OnAnArchivedExam_ThrowsArchived()
+    {
+        var exam = NewExam();
+        exam.Status = ExamStatus.Archived;
+
+        Assert.Throws<ExamArchivedError>(() => exam.Describe("Renamed", null, Now));
+    }
+
     // ---- taking a section out -----------------------------------------------------------------------
 
     [Fact]
