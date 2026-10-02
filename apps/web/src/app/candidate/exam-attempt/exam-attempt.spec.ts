@@ -298,6 +298,21 @@ describe('ExamAttempt', () => {
     });
   });
 
+  it('says which attempt it is on the result and on the exam bar, only from the second on', async () => {
+    const first = await open(attempt({ status: 'Submitted', score: 7, maxScore: 10, sections: [], number: 1 }));
+    expect(textOf(first)).not.toContain('Attempt 1');
+    httpMock.verify();
+    TestBed.resetTestingModule();
+
+    const second = await open(attempt({ status: 'Submitted', score: 7, maxScore: 10, sections: [], number: 2 }));
+    expect(textOf(second)).toContain('Result · Attempt 2');
+    httpMock.verify();
+    TestBed.resetTestingModule();
+
+    const open2 = await open(attempt({ number: 2 }));
+    expect(textOf(open2)).toContain('Exam · Attempt 2');
+  });
+
   it('shows why an attempt cannot be opened', async () => {
     await TestBed.configureTestingModule({
       imports: [ExamAttempt],

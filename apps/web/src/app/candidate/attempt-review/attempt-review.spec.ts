@@ -13,6 +13,7 @@ describe('AttemptReview', () => {
     attemptId: 'a1',
     examId: 'e1',
     examName: 'Maths Final',
+    number: 1,
     submittedAtUtc: '2026-10-05T04:50:00Z',
     autoSubmitted: false,
     score: 2.75,
@@ -157,6 +158,15 @@ describe('AttemptReview', () => {
     expect(items.map((i) => i.getAttribute('aria-label'))).toEqual(['Question 1, Correct', 'Question 2, Wrong', 'Question 3, Not answered']);
     expect(items[0].classList).toContain('review-strip__item--correct');
     expect(items[1].classList).toContain('review-strip__item--wrong');
+  });
+
+  it('says which attempt it is only when there is more than one', async () => {
+    const first = await open(review());
+    expect(textOf(first)).not.toContain('Attempt 1');
+    TestBed.resetTestingModule();
+
+    const second = await open(review({ number: 2 }));
+    expect(textOf(second)).toContain('Answer review · Attempt 2');
   });
 
   it('mentions an automatic submission when time ran out', async () => {

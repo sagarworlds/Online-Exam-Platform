@@ -99,6 +99,11 @@ export const routes: Routes = [
     loadComponent: () => import('./exam-authoring/exam-editor/exam-editor').then((m) => m.ExamEditor),
   },
   {
+    path: 'exams/:id/attempts',
+    canActivate: [permissionGuard(Permission.ExamManage)],
+    loadComponent: () => import('./attempt-management/exam-attempts/exam-attempts').then((m) => m.ExamAttempts),
+  },
+  {
     path: 'exams/:id/schedule',
     canActivate: [permissionGuard(Permission.ExamManage)],
     loadComponent: () => import('./exam-authoring/exam-scheduler/exam-scheduler').then((m) => m.ExamScheduler),

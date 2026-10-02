@@ -460,3 +460,28 @@ button.primary:hover:not(:disabled),
   display: block;
   margin: 0;
 }
+
+/* A candidate's attempts at one exam: a row each, with its score and what can be done with it. */
+.attempt-list {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attempt-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.attempt-row:first-child {
+  border-top: 0;
+}
+
+.attempt-row__label {
+  flex: 1;
+  min-width: 10rem;
+}

@@ -4,6 +4,21 @@ export type AttemptStatus = 'InProgress' | 'Submitted';
 /** Whether a candidate can start an exam right now: not yet, yes, or the window (or its late-entry cutoff) has passed. */
 export type MyExamState = 'NotOpen' | 'Open' | 'Closed';
 
+/** One of a candidate's attempts at an exam, as listed. All instants are UTC. */
+export interface AttemptSummaryDto {
+  id: string;
+  /** Which attempt this is for them at the exam, from 1. */
+  number: number;
+  status: AttemptStatus;
+  startedAtUtc: string;
+  submittedAtUtc: string | null;
+  /** Whether it ended because time ran out rather than because the candidate submitted it. */
+  autoSubmitted: boolean;
+  /** The marks scored and available, once submitted. */
+  score: number | null;
+  maxScore: number | null;
+}
+
 /** An exam the candidate is enrolled in, as listed on their exams page. All instants are UTC. */
 export interface MyExamDto {
   examId: string;
@@ -15,12 +30,19 @@ export interface MyExamDto {
   durationSeconds: number | null;
   questionCount: number;
   state: MyExamState;
-  /** The candidate's attempt at this exam, or null if they have not started it. */
+  /** The candidate's latest attempt at this exam, or null if they have not started it. */
   attemptId: string | null;
   attemptStatus: AttemptStatus | null;
-  /** The marks scored and available, once the attempt is submitted. */
+  /** The marks the latest attempt scored and the marks available, once it is submitted. */
   score: number | null;
   maxScore: number | null;
+  /** How many attempts they may make in all: one, plus each extra attempt an administrator gave them. */
+  attemptsAllowed: number;
+  attemptsUsed: number;
+  /** Whether they may start a new attempt now: the window is open, none is in progress, and one is left. */
+  canStartAttempt: boolean;
+  /** Every attempt they have made, oldest first. */
+  attempts: AttemptSummaryDto[];
 }
 
 /** When candidates may see which of their answers were right, as the exam's author chose it. */
@@ -75,6 +97,8 @@ export interface AttemptDto {
   sections: AttemptSectionDto[];
   /** Whether the answers can be reviewed; null (or absent) while the attempt is still open. */
   review?: AttemptReviewAvailability | null;
+  /** Which attempt this is for the candidate at the exam, from 1. */
+  number?: number;
 }
 
 /** How one question was marked. */
@@ -109,6 +133,8 @@ export interface AttemptReviewDto {
   attemptId: string;
   examId: string;
   examName: string;
+  /** Which attempt this is for the candidate at the exam, from 1. */
+  number: number;
   submittedAtUtc: string | null;
   autoSubmitted: boolean;
   score: number;

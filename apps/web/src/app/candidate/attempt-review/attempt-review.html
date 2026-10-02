@@ -11,7 +11,7 @@
 
   @if (review(); as r) {
     <div class="card">
-      <p class="exam-bar__label">Answer review</p>
+      <p class="exam-bar__label">Answer review@if (r.number > 1) { · Attempt {{ r.number }} }</p>
       <h1>{{ r.examName }}</h1>
       <div class="review-summary">
         <p class="review-summary__score">{{ r.score }} / {{ r.maxScore }}</p>

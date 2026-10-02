@@ -160,6 +160,13 @@
       </div>
     } @else {
       <p class="hint">This exam is published, so its questions and schedule can no longer be edited.</p>
+      <div class="card">
+        <h2>Candidates</h2>
+        <p>See who has taken the exam, how each attempt went, and give a candidate another attempt if they ask for one.</p>
+        <div class="actions">
+          <a [routerLink]="['/exams', e.id, 'attempts']" class="btn">Candidates and attempts</a>
+        </div>
+      </div>
     }
   }
 </div>

@@ -11,7 +11,7 @@
     @if (current.status === 'InProgress') {
       <header class="exam-bar card">
         <div>
-          <p class="exam-bar__label">Exam</p>
+          <p class="exam-bar__label">Exam@if (current.number && current.number > 1) { · Attempt {{ current.number }} }</p>
           <h1 class="exam-bar__title">{{ current.examName }}</h1>
         </div>
         <div class="exam-bar__timer" role="timer" aria-label="Time left">
@@ -97,7 +97,7 @@
       </div>
     } @else {
       <div class="card result">
-        <p class="exam-bar__label">Result</p>
+        <p class="exam-bar__label">Result@if (current.number && current.number > 1) { · Attempt {{ current.number }} }</p>
         <h1>{{ current.examName }}</h1>
         <p class="score">{{ current.score }} / {{ current.maxScore }}</p>
         @if (current.autoSubmitted) {

@@ -1,0 +1,83 @@
+<div class="page page--wide">
+  <a [routerLink]="['/exams', examId]" class="back-link">&larr; Back to the exam</a>
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+  @if (notice()) {
+    <p class="success-message" role="status">{{ notice() }}</p>
+  }
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (data(); as d) {
+    <div class="page-header">
+      <h1>Candidates and attempts</h1>
+    </div>
+    <p class="hint">
+      {{ d.examName }}. Everyone has one attempt. If a candidate asks for another (a power cut, a dropped connection), you can give
+      them one once they have used the attempt they have. Each attempt is scored and reviewed on its own.
+    </p>
+    @if (d.windowClosed) {
+      <p class="hint">The exam can no longer be started, so another attempt cannot be given now.</p>
+    }
+
+    @for (candidate of d.candidates; track candidate.candidateId) {
+      <div class="card">
+        <h3 class="card__title">
+          {{ candidate.email }}
+          <span class="badge" [class.badge--active]="candidate.attemptsUsed > 0" [class.badge--inactive]="candidate.attemptsUsed === 0">
+            {{ candidate.attemptsUsed }} of {{ candidate.attemptsAllowed }} {{ candidate.attemptsAllowed === 1 ? 'attempt' : 'attempts' }} used
+          </span>
+        </h3>
+
+        @if (candidate.attempts.length === 0) {
+          <p class="hint">Has not started the exam yet.</p>
+        } @else {
+          <ul class="attempt-list">
+            @for (attempt of candidate.attempts; track attempt.id) {
+              <li class="attempt-row">
+                <span class="attempt-row__label">
+                  <strong>Attempt {{ attempt.number }}</strong> ·
+                  @if (attempt.status === 'Submitted') {
+                    {{ attempt.score }} / {{ attempt.maxScore }}{{ attempt.autoSubmitted ? ' (time ran out)' : '' }}
+                  } @else {
+                    In progress
+                  }
+                  <span class="hint">, started {{ attempt.startedAtUtc | date: 'medium' }}</span>
+                </span>
+              </li>
+            }
+          </ul>
+        }
+
+        @if (grantingFor() === candidate.candidateId) {
+          <div class="field">
+            <label [for]="'reason-' + candidate.candidateId">Why? (optional, kept on record)</label>
+            <input
+              [id]="'reason-' + candidate.candidateId"
+              type="text"
+              [maxLength]="maxReasonLength"
+              [value]="reason()"
+              (input)="setReason($any($event.target).value)"
+              [disabled]="busy()"
+            />
+          </div>
+          <div class="actions">
+            <button type="button" class="primary" (click)="confirmGrant(candidate)" [disabled]="busy()">Give another attempt</button>
+            <button type="button" (click)="cancelGranting()" [disabled]="busy()">Cancel</button>
+          </div>
+        } @else {
+          <div class="actions">
+            <button type="button" (click)="startGranting(candidate)" [disabled]="!candidate.canGrant || busy()">Give another attempt</button>
+            @if (whyNot(candidate); as why) {
+              <span class="hint">{{ why }}</span>
+            }
+          </div>
+        }
+      </div>
+    } @empty {
+      <div class="card empty-state">Nobody has accepted an invitation to this exam yet.</div>
+    }
+  }
+</div>

@@ -326,6 +326,19 @@ describe('ExamEditor', () => {
     });
   });
 
+  it('links a published exam to its candidates and attempts, and a draft does not', () => {
+    const published = open(examBody({ status: 'Published' })).root;
+    const link = Array.from(published.querySelectorAll('a')).find((a) => a.textContent?.includes('Candidates and attempts'));
+    expect(link?.getAttribute('href')).toBe('/exams/exam-1/attempts');
+    TestBed.resetTestingModule();
+  });
+
+  it('offers no candidates link on a draft, which nobody has been invited to', () => {
+    const { root } = open();
+
+    expect(Array.from(root.querySelectorAll('a')).some((a) => a.textContent?.includes('Candidates and attempts'))).toBe(false);
+  });
+
   it('shows a published exam read-only', () => {
     const { root } = open(examBody({ status: 'Published', isScheduled: true, scheduledStartTime: '2026-10-05T04:30:00Z', scheduledEndTime: '2026-10-05T07:30:00Z' }));
 
