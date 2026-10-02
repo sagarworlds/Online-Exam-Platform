@@ -1,9 +1,14 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { BookApiService } from '../../book-management/book-api.service';
+import { BookDto } from '../../book-management/book.models';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { ExamApiService } from '../exam-api.service';
+import { CreateExamRequest } from '../exam.models';
+import { NO_SCOPE, isScopeComplete, toScopeRequest } from '../exam-scope-fields/exam-scope';
+import { ExamScopeFields } from '../exam-scope-fields/exam-scope-fields';
 
 const GUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -19,7 +24,7 @@ export function optionalGuid(control: AbstractControl): ValidationErrors | null 
 @Component({
   selector: 'app-exam-builder',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, ExamScopeFields],
   template: `
     <div class="page">
       <h1>Create New Exam</h1>
@@ -63,8 +68,16 @@ export function optionalGuid(control: AbstractControl): ValidationErrors | null 
           }
         </div>
 
+        @if (booksState() === 'ready') {
+          <app-exam-scope-fields [books]="books()" [(scope)]="scope" />
+        } @else if (booksState() === 'unavailable') {
+          <p class="hint">
+            Limiting an exam to a book needs access to the question bank, so this exam can use questions from anywhere.
+          </p>
+        }
+
         <div class="actions">
-          <button type="submit" [disabled]="!form.valid || loading" class="btn btn--primary">
+          <button type="submit" [disabled]="!form.valid || !scopeComplete() || loading" class="btn btn--primary">
             {{ loading ? 'Creating...' : 'Create Exam' }}
           </button>
           <a routerLink="/exams" class="btn">Cancel</a>
@@ -81,6 +94,13 @@ export class ExamBuilder implements OnInit {
   private fb = inject(FormBuilder);
   private examApi = inject(ExamApiService);
   private router = inject(Router);
+  private bookApi = inject(BookApiService);
+
+  /** The books an exam can be limited to; 'unavailable' when the user may not read the question bank. */
+  protected readonly books = signal<BookDto[]>([]);
+  protected readonly booksState = signal<'loading' | 'ready' | 'unavailable'>('loading');
+  protected readonly scope = signal(NO_SCOPE);
+  protected readonly scopeComplete = computed(() => isScopeComplete(this.scope()));
 
   form!: FormGroup;
   loading = false;
@@ -92,10 +112,23 @@ export class ExamBuilder implements OnInit {
       description: [''],
       seriesId: ['', optionalGuid],
     });
+
+    // Books are read separately from creating the exam: a user who may author exams but not read the question bank
+    // still creates exams, just not ones limited to a book.
+    this.bookApi.list().subscribe({
+      next: (books) => {
+        this.books.set(books);
+        this.booksState.set('ready');
+      },
+      error: (err: unknown) => {
+        console.error('Books could not be loaded for the scope choice', err);
+        this.booksState.set('unavailable');
+      },
+    });
   }
 
   onSubmit() {
-    if (!this.form.valid) return;
+    if (!this.form.valid || !this.scopeComplete()) return;
 
     this.loading = true;
     this.error = '';
@@ -104,10 +137,13 @@ export class ExamBuilder implements OnInit {
     // blank field holds, so a blank (or whitespace-only) value is sent as null.
     const seriesId = (this.form.value.seriesId ?? '').trim();
 
-    const request = {
+    const scope = this.scope();
+    const request: CreateExamRequest = {
       name: this.form.value.name,
       description: this.form.value.description,
       seriesId: seriesId === '' ? null : seriesId,
+      // Sent only when it limits something, so an unlimited exam is requested exactly as it always was.
+      ...(scope.type === 'Independent' ? {} : { scope: toScopeRequest(scope) }),
     };
 
     this.examApi.createExam(request).subscribe({

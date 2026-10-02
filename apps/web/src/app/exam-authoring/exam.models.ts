@@ -37,6 +37,31 @@ export interface ExamSectionDto {
   questions: ExamQuestionDto[];
 }
 
+/** What an exam's questions may be drawn from: anywhere in the bank, one whole book, or chosen chapters of one book. */
+export type ExamScopeType = 'Independent' | 'Book' | 'Chapters';
+
+/** A chosen chapter of an exam's scope; `title` is null if the question bank no longer has it. */
+export interface ExamScopeChapterDto {
+  id: string;
+  title: string | null;
+}
+
+/** An exam's scope with the names to show. `bookName` is null for an independent exam, or if the bank lost the book. */
+export interface ExamScopeDto {
+  type: ExamScopeType;
+  bookId: string | null;
+  bookName: string | null;
+  /** The chosen chapters for a `Chapters` scope; empty for the others. */
+  chapters: ExamScopeChapterDto[];
+}
+
+/** The body of PUT /v1/exams/{id}/scope, and the optional `scope` of a new exam. */
+export interface ExamScopeRequest {
+  type: ExamScopeType;
+  bookId?: string | null;
+  chapterIds?: string[] | null;
+}
+
 /** An exam as the authoring side sees it. `sections` is filled in when one exam is read, null in a listing. */
 export interface ExamDto {
   id: string;
@@ -55,6 +80,8 @@ export interface ExamDto {
   updatedAt: string;
   isScheduled: boolean;
   sections: ExamSectionDto[] | null;
+  /** What the exam's questions may be drawn from. */
+  scope: ExamScopeDto;
 }
 
 export interface CreateExamRequest {
@@ -62,6 +89,8 @@ export interface CreateExamRequest {
   seriesId?: string | null;
   name: string;
   description?: string;
+  /** Omit for an exam whose questions may come from anywhere in the bank. */
+  scope?: ExamScopeRequest;
 }
 
 /** The body of PUT /v1/exams/{id}/schedule. Every instant is UTC (ISO 8601). */

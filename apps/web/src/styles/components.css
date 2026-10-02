@@ -424,3 +424,16 @@ button.primary:hover:not(:disabled),
   font-size: 0.85rem;
   font-weight: 600;
 }
+
+/* The exam scope choice: radios stacked, and the chosen book's chapters as a checklist. */
+.scope-fields {
+  gap: 0.5rem;
+}
+
+.scope-fields .inline-check {
+  display: flex;
+}
+
+.scope-fields__chapters {
+  padding-inline-start: 1rem;
+}

@@ -5,6 +5,7 @@ import { environment } from '../../environments/environment';
 import {
   CreateExamRequest,
   ExamDto,
+  ExamScopeRequest,
   ExamQuestionDto,
   ExamSectionDto,
   ScheduleExamRequest,
@@ -32,6 +33,10 @@ export class ExamApiService {
 
   scheduleExam(examId: string, request: ScheduleExamRequest): Observable<ExamDto> {
     return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/schedule`, request);
+  }
+
+  setScope(examId: string, scope: ExamScopeRequest): Observable<ExamDto> {
+    return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/scope`, scope);
   }
 
   addSection(examId: string, name: string, timeSeconds?: number | null): Observable<ExamSectionDto> {

@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { ExamApiService } from '../exam-api.service';
 import { ExamDto } from '../exam.models';
+import { describeScope } from '../exam-scope-fields/exam-scope';
 
 /** Admin page: the newest exams, each linking to its editor. */
 @Component({
@@ -17,6 +18,7 @@ export class ExamList {
   protected readonly exams = signal<ExamDto[]>([]);
   protected readonly loading = signal(true);
   protected readonly errorMessage = signal<string | null>(null);
+  protected readonly describeScope = describeScope;
 
   constructor() {
     this.examApi.getExams().subscribe({
