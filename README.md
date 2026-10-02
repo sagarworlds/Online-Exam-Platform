@@ -143,17 +143,18 @@ Online-Exam-Platform/
 
 ### Milestone M3: Exam Authoring & Enrollment (first end-to-end loop works)
 **Backend**: question bank, exam authoring (sections, questions, schedule, publish), invites that enroll a candidate, and exam taking with scoring (ExamRuntime module); batches and guardian links exist but are not part of the loop yet  
-**Frontend**: admin question bank, exam builder/editor/scheduler, invite creation and list, candidate invitation page, "My exams", exam-taking page with countdown and result  
+**Frontend**: admin question bank, books and chapters, exam builder/editor/scheduler (an exam can be limited to a book or chapters), invite creation and list, candidate invitation page, "My exams", exam-taking page with countdown and result  
 **Status**: the loop below runs end to end against a live API and a real browser. Gaps are listed under it.
 
 #### The exam loop
 
 1. An administrator signs in (password + one-time code) and lands on `/admin`, which lists only the areas their permissions open.
 2. **Questions** (`/admin/questions`): single-answer multiple choice, 2 to 6 options, exactly one correct. The question text is written in a rich-text editor (see [Question formatting](#question-formatting)); options are plain text.
-3. **Exams** (`/exams`): create an exam, add sections and questions, set the schedule (window, minutes per attempt, optional latest start), publish.
-4. **Invites** (`/invites/create`): pick a published exam and a candidate's e-mail address. The invitation is e-mailed when `Smtp:Host` is configured; otherwise the page shows the link to pass on by hand.
-5. The candidate opens the link (signing in or registering first), and accepts it. Only the account holding the invited e-mail address can accept; accepting enrolls them.
-6. **My exams** (`/my-exams`): Start (the server fixes the deadline), answer (saved as they go), submit, and read the score. If time runs out the attempt is closed with the saved answers the next time anyone looks at it.
+3. **Books** (`/admin/books`, optional): a book has chapters; questions can be filed under a chapter and exams can be limited to a book or some of its chapters (see [Books, chapters and exam scope](#books-chapters-and-exam-scope)).
+4. **Exams** (`/exams`): create an exam, add sections and questions, set the schedule (window, minutes per attempt, optional latest start), publish.
+5. **Invites** (`/invites/create`): pick a published exam and a candidate's e-mail address. The invitation is e-mailed when `Smtp:Host` is configured; otherwise the page shows the link to pass on by hand.
+6. The candidate opens the link (signing in or registering first), and accepts it. Only the account holding the invited e-mail address can accept; accepting enrolls them.
+7. **My exams** (`/my-exams`): Start (the server fixes the deadline), answer (saved as they go), submit, and read the score. If time runs out the attempt is closed with the saved answers the next time anyone looks at it.
 
 Configuration: `Smtp:Host`, `Smtp:Port`, `Smtp:EnableSsl`, `Smtp:User`, `Smtp:Password`, `Smtp:From` for e-mail, and `Invite:LinkBaseUrl` (default `http://localhost:4200`) for the address in invitation links. A sign-in that has to be done by hand in development reads its code from the API log (`Identity:OtpDelivery:Provider` = `DevelopmentLog`).
 
@@ -170,7 +171,24 @@ The question text is HTML from a rich-text editor: bold, italic, underline, subs
 
 Questions written before this change were plain text; the `RichQuestionText` migration converts them to escaped HTML so they look the same. Because pictures live inside the question, every response that carries the question carries them too (the admin question list returns up to 200 questions); if that becomes heavy, the upgrade path is an image upload endpoint with cacheable URLs.
 
-**Known gaps**: no background worker, so abandoned attempts close lazily; one attempt per candidate per exam (no retakes); single-answer multiple choice only; no tables, links, math or alt-text prompt in question text, and option text is plain; marking uses the exam's marking scheme (default +1 / 0 / 0) and the score is shown immediately whatever the result-release setting; batches do not yet feed enrollment; the guardian verification path is still a stub; e-mail needs a real SMTP server to be tried.
+#### Books, chapters and exam scope
+
+A **book** (name, optional subject such as "Maths", optional description) holds ordered **chapters**. A question may be filed under one chapter of one book, or under none (existing questions stay unfiled). An **exam's scope** says where its questions may come from: **anywhere** in the bank (the default, and what every exam did before), **one whole book**, or **chosen chapters** of one book. Questions are still picked by hand; the scope limits what can be picked.
+
+Books and chapters are for authors and administrators only (the `question.manage` permission, the same one the question bank uses). Candidates never see them.
+
+| What | Rule |
+|------|------|
+| Where | `/admin/books` (list, create) and `/admin/books/:id` (rename, add and rename chapters, archive and restore). The question form has Book then Chapter selects (the choice is kept after saving, to enter many questions into one chapter), and the question list filters by book, chapter or "no chapter". |
+| Limits | Book name 200 characters, subject 100, description 1000, chapter title 200. A chapter title is unique within its book. Chapters keep the order they were created in. |
+| Archive, not delete | A book or chapter is archived, never deleted: it disappears from the pickers, keeps every question filed under it, and can be restored. An archived book takes no new chapters and an archived chapter or book takes no new questions. |
+| Exam scope | Set when creating the exam or later on a draft (`PUT /v1/exams/{id}/scope`). Once an exam is published its scope is fixed. |
+| Enforced by the API | Adding a question outside the exam's scope is refused with `409 question_outside_scope`, however the request is made; the editor's picker only offers in-scope questions. Narrowing a scope is refused, naming how many questions would be left outside it, until they are removed. |
+| Authors without bank access | A user who may author exams but not read the question bank can still create exams, just not book-limited ones. |
+
+Existing data is untouched: both migrations (`BooksAndChapters`, `ExamScope`) only add tables and nullable or defaulted columns, and existing exams read as "anywhere" (the `ExamScope` default was checked against a database that already held an exam).
+
+**Known gaps**: no background worker, so abandoned attempts close lazily; one attempt per candidate per exam (no retakes); single-answer multiple choice only; candidates do not see books or chapters, and an exam cannot yet draw questions automatically by rule ("10 from chapter 2"); chapters cannot be reordered, and a question sits in one chapter only; no difficulty or topic tags; "Exam Series" is still only an optional ID with no entity behind it (a book is not a series); the question list shows the newest 200 questions per filter, with no paging; no tables, links, math or alt-text prompt in question text, and option text is plain; marking uses the exam's marking scheme (default +1 / 0 / 0) and the score is shown immediately whatever the result-release setting; batches do not yet feed enrollment; the guardian verification path is still a stub; e-mail needs a real SMTP server to be tried.
 
 ### Deferred (Per ADR 0001)
 - **CD Pipeline**: Infrastructure-as-code, deployment automation
