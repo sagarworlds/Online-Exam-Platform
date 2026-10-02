@@ -1,3 +1,4 @@
+using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.Invite.Application;
 using ExamPlatform.Modules.Invite.Application.Commands;
 using ExamPlatform.Modules.Invite.Application.Ports;
@@ -31,6 +32,7 @@ public sealed class InviteModuleInstaller : IModuleInstaller
         services.AddScoped<IInviteUnitOfWork, InviteUnitOfWork>();
         services.AddScoped<IEnrollments, EnrollmentReader>();
         services.AddScoped<IExamRoster, ExamRosterReader>();
+        services.AddScoped<IExamDeletionGuard, InviteExamDeletionGuard>();
 
         // Invitations go out by SMTP when a mail server is configured (the "Smtp" section) and are otherwise
         // not sent at all: the inviter is given the link. There is deliberately no log-only sender, since a

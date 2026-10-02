@@ -357,6 +357,31 @@ public class Exam : AggregateRoot
 
     public ExamSection? GetSection(Guid sectionId) => _sections.FirstOrDefault(s => s.Id == sectionId);
 
+    /// <summary>Checks the part of "may this exam be deleted?" that the exam itself knows: only a draft may.</summary>
+    /// <exception cref="ExamNotDeletableError">
+    /// The exam is published or archived. Candidates may already have been invited to it or sat it, and their results
+    /// refer to it, so it stays.
+    /// </exception>
+    public void EnsureCanBeDeleted()
+    {
+        if (Status != ExamStatus.Draft)
+            throw new ExamNotDeletableError("Only a draft can be deleted; once an exam is published, candidates may have been invited to it or sat it.");
+    }
+
+    /// <summary>
+    /// Deletes the exam. It is only marked deleted, as every module's records are: every query leaves it out, so it is gone
+    /// for everyone, and the question bank stops counting it as using the questions it held.
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamNotDeletableError">The exam is not a draft.</exception>
+    public void Delete(DateTime nowUtc)
+    {
+        EnsureCanBeDeleted();
+
+        IsDeleted = true;
+        UpdatedAt = nowUtc;
+    }
+
     /// <summary>
     /// Opens the exam to the candidates invited to it. Refused until the exam is scheduled and has
     /// something to ask, so a published exam can always be taken.

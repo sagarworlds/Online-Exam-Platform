@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using ExamPlatform.Modules.ExamAuthoring.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 using static ExamPlatform.IntegrationTests.ExamScenarios;
 
 namespace ExamPlatform.IntegrationTests;
@@ -167,6 +169,89 @@ public sealed class ExamDraftCorrectionFlowTests(ApiFactory factory) : IClassFix
         await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{Guid.NewGuid()}/details", new { name = "Fine" }), HttpStatusCode.NotFound, "exam_not_found");
 
         Assert.Equal("Keep this name", (await ReadExamAsync(admin, examId)).GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task ADeletedDraft_IsGoneFromTheListAndTheRead_AndItsQuestionsCanBeDeletedFromTheBank()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var questionId = await CreateQuestionAsync(admin, "Held by a draft that goes", "A", "B");
+        var examId = await CreateExamAsync(admin, "Draft nobody wants", [questionId], TimeSpan.FromHours(1), publish: false);
+        await AssertProblemAsync(await admin.DeleteAsync($"/v1/questions/{questionId}"), HttpStatusCode.Conflict, "question_in_use");
+
+        var response = await admin.DeleteAsync($"/v1/exams/{examId}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        await AssertProblemAsync(await admin.GetAsync($"/v1/exams/{examId}"), HttpStatusCode.NotFound, "exam_not_found");
+        Assert.DoesNotContain((await JsonAsync(await admin.GetAsync("/v1/exams"))).EnumerateArray(), e => e.GetProperty("id").GetGuid() == examId);
+        // The question is still in the bank, held by nothing now, so the bank lets it go.
+        Assert.Equal(0, (await JsonAsync(await admin.GetAsync($"/v1/questions/{questionId}"))).GetProperty("usage").GetProperty("examCount").GetInt32());
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/v1/questions/{questionId}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task APublishedExam_CannotBeDeleted()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var examId = await CreateExamAsync(admin, "Published", [await CreateQuestionAsync(admin, "Q", "A", "B")], TimeSpan.FromMinutes(-5));
+
+        await AssertProblemAsync(await admin.DeleteAsync($"/v1/exams/{examId}"), HttpStatusCode.Conflict, "exam_not_deletable");
+
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/v1/exams/{examId}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task ADraftSomeoneHasBeenInvitedTo_CannotBeDeleted_UntilTheInvitationIsRevoked()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var examId = await CreateExamAsync(admin, "Draft with an invitation", [], TimeSpan.FromHours(1), publish: false);
+        var invite = await InviteAsync(admin, examId, UniqueEmail());
+
+        var refused = await admin.DeleteAsync($"/v1/exams/{examId}");
+
+        await AssertProblemAsync(refused, HttpStatusCode.Conflict, "exam_not_deletable");
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/v1/exams/{examId}")).StatusCode);
+
+        (await admin.PostAsync($"/v1/invites/{invite.GetProperty("id").GetGuid()}/revoke", null)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/v1/exams/{examId}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task ADraftABatchIsAssignedTo_CannotBeDeleted_AndTheReasonSaysSo()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var examId = await CreateExamAsync(admin, "Draft with a batch", [], TimeSpan.FromHours(1), publish: false);
+        (await admin.PostAsJsonAsync("/v1/batches", new { examId, name = "Batch for the draft", maxMembers = 10 })).EnsureSuccessStatusCode();
+
+        var refused = await admin.DeleteAsync($"/v1/exams/{examId}");
+
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        var problem = await JsonAsync(refused);
+        Assert.Equal("exam_not_deletable", problem.GetProperty("title").GetString());
+        Assert.Contains("batch", problem.GetProperty("detail").GetString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task DeletingAnUnknownOrAlreadyDeletedExam_Returns404()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var examId = await CreateExamAsync(admin, "Delete me twice", [], TimeSpan.FromHours(1), publish: false);
+        (await admin.DeleteAsync($"/v1/exams/{examId}")).EnsureSuccessStatusCode();
+
+        await AssertProblemAsync(await admin.DeleteAsync($"/v1/exams/{examId}"), HttpStatusCode.NotFound, "exam_not_found");
+        await AssertProblemAsync(await admin.DeleteAsync($"/v1/exams/{Guid.NewGuid()}"), HttpStatusCode.NotFound, "exam_not_found");
+    }
+
+    [Fact]
+    public async Task EveryModuleThatKeepsAnExamsId_HasContributedADeletionGuard()
+    {
+        // The builder asks whoever is registered. A module that forgot to register would silently let an exam be deleted from
+        // under its own records, so the set is pinned here, as the question bank's usage sources are.
+        using var scope = factory.Services.CreateScope();
+
+        var guards = scope.ServiceProvider.GetServices<IExamDeletionGuard>().Select(g => g.GetType().Name).Order().ToList();
+
+        Assert.Equal(["BatchExamDeletionGuard", "InviteExamDeletionGuard"], guards);
     }
 
     [Fact]

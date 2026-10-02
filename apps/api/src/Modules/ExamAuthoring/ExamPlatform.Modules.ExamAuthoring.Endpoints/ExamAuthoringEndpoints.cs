@@ -43,6 +43,14 @@ public static class ExamAuthoringEndpoints
             .WithName("GetExam")
             .WithDescription("Get an exam with its sections and questions");
 
+        exams.MapDelete("/{examId:guid}", DeleteExam)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("DeleteExam")
+            .WithDescription("Delete a draft exam that no invitation or batch refers to; its questions stay in the bank");
+
         exams.MapPut("/{examId:guid}/details", UpdateDetails)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -148,6 +156,12 @@ public static class ExamAuthoringEndpoints
 
     private static async Task<IResult> GetExam(Guid examId, GetExamHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(examId, ct));
+
+    private static async Task<IResult> DeleteExam(Guid examId, DeleteExamHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(examId, ct);
+        return Results.NoContent();
+    }
 
     private static async Task<IResult> UpdateDetails(
         Guid examId, ExamDetailsRequest request, UpdateExamDetailsHandler handler, CancellationToken ct) =>

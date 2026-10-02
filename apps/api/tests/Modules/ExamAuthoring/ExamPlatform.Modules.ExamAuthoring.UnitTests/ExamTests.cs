@@ -385,6 +385,41 @@ public class ExamTests
         Assert.Throws<ExamArchivedError>(() => exam.Describe("Renamed", null, Now));
     }
 
+    // ---- deleting the exam ----------------------------------------------------------------------------
+
+    [Fact]
+    public void Delete_MarksADraftDeleted_AndStampsIt()
+    {
+        var exam = NewExam();
+
+        exam.Delete(Now);
+
+        Assert.True(exam.IsDeleted);
+        Assert.Equal(Now, exam.UpdatedAt);
+    }
+
+    [Fact]
+    public void Delete_OfAPublishedExam_ThrowsNotDeletable_AndChangesNothing()
+    {
+        var exam = ExamReadyToPublish();
+        exam.Publish(Now);
+
+        var error = Assert.Throws<ExamNotDeletableError>(() => exam.Delete(Now));
+
+        Assert.Equal(409, error.HttpStatusCode);
+        Assert.Equal("exam_not_deletable", error.ErrorCode);
+        Assert.False(exam.IsDeleted);
+    }
+
+    [Fact]
+    public void EnsureCanBeDeleted_RefusesAnArchivedExamToo()
+    {
+        var exam = NewExam();
+        exam.Status = ExamStatus.Archived;
+
+        Assert.Throws<ExamNotDeletableError>(exam.EnsureCanBeDeleted);
+    }
+
     // ---- taking a section out -----------------------------------------------------------------------
 
     [Fact]

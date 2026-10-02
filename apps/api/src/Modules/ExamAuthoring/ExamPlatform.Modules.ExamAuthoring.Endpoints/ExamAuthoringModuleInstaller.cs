@@ -46,6 +46,7 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
         services.AddScoped<RemoveExamQuestionHandler>();
         services.AddScoped<RemoveSectionHandler>();
         services.AddScoped<UpdateExamDetailsHandler>();
+        services.AddScoped<DeleteExamHandler>();
         services.AddScoped<EditSectionHandler>();
         services.AddScoped<PublishExamHandler>();
         services.AddScoped<SetExamScopeHandler>();

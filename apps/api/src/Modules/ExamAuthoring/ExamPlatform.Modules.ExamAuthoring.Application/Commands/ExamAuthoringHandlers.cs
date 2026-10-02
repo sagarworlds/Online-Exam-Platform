@@ -1,6 +1,7 @@
 using ExamPlatform.Modules.ExamAuthoring.Application.Dtos;
 using ExamPlatform.Modules.ExamAuthoring.Application.Ports;
 using ExamPlatform.Modules.ExamAuthoring.Domain;
+using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.ExamAuthoring.Domain.Exceptions;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
@@ -153,6 +154,42 @@ public sealed class RemoveExamQuestionHandler(IExamRepository repository, IExamA
     {
         var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
         exam.RemoveQuestion(command.SectionId, command.QuestionId);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>Handles deleting a draft exam.</summary>
+public sealed class DeleteExamHandler(
+    IExamRepository repository,
+    IExamAuthoringUnitOfWork unitOfWork,
+    IEnumerable<IExamDeletionGuard> guards,
+    Clock clock)
+{
+    /// <summary>
+    /// Deletes the exam if it is a draft that nothing else refers to. The questions it held stay in the bank and, no longer
+    /// in any exam, can be deleted from it.
+    /// </summary>
+    /// <param name="examId">The exam to delete.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDeletableError">The exam is published, or a module that keeps its id (an invitation, a batch) objects.</exception>
+    public async Task HandleAsync(Guid examId, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(examId, cancellationToken);
+
+        // The exam's own rule first: a published exam is refused whatever the guards would say, and asking them is wasted work.
+        exam.EnsureCanBeDeleted();
+
+        // Every guard is asked and every reason reported, so the author learns everything in the way in one go instead of
+        // finding the second reason only after sorting out the first.
+        var reasons = new List<string>();
+        foreach (var guard in guards)
+            reasons.AddRange(await guard.FindObjectionsAsync(examId, cancellationToken));
+
+        if (reasons.Count > 0)
+            throw new ExamNotDeletableError(string.Join(" ", reasons));
+
+        exam.Delete(clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
