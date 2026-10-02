@@ -1,0 +1,46 @@
+<div class="page">
+  <h1>Schedule exam</h1>
+
+  @if (errorMessage()) {
+    <p class="error-message">{{ errorMessage() }}</p>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <p class="hint">Times are in your browser's local time and are stored as UTC.</p>
+
+    <div class="field">
+      <label for="start-time">Opens</label>
+      <input id="start-time" type="datetime-local" formControlName="startTime" />
+    </div>
+
+    <div class="field">
+      <label for="end-time">Closes</label>
+      <input id="end-time" type="datetime-local" formControlName="endTime" />
+    </div>
+
+    <div class="field">
+      <label for="duration">Minutes per attempt (optional)</label>
+      <input id="duration" type="number" min="1" formControlName="durationMinutes" />
+    </div>
+
+    <div class="field">
+      <label for="late-entry">Latest start (optional)</label>
+      <input id="late-entry" type="datetime-local" formControlName="lateEntryDeadline" />
+    </div>
+
+    <div class="field">
+      <label for="time-zone">Time zone</label>
+      <select id="time-zone" formControlName="timeZone">
+        <option value="Asia/Kolkata">India (GMT+5:30)</option>
+        <option value="UTC">UTC</option>
+        <option value="Europe/London">Europe/London</option>
+        <option value="America/New_York">US Eastern</option>
+        <option value="America/Los_Angeles">US Pacific</option>
+        <option value="Australia/Sydney">Australia/Sydney</option>
+      </select>
+    </div>
+
+    <button type="submit" class="primary" [disabled]="form.invalid || saving()">Save schedule</button>
+    <a [routerLink]="['/exams', examId]">Cancel</a>
+  </form>
+</div>

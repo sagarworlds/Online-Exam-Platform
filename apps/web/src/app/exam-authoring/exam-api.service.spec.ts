@@ -55,4 +55,33 @@ describe('ExamApiService', () => {
     const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/${examId}`);
     expect(req.request.method).toBe('GET');
   });
+
+  it('schedules an exam with a PUT to its schedule route', () => {
+    const request = { scheduledStartTime: '2026-10-05T04:30:00.000Z', scheduledEndTime: '2026-10-05T07:30:00.000Z', durationMinutes: 90 };
+
+    service.scheduleExam('exam-1', request).subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1/schedule`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual(request);
+  });
+
+  it('adds a section and a question to the right routes', () => {
+    service.addSection('exam-1', 'Algebra').subscribe();
+    const section = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1/sections`);
+    expect(section.request.method).toBe('POST');
+    expect(section.request.body).toEqual({ name: 'Algebra', timeSeconds: null });
+
+    service.addQuestion('exam-1', 's1', 'q1').subscribe();
+    const question = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1/sections/s1/questions`);
+    expect(question.request.method).toBe('POST');
+    expect(question.request.body).toEqual({ questionId: 'q1' });
+  });
+
+  it('publishes an exam with a POST to its publish route', () => {
+    service.publish('exam-1').subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1/publish`);
+    expect(req.request.method).toBe('POST');
+  });
 });

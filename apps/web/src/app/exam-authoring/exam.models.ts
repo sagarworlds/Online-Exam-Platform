@@ -1,9 +1,16 @@
-export type ExamStatus = 'Draft' | 'Published' | 'Active' | 'Closed' | 'Archived';
-export type ResultReleaseMode = 'Automatic' | 'Manual' | 'Scheduled';
-export type MarkingScheme = 'Standard' | 'Custom';
+/** An exam's lifecycle: only a Draft can be edited, only a Published exam can be taken. */
+export type ExamStatus = 'Draft' | 'Published' | 'Archived';
+
+/** Marks awarded per answer; the API's default is +1 / 0 / 0. */
+export interface MarkingSchemeDto {
+  correctMarks: number;
+  incorrectMarks: number;
+  unattemptedMarks: number;
+}
 
 export interface ExamConfigDto {
-  totalTimeSeconds?: number;
+  /** How long one attempt lasts; null means "until the window closes". */
+  totalTimeSeconds: number | null;
   shuffleQuestions: boolean;
   shuffleOptions: boolean;
   sectionLockEnabled: boolean;
@@ -11,25 +18,43 @@ export interface ExamConfigDto {
   scratchpadAllowed: boolean;
   maxAttempts: number;
   maxRetakes: number;
-  resultReleaseMode: ResultReleaseMode;
-  resultReleaseTime?: Date;
-  markingScheme: MarkingScheme;
+  markingScheme: MarkingSchemeDto;
 }
 
+/** A question as it sits in an exam; `text` comes from the question bank and is null if the bank lost it. */
+export interface ExamQuestionDto {
+  id: string;
+  questionId: string;
+  order: number;
+  text: string | null;
+}
+
+export interface ExamSectionDto {
+  id: string;
+  name: string;
+  timeSeconds: number | null;
+  order: number;
+  questions: ExamQuestionDto[];
+}
+
+/** An exam as the authoring side sees it. `sections` is filled in when one exam is read, null in a listing. */
 export interface ExamDto {
   id: string;
-  seriesId?: string;
+  seriesId: string | null;
   name: string;
-  description?: string;
+  description: string | null;
   status: ExamStatus;
   config: ExamConfigDto;
-  scheduledStartTime: Date;
-  scheduledEndTime: Date;
-  lateEntryDeadline?: Date;
+  /** UTC instants. A new exam has not been scheduled yet; check `isScheduled`, not these dates. */
+  scheduledStartTime: string;
+  scheduledEndTime: string;
+  lateEntryDeadline: string | null;
   timeZone: string;
   createdBy: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
+  isScheduled: boolean;
+  sections: ExamSectionDto[] | null;
 }
 
 export interface CreateExamRequest {
@@ -39,22 +64,12 @@ export interface CreateExamRequest {
   description?: string;
 }
 
-export interface SectionDto {
-  id: string;
-  examId: string;
-  title: string;
-  description?: string;
-  sequenceNumber: number;
-  maxScore: number;
-}
-
-export interface ExamQuestionDto {
-  id: string;
-  sectionId: string;
-  text: string;
-  type: 'MultipleChoice' | 'ShortAnswer' | 'Essay';
-  options?: string[];
-  correctAnswer?: string;
-  score: number;
-  sequenceNumber: number;
+/** The body of PUT /v1/exams/{id}/schedule. Every instant is UTC (ISO 8601). */
+export interface ScheduleExamRequest {
+  scheduledStartTime: string;
+  scheduledEndTime: string;
+  timeZone?: string;
+  lateEntryDeadline?: string | null;
+  /** Minutes one attempt lasts; omit for "the whole window". */
+  durationMinutes?: number | null;
 }

@@ -51,6 +51,11 @@ export const routes: Routes = [
     loadComponent: () => import('./exam-authoring/exam-builder/exam-builder').then((m) => m.ExamBuilder),
   },
   {
+    path: 'exams/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./exam-authoring/exam-editor/exam-editor').then((m) => m.ExamEditor),
+  },
+  {
     path: 'exams/:id/schedule',
     canActivate: [authGuard],
     loadComponent: () => import('./exam-authoring/exam-scheduler/exam-scheduler').then((m) => m.ExamScheduler),

@@ -49,40 +49,6 @@ import { ExamApiService } from '../exam-api.service';
           />
         </div>
 
-        <div class="config-section">
-          <h3>Exam Configuration</h3>
-
-          <div class="form-group">
-            <label for="totalTime">Total Time (minutes)</label>
-            <input
-              type="number"
-              id="totalTime"
-              formControlName="totalTimeSeconds"
-              placeholder="e.g., 120"
-              class="form-control"
-            />
-          </div>
-
-          <div class="checkbox-group">
-            <label>
-              <input type="checkbox" formControlName="shuffleQuestions" />
-              Shuffle Questions
-            </label>
-            <label>
-              <input type="checkbox" formControlName="shuffleOptions" />
-              Shuffle Options
-            </label>
-            <label>
-              <input type="checkbox" formControlName="calculatorAllowed" />
-              Calculator Allowed
-            </label>
-            <label>
-              <input type="checkbox" formControlName="scratchpadAllowed" />
-              Scratchpad Allowed
-            </label>
-          </div>
-        </div>
-
         <div class="actions">
           <button type="submit" [disabled]="!form.valid || loading" class="btn btn-primary">
             {{ loading ? 'Creating...' : 'Create Exam' }}
@@ -104,11 +70,6 @@ import { ExamApiService } from '../exam-api.service';
     .form-control { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; }
     .form-control:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); }
     .error-text { color: #dc3545; font-size: 0.875rem; margin-top: 0.25rem; }
-    .config-section { background: #f8f9fa; padding: 1rem; border-radius: 4px; margin: 2rem 0; }
-    .config-section h3 { margin-top: 0; }
-    .checkbox-group { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .checkbox-group label { display: flex; align-items: center; gap: 0.5rem; font-weight: normal; margin-bottom: 0; }
-    .checkbox-group input { width: auto; }
     .actions { display: flex; gap: 1rem; margin-top: 2rem; }
     .btn { padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
     .btn-primary { background: #007bff; color: white; }
@@ -131,11 +92,6 @@ export class ExamBuilder implements OnInit {
       name: ['', Validators.required],
       description: [''],
       seriesId: [''],
-      totalTimeSeconds: [0],
-      shuffleQuestions: [false],
-      shuffleOptions: [false],
-      calculatorAllowed: [false],
-      scratchpadAllowed: [false],
     });
   }
 
@@ -156,9 +112,10 @@ export class ExamBuilder implements OnInit {
     };
 
     this.examApi.createExam(request).subscribe({
-      next: () => {
+      next: (exam) => {
         this.loading = false;
-        this.router.navigate(['/exams']);
+        // Straight to the editor, where sections and questions are added.
+        this.router.navigate(['/exams', exam.id]);
       },
       error: (err) => {
         this.error = 'Failed to create exam';
