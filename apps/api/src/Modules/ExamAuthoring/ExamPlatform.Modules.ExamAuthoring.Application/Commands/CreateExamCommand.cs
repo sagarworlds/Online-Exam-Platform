@@ -5,8 +5,10 @@ namespace ExamPlatform.Modules.ExamAuthoring.Application.Commands;
 /// <param name="Name">Display name of the exam; must not be blank.</param>
 /// <param name="Description">Optional longer description shown to candidates.</param>
 /// <param name="CreatedBy">The authoring user that creates the exam.</param>
+/// <param name="Scope">What its questions may be drawn from; null means anywhere in the bank.</param>
 public sealed record CreateExamCommand(
     Guid? SeriesId,
     string Name,
     string? Description,
-    Guid CreatedBy);
+    Guid CreatedBy,
+    ExamScopeInput? Scope = null);

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using ExamPlatform.Modules.ExamAuthoring.Application.Commands;
 using ExamPlatform.Modules.ExamAuthoring.Application.Queries;
+using ExamPlatform.Modules.ExamAuthoring.Domain;
 using ExamPlatform.SharedKernel.Application.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -49,6 +50,13 @@ public static class ExamAuthoringEndpoints
             .WithName("ScheduleExam")
             .WithDescription("Set the exam's window, duration and late-entry cutoff");
 
+        exams.MapPut("/{examId:guid}/scope", SetScope)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("SetExamScope")
+            .WithDescription("Limit the exam's questions to a book or chosen chapters, or lift the limit");
+
         exams.MapPost("/{examId:guid}/sections", AddSection)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -83,7 +91,8 @@ public static class ExamAuthoringEndpoints
             request.SeriesId,
             request.Name,
             request.Description,
-            user.GetUserId());
+            user.GetUserId(),
+            request.Scope?.ToInput());
 
         var result = await handler.HandleAsync(command, ct);
         return Results.Created($"/v1/exams/{result.Id}", result);
@@ -110,6 +119,10 @@ public static class ExamAuthoringEndpoints
         return Results.Ok(await handler.HandleAsync(command, ct));
     }
 
+    private static async Task<IResult> SetScope(
+        Guid examId, ExamScopeRequest request, SetExamScopeHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new SetExamScopeCommand(examId, request.ToInput()), ct));
+
     private static async Task<IResult> AddSection(
         Guid examId, AddSectionRequest request, AddSectionHandler handler, CancellationToken ct)
     {
@@ -132,10 +145,22 @@ public static class ExamAuthoringEndpoints
 /// <param name="SeriesId">The exam series the exam belongs to; omit or send null for a standalone exam.</param>
 /// <param name="Name">Display name of the exam.</param>
 /// <param name="Description">Optional longer description shown to candidates.</param>
+/// <param name="Scope">What the exam's questions may be drawn from; omit for anywhere in the question bank.</param>
 public record CreateExamRequest(
     Guid? SeriesId,
     string Name,
-    string? Description);
+    string? Description,
+    ExamScopeRequest? Scope = null);
+
+/// <summary>Request body for limiting an exam to a book or chosen chapters.</summary>
+/// <param name="Type">Independent (anywhere), Book (any chapter of one book) or Chapters (chosen chapters of one book).</param>
+/// <param name="BookId">The book, for Book and Chapters.</param>
+/// <param name="ChapterIds">The chosen chapters, for Chapters.</param>
+public record ExamScopeRequest(ExamScopeType Type, Guid? BookId = null, IReadOnlyList<Guid>? ChapterIds = null)
+{
+    /// <summary>The application-layer form of the request.</summary>
+    public ExamScopeInput ToInput() => new(Type, BookId, ChapterIds);
+}
 
 /// <summary>Request body for scheduling an exam; every instant is UTC.</summary>
 /// <param name="ScheduledStartTime">When the window opens.</param>

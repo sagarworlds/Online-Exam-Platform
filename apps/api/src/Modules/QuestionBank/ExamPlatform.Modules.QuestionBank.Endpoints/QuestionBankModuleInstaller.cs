@@ -31,6 +31,7 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         services.AddScoped<IBookRepository, BookRepository>();
         services.AddScoped<IQuestionBankUnitOfWork, QuestionBankUnitOfWork>();
         services.AddScoped<IQuestionBank, QuestionBankReader>();
+        services.AddScoped<IBookCatalog, BookCatalog>();
         // A new sanitizer per request: the library's instance carries mutable configuration.
         services.AddScoped<IRichTextSanitizer, RichTextSanitizer>();
 

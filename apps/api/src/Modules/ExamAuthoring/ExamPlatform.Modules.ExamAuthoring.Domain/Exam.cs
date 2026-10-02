@@ -14,6 +14,12 @@ public class Exam : AggregateRoot
     public ExamStatus Status { get; set; } = ExamStatus.Draft;
     public ExamConfig Config { get; set; } = new();
 
+    /// <summary>
+    /// What the exam's questions may be drawn from (FR-11): anywhere, one book, or chosen chapters. Enforced when a
+    /// question is added and when the scope changes, so an exam can never hold a question outside its scope.
+    /// </summary>
+    public ExamScope Scope { get; private set; } = ExamScope.Independent();
+
     public DateTime ScheduledStartTime { get; set; }
     public DateTime ScheduledEndTime { get; set; }
     public DateTime? LateEntryDeadline { get; set; }
@@ -144,15 +150,20 @@ public class Exam : AggregateRoot
     /// <summary>Appends a question to a section.</summary>
     /// <param name="sectionId">The section to add it to.</param>
     /// <param name="questionId">The question's id in the question bank.</param>
+    /// <param name="placement">Where the question is filed in the bank, which the exam's scope is checked against.</param>
     /// <returns>The question as it now sits in the exam.</returns>
     /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
     /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="QuestionOutsideExamScopeError">The question is not in the exam's book or chapters.</exception>
     /// <exception cref="DuplicateQuestionError">The question is already somewhere in this exam.</exception>
-    public ExamQuestion AddQuestion(Guid sectionId, Guid questionId)
+    public ExamQuestion AddQuestion(Guid sectionId, Guid questionId, QuestionPlacement placement)
     {
         EnsureDraft();
 
         var section = GetSection(sectionId) ?? throw new SectionNotFoundError(sectionId);
+
+        if (!Scope.Allows(placement))
+            throw new QuestionOutsideExamScopeError(questionId);
 
         // Once per exam, not just once per section: a question that appears twice would be asked
         // and scored twice.
@@ -162,6 +173,32 @@ public class Exam : AggregateRoot
         var question = section.AddQuestion(questionId, section.Questions.Count + 1);
         UpdatedAt = DateTime.UtcNow;
         return question;
+    }
+
+    /// <summary>Changes what the exam's questions may be drawn from.</summary>
+    /// <param name="scope">The new scope. The caller has checked that its book and chapters exist and are open.</param>
+    /// <param name="placements">
+    /// Where each question already in the exam is filed, by question id; one missing from it counts as not filed.
+    /// </param>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="QuestionOutsideExamScopeError">
+    /// The exam already holds questions the new scope would leave outside it. Refused rather than quietly dropping them.
+    /// </exception>
+    public void SetScope(ExamScope scope, IReadOnlyDictionary<Guid, QuestionPlacement> placements)
+    {
+        EnsureDraft();
+
+        var outside = _sections
+            .SelectMany(s => s.Questions)
+            .Select(q => q.QuestionVersionId)
+            .Distinct()
+            .Where(id => !scope.Allows(placements.GetValueOrDefault(id)))
+            .ToList();
+        if (outside.Count > 0)
+            throw new QuestionOutsideExamScopeError(outside);
+
+        Scope = scope;
+        UpdatedAt = DateTime.UtcNow;
     }
 
     public void RemoveSection(Guid sectionId)

@@ -34,6 +34,16 @@ public class ExamAuthoringDbContext(DbContextOptions<ExamAuthoringDbContext> opt
                 c.OwnsOne(x => x.MarkingScheme);
             });
 
+            // What the exam's questions may be drawn from. Flattened into the Exams table; the chapter ids are a Postgres
+            // uuid[] because they are ids into another module's schema, where no foreign key can reach.
+            e.OwnsOne(x => x.Scope, s =>
+            {
+                s.Property(x => x.Type).HasConversion<string>().HasColumnName("ScopeType").HasMaxLength(20);
+                s.Property(x => x.BookId).HasColumnName("ScopeBookId");
+                s.Property(x => x.ChapterIds).HasColumnName("ScopeChapterIds");
+            });
+            e.Navigation(x => x.Scope).IsRequired();
+
             e.HasMany(x => x.Sections)
                 .WithOne()
                 .HasForeignKey("ExamId")

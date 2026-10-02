@@ -15,6 +15,12 @@ public sealed class BookRepository(QuestionBankDbContext context) : IBookReposit
         context.Books.Include(b => b.Chapters).FirstOrDefaultAsync(b => b.Id == bookId, cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Book>> GetByIdsAsync(IReadOnlyCollection<Guid> bookIds, CancellationToken cancellationToken) =>
+        await context.Books.AsNoTracking().Include(b => b.Chapters)
+            .Where(b => bookIds.Contains(b.Id))
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public Task<Book?> GetByChapterIdAsync(Guid chapterId, CancellationToken cancellationToken) =>
         context.Books.Include(b => b.Chapters)
             .FirstOrDefaultAsync(b => context.Chapters.Any(c => c.Id == chapterId && c.BookId == b.Id), cancellationToken);

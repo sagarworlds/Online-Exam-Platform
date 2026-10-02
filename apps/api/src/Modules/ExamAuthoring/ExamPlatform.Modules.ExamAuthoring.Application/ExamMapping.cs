@@ -34,7 +34,12 @@ internal static class ExamMapping
             exam.CreatedBy,
             exam.CreatedAt,
             exam.UpdatedAt,
-            exam.IsScheduled);
+            exam.IsScheduled,
+            Scope: new ExamScopeDto(
+                exam.Scope.Type,
+                exam.Scope.BookId,
+                BookName: null,
+                exam.Scope.ChapterIds.Select(id => new ExamScopeChapterDto(id, Title: null)).ToList()));
 
     /// <summary>Maps an exam together with its sections and questions.</summary>
     /// <param name="exam">The exam to map.</param>

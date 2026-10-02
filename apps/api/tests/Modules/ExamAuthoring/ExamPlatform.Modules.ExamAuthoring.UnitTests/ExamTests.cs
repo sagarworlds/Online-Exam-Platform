@@ -16,7 +16,7 @@ public class ExamTests
     {
         var exam = NewExam();
         var section = exam.AddSection("Algebra", null);
-        exam.AddQuestion(section.Id, Guid.NewGuid());
+        exam.AddQuestion(section.Id, Guid.NewGuid(), QuestionPlacement.Unfiled);
         exam.Schedule(Start, End, null, null, 3600, Now);
         return exam;
     }
@@ -129,8 +129,8 @@ public class ExamTests
         var exam = NewExam();
         var section = exam.AddSection("S", null);
 
-        var first = exam.AddQuestion(section.Id, Guid.NewGuid());
-        var second = exam.AddQuestion(section.Id, Guid.NewGuid());
+        var first = exam.AddQuestion(section.Id, Guid.NewGuid(), QuestionPlacement.Unfiled);
+        var second = exam.AddQuestion(section.Id, Guid.NewGuid(), QuestionPlacement.Unfiled);
 
         Assert.Equal([1, 2], new[] { first.Order, second.Order });
         Assert.Equal(section.Id, first.SectionId);
@@ -139,7 +139,7 @@ public class ExamTests
     [Fact]
     public void AddQuestion_ToAnUnknownSection_ThrowsSectionNotFound()
     {
-        var error = Assert.Throws<SectionNotFoundError>(() => NewExam().AddQuestion(Guid.NewGuid(), Guid.NewGuid()));
+        var error = Assert.Throws<SectionNotFoundError>(() => NewExam().AddQuestion(Guid.NewGuid(), Guid.NewGuid(), QuestionPlacement.Unfiled));
         Assert.Equal(404, error.HttpStatusCode);
     }
 
@@ -149,9 +149,9 @@ public class ExamTests
         var exam = NewExam();
         var section = exam.AddSection("S", null);
         var questionId = Guid.NewGuid();
-        exam.AddQuestion(section.Id, questionId);
+        exam.AddQuestion(section.Id, questionId, QuestionPlacement.Unfiled);
 
-        var error = Assert.Throws<DuplicateQuestionError>(() => exam.AddQuestion(section.Id, questionId));
+        var error = Assert.Throws<DuplicateQuestionError>(() => exam.AddQuestion(section.Id, questionId, QuestionPlacement.Unfiled));
         Assert.Equal(409, error.HttpStatusCode);
     }
 
@@ -163,9 +163,9 @@ public class ExamTests
         var first = exam.AddSection("One", null);
         var second = exam.AddSection("Two", null);
         var questionId = Guid.NewGuid();
-        exam.AddQuestion(first.Id, questionId);
+        exam.AddQuestion(first.Id, questionId, QuestionPlacement.Unfiled);
 
-        Assert.Throws<DuplicateQuestionError>(() => exam.AddQuestion(second.Id, questionId));
+        Assert.Throws<DuplicateQuestionError>(() => exam.AddQuestion(second.Id, questionId, QuestionPlacement.Unfiled));
     }
 
     // ---- publish ----------------------------------------------------------------------------------
@@ -185,7 +185,7 @@ public class ExamTests
     public void Publish_WithoutASchedule_Throws()
     {
         var exam = NewExam();
-        exam.AddQuestion(exam.AddSection("S", null).Id, Guid.NewGuid());
+        exam.AddQuestion(exam.AddSection("S", null).Id, Guid.NewGuid(), QuestionPlacement.Unfiled);
 
         Assert.Throws<InvalidExamConfigError>(() => exam.Publish(Now));
         Assert.Equal(ExamStatus.Draft, exam.Status);
@@ -227,7 +227,123 @@ public class ExamTests
         exam.Publish(Now);
 
         Assert.Throws<ExamNotDraftError>(() => exam.AddSection("Late", null));
-        Assert.Throws<ExamNotDraftError>(() => exam.AddQuestion(section.Id, Guid.NewGuid()));
+        Assert.Throws<ExamNotDraftError>(() => exam.AddQuestion(section.Id, Guid.NewGuid(), QuestionPlacement.Unfiled));
         Assert.Throws<ExamNotDraftError>(() => exam.Schedule(Start, End, null, null, null, Now));
+    }
+
+    // ---- scope (FR-11)
+
+    private static readonly Guid BookA = Guid.NewGuid();
+    private static readonly Guid Algebra = Guid.NewGuid();
+    private static readonly Guid Geometry = Guid.NewGuid();
+    private static readonly Guid BookB = Guid.NewGuid();
+    private static readonly Guid Optics = Guid.NewGuid();
+
+    [Fact]
+    public void ANewExam_IsIndependent_AndTakesAnyQuestion()
+    {
+        var exam = NewExam();
+        var section = exam.AddSection("S", null);
+
+        Assert.Equal(ExamScopeType.Independent, exam.Scope.Type);
+        exam.AddQuestion(section.Id, Guid.NewGuid(), QuestionPlacement.Unfiled);
+        exam.AddQuestion(section.Id, Guid.NewGuid(), new QuestionPlacement(BookA, Algebra));
+        Assert.Equal(2, section.Questions.Count);
+    }
+
+    [Fact]
+    public void AChapterExam_TakesQuestionsFromItsChapter_AndRefusesAnyOther()
+    {
+        var exam = NewExam();
+        var section = exam.AddSection("S", null);
+        exam.SetScope(ExamScope.ForChapters(BookA, [Algebra]), new Dictionary<Guid, QuestionPlacement>());
+
+        exam.AddQuestion(section.Id, Guid.NewGuid(), new QuestionPlacement(BookA, Algebra));
+
+        var sibling = Guid.NewGuid();
+        var error = Assert.Throws<QuestionOutsideExamScopeError>(() => exam.AddQuestion(section.Id, sibling, new QuestionPlacement(BookA, Geometry)));
+        Assert.Equal("question_outside_scope", error.ErrorCode);
+        Assert.Equal(409, error.HttpStatusCode);
+        Assert.Equal([sibling], error.QuestionIds);
+        Assert.Throws<QuestionOutsideExamScopeError>(() => exam.AddQuestion(section.Id, Guid.NewGuid(), new QuestionPlacement(BookB, Optics)));
+        Assert.Throws<QuestionOutsideExamScopeError>(() => exam.AddQuestion(section.Id, Guid.NewGuid(), QuestionPlacement.Unfiled));
+        Assert.Single(section.Questions);
+    }
+
+    [Fact]
+    public void AWholeBookExam_TakesAnyChapterOfTheBook_ButNotAnotherBook()
+    {
+        var exam = NewExam();
+        var section = exam.AddSection("S", null);
+        exam.SetScope(ExamScope.ForBook(BookA), new Dictionary<Guid, QuestionPlacement>());
+
+        exam.AddQuestion(section.Id, Guid.NewGuid(), new QuestionPlacement(BookA, Algebra));
+        exam.AddQuestion(section.Id, Guid.NewGuid(), new QuestionPlacement(BookA, Geometry));
+
+        Assert.Throws<QuestionOutsideExamScopeError>(() => exam.AddQuestion(section.Id, Guid.NewGuid(), new QuestionPlacement(BookB, Optics)));
+        Assert.Equal(2, section.Questions.Count);
+    }
+
+    [Fact]
+    public void ChangingTheScope_IsRefused_WhenTheExamAlreadyHoldsAQuestionOutsideIt_AndNothingChanges()
+    {
+        var exam = NewExam();
+        var section = exam.AddSection("S", null);
+        var inAlgebra = Guid.NewGuid();
+        var inGeometry = Guid.NewGuid();
+        exam.AddQuestion(section.Id, inAlgebra, new QuestionPlacement(BookA, Algebra));
+        exam.AddQuestion(section.Id, inGeometry, new QuestionPlacement(BookA, Geometry));
+        var placements = new Dictionary<Guid, QuestionPlacement>
+        {
+            [inAlgebra] = new(BookA, Algebra),
+            [inGeometry] = new(BookA, Geometry),
+        };
+
+        var error = Assert.Throws<QuestionOutsideExamScopeError>(() => exam.SetScope(ExamScope.ForChapters(BookA, [Algebra]), placements));
+
+        Assert.Equal([inGeometry], error.QuestionIds);
+        Assert.Equal(ExamScopeType.Independent, exam.Scope.Type);
+        // A scope that holds them all is fine, and so is lifting the limit again.
+        exam.SetScope(ExamScope.ForBook(BookA), placements);
+        Assert.Equal(ExamScopeType.Book, exam.Scope.Type);
+        exam.SetScope(ExamScope.Independent(), placements);
+        Assert.Equal(ExamScopeType.Independent, exam.Scope.Type);
+    }
+
+    [Fact]
+    public void AQuestionTheBankDidNotReportAPlacementFor_CountsAsNotFiled_SoAScopeRefusesIt()
+    {
+        var exam = NewExam();
+        var section = exam.AddSection("S", null);
+        var orphan = Guid.NewGuid();
+        exam.AddQuestion(section.Id, orphan, QuestionPlacement.Unfiled);
+
+        var error = Assert.Throws<QuestionOutsideExamScopeError>(() => exam.SetScope(ExamScope.ForBook(BookA), new Dictionary<Guid, QuestionPlacement>()));
+
+        Assert.Equal([orphan], error.QuestionIds);
+    }
+
+    [Fact]
+    public void ThePlacementIsCheckedBeforeTheDuplicateRule_SoARefusedQuestionIsNeverReportedAsAClash()
+    {
+        var exam = NewExam();
+        var section = exam.AddSection("S", null);
+        var id = Guid.NewGuid();
+        exam.AddQuestion(section.Id, id, new QuestionPlacement(BookA, Algebra));
+        exam.SetScope(ExamScope.ForChapters(BookA, [Algebra]), new Dictionary<Guid, QuestionPlacement> { [id] = new(BookA, Algebra) });
+
+        Assert.Throws<DuplicateQuestionError>(() => exam.AddQuestion(section.Id, id, new QuestionPlacement(BookA, Algebra)));
+        Assert.Throws<QuestionOutsideExamScopeError>(() => exam.AddQuestion(section.Id, id, new QuestionPlacement(BookA, Geometry)));
+    }
+
+    [Fact]
+    public void APublishedExam_RefusesAScopeChange()
+    {
+        var exam = NewExam();
+        exam.AddQuestion(exam.AddSection("S", null).Id, Guid.NewGuid(), QuestionPlacement.Unfiled);
+        exam.Schedule(Now.AddHours(1), Now.AddHours(4), null, null, null, Now);
+        exam.Publish(Now);
+
+        Assert.Throws<ExamNotDraftError>(() => exam.SetScope(ExamScope.ForBook(BookA), new Dictionary<Guid, QuestionPlacement>()));
     }
 }

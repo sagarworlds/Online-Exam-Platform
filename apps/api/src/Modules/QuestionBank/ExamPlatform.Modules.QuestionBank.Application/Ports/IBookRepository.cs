@@ -22,6 +22,11 @@ public interface IBookRepository
     /// <returns>The book, or <see langword="null"/> when none has that id.</returns>
     Task<Book?> GetByIdAsync(Guid bookId, CancellationToken cancellationToken);
 
+    /// <summary>Loads several books with their chapters in one query.</summary>
+    /// <param name="bookIds">The ids to load; unknown ids are skipped.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Book>> GetByIdsAsync(IReadOnlyCollection<Guid> bookIds, CancellationToken cancellationToken);
+
     /// <summary>Loads the book that owns a chapter, with all its chapters.</summary>
     /// <param name="chapterId">The chapter's id.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

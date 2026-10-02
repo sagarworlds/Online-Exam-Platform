@@ -31,6 +31,9 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
         services.AddScoped<IExamAuthoringUnitOfWork, ExamAuthoringUnitOfWork>();
         services.AddScoped<IExamCatalog, ExamCatalog>();
 
+        services.AddScoped<ExamScopeResolver>();
+        services.AddScoped<ExamDtoFactory>();
+
         services.AddScoped<CreateExamHandler>();
         services.AddScoped<ListExamsHandler>();
         services.AddScoped<GetExamHandler>();
@@ -38,6 +41,7 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
         services.AddScoped<AddSectionHandler>();
         services.AddScoped<AddExamQuestionHandler>();
         services.AddScoped<PublishExamHandler>();
+        services.AddScoped<SetExamScopeHandler>();
     }
 
     /// <inheritdoc />

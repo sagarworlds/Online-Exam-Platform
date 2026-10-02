@@ -1,5 +1,6 @@
 using ExamPlatform.Modules.ExamAuthoring.Application.Dtos;
 using ExamPlatform.Modules.ExamAuthoring.Application.Ports;
+using ExamPlatform.Modules.ExamAuthoring.Domain;
 using ExamPlatform.Modules.ExamAuthoring.Domain.Exceptions;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
@@ -7,7 +8,7 @@ using ExamPlatform.SharedKernel.Application;
 namespace ExamPlatform.Modules.ExamAuthoring.Application.Commands;
 
 /// <summary>Handles <see cref="ScheduleExamCommand"/> (FR-13).</summary>
-public sealed class ScheduleExamHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, Clock clock)
+public sealed class ScheduleExamHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
 {
     /// <summary>Sets the exam's window, duration and late-entry cutoff.</summary>
     /// <param name="command">What to set.</param>
@@ -32,7 +33,7 @@ public sealed class ScheduleExamHandler(IExamRepository repository, IExamAuthori
             clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return exam.ToDto();
+        return await dtos.ToDtoAsync(exam, cancellationToken);
     }
 
     // A time sent without an offset arrives with an unspecified kind; the API's contract is that
@@ -70,6 +71,7 @@ public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuth
     /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
     /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
     /// <exception cref="QuestionNotInBankError">The question bank has no such question.</exception>
+    /// <exception cref="QuestionOutsideExamScopeError">The question is not in the exam's book or chapters.</exception>
     /// <exception cref="DuplicateQuestionError">The question is already in this exam.</exception>
     public async Task<ExamQuestionDto> HandleAsync(AddExamQuestionCommand command, CancellationToken cancellationToken)
     {
@@ -78,7 +80,7 @@ public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuth
         var found = await questionBank.GetAsync([command.QuestionId], cancellationToken);
         var snapshot = found.FirstOrDefault() ?? throw new QuestionNotInBankError(command.QuestionId);
 
-        var question = exam.AddQuestion(command.SectionId, command.QuestionId);
+        var question = exam.AddQuestion(command.SectionId, command.QuestionId, new QuestionPlacement(snapshot.BookId, snapshot.ChapterId));
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new ExamQuestionDto(question.Id, question.QuestionVersionId, question.Order, snapshot.Text);
@@ -86,7 +88,7 @@ public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuth
 }
 
 /// <summary>Handles publishing an exam.</summary>
-public sealed class PublishExamHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, Clock clock)
+public sealed class PublishExamHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
 {
     /// <summary>Publishes the exam so the candidates invited to it can take it.</summary>
     /// <param name="examId">The exam to publish.</param>
@@ -100,6 +102,38 @@ public sealed class PublishExamHandler(IExamRepository repository, IExamAuthorin
         exam.Publish(clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return exam.ToDto();
+        return await dtos.ToDtoAsync(exam, cancellationToken);
+    }
+}
+
+/// <summary>Handles <see cref="SetExamScopeCommand"/> (FR-11).</summary>
+public sealed class SetExamScopeHandler(
+    IExamRepository repository,
+    IExamAuthoringUnitOfWork unitOfWork,
+    IQuestionBank questionBank,
+    ExamScopeResolver scopeResolver,
+    ExamDtoFactory dtos)
+{
+    /// <summary>Limits the exam to a book or chosen chapters, or lifts the limit.</summary>
+    /// <param name="command">The new scope.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="InvalidExamConfigError">The scope is incomplete, or names a book or chapters that cannot be used.</exception>
+    /// <exception cref="QuestionOutsideExamScopeError">The exam already holds questions the new scope would leave outside it.</exception>
+    public async Task<ExamDto> HandleAsync(SetExamScopeCommand command, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        var scope = await scopeResolver.ResolveAsync(command.Scope, cancellationToken);
+
+        // Where each question already in the exam is filed, so the domain can refuse a scope that would orphan them.
+        var questionIds = exam.Sections.SelectMany(s => s.Questions).Select(q => q.QuestionVersionId).Distinct().ToList();
+        var placements = (await questionBank.GetAsync(questionIds, cancellationToken))
+            .ToDictionary(q => q.Id, q => new QuestionPlacement(q.BookId, q.ChapterId));
+
+        exam.SetScope(scope, placements);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await dtos.ToDtoAsync(exam, cancellationToken);
     }
 }
