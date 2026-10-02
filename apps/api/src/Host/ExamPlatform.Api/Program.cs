@@ -6,6 +6,7 @@ using ExamPlatform.Modules.Admin.Endpoints;
 using ExamPlatform.Modules.Batch.Endpoints;
 using ExamPlatform.Modules.Consent.Endpoints;
 using ExamPlatform.Modules.ExamAuthoring.Endpoints;
+using ExamPlatform.Modules.ExamRuntime.Endpoints;
 using ExamPlatform.Modules.Guardian.Endpoints;
 using ExamPlatform.Modules.Identity.Endpoints;
 using ExamPlatform.Modules.Invite.Endpoints;
@@ -131,6 +132,7 @@ IModuleInstaller[] modules =
     new InviteModuleInstaller(),
     new GuardianModuleInstaller(),
     new QuestionBankModuleInstaller(),
+    new ExamRuntimeModuleInstaller(),
 ];
 
 foreach (var module in modules)

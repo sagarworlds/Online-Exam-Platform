@@ -26,6 +26,7 @@
   </Folder>
   <Folder Name="/src/Modules/ExamAuthoring/">
     <Project Path="src/Modules/ExamAuthoring/ExamPlatform.Modules.ExamAuthoring.Application/ExamPlatform.Modules.ExamAuthoring.Application.csproj" />
+    <Project Path="src/Modules/ExamAuthoring/ExamPlatform.Modules.ExamAuthoring.Contracts/ExamPlatform.Modules.ExamAuthoring.Contracts.csproj" />
     <Project Path="src/Modules/ExamAuthoring/ExamPlatform.Modules.ExamAuthoring.Domain/ExamPlatform.Modules.ExamAuthoring.Domain.csproj" />
     <Project Path="src/Modules/ExamAuthoring/ExamPlatform.Modules.ExamAuthoring.Endpoints/ExamPlatform.Modules.ExamAuthoring.Endpoints.csproj" />
     <Project Path="src/Modules/ExamAuthoring/ExamPlatform.Modules.ExamAuthoring.Infrastructure/ExamPlatform.Modules.ExamAuthoring.Infrastructure.csproj" />
@@ -38,9 +39,16 @@
   </Folder>
   <Folder Name="/src/Modules/Invite/">
     <Project Path="src/Modules/Invite/ExamPlatform.Modules.Invite.Application/ExamPlatform.Modules.Invite.Application.csproj" />
+    <Project Path="src/Modules/Invite/ExamPlatform.Modules.Invite.Contracts/ExamPlatform.Modules.Invite.Contracts.csproj" />
     <Project Path="src/Modules/Invite/ExamPlatform.Modules.Invite.Domain/ExamPlatform.Modules.Invite.Domain.csproj" />
     <Project Path="src/Modules/Invite/ExamPlatform.Modules.Invite.Endpoints/ExamPlatform.Modules.Invite.Endpoints.csproj" />
     <Project Path="src/Modules/Invite/ExamPlatform.Modules.Invite.Infrastructure/ExamPlatform.Modules.Invite.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/ExamRuntime/">
+    <Project Path="src/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.Application/ExamPlatform.Modules.ExamRuntime.Application.csproj" />
+    <Project Path="src/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.Domain/ExamPlatform.Modules.ExamRuntime.Domain.csproj" />
+    <Project Path="src/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.Endpoints/ExamPlatform.Modules.ExamRuntime.Endpoints.csproj" />
+    <Project Path="src/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.Infrastructure/ExamPlatform.Modules.ExamRuntime.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Guardian/">
     <Project Path="src/Modules/Guardian/ExamPlatform.Modules.Guardian.Application/ExamPlatform.Modules.Guardian.Application.csproj" />
@@ -88,6 +96,9 @@
   </Folder>
   <Folder Name="/tests/Modules/Invite/">
     <Project Path="tests/Modules/Invite/ExamPlatform.Modules.Invite.UnitTests/ExamPlatform.Modules.Invite.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/ExamRuntime/">
+    <Project Path="tests/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.UnitTests/ExamPlatform.Modules.ExamRuntime.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tests/Modules/Guardian/">
     <Project Path="tests/Modules/Guardian/ExamPlatform.Modules.Guardian.UnitTests/ExamPlatform.Modules.Guardian.UnitTests.csproj" />
