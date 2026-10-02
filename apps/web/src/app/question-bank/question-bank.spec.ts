@@ -56,6 +56,29 @@ describe('QuestionBank', () => {
     expect(text).toContain('correct');
   });
 
+  it('shows the formatting of a question in the list, and nothing executable', () => {
+    const w = window as unknown as { __ran?: boolean };
+    const fixture = create();
+    httpMock.expectOne(isList).flush([
+      {
+        id: 'q1',
+        text: '<p>Water is H<sub>2</sub>O</p><img src="x" onerror="window.__ran = true">',
+        options: [
+          { id: 'o1', text: 'Yes', isCorrect: true },
+          { id: 'o2', text: 'No', isCorrect: false },
+        ],
+        createdBy: 'u1',
+        createdAtUtc: '2026-10-02T00:00:00Z',
+      },
+    ]);
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('.question-card sub')?.textContent).toBe('2');
+    expect(root.querySelector('[onerror]')).toBeNull();
+    expect(w.__ran).toBeUndefined();
+  });
+
   it('keeps Save disabled until every option has text and a correct option is chosen', () => {
     const fixture = create();
     httpMock.expectOne(isList).flush([]);

@@ -48,7 +48,7 @@
   } @else {
     @for (question of questions(); track question.id) {
       <div class="card question-card">
-        <p><strong>{{ question.text }}</strong></p>
+        <div class="rich-text question-card__text" [innerHTML]="question.text"></div>
         <ol>
           @for (option of question.options; track option.id) {
             <li [class.correct-option]="option.isCorrect">

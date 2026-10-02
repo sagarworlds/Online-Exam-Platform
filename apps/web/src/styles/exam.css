@@ -75,11 +75,9 @@
 }
 
 .question__text {
-  padding: 0;
   margin-bottom: 1rem;
   font-size: 1.15rem;
   font-weight: 600;
-  white-space: pre-line;
 }
 
 /* A choice is a whole clickable row; the radio input stays in the page for keyboards and screen readers. */

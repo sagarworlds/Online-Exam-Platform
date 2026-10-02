@@ -25,8 +25,9 @@
           @if (currentQuestion(); as question) {
             <div class="card">
               <p class="question__meta">{{ currentSectionName() }} · Question {{ position() + 1 }} of {{ questions().length }}</p>
-              <fieldset class="question">
-                <legend class="question__text">{{ question.text }}</legend>
+              <fieldset class="question" [attr.aria-labelledby]="'question-text-' + question.id">
+                <!-- The text is the API's sanitized HTML, rendered through Angular's own sanitizer as a second layer. -->
+                <div class="question__text rich-text" [id]="'question-text-' + question.id" [innerHTML]="question.text"></div>
                 @for (option of question.options; track option.id; let i = $index) {
                   <label class="option-choice">
                     <input

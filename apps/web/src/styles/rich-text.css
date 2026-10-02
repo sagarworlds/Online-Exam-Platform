@@ -1,0 +1,56 @@
+/* Rendered question text: the formatting the API's sanitizer lets through, styled with the shared tokens. */
+.rich-text {
+  overflow-wrap: anywhere;
+}
+
+.rich-text > :first-child {
+  margin-top: 0;
+}
+
+.rich-text > :last-child {
+  margin-bottom: 0;
+}
+
+.rich-text p,
+.rich-text ul,
+.rich-text ol,
+.rich-text blockquote,
+.rich-text pre {
+  margin: 0 0 0.6rem;
+}
+
+.rich-text ul,
+.rich-text ol {
+  padding-inline-start: 1.5rem;
+}
+
+.rich-text blockquote {
+  padding-inline-start: 0.9rem;
+  border-inline-start: 3px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
+.rich-text pre {
+  padding: 0.6rem 0.8rem;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+
+.rich-text pre code {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.rich-text sub,
+.rich-text sup {
+  line-height: 0;
+}
+
+.rich-text img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}

@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { QuestionApiService } from '../../question-bank/question-api.service';
 import { QuestionDto } from '../../question-bank/question.models';
+import { PlainTextPipe } from '../../shared/rich-text/plain-text.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { ExamApiService } from '../exam-api.service';
 import { ExamDto } from '../exam.models';
@@ -15,7 +16,7 @@ import { ExamDto } from '../exam.models';
  */
 @Component({
   selector: 'app-exam-editor',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, PlainTextPipe],
   templateUrl: './exam-editor.html',
 })
 export class ExamEditor {

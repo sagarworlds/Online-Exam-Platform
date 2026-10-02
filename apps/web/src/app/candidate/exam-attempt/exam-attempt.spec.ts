@@ -104,6 +104,30 @@ describe('ExamAttempt', () => {
     expect(radios(fixture).map((r) => r.checked)).toEqual([true, false]);
   });
 
+  it('shows formatting in the question text and runs nothing hidden in it', async () => {
+    const w = window as unknown as { __ran?: boolean };
+    const hostile = attempt();
+    hostile.sections[0].questions[0].text =
+      '<p>Pick the <strong>bigger</strong> number: H<sub>2</sub>O</p>' +
+      '<script>window.__ran = true</script><img src="x" onerror="window.__ran = true">';
+    const fixture = await open(hostile);
+
+    const text = root(fixture).querySelector('.question__text') as HTMLElement;
+    expect(text.querySelector('strong')?.textContent).toBe('bigger');
+    expect(text.querySelector('sub')?.textContent).toBe('2');
+    expect(root(fixture).querySelector('script')).toBeNull();
+    expect(root(fixture).querySelector('[onerror]')).toBeNull();
+    expect(w.__ran).toBeUndefined();
+  });
+
+  it('names the answer group after the question text, for screen readers', async () => {
+    const fixture = await open(attempt());
+
+    const fieldset = root(fixture).querySelector('fieldset.question') as HTMLElement;
+    const label = root(fixture).querySelector(`#${fieldset.getAttribute('aria-labelledby')}`) as HTMLElement;
+    expect(label.textContent).toContain('What is 2 + 2?');
+  });
+
   it('moves between questions with Previous and Next, and disables each at the ends of the exam', async () => {
     const fixture = await open(attempt());
     expect((buttonLabelled(fixture, 'Previous') as HTMLButtonElement).disabled).toBe(true);

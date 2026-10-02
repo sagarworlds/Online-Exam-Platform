@@ -8,6 +8,7 @@ export interface QuestionOptionDto {
 /** A question with its answer key (FR-5). Only authors get this shape; candidates never see `isCorrect`. */
 export interface QuestionDto {
   id: string;
+  /** The question as sanitized HTML. Show it with `[innerHTML]`; use `htmlToPlainText` where markup cannot render. */
   text: string;
   options: QuestionOptionDto[];
   createdBy: string;
@@ -16,6 +17,7 @@ export interface QuestionDto {
 
 /** The body of POST /v1/questions. The author is the caller, so it carries no user id. */
 export interface CreateQuestionRequest {
+  /** The question as HTML from the editor; the API sanitizes it before storing. */
   text: string;
   options: { text: string; isCorrect: boolean }[];
 }
