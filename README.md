@@ -149,7 +149,7 @@ Online-Exam-Platform/
 #### The exam loop
 
 1. An administrator signs in (password + one-time code) and lands on `/admin`, which lists only the areas their permissions open.
-2. **Questions** (`/admin/questions`): single-answer multiple choice, 2 to 6 options, exactly one correct.
+2. **Questions** (`/admin/questions`): single-answer multiple choice, 2 to 6 options, exactly one correct. The question text is written in a rich-text editor (see [Question formatting](#question-formatting)); options are plain text.
 3. **Exams** (`/exams`): create an exam, add sections and questions, set the schedule (window, minutes per attempt, optional latest start), publish.
 4. **Invites** (`/invites/create`): pick a published exam and a candidate's e-mail address. The invitation is e-mailed when `Smtp:Host` is configured; otherwise the page shows the link to pass on by hand.
 5. The candidate opens the link (signing in or registering first), and accepts it. Only the account holding the invited e-mail address can accept; accepting enrolls them.
@@ -157,7 +157,20 @@ Online-Exam-Platform/
 
 Configuration: `Smtp:Host`, `Smtp:Port`, `Smtp:EnableSsl`, `Smtp:User`, `Smtp:Password`, `Smtp:From` for e-mail, and `Invite:LinkBaseUrl` (default `http://localhost:4200`) for the address in invitation links. A sign-in that has to be done by hand in development reads its code from the API log (`Identity:OtpDelivery:Provider` = `DevelopmentLog`).
 
-**Known gaps**: no background worker, so abandoned attempts close lazily; one attempt per candidate per exam (no retakes); single-answer multiple choice only; marking uses the exam's marking scheme (default +1 / 0 / 0) and the score is shown immediately whatever the result-release setting; batches do not yet feed enrollment; the guardian verification path is still a stub; e-mail needs a real SMTP server to be tried.
+#### Question formatting
+
+The question text is HTML from a rich-text editor: bold, italic, underline, subscript, superscript, bulleted and numbered lists, and pictures. The editor is only a convenience. **The API sanitizes every question's text before storing it** (it is shown to every candidate, so stored markup must never be able to run script), and the browser sanitizes it again where it is shown.
+
+| What | Rule |
+|------|------|
+| Allowed markup | `p br strong em u s sub sup ul ol li blockquote pre code img`. Every attribute, style, class, link, form, frame and script is removed. |
+| Readable text | At most 4000 characters, not counting markup. A question needs some text or a picture. |
+| Pictures | At most 5 per question. Each must be a PNG, JPEG, GIF or WebP embedded in the question, at most 512 KB decoded. The editor shrinks a picture to 800 px and 300 KB before embedding it (a GIF is kept as it is or refused). Links to other sites and SVG are refused with a message, never silently dropped. |
+| Stored size | At most about 1.5 million characters of HTML per question. |
+
+Questions written before this change were plain text; the `RichQuestionText` migration converts them to escaped HTML so they look the same. Because pictures live inside the question, every response that carries the question carries them too (the admin question list returns up to 200 questions); if that becomes heavy, the upgrade path is an image upload endpoint with cacheable URLs.
+
+**Known gaps**: no background worker, so abandoned attempts close lazily; one attempt per candidate per exam (no retakes); single-answer multiple choice only; no tables, links, math or alt-text prompt in question text, and option text is plain; marking uses the exam's marking scheme (default +1 / 0 / 0) and the score is shown immediately whatever the result-release setting; batches do not yet feed enrollment; the guardian verification path is still a stub; e-mail needs a real SMTP server to be tried.
 
 ### Deferred (Per ADR 0001)
 - **CD Pipeline**: Infrastructure-as-code, deployment automation
