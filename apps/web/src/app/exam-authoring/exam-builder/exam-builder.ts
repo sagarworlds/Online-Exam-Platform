@@ -1,8 +1,20 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { extractErrorMessage } from '../../shared/problem-details';
 import { ExamApiService } from '../exam-api.service';
+
+const GUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Accepts a blank value (no series) or a GUID. The API reads this field as a GUID and answers any other text
+ * with an unhelpful "request could not be read", so the form says what is wrong before anything is sent.
+ */
+export function optionalGuid(control: AbstractControl): ValidationErrors | null {
+  const value = String(control.value ?? '').trim();
+  return value === '' || GUID_PATTERN.test(value) ? null : { guid: true };
+}
 
 @Component({
   selector: 'app-exam-builder',
@@ -44,9 +56,14 @@ import { ExamApiService } from '../exam-api.service';
             type="text"
             id="seriesId"
             formControlName="seriesId"
-            placeholder="Enter series ID"
+            placeholder="Leave blank for a standalone exam"
             class="form-control"
           />
+          @if (form.get('seriesId')?.hasError('guid')) {
+            <div class="error-text">
+              A series ID looks like 7c9e6679-7425-40de-944b-e07fc1f90ae7. Leave it blank for a standalone exam.
+            </div>
+          }
         </div>
 
         <div class="actions">
@@ -91,7 +108,7 @@ export class ExamBuilder implements OnInit {
     this.form = this.fb.group({
       name: ['', Validators.required],
       description: [''],
-      seriesId: [''],
+      seriesId: ['', optionalGuid],
     });
   }
 
@@ -117,8 +134,8 @@ export class ExamBuilder implements OnInit {
         // Straight to the editor, where sections and questions are added.
         this.router.navigate(['/exams', exam.id]);
       },
-      error: (err) => {
-        this.error = 'Failed to create exam';
+      error: (err: unknown) => {
+        this.error = extractErrorMessage(err, 'Failed to create exam');
         this.loading = false;
         console.error(err);
       },

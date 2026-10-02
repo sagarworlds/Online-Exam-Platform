@@ -52,4 +52,33 @@ describe('ExamBuilder', () => {
 
     expect('createdBy' in req.request.body).toBe(false);
   });
+
+  it('refuses a series id that is not a GUID, says so, and sends nothing', () => {
+    const fixture = TestBed.createComponent(ExamBuilder);
+    fixture.detectChanges();
+    fixture.componentInstance.form.patchValue({ name: 'Maths Final', seriesId: 'series-1' });
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const submit = root.querySelector('button[type="submit"]') as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    expect(root.textContent).toContain('A series ID looks like');
+
+    fixture.componentInstance.onSubmit();
+    httpMock.expectNone(`${environment.apiBaseUrl}/v1/exams`);
+  });
+
+  it('shows the reason the API gives when creating the exam fails', () => {
+    const fixture = TestBed.createComponent(ExamBuilder);
+    fixture.detectChanges();
+    fixture.componentInstance.form.patchValue({ name: 'Maths Final' });
+    fixture.componentInstance.onSubmit();
+
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/v1/exams`)
+      .flush({ title: 'invalid_request', detail: 'The request could not be read.' }, { status: 400, statusText: 'Bad Request' });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('The request could not be read.');
+  });
 });
