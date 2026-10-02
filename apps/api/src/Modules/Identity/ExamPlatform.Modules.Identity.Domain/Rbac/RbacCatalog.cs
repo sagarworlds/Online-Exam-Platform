@@ -20,7 +20,7 @@ public sealed record RoleDefinition(string Name, bool RequiresTwoFactor, IReadOn
 /// </summary>
 /// <remarks>
 /// Roles are named after exam-platform-requirements.md section 3. A role with no permissions
-/// (Candidate, Guardian, ContentAuthor, Reviewer, Proctor today) is still reference data: users
+/// (Candidate, Guardian, Reviewer, Proctor today) is still reference data: users
 /// hold it, and later milestones grant it capabilities.
 /// </remarks>
 public static class RbacCatalog
@@ -36,6 +36,9 @@ public static class RbacCatalog
 
         /// <summary>Assign roles to users and list the roles that can be assigned (FR-2).</summary>
         public const string RoleAssign = "identity.role.assign";
+
+        /// <summary>Create and read questions in the question bank, answer key included (FR-5).</summary>
+        public const string QuestionManage = "question.manage";
 
         /// <summary>Create and edit exams.</summary>
         public const string ExamManage = "exam.manage";
@@ -90,6 +93,7 @@ public static class RbacCatalog
         new(PermissionCodes.AuditRead, "View the admin audit log"),
         new(PermissionCodes.ConsentManage, "Record and withdraw consent on behalf of a candidate"),
         new(PermissionCodes.RoleAssign, "Assign roles to users"),
+        new(PermissionCodes.QuestionManage, "Create and read questions, answer key included"),
         new(PermissionCodes.ExamManage, "Create and edit exams"),
         new(PermissionCodes.ExamPublish, "Publish exams"),
         new(PermissionCodes.BatchManage, "Create batches and manage their rosters"),
@@ -111,6 +115,7 @@ public static class RbacCatalog
 
         new(RoleNames.ExamAdmin, RequiresTwoFactor: true,
         [
+            PermissionCodes.QuestionManage,
             PermissionCodes.ExamManage,
             PermissionCodes.ExamPublish,
             PermissionCodes.BatchManage,
@@ -119,7 +124,7 @@ public static class RbacCatalog
             PermissionCodes.GuardianLinkManage,
         ]),
 
-        new(RoleNames.ContentAuthor, RequiresTwoFactor: true, []),
+        new(RoleNames.ContentAuthor, RequiresTwoFactor: true, [PermissionCodes.QuestionManage]),
         new(RoleNames.Reviewer, RequiresTwoFactor: true, []),
         new(RoleNames.Proctor, RequiresTwoFactor: true, []),
 
