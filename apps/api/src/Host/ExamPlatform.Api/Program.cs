@@ -112,13 +112,8 @@ builder.Services.AddOptions<RateLimiterOptions>()
     {
         var limits = globalLimits.Value;
         options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
-            RateLimitPartition.GetFixedWindowLimiter(
-                httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = limits.PermitLimit,
-                    Window = TimeSpan.FromSeconds(limits.WindowSeconds),
-                }));
+            ClientRateLimitPartition.FixedWindow(
+                httpContext, limits.PermitLimit, TimeSpan.FromSeconds(limits.WindowSeconds)));
     });
 
 // Trust X-Forwarded-For/-Proto only from the proxies named in ForwardedHeaders:*, so the

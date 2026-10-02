@@ -1,4 +1,3 @@
-using System.Threading.RateLimiting;
 using ExamPlatform.Modules.Identity.Application;
 using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Ports;
@@ -147,13 +146,8 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
 
     private static void AddPolicy(
         RateLimiterOptions rateLimiter, string policyName, IdentityRateLimitOptions.FixedWindowSettings settings) =>
-        rateLimiter.AddPolicy(policyName, httpContext => RateLimitPartition.GetFixedWindowLimiter(
-            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = settings.PermitLimit,
-                Window = TimeSpan.FromSeconds(settings.WindowSeconds),
-            }));
+        rateLimiter.AddPolicy(policyName, httpContext => ClientRateLimitPartition.FixedWindow(
+            httpContext, settings.PermitLimit, TimeSpan.FromSeconds(settings.WindowSeconds)));
 
     /// <inheritdoc />
     public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapIdentityEndpoints();

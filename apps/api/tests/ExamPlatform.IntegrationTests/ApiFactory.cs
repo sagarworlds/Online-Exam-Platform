@@ -85,6 +85,10 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(settings));
 
-        builder.ConfigureTestServices(services => services.AddSingleton<IOtpSender>(OtpSender));
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<IOtpSender>(OtpSender);
+            TestRemoteIpStartupFilter.Register(services);
+        });
     }
 }
