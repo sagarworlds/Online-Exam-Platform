@@ -28,6 +28,15 @@ public class QuestionTests
         Assert.NotEqual(Guid.Empty, question.Id);
     }
 
+    [Fact]
+    public void Create_IsUnfiledByDefault_AndRemembersTheChapterItIsFiledUnder()
+    {
+        Assert.Null(Question.Create("Q?", TwoOptions(), Author, Now).ChapterId);
+
+        var chapter = Guid.NewGuid();
+        Assert.Equal(chapter, Question.Create("Q?", TwoOptions(), Author, Now, chapter).ChapterId);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

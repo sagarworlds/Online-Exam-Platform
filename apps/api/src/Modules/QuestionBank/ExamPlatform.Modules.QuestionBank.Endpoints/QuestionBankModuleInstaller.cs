@@ -28,6 +28,7 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
             .AddInterceptors(sp.GetRequiredService<DomainEventsSaveChangesInterceptor>()));
 
         services.AddScoped<IQuestionRepository, QuestionRepository>();
+        services.AddScoped<IBookRepository, BookRepository>();
         services.AddScoped<IQuestionBankUnitOfWork, QuestionBankUnitOfWork>();
         services.AddScoped<IQuestionBank, QuestionBankReader>();
         // A new sanitizer per request: the library's instance carries mutable configuration.
@@ -36,10 +37,19 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         services.AddScoped<CreateQuestionHandler>();
         services.AddScoped<ListQuestionsHandler>();
         services.AddScoped<GetQuestionHandler>();
+
+        services.AddScoped<CreateBookHandler>();
+        services.AddScoped<ChangeBookHandler>();
+        services.AddScoped<ListBooksHandler>();
+        services.AddScoped<GetBookHandler>();
     }
 
     /// <inheritdoc />
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) => endpoints.MapQuestionBankEndpoints();
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapQuestionBankEndpoints();
+        endpoints.MapBookEndpoints();
+    }
 
     /// <inheritdoc />
     public async Task MigrateAndSeedAsync(IServiceProvider services, CancellationToken cancellationToken)

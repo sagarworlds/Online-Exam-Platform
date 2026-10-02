@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using ExamPlatform.Modules.QuestionBank.Application.Commands;
+using ExamPlatform.Modules.QuestionBank.Application.Ports;
 using ExamPlatform.Modules.QuestionBank.Application.Queries;
 using ExamPlatform.Modules.QuestionBank.Domain;
 using ExamPlatform.SharedKernel.Application.Security;
@@ -31,7 +32,7 @@ public static class QuestionBankEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("ListQuestions")
-            .WithDescription("List the newest questions");
+            .WithDescription("List the newest questions, optionally only those under a book or chapter, or only unfiled ones");
 
         questions.MapGet("/{questionId:guid}", GetQuestion)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -44,12 +45,13 @@ public static class QuestionBankEndpoints
         CreateQuestionRequest request, ClaimsPrincipal user, CreateQuestionHandler handler, CancellationToken ct)
     {
         var options = request.Options?.Select(o => new NewQuestionOption(o?.Text, o?.IsCorrect ?? false)).ToList();
-        var result = await handler.HandleAsync(new CreateQuestionCommand(request.Text, options, user.GetUserId()), ct);
+        var result = await handler.HandleAsync(new CreateQuestionCommand(request.Text, options, user.GetUserId(), request.ChapterId), ct);
         return Results.Created($"/v1/questions/{result.Id}", result);
     }
 
-    private static async Task<IResult> ListQuestions(ListQuestionsHandler handler, CancellationToken ct) =>
-        Results.Ok(await handler.HandleAsync(ct));
+    private static async Task<IResult> ListQuestions(
+        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new QuestionFilter(bookId, chapterId, unfiled ?? false), ct));
 
     private static async Task<IResult> GetQuestion(Guid questionId, GetQuestionHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(questionId, ct));
@@ -58,7 +60,8 @@ public static class QuestionBankEndpoints
 /// <summary>Request body for creating a question. The author is the caller, so it is not part of the body.</summary>
 /// <param name="Text">The question text; HTML from the author's editor, which the server sanitizes before storing it.</param>
 /// <param name="Options">The answer options in display order; exactly one must be correct.</param>
-public sealed record CreateQuestionRequest(string? Text, IReadOnlyList<CreateQuestionOptionRequest?>? Options);
+/// <param name="ChapterId">The chapter to file the question under; omit or send null to leave it unfiled.</param>
+public sealed record CreateQuestionRequest(string? Text, IReadOnlyList<CreateQuestionOptionRequest?>? Options, Guid? ChapterId = null);
 
 /// <summary>One option in a <see cref="CreateQuestionRequest"/>.</summary>
 /// <param name="Text">The option text.</param>

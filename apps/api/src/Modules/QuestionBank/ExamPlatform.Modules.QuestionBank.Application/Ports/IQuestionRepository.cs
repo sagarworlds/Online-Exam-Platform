@@ -2,6 +2,12 @@ using ExamPlatform.Modules.QuestionBank.Domain;
 
 namespace ExamPlatform.Modules.QuestionBank.Application.Ports;
 
+/// <summary>Narrows a question listing. All parts that are set must match.</summary>
+/// <param name="BookId">Only questions filed under a chapter of this book.</param>
+/// <param name="ChapterId">Only questions filed under this chapter.</param>
+/// <param name="UnfiledOnly">Only questions that are not filed under any chapter.</param>
+public sealed record QuestionFilter(Guid? BookId = null, Guid? ChapterId = null, bool UnfiledOnly = false);
+
 /// <summary>Persistence port for <see cref="Question"/>.</summary>
 public interface IQuestionRepository
 {
@@ -20,8 +26,15 @@ public interface IQuestionRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Question>> GetManyAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken);
 
-    /// <summary>Lists the most recently created questions, newest first.</summary>
+    /// <summary>Lists the most recently created questions that match the filter, newest first.</summary>
+    /// <param name="filter">Which questions to include.</param>
     /// <param name="take">How many to return at most.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<IReadOnlyList<Question>> ListNewestAsync(int take, CancellationToken cancellationToken);
+    Task<IReadOnlyList<Question>> ListNewestAsync(QuestionFilter filter, int take, CancellationToken cancellationToken);
+
+    /// <summary>Counts the questions filed under each chapter.</summary>
+    /// <param name="chapterIds">The chapters to count for.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The count per chapter; a chapter with no questions is absent.</returns>
+    Task<IReadOnlyDictionary<Guid, int>> CountByChapterAsync(IReadOnlyCollection<Guid> chapterIds, CancellationToken cancellationToken);
 }

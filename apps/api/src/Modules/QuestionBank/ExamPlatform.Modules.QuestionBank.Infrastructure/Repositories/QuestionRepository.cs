@@ -21,9 +21,30 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Question>> ListNewestAsync(int take, CancellationToken cancellationToken) =>
-        await context.Questions.AsNoTracking().Include(q => q.Options)
-            .OrderByDescending(q => q.CreatedAtUtc)
-            .Take(take)
-            .ToListAsync(cancellationToken);
+    public async Task<IReadOnlyList<Question>> ListNewestAsync(QuestionFilter filter, int take, CancellationToken cancellationToken)
+    {
+        var query = context.Questions.AsNoTracking().Include(q => q.Options).AsQueryable();
+
+        if (filter.UnfiledOnly)
+            query = query.Where(q => q.ChapterId == null);
+        if (filter.ChapterId is { } chapterId)
+            query = query.Where(q => q.ChapterId == chapterId);
+        if (filter.BookId is { } bookId)
+            query = query.Where(q => context.Chapters.Any(c => c.Id == q.ChapterId && c.BookId == bookId));
+
+        return await query.OrderByDescending(q => q.CreatedAtUtc).Take(take).ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, int>> CountByChapterAsync(IReadOnlyCollection<Guid> chapterIds, CancellationToken cancellationToken)
+    {
+        if (chapterIds.Count == 0)
+            return new Dictionary<Guid, int>();
+
+        return await context.Questions.AsNoTracking()
+            .Where(q => q.ChapterId != null && chapterIds.Contains(q.ChapterId.Value))
+            .GroupBy(q => q.ChapterId!.Value)
+            .Select(g => new { ChapterId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ChapterId, x => x.Count, cancellationToken);
+    }
 }

@@ -56,6 +56,12 @@ public sealed class Question : AggregateRoot
     /// <summary>The answer options, in display order.</summary>
     public IReadOnlyList<QuestionOption> Options => _options.AsReadOnly();
 
+    /// <summary>
+    /// The chapter the question is filed under, or null when it is not filed anywhere. The chapter knows its book.
+    /// Questions written before books existed stay unfiled.
+    /// </summary>
+    public Guid? ChapterId { get; private set; }
+
     /// <summary>The authoring user who created the question.</summary>
     public Guid CreatedBy { get; private set; }
 
@@ -65,9 +71,10 @@ public sealed class Question : AggregateRoot
     // For EF Core.
     private Question() : base(Guid.Empty) => Text = null!;
 
-    private Question(Guid id, string text, Guid createdBy, DateTime createdAtUtc) : base(id)
+    private Question(Guid id, string text, Guid? chapterId, Guid createdBy, DateTime createdAtUtc) : base(id)
     {
         Text = text;
+        ChapterId = chapterId;
         CreatedBy = createdBy;
         CreatedAtUtc = createdAtUtc;
     }
@@ -77,11 +84,16 @@ public sealed class Question : AggregateRoot
     /// <param name="options">The answer options in display order; exactly one must be correct.</param>
     /// <param name="createdBy">The authoring user.</param>
     /// <param name="nowUtc">The current instant.</param>
+    /// <param name="chapterId">
+    /// The chapter to file it under, or null for none. The caller has already checked that the chapter exists and is
+    /// open; this aggregate cannot, because chapters belong to another aggregate.
+    /// </param>
     /// <exception cref="InvalidQuestionError">
     /// The text is blank or larger than <see cref="MaxHtmlLength"/>, the number of options is outside <see cref="MinOptions"/> to
     /// <see cref="MaxOptions"/>, an option is blank or too long, or the options do not have exactly one correct answer.
     /// </exception>
-    public static Question Create(string? text, IReadOnlyList<NewQuestionOption>? options, Guid createdBy, DateTime nowUtc)
+    public static Question Create(
+        string? text, IReadOnlyList<NewQuestionOption>? options, Guid createdBy, DateTime nowUtc, Guid? chapterId = null)
     {
         var trimmedText = text?.Trim();
         if (string.IsNullOrEmpty(trimmedText))
@@ -95,7 +107,7 @@ public sealed class Question : AggregateRoot
         if (options.Count(o => o is { IsCorrect: true }) != 1)
             throw new InvalidQuestionError("Exactly one option must be marked correct.");
 
-        var question = new Question(Guid.NewGuid(), trimmedText, createdBy, nowUtc);
+        var question = new Question(Guid.NewGuid(), trimmedText, chapterId, createdBy, nowUtc);
         foreach (var option in options)
         {
             var optionText = option?.Text?.Trim();
