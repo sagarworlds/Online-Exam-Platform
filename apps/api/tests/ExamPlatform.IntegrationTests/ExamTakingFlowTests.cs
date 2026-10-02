@@ -63,18 +63,21 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(code, body.GetProperty("title").GetString());
     }
 
+    private const string TinyPng =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
     [Fact]
     public async Task TheCandidate_SeesTheFormattedQuestion_WithNothingExecutableAndNoAnswerKey()
     {
         var (admin, candidate, examId, _) = await EnrolledCandidateAsync(
-            questionCount: 1, firstQuestionText: "<p>Pick <strong>one</strong><img src=x onerror=alert(1)><script>alert(2)</script></p>");
+            questionCount: 1, firstQuestionText: $"<p>Pick <strong>one</strong><script>alert(2)</script></p><p><img src=\"{TinyPng}\" onerror=\"alert(1)\"></p>");
         using var _a = admin;
         using var _c = candidate;
 
         var attempt = await StartAsync(candidate, examId);
 
         var question = attempt.GetProperty("sections")[0].GetProperty("questions")[0];
-        Assert.Equal("<p>Pick <strong>one</strong></p>", question.GetProperty("text").GetString());
+        Assert.Equal($"<p>Pick <strong>one</strong></p><p><img src=\"{TinyPng}\"></p>", question.GetProperty("text").GetString());
         Assert.DoesNotContain("isCorrect", attempt.GetRawText());
     }
 

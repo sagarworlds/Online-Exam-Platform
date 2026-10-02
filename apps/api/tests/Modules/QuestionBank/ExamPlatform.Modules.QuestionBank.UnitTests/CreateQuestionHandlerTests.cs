@@ -56,6 +56,47 @@ public class CreateQuestionHandlerTests
     }
 
     [Fact]
+    public async Task Create_WithAPictureAndNoWords_IsAccepted()
+    {
+        var created = await Create($"<p><img src=\"{RichTextSanitizerTests.TinyPng}\" alt=\"diagram\"></p>");
+
+        Assert.Contains("<img", created.Text);
+    }
+
+    [Theory]
+    [InlineData("<p>Look <img src=\"https://example.com/cat.png\"></p>")]
+    [InlineData("<p>Look <img src=x onerror=alert(1)></p>")]
+    [InlineData("<p>Look <img src=\"data:image/svg+xml;base64,PHN2Zz4=\"></p>")]
+    public async Task Create_WithAPictureThatCannotBeUsed_IsRefusedWithAnActionableMessage(string text)
+    {
+        var error = await Assert.ThrowsAsync<InvalidQuestionError>(() => Create(text));
+
+        Assert.Contains("image button", error.Message);
+        repository.DidNotReceive().Add(Arg.Any<Question>());
+    }
+
+    [Fact]
+    public async Task Create_WithMoreThanTheAllowedPictures_IsRefused()
+    {
+        var picture = $"<img src=\"{RichTextSanitizerTests.TinyPng}\">";
+        var text = "<p>" + string.Concat(Enumerable.Repeat(picture, Question.MaxImages + 1)) + "</p>";
+
+        var error = await Assert.ThrowsAsync<InvalidQuestionError>(() => Create(text));
+
+        Assert.Contains($"at most {Question.MaxImages} images", error.Message);
+    }
+
+    [Fact]
+    public async Task Create_WithTheMostPicturesAllowed_IsAccepted()
+    {
+        var picture = $"<img src=\"{RichTextSanitizerTests.TinyPng}\">";
+
+        await Create("<p>" + string.Concat(Enumerable.Repeat(picture, Question.MaxImages)) + "</p>");
+
+        repository.Received(1).Add(Arg.Any<Question>());
+    }
+
+    [Fact]
     public async Task Create_CountsReadableTextNotMarkup()
     {
         // Heavy formatting must not eat the allowance: the readable text is exactly at the limit.

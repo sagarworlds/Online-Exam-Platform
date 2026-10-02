@@ -1,3 +1,4 @@
+using ExamPlatform.Modules.QuestionBank.Domain;
 using ExamPlatform.Modules.QuestionBank.Infrastructure;
 
 namespace ExamPlatform.Modules.QuestionBank.UnitTests;
@@ -9,6 +10,13 @@ namespace ExamPlatform.Modules.QuestionBank.UnitTests;
 public class RichTextSanitizerTests
 {
     private readonly RichTextSanitizer sanitizer = new();
+
+    /// <summary>A real 1x1 PNG, as a browser would embed it.</summary>
+    internal const string TinyPng =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+    private static string DataUri(string mime, int decodedBytes) =>
+        $"data:{mime};base64,{Convert.ToBase64String(new byte[decodedBytes])}";
 
     /// <summary>Anything in the output that a browser could act on.</summary>
     private static readonly string[] Dangerous =
@@ -55,6 +63,101 @@ public class RichTextSanitizerTests
             Assert.DoesNotContain(marker, result.Html, StringComparison.OrdinalIgnoreCase);
         }
     }
+
+    [Fact]
+    public void Sanitize_KeepsAnEmbeddedPictureAndItsDescription()
+    {
+        var result = sanitizer.Sanitize($"<p>Look: <img src=\"{TinyPng}\" alt=\"a dot\"></p>");
+
+        Assert.Equal(1, result.ImageCount);
+        Assert.Equal(0, result.RejectedImageCount);
+        Assert.Contains($"src=\"{TinyPng}\"", result.Html);
+        Assert.Contains("alt=\"a dot\"", result.Html);
+        Assert.True(result.HasContent);
+    }
+
+    [Fact]
+    public void Sanitize_OfAPictureAlone_HasContent()
+    {
+        var result = sanitizer.Sanitize($"<p><img src=\"{TinyPng}\"></p>");
+
+        Assert.True(result.HasContent);
+        Assert.Equal(string.Empty, result.PlainText);
+    }
+
+    [Theory]
+    [InlineData("image/png")]
+    [InlineData("image/jpeg")]
+    [InlineData("image/gif")]
+    [InlineData("image/webp")]
+    public void Sanitize_AcceptsEachAllowedPictureType(string mime) =>
+        Assert.Equal(1, sanitizer.Sanitize($"<img src=\"{DataUri(mime, 100)}\">").ImageCount);
+
+    [Fact]
+    public void Sanitize_AcceptsAPictureAtTheSizeLimit_AndARealisticOne()
+    {
+        // The library must cope with the length of a real embedded picture, not only toy ones.
+        Assert.Equal(1, sanitizer.Sanitize($"<img src=\"{DataUri("image/jpeg", 300 * 1024)}\">").ImageCount);
+        Assert.Equal(1, sanitizer.Sanitize($"<img src=\"{DataUri("image/png", Question.MaxImageBytes)}\">").ImageCount);
+    }
+
+    [Fact]
+    public void Sanitize_RefusesAPictureOverTheSizeLimit()
+    {
+        var result = sanitizer.Sanitize($"<p>x</p><img src=\"{DataUri("image/png", Question.MaxImageBytes + 1)}\">");
+
+        Assert.Equal(0, result.ImageCount);
+        Assert.Equal(1, result.RejectedImageCount);
+        Assert.DoesNotContain("<img", result.Html);
+    }
+
+    [Theory]
+    [InlineData("https://example.com/cat.png")]
+    [InlineData("//example.com/cat.png")]
+    [InlineData("/relative/cat.png")]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+")]
+    [InlineData("data:image/svg+xml,%3Csvg onload=alert(1)%3E")]
+    [InlineData("data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==")]
+    [InlineData("data:image/png;base64,not*valid*base64!")]
+    [InlineData("data:image/png,rawbytes")]
+    [InlineData("")]
+    public void Sanitize_RefusesAnyPictureSourceThatIsNotAnEmbeddedPicture_AndSaysSo(string source)
+    {
+        var result = sanitizer.Sanitize($"<p>text</p><img src=\"{source}\" alt=\"x\">");
+
+        Assert.Equal(0, result.ImageCount);
+        Assert.Equal(1, result.RejectedImageCount);
+        Assert.DoesNotContain("<img", result.Html);
+        Assert.DoesNotContain(source.Length == 0 ? "\u0000" : source, result.Html);
+    }
+
+    [Fact]
+    public void Sanitize_StripsEverythingFromAPictureExceptItsSourceAndDescription()
+    {
+        var result = sanitizer.Sanitize($"<img src=\"{TinyPng}\" alt=\"d\" onerror=\"alert(1)\" onload=\"alert(2)\" style=\"x\" width=\"9\" srcset=\"https://e.example/a.png 2x\" class=\"c\">");
+
+        Assert.Equal(1, result.ImageCount);
+        Assert.DoesNotContain("onerror", result.Html);
+        Assert.DoesNotContain("onload", result.Html);
+        Assert.DoesNotContain("style=", result.Html);
+        Assert.DoesNotContain("width=", result.Html);
+        Assert.DoesNotContain("srcset", result.Html);
+        Assert.DoesNotContain("class=", result.Html);
+    }
+
+    [Fact]
+    public void Sanitize_DropsEmptyParagraphsAtTheEnd_ButKeepsOnesInTheMiddle()
+    {
+        Assert.Equal("<p>text</p>", sanitizer.Sanitize("<p>text</p><p></p><p><br></p><p>  </p>").Html);
+        Assert.Equal("<p>one</p><p></p><p>two</p>", sanitizer.Sanitize("<p>one</p><p></p><p>two</p>").Html);
+        Assert.Equal($"<img src=\"{TinyPng}\">", sanitizer.Sanitize($"<img src=\"{TinyPng}\"><p></p>").Html);
+        Assert.False(sanitizer.Sanitize("<p></p><p><br></p>").HasContent);
+    }
+
+    [Fact]
+    public void Sanitize_DoesNotMistakeAPictureOnlyParagraphForAnEmptyOne() =>
+        Assert.Contains("<img", sanitizer.Sanitize($"<p>x</p><p><img src=\"{TinyPng}\"></p>").Html);
 
     [Fact]
     public void Sanitize_KeepsFormattingAQuestionNeeds()

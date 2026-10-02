@@ -117,7 +117,7 @@ public sealed class QuestionBankFlowTests(ApiFactory factory) : IClassFixture<Ap
 
         var created = await client.PostAsJsonAsync("/v1/questions", new
         {
-            text = "<p>Water is H<sub>2</sub>O <script>alert(1)</script><img src=x onerror=alert(2)><a href=\"javascript:alert(3)\">now</a></p>",
+            text = "<p>Water is H<sub>2</sub>O <script>alert(1)</script><span onclick=\"alert(2)\">now</span><a href=\"javascript:alert(3)\"></a></p>",
             options = new[] { new { text = "A", isCorrect = true }, new { text = "B", isCorrect = false } },
         });
 
@@ -128,6 +128,47 @@ public sealed class QuestionBankFlowTests(ApiFactory factory) : IClassFixture<Ap
         var expected = "<p>Water is H<sub>2</sub>O now</p>";
         Assert.Equal(expected, body.GetProperty("text").GetString());
         Assert.Equal(expected, (await client.GetFromJsonAsync<JsonElement>($"/v1/questions/{id}")).GetProperty("text").GetString());
+    }
+
+    private const string TinyPng =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+    [Fact]
+    public async Task Create_WithAnEmbeddedPicture_StoresItAndReadsItBack()
+    {
+        using var client = await ClientForAsync(RbacCatalog.RoleNames.ExamAdmin);
+
+        var created = await client.PostAsJsonAsync("/v1/questions", new
+        {
+            text = $"<p>Which shape?</p><p><img src=\"{TinyPng}\" alt=\"a shape\" onerror=\"alert(1)\"></p>",
+            options = new[] { new { text = "Square", isCorrect = true }, new { text = "Circle", isCorrect = false } },
+        });
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        var text = (await client.GetFromJsonAsync<JsonElement>($"/v1/questions/{id}")).GetProperty("text").GetString();
+        Assert.Contains($"<img src=\"{TinyPng}\" alt=\"a shape\">", text);
+        Assert.DoesNotContain("onerror", text);
+    }
+
+    [Theory]
+    [InlineData("<p>x</p><img src=\"https://evil.example/track.png\">")]
+    [InlineData("<p>x</p><img src=x onerror=alert(1)>")]
+    [InlineData("<p>x</p><img src=\"data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+\">")]
+    public async Task Create_WithAPictureThatIsNotAnEmbeddedPicture_Returns400AndStoresNothing(string text)
+    {
+        using var client = await ClientForAsync(RbacCatalog.RoleNames.ExamAdmin);
+
+        var response = await client.PostAsJsonAsync("/v1/questions", new
+        {
+            text,
+            options = new[] { new { text = "A", isCorrect = true }, new { text = "B", isCorrect = false } },
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("invalid_question", body.GetProperty("title").GetString());
+        Assert.Contains("image button", body.GetProperty("detail").GetString());
     }
 
     [Fact]

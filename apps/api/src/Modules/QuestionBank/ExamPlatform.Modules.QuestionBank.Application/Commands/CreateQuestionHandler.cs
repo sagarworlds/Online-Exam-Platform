@@ -29,6 +29,10 @@ public sealed class CreateQuestionHandler(
         // Sanitizing comes first: every length rule below is about what survives the cleaning, not what was sent.
         var text = sanitizer.Sanitize(command.Text);
 
+        if (text.RejectedImageCount > 0)
+            throw new InvalidQuestionError(
+                "A picture could not be used. Add pictures with the image button: PNG, JPEG, GIF or WebP, " +
+                $"at most {Question.MaxImageBytes / 1024} KB each.");
         if (!text.HasContent)
             throw new InvalidQuestionError("The question text is required.");
         if (text.PlainText.Length > Question.MaxVisibleTextLength)

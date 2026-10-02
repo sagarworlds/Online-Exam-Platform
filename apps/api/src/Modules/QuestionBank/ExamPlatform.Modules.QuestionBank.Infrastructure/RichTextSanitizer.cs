@@ -1,4 +1,6 @@
+using System.Buffers.Text;
 using ExamPlatform.Modules.QuestionBank.Application.Ports;
+using ExamPlatform.Modules.QuestionBank.Domain;
 using Ganss.Xss;
 
 namespace ExamPlatform.Modules.QuestionBank.Infrastructure;
@@ -14,7 +16,17 @@ public sealed class RichTextSanitizer : IRichTextSanitizer
     /// <summary>The formatting a question may carry: text emphasis, sub/superscripts, lists, quotes and code.</summary>
     private static readonly string[] AllowedTags =
     [
-        "p", "br", "strong", "em", "u", "s", "sub", "sup", "ul", "ol", "li", "blockquote", "pre", "code",
+        "p", "br", "strong", "em", "u", "s", "sub", "sup", "ul", "ol", "li", "blockquote", "pre", "code", "img",
+    ];
+
+    /// <summary>
+    /// The only picture sources accepted: the picture's bytes embedded in the question. A link to another site would
+    /// let that site see who reads the question, and would break when the picture is taken down. SVG is left out on
+    /// purpose, because an SVG file can carry script.
+    /// </summary>
+    private static readonly string[] AllowedImageHeaders =
+    [
+        "data:image/png;base64", "data:image/jpeg;base64", "data:image/gif;base64", "data:image/webp;base64",
     ];
 
     /// <summary>
@@ -43,10 +55,45 @@ public sealed class RichTextSanitizer : IRichTextSanitizer
             return new SanitizedRichText(string.Empty, string.Empty, 0);
         }
 
+        // An image whose source was refused is left behind without one; take it out and count it so the caller can say so.
+        var rejected = 0;
+        foreach (var image in document.QuerySelectorAll("img:not([src])").ToList())
+        {
+            image.Remove();
+            rejected++;
+        }
+
+        // Editors leave an empty paragraph after a list or picture so the author can keep typing; it carries nothing.
+        while (body.LastElementChild is { LocalName: "p" } last
+            && last.TextContent.Trim().Length == 0
+            && last.QuerySelector("img") is null)
+        {
+            last.Remove();
+        }
+
         return new SanitizedRichText(
             body.InnerHtml.Trim(),
             body.TextContent.Trim(),
-            document.QuerySelectorAll("img").Length);
+            document.QuerySelectorAll("img").Length,
+            rejected);
+    }
+
+    private static bool IsAcceptableImageSource(string? source)
+    {
+        var comma = source?.IndexOf(',') ?? -1;
+        if (source is null || comma < 0)
+        {
+            return false;
+        }
+
+        var header = source[..comma];
+        if (!AllowedImageHeaders.Contains(header, StringComparer.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // The size is checked on the decoded bytes, which is what the limit is about; invalid base64 is refused outright.
+        return Base64.IsValid(source.AsSpan(comma + 1), out var decodedLength) && decodedLength <= Question.MaxImageBytes;
     }
 
     private static HtmlSanitizer Build()
@@ -65,6 +112,19 @@ public sealed class RichTextSanitizer : IRichTextSanitizer
         sanitizer.AllowedClasses.Clear();
         sanitizer.AllowedCssProperties.Clear();
         sanitizer.AllowedSchemes.Clear();
+
+        // The two attributes a picture needs. "data" is allowed as a scheme only so embedded pictures pass the
+        // library's own check; the filter below then refuses every data URL that is not an acceptable picture.
+        sanitizer.AllowedAttributes.Add("src");
+        sanitizer.AllowedAttributes.Add("alt");
+        sanitizer.AllowedSchemes.Add("data");
+        sanitizer.FilterUrl += (_, url) =>
+        {
+            if (!IsAcceptableImageSource(url.OriginalUrl))
+            {
+                url.SanitizedUrl = null;
+            }
+        };
 
         foreach (var tag in AllowedTags)
         {

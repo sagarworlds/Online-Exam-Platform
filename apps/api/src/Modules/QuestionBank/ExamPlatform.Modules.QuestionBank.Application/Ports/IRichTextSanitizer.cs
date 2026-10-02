@@ -4,7 +4,12 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Ports;
 /// <param name="Html">The cleaned HTML: only formatting the bank allows, with nothing a browser could execute.</param>
 /// <param name="PlainText">The readable text of <paramref name="Html"/> with all markup removed, trimmed.</param>
 /// <param name="ImageCount">How many images <paramref name="Html"/> embeds.</param>
-public sealed record SanitizedRichText(string Html, string PlainText, int ImageCount)
+/// <param name="RejectedImageCount">
+/// How many images were taken out because they are not an embedded PNG, JPEG, GIF or WebP picture within the size
+/// limit (a link to another site, an SVG, a corrupt file, one that is too big). Reported rather than silently
+/// dropped, so the author is told instead of saving a question that quietly lost its picture.
+/// </param>
+public sealed record SanitizedRichText(string Html, string PlainText, int ImageCount, int RejectedImageCount = 0)
 {
     /// <summary>Whether there is anything for a candidate to read or look at.</summary>
     public bool HasContent => PlainText.Length > 0 || ImageCount > 0;

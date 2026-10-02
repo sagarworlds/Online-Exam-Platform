@@ -30,6 +30,12 @@ public sealed class Question : AggregateRoot
     /// <summary>The most images one question may embed.</summary>
     public const int MaxImages = 5;
 
+    /// <summary>
+    /// The largest one embedded image, in bytes once decoded. Images live inside the question itself, so every
+    /// response that carries the question carries them too; the limit keeps those responses small.
+    /// </summary>
+    public const int MaxImageBytes = 512 * 1024;
+
     /// <summary>The longest option text, after trimming.</summary>
     public const int MaxOptionTextLength = 1000;
 
