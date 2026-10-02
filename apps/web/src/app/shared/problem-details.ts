@@ -19,3 +19,18 @@ export function extractErrorMessage(error: unknown, fallback = 'Something went w
 
   return fallback;
 }
+
+/**
+ * The API's machine-readable error code (the ProblemDetails `title`, such as `question_locked`), for the few places that must
+ * react to a particular failure and not only show its message. Undefined when the error is not one the API explained.
+ */
+export function extractProblemCode(error: unknown): string | undefined {
+  if (error instanceof HttpErrorResponse) {
+    const problem = error.error as ProblemDetails | null;
+    if (problem && typeof problem.title === 'string' && problem.title.length > 0) {
+      return problem.title;
+    }
+  }
+
+  return undefined;
+}

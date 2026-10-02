@@ -74,6 +74,11 @@ export const routes: Routes = [
     loadComponent: () => import('./question-bank/question-bank').then((m) => m.QuestionBank),
   },
   {
+    path: 'admin/questions/:id/edit',
+    canActivate: [permissionGuard(Permission.QuestionManage)],
+    loadComponent: () => import('./question-bank/question-edit/question-edit').then((m) => m.QuestionEdit),
+  },
+  {
     path: 'admin/books',
     canActivate: [permissionGuard(Permission.QuestionManage)],
     loadComponent: () => import('./book-management/book-list/book-list').then((m) => m.BookList),

@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { BookApiService } from '../book-management/book-api.service';
 import { BookDto } from '../book-management/book.models';
 import { extractErrorMessage } from '../shared/problem-details';
@@ -18,7 +19,7 @@ export const UNFILED = 'unfiled';
  */
 @Component({
   selector: 'app-question-bank',
-  imports: [ReactiveFormsModule, BookChapterPicker, QuestionFields],
+  imports: [ReactiveFormsModule, RouterLink, BookChapterPicker, QuestionFields],
   templateUrl: './question-bank.html',
 })
 export class QuestionBank {
