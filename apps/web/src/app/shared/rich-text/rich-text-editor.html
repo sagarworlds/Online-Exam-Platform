@@ -1,0 +1,19 @@
+<div class="rich-editor" [class.rich-editor--disabled]="disabled()">
+  <div class="rich-editor__toolbar" role="toolbar" aria-label="Text formatting">
+    @for (action of actions; track action.name) {
+      <!-- mousedown is cancelled so pressing a button keeps the selection in the text instead of stealing focus. -->
+      <button
+        type="button"
+        [attr.aria-pressed]="isActive(action)"
+        [attr.aria-label]="action.label"
+        [title]="action.label"
+        [disabled]="disabled()"
+        (mousedown)="$event.preventDefault()"
+        (click)="run(action)"
+      >
+        {{ action.glyph }}
+      </button>
+    }
+  </div>
+  <div #host class="rich-editor__host"></div>
+</div>

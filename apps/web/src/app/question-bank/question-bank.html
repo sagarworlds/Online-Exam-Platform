@@ -12,8 +12,8 @@
     <h2>New question</h2>
 
     <div class="field">
-      <label for="question-text">Question</label>
-      <textarea id="question-text" rows="3" formControlName="text"></textarea>
+      <label id="question-text-label" for="question-text">Question</label>
+      <app-rich-text-editor formControlName="text" inputId="question-text" labelledBy="question-text-label" />
     </div>
 
     <fieldset class="field" formArrayName="options">

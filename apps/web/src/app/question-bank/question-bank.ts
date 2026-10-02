@@ -1,13 +1,14 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { extractErrorMessage } from '../shared/problem-details';
+import { RichTextEditor } from '../shared/rich-text/rich-text-editor';
 import { QuestionApiService } from './question-api.service';
 import { CreateQuestionRequest, QUESTION_LIMITS, QuestionDto } from './question.models';
 
 /** Admin page: the newest questions, and a form to add one with its options and correct answer (FR-5). */
 @Component({
   selector: 'app-question-bank',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RichTextEditor],
   templateUrl: './question-bank.html',
 })
 export class QuestionBank {

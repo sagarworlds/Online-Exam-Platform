@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { FormGroup } from '@angular/forms';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { QuestionBank } from './question-bank';
 
 // The base URL differs between builds and the test environment, so requests are matched by their path.
@@ -25,14 +26,15 @@ describe('QuestionBank', () => {
     return fixture;
   }
 
-  function fill(root: HTMLElement, text: string, options: string[]): void {
-    const set = (el: HTMLInputElement | HTMLTextAreaElement, value: string) => {
-      el.value = value;
-      el.dispatchEvent(new Event('input'));
-    };
-    set(root.querySelector('#question-text') as HTMLTextAreaElement, text);
+  function fill(fixture: ComponentFixture<QuestionBank>, text: string, options: string[]): void {
+    const root = fixture.nativeElement as HTMLElement;
+    // The question text lives in a rich-text editor, so it is set through the form control the editor is bound to.
+    (fixture.componentInstance as unknown as { form: FormGroup }).form.controls['text'].setValue(text);
     const inputs = root.querySelectorAll<HTMLInputElement>('input[type="text"]');
-    options.forEach((value, i) => set(inputs[i], value));
+    options.forEach((value, i) => {
+      inputs[i].value = value;
+      inputs[i].dispatchEvent(new Event('input'));
+    });
   }
 
   it('lists the newest questions and marks the correct option', () => {
@@ -86,7 +88,7 @@ describe('QuestionBank', () => {
     const root = fixture.nativeElement as HTMLElement;
     const save = root.querySelector('button.primary') as HTMLButtonElement;
 
-    fill(root, 'Q?', ['A', 'B']);
+    fill(fixture, 'Q?', ['A', 'B']);
     fixture.detectChanges();
     expect(save.disabled).toBe(true);
 
@@ -101,7 +103,7 @@ describe('QuestionBank', () => {
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
 
-    fill(root, 'Capital of France?', ['Rome', 'Paris']);
+    fill(fixture, 'Capital of France?', ['Rome', 'Paris']);
     (root.querySelectorAll('input[type="radio"]')[1] as HTMLInputElement).dispatchEvent(new Event('change'));
     fixture.detectChanges();
     (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
@@ -149,7 +151,7 @@ describe('QuestionBank', () => {
     httpMock.expectOne(isList).flush([]);
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
-    fill(root, 'Q?', ['A', 'B']);
+    fill(fixture, 'Q?', ['A', 'B']);
     (root.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).dispatchEvent(new Event('change'));
     fixture.detectChanges();
     (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
