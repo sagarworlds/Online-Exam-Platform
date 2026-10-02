@@ -77,8 +77,12 @@ public class ModuleCatalogTests
     /// <summary>xUnit theory data: every discovered module name.</summary>
     public static IEnumerable<object[]> ModuleNames() => ModuleCatalog.ModuleNames();
 
+    // Types a build tool adds to every assembly: the compiler's embedded attributes, and the hit-tracker type
+    // Coverlet injects when CI collects coverage ("XPlat Code Coverage"). None of them is the module's own code,
+    // so none may fail the "every type sits in its layer's namespace" rule.
     private static bool IsCompilerEmbedded(Type type) =>
         type.Namespace is { } ns
         && (ns.StartsWith("System.Runtime.CompilerServices", StringComparison.Ordinal)
-            || ns.StartsWith("Microsoft.CodeAnalysis", StringComparison.Ordinal));
+            || ns.StartsWith("Microsoft.CodeAnalysis", StringComparison.Ordinal)
+            || ns.StartsWith("Coverlet.Core.Instrumentation", StringComparison.Ordinal));
 }
