@@ -1,43 +1,48 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
-import { InviteApiService } from './invite-api.service';
 import { environment } from '../../environments/environment';
+import { InviteApiService } from './invite-api.service';
 
 describe('InviteApiService', () => {
   let service: InviteApiService;
   let httpMock: HttpTestingController;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
-      providers: [InviteApiService],
-    });
-
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
     service = TestBed.inject(InviteApiService);
     httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => {
-    httpMock.verify();
-  });
+  afterEach(() => httpMock.verify());
 
-  it('should create an invite without a createdByUserId field', () => {
-    const request = { examId: 'exam-123', batchMemberId: 'member-123', email: 'test@example.com' };
-
-    service.createInvite(request).subscribe();
+  it('creates an invite from an exam and an e-mail, with no inviter id', () => {
+    service.createInvite({ examId: 'exam-123', email: 'test@example.com' }).subscribe();
 
     const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/invites`);
     expect(req.request.method).toBe('POST');
-    expect(req.request.body.email).toBe('test@example.com');
-    expect('createdByUserId' in req.request.body).toBe(false);
+    expect(req.request.body).toEqual({ examId: 'exam-123', email: 'test@example.com' });
   });
 
-  it('should revoke an invite', () => {
-    const inviteId = 'invite-123';
+  it('lists the invites', () => {
+    service.getInvites().subscribe();
 
-    service.revokeInvite(inviteId).subscribe();
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/invites`);
+    expect(req.request.method).toBe('GET');
+  });
 
-    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/invites/${inviteId}/revoke`);
+  it('accepts by code on the owner-bound route, not by invite id', () => {
+    service.acceptInvite('AB12CD34').subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/invites/accept`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ code: 'AB12CD34' });
+  });
+
+  it('revokes an invite', () => {
+    service.revokeInvite('invite-123').subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/invites/invite-123/revoke`);
     expect(req.request.method).toBe('POST');
   });
 });

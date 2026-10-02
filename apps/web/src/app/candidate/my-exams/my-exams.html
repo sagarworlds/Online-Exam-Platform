@@ -1,0 +1,31 @@
+<div class="page page--wide">
+  <h1>My exams</h1>
+
+  @if (errorMessage()) {
+    <p class="error-message">{{ errorMessage() }}</p>
+  }
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (exams().length === 0) {
+    <p>You have no exams yet. Open the link in your invitation e-mail to add one.</p>
+  } @else {
+    @for (exam of exams(); track exam.examId) {
+      <div class="card">
+        <h3>
+          {{ exam.name }}
+          <span class="badge" [class.badge--active]="exam.state === 'Open'" [class.badge--inactive]="exam.state !== 'Open'">
+            {{ exam.state === 'NotOpen' ? 'Not open yet' : exam.state === 'Open' ? 'Open' : 'Closed' }}
+          </span>
+        </h3>
+        @if (exam.description) {
+          <p>{{ exam.description }}</p>
+        }
+        <p>
+          Opens {{ exam.startUtc | date: 'medium' }}, closes {{ exam.endUtc | date: 'medium' }}<br />
+          {{ exam.questionCount }} questions{{ exam.durationSeconds ? ', ' + exam.durationSeconds / 60 + ' minutes' : '' }}
+        </p>
+      </div>
+    }
+  }
+</div>

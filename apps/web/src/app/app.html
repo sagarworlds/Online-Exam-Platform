@@ -2,6 +2,11 @@
   <a class="brand" routerLink="/">Online Exam Platform</a>
   <nav>
     @if (authSession.isAuthenticated()) {
+      <a routerLink="/my-exams">My exams</a>
+      <a routerLink="/invite">Redeem invite</a>
+      @for (section of adminSections(); track section.path) {
+        <a [routerLink]="section.path">{{ section.label }}</a>
+      }
       <a routerLink="/profile">Profile</a>
       <a routerLink="/consent">Consent</a>
       <button type="button" (click)="logout()">Log out</button>

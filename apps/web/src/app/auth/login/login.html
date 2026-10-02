@@ -33,7 +33,7 @@
   }
 
   <p class="link-row">
-    <a routerLink="/register">Create an account</a>
+    <a routerLink="/register" [queryParams]="registerQueryParams">Create an account</a>
     <a routerLink="/password-reset/request">Forgot password?</a>
   </p>
 </div>

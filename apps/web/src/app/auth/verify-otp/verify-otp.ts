@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AuthApiService } from '../auth-api.service';
 import { AuthSessionService } from '../auth-session.service';
+import { landingRoute } from '../landing-route';
 
 @Component({
   selector: 'app-verify-otp',
@@ -48,7 +49,7 @@ export class VerifyOtp {
         }
 
         this.authSession.login(result.accessToken);
-        this.router.navigateByUrl(this.queryParams.get('returnUrl') ?? '/profile');
+        this.router.navigateByUrl(this.queryParams.get('returnUrl') ?? landingRoute(this.authSession));
       },
       error: (error: unknown) => {
         this.submitting.set(false);
