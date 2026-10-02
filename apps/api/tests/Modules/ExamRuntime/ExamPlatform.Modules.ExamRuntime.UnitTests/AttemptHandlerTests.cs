@@ -47,6 +47,8 @@ public class AttemptHandlerTests
     private AttemptAccess Access => new(_attempts, _catalog, Closer, _clock);
     private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _unitOfWork, Access, Views, _clock);
     private SaveAnswerHandler Save => new(Access, _bank, _unitOfWork, _clock);
+    private ClearAnswerHandler Clear => new(Access, _unitOfWork, _clock);
+    private MarkQuestionHandler Mark => new(Access, _unitOfWork, _clock);
     private SubmitAttemptHandler Submit => new(Access, Closer, Views);
     private GetAttemptHandler Get => new(Access, Views);
 
@@ -270,6 +272,147 @@ public class AttemptHandlerTests
         Assert.Equal(AttemptStatus.Submitted, attempt.Status);
         Assert.True(attempt.AutoSubmitted);
         Assert.Empty(attempt.Answers);
+    }
+
+    // ---- clear a response --------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ClearAnswer_RemovesTheSavedChoiceAndSaves()
+    {
+        var attempt = OpenAttempt();
+        attempt.RecordAnswer(_q1.Id, _q1.Correct(), Fixtures.Now);
+        attempt.RecordAnswer(_q2.Id, _q2.Wrong(), Fixtures.Now);
+
+        await Clear.HandleAsync(attempt.Id, _candidate, _q1.Id, CancellationToken.None);
+
+        Assert.Equal(_q2.Id, Assert.Single(attempt.Answers).QuestionId);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ClearAnswer_ForAQuestionThatIsNotInTheExam_IsNotFound()
+    {
+        var attempt = OpenAttempt();
+        var outsider = Fixtures.Question();
+
+        var error = await Assert.ThrowsAsync<QuestionNotInAttemptError>(
+            () => Clear.HandleAsync(attempt.Id, _candidate, outsider.Id, CancellationToken.None));
+
+        Assert.Equal(404, error.HttpStatusCode);
+        Assert.Equal("question_not_in_attempt", error.ErrorCode);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ClearAnswer_ForSomeoneElsesAttempt_IsNotFound_AndKeepsTheirAnswer()
+    {
+        var attempt = OpenAttempt();
+        attempt.RecordAnswer(_q1.Id, _q1.Correct(), Fixtures.Now);
+
+        await Assert.ThrowsAsync<AttemptNotFoundError>(
+            () => Clear.HandleAsync(attempt.Id, Guid.NewGuid(), _q1.Id, CancellationToken.None));
+
+        Assert.Single(attempt.Answers);
+    }
+
+    [Fact]
+    public async Task ClearAnswer_AfterTheDeadline_ClosesTheAttemptKeepingTheAnswerItWasScoredWith()
+    {
+        var attempt = OpenAttempt(startedAt: Fixtures.Now.AddMinutes(-31), deadline: Fixtures.Now.AddMinutes(-1));
+        attempt.RecordAnswer(_q1.Id, _q1.Correct(), Fixtures.Now.AddMinutes(-20));
+
+        await Assert.ThrowsAsync<AttemptNotInProgressError>(
+            () => Clear.HandleAsync(attempt.Id, _candidate, _q1.Id, CancellationToken.None));
+
+        Assert.Equal(AttemptStatus.Submitted, attempt.Status);
+        Assert.Equal(1m, attempt.Score);
+        Assert.Single(attempt.Answers);
+    }
+
+    // ---- mark for review ---------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Mark_MarksTheQuestionAndSaves()
+    {
+        var attempt = OpenAttempt();
+
+        await Mark.HandleAsync(attempt.Id, _candidate, _q1.Id, marked: true, CancellationToken.None);
+
+        Assert.Equal(_q1.Id, Assert.Single(attempt.Marks).QuestionId);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Mark_Unmarking_TakesTheMarkOff()
+    {
+        var attempt = OpenAttempt();
+        attempt.SetMarked(_q1.Id, true, Fixtures.Now);
+
+        await Mark.HandleAsync(attempt.Id, _candidate, _q1.Id, marked: false, CancellationToken.None);
+
+        Assert.Empty(attempt.Marks);
+    }
+
+    [Fact]
+    public async Task Mark_ForAQuestionThatIsNotInTheExam_IsNotFound()
+    {
+        var attempt = OpenAttempt();
+
+        await Assert.ThrowsAsync<QuestionNotInAttemptError>(
+            () => Mark.HandleAsync(attempt.Id, _candidate, Guid.NewGuid(), marked: true, CancellationToken.None));
+
+        Assert.Empty(attempt.Marks);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Mark_ForSomeoneElsesAttempt_IsNotFound()
+    {
+        var attempt = OpenAttempt();
+
+        await Assert.ThrowsAsync<AttemptNotFoundError>(
+            () => Mark.HandleAsync(attempt.Id, Guid.NewGuid(), _q1.Id, marked: true, CancellationToken.None));
+
+        Assert.Empty(attempt.Marks);
+    }
+
+    [Fact]
+    public async Task Mark_AfterTheDeadline_ClosesTheAttemptAndRefusesTheMark()
+    {
+        var attempt = OpenAttempt(startedAt: Fixtures.Now.AddMinutes(-31), deadline: Fixtures.Now.AddMinutes(-1));
+
+        await Assert.ThrowsAsync<AttemptNotInProgressError>(
+            () => Mark.HandleAsync(attempt.Id, _candidate, _q1.Id, marked: true, CancellationToken.None));
+
+        Assert.Equal(AttemptStatus.Submitted, attempt.Status);
+        Assert.Empty(attempt.Marks);
+    }
+
+    [Fact]
+    public async Task Get_ShowsWhichQuestionsAreMarked_AlongsideTheirAnswers()
+    {
+        var attempt = OpenAttempt();
+        attempt.RecordAnswer(_q1.Id, _q1.Correct(), Fixtures.Now);
+        attempt.SetMarked(_q1.Id, true, Fixtures.Now);
+        attempt.SetMarked(_q2.Id, true, Fixtures.Now);
+
+        var dto = await Get.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+
+        var questions = Assert.Single(dto.Sections).Questions.ToDictionary(q => q.Id);
+        Assert.True(questions[_q1.Id].MarkedForReview);
+        Assert.Equal(_q1.Correct(), questions[_q1.Id].SelectedOptionId);
+        Assert.True(questions[_q2.Id].MarkedForReview);
+        Assert.Null(questions[_q2.Id].SelectedOptionId);
+    }
+
+    [Fact]
+    public async Task Get_ShowsAnUnmarkedQuestionAsNotMarked()
+    {
+        var attempt = OpenAttempt();
+
+        var dto = await Get.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+
+        Assert.All(Assert.Single(dto.Sections).Questions, q => Assert.False(q.MarkedForReview));
     }
 
     // ---- submit ------------------------------------------------------------------------------------------------

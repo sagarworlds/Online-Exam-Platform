@@ -16,6 +16,7 @@ namespace ExamPlatform.Modules.ExamRuntime.Domain;
 public sealed class Attempt : AggregateRoot
 {
     private readonly List<AttemptAnswer> _answers = [];
+    private readonly List<AttemptMark> _marks = [];
 
     /// <summary>The exam being taken.</summary>
     public Guid ExamId { get; private set; }
@@ -49,6 +50,9 @@ public sealed class Attempt : AggregateRoot
 
     /// <summary>The answers saved so far, at most one per question.</summary>
     public IReadOnlyList<AttemptAnswer> Answers => _answers.AsReadOnly();
+
+    /// <summary>The questions the candidate has marked for review, at most one mark per question. Marks never affect the score.</summary>
+    public IReadOnlyList<AttemptMark> Marks => _marks.AsReadOnly();
 
     // For EF Core.
     private Attempt() : base(Guid.Empty)
@@ -98,16 +102,54 @@ public sealed class Attempt : AggregateRoot
     /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
     public void RecordAnswer(Guid questionId, Guid selectedOptionId, DateTime nowUtc)
     {
-        if (Status != AttemptStatus.InProgress)
-            throw new AttemptNotInProgressError();
-        if (IsExpired(nowUtc))
-            throw new AttemptTimeExpiredError();
+        EnsureOpen(nowUtc);
 
         var existing = _answers.FirstOrDefault(a => a.QuestionId == questionId);
         if (existing is null)
             _answers.Add(new AttemptAnswer(Id, questionId, selectedOptionId, nowUtc));
         else
             existing.Change(selectedOptionId, nowUtc);
+    }
+
+    /// <summary>
+    /// Takes back the option a candidate chose for a question, so it counts as unanswered again ("clear response", FR-18).
+    /// Clearing a question with no answer does nothing: the candidate asked for "no answer" and that is what they have.
+    /// </summary>
+    /// <remarks>
+    /// The answer is removed rather than kept with an empty choice, so everything that reads answers keeps meaning
+    /// "a candidate chose this option": a cleared question is neither scored nor treated as answered.
+    /// </remarks>
+    /// <param name="questionId">The question to clear.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
+    /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
+    public void ClearAnswer(Guid questionId, DateTime nowUtc)
+    {
+        EnsureOpen(nowUtc);
+
+        var existing = _answers.FirstOrDefault(a => a.QuestionId == questionId);
+        if (existing is not null)
+            _answers.Remove(existing);
+    }
+
+    /// <summary>
+    /// Marks a question for review, or takes the mark off ("mark for review", FR-18). Safe to repeat: marking a marked
+    /// question, or unmarking an unmarked one, changes nothing. The caller has already checked that the question belongs to the exam.
+    /// </summary>
+    /// <param name="questionId">The question.</param>
+    /// <param name="marked">Whether it should be marked.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
+    /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
+    public void SetMarked(Guid questionId, bool marked, DateTime nowUtc)
+    {
+        EnsureOpen(nowUtc);
+
+        var existing = _marks.FirstOrDefault(m => m.QuestionId == questionId);
+        if (marked && existing is null)
+            _marks.Add(new AttemptMark(Id, questionId, nowUtc));
+        else if (!marked && existing is not null)
+            _marks.Remove(existing);
     }
 
     /// <summary>
@@ -130,5 +172,14 @@ public sealed class Attempt : AggregateRoot
         Score = score;
         MaxScore = maxScore;
         Status = AttemptStatus.Submitted;
+    }
+
+    /// <summary>The one rule every change to an open attempt shares: it must still be open, and its time must not have run out.</summary>
+    private void EnsureOpen(DateTime nowUtc)
+    {
+        if (Status != AttemptStatus.InProgress)
+            throw new AttemptNotInProgressError();
+        if (IsExpired(nowUtc))
+            throw new AttemptTimeExpiredError();
     }
 }

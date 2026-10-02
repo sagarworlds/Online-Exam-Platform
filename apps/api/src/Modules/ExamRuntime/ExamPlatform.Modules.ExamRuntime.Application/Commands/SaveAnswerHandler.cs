@@ -28,7 +28,7 @@ public sealed class SaveAnswerHandler(
 
         // Both ids come from the client, so neither is trusted: the question must be in this exam and the
         // option on that question, or an answer could be filed against anything.
-        if (!exam.Sections.Any(s => s.QuestionIds.Contains(questionId)))
+        if (!exam.Includes(questionId))
             throw new InvalidAnswerError();
 
         var question = (await questionBank.GetAsync([questionId], cancellationToken)).FirstOrDefault()

@@ -10,15 +10,17 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
     /// <inheritdoc />
     public void Add(Attempt attempt) => context.Attempts.Add(attempt);
 
-    // Tracked, with answers loaded, on purpose: the aggregate's rules read its answers, and handlers rely on
-    // change tracking to INSERT or UPDATE them; an explicit DbSet.Update would flag every answer Modified.
+    // Tracked, with answers and marks loaded, on purpose: the aggregate's rules read them, and handlers rely on
+    // change tracking to INSERT, UPDATE or DELETE them; an explicit DbSet.Update would flag every answer Modified.
     /// <inheritdoc />
     public Task<Attempt?> GetByIdAsync(Guid attemptId, CancellationToken cancellationToken) =>
-        context.Attempts.Include(a => a.Answers).FirstOrDefaultAsync(a => a.Id == attemptId, cancellationToken);
+        context.Attempts.Include(a => a.Answers).Include(a => a.Marks).FirstOrDefaultAsync(a => a.Id == attemptId, cancellationToken);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListForCandidateAtExamAsync(Guid examId, Guid candidateId, CancellationToken cancellationToken) =>
-        await context.Attempts.Include(a => a.Answers)
+        // Starting an exam again resumes an open attempt through this list, and what it shows is built from the attempt's
+        // answers and marks, so both are loaded: without the marks a resumed exam would forget what the candidate marked.
+        await context.Attempts.Include(a => a.Answers).Include(a => a.Marks)
             .Where(a => a.ExamId == examId && a.CandidateId == candidateId)
             .OrderBy(a => a.Number)
             .ToListAsync(cancellationToken);
