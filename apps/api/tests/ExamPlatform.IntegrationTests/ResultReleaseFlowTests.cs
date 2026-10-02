@@ -99,7 +99,8 @@ public sealed class ResultReleaseFlowTests(ApiFactory factory) : IClassFixture<A
         var first = released.GetProperty("config").GetProperty("resultReleaseTime").GetDateTime();
         var again = await JsonAsync((await admin.PostAsync($"/v1/exams/{examId}/results/release", content: null)).EnsureSuccessStatusCode());
 
-        Assert.Equal(first, again.GetProperty("config").GetProperty("resultReleaseTime").GetDateTime());
+        // The first answer carries the in-memory instant, the second the stored one; Postgres keeps microseconds, .NET ticks are finer.
+        Assert.Equal(first, again.GetProperty("config").GetProperty("resultReleaseTime").GetDateTime(), TimeSpan.FromMilliseconds(1));
         Assert.True(Math.Abs((first - DateTime.UtcNow).TotalMinutes) < 5);
     }
 
