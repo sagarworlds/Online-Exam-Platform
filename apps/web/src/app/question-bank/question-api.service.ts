@@ -2,7 +2,14 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { CreateQuestionRequest, QuestionDto, QuestionFilter } from './question.models';
+import {
+  CreateQuestionRequest,
+  FileQuestionsRequest,
+  FileQuestionsResult,
+  QuestionDto,
+  QuestionFilter,
+  UpdateQuestionRequest,
+} from './question.models';
 
 /** Thin HTTP wrapper over the QuestionBank module's /v1/questions endpoints. */
 @Injectable({ providedIn: 'root' })
@@ -19,7 +26,26 @@ export class QuestionApiService {
     return this.http.get<QuestionDto[]>(this.baseUrl, { params });
   }
 
+  get(id: string): Observable<QuestionDto> {
+    return this.http.get<QuestionDto>(`${this.baseUrl}/${id}`);
+  }
+
   create(request: CreateQuestionRequest): Observable<QuestionDto> {
     return this.http.post<QuestionDto>(this.baseUrl, request);
+  }
+
+  /** Replaces the question's content. Once candidates have answered it the API refuses anything but a wording change. */
+  update(id: string, request: UpdateQuestionRequest): Observable<QuestionDto> {
+    return this.http.put<QuestionDto>(`${this.baseUrl}/${id}`, request);
+  }
+
+  /** Deletes a question that no exam holds; the API refuses one that is in use. */
+  remove(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+
+  /** Files questions under a chapter, all of them or none. */
+  file(request: FileQuestionsRequest): Observable<FileQuestionsResult> {
+    return this.http.post<FileQuestionsResult>(`${this.baseUrl}/placement`, request);
   }
 }

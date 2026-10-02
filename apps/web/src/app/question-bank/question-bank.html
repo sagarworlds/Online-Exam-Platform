@@ -11,59 +11,11 @@
   <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="New question">
     <h2>New question</h2>
 
-    <div class="form-row form-row--pair">
-      <div class="field">
-        <label for="question-book">Book (optional)</label>
-        <select id="question-book" formControlName="bookId" (change)="onFormBookChanged()">
-          <option value="">Not filed under a book</option>
-          @for (book of openBooks(); track book.id) {
-            <option [value]="book.id">{{ book.name }}</option>
-          }
-        </select>
-      </div>
-      @if (formBookId()) {
-        <div class="field">
-          <label for="question-chapter">Chapter</label>
-          <select id="question-chapter" formControlName="chapterId">
-            <option value="">Choose a chapter…</option>
-            @for (chapter of formChapters(); track chapter.id) {
-              <option [value]="chapter.id">{{ chapter.order }}. {{ chapter.title }}</option>
-            }
-          </select>
-          @if (formChapters().length === 0) {
-            <span class="hint">This book has no open chapters. <a [routerLink]="['/admin/books', formBookId()]">Add one</a>.</span>
-          }
-        </div>
-      }
-    </div>
+    <app-book-chapter-picker [books]="books()" idPrefix="question" [(value)]="placement" />
 
-    <div class="field">
-      <label id="question-text-label" for="question-text">Question</label>
-      <app-rich-text-editor formControlName="text" inputId="question-text" labelledBy="question-text-label" />
-    </div>
+    <app-question-fields />
 
-    <fieldset class="field" formArrayName="options">
-      <legend>Options (pick the correct one)</legend>
-      @for (option of options.controls; track option; let i = $index) {
-        <div class="option-row" [formGroupName]="i">
-          <input
-            type="radio"
-            name="correct"
-            [value]="i"
-            [checked]="form.controls.correctIndex.value === i"
-            (change)="form.controls.correctIndex.setValue(i)"
-            [attr.aria-label]="'Option ' + (i + 1) + ' is correct'"
-          />
-          <input type="text" formControlName="text" [attr.aria-label]="'Option ' + (i + 1) + ' text'" />
-          <button type="button" (click)="removeOption(i)" [disabled]="options.length <= limits.minOptions">
-            Remove
-          </button>
-        </div>
-      }
-      <button type="button" (click)="addOption()" [disabled]="options.length >= limits.maxOptions">Add option</button>
-    </fieldset>
-
-    <button type="submit" class="primary" [disabled]="form.invalid || saving()">Save question</button>
+    <button type="submit" class="primary" [disabled]="form.invalid || !placementComplete() || saving()">Save question</button>
   </form>
 
   <div class="page-header">

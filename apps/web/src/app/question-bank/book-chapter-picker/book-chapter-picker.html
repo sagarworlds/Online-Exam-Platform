@@ -1,0 +1,25 @@
+<div class="form-row form-row--pair">
+  <div class="field">
+    <label [for]="idPrefix() + '-book'">{{ bookLabel() }}</label>
+    <select [id]="idPrefix() + '-book'" (change)="chooseBook($any($event.target).value)">
+      <option value="" [selected]="!value().bookId">{{ noBookLabel() }}</option>
+      @for (book of openBooks(); track book.id) {
+        <option [value]="book.id" [selected]="book.id === value().bookId">{{ book.name }}</option>
+      }
+    </select>
+  </div>
+  @if (value().bookId) {
+    <div class="field">
+      <label [for]="idPrefix() + '-chapter'">Chapter</label>
+      <select [id]="idPrefix() + '-chapter'" (change)="chooseChapter($any($event.target).value)">
+        <option value="" [selected]="!value().chapterId">Choose a chapter…</option>
+        @for (chapter of openChapters(); track chapter.id) {
+          <option [value]="chapter.id" [selected]="chapter.id === value().chapterId">{{ chapter.order }}. {{ chapter.title }}</option>
+        }
+      </select>
+      @if (openChapters().length === 0) {
+        <span class="hint">This book has no open chapters. <a [routerLink]="['/admin/books', value().bookId]">Add one</a>.</span>
+      }
+    </div>
+  }
+</div>

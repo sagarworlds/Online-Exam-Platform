@@ -1,12 +1,13 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { BookApiService } from '../book-management/book-api.service';
 import { BookDto } from '../book-management/book.models';
 import { extractErrorMessage } from '../shared/problem-details';
-import { RichTextEditor } from '../shared/rich-text/rich-text-editor';
+import { BookChapterPicker, isCompletePlacement, NO_PLACEMENT, Placement } from './book-chapter-picker/book-chapter-picker';
 import { QuestionApiService } from './question-api.service';
-import { CreateQuestionRequest, QUESTION_LIMITS, QuestionDto, QuestionFilter } from './question.models';
+import { createQuestionForm, newOption, toNewOptions } from './question-form';
+import { QuestionFields } from './question-fields/question-fields';
+import { CreateQuestionRequest, QuestionDto, QuestionFilter } from './question.models';
 
 /** The value of the list filter's book select that means "questions not filed under any chapter". */
 export const UNFILED = 'unfiled';
@@ -17,7 +18,7 @@ export const UNFILED = 'unfiled';
  */
 @Component({
   selector: 'app-question-bank',
-  imports: [ReactiveFormsModule, RichTextEditor, RouterLink],
+  imports: [ReactiveFormsModule, BookChapterPicker, QuestionFields],
   templateUrl: './question-bank.html',
 })
 export class QuestionBank {
@@ -25,7 +26,6 @@ export class QuestionBank {
   private readonly api = inject(QuestionApiService);
   private readonly bookApi = inject(BookApiService);
 
-  protected readonly limits = QUESTION_LIMITS;
   protected readonly unfiled = UNFILED;
   protected readonly questions = signal<QuestionDto[]>([]);
   protected readonly loading = signal(true);
@@ -35,29 +35,20 @@ export class QuestionBank {
 
   /** Every book, archived ones included: the list filter must reach questions filed under them. */
   protected readonly books = signal<BookDto[]>([]);
-  /** Books a new question may be filed under: an archived book takes nothing new. */
-  protected readonly openBooks = computed(() => this.books().filter((book) => !book.isArchived));
 
-  /** The book chosen in the form, which decides the chapters offered there. */
-  protected readonly formBookId = signal('');
-  protected readonly formChapters = computed(
-    () => this.books().find((book) => book.id === this.formBookId())?.chapters.filter((chapter) => !chapter.isArchived) ?? [],
-  );
+  /**
+   * Where the new question is filed. A book needs a chapter, because a question belongs to a chapter, not a book.
+   * It survives saving: an author enters many questions into one chapter in a row.
+   */
+  protected readonly placement = signal<Placement>(NO_PLACEMENT);
+  protected readonly placementComplete = computed(() => isCompletePlacement(this.placement()));
 
   /** The list filter: a book id, {@link UNFILED}, or '' for everything; and a chapter id or ''. */
   protected readonly filterBook = signal('');
   protected readonly filterChapter = signal('');
   protected readonly filterChapters = computed(() => this.books().find((book) => book.id === this.filterBook())?.chapters ?? []);
 
-  protected readonly form = this.formBuilder.nonNullable.group({
-    // Where the new question is filed. A book needs a chapter, because a question belongs to a chapter, not a book.
-    bookId: [''],
-    chapterId: [''],
-    text: ['', Validators.required],
-    // Which option is the right answer, as a radio value; -1 until the author picks one.
-    correctIndex: [-1, Validators.min(0)],
-    options: this.formBuilder.array([this.newOption(), this.newOption()]),
-  });
+  protected readonly form = createQuestionForm(this.formBuilder);
 
   constructor() {
     this.refresh();
@@ -65,14 +56,6 @@ export class QuestionBank {
       next: (books) => this.books.set(books),
       error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
     });
-  }
-
-  protected onFormBookChanged(): void {
-    const { bookId, chapterId } = this.form.controls;
-    this.formBookId.set(bookId.value);
-    chapterId.setValue('');
-    chapterId.setValidators(bookId.value ? Validators.required : null);
-    chapterId.updateValueAndValidity();
   }
 
   protected onFilterBookChanged(value: string): void {
@@ -86,44 +69,15 @@ export class QuestionBank {
     this.refresh();
   }
 
-  protected get options(): FormArray {
-    return this.form.controls.options;
-  }
-
-  protected addOption(): void {
-    if (this.options.length < QUESTION_LIMITS.maxOptions) {
-      this.options.push(this.newOption());
-    }
-  }
-
-  protected removeOption(index: number): void {
-    if (this.options.length <= QUESTION_LIMITS.minOptions) {
-      return;
-    }
-
-    this.options.removeAt(index);
-    // Keep the chosen answer pointing at the same option after the list shifts.
-    const chosen = this.form.controls.correctIndex.value;
-    if (chosen === index) {
-      this.form.controls.correctIndex.setValue(-1);
-    } else if (chosen > index) {
-      this.form.controls.correctIndex.setValue(chosen - 1);
-    }
-  }
-
   protected submit(): void {
-    if (this.form.invalid || this.saving()) {
+    if (this.form.invalid || !this.placementComplete() || this.saving()) {
       return;
     }
 
-    const { text, correctIndex, options, chapterId } = this.form.getRawValue();
     const request: CreateQuestionRequest = {
-      text,
-      chapterId: chapterId || null,
-      options: options.map((option: { text: string }, index: number) => ({
-        text: option.text,
-        isCorrect: index === correctIndex,
-      })),
+      text: this.form.getRawValue().text,
+      chapterId: this.placement().chapterId || null,
+      options: toNewOptions(this.form),
     };
 
     this.saving.set(true);
@@ -171,15 +125,9 @@ export class QuestionBank {
   }
 
   private resetForm(): void {
-    // The book and chapter stay: an author enters many questions into one chapter in a row.
-    const { bookId, chapterId } = this.form.getRawValue();
-    this.form.reset({ bookId, chapterId, text: '', correctIndex: -1 });
-    this.options.clear();
-    this.options.push(this.newOption());
-    this.options.push(this.newOption());
-  }
-
-  private newOption() {
-    return this.formBuilder.nonNullable.group({ text: ['', Validators.required] });
+    this.form.reset({ text: '', correctIndex: -1 });
+    this.form.controls.options.clear();
+    this.form.controls.options.push(newOption(this.formBuilder));
+    this.form.controls.options.push(newOption(this.formBuilder));
   }
 }

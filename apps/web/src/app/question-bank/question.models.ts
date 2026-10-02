@@ -5,6 +5,16 @@ export interface QuestionOptionDto {
   isCorrect: boolean;
 }
 
+/** Where a question is in use, which decides what an author may still do to it. */
+export interface QuestionUsageDto {
+  /** How many exams contain the question; such a question cannot be deleted. */
+  examCount: number;
+  /** The names of some of those exams, at most five; `examCount` is always the full number. */
+  examNames: string[];
+  /** Whether a candidate has answered it; its answer key and option list can then no longer change. */
+  answered: boolean;
+}
+
 /** A question with its answer key (FR-5). Only authors get this shape; candidates never see `isCorrect`. */
 export interface QuestionDto {
   id: string;
@@ -18,6 +28,7 @@ export interface QuestionDto {
   chapterTitle: string | null;
   bookId: string | null;
   bookName: string | null;
+  usage: QuestionUsageDto;
 }
 
 /** The body of POST /v1/questions. The author is the caller, so it carries no user id. */
@@ -27,6 +38,29 @@ export interface CreateQuestionRequest {
   options: { text: string; isCorrect: boolean }[];
   /** The chapter to file the question under; null leaves it unfiled. */
   chapterId: string | null;
+}
+
+/** The body of PUT /v1/questions/{id}: the question's whole new content, not a patch. */
+export interface UpdateQuestionRequest {
+  text: string;
+  /** All the options after the edit, in display order. An option the question already has keeps its `id`; a new one has none. */
+  options: { id: string | null; text: string; isCorrect: boolean }[];
+}
+
+/** The body of POST /v1/questions/placement: one question is a bulk of one. */
+export interface FileQuestionsRequest {
+  questionIds: string[];
+  chapterId: string;
+}
+
+/** What filing did. */
+export interface FileQuestionsResult {
+  /** How many questions changed place; one already in the chapter is not counted. */
+  moved: number;
+  chapterId: string;
+  chapterTitle: string;
+  bookId: string;
+  bookName: string;
 }
 
 /** Narrows the question list. `unfiled` and a book or chapter are alternatives; a chapter implies its book. */
