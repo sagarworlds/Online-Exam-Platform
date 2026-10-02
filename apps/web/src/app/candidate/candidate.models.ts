@@ -62,12 +62,14 @@ export interface AttemptOptionDto {
   text: string;
 }
 
-/** A question as the candidate sees it, with the option they have saved so far. */
+/** A question as the candidate sees it, with the option they have saved so far and whether they marked it to come back to. */
 export interface AttemptQuestionDto {
   id: string;
   text: string;
   options: AttemptOptionDto[];
   selectedOptionId: string | null;
+  /** A note to themselves only: it never affects the score. */
+  markedForReview: boolean;
 }
 
 /** A section of the exam. */

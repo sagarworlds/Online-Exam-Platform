@@ -35,6 +35,7 @@ describe('ExamAttempt', () => {
               { id: 'o2', text: '5' },
             ],
             selectedOptionId: null,
+            markedForReview: false,
           },
           {
             id: 'q2',
@@ -44,6 +45,7 @@ describe('ExamAttempt', () => {
               { id: 'o4', text: 'Rome' },
             ],
             selectedOptionId: 'o3',
+            markedForReview: false,
           },
         ],
       },
@@ -197,6 +199,229 @@ describe('ExamAttempt', () => {
 
     expect(radios(fixture).map((r) => r.checked)).toEqual([true, false]);
     expect(textOf(fixture)).toContain('could not be saved');
+  });
+
+  describe('clearing a response', () => {
+    const clearButton = (fixture: ComponentFixture<ExamAttempt>) => buttonLabelled(fixture, 'Clear response') as HTMLButtonElement;
+
+    it('is only on offer for a question that has an answer', async () => {
+      const fixture = await open(attempt());
+      expect(clearButton(fixture).disabled).toBe(true); // q1 has none
+
+      buttonLabelled(fixture, 'Next')?.click();
+      fixture.detectChanges();
+
+      expect(clearButton(fixture).disabled).toBe(false); // q2 is answered
+    });
+
+    it('takes the answer back at once and tells the server', async () => {
+      const fixture = await open(attempt());
+      buttonLabelled(fixture, 'Next')?.click();
+      fixture.detectChanges();
+
+      clearButton(fixture).click();
+      fixture.detectChanges();
+
+      expect(radios(fixture).map((r) => r.checked)).toEqual([false, false]);
+      expect(textOf(fixture)).toContain('0 of 2 answered');
+      const call = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q2'));
+      expect(call.request.method).toBe('DELETE');
+      call.flush(null, { status: 204, statusText: 'No Content' });
+      fixture.detectChanges();
+      expect(clearButton(fixture).disabled).toBe(true);
+    });
+
+    it('puts the answer back and says so when the server could not clear it', async () => {
+      const fixture = await open(attempt());
+      buttonLabelled(fixture, 'Next')?.click();
+      fixture.detectChanges();
+
+      clearButton(fixture).click();
+      httpMock.expectOne((r) => r.url.endsWith('/answers/q2')).flush(null, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(radios(fixture).map((r) => r.checked)).toEqual([true, false]);
+      expect(textOf(fixture)).toContain('could not be cleared');
+    });
+
+    it('reloads when the attempt has just ended, as a refused save does', async () => {
+      const fixture = await open(attempt());
+      buttonLabelled(fixture, 'Next')?.click();
+      fixture.detectChanges();
+
+      clearButton(fixture).click();
+      httpMock
+        .expectOne((r) => r.url.endsWith('/answers/q2'))
+        .flush({ title: 'attempt_not_in_progress', detail: 'This attempt has already been submitted.' }, { status: 409, statusText: 'Conflict' });
+      httpMock
+        .expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET')
+        .flush(attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [] }));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('1 / 2');
+    });
+  });
+
+  describe('marking for review', () => {
+    const markButton = (fixture: ComponentFixture<ExamAttempt>) => buttonLabelled(fixture, 'Mark for review') as HTMLButtonElement;
+    const palette = (fixture: ComponentFixture<ExamAttempt>) => Array.from(root(fixture).querySelectorAll<HTMLButtonElement>('.palette__item'));
+
+    it('marks the question at once, tells the server, and shows it in the palette and the count', async () => {
+      const fixture = await open(attempt());
+      expect(markButton(fixture).getAttribute('aria-pressed')).toBe('false');
+
+      markButton(fixture).click();
+      fixture.detectChanges();
+
+      expect(markButton(fixture).getAttribute('aria-pressed')).toBe('true');
+      expect(palette(fixture)[0].classList.contains('palette__item--marked')).toBe(true);
+      expect(textOf(fixture)).toContain('1 of 2 answered · 1 marked for review');
+      const call = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/marks/q1'));
+      expect(call.request.method).toBe('PUT');
+      call.flush(null, { status: 204, statusText: 'No Content' });
+    });
+
+    it('takes the mark off again with a second press', async () => {
+      const marked = attempt();
+      marked.sections[0].questions[0].markedForReview = true;
+      const fixture = await open(marked);
+      expect(markButton(fixture).getAttribute('aria-pressed')).toBe('true');
+
+      markButton(fixture).click();
+      fixture.detectChanges();
+
+      expect(markButton(fixture).getAttribute('aria-pressed')).toBe('false');
+      expect(palette(fixture)[0].classList.contains('palette__item--marked')).toBe(false);
+      const call = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/marks/q1'));
+      expect(call.request.method).toBe('DELETE');
+      call.flush(null, { status: 204, statusText: 'No Content' });
+    });
+
+    it('puts the mark back as it was and says so when the server could not save it', async () => {
+      const fixture = await open(attempt());
+
+      markButton(fixture).click();
+      fixture.detectChanges();
+      httpMock.expectOne((r) => r.url.endsWith('/marks/q1')).flush(null, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(markButton(fixture).getAttribute('aria-pressed')).toBe('false');
+      expect(textOf(fixture)).toContain('review mark could not be saved');
+    });
+
+    it('does not touch the answer: an answered question can be marked, and stays answered', async () => {
+      const fixture = await open(attempt());
+      buttonLabelled(fixture, 'Next')?.click();
+      fixture.detectChanges();
+
+      markButton(fixture).click();
+      fixture.detectChanges();
+      httpMock.expectOne((r) => r.url.endsWith('/marks/q2')).flush(null, { status: 204, statusText: 'No Content' });
+
+      expect(radios(fixture).map((r) => r.checked)).toEqual([true, false]);
+      expect(textOf(fixture)).toContain('1 of 2 answered');
+    });
+
+    it('reloads when the attempt has just ended', async () => {
+      const fixture = await open(attempt());
+
+      markButton(fixture).click();
+      httpMock
+        .expectOne((r) => r.url.endsWith('/marks/q1'))
+        .flush({ title: 'attempt_not_in_progress', detail: 'This attempt has already been submitted.' }, { status: 409, statusText: 'Conflict' });
+      httpMock
+        .expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET')
+        .flush(attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [] }));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('1 / 2');
+    });
+
+    it('says in the submit question how many are marked, so none is forgotten', async () => {
+      const marked = attempt();
+      marked.sections[0].questions[0].markedForReview = true;
+      marked.sections[0].questions[1].markedForReview = true;
+      const fixture = await open(marked);
+
+      buttonLabelled(fixture, 'Submit exam')?.click();
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Submit now? 1 of 2 questions are answered.');
+      expect(textOf(fixture)).toContain('2 questions are marked for review.');
+    });
+
+    it('says "1 question is" for a single mark, and nothing at all when none is marked', async () => {
+      const one = attempt();
+      one.sections[0].questions[0].markedForReview = true;
+      const fixture = await open(one);
+      buttonLabelled(fixture, 'Submit exam')?.click();
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('1 question is marked for review.');
+      httpMock.verify();
+      TestBed.resetTestingModule();
+
+      const none = await open(attempt());
+      buttonLabelled(none, 'Submit exam')?.click();
+      none.detectChanges();
+      expect(textOf(none)).not.toContain('marked for review');
+    });
+  });
+
+  describe('the question palette', () => {
+    const palette = (fixture: ComponentFixture<ExamAttempt>) => Array.from(root(fixture).querySelectorAll<HTMLButtonElement>('.palette__item'));
+    const labels = (fixture: ComponentFixture<ExamAttempt>) => palette(fixture).map((b) => b.getAttribute('aria-label'));
+
+    it('tells a question not yet visited from one seen but not answered, in words as well as colour', async () => {
+      const fixture = await open(attempt({
+        sections: [{
+          id: 's1',
+          name: 'Section A',
+          questions: ['q1', 'q2', 'q3'].map((id) => ({
+            id, text: id, options: [{ id: `${id}-a`, text: 'A' }], selectedOptionId: null, markedForReview: false,
+          })),
+        }],
+      }));
+      // The first question is on screen, so it has been seen; the others have not.
+      expect(labels(fixture)).toEqual(['Question 1, not answered', 'Question 2, not visited', 'Question 3, not visited']);
+      expect(palette(fixture).map((b) => b.classList.contains('palette__item--seen'))).toEqual([true, false, false]);
+
+      buttonLabelled(fixture, 'Next')?.click();
+      fixture.detectChanges();
+
+      expect(labels(fixture)).toEqual(['Question 1, not answered', 'Question 2, not answered', 'Question 3, not visited']);
+    });
+
+    it('gives each of the five states its own wording', async () => {
+      const make = (id: string, selected: string | null, marked: boolean) => ({
+        id, text: id, options: [{ id: `${id}-a`, text: 'A' }], selectedOptionId: selected, markedForReview: marked,
+      });
+      const fixture = await open(attempt({
+        sections: [{
+          id: 's1',
+          name: 'Section A',
+          questions: [make('q1', null, false), make('q2', 'q2-a', false), make('q3', null, true), make('q4', 'q4-a', true), make('q5', null, false)],
+        }],
+      }));
+
+      expect(labels(fixture)).toEqual([
+        'Question 1, not answered',
+        'Question 2, answered',
+        'Question 3, marked for review',
+        'Question 4, answered and marked for review',
+        'Question 5, not visited',
+      ]);
+      // Marked and answered keeps the answered look and adds the marked dot; the classes carry both.
+      expect(palette(fixture)[3].classList.contains('palette__item--answered')).toBe(true);
+      expect(palette(fixture)[3].classList.contains('palette__item--marked')).toBe(true);
+    });
+
+    it('lists all of the states in the legend', async () => {
+      const fixture = await open(attempt());
+
+      const legend = Array.from(root(fixture).querySelectorAll('.palette-legend li')).map((li) => li.textContent?.trim());
+
+      expect(legend).toEqual(['Answered', 'Not answered', 'Not visited', 'Marked for review', 'Current']);
+    });
   });
 
   it('asks before submitting, then shows the score', async () => {

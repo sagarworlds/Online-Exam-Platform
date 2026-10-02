@@ -134,6 +134,17 @@
   box-shadow: var(--focus-ring);
 }
 
+.exam-tools {
+  margin-top: 1rem;
+}
+
+/* "Mark for review" is a switch: pressed means this question is marked. */
+.exam-tools button[aria-pressed='true'] {
+  background: var(--warning-soft);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
 .exam-pager {
   display: flex;
   justify-content: space-between;
@@ -165,12 +176,38 @@
 }
 
 .palette__item {
+  position: relative;
   padding: 0;
   height: 2.5rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
+/* Seen but not answered: a dashed edge, so it is told apart from a question not yet visited without depending on colour. */
+.palette__item--seen {
+  border-style: dashed;
+  border-color: var(--text-muted);
+}
+
+/* Marked for review. The corner dot is what says "marked", so it shows on an answered question too (green, with a dot). */
+.palette__item--marked {
+  background: var(--warning-soft);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.palette__item--marked::after {
+  content: '';
+  position: absolute;
+  top: 0.2rem;
+  inset-inline-end: 0.2rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--warning);
+}
+
+/* After the marked rule on purpose: answered wins the fill, and the dot still says it is marked too. */
 .palette__item--answered {
   background: var(--success-soft);
   border-color: var(--success);
@@ -207,6 +244,16 @@
 .palette-legend .legend--answered::before {
   background: var(--success-soft);
   border-color: var(--success);
+}
+
+.palette-legend .legend--seen::before {
+  border-style: dashed;
+  border-color: var(--text-muted);
+}
+
+.palette-legend .legend--marked::before {
+  background: var(--warning-soft);
+  border-color: var(--warning);
 }
 
 .palette-legend .legend--current::before {
