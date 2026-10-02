@@ -103,3 +103,12 @@
   padding: 0.6rem 0.75rem;
   outline: none;
 }
+
+.rich-editor__content img.ProseMirror-selectednode {
+  outline: 2px solid var(--primary);
+}
+
+.rich-editor__error {
+  margin: 0;
+  padding: 0.4rem 0.75rem 0;
+}

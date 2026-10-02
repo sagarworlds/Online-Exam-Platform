@@ -1,7 +1,9 @@
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { beforeAll } from 'vitest';
+import { beforeAll, vi } from 'vitest';
+import { ImageRejectedError } from './image-limits';
+import { IMAGE_PREPARER, ImagePreparer } from './image-resizer';
 import { RichTextEditor } from './rich-text-editor';
 
 @Component({
@@ -21,8 +23,13 @@ describe('RichTextEditor', () => {
     document.elementFromPoint = () => null;
   });
 
-  async function open(initial = ''): Promise<{ fixture: ComponentFixture<Host>; root: HTMLElement; host: Host; editor: NonNullable<RichTextEditor['editor']> }> {
-    await TestBed.configureTestingModule({ imports: [Host] }).compileComponents();
+  const PICTURE = 'data:image/png;base64,AAAA';
+
+  async function open(
+    initial = '',
+    prepare: ImagePreparer = () => Promise.resolve(PICTURE),
+  ): Promise<{ fixture: ComponentFixture<Host>; root: HTMLElement; host: Host; editor: NonNullable<RichTextEditor['editor']> }> {
+    await TestBed.configureTestingModule({ imports: [Host], providers: [{ provide: IMAGE_PREPARER, useValue: prepare }] }).compileComponents();
     const fixture = TestBed.createComponent(Host);
     fixture.componentInstance.control.setValue(initial);
     fixture.detectChanges();
@@ -37,12 +44,23 @@ describe('RichTextEditor', () => {
 
   const button = (root: HTMLElement, label: string) => root.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement;
 
+  /** Chooses a file in the toolbar's picker the way the browser would, then lets the async work finish. */
+  async function pick(fixture: ComponentFixture<Host>, root: HTMLElement, file = new File(['x'], 'p.png', { type: 'image/png' })): Promise<void> {
+    const input = root.querySelector('input[type="file"]') as HTMLInputElement;
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    input.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
   it('offers the formatting a question can carry, none of it pressed to start with', async () => {
     const { root } = await open();
 
-    const labels = Array.from(root.querySelectorAll('[role="toolbar"] button')).map((b) => b.getAttribute('aria-label'));
-    expect(labels).toEqual(['Bold', 'Italic', 'Underline', 'Subscript', 'Superscript', 'Bulleted list', 'Numbered list']);
-    expect(Array.from(root.querySelectorAll('[role="toolbar"] button')).every((b) => b.getAttribute('aria-pressed') === 'false')).toBe(true);
+    // The formatting buttons are toggles and report whether they apply; the image button is an action, not a toggle.
+    const toggles = Array.from(root.querySelectorAll('[role="toolbar"] button[aria-pressed]'));
+    expect(toggles.map((b) => b.getAttribute('aria-label'))).toEqual(['Bold', 'Italic', 'Underline', 'Subscript', 'Superscript', 'Bulleted list', 'Numbered list']);
+    expect(toggles.every((b) => b.getAttribute('aria-pressed') === 'false')).toBe(true);
+    expect(button(root, 'Insert image').hasAttribute('aria-pressed')).toBe(false);
   });
 
   it('shows the value the form already holds', async () => {
@@ -99,6 +117,95 @@ describe('RichTextEditor', () => {
     button(root, 'Bulleted list').click();
 
     expect(host.control.value).toBe('<ul><li><p>one</p></li></ul>');
+  });
+
+  it('has an image button that opens the file picker, which offers only the picture types the server takes', async () => {
+    const { root } = await open();
+    const input = root.querySelector('input[type="file"]') as HTMLInputElement;
+    const opened = vi.spyOn(input, 'click');
+
+    button(root, 'Insert image').click();
+
+    expect(opened).toHaveBeenCalled();
+    expect(input.accept).toContain('image/png');
+    expect(input.accept).not.toContain('svg');
+  });
+
+  it('adds a chosen picture to the text', async () => {
+    const { fixture, root, host } = await open('<p>Which shape?</p>');
+
+    await pick(fixture, root);
+
+    expect(host.control.value).toContain(`<img src="${PICTURE}" alt="Question image">`);
+    expect(root.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('says why a picture cannot be used, and adds nothing', async () => {
+    const { fixture, root, host } = await open('<p>Q</p>', () => Promise.reject(new ImageRejectedError('Use a PNG, JPEG, GIF or WebP picture.')));
+
+    await pick(fixture, root);
+
+    expect(root.querySelector('[role="alert"]')?.textContent).toContain('Use a PNG, JPEG, GIF or WebP picture.');
+    expect(host.control.value).toBe('<p>Q</p>');
+    expect(root.querySelector('.rich-editor__content img')).toBeNull();
+  });
+
+  it('tells the author, and logs the cause, when preparing a picture fails for another reason', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { fixture, root } = await open('', () => Promise.reject(new Error('canvas exploded')));
+
+    await pick(fixture, root);
+
+    expect(root.querySelector('[role="alert"]')?.textContent).toContain('could not be added');
+    expect(logged).toHaveBeenCalled();
+    logged.mockRestore();
+  });
+
+  it('adds a second picture after the first instead of replacing it', async () => {
+    let n = 0;
+    const { fixture, root, host } = await open('<p>Which shape?</p>', () => Promise.resolve(`data:image/png;base64,AAA${++n}`));
+
+    await pick(fixture, root);
+    await pick(fixture, root);
+    await pick(fixture, root);
+
+    const pictures = host.control.value.match(/<img /g) ?? [];
+    expect(pictures.length).toBe(3);
+    expect(host.control.value).toContain('AAA1');
+    expect(host.control.value).toContain('AAA2');
+    expect(host.control.value).toContain('AAA3');
+  });
+
+  it('does not store the empty paragraph the editor keeps after a picture or list', async () => {
+    const { fixture, root, host } = await open('<p>Which shape?</p>');
+
+    await pick(fixture, root);
+
+    expect(host.control.value).not.toMatch(/<p><\/p>$/);
+    expect(host.control.value.endsWith('>')).toBe(true);
+  });
+
+  it('refuses a sixth picture without preparing it', async () => {
+    const prepare = vi.fn(() => Promise.resolve(PICTURE));
+    const { fixture, root, editor } = await open('', prepare);
+    editor.commands.setContent(Array.from({ length: 5 }, () => `<img src="${PICTURE}">`).join(''), { emitUpdate: false });
+
+    await pick(fixture, root);
+
+    expect(prepare).not.toHaveBeenCalled();
+    expect(root.querySelector('[role="alert"]')?.textContent).toContain('at most 5 pictures');
+  });
+
+  it('clears an earlier complaint when the next picture is fine', async () => {
+    let fail = true;
+    const { fixture, root } = await open('', () => (fail ? Promise.reject(new ImageRejectedError('Nope.')) : Promise.resolve(PICTURE)));
+    await pick(fixture, root);
+    expect(root.querySelector('[role="alert"]')).not.toBeNull();
+
+    fail = false;
+    await pick(fixture, root);
+
+    expect(root.querySelector('[role="alert"]')).toBeNull();
   });
 
   it('has no way to make a heading or a link, which the server would strip', async () => {

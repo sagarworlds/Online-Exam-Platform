@@ -14,6 +14,20 @@
         {{ action.glyph }}
       </button>
     }
+    <button
+      type="button"
+      aria-label="Insert image"
+      title="Insert image"
+      [disabled]="disabled()"
+      (mousedown)="$event.preventDefault()"
+      (click)="picker.click()"
+    >
+      Image
+    </button>
+    <input #picker type="file" hidden [accept]="acceptedImageTypes" (change)="onImagePicked($event)" />
   </div>
+  @if (imageError(); as message) {
+    <p class="field-error rich-editor__error" role="alert">{{ message }}</p>
+  }
   <div #host class="rich-editor__host"></div>
 </div>
