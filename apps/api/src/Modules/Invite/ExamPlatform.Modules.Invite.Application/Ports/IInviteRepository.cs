@@ -36,6 +36,11 @@ public interface IInviteRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Guid>> ListAcceptedExamIdsAsync(Guid userId, CancellationToken cancellationToken = default);
 
+    /// <summary>The invites to an exam that have been accepted, without tracking, for read-only display.</summary>
+    /// <param name="examId">The exam.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<InviteAggregate>> ListAcceptedForExamAsync(Guid examId, CancellationToken cancellationToken = default);
+
     /// <summary>Whether the user has accepted an invite to the exam.</summary>
     /// <param name="userId">The accepting user.</param>
     /// <param name="examId">The exam.</param>

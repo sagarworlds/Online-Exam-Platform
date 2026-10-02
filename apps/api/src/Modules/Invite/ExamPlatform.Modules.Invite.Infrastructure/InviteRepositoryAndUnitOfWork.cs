@@ -41,6 +41,12 @@ public sealed class EFInviteRepository(InviteDbContext context) : IInviteReposit
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<InviteAggregate>> ListAcceptedForExamAsync(Guid examId, CancellationToken cancellationToken = default) =>
+        await context.Invites.AsNoTracking()
+            .Where(i => i.ExamId == examId && i.Status == InviteStatus.Accepted)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<bool> HasAcceptedAsync(Guid userId, Guid examId, CancellationToken cancellationToken = default) =>
         await context.Invites.AsNoTracking()
             .AnyAsync(i => i.AcceptedByUserId == userId && i.ExamId == examId && i.Status == InviteStatus.Accepted, cancellationToken);
