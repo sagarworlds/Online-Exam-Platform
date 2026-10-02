@@ -31,12 +31,12 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
     /// <summary>An administrator, a published exam with the given questions, and a candidate who has accepted their invitation to it.</summary>
     private async Task<(HttpClient Admin, HttpClient Candidate, Guid ExamId, IReadOnlyList<Question> Questions)> EnrolledCandidateAsync(
-        int questionCount = 2, TimeSpan? startsIn = null, int? durationMinutes = 60)
+        int questionCount = 2, TimeSpan? startsIn = null, int? durationMinutes = 60, string? firstQuestionText = null)
     {
         var admin = await factory.AdminClientAsync();
         var questions = new List<Question>();
         for (var i = 1; i <= questionCount; i++)
-            questions.Add(await CreateTwoOptionQuestionAsync(admin, $"Question {i}?"));
+            questions.Add(await CreateTwoOptionQuestionAsync(admin, i == 1 && firstQuestionText is not null ? firstQuestionText : $"Question {i}?"));
 
         var examId = await CreateExamAsync(
             admin, "Taking Flow Exam", questions.Select(q => q.Id).ToList(), startsIn ?? TimeSpan.FromMinutes(-5), durationMinutes: durationMinutes);
@@ -61,6 +61,21 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(status, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(code, body.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task TheCandidate_SeesTheFormattedQuestion_WithNothingExecutableAndNoAnswerKey()
+    {
+        var (admin, candidate, examId, _) = await EnrolledCandidateAsync(
+            questionCount: 1, firstQuestionText: "<p>Pick <strong>one</strong><img src=x onerror=alert(1)><script>alert(2)</script></p>");
+        using var _a = admin;
+        using var _c = candidate;
+
+        var attempt = await StartAsync(candidate, examId);
+
+        var question = attempt.GetProperty("sections")[0].GetProperty("questions")[0];
+        Assert.Equal("<p>Pick <strong>one</strong></p>", question.GetProperty("text").GetString());
+        Assert.DoesNotContain("isCorrect", attempt.GetRawText());
     }
 
     [Fact]

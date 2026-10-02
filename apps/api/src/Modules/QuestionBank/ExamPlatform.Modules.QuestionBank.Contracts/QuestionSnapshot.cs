@@ -2,7 +2,7 @@ namespace ExamPlatform.Modules.QuestionBank.Contracts;
 
 /// <summary>A question as another module sees it.</summary>
 /// <param name="Id">The question's id.</param>
-/// <param name="Text">The question text.</param>
+/// <param name="Text">The question text, as sanitized HTML.</param>
 /// <param name="Options">The answer options, in display order.</param>
 public sealed record QuestionSnapshot(Guid Id, string Text, IReadOnlyList<QuestionOptionSnapshot> Options);
 

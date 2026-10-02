@@ -40,9 +40,9 @@ public class QuestionTests
     }
 
     [Fact]
-    public void Create_WithTooLongText_Throws() =>
+    public void Create_WithTextLargerThanTheHtmlCeiling_Throws() =>
         Assert.Throws<InvalidQuestionError>(() =>
-            Question.Create(new string('x', Question.MaxTextLength + 1), TwoOptions(), Author, Now));
+            Question.Create(new string('x', Question.MaxHtmlLength + 1), TwoOptions(), Author, Now));
 
     [Fact]
     public void Create_WithoutOptions_Throws() =>

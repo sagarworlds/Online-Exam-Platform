@@ -89,6 +89,8 @@ public sealed class QuestionBankFlowTests(ApiFactory factory) : IClassFixture<Ap
     [InlineData("no correct")]
     [InlineData("one option")]
     [InlineData("blank text")]
+    [InlineData("empty markup")]
+    [InlineData("script only")]
     public async Task Create_WithABrokenQuestion_Returns400InvalidQuestion(string scenario)
     {
         using var client = await ClientForAsync(RbacCatalog.RoleNames.ExamAdmin);
@@ -97,6 +99,8 @@ public sealed class QuestionBankFlowTests(ApiFactory factory) : IClassFixture<Ap
             "two correct" => new { text = "Q?", options = new[] { new { text = "A", isCorrect = true }, new { text = "B", isCorrect = true } } },
             "no correct" => new { text = "Q?", options = new[] { new { text = "A", isCorrect = false }, new { text = "B", isCorrect = false } } },
             "one option" => new { text = "Q?", options = new[] { new { text = "A", isCorrect = true } } },
+            "empty markup" => new { text = "<p><br></p>", options = new[] { new { text = "A", isCorrect = true }, new { text = "B", isCorrect = false } } },
+            "script only" => new { text = "<script>alert(1)</script>", options = new[] { new { text = "A", isCorrect = true }, new { text = "B", isCorrect = false } } },
             _ => new { text = "  ", options = new[] { new { text = "A", isCorrect = true }, new { text = "B", isCorrect = false } } },
         };
 
@@ -104,6 +108,41 @@ public sealed class QuestionBankFlowTests(ApiFactory factory) : IClassFixture<Ap
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("invalid_question", (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task Create_StoresTheSanitizedHtml_NotTheMarkupThatWasSent()
+    {
+        using var client = await ClientForAsync(RbacCatalog.RoleNames.ExamAdmin);
+
+        var created = await client.PostAsJsonAsync("/v1/questions", new
+        {
+            text = "<p>Water is H<sub>2</sub>O <script>alert(1)</script><img src=x onerror=alert(2)><a href=\"javascript:alert(3)\">now</a></p>",
+            options = new[] { new { text = "A", isCorrect = true }, new { text = "B", isCorrect = false } },
+        });
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var body = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = body.GetProperty("id").GetGuid();
+        // What is returned, and what is read back later, is the cleaned HTML: formatting kept, nothing executable.
+        var expected = "<p>Water is H<sub>2</sub>O now</p>";
+        Assert.Equal(expected, body.GetProperty("text").GetString());
+        Assert.Equal(expected, (await client.GetFromJsonAsync<JsonElement>($"/v1/questions/{id}")).GetProperty("text").GetString());
+    }
+
+    [Fact]
+    public async Task Create_WithPlainTextThatHasAngleBrackets_StoresThemAsLiteralText()
+    {
+        using var client = await ClientForAsync(RbacCatalog.RoleNames.ExamAdmin);
+
+        var created = await client.PostAsJsonAsync("/v1/questions", new
+        {
+            text = "If a < b & b > c, which is largest?",
+            options = new[] { new { text = "a", isCorrect = true }, new { text = "c", isCorrect = false } },
+        });
+
+        var body = await created.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("If a &lt; b &amp; b &gt; c, which is largest?", body.GetProperty("text").GetString());
     }
 
     [Fact]

@@ -56,7 +56,7 @@ public static class QuestionBankEndpoints
 }
 
 /// <summary>Request body for creating a question. The author is the caller, so it is not part of the body.</summary>
-/// <param name="Text">The question text.</param>
+/// <param name="Text">The question text; HTML from the author's editor, which the server sanitizes before storing it.</param>
 /// <param name="Options">The answer options in display order; exactly one must be correct.</param>
 public sealed record CreateQuestionRequest(string? Text, IReadOnlyList<CreateQuestionOptionRequest?>? Options);
 

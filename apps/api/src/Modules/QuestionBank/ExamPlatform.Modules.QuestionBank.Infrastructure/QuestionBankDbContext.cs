@@ -19,7 +19,8 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
         {
             b.ToTable("Questions");
             b.HasKey(q => q.Id);
-            b.Property(q => q.Text).IsRequired().HasMaxLength(Question.MaxTextLength);
+            // HTML that may embed images, so the unbounded text type; Question.MaxHtmlLength is the real ceiling.
+            b.Property(q => q.Text).IsRequired().HasColumnType("text");
             b.Ignore(q => q.DomainEvents);
             b.HasIndex(q => q.CreatedAtUtc);
 

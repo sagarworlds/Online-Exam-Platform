@@ -26,6 +26,9 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
 
+    <!-- Rich text -->
+    <PackageVersion Include="HtmlSanitizer" Version="9.2.1039" />
+
     <!-- Identity / Auth -->
     <PackageVersion Include="Microsoft.AspNetCore.Identity" Version="2.3.13" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />

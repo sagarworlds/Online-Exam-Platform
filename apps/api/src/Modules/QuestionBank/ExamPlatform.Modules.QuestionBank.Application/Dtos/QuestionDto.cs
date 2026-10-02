@@ -2,7 +2,7 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Dtos;
 
 /// <summary>A question as the authoring side sees it, answer key included.</summary>
 /// <param name="Id">The question's id.</param>
-/// <param name="Text">The question text.</param>
+/// <param name="Text">The question text, as sanitized HTML.</param>
 /// <param name="Options">The answer options in display order.</param>
 /// <param name="CreatedBy">The authoring user.</param>
 /// <param name="CreatedAtUtc">When the question was created.</param>

@@ -10,13 +10,25 @@ public sealed record NewQuestionOption(string? Text, bool IsCorrect);
 
 /// <summary>
 /// A multiple-choice question with exactly one correct option (FR-5). The first cut of the bank is
-/// deliberately this one type: plain text, single answer. The rules that make a question gradable live here,
-/// so no caller can store one that could never be marked.
+/// deliberately this one type: single answer, with formatted text. The rules that make a question gradable live
+/// here, so no caller can store one that could never be marked.
 /// </summary>
 public sealed class Question : AggregateRoot
 {
-    /// <summary>The longest question text, after trimming.</summary>
-    public const int MaxTextLength = 4000;
+    /// <summary>
+    /// The longest stored question text, after trimming. The text is HTML, which can carry embedded images, so this
+    /// is a ceiling on the whole document and not on what a candidate reads (see <see cref="MaxVisibleTextLength"/>).
+    /// </summary>
+    public const int MaxHtmlLength = 1_500_000;
+
+    /// <summary>
+    /// The most characters of readable text a question may have, ignoring markup. Counting what the candidate reads
+    /// rather than the raw HTML keeps formatting from eating the allowance.
+    /// </summary>
+    public const int MaxVisibleTextLength = 4000;
+
+    /// <summary>The most images one question may embed.</summary>
+    public const int MaxImages = 5;
 
     /// <summary>The longest option text, after trimming.</summary>
     public const int MaxOptionTextLength = 1000;
@@ -29,7 +41,10 @@ public sealed class Question : AggregateRoot
 
     private readonly List<QuestionOption> _options = [];
 
-    /// <summary>The question text shown to the candidate.</summary>
+    /// <summary>
+    /// The question text shown to the candidate, as sanitized HTML. Only a sanitizer-cleaned value may be stored here:
+    /// it is rendered to every candidate, so anything else would be a script-injection route.
+    /// </summary>
     public string Text { get; private set; }
 
     /// <summary>The answer options, in display order.</summary>
@@ -52,12 +67,12 @@ public sealed class Question : AggregateRoot
     }
 
     /// <summary>Creates a question after checking every rule that makes it gradable.</summary>
-    /// <param name="text">The question text; leading and trailing whitespace is removed.</param>
+    /// <param name="text">The question text as sanitized HTML; leading and trailing whitespace is removed.</param>
     /// <param name="options">The answer options in display order; exactly one must be correct.</param>
     /// <param name="createdBy">The authoring user.</param>
     /// <param name="nowUtc">The current instant.</param>
     /// <exception cref="InvalidQuestionError">
-    /// The text is blank or too long, the number of options is outside <see cref="MinOptions"/> to
+    /// The text is blank or larger than <see cref="MaxHtmlLength"/>, the number of options is outside <see cref="MinOptions"/> to
     /// <see cref="MaxOptions"/>, an option is blank or too long, or the options do not have exactly one correct answer.
     /// </exception>
     public static Question Create(string? text, IReadOnlyList<NewQuestionOption>? options, Guid createdBy, DateTime nowUtc)
@@ -65,8 +80,8 @@ public sealed class Question : AggregateRoot
         var trimmedText = text?.Trim();
         if (string.IsNullOrEmpty(trimmedText))
             throw new InvalidQuestionError("The question text is required.");
-        if (trimmedText.Length > MaxTextLength)
-            throw new InvalidQuestionError($"The question text must be at most {MaxTextLength} characters.");
+        if (trimmedText.Length > MaxHtmlLength)
+            throw new InvalidQuestionError("The question is too large; use fewer or smaller images.");
 
         if (options is null || options.Count < MinOptions || options.Count > MaxOptions)
             throw new InvalidQuestionError($"A question needs between {MinOptions} and {MaxOptions} options.");

@@ -9,7 +9,7 @@ public sealed record AttemptOptionDto(Guid Id, string Text);
 
 /// <summary>A question as a candidate sees it, with the answer they have saved so far.</summary>
 /// <param name="Id">The question's id.</param>
-/// <param name="Text">The question text.</param>
+/// <param name="Text">The question text, as sanitized HTML; render it with an HTML sanitizer in place, never as trusted markup.</param>
 /// <param name="Options">The options, in display order.</param>
 /// <param name="SelectedOptionId">The option the candidate chose, or null when unanswered.</param>
 public sealed record AttemptQuestionDto(Guid Id, string Text, IReadOnlyList<AttemptOptionDto> Options, Guid? SelectedOptionId);

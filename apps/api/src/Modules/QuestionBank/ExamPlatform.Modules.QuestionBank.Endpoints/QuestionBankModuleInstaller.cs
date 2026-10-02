@@ -30,6 +30,8 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         services.AddScoped<IQuestionRepository, QuestionRepository>();
         services.AddScoped<IQuestionBankUnitOfWork, QuestionBankUnitOfWork>();
         services.AddScoped<IQuestionBank, QuestionBankReader>();
+        // A new sanitizer per request: the library's instance carries mutable configuration.
+        services.AddScoped<IRichTextSanitizer, RichTextSanitizer>();
 
         services.AddScoped<CreateQuestionHandler>();
         services.AddScoped<ListQuestionsHandler>();

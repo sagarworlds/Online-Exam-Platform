@@ -18,7 +18,7 @@ public record ExamSectionDto(
 /// <param name="Id">The exam-question's id.</param>
 /// <param name="QuestionId">The question's id in the question bank.</param>
 /// <param name="Order">Position within the section, from 1.</param>
-/// <param name="Text">The question text, read from the bank; null if the bank no longer has it.</param>
+/// <param name="Text">The question text as sanitized HTML, read from the bank; null if the bank no longer has it.</param>
 public record ExamQuestionDto(
     Guid Id,
     Guid QuestionId,
