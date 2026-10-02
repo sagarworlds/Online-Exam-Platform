@@ -12,25 +12,46 @@ public static class GuardianEndpoints
     /// <param name="endpoints">The endpoint route builder to map onto.</param>
     public static void MapGuardianEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var guardians = endpoints.MapGroup("/v1/guardians").WithTags("Guardian").RequireAuthorization();
+        // The group only demands a signed-in caller. Guardian records and links are staff-managed for now:
+        // nothing yet binds a guardian record to a guardian's own account, so a route open to every
+        // signed-in user could create or sever links for anyone. Each staff route therefore names the
+        // permission it needs (FR-2, NFR-5). Guardian accounts and self-service are redesigned in a later change.
+        var guardians = endpoints.MapGroup("/v1/guardians")
+            .WithTags("Guardian")
+            .RequireAuthorization();
 
         guardians.MapPost("/", CreateGuardian)
+            .RequireAuthorization(GuardianPermissions.LinkManage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .WithName("CreateGuardian")
             .WithDescription("Register a new guardian");
 
         guardians.MapPost("/{guardianId}/links", LinkCandidate)
+            .RequireAuthorization(GuardianPermissions.LinkManage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .WithName("LinkCandidate")
             .WithDescription("Link a guardian to a candidate");
 
+        // The one self-service route: it is the guardian confirming their own link, so it cannot demand a
+        // staff permission and stays authenticated-only. It is not implemented yet, and the guardian
+        // account model it needs is redesigned in a later change.
         guardians.MapPost("/links/verify", VerifyGuardianLink)
             .WithName("VerifyGuardianLink")
             .WithDescription("Verify and confirm a guardian link");
 
         guardians.MapDelete("/{guardianId}/links/{candidateId}", RevokeGuardianLink)
+            .RequireAuthorization(GuardianPermissions.LinkManage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .WithName("RevokeGuardianLink")
             .WithDescription("Revoke a guardian link to a candidate");
 
         guardians.MapDelete("/{guardianId}/candidates/{candidateId}", UnlinkCandidate)
+            .RequireAuthorization(GuardianPermissions.LinkManage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .WithName("UnlinkCandidate")
             .WithDescription("Unlink a candidate from a guardian");
     }

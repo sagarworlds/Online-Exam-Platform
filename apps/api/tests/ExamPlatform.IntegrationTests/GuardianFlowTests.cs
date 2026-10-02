@@ -12,7 +12,8 @@ public class GuardianFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     public async Task CreateGuardian_WithValidData_ReturnsCreatedResponse()
     {
         using var client = factory.CreateClient();
-        var token = (await factory.SignInAsAsync("Guardian")).AccessToken;
+        // Creating and linking guardians is a staff action (guardian.link.manage), not something a guardian account may do (FR-2).
+        var token = (await factory.SignInAsAsync("ExamAdmin")).AccessToken;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var request = new CreateGuardianRequest(
@@ -31,7 +32,8 @@ public class GuardianFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     public async Task LinkCandidate_WithValidData_ReturnsCreatedResponse()
     {
         using var client = factory.CreateClient();
-        var token = (await factory.SignInAsAsync("Guardian")).AccessToken;
+        // Creating and linking guardians is a staff action (guardian.link.manage), not something a guardian account may do (FR-2).
+        var token = (await factory.SignInAsAsync("ExamAdmin")).AccessToken;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var guardianRequest = new CreateGuardianRequest("guardian@example.com", "John Guardian", null);

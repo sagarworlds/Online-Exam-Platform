@@ -14,21 +14,37 @@ public static class BatchEndpoints
     /// <param name="endpoints">The endpoint route builder to map onto.</param>
     public static void MapBatchEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var batches = endpoints.MapGroup("/v1/batches").WithTags("Batch").RequireAuthorization();
+        // The group only demands a signed-in caller. Being signed in says nothing about being allowed to
+        // run batches (a candidate is signed in too), so every route also names the permission it needs (FR-2, NFR-5).
+        var batches = endpoints.MapGroup("/v1/batches")
+            .WithTags("Batch")
+            .RequireAuthorization();
 
         batches.MapPost("/", CreateBatch)
+            .RequireAuthorization(BatchPermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .WithName("CreateBatch")
             .WithDescription("Create a new batch");
 
         batches.MapPost("/{batchId}/members", AddBatchMember)
+            .RequireAuthorization(BatchPermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .WithName("AddBatchMember")
             .WithDescription("Add a member to a batch");
 
         batches.MapPost("/{batchId}/activate", ActivateBatch)
+            .RequireAuthorization(BatchPermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .WithName("ActivateBatch")
             .WithDescription("Activate a batch");
 
         batches.MapPost("/{batchId}/close", CloseBatch)
+            .RequireAuthorization(BatchPermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .WithName("CloseBatch")
             .WithDescription("Close a batch");
     }

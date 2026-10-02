@@ -14,25 +14,49 @@ public static class InviteEndpoints
     /// <param name="endpoints">The endpoint route builder to map onto.</param>
     public static void MapInviteEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var invites = endpoints.MapGroup("/v1/invites").WithTags("Invite").RequireAuthorization();
+        // The group only demands a signed-in caller. Being signed in says nothing about being allowed to
+        // issue invites (a candidate is signed in too), so every route also names the permission it needs (FR-2, NFR-5).
+        var invites = endpoints.MapGroup("/v1/invites")
+            .WithTags("Invite")
+            .RequireAuthorization();
 
         invites.MapPost("/", CreateInvite)
+            .RequireAuthorization(InvitePermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .WithName("CreateInvite")
             .WithDescription("Create a new invite");
 
         invites.MapPost("/{inviteId}/codes", GenerateInviteCode)
+            .RequireAuthorization(InvitePermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .WithName("GenerateInviteCode")
             .WithDescription("Generate an invite code");
 
+        // Accept and decline sit behind invite.manage for now, not behind candidate self-service. The
+        // route takes an invite id and does not tie it to the caller, so once an accept can actually
+        // succeed, opening it to every signed-in user would let anyone consume a single-use invite
+        // issued to someone else. A later change replaces both routes with ones bound to the invited
+        // caller (an owner-bound accept by code).
         invites.MapPost("/{inviteId}/accept", AcceptInvite)
+            .RequireAuthorization(InvitePermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .WithName("AcceptInvite")
             .WithDescription("Accept an invite with a code");
 
         invites.MapPost("/{inviteId}/decline", DeclineInvite)
+            .RequireAuthorization(InvitePermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .WithName("DeclineInvite")
             .WithDescription("Decline an invite");
 
         invites.MapPost("/{inviteId}/revoke", RevokeInvite)
+            .RequireAuthorization(InvitePermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .WithName("RevokeInvite")
             .WithDescription("Revoke an invite and all its codes");
     }

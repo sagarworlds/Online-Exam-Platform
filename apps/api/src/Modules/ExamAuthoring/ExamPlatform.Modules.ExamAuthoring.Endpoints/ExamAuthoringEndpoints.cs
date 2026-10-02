@@ -14,9 +14,16 @@ public static class ExamAuthoringEndpoints
     /// <param name="endpoints">The endpoint route builder to map onto.</param>
     public static void MapExamAuthoringEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var exams = endpoints.MapGroup("/v1/exams").WithTags("ExamAuthoring").RequireAuthorization();
+        // The group only demands a signed-in caller. Being signed in says nothing about being allowed to
+        // author exams (a candidate is signed in too), so every route also names the permission it needs (FR-2, NFR-5).
+        var exams = endpoints.MapGroup("/v1/exams")
+            .WithTags("ExamAuthoring")
+            .RequireAuthorization();
 
         exams.MapPost("/", CreateExam)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
             .WithName("CreateExam")
             .WithDescription("Create a new exam");
     }
