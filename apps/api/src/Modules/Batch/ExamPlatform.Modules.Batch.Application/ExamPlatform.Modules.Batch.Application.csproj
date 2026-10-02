@@ -3,7 +3,4 @@
     <ProjectReference Include="..\..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
     <ProjectReference Include="..\ExamPlatform.Modules.Batch.Domain\ExamPlatform.Modules.Batch.Domain.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="MediatR" />
-  </ItemGroup>
 </Project>

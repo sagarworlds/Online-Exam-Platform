@@ -8,11 +8,10 @@ export class BatchApiService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiBaseUrl}/v1/batches`;
 
-  createBatch(request: CreateBatchRequest, userId: string) {
-    return this.http.post<BatchDto>(this.apiUrl, {
-      ...request,
-      createdBy: userId,
-    });
+  // The API records the caller (from the access token) as the creator, so the request
+  // carries no user id: a client-supplied one would be ignored (FR-2).
+  createBatch(request: CreateBatchRequest) {
+    return this.http.post<BatchDto>(this.apiUrl, request);
   }
 
   getBatches() {

@@ -1,0 +1,38 @@
+<fieldset class="field release-fields" [disabled]="disabled()">
+  <legend class="visually-hidden">When candidates may see which answers were right</legend>
+
+  @for (mode of modes; track mode.value) {
+    <label class="inline-check release-fields__choice">
+      <input
+        type="radio"
+        [name]="uid"
+        [value]="mode.value"
+        [checked]="selection().mode === mode.value"
+        (change)="chooseMode(mode.value)"
+      />
+      <span>
+        {{ mode.label }}
+        <span class="hint release-fields__hint">{{ mode.hint }}</span>
+      </span>
+    </label>
+  }
+
+  @if (selection().mode === 'Scheduled') {
+    <div class="field">
+      <label [for]="uid + '-time'">Show answers from</label>
+      <input
+        [id]="uid + '-time'"
+        type="datetime-local"
+        [value]="selection().localTime"
+        (input)="chooseTime($any($event.target).value)"
+      />
+    </div>
+  }
+
+  @if (selection().mode === 'Instant') {
+    <p class="hint">
+      Someone who finishes early can pass the correct answers to candidates who are still sitting the exam. Choose a later
+      time if that matters.
+    </p>
+  }
+</fieldset>

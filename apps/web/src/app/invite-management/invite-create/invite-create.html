@@ -1,0 +1,47 @@
+<div class="page">
+  <h1>Invite a candidate</h1>
+
+  @if (errorMessage()) {
+    <p class="error-message">{{ errorMessage() }}</p>
+  }
+
+  @if (created(); as invite) {
+    @if (invite.emailSent) {
+      <p class="success-message">Invitation e-mailed to {{ invite.email }}.</p>
+    } @else {
+      <div class="card">
+        <p class="success-message">Invitation created for {{ invite.email }}, but no e-mail could be sent.</p>
+        <p>Send this link to the candidate yourself:</p>
+        <p><code class="invite-link">{{ invite.inviteLink }}</code></p>
+        <p class="hint">The link works once, for the account that holds {{ invite.email }}.</p>
+      </div>
+    }
+  }
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (exams().length === 0) {
+    <div class="card empty-state">There are no published exams to invite candidates to yet.</div>
+  } @else {
+    <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="New invitation">
+      <div class="field">
+        <label for="invite-exam">Exam</label>
+        <select id="invite-exam" formControlName="examId">
+          <option value="">Choose an exam…</option>
+          @for (exam of exams(); track exam.id) {
+            <option [value]="exam.id">{{ exam.name }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="invite-email">Candidate's e-mail</label>
+        <input id="invite-email" type="email" formControlName="email" autocomplete="off" />
+      </div>
+
+      <button type="submit" class="primary" [disabled]="form.invalid || saving()">Send invitation</button>
+    </form>
+  }
+
+  <p class="link-row"><a routerLink="/invites">All invitations</a></p>
+</div>

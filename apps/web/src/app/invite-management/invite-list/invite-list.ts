@@ -1,132 +1,44 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterLink, RouterModule } from '@angular/router';
+import { DatePipe } from '@angular/common';
+import { Component, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { extractErrorMessage } from '../../shared/problem-details';
 import { InviteApiService } from '../invite-api.service';
 import { InviteDto } from '../invite.models';
 
+/** Staff page: the newest invitations and their status, with a way to revoke one that is still open. */
 @Component({
   selector: 'app-invite-list',
-  standalone: true,
-  imports: [CommonModule, RouterLink, RouterModule],
-  template: `
-    <div class="invite-list-container">
-      <h2>Invitations</h2>
-
-      <div class="actions">
-        <a routerLink="/invites/create" class="btn btn-primary">Create New Invite</a>
-      </div>
-
-      @if (loading) {
-        <div class="loading">Loading invites...</div>
-      }
-      @if (error) {
-        <div class="error">{{ error }}</div>
-      }
-
-      @if (!loading && invites.length === 0) {
-        <div class="empty">
-          No invitations found. <a routerLink="/invites/create">Create one now</a>
-        </div>
-      }
-
-      @if (!loading && invites.length > 0) {
-        <div class="invite-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Email</th>
-                <th>Status</th>
-                <th>Sent</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (invite of invites; track invite.id) {
-              <tr>
-                <td>{{ invite.email }}</td>
-                <td><span class="status" [class]="'status-' + invite.status">{{ invite.status }}</span></td>
-                <td>{{ invite.sentAt | date: 'short' }}</td>
-                <td>
-                  @if (invite.status === 'Sent') {
-                    <button class="btn btn-tertiary" (click)="generateCode(invite.id)">Generate Code</button>
-                    <button class="btn btn-danger" (click)="revokeInvite(invite.id)">Revoke</button>
-                  }
-                </td>
-              </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
-    </div>
-  `,
-  styles: [`
-    .invite-list-container { padding: 2rem; }
-    .actions { margin: 1rem 0; }
-    .btn { padding: 0.5rem 1rem; margin-right: 0.5rem; text-decoration: none; display: inline-block; border: none; cursor: pointer; border-radius: 4px; font-size: 0.875rem; }
-    .btn-primary { background: #007bff; color: white; }
-    .btn-tertiary { background: #f0f0f0; color: #333; }
-    .btn-danger { background: #dc3545; color: white; }
-    .invite-table { margin-top: 2rem; overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; background: white; border: 1px solid #ddd; }
-    thead { background: #f8f9fa; }
-    th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #ddd; }
-    th { font-weight: 600; }
-    .status { padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: bold; font-size: 0.875rem; }
-    .status-Pending { background: #ffc107; }
-    .status-Sent { background: #17a2b8; color: white; }
-    .status-Accepted { background: #28a745; color: white; }
-    .status-Declined { background: #6c757d; color: white; }
-    .loading, .error, .empty { padding: 2rem; text-align: center; }
-    .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; }
-  `]
+  imports: [RouterLink, DatePipe],
+  templateUrl: './invite-list.html',
 })
-export class InviteList implements OnInit {
-  private inviteApi = inject(InviteApiService);
+export class InviteList {
+  private readonly inviteApi = inject(InviteApiService);
 
-  invites: InviteDto[] = [];
-  loading = true;
-  error = '';
+  protected readonly invites = signal<InviteDto[]>([]);
+  protected readonly loading = signal(true);
+  protected readonly errorMessage = signal<string | null>(null);
 
-  ngOnInit() {
-    this.loadInvites();
+  constructor() {
+    this.load();
   }
 
-  loadInvites() {
-    this.loading = true;
-    this.error = '';
+  protected revoke(invite: InviteDto): void {
+    this.errorMessage.set(null);
+    this.inviteApi.revokeInvite(invite.id).subscribe({
+      next: () => this.load(),
+      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
+    });
+  }
+
+  private load(): void {
     this.inviteApi.getInvites().subscribe({
-      next: (data) => {
-        this.invites = data;
-        this.loading = false;
+      next: (invites) => {
+        this.invites.set(invites);
+        this.loading.set(false);
       },
-      error: (err) => {
-        this.error = 'Failed to load invitations';
-        this.loading = false;
-        console.error(err);
-      },
-    });
-  }
-
-  generateCode(inviteId: string) {
-    this.inviteApi.generateCode(inviteId).subscribe({
-      next: () => {
-        this.loadInvites();
-      },
-      error: (err) => {
-        console.error('Failed to generate code', err);
-      },
-    });
-  }
-
-  revokeInvite(inviteId: string) {
-    if (!confirm('Are you sure you want to revoke this invitation?')) return;
-    this.inviteApi.revokeInvite(inviteId).subscribe({
-      next: () => {
-        this.loadInvites();
-      },
-      error: (err) => {
-        console.error('Failed to revoke invitation', err);
+      error: (error: unknown) => {
+        this.loading.set(false);
+        this.errorMessage.set(extractErrorMessage(error));
       },
     });
   }

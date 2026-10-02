@@ -1,17 +1,22 @@
 using System.Text;
 using System.Threading.RateLimiting;
 using ExamPlatform.Api;
+using ExamPlatform.Api.RateLimiting;
 using ExamPlatform.Modules.Admin.Endpoints;
 using ExamPlatform.Modules.Batch.Endpoints;
 using ExamPlatform.Modules.Consent.Endpoints;
 using ExamPlatform.Modules.ExamAuthoring.Endpoints;
+using ExamPlatform.Modules.ExamRuntime.Endpoints;
 using ExamPlatform.Modules.Guardian.Endpoints;
 using ExamPlatform.Modules.Identity.Endpoints;
 using ExamPlatform.Modules.Invite.Endpoints;
+using ExamPlatform.Modules.QuestionBank.Endpoints;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 
@@ -49,6 +54,10 @@ builder.Services
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKey)),
         };
+
+        // Events are deliberately not set here: the Identity module attaches its own (see
+        // IdentityModuleInstaller), which checks every validated token's "sid" against its
+        // stored session (FR-4), since only Identity knows what a session is.
     });
 
 builder.Services.AddAuthorization();
@@ -60,17 +69,44 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy => policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod());
 });
 
+// A global, per-IP fixed-window limiter (NFR-5: rate limiting), in-process for now — see
+// ADR 0001's note on why Redis isn't wired in yet. Its limits come from configuration
+// and are checked at startup, so a zero or negative value fails the boot instead of
+// surfacing as a 500 on the first request.
+builder.Services.AddOptions<GlobalRateLimitOptions>()
+    .Bind(builder.Configuration.GetSection(GlobalRateLimitOptions.SectionName))
+    .Validate(
+        limits => limits.PermitLimit > 0 && limits.WindowSeconds > 0,
+        $"{GlobalRateLimitOptions.SectionName}:PermitLimit and :WindowSeconds must both be positive.")
+    .ValidateOnStart();
+
 builder.Services.AddRateLimiter(options =>
 {
-    // A single global, per-IP limiter for this slice (NFR-5: rate limiting). Scoping a
-    // stricter limit specifically to OTP-request endpoints is a follow-up once real
-    // traffic patterns exist — see ADR 0001's note on why Redis isn't wired in yet.
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1) }));
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = RateLimitRejectionWriter.WriteProblemDetailsAsync;
 });
+
+// The limiter reads its limits through IOptions<GlobalRateLimitOptions> when
+// RateLimiterOptions is first materialized, not from values captured here: the same
+// staleness concern as the JWT signing key above, since a test's WebApplicationFactory
+// layers its configuration overrides (e.g. a raised limit) on after this line runs.
+builder.Services.AddOptions<RateLimiterOptions>()
+    .Configure<IOptions<GlobalRateLimitOptions>>((options, globalLimits) =>
+    {
+        var limits = globalLimits.Value;
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = limits.PermitLimit,
+                    Window = TimeSpan.FromSeconds(limits.WindowSeconds),
+                }));
+    });
+
+// Trust X-Forwarded-For/-Proto only from the proxies named in ForwardedHeaders:*, so the
+// per-IP limiters below see the real client behind a load balancer (NFR-5).
+builder.Services.AddSingleton<IConfigureOptions<ForwardedHeadersOptions>, ForwardedHeadersOptionsSetup>();
 
 // Enums as JSON strings everywhere (e.g. "PrivacyNotice"), not their numeric values —
 // matches how query-string enum binding already works, so the API is consistent
@@ -81,6 +117,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
 builder.Services.AddExceptionHandler<DomainExceptionHandler>();
+builder.Services.AddExceptionHandler<BadRequestExceptionHandler>();
 builder.Services.AddProblemDetails();
 
 // Modules register themselves here; adding a future module is one array entry and
@@ -94,6 +131,8 @@ IModuleInstaller[] modules =
     new BatchModuleInstaller(),
     new InviteModuleInstaller(),
     new GuardianModuleInstaller(),
+    new QuestionBankModuleInstaller(),
+    new ExamRuntimeModuleInstaller(),
 ];
 
 foreach (var module in modules)
@@ -103,14 +142,34 @@ foreach (var module in modules)
 
 var app = builder.Build();
 
+// First, so everything after it (rate limiting, logging, HSTS) sees the forwarded client
+// address and scheme. Without it every client behind a proxy shares one rate-limit
+// partition, and a header from an untrusted sender must never choose its own partition.
+app.UseForwardedHeaders();
+
+// HSTS is for browsers talking to a deployed host over HTTPS; in Development it would
+// pin localhost to HTTPS. TLS ends at the proxy, so there is no UseHttpsRedirection.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
+// Before the exception handler, so error responses carry the headers too.
+app.UseMiddleware<SecurityHeadersMiddleware>(app.Environment.IsDevelopment());
 app.UseExceptionHandler();
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapOpenApi();
-app.MapScalarApiReference();
+// The API description and its browsable UI are a development aid, not part of the
+// deployed surface: they would hand an attacker a map of every route.
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
+}
+
 app.MapHealthChecks("/v1/health");
 
 foreach (var module in modules)
@@ -118,18 +177,36 @@ foreach (var module in modules)
     module.MapEndpoints(app);
 }
 
-// Development-only convenience: migrate and seed every module's schema on startup so
-// `dotnet run` gives a ready-to-use database without a separate migration step. A real
-// deployment pipeline runs migrations explicitly instead (see README quickstart).
+// Schema and reference data (roles, permissions, notice versions) are applied by each module's
+// own idempotent MigrateAndSeedAsync, never by EF migration bundles, which would apply the
+// schema but skip the seeders and leave a database where registration fails (ADR 0002).
+// There are two ways in:
+//  - `ExamPlatform.Api.dll --migrate-and-seed` runs every module once and exits without
+//    starting the web host. A deployment runs it as ONE pre-deploy job or init container, so
+//    two replicas never race to insert the same role or permission.
+//  - Database:MigrateAndSeedOnStartup=true does the same at the start of a normal run. It is
+//    on in Development, so `dotnet run` gives a ready-to-use database, and off elsewhere.
 // Routed through each module's own MigrateAndSeedAsync rather than the Host resolving
 // a DbContext directly, so the Host never references a module's Infrastructure project.
-if (app.Environment.IsDevelopment())
+var migrateAndSeedOnly = args.Contains("--migrate-and-seed", StringComparer.Ordinal);
+var migrateAndSeedOnStartup = app.Configuration.GetValue(
+    "Database:MigrateAndSeedOnStartup", defaultValue: app.Environment.IsDevelopment());
+if (migrateAndSeedOnly || migrateAndSeedOnStartup)
 {
     using var scope = app.Services.CreateScope();
     foreach (var module in modules)
     {
         await module.MigrateAndSeedAsync(scope.ServiceProvider, CancellationToken.None);
+        app.Logger.LogInformation("Migrated and seeded {ModuleName}", module.ModuleName);
     }
+}
+
+// Returns before app.Run(): the web host is never started, so a deployment job ends as soon as
+// the database is ready, and the startup checks that belong to a serving host (such as the
+// OTP delivery options' ValidateOnStart) are not run by it.
+if (migrateAndSeedOnly)
+{
+    return;
 }
 
 app.Run();

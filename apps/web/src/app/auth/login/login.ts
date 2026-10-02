@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AuthApiService } from '../auth-api.service';
 import { AuthSessionService } from '../auth-session.service';
+import { landingRoute } from '../landing-route';
 import { AuthResult, OtpChannel } from '../auth.models';
 
 @Component({
@@ -86,12 +87,17 @@ export class Login {
 
     if (result.accessToken) {
       this.authSession.login(result.accessToken);
-      this.router.navigateByUrl(this.route.snapshot.queryParamMap.get('returnUrl') ?? '/profile');
+      this.router.navigateByUrl(this.route.snapshot.queryParamMap.get('returnUrl') ?? landingRoute(this.authSession));
       return;
     }
 
     this.submitting.set(false);
     this.errorMessage.set('Unexpected response from the server.');
+  }
+
+  /** The query the register link carries, so signing up does not lose the page the user was heading to. */
+  protected get registerQueryParams(): Record<string, string> {
+    return this.returnUrlParam();
   }
 
   private returnUrlParam(): Record<string, string> {

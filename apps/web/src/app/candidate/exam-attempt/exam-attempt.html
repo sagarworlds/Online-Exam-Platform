@@ -1,0 +1,128 @@
+<div class="page page--exam">
+  @if (loading()) {
+    <p>Loading…</p>
+  }
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+
+  @if (attempt(); as current) {
+    @if (current.status === 'InProgress') {
+      <header class="exam-bar card">
+        <div>
+          <p class="exam-bar__label">Exam@if (current.number && current.number > 1) { · Attempt {{ current.number }} }</p>
+          <h1 class="exam-bar__title">{{ current.examName }}</h1>
+        </div>
+        <div class="exam-bar__timer" role="timer" aria-label="Time left">
+          <span class="exam-bar__label">Time left</span>
+          <strong class="countdown" [class.countdown--low]="remainingSeconds() <= 60">{{ formatRemaining(remainingSeconds()) }}</strong>
+        </div>
+      </header>
+
+      <div class="exam-layout">
+        <section aria-label="Question">
+          @if (currentQuestion(); as question) {
+            <div class="card">
+              <p class="question__meta">{{ currentSectionName() }} · Question {{ position() + 1 }} of {{ questions().length }}</p>
+              <fieldset class="question" [attr.aria-labelledby]="'question-text-' + question.id">
+                <!-- The text is the API's sanitized HTML, rendered through Angular's own sanitizer as a second layer. -->
+                <div class="question__text rich-text" [id]="'question-text-' + question.id" [innerHTML]="question.text"></div>
+                @for (option of question.options; track option.id; let i = $index) {
+                  <label class="option-choice">
+                    <input
+                      type="radio"
+                      [name]="'q-' + question.id"
+                      [checked]="question.selectedOptionId === option.id"
+                      (change)="choose(question, option.id)"
+                    />
+                    <span class="option-choice__marker" aria-hidden="true">{{ optionLetter(i) }}</span>
+                    <span>{{ option.text }}</span>
+                  </label>
+                }
+              </fieldset>
+            </div>
+
+            <div class="exam-pager">
+              <button type="button" [disabled]="isFirst()" (click)="previous()">&larr; Previous</button>
+              <button type="button" class="primary" [disabled]="isLast()" (click)="next()">Next &rarr;</button>
+            </div>
+          }
+        </section>
+
+        <aside class="card exam-side" aria-label="Question palette">
+          <h2>Questions</h2>
+          <p class="hint">{{ answeredCount() }} of {{ questions().length }} answered</p>
+
+          @for (section of palette(); track section.id) {
+            <h3 class="palette__section">{{ section.name }}</h3>
+            <div class="palette">
+              @for (item of section.items; track item.index) {
+                <button
+                  type="button"
+                  class="palette__item"
+                  [class.palette__item--answered]="item.answered"
+                  [class.palette__item--current]="item.index === position()"
+                  [attr.aria-current]="item.index === position() ? 'true' : null"
+                  [attr.aria-label]="'Question ' + item.number + (item.answered ? ', answered' : ', not answered')"
+                  (click)="goTo(item.index)"
+                >
+                  {{ item.number }}
+                </button>
+              }
+            </div>
+          }
+
+          <ul class="palette-legend" aria-hidden="true">
+            <li class="legend--answered">Answered</li>
+            <li>Not answered</li>
+            <li class="legend--current">Current</li>
+          </ul>
+
+          @if (confirmingSubmit()) {
+            <div class="submit-confirm" role="alertdialog" aria-label="Confirm submit">
+              <p>
+                Submit now? {{ answeredCount() }} of {{ questions().length }} questions are answered. You cannot change
+                your answers afterwards.
+              </p>
+              <div class="actions">
+                <button type="button" class="primary" [disabled]="submitting()" (click)="submit()">Yes, submit</button>
+                <button type="button" [disabled]="submitting()" (click)="cancelSubmit()">Keep working</button>
+              </div>
+            </div>
+          } @else {
+            <button type="button" class="primary" (click)="askToSubmit()">Submit exam</button>
+          }
+        </aside>
+      </div>
+    } @else {
+      <div class="card result">
+        <p class="exam-bar__label">Result@if (current.number && current.number > 1) { · Attempt {{ current.number }} }</p>
+        <h1>{{ current.examName }}</h1>
+        <p class="score">{{ current.score }} / {{ current.maxScore }}</p>
+        @if (current.autoSubmitted) {
+          <p class="hint">Time ran out, so the exam was submitted automatically with the answers you had saved.</p>
+        }
+        @if (current.review?.available) {
+          <p class="hint">Your answers have been marked. See which were right and which were not.</p>
+        } @else if (current.review) {
+          <p class="hint">
+            @if (current.review.availableFromUtc) {
+              The correct answers will be shown from {{ current.review.availableFromUtc | date: 'medium' }}.
+            } @else {
+              The correct answers will be shown when the exam's organiser releases them.
+            }
+          </p>
+        }
+        <div class="actions">
+          @if (current.review?.available) {
+            <a [routerLink]="['/attempt', current.id, 'review']" class="btn btn--primary">Review answers</a>
+            <a routerLink="/my-exams" class="btn">Back to my exams</a>
+          } @else {
+            <a routerLink="/my-exams" class="btn btn--primary">Back to my exams</a>
+          }
+        </div>
+      </div>
+    }
+  }
+</div>

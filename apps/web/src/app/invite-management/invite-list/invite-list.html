@@ -1,0 +1,31 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>Invitations</h1>
+    <a routerLink="/invites/create" class="btn btn--primary">Invite a candidate</a>
+  </div>
+
+  @if (errorMessage()) {
+    <p class="error-message">{{ errorMessage() }}</p>
+  }
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (invites().length === 0) {
+    <div class="card empty-state">No invitations yet.</div>
+  } @else {
+    @for (invite of invites(); track invite.id) {
+      <div class="card">
+        <h3 class="card__title">
+          {{ invite.email }}
+          <span class="badge" [class.badge--active]="invite.status === 'Accepted'" [class.badge--inactive]="invite.status !== 'Accepted'">{{ invite.status }}</span>
+        </h3>
+        <p class="card__meta">Invited {{ invite.sentAt | date: 'medium' }}</p>
+        @if (invite.status === 'Pending') {
+          <div class="actions">
+            <button type="button" (click)="revoke(invite)">Revoke</button>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>

@@ -26,7 +26,6 @@ namespace ExamPlatform.Modules.Identity.Infrastructure.Migrations
             modelBuilder.Entity("ExamPlatform.Modules.Identity.Domain.OtpChallenge", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<int>("AttemptCount")
@@ -60,10 +59,21 @@ namespace ExamPlatform.Modules.Identity.Infrastructure.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTime?>("SupersededAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Destination", "Purpose");
 
                     b.ToTable("OtpChallenges", "identity");
                 });
@@ -71,7 +81,6 @@ namespace ExamPlatform.Modules.Identity.Infrastructure.Migrations
             modelBuilder.Entity("ExamPlatform.Modules.Identity.Domain.PasswordResetToken", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("ConsumedAtUtc")
@@ -79,6 +88,15 @@ namespace ExamPlatform.Modules.Identity.Infrastructure.Migrations
 
                     b.Property<DateTime>("ExpiresAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.Property<string>("TokenHash")
                         .IsRequired()
@@ -89,13 +107,14 @@ namespace ExamPlatform.Modules.Identity.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("UserId");
+
                     b.ToTable("PasswordResetTokens", "identity");
                 });
 
             modelBuilder.Entity("ExamPlatform.Modules.Identity.Domain.Permission", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("Code")
@@ -119,7 +138,6 @@ namespace ExamPlatform.Modules.Identity.Infrastructure.Migrations
             modelBuilder.Entity("ExamPlatform.Modules.Identity.Domain.Role", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("Name")
@@ -141,7 +159,6 @@ namespace ExamPlatform.Modules.Identity.Infrastructure.Migrations
             modelBuilder.Entity("ExamPlatform.Modules.Identity.Domain.User", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateOnly>("DateOfBirth")
@@ -184,7 +201,6 @@ namespace ExamPlatform.Modules.Identity.Infrastructure.Migrations
             modelBuilder.Entity("ExamPlatform.Modules.Identity.Domain.UserSession", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("DeviceFingerprint")

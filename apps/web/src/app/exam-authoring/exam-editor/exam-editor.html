@@ -1,0 +1,172 @@
+<div class="page page--wide">
+  <a routerLink="/exams" class="back-link">&larr; All exams</a>
+
+  @if (errorMessage()) {
+    <p class="error-message">{{ errorMessage() }}</p>
+  }
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (exam(); as e) {
+    <div class="page-header">
+      <h1>
+        {{ e.name }}
+        <span class="badge" [class.badge--active]="e.status === 'Published'" [class.badge--inactive]="e.status !== 'Published'">{{ e.status }}</span>
+      </h1>
+    </div>
+    @if (e.description) {
+      <p class="hint">{{ e.description }}</p>
+    }
+
+    <div class="card">
+      <h2>Schedule</h2>
+      @if (e.isScheduled) {
+        <p>
+          <strong>Opens:</strong> {{ e.scheduledStartTime | date: 'medium' }}<br />
+          <strong>Closes:</strong> {{ e.scheduledEndTime | date: 'medium' }}<br />
+          @if (e.lateEntryDeadline) {
+            <strong>Late entry until:</strong> {{ e.lateEntryDeadline | date: 'medium' }}<br />
+          }
+          <strong>Time per attempt:</strong>
+          {{ e.config.totalTimeSeconds ? e.config.totalTimeSeconds / 60 + ' minutes' : 'until the window closes' }}
+        </p>
+      } @else {
+        <p>Not scheduled yet.</p>
+      }
+      @if (isDraft()) {
+        <div class="actions">
+          <a [routerLink]="['/exams', e.id, 'schedule']" class="btn">{{ e.isScheduled ? 'Change schedule' : 'Set schedule' }}</a>
+        </div>
+      }
+    </div>
+
+    <div class="card">
+      <h2>Questions come from</h2>
+      @if (changingScope()) {
+        @if (booksState() === 'loading') {
+          <p>Loading books…</p>
+        } @else if (booksState() === 'unavailable') {
+          <p class="hint">Choosing a book needs access to the question bank, which your account does not have.</p>
+        } @else {
+          <app-exam-scope-fields [books]="books()" [(scope)]="scopeDraft" [disabled]="busy()" [hideLegend]="true" />
+        }
+        <div class="actions">
+          <button type="button" class="primary" (click)="saveScope()" [disabled]="!scopeDraftComplete() || busy() || booksState() !== 'ready'">Save scope</button>
+          <button type="button" (click)="cancelChangingScope()" [disabled]="busy()">Cancel</button>
+        </div>
+      } @else {
+        <p>{{ scopeSummary() }}</p>
+        @if (isDraft()) {
+          <div class="actions">
+            <button type="button" (click)="startChangingScope()">Change</button>
+          </div>
+        }
+      }
+    </div>
+
+    <div class="card">
+      <h2>Answer review</h2>
+      @if (changingRelease()) {
+        <app-exam-release-fields [(selection)]="releaseDraft" [disabled]="busy()" />
+        <div class="actions">
+          <button type="button" class="primary" (click)="saveRelease()" [disabled]="!releaseDraftComplete() || busy()">Save</button>
+          <button type="button" (click)="cancelChangingRelease()" [disabled]="busy()">Cancel</button>
+        </div>
+      } @else {
+        @switch (e.config.resultReleaseMode) {
+          @case ('Scheduled') {
+            <p>Candidates see which of their answers were right from {{ e.config.resultReleaseTime | date: 'medium' }}.</p>
+          }
+          @case ('Manual') {
+            @if (e.config.resultReleaseTime) {
+              <p>Released on {{ e.config.resultReleaseTime | date: 'medium' }}. Candidates can see which of their answers were right.</p>
+            } @else if (isDraft()) {
+              <p>Held back until you release them. You can do that once the exam is published.</p>
+            } @else {
+              <p>Held back until you release them.</p>
+            }
+          }
+          @default {
+            <p>Candidates see which of their answers were right as soon as they submit.</p>
+          }
+        }
+        <div class="actions">
+          @if (canChangeRelease()) {
+            <button type="button" (click)="startChangingRelease()" aria-label="Edit when answers are shown">Edit</button>
+          }
+          @if (canReleaseNow()) {
+            <button type="button" class="primary" (click)="releaseNow()" [disabled]="busy()">Release answers now</button>
+          }
+        </div>
+      }
+    </div>
+
+    <h2>Sections and questions</h2>
+    @for (section of e.sections ?? []; track section.id) {
+      <div class="card section-card">
+        <h3>{{ section.order }}. {{ section.name }}</h3>
+        @if (section.questions.length === 0) {
+          <p class="hint">No questions yet.</p>
+        } @else {
+          <ol>
+            @for (question of section.questions; track question.id) {
+              <li>{{ question.text ? (question.text | plainText: 160) : '(question no longer in the bank)' }}</li>
+            }
+          </ol>
+        }
+
+        @if (isDraft()) {
+          <div class="option-row">
+            <select #pick [attr.aria-label]="'Question to add to ' + section.name">
+              <option value="">Choose a question…</option>
+              @for (question of availableQuestions(); track question.id) {
+                <option [value]="question.id">{{ question.text | plainText: 100 }}</option>
+              }
+            </select>
+            <button type="button" (click)="addQuestion(section.id, pick.value)" [disabled]="busy()">Add question</button>
+          </div>
+          @if (isScoped()) {
+            <p class="hint">
+              Only questions from this exam's {{ e.scope.type === 'Book' ? 'book' : 'chapters' }} are offered.
+              @if (availableQuestions().length === 0) {
+                There are none left to add: file more questions under {{ e.scope.type === 'Book' ? 'its chapters' : 'these chapters' }} on the Questions page.
+              }
+            </p>
+          }
+        }
+      </div>
+    } @empty {
+      <p>No sections yet.</p>
+    }
+
+    @if (isDraft()) {
+      <form class="card" [formGroup]="sectionForm" (ngSubmit)="addSection()" aria-label="New section">
+        <div class="field">
+          <label for="section-name">New section name</label>
+          <input id="section-name" type="text" formControlName="name" />
+        </div>
+        <button type="submit" class="primary" [disabled]="sectionForm.invalid || busy()">Add section</button>
+      </form>
+
+      <div class="card">
+        <h2>Publish</h2>
+        @if (!canPublish()) {
+          <p class="hint">
+            To publish: {{ e.isScheduled ? 'schedule is set' : 'set a schedule' }}, and
+            {{ questionCount() > 0 ? 'questions added' : 'add at least one question' }}.
+          </p>
+        }
+        <button type="button" class="primary" (click)="publish()" [disabled]="!canPublish() || busy()">Publish exam</button>
+      </div>
+    } @else {
+      <p class="hint">This exam is published, so its questions and schedule can no longer be edited.</p>
+      <div class="card">
+        <h2>Candidates</h2>
+        <p>See who has taken the exam, how each attempt went, and give a candidate another attempt if they ask for one.</p>
+        <div class="actions">
+          <a [routerLink]="['/exams', e.id, 'attempts']" class="btn">Candidates and attempts</a>
+        </div>
+      </div>
+    }
+  }
+</div>

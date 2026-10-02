@@ -11,7 +11,7 @@
   }
 
   @if (mode() === 'password') {
-    <form [formGroup]="passwordForm" (ngSubmit)="submitPassword()">
+    <form class="card" [formGroup]="passwordForm" (ngSubmit)="submitPassword()">
       <div class="field">
         <label for="login-email">Email</label>
         <input id="login-email" type="email" formControlName="email" autocomplete="email" />
@@ -23,7 +23,7 @@
       <button type="submit" class="primary" [disabled]="passwordForm.invalid || submitting()">Log in</button>
     </form>
   } @else {
-    <form [formGroup]="otpForm" (ngSubmit)="submitOtpRequest()">
+    <form class="card" [formGroup]="otpForm" (ngSubmit)="submitOtpRequest()">
       <div class="field">
         <label for="login-otp-destination">Email or phone number</label>
         <input id="login-otp-destination" type="text" formControlName="destination" autocomplete="username" />
@@ -33,7 +33,7 @@
   }
 
   <p class="link-row">
-    <a routerLink="/register">Create an account</a>
+    <a routerLink="/register" [queryParams]="registerQueryParams">Create an account</a>
     <a routerLink="/password-reset/request">Forgot password?</a>
   </p>
 </div>

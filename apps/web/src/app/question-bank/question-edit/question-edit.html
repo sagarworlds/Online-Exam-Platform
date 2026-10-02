@@ -1,0 +1,39 @@
+<div class="page page--wide">
+  <p><a routerLink="/admin/questions">‹ Back to the question bank</a></p>
+  <h1>Edit question</h1>
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+  @if (saved()) {
+    <p class="success-message" role="status">Question saved.</p>
+  }
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (question(); as current) {
+    <p class="question-card__where">
+      @if (current.chapterId) {
+        {{ current.bookName }} <span aria-hidden="true">›</span> {{ current.chapterTitle }}
+      } @else {
+        <span class="hint">Not filed under a chapter</span>
+      }
+      <span class="hint"> · To move it, use “File under” in the question bank.</span>
+    </p>
+    @if (current.usage.examCount > 0) {
+      <p class="hint">
+        In {{ current.usage.examCount === 1 ? 'the exam' : current.usage.examCount + ' exams' }}
+        {{ current.usage.examNames.join(', ') }}{{ current.usage.examCount > current.usage.examNames.length ? ' and others' : '' }}.
+      </p>
+    }
+
+    <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="Edit question">
+      <app-question-fields [wordingOnly]="wordingOnly()" />
+
+      <div class="actions">
+        <button type="submit" class="primary" [disabled]="form.invalid || saving()">Save changes</button>
+        <button type="button" (click)="discard()" [disabled]="saving() || form.pristine">Discard changes</button>
+      </div>
+    </form>
+  }
+</div>

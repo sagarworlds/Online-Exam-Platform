@@ -3,8 +3,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ExamPlatform.Modules.Consent.Contracts;
+using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Domain;
 using ExamPlatform.Modules.Identity.Infrastructure;
+using ExamPlatform.SharedKernel.Application;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,7 +14,8 @@ namespace ExamPlatform.IntegrationTests;
 
 /// <summary>
 /// Drives the full attempt-adjacent journey over real HTTP against the actual
-/// Host: register → verify OTP → session supersede on a second login → consent
+/// Host: register → verify OTP → session supersede on a second login (the first token
+/// is then refused) → consent
 /// grant/withdraw → RBAC deny/allow → cross-module audit trail. One scenario,
 /// not several independent facts, since each step's assertions depend on state
 /// the previous step created — splitting it would just reintroduce that coupling
@@ -64,8 +67,8 @@ public sealed class AuthConsentAuditFlowTests(ApiFactory factory) : IClassFixtur
         Assert.Equal("Journey Candidate", profile!.DisplayName);
         var subjectId = profile.UserId;
 
-        // 3. Logging in again supersedes the first session (FR-4) — verified at the
-        // data level, since this slice does not build live per-request revocation checks.
+        // 3. Logging in again supersedes the first session (FR-4): the stored session is
+        // revoked, and the first token stops working on the very next request.
         var secondRequest = await client.PostAsJsonAsync("/v1/auth/otp/request", new { channel = "Email", destination = email });
         secondRequest.EnsureSuccessStatusCode();
         var secondChallenge = await secondRequest.Content.ReadFromJsonAsync<OtpChallengeResponse>(JsonOptions);
@@ -86,6 +89,12 @@ public sealed class AuthConsentAuditFlowTests(ApiFactory factory) : IClassFixtur
             var secondSession = await identityDb.Set<UserSession>().SingleAsync(s => s.Id == secondAuth!.SessionId);
             Assert.Null(secondSession.RevokedAtUtc);
         }
+
+        // The client still sends the first token here.
+        var supersededProfileResponse = await client.GetAsync("/v1/me/profile");
+        Assert.Equal(HttpStatusCode.Unauthorized, supersededProfileResponse.StatusCode);
+        var supersededProblem = await supersededProfileResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("session_superseded", supersededProblem.GetProperty("title").GetString());
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secondAuth!.AccessToken);
 
@@ -129,26 +138,42 @@ public sealed class AuthConsentAuditFlowTests(ApiFactory factory) : IClassFixtur
         Assert.Equal(HttpStatusCode.Forbidden, deniedAuditResponse.StatusCode);
 
         // 6. Seed a SuperAdmin directly (arrange step — no endpoint exists to create one,
-        // since invite/admin-provisioning is out of this slice's scope), then confirm the
+        // since invite/admin-provisioning is out of this slice's scope), then sign it in the
+        // only way its role allows (FR-3: password, then a second-factor OTP) and confirm the
         // permission it carries lets it both assign a role and read the audit trail.
-        Guid adminUserId;
+        const string adminEmail = "journey-admin@example.com";
+        const string adminPassword = "journey-admin-password";
         using (var scope = factory.Services.CreateScope())
         {
             var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            var nowUtc = scope.ServiceProvider.GetRequiredService<Clock>().UtcNow;
             var superAdminRole = await identityDb.Roles.Include(r => r.Permissions).SingleAsync(r => r.Name == "SuperAdmin");
-            var admin = User.Register("journey-admin@example.com", null, new DateOnly(1990, 1, 1), "Journey Admin", DateTime.UtcNow);
+            var admin = User.Register(adminEmail, null, new DateOnly(1990, 1, 1), "Journey Admin", nowUtc);
             admin.AssignRole(superAdminRole);
+            admin.SetPasswordHash(scope.ServiceProvider.GetRequiredService<IPasswordHasher>().Hash(adminPassword));
             admin.Activate();
             await identityDb.Users.AddAsync(admin);
             await identityDb.SaveChangesAsync();
-            adminUserId = admin.Id;
         }
 
-        var adminOtpRequest = await client.PostAsJsonAsync("/v1/auth/otp/request", new { channel = "Email", destination = "journey-admin@example.com" });
+        // The OTP-only path a candidate uses cannot sign a 2FA-required account in: it answers
+        // as usual, but with a decoy challenge, and no code is ever sent to the admin.
+        var adminOtpRequest = await client.PostAsJsonAsync("/v1/auth/otp/request", new { channel = "Email", destination = adminEmail });
         adminOtpRequest.EnsureSuccessStatusCode();
-        var adminChallenge = await adminOtpRequest.Content.ReadFromJsonAsync<OtpChallengeResponse>(JsonOptions);
-        var adminCode = factory.OtpSender.GetLastCode("journey-admin@example.com");
-        var adminVerify = await client.PostAsJsonAsync("/v1/auth/otp/verify", new { otpChallengeId = adminChallenge!.OtpChallengeId, code = adminCode });
+        Assert.False(factory.OtpSender.HasSentTo(adminEmail));
+
+        var adminLogin = await client.PostAsJsonAsync("/v1/auth/login", new { email = adminEmail, password = adminPassword });
+        adminLogin.EnsureSuccessStatusCode();
+        var adminPending = await adminLogin.Content.ReadFromJsonAsync<AuthResultResponse>(JsonOptions);
+        Assert.True(adminPending!.RequiresTwoFactor);
+        Assert.Null(adminPending.AccessToken);
+        Assert.NotNull(adminPending.OtpChallengeId);
+
+        var adminVerify = await client.PostAsJsonAsync("/v1/auth/otp/verify", new
+        {
+            otpChallengeId = adminPending.OtpChallengeId,
+            code = factory.OtpSender.GetLastCode(adminEmail),
+        });
         adminVerify.EnsureSuccessStatusCode();
         var adminAuth = await adminVerify.Content.ReadFromJsonAsync<AuthResultResponse>(JsonOptions);
 

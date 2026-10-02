@@ -16,4 +16,8 @@ public sealed class RoleRepository(IdentityDbContext context) : IRoleRepository
     /// <inheritdoc />
     public Task<Role?> GetByNameAsync(string name, CancellationToken cancellationToken) =>
         Loaded().FirstOrDefaultAsync(r => r.Name == name, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Role>> ListAsync(CancellationToken cancellationToken) =>
+        await Loaded().AsNoTracking().OrderBy(r => r.Name).ToListAsync(cancellationToken);
 }

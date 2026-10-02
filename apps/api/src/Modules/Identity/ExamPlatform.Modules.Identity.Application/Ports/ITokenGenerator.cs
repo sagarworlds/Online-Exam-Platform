@@ -7,7 +7,9 @@ public interface ITokenGenerator
 {
     /// <summary>
     /// Produces a signed access token embedding the user's id, roles, and
-    /// effective permission codes, scoped to one session.
+    /// effective permission codes, scoped to one session. The token is valid exactly as
+    /// long as the session: not before its <see cref="UserSession.IssuedAtUtc"/> and not
+    /// after its <see cref="UserSession.ExpiresAtUtc"/>.
     /// </summary>
     /// <param name="user">The authenticated user.</param>
     /// <param name="session">The session this token authorizes.</param>

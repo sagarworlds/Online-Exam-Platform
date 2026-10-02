@@ -1,0 +1,23 @@
+<div class="page">
+  <h1>Exam invitation</h1>
+
+  @if (errorMessage()) {
+    <p class="error-message">{{ errorMessage() }}</p>
+  }
+
+  @if (linkCode) {
+    <div class="card">
+      <p>You have been invited to take an exam. Accept the invitation to add it to your exams.</p>
+      <button type="button" class="primary" (click)="accept(linkCode)" [disabled]="accepting()">Accept invitation</button>
+    </div>
+  } @else {
+    <form class="card" [formGroup]="form" (ngSubmit)="accept(null)" aria-label="Invitation code">
+      <p>Enter the code from your invitation.</p>
+      <div class="field">
+        <label for="invite-code">Invitation code</label>
+        <input id="invite-code" type="text" formControlName="code" autocomplete="off" />
+      </div>
+      <button type="submit" class="primary" [disabled]="form.invalid || accepting()">Accept invitation</button>
+    </form>
+  }
+</div>

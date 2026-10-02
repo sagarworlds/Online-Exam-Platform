@@ -12,6 +12,18 @@ namespace ExamPlatform.Modules.Identity.Domain;
 /// </summary>
 public sealed class User : AggregateRoot
 {
+    /// <summary>The longest email address an account can hold: a 64-character local part, "@", and a 255-character domain.</summary>
+    public const int MaxEmailLength = 320;
+
+    /// <summary>The longest phone number an account can hold.</summary>
+    public const int MaxPhoneNumberLength = 20;
+
+    /// <summary>How many years back a date of birth may lie; anything older is refused as implausible.</summary>
+    public const int MaximumPlausibleAgeYears = 120;
+
+    /// <summary>The longest display name an account can hold, after trimming.</summary>
+    public const int MaxDisplayNameLength = 200;
+
     private readonly List<Role> _roles = [];
     private readonly List<UserSession> _sessions = [];
 
@@ -56,20 +68,62 @@ public sealed class User : AggregateRoot
     /// <summary>Registers a new candidate/user account.</summary>
     /// <param name="email">Email address, if provided.</param>
     /// <param name="phoneNumber">Phone number, if provided.</param>
-    /// <param name="dateOfBirth">Date of birth.</param>
-    /// <param name="displayName">Name to show in the UI.</param>
-    /// <param name="nowUtc">The current instant, for the registration event's timestamp.</param>
-    /// <exception cref="ArgumentException">Neither an email nor a phone number was supplied.</exception>
+    /// <param name="dateOfBirth">
+    /// Date of birth: not later than one day after today (UTC) and not more than
+    /// <see cref="MaximumPlausibleAgeYears"/> years before it.
+    /// </param>
+    /// <param name="displayName">Name to show in the UI; leading and trailing whitespace is removed.</param>
+    /// <param name="nowUtc">The current instant, for the registration event's timestamp and the date-of-birth check.</param>
+    /// <exception cref="ContactRequiredError">Neither an email nor a phone number was supplied.</exception>
+    /// <exception cref="InvalidContactError">The email or phone number is longer than the platform stores.</exception>
+    /// <exception cref="InvalidDateOfBirthError">The date of birth is unset, in the future, or implausibly long ago.</exception>
+    /// <exception cref="InvalidDisplayNameError">The display name is blank or too long once trimmed.</exception>
     public static User Register(string? email, string? phoneNumber, DateOnly dateOfBirth, string displayName, DateTime nowUtc)
     {
-        if (string.IsNullOrWhiteSpace(email) && string.IsNullOrWhiteSpace(phoneNumber))
+        // A blank contact is stored as no contact: the unique indexes only skip nulls, so a
+        // stored "" would make every later account registered without one a duplicate.
+        email = string.IsNullOrWhiteSpace(email) ? null : email;
+        phoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber;
+
+        if (email is null && phoneNumber is null)
         {
-            throw new ArgumentException("A user must have an email address, a phone number, or both.");
+            throw new ContactRequiredError();
         }
 
-        var user = new User(Guid.NewGuid(), email, phoneNumber, dateOfBirth, displayName);
+        if (email?.Length > MaxEmailLength || phoneNumber?.Length > MaxPhoneNumberLength)
+        {
+            throw new InvalidContactError();
+        }
+
+        EnsurePlausibleDateOfBirth(dateOfBirth, nowUtc);
+
+        var user = new User(Guid.NewGuid(), email, phoneNumber, dateOfBirth, NormalizeDisplayName(displayName));
         user.AddDomainEvent(new UserRegisteredEvent(user.Id, nowUtc));
         return user;
+    }
+
+    // Checked here rather than only at the API edge because the age band drives guardian-consent
+    // gating (section 7.1): an implausible date is a compliance defect, not just bad input, so no
+    // caller may create an account with one.
+    private static void EnsurePlausibleDateOfBirth(DateOnly dateOfBirth, DateTime nowUtc)
+    {
+        if (dateOfBirth == default)
+        {
+            throw InvalidDateOfBirthError.Missing();
+        }
+
+        // One day of tolerance: India is 5.5 hours ahead of UTC, so a date of birth that is
+        // "today" there can still be tomorrow by the UTC calendar.
+        var utcToday = DateOnly.FromDateTime(nowUtc);
+        if (dateOfBirth > utcToday.AddDays(1))
+        {
+            throw InvalidDateOfBirthError.InTheFuture();
+        }
+
+        if (dateOfBirth < utcToday.AddYears(-MaximumPlausibleAgeYears))
+        {
+            throw InvalidDateOfBirthError.TooLongAgo();
+        }
     }
 
     /// <summary>Sets the password hash, for roles that use password + 2FA login instead of OTP-only login.</summary>
@@ -79,9 +133,61 @@ public sealed class User : AggregateRoot
     /// <summary>Marks the account verified and active, e.g. after the first successful OTP login.</summary>
     public void Activate() => Status = UserStatus.Active;
 
+    /// <summary>
+    /// Blocks the account from signing in and ends every session it currently has, so a
+    /// suspension takes effect immediately rather than when the user's token expires.
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    public void Suspend(DateTime nowUtc)
+    {
+        Status = UserStatus.Suspended;
+        RevokeAllSessions(nowUtc, SessionRevocationReason.AccountSuspended);
+    }
+
+    /// <summary>
+    /// Revokes every session that is still active at <paramref name="nowUtc"/>. Sessions
+    /// that were already revoked keep their original revocation time and reason, and
+    /// expired ones are left as they are.
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <param name="reason">Why the sessions are being revoked.</param>
+    public void RevokeAllSessions(DateTime nowUtc, SessionRevocationReason reason)
+    {
+        foreach (var session in _sessions.Where(s => s.IsActive(nowUtc)))
+        {
+            session.Revoke(nowUtc, reason);
+        }
+    }
+
+    /// <summary>
+    /// Revokes one of this user's sessions, e.g. when the user logs out of it (FR-4).
+    /// Idempotent: a session that was already revoked keeps its original revocation time
+    /// and reason.
+    /// </summary>
+    /// <param name="sessionId">The session to revoke.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <param name="reason">Why the session is being revoked.</param>
+    /// <exception cref="SessionNotFoundError">This user has no session with that id.</exception>
+    public void RevokeSession(Guid sessionId, DateTime nowUtc, SessionRevocationReason reason)
+    {
+        var session = _sessions.FirstOrDefault(s => s.Id == sessionId) ?? throw new SessionNotFoundError();
+        session.Revoke(nowUtc, reason);
+    }
+
     /// <summary>Changes the name shown in the UI.</summary>
-    /// <param name="displayName">The new display name.</param>
-    public void UpdateDisplayName(string displayName) => DisplayName = displayName;
+    /// <param name="displayName">The new display name; leading and trailing whitespace is removed.</param>
+    /// <exception cref="InvalidDisplayNameError">The name is blank or too long once trimmed.</exception>
+    public void UpdateDisplayName(string displayName) => DisplayName = NormalizeDisplayName(displayName);
+
+    // Trimmed first, so a name of only spaces counts as blank and the length limit applies to
+    // what is stored; the column shares MaxDisplayNameLength, so a valid name always fits it.
+    private static string NormalizeDisplayName(string? displayName)
+    {
+        var trimmed = displayName?.Trim();
+        return string.IsNullOrEmpty(trimmed) || trimmed.Length > MaxDisplayNameLength
+            ? throw new InvalidDisplayNameError()
+            : trimmed;
+    }
 
     /// <summary>
     /// Computes this user's age band as of a given instant. Recomputed on demand

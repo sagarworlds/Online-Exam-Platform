@@ -1,30 +1,27 @@
 namespace ExamPlatform.Modules.ExamAuthoring.Application.Dtos;
 
-/// DTO for exam section details.
-public record SectionDto(
+/// <summary>One section of an exam with the questions in it.</summary>
+/// <param name="Id">The section's id.</param>
+/// <param name="Name">The section's name.</param>
+/// <param name="TimeSeconds">The section's own time limit, if it has one.</param>
+/// <param name="Order">Position in the exam, from 1.</param>
+/// <param name="Questions">The section's questions in order.</param>
+public record ExamSectionDto(
     Guid Id,
     string Name,
     int? TimeSeconds,
     int Order,
-    int QuestionCount,
-    DateTime CreatedAt
+    IReadOnlyList<ExamQuestionDto> Questions
 );
 
-/// Request to add a section to an exam.
-public record AddSectionRequest(
-    string Name,
-    int? TimeSeconds = null
-);
-
-/// Request to add a question to a section.
-public record AddQuestionRequest(
-    Guid QuestionVersionId,
-    int Order
-);
-
-/// DTO for a question within an exam (with answer metadata).
+/// <summary>A question as it sits in an exam.</summary>
+/// <param name="Id">The exam-question's id.</param>
+/// <param name="QuestionId">The question's id in the question bank.</param>
+/// <param name="Order">Position within the section, from 1.</param>
+/// <param name="Text">The question text as sanitized HTML, read from the bank; null if the bank no longer has it.</param>
 public record ExamQuestionDto(
     Guid Id,
-    Guid QuestionVersionId,
-    int Order
+    Guid QuestionId,
+    int Order,
+    string? Text
 );

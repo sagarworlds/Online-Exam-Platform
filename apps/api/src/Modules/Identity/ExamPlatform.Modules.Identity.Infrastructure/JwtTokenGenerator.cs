@@ -16,8 +16,6 @@ namespace ExamPlatform.Modules.Identity.Infrastructure;
 /// </summary>
 public sealed class JwtTokenGenerator(IConfiguration configuration) : ITokenGenerator
 {
-    private static readonly TimeSpan TokenLifetime = TimeSpan.FromHours(12);
-
     /// <inheritdoc />
     public string GenerateAccessToken(User user, UserSession session)
     {
@@ -31,6 +29,13 @@ public sealed class JwtTokenGenerator(IConfiguration configuration) : ITokenGene
             new(JwtRegisteredClaimNames.Name, user.DisplayName),
         };
 
+        // Lets other modules tie an action to the account's verified address (an invitation is accepted by
+        // the address it was sent to) without calling into Identity.
+        if (!string.IsNullOrWhiteSpace(user.Email))
+        {
+            claims.Add(new Claim(JwtRegisteredClaimNames.Email, user.Email));
+        }
+
         claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role.Name)));
         claims.AddRange(user.Roles
             .SelectMany(role => role.Permissions)
@@ -41,11 +46,15 @@ public sealed class JwtTokenGenerator(IConfiguration configuration) : ITokenGene
         var credentials = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)), SecurityAlgorithms.HmacSha256);
 
+        // The token's lifetime is the session's, so a token can never outlive its session and
+        // the sign-in lifetime has one source of truth (LoginSessionIssuer), set from the
+        // injected Clock rather than read from the system clock here.
         var token = new JwtSecurityToken(
             issuer: configuration["Jwt:Issuer"],
             audience: configuration["Jwt:Audience"],
             claims: claims,
-            expires: DateTime.UtcNow.Add(TokenLifetime),
+            notBefore: session.IssuedAtUtc,
+            expires: session.ExpiresAtUtc,
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);

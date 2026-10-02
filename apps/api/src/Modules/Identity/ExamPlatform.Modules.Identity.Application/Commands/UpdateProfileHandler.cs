@@ -1,5 +1,6 @@
 using ExamPlatform.Modules.Identity.Application.Exceptions;
 using ExamPlatform.Modules.Identity.Application.Ports;
+using ExamPlatform.Modules.Identity.Domain.Exceptions;
 
 namespace ExamPlatform.Modules.Identity.Application.Commands;
 
@@ -10,6 +11,7 @@ public sealed class UpdateProfileHandler(IUserRepository userRepository, IIdenti
     /// <param name="command">The user and new display name.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="UserNotFoundError">No user matches the given id.</exception>
+    /// <exception cref="InvalidDisplayNameError">The new display name is blank or too long once trimmed.</exception>
     public async Task HandleAsync(UpdateProfileCommand command, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdAsync(command.UserId, cancellationToken)

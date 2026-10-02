@@ -19,49 +19,149 @@ public class OtpChallengeTests
             maxAttempts: maxAttempts);
 
     [Fact]
-    public void Verify_WithExpiredChallenge_ThrowsOtpExpiredError()
+    public void Verify_AfterExpiry_ReturnsExpired()
     {
         var challenge = CreateChallenge();
         var afterExpiry = IssuedAt.AddMinutes(11);
 
-        var act = () => challenge.Verify("correct-hash", afterExpiry);
+        var outcome = challenge.Verify("correct-hash", afterExpiry);
 
-        Assert.Throws<OtpExpiredError>(act);
+        Assert.Equal(OtpVerificationOutcome.Expired, outcome);
+        Assert.False(challenge.IsConsumed);
+        Assert.Equal(0, challenge.AttemptCount);
     }
 
     [Fact]
-    public void Verify_WithCorrectCodeBeforeExpiry_Succeeds()
+    public void Verify_AtExactExpiryInstant_IsStillAccepted()
     {
         var challenge = CreateChallenge();
 
-        challenge.Verify("correct-hash", IssuedAt.AddMinutes(5));
+        // Expiry is exclusive of the instant itself; GetOutstandingAsync relies on the same
+        // boundary, so a challenge still verifiable at its expiry instant is also superseded.
+        var outcome = challenge.Verify("correct-hash", challenge.ExpiresAtUtc);
 
+        Assert.Equal(OtpVerificationOutcome.Verified, outcome);
+    }
+
+    [Fact]
+    public void Verify_WithCorrectCode_ReturnsVerifiedAndConsumes()
+    {
+        var challenge = CreateChallenge();
+        var verifiedAt = IssuedAt.AddMinutes(5);
+
+        var outcome = challenge.Verify("correct-hash", verifiedAt);
+
+        Assert.Equal(OtpVerificationOutcome.Verified, outcome);
         Assert.True(challenge.IsConsumed);
+        Assert.Equal(verifiedAt, challenge.ConsumedAtUtc);
     }
 
     [Fact]
-    public void Verify_WithWrongCode_ThrowsOtpMismatchError()
+    public void Verify_WithWrongCode_ReturnsMismatchAndIncrementsAttemptCount()
     {
         var challenge = CreateChallenge();
 
-        var act = () => challenge.Verify("wrong-hash", IssuedAt.AddMinutes(1));
+        var outcome = challenge.Verify("wrong-hash", IssuedAt.AddMinutes(1));
 
-        Assert.Throws<OtpMismatchError>(act);
+        Assert.Equal(OtpVerificationOutcome.Mismatch, outcome);
+        Assert.Equal(1, challenge.AttemptCount);
+        Assert.False(challenge.IsConsumed);
     }
 
     [Fact]
-    public void Verify_WithWrongCodeRepeatedly_ThrowsOtpAttemptsExceededError()
+    public void Verify_AfterMaxWrongAttempts_ReturnsAttemptsExceededEvenForCorrectCode()
     {
         var challenge = CreateChallenge(maxAttempts: 3);
 
         for (var i = 0; i < 3; i++)
         {
-            Assert.Throws<OtpMismatchError>(() => challenge.Verify("wrong-hash", IssuedAt.AddMinutes(1)));
+            Assert.Equal(OtpVerificationOutcome.Mismatch, challenge.Verify("wrong-hash", IssuedAt.AddMinutes(1)));
         }
 
         // The 4th attempt has already exhausted MaxAttempts, regardless of correctness.
-        var act = () => challenge.Verify("correct-hash", IssuedAt.AddMinutes(1));
+        var outcome = challenge.Verify("correct-hash", IssuedAt.AddMinutes(1));
 
-        Assert.Throws<OtpAttemptsExceededError>(act);
+        Assert.Equal(OtpVerificationOutcome.AttemptsExceeded, outcome);
+        Assert.Equal(3, challenge.AttemptCount);
+        Assert.False(challenge.IsConsumed);
+    }
+
+    [Fact]
+    public void Verify_WhenAlreadyConsumed_ReturnsAlreadyUsed()
+    {
+        var challenge = CreateChallenge();
+        var firstVerifiedAt = IssuedAt.AddMinutes(1);
+        Assert.Equal(OtpVerificationOutcome.Verified, challenge.Verify("correct-hash", firstVerifiedAt));
+
+        // Replaying the same, correct code must not succeed a second time (each success mints a session).
+        var outcome = challenge.Verify("correct-hash", IssuedAt.AddMinutes(2));
+
+        Assert.Equal(OtpVerificationOutcome.AlreadyUsed, outcome);
+        Assert.Equal(firstVerifiedAt, challenge.ConsumedAtUtc);
+        Assert.Equal(1, challenge.AttemptCount);
+    }
+
+    [Fact]
+    public void Verify_AfterSupersede_ReturnsSuperseded()
+    {
+        var challenge = CreateChallenge();
+        var supersededAt = IssuedAt.AddMinutes(1);
+        challenge.Supersede(supersededAt);
+
+        // Even the right code is refused once a newer one exists, and the refusal costs no
+        // attempt: the attempt budget belongs to the newest code alone.
+        var outcome = challenge.Verify("correct-hash", IssuedAt.AddMinutes(2));
+
+        Assert.Equal(OtpVerificationOutcome.Superseded, outcome);
+        Assert.True(challenge.IsSuperseded);
+        Assert.Equal(supersededAt, challenge.SupersededAtUtc);
+        Assert.False(challenge.IsConsumed);
+        Assert.Equal(0, challenge.AttemptCount);
+    }
+
+    [Fact]
+    public void Supersede_WhenAlreadyConsumed_IsNoOp()
+    {
+        var challenge = CreateChallenge();
+        Assert.Equal(OtpVerificationOutcome.Verified, challenge.Verify("correct-hash", IssuedAt.AddMinutes(1)));
+
+        challenge.Supersede(IssuedAt.AddMinutes(2));
+
+        // A consumed challenge's outcome is final, so a replay still reports AlreadyUsed.
+        Assert.False(challenge.IsSuperseded);
+        Assert.Null(challenge.SupersededAtUtc);
+        Assert.Equal(OtpVerificationOutcome.AlreadyUsed, challenge.Verify("correct-hash", IssuedAt.AddMinutes(3)));
+    }
+
+    [Fact]
+    public void Supersede_WhenAlreadySuperseded_KeepsTheFirstTime()
+    {
+        var challenge = CreateChallenge();
+        var firstSupersededAt = IssuedAt.AddMinutes(1);
+        challenge.Supersede(firstSupersededAt);
+
+        challenge.Supersede(IssuedAt.AddMinutes(2));
+
+        Assert.Equal(firstSupersededAt, challenge.SupersededAtUtc);
+    }
+
+    [Theory]
+    [InlineData(OtpVerificationOutcome.Mismatch, typeof(OtpMismatchError), "otp_mismatch")]
+    [InlineData(OtpVerificationOutcome.Expired, typeof(OtpExpiredError), "otp_expired")]
+    [InlineData(OtpVerificationOutcome.AttemptsExceeded, typeof(OtpAttemptsExceededError), "otp_attempts_exceeded")]
+    [InlineData(OtpVerificationOutcome.AlreadyUsed, typeof(OtpAlreadyUsedError), "otp_already_used")]
+    [InlineData(OtpVerificationOutcome.Superseded, typeof(OtpSupersededError), "otp_superseded")]
+    public void ToError_MapsEachFailureToItsTypedError(OtpVerificationOutcome outcome, Type expectedErrorType, string expectedErrorCode)
+    {
+        var error = outcome.ToError();
+
+        Assert.IsType(expectedErrorType, error);
+        Assert.Equal(expectedErrorCode, error.ErrorCode);
+    }
+
+    [Fact]
+    public void ToError_ForVerified_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => OtpVerificationOutcome.Verified.ToError());
     }
 }

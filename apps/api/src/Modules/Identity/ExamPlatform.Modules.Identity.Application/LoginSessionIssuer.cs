@@ -17,7 +17,8 @@ public sealed class LoginSessionIssuer(ITokenGenerator tokenGenerator, Clock clo
 {
     // A login session outlives any single exam attempt's own timer (which the future
     // Exam Runtime module enforces separately via its own server-side end_time) — this
-    // is just how long the candidate stays signed in to browse/start exams.
+    // is just how long the candidate stays signed in to browse/start exams. It is also the
+    // access token's lifetime, since the token generator copies the session's expiry.
     private static readonly TimeSpan SessionValidity = TimeSpan.FromHours(12);
 
     /// <summary>Starts a new session on the user (superseding any existing one, per FR-4) and mints its access token.</summary>
@@ -26,9 +27,10 @@ public sealed class LoginSessionIssuer(ITokenGenerator tokenGenerator, Clock clo
     /// <param name="ipAddress">Client IP address, if captured.</param>
     public AuthResult Issue(User user, string? deviceFingerprint, string? ipAddress)
     {
-        // A random per-session secret, hashed for storage; only its hash is persisted, so a
-        // future revocation-check middleware can confirm a presented session id is still
-        // live without the database ever holding a usable credential.
+        // A random per-session secret, hashed for storage; only its hash is persisted, so the
+        // database never holds a usable credential. The secret is not handed to the client:
+        // the per-request check (SessionValidator) trusts the session id in the signed
+        // token's "sid" claim and looks that session up, so it never needs this hash.
         var sessionSecret = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         var sessionTokenHash = Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(sessionSecret)));
 

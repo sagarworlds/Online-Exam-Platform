@@ -6,9 +6,11 @@ public sealed record RequestOtpRequest(string Channel, string Destination);
 /// <summary>Request body for <c>POST /v1/auth/otp/verify</c>.</summary>
 public sealed record VerifyOtpRequest(Guid OtpChallengeId, string Code);
 
+// DateOfBirth is nullable so that an omitted date arrives as null and is refused; as a plain
+// DateOnly it bound to 0001-01-01, which reads as an adult and skipped minor detection (FR-43).
 /// <summary>Request body for <c>POST /v1/auth/register</c>.</summary>
 public sealed record RegisterCandidateRequest(
-    string? Email, string? PhoneNumber, DateOnly DateOfBirth, string DisplayName, string OtpChannel);
+    string? Email, string? PhoneNumber, DateOnly? DateOfBirth, string DisplayName, string OtpChannel);
 
 /// <summary>Request body for <c>POST /v1/auth/login</c>.</summary>
 public sealed record PasswordLoginRequest(string Email, string Password);

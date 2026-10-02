@@ -93,6 +93,8 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("QuestionVersionId");
+
                     b.HasIndex("SectionId");
 
                     b.ToTable("ExamQuestions", "examAuthoring");
@@ -201,7 +203,38 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
                                 .IsRequired();
                         });
 
+                    b.OwnsOne("ExamPlatform.Modules.ExamAuthoring.Domain.ExamScope", "Scope", b1 =>
+                        {
+                            b1.Property<Guid>("ExamId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid?>("BookId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("ScopeBookId");
+
+                            b1.PrimitiveCollection<Guid[]>("ChapterIds")
+                                .IsRequired()
+                                .HasColumnType("uuid[]")
+                                .HasColumnName("ScopeChapterIds");
+
+                            b1.Property<string>("Type")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("ScopeType");
+
+                            b1.HasKey("ExamId");
+
+                            b1.ToTable("Exams", "examAuthoring");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ExamId");
+                        });
+
                     b.Navigation("Config")
+                        .IsRequired();
+
+                    b.Navigation("Scope")
                         .IsRequired();
                 });
 

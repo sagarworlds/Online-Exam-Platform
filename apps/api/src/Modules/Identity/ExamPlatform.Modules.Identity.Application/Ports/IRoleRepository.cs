@@ -14,4 +14,8 @@ public interface IRoleRepository
     /// <param name="name">The role name (e.g. "Candidate", "SuperAdmin").</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<Role?> GetByNameAsync(string name, CancellationToken cancellationToken);
+
+    /// <summary>Loads every role with its permissions, ordered by name.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Role>> ListAsync(CancellationToken cancellationToken);
 }

@@ -10,6 +10,20 @@ public interface IOtpChallengeRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<OtpChallenge?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Loads, for update, every challenge for a destination and purpose that could still
+    /// be verified: not consumed, not superseded, and not yet expired at <paramref name="nowUtc"/>.
+    /// </summary>
+    /// <param name="destination">The email address or phone number the challenges were sent to.</param>
+    /// <param name="purpose">What the challenges authorize.</param>
+    /// <param name="nowUtc">
+    /// The current instant; a challenge expiring before it is not outstanding, while one expiring
+    /// exactly at it still is, matching <see cref="OtpChallenge.Verify"/>.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<OtpChallenge>> GetOutstandingAsync(
+        string destination, OtpPurpose purpose, DateTime nowUtc, CancellationToken cancellationToken);
+
     /// <summary>Begins tracking a new challenge for insertion on the next unit-of-work commit.</summary>
     /// <param name="challenge">The challenge to add.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

@@ -1,35 +1,64 @@
 .nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #e2e2e2;
+  gap: 0.5rem 1rem;
+  padding: 0.65rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
 .nav .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
   font-weight: 700;
   text-decoration: none;
-  color: inherit;
+  color: var(--text);
+}
+
+.nav .brand svg {
+  width: 1.7rem;
+  height: 1.7rem;
+  color: var(--primary);
 }
 
 .nav nav {
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.1rem;
   align-items: center;
 }
 
 .nav nav a {
-  color: inherit;
+  padding: 0.4rem 0.55rem;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.95rem;
   text-decoration: none;
 }
 
+.nav nav a:hover {
+  background: var(--surface-muted);
+}
+
+.nav nav a.active {
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Separates the candidate's links from the admin areas their permissions open. */
+.nav .divider {
+  align-self: stretch;
+  width: 1px;
+  margin: 0.25rem 0.35rem;
+  background: var(--border);
+}
+
 .nav nav button {
-  font: inherit;
-  cursor: pointer;
-  padding: 0.4rem 0.8rem;
-  border: 1px solid #ccc;
-  border-radius: 0.4rem;
-  background: #fff;
+  margin-inline-start: 0.5rem;
 }
 
 .health-widget {
@@ -41,22 +70,40 @@
 
 .status {
   display: inline-block;
-  padding: 0.4rem 0.8rem;
-  border-radius: 0.5rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid;
   font-weight: 600;
 }
 
 .status--checking {
-  background: #eee;
-  color: #444;
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
+  color: var(--text-muted);
 }
 
 .status--healthy {
-  background: #e6f7ec;
-  color: #1a7f37;
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success);
 }
 
 .status--unhealthy {
-  background: #fdecea;
-  color: #b3261e;
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* On a phone the nav wraps onto several rows, where a divider line would dangle, and the fixed
+   health pill would sit on top of page content, so it joins the page flow instead. */
+@media (max-width: 40rem) {
+  .nav .divider {
+    display: none;
+  }
+
+  .health-widget {
+    position: static;
+    padding: 0 1rem 1rem;
+    text-align: center;
+  }
 }

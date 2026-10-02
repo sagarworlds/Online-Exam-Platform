@@ -10,35 +10,33 @@ import { BatchMemberDto } from '../batch.models';
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
-    <div class="roster-container">
-      <h2>Batch Roster</h2>
+    <div class="page page--wide">
+      <h1>Batch Roster</h1>
 
-      <div class="add-member-section">
+      <div class="card">
         <h3>Add Member</h3>
-        <form [formGroup]="form" (ngSubmit)="onAddMember()" class="add-member-form">
-          <div class="form-group">
+        <form [formGroup]="form" (ngSubmit)="onAddMember()" class="form-row">
+          <div class="field">
             <label for="email">Email *</label>
             <input
               type="email"
               id="email"
               formControlName="email"
               placeholder="member@example.com"
-              class="form-control"
             />
           </div>
 
-          <div class="form-group">
+          <div class="field">
             <label for="phone">Phone</label>
             <input
               type="tel"
               id="phone"
               formControlName="phone"
               placeholder="(Optional)"
-              class="form-control"
             />
           </div>
 
-          <button type="submit" [disabled]="!form.valid || loading" class="btn btn-primary">
+          <button type="submit" [disabled]="!form.valid || loading" class="btn btn--primary">
             {{ loading ? 'Adding...' : 'Add Member' }}
           </button>
         </form>
@@ -47,19 +45,19 @@ import { BatchMemberDto } from '../batch.models';
         }
       </div>
 
-      <div class="members-section">
+      <div>
         <h3>Members ({{ members.length }})</h3>
         @if (membersLoading) {
-          <div class="loading">Loading members...</div>
+          <div class="empty-state">Loading members...</div>
         }
         @if (!membersLoading && members.length === 0) {
-          <div class="empty">
+          <div class="empty-state">
             No members added yet
           </div>
         }
         @if (!membersLoading && members.length > 0) {
-          <div class="members-table">
-            <table>
+          <div class="table-wrap">
+            <table class="table">
               <thead>
                 <tr>
                   <th>Email</th>
@@ -72,7 +70,7 @@ import { BatchMemberDto } from '../batch.models';
                 <tr>
                   <td>{{ member.email }}</td>
                   <td>{{ member.phone || '-' }}</td>
-                  <td><span class="status" [class]="'status-' + member.status">{{ member.status }}</span></td>
+                  <td><span class="badge" [class]="'status-' + member.status">{{ member.status }}</span></td>
                 </tr>
                 }
               </tbody>
@@ -82,36 +80,10 @@ import { BatchMemberDto } from '../batch.models';
       </div>
 
       <div class="actions">
-        <a routerLink="/batches" class="btn btn-secondary">Back to Batches</a>
+        <a routerLink="/batches" class="btn">Back to Batches</a>
       </div>
     </div>
-  `,
-  styles: [`
-    .roster-container { padding: 2rem; max-width: 800px; margin: 0 auto; }
-    .add-member-section { background: #f8f9fa; padding: 2rem; border-radius: 8px; margin-bottom: 2rem; }
-    .add-member-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: flex-end; }
-    .form-group { }
-    .form-group label { display: block; margin-bottom: 0.25rem; font-weight: 500; font-size: 0.875rem; }
-    .form-control { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.875rem; }
-    .form-control:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); }
-    .btn { padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
-    .btn-primary { background: #007bff; color: white; }
-    .btn-primary:disabled { background: #6c757d; cursor: not-allowed; }
-    .btn-secondary { background: #6c757d; color: white; }
-    .error-message { color: #dc3545; background: #f8d7da; padding: 0.75rem; border-radius: 4px; border: 1px solid #f5c6cb; margin-top: 1rem; font-size: 0.875rem; }
-    .members-section { margin-bottom: 2rem; }
-    .members-table { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; background: white; border: 1px solid #ddd; }
-    thead { background: #f8f9fa; }
-    th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #ddd; }
-    th { font-weight: 600; font-size: 0.875rem; }
-    .status { padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: bold; font-size: 0.75rem; }
-    .status-Pending { background: #ffc107; }
-    .status-Registered { background: #28a745; color: white; }
-    .status-Verified { background: #007bff; color: white; }
-    .loading, .empty { padding: 1rem; text-align: center; color: #666; }
-    .actions { display: flex; gap: 1rem; }
-  `]
+  `
 })
 export class BatchRoster implements OnInit {
   private fb = inject(FormBuilder);

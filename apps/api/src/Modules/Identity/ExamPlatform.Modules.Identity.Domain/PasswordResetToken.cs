@@ -17,6 +17,12 @@ public sealed class PasswordResetToken : AggregateRoot
     /// <summary>When the token was used, if it has been.</summary>
     public DateTime? ConsumedAtUtc { get; private set; }
 
+    /// <summary>
+    /// When the token was withdrawn without being used, if it has been: a newer reset link
+    /// was requested, or the password was reset through another link (FR-3).
+    /// </summary>
+    public DateTime? RevokedAtUtc { get; private set; }
+
     private PasswordResetToken(Guid id, Guid userId, string tokenHash, DateTime expiresAtUtc) : base(id)
     {
         UserId = userId;
@@ -32,11 +38,26 @@ public sealed class PasswordResetToken : AggregateRoot
     public static PasswordResetToken Issue(Guid userId, string tokenHash, DateTime nowUtc, TimeSpan validity) =>
         new(Guid.NewGuid(), userId, tokenHash, nowUtc.Add(validity));
 
-    /// <summary>Whether the token can still be used.</summary>
+    /// <summary>Whether the token can still be used: not consumed, not revoked, and not past its expiry.</summary>
     /// <param name="nowUtc">The instant to evaluate against.</param>
-    public bool IsUsable(DateTime nowUtc) => ConsumedAtUtc is null && nowUtc <= ExpiresAtUtc;
+    public bool IsUsable(DateTime nowUtc) => ConsumedAtUtc is null && RevokedAtUtc is null && nowUtc <= ExpiresAtUtc;
 
     /// <summary>Marks the token used, so it cannot be replayed.</summary>
     /// <param name="nowUtc">The current instant.</param>
     public void Consume(DateTime nowUtc) => ConsumedAtUtc = nowUtc;
+
+    /// <summary>
+    /// Withdraws the token so its link stops working. A no-op for a token that is already
+    /// consumed (its outcome is final) or already revoked (the first revocation time is kept).
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    public void Revoke(DateTime nowUtc)
+    {
+        if (ConsumedAtUtc is not null || RevokedAtUtc is not null)
+        {
+            return;
+        }
+
+        RevokedAtUtc = nowUtc;
+    }
 }

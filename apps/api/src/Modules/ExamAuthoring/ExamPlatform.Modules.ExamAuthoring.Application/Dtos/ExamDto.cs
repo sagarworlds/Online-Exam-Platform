@@ -2,7 +2,11 @@ using ExamPlatform.Modules.ExamAuthoring.Domain;
 
 namespace ExamPlatform.Modules.ExamAuthoring.Application.Dtos;
 
-/// DTO for exam details.
+/// <summary>An exam as the authoring side sees it.</summary>
+/// <remarks>
+/// <c>Sections</c> is filled in when one exam is read and is null in a listing. <c>Scope</c> carries the book and
+/// chapter names when the exam is reported through <c>ExamDtoFactory</c>; the plain mapping has the ids only.
+/// </remarks>
 public record ExamDto(
     Guid Id,
     Guid? SeriesId,
@@ -16,7 +20,10 @@ public record ExamDto(
     string TimeZone,
     Guid CreatedBy,
     DateTime CreatedAt,
-    DateTime UpdatedAt
+    DateTime UpdatedAt,
+    bool IsScheduled = false,
+    IReadOnlyList<ExamSectionDto>? Sections = null,
+    ExamScopeDto? Scope = null
 );
 
 /// DTO for exam configuration.

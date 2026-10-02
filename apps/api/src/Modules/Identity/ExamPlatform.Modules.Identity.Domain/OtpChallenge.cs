@@ -11,7 +11,17 @@ namespace ExamPlatform.Modules.Identity.Domain;
 /// </summary>
 public sealed class OtpChallenge : AggregateRoot
 {
-    /// <summary>The user this challenge is for, if one already exists (absent for a first-time registration OTP).</summary>
+    /// <summary>
+    /// The longest destination a challenge can hold; long enough for the longest email address
+    /// (<see cref="User.MaxEmailLength"/>), which is longer than any phone number.
+    /// </summary>
+    public const int MaxDestinationLength = User.MaxEmailLength;
+
+    /// <summary>
+    /// The user this challenge is for, if one already exists. Null for a challenge issued
+    /// before any account exists, and for a decoy: a challenge issued to a destination that
+    /// must not get a usable code, which is never sent and whose code can never match.
+    /// </summary>
     public Guid? UserId { get; private set; }
 
     /// <summary>How the code was delivered.</summary>
@@ -31,6 +41,12 @@ public sealed class OtpChallenge : AggregateRoot
 
     /// <summary>When the challenge was successfully verified, if it has been.</summary>
     public DateTime? ConsumedAtUtc { get; private set; }
+
+    /// <summary>
+    /// When a newer challenge for the same destination and purpose replaced this one, if
+    /// one has; a superseded challenge no longer accepts any code.
+    /// </summary>
+    public DateTime? SupersededAtUtc { get; private set; }
 
     /// <summary>How many verification attempts have been made so far.</summary>
     public int AttemptCount { get; private set; }
@@ -58,7 +74,7 @@ public sealed class OtpChallenge : AggregateRoot
     }
 
     /// <summary>Issues a new OTP challenge.</summary>
-    /// <param name="userId">The existing user this is for, or null for a pre-registration challenge.</param>
+    /// <param name="userId">The existing user this is for, or null for a pre-registration or decoy challenge.</param>
     /// <param name="channel">How the code is being delivered.</param>
     /// <param name="destination">The email address or phone number the code is sent to.</param>
     /// <param name="codeHash">Hash of the generated code.</param>
@@ -78,38 +94,79 @@ public sealed class OtpChallenge : AggregateRoot
         new(Guid.NewGuid(), userId, channel, destination, codeHash, purpose, nowUtc.Add(validity), maxAttempts);
 
     /// <summary>
-    /// Checks a supplied code against this challenge. Never returns a bare
-    /// <c>false</c> for a failure — each failure mode is a distinct, typed
-    /// exception so a caller can react appropriately (e.g. "expired" prompts a
-    /// resend; "mismatch" lets the user retry; "attempts exceeded" forces a resend).
+    /// Checks a supplied code against this challenge and returns a structured
+    /// outcome instead of throwing (requirements section 1.2 allows a structured
+    /// error state): a wrong code changes state — it counts against
+    /// <see cref="MaxAttempts"/> — and that state must be saved before the caller
+    /// reports the failure, or the attempt is lost and the lockout never engages.
+    /// The caller saves, then throws <see cref="OtpVerificationOutcomeErrors.ToError"/>
+    /// for anything but <see cref="OtpVerificationOutcome.Verified"/>.
+    /// <para>
+    /// Checked in order: an already consumed challenge is a replay and is refused
+    /// first; then a challenge a newer code has superseded; then an exhausted attempt
+    /// budget; then expiry. Only a check that reaches the code comparison counts as
+    /// an attempt.
+    /// </para>
     /// </summary>
     /// <param name="suppliedCodeHash">Hash of the code the caller supplied, computed the same way as <see cref="CodeHash"/>.</param>
     /// <param name="nowUtc">The current instant.</param>
-    /// <exception cref="OtpAttemptsExceededError">The challenge has already reached <see cref="MaxAttempts"/> incorrect tries.</exception>
-    /// <exception cref="OtpExpiredError">The challenge was checked after <see cref="ExpiresAtUtc"/>.</exception>
-    /// <exception cref="OtpMismatchError">The supplied code does not match.</exception>
-    public void Verify(string suppliedCodeHash, DateTime nowUtc)
+    /// <returns>
+    /// <see cref="OtpVerificationOutcome.Verified"/> (and the challenge is now consumed) when the code matches;
+    /// otherwise the reason it was refused.
+    /// </returns>
+    public OtpVerificationOutcome Verify(string suppliedCodeHash, DateTime nowUtc)
     {
+        if (IsConsumed)
+        {
+            return OtpVerificationOutcome.AlreadyUsed;
+        }
+
+        if (IsSuperseded)
+        {
+            return OtpVerificationOutcome.Superseded;
+        }
+
         if (AttemptCount >= MaxAttempts)
         {
-            throw new OtpAttemptsExceededError();
+            return OtpVerificationOutcome.AttemptsExceeded;
         }
 
         if (nowUtc > ExpiresAtUtc)
         {
-            throw new OtpExpiredError();
+            return OtpVerificationOutcome.Expired;
         }
 
         AttemptCount++;
 
         if (!string.Equals(suppliedCodeHash, CodeHash, StringComparison.Ordinal))
         {
-            throw new OtpMismatchError();
+            return OtpVerificationOutcome.Mismatch;
         }
 
         ConsumedAtUtc = nowUtc;
+        return OtpVerificationOutcome.Verified;
+    }
+
+    /// <summary>
+    /// Retires this challenge because a newer one has been issued for the same
+    /// destination and purpose, so only the most recent code stays verifiable. A no-op
+    /// for a challenge that is already consumed (its outcome is final) or already
+    /// superseded (the first supersession time is kept).
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    public void Supersede(DateTime nowUtc)
+    {
+        if (IsConsumed || IsSuperseded)
+        {
+            return;
+        }
+
+        SupersededAtUtc = nowUtc;
     }
 
     /// <summary>Whether this challenge has already been successfully verified.</summary>
     public bool IsConsumed => ConsumedAtUtc is not null;
+
+    /// <summary>Whether a newer challenge for the same destination and purpose has replaced this one.</summary>
+    public bool IsSuperseded => SupersededAtUtc is not null;
 }

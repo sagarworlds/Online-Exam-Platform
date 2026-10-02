@@ -12,6 +12,9 @@ namespace ExamPlatform.Modules.Identity.Infrastructure;
 /// </summary>
 public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : DbContext(options)
 {
+    /// <summary>Name of the shadow property that maps a concurrency-checked entity's Postgres <c>xmin</c> row version.</summary>
+    internal const string RowVersionPropertyName = "RowVersion";
+
     /// <summary>Registered accounts.</summary>
     public DbSet<User> Users => Set<User>();
 
@@ -36,10 +39,10 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
         {
             b.ToTable("Users");
             b.HasKey(u => u.Id);
-            b.Property(u => u.Email).HasMaxLength(320);
-            b.Property(u => u.PhoneNumber).HasMaxLength(20);
+            b.Property(u => u.Email).HasMaxLength(User.MaxEmailLength);
+            b.Property(u => u.PhoneNumber).HasMaxLength(User.MaxPhoneNumberLength);
             b.Property(u => u.PasswordHash);
-            b.Property(u => u.DisplayName).IsRequired().HasMaxLength(200);
+            b.Property(u => u.DisplayName).IsRequired().HasMaxLength(User.MaxDisplayNameLength);
             b.Property(u => u.Status).HasConversion<string>().HasMaxLength(30);
             b.HasIndex(u => u.Email).IsUnique().HasFilter("\"Email\" IS NOT NULL");
             b.HasIndex(u => u.PhoneNumber).IsUnique().HasFilter("\"PhoneNumber\" IS NOT NULL");
@@ -84,11 +87,21 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
         {
             b.ToTable("OtpChallenges");
             b.HasKey(c => c.Id);
-            b.Property(c => c.Destination).IsRequired().HasMaxLength(320);
+            b.Property(c => c.Destination).IsRequired().HasMaxLength(OtpChallenge.MaxDestinationLength);
             b.Property(c => c.CodeHash).IsRequired();
             b.Property(c => c.Channel).HasConversion<string>().HasMaxLength(20);
             b.Property(c => c.Purpose).HasConversion<string>().HasMaxLength(30);
             b.Ignore(c => c.DomainEvents);
+
+            // Every OTP issue looks up the destination's outstanding challenges for the
+            // same purpose to supersede them, so that lookup must not scan the table.
+            b.HasIndex(c => new { c.Destination, c.Purpose });
+
+            // Optimistic concurrency on Postgres's xmin system column (a shadow uint that
+            // Npgsql maps to xmin when marked as a row version), so two parallel verifies
+            // of one challenge can neither both consume it nor overwrite each other's
+            // attempt count: the second save fails and IdentityUnitOfWork reports it as a 409.
+            b.Property<uint>(RowVersionPropertyName).IsRowVersion();
         });
 
         modelBuilder.Entity<PasswordResetToken>(b =>
@@ -97,6 +110,15 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             b.HasKey(t => t.Id);
             b.Property(t => t.TokenHash).IsRequired();
             b.Ignore(t => t.DomainEvents);
+
+            // Every reset request and every completed reset looks up the user's outstanding
+            // tokens to revoke them, so that lookup must not scan the table.
+            b.HasIndex(t => t.UserId);
+
+            // The same xmin row version as OtpChallenges: two parallel resets with one link
+            // cannot both consume it, and a reset racing a newer request cannot overwrite the
+            // revocation; the second save fails and IdentityUnitOfWork reports it as a 409.
+            b.Property<uint>(RowVersionPropertyName).IsRowVersion();
         });
 
         modelBuilder.ApplyUtcDateTimeConversion();

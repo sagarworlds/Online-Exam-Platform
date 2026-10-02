@@ -26,4 +26,15 @@ public abstract class DomainException : Exception
     protected DomainException(string message) : base(message)
     {
     }
+
+    /// <summary>
+    /// Initializes the exception with a human-readable message and the lower-level
+    /// failure that caused it, for errors translated from an infrastructure exception
+    /// (e.g. a database concurrency conflict), so the original cause is not lost.
+    /// </summary>
+    /// <param name="message">Describes what went wrong, safe to surface to a caller.</param>
+    /// <param name="innerException">The exception that caused this error, if any.</param>
+    protected DomainException(string message, Exception? innerException) : base(message, innerException)
+    {
+    }
 }

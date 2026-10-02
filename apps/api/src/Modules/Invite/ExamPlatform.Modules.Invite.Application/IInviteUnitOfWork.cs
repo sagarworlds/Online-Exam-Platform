@@ -1,8 +1,10 @@
+using ExamPlatform.SharedKernel.Application;
+
 namespace ExamPlatform.Modules.Invite.Application;
 
-/// Unit of Work for coordinating invite changes.
-public interface IInviteUnitOfWork
-{
-    /// Persist all changes in a single transaction.
-    Task SaveChangesAsync(CancellationToken cancellationToken = default);
-}
+/// <summary>
+/// The Invite module's unit of work. A distinct interface per module (see
+/// <c>Identity.Application.IIdentityUnitOfWork</c> for the rationale) so DI cannot
+/// resolve another module's <c>DbContext</c>-backed implementation.
+/// </summary>
+public interface IInviteUnitOfWork : IUnitOfWork;

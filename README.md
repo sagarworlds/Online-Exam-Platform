@@ -45,7 +45,7 @@ The Online Exam Platform is a purpose-built solution for educational institution
 
 ## Features
 
-### ✅ Completed Features (Milestones M1 & M3)
+### Features (Milestones M1 & M3)
 
 #### **M1: Authentication & Authorization**
 - User registration with email/phone verification via OTP
@@ -55,12 +55,15 @@ The Online Exam Platform is a purpose-built solution for educational institution
 - Consent ledger for tracking data usage agreements
 - Audit logging for security compliance
 
-#### **M3: Exam & Batch Management**
-- **Exam Authoring**: Create exams with configurable sections, questions, and metadata
-- **Exam Scheduling**: Set exam windows with timezone support and late-entry deadlines
-- **Batch Management**: Create and manage candidate batches with member rosters
-- **Invite System**: Generate invitation codes, track invitations, manage lifecycle
-- **Guardian Portal**: Register guardians, link candidates, manage consent delegation
+#### **M3: Exam loop (see "The exam loop" below for the gaps)**
+- **Question Bank**: single-answer multiple-choice questions with an answer key kept server-side; questions can be edited (wording only once candidates have answered), deleted when no exam holds them, and filed under a book and chapter one at a time or in bulk
+- **Exam Authoring**: sections, questions, scheduling (window, time per attempt, latest start), publish
+- **Invites**: e-mailed (or hand-delivered) links; accepting one, from the invited address, enrolls the candidate
+- **Exam Taking**: start, answer, submit and score with a server-held deadline
+- **Answer review**: after submitting, a candidate sees which answers were right and wrong, with the correct options, once the exam's author allows it
+- **Extra attempts**: everyone has one attempt; an administrator can give a candidate another, and every later attempt shows questions and options shuffled
+- **Admin Controls**: permission-aware admin navigation and per-route permission checks on the API
+- **Batches and Guardians**: backend and screens exist, but are not connected to the loop yet
 
 ---
 
@@ -140,10 +143,103 @@ Online-Exam-Platform/
 **Frontend**: Registration, OTP verification, login, password reset, profile management, consent page  
 **Status**: ✅ Merged to main, CI/CD pipeline green
 
-### Milestone M3: Exam Authoring & Enrollment (✅ Complete)
-**Backend**: Exam authoring, batch management, invite system, guardian portal (complete CQRS, EF Core, REST endpoints)  
-**Frontend**: Exam builder & scheduler, batch creation & roster, invite management, guardian portal UI  
-**Status**: ✅ Merged to main, all features implemented
+### Milestone M3: Exam Authoring & Enrollment (first end-to-end loop works)
+**Backend**: question bank, exam authoring (sections, questions, schedule, publish), invites that enroll a candidate, and exam taking with scoring (ExamRuntime module); batches and guardian links exist but are not part of the loop yet  
+**Frontend**: admin question bank (create, edit, delete, file under a chapter), books and chapters, exam builder/editor/scheduler (an exam can be limited to a book or chapters), invite creation and list, candidate invitation page, "My exams", exam-taking page with countdown and result  
+**Status**: the loop below runs end to end against a live API and a real browser. Gaps are listed under it.
+
+#### The exam loop
+
+1. An administrator signs in (password + one-time code) and lands on `/admin`, which lists only the areas their permissions open.
+2. **Questions** (`/admin/questions`): single-answer multiple choice, 2 to 6 options, exactly one correct. The question text is written in a rich-text editor (see [Question formatting](#question-formatting)); options are plain text. A question can be edited, deleted or filed under a book and chapter later (see [Editing, deleting and filing questions](#editing-deleting-and-filing-questions)).
+3. **Books** (`/admin/books`, optional): a book has chapters; questions can be filed under a chapter and exams can be limited to a book or some of its chapters (see [Books, chapters and exam scope](#books-chapters-and-exam-scope)).
+4. **Exams** (`/exams`): create an exam, add sections and questions, set the schedule (window, minutes per attempt, optional latest start), choose when candidates may see which answers were right (see [Answer review](#answer-review)), publish.
+5. **Invites** (`/invites/create`): pick a published exam and a candidate's e-mail address. The invitation is e-mailed when `Smtp:Host` is configured; otherwise the page shows the link to pass on by hand.
+6. The candidate opens the link (signing in or registering first), and accepts it. Only the account holding the invited e-mail address can accept; accepting enrolls them.
+7. **My exams** (`/my-exams`): Start (the server fixes the deadline), answer (saved as they go), submit, and read the score, then review which answers were right once they are released. If time runs out the attempt is closed with the saved answers the next time anyone looks at it. A candidate asks for another attempt by contacting an administrator, who gives one on the exam's **Candidates and attempts** page (see [Extra attempts](#extra-attempts)).
+
+Configuration: `Smtp:Host`, `Smtp:Port`, `Smtp:EnableSsl`, `Smtp:User`, `Smtp:Password`, `Smtp:From` for e-mail, and `Invite:LinkBaseUrl` (default `http://localhost:4200`) for the address in invitation links. A sign-in that has to be done by hand in development reads its code from the API log (`Identity:OtpDelivery:Provider` = `DevelopmentLog`). A candidate has no password and signs in on the **One-time code** tab; staff use the **Password** tab and then get a code. When a sign-in gets no code, the same log says why, so there is no waiting at a verify screen: for example `No code was sent for c***@example.com: this account has no password. Candidates sign in with the One-time code tab.` (no account for that address, a suspended account, a staff address on the code tab, or a wrong password). The caller is told nothing different, and any other delivery says nothing, since explaining would reveal which addresses have accounts.
+
+#### Question formatting
+
+The question text is HTML from a rich-text editor: bold, italic, underline, subscript, superscript, bulleted and numbered lists, and pictures. The editor is only a convenience. **The API sanitizes every question's text before storing it** (it is shown to every candidate, so stored markup must never be able to run script), and the browser sanitizes it again where it is shown.
+
+| What | Rule |
+|------|------|
+| Allowed markup | `p br strong em u s sub sup ul ol li blockquote pre code img`. Every attribute, style, class, link, form, frame and script is removed. |
+| Readable text | At most 4000 characters, not counting markup. A question needs some text or a picture. |
+| Pictures | At most 5 per question. Each must be a PNG, JPEG, GIF or WebP embedded in the question, at most 512 KB decoded. The editor shrinks a picture to 800 px and 300 KB before embedding it (a GIF is kept as it is or refused). Links to other sites and SVG are refused with a message, never silently dropped. |
+| Stored size | At most about 1.5 million characters of HTML per question. |
+
+Questions written before this change were plain text; the `RichQuestionText` migration converts them to escaped HTML so they look the same. Because pictures live inside the question, every response that carries the question carries them too (the admin question list returns up to 200 questions); if that becomes heavy, the upgrade path is an image upload endpoint with cacheable URLs.
+
+#### Answer review
+
+After submitting, a candidate sees their score at once, and then, once the exam's author allows it, a page showing every question with each option marked as the correct one and as the one they chose, whether the answer was correct, wrong or missing, the marks it earned (negative marking included) and the totals.
+
+The author chooses when, per exam, on the exam page (**Answer review**; this may also be changed after publishing, and applies to attempts already made):
+
+| Setting | The answers are shown |
+|---------|-----------------------|
+| Right after they submit (the default, and how every exam behaved before) | as soon as an attempt is submitted. Someone who finishes early can pass the answers on to candidates still sitting the exam, so the page says so. |
+| From a set time | from that time, for example once the whole exam window has closed. |
+| When I release them | when an administrator presses **Release answers now** on the published exam. Releasing twice keeps the first time; switching the setting resets it. |
+
+| What | Rule |
+|------|------|
+| Where the key is sent | Only by `GET /v1/me/attempts/{id}/review`. Nothing shown while sitting the exam carries it, and a test fails if a property naming it is ever added to those types. |
+| Refused | `404` for anyone but the attempt's owner (an administrator too); `409 attempt_not_submitted` while the attempt is open; `409 results_not_released` before the answers are released, saying from when if that is known. The answer key is not even read in those cases. |
+| One rule | released = "Instant, or the release time has arrived". A manual release just sets that time to now. |
+| Permissions | Setting and releasing need `exam.manage`; reading a review needs only being the candidate who sat the attempt. |
+
+The setting governs the answer review only: the score is still shown as soon as an attempt is submitted.
+
+#### Extra attempts
+
+Everyone has **one attempt** at an exam. When a candidate asks for another (a power cut, a dropped connection), an administrator gives them one on **Candidates and attempts** (`/exams/:id/attempts`, linked from a published exam; needs `exam.manage`). The candidate then sees "Start attempt 2" on My exams, and each attempt is numbered, scored and reviewed on its own. My exams lists every attempt and marks the highest-scoring submitted one as **Best** once there are two to compare (the earlier one on a tie); nothing is stored as the exam's official score.
+
+| What | Rule |
+|------|------|
+| Allowance | 1 + the extra attempts granted. A grant is a row recording who allowed it, when and why (an optional reason), not a counter. |
+| When it can be given | The candidate is enrolled, the exam can still be started (not past its window or its late-entry cutoff, because the attempt could never be used), and they have **used every attempt they hold**. The last rule stops a double click, or two administrators, from stockpiling attempts. |
+| Starting | An open attempt is resumed. With none open and one left, the next begins under the same window rules, with a fresh deadline that never passes the window's end. With none left, starting just returns the latest result. |
+| Races | Settled by the database: attempts are unique on (exam, candidate, number) and grants on (exam, candidate, grant number), so the loser of two simultaneous requests gets a 409 rather than a second sitting or a second grant. |
+| Shuffling | The first attempt shows questions and options as the author wrote them. **Every later attempt shows them shuffled**: the questions within each section (sections keep their order) and the options of each question. The shuffle is a function of the attempt (SHA-256 over the attempt, the list and the item), so a reload, a resume on another device and the review all show the order the candidate originally saw; it always differs from the authored order, and with two options they are swapped. Answers are saved by id, so the score does not depend on the order. |
+| Release setting | The answer-review setting applies per exam, not per attempt. With "right after they submit", a candidate who is given another attempt has already seen the correct answers; the exam page warns about it and the author decides. |
+
+Routes: `GET /v1/exams/{id}/attempts` and `POST /v1/exams/{id}/candidates/{candidateId}/extra-attempts` (409 `attempt_available` when they still have an attempt, 409 `exam_closed`, 404 `candidate_not_enrolled`). The `MultipleAttempts` migration numbers every existing attempt 1 and was checked on a database that already held attempts; rolling it back refuses, rather than lose attempts, once a candidate has used an extra one.
+
+#### Books, chapters and exam scope
+
+A **book** (name, optional subject such as "Maths", optional description) holds ordered **chapters**. A question may be filed under one chapter of one book, or under none (existing questions stay unfiled). An **exam's scope** says where its questions may come from: **anywhere** in the bank (the default, and what every exam did before), **one whole book**, or **chosen chapters** of one book. Questions are still picked by hand; the scope limits what can be picked.
+
+Books and chapters are for authors and administrators only (the `question.manage` permission, the same one the question bank uses). Candidates never see them.
+
+| What | Rule |
+|------|------|
+| Where | `/admin/books` (list, create) and `/admin/books/:id` (rename, add and rename chapters, archive and restore). The question form has Book then Chapter selects (the choice is kept after saving, to enter many questions into one chapter), and the question list filters by book, chapter or "no chapter". |
+| Limits | Book name 200 characters, subject 100, description 1000, chapter title 200. A chapter title is unique within its book. Chapters keep the order they were created in. |
+| Archive, not delete | A book or chapter is archived, never deleted: it disappears from the pickers, keeps every question filed under it, and can be restored. An archived book takes no new chapters and an archived chapter or book takes no new questions. |
+| Exam scope | Set when creating the exam or later on a draft (`PUT /v1/exams/{id}/scope`). Once an exam is published its scope is fixed. |
+| Enforced by the API | Adding a question outside the exam's scope is refused with `409 question_outside_scope`, however the request is made; the editor's picker only offers in-scope questions. Narrowing a scope is refused, naming how many questions would be left outside it, until they are removed. |
+| Authors without bank access | A user who may author exams but not read the question bank can still create exams, just not book-limited ones. |
+
+Existing data is untouched: both migrations (`BooksAndChapters`, `ExamScope`) only add tables and nullable or defaulted columns, and existing exams read as "anywhere" (the `ExamScope` default was checked against a database that already held an exam).
+
+#### Editing, deleting and filing questions
+
+Questions can be edited, deleted and filed under a book and chapter from `/admin/questions` (the `question.manage` permission). Exams and attempts read a question's text and options live from the bank, and a saved answer points at an option's id, so what may change depends on where the question is in use. The bank asks every module that uses questions and the list shows the answer as badges on each question: **In N exams** (hover for their names) and **Answered by candidates**.
+
+| What | Rule |
+|------|------|
+| Edit | `PUT /v1/questions/{id}` (page: `/admin/questions/:id/edit`) takes the question's whole new content under the same rules as creating one: the same sanitizing, limits and exactly one correct option. **Before a candidate has answered it, everything can change.** Options are matched by id, so an option that is kept keeps its identity. **Once a candidate has answered it, only the wording can change**: the same options, in the same order, with the same one correct. Anything else is `409 question_locked` and changes nothing, because stored scores were worked out against that key and a review is worked out against it again. To change the answers, create a new question. |
+| Delete | `DELETE /v1/questions/{id}`. Refused with `409 question_in_use`, naming the exams, while any exam (draft or published) holds the question. Every answered question is in an exam, so this also covers "attempted". The card shows Delete disabled, with the reason, instead of letting you click and be refused. |
+| File under | `POST /v1/questions/placement` with `{ questionIds, chapterId }`, so filing one question and filing a page of them are the same call. Each question has **File under…**, and each has a tick box; **Select all shown** and the bar above the list file the ticked ones together (the usual job: filter to "Not filed under a chapter", select all, choose a chapter, file). It is all or nothing, and a question already in that chapter is not counted as moved. The chapter must be open (`404 chapter_not_found`, `409 book_archived`). Filing never changes a question's content or its attempts. |
+| Exams limited to a book or chapters | A **draft** exam whose scope would no longer hold a question it contains objects to the move (`409 placement_refused`, naming the exam, and nothing moves). Published exams are not checked: their scope is fixed and exam delivery never reads where a question is filed. Unfiled questions can never be in a scoped exam, so filing the unfiled ones is never refused. |
+| Where the rules live | The bank must not depend on the modules that use its questions, so it defines `IQuestionUsageSource` and `IQuestionPlacementGuard` in its Contracts project and each module contributes an implementation: ExamAuthoring says which exams hold a question and guards the scope rule; ExamRuntime says which questions candidates have answered. A source that fails fails the request, so a question is never taken for unused by mistake, and integration tests fail if a module's source is not registered. |
+| Migrations | `QuestionUsageIndex` (exams) and `QuestionAnsweredIndex` (runtime) each only add an index, so "which exams hold this question?" and "has anyone answered it?" do not scan a table. |
+
+**Known gaps**: no background worker, so abandoned attempts close lazily; no per-exam "attempts allowed" setting, and a candidate cannot request another attempt in the app, only ask an administrator (there is no request queue and no e-mail when one is given); options cannot be pinned in place, so a shuffled "none of the above" can land first; single-answer multiple choice only; candidates do not see books or chapters, and an exam cannot yet draw questions automatically by rule ("10 from chapter 2"); chapters cannot be reordered, and a question sits in one chapter only, and cannot be taken out of its chapter again (it can be moved to another); no difficulty or topic tags; "Exam Series" is still only an optional ID with no entity behind it (a book is not a series); the question list shows the newest 200 questions per filter, with no paging; no tables, links, math or alt-text prompt in question text, and option text is plain; marking uses the exam's marking scheme (default +1 / 0 / 0) and the score is shown immediately whatever the answer-review setting; there are no written explanations per question (the question bank has no such field), and a review shows the question as it is now, which is why only the wording of a question can change once candidates have answered it (there are no stored versions of a question, FR-7); a question that is in an exam cannot be deleted, and there is no way yet to take a question out of an exam; two authors editing the same question at once is last write wins; options cannot be reordered in the editor (the API accepts a reordering of a question nobody has answered); batches do not yet feed enrollment; the guardian verification path is still a stub; e-mail needs a real SMTP server to be tried.
 
 ### Deferred (Per ADR 0001)
 - **CD Pipeline**: Infrastructure-as-code, deployment automation
@@ -207,6 +303,18 @@ ASPNETCORE_ENVIRONMENT=Development dotnet run \
 - EF Core migrations auto-apply for all modules
 - Reference data seeds (RBAC roles/permissions, consent versions)
 - No manual setup required ✅
+
+This happens because `Database:MigrateAndSeedOnStartup` is `true` in the Development environment. It is `false` everywhere else; see [Migrate and Seed a Deployed Environment](#migrate-and-seed-a-deployed-environment).
+
+**First administrator (optional):** staff sign in with a password plus a second-factor code, and nothing in the app creates a staff account, so a fresh development database has no administrator. To get one, store its credentials in [user-secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) before the first run (the password stays out of the repository):
+
+```bash
+cd apps/api
+dotnet user-secrets set "Identity:Bootstrap:AdminEmail" "admin@example.test" --project src/Host/ExamPlatform.Api
+dotnet user-secrets set "Identity:Bootstrap:AdminPassword" "<a passphrase of at least 12 characters>" --project src/Host/ExamPlatform.Api
+```
+
+On startup an active `SuperAdmin` with that email is created if no account has it; an existing account is never changed. Sign in at `/login` with the email and password, then enter the code printed in the API log. The setting is honoured in the Development environment only and is ignored (with a warning) anywhere else.
 
 **Endpoints once running:**
 - 🏥 Health Check: `http://localhost:5080/v1/health`
@@ -303,6 +411,18 @@ dotnet ef migrations add AddNewTable \
   --context ExamAuthoringDbContext \
   --output-dir Migrations
 ```
+
+#### Migrate and Seed a Deployed Environment
+
+Roles, permissions and consent notice versions are reference data written by each module's idempotent seeder, not by EF migrations. Applying only the migrations (for example with an EF migration bundle) therefore leaves a database where registration fails because the `Candidate` role does not exist. Outside Development nothing migrates or seeds on its own, so a deployment runs the Host once with `--migrate-and-seed` before the web replicas start:
+
+```bash
+ASPNETCORE_ENVIRONMENT=Production ConnectionStrings__Postgres="Host=...;Database=...;Username=...;Password=..." dotnet ExamPlatform.Api.dll --migrate-and-seed
+```
+
+It applies every module's pending migrations and seeders, logs `Migrated and seeded <Module>` for each, and exits with code 0 without starting the web host, so the connection string is the only setting it needs. Run it as a pre-deploy job or an init container, and as **one** process at a time: two concurrent runs can race on the unique indexes of `Roles.Name` and `Permissions.Code`. Seeding only ever adds missing data, so running it on every deploy is safe. Permissions are copied into the access token at sign-in, so users get a newly added permission the next time they sign in.
+
+`Database:MigrateAndSeedOnStartup` does the same at the start of a normal run. Leave it `false` (the default outside Development) when several replicas start together. The reasoning is in [ADR 0002](./docs/adr/0002-migrations-and-reference-data-seeding.md).
 
 #### View Migrations
 
@@ -483,4 +603,4 @@ Compliance-sensitive features (consent, RBAC, audit) have explicit test coverage
 MIT
 ---
 
-**Last Updated:** 2026-09-30 | **Status**: ✅ M1 & M3 Complete, Deployed to Main
+**Last Updated:** 2026-10-02 | **Status**: M1 complete; the M3 exam loop (question → exam → invite → take → score) works end to end, with the gaps listed above

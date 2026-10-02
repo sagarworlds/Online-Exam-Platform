@@ -1,0 +1,81 @@
+<div class="card question-card">
+  <div class="question-card__head">
+    <p class="question-card__where">
+      @if (question().chapterId) {
+        {{ question().bookName }} <span aria-hidden="true">›</span> {{ question().chapterTitle }}
+      } @else {
+        <span class="hint">Not filed under a chapter</span>
+      }
+    </p>
+    <label class="inline-check">
+      <input type="checkbox" [checked]="selected()" (change)="selectionChanged.emit($any($event.target).checked)" />
+      <span class="visually-hidden">Select this question</span>
+    </label>
+  </div>
+  <div class="rich-text question-card__text" [innerHTML]="question().text"></div>
+  <ol>
+    @for (option of question().options; track option.id) {
+      <li [class.correct-option]="option.isCorrect">
+        {{ option.text }}@if (option.isCorrect) {
+          <span class="badge badge--active">correct</span>
+        }
+      </li>
+    }
+  </ol>
+
+  @if (inExam() || question().usage.answered) {
+    <p class="question-card__usage">
+      @if (inExam()) {
+        <span class="badge badge--inactive" [attr.title]="question().usage.examNames.join(', ')">{{ examLabel() }}</span>
+      }
+      @if (question().usage.answered) {
+        <span class="badge badge--inactive">Answered by candidates</span>
+      }
+    </p>
+  }
+
+  @if (error()) {
+    <p class="error-message" role="alert">{{ error() }}</p>
+  }
+
+  @if (filing()) {
+    <div class="question-card__filing">
+      <app-book-chapter-picker
+        [books]="books()"
+        [idPrefix]="'file-' + question().id"
+        bookLabel="File under book"
+        noBookLabel="Choose a book…"
+        [(value)]="placement"
+      />
+      <button type="button" class="primary btn--small" (click)="fileHere()" [disabled]="!placement().chapterId || busy()">File question</button>
+    </div>
+  }
+
+  <div class="actions question-card__actions">
+    <a class="btn btn--small" [routerLink]="['/admin/questions', question().id, 'edit']">Edit</a>
+    <button type="button" class="btn--small" (click)="filing.set(!filing())" [attr.aria-expanded]="filing()" [disabled]="busy()">
+      File under…
+    </button>
+
+    @if (confirmingDelete()) {
+      <span class="question-card__confirm" role="alertdialog" aria-label="Delete this question?">
+        Delete this question for good?
+        <button type="button" class="btn--danger btn--small" (click)="confirmDelete()" [disabled]="busy()">Delete</button>
+        <button type="button" class="btn--small" (click)="confirmingDelete.set(false)">Cancel</button>
+      </span>
+    } @else {
+      <button
+        type="button"
+        class="btn--small"
+        (click)="confirmingDelete.set(true)"
+        [disabled]="busy() || inExam()"
+        [attr.aria-describedby]="inExam() ? 'delete-reason-' + question().id : null"
+      >
+        Delete
+      </button>
+      @if (inExam()) {
+        <span class="hint" [id]="'delete-reason-' + question().id">Cannot be deleted while it is in an exam.</span>
+      }
+    }
+  </div>
+</div>

@@ -19,7 +19,7 @@
         <p><strong>Roles:</strong> {{ p.roles.join(', ') }}</p>
       </div>
 
-      <form [formGroup]="form" (ngSubmit)="submit()">
+      <form class="card" [formGroup]="form" (ngSubmit)="submit()">
         <div class="field">
           <label for="profile-display-name">Display name</label>
           <input id="profile-display-name" type="text" formControlName="displayName" />

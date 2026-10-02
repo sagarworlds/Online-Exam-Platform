@@ -24,8 +24,10 @@ public class EFGuardianRepository(GuardianDbContext context) : IGuardianReposito
         await context.Guardians.AsNoTracking().Where(g => g.CandidateLinks.Any(l => l.CandidateId == candidateId)).ToListAsync(cancellationToken);
 }
 
-public class GuardianUnitOfWork(GuardianDbContext context) : IGuardianUnitOfWork
+/// <summary>EF Core-backed <see cref="IGuardianUnitOfWork"/>, wrapping <see cref="GuardianDbContext"/>.</summary>
+public sealed class GuardianUnitOfWork(GuardianDbContext context) : IGuardianUnitOfWork
 {
-    public async Task SaveChangesAsync(CancellationToken cancellationToken = default) =>
-        await context.SaveChangesAsync(cancellationToken);
+    /// <inheritdoc />
+    public Task<int> SaveChangesAsync(CancellationToken cancellationToken) =>
+        context.SaveChangesAsync(cancellationToken);
 }

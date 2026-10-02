@@ -1,8 +1,11 @@
 using ExamPlatform.Modules.ExamAuthoring.Application;
 using ExamPlatform.Modules.ExamAuthoring.Application.Commands;
 using ExamPlatform.Modules.ExamAuthoring.Application.Ports;
+using ExamPlatform.Modules.ExamAuthoring.Application.Queries;
+using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.ExamAuthoring.Infrastructure;
 using ExamPlatform.Modules.ExamAuthoring.Infrastructure.Repositories;
+using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Routing;
@@ -27,8 +30,23 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
 
         services.AddScoped<IExamRepository, EFExamRepository>();
         services.AddScoped<IExamAuthoringUnitOfWork, ExamAuthoringUnitOfWork>();
+        services.AddScoped<IExamCatalog, ExamCatalog>();
+        services.AddScoped<IQuestionUsageSource, ExamQuestionUsageSource>();
+        services.AddScoped<IQuestionPlacementGuard, ExamScopePlacementGuard>();
+
+        services.AddScoped<ExamScopeResolver>();
+        services.AddScoped<ExamDtoFactory>();
 
         services.AddScoped<CreateExamHandler>();
+        services.AddScoped<ListExamsHandler>();
+        services.AddScoped<GetExamHandler>();
+        services.AddScoped<ScheduleExamHandler>();
+        services.AddScoped<AddSectionHandler>();
+        services.AddScoped<AddExamQuestionHandler>();
+        services.AddScoped<PublishExamHandler>();
+        services.AddScoped<SetExamScopeHandler>();
+        services.AddScoped<SetResultReleaseHandler>();
+        services.AddScoped<ReleaseResultsHandler>();
     }
 
     /// <inheritdoc />

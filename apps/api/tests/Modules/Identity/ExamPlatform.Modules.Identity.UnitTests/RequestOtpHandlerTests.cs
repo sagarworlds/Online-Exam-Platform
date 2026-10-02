@@ -1,57 +1,180 @@
 using ExamPlatform.Modules.Identity.Application;
 using ExamPlatform.Modules.Identity.Application.Commands;
-using ExamPlatform.Modules.Identity.Application.Exceptions;
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Domain;
+using ExamPlatform.Modules.Identity.Domain.Exceptions;
 using NSubstitute;
 
 namespace ExamPlatform.Modules.Identity.UnitTests;
 
 public class RequestOtpHandlerTests
 {
-    [Fact]
-    public async Task HandleAsync_UnknownDestination_ThrowsUserNotFoundError()
+    private const string Destination = "candidate@example.com";
+    private const string Code = "123456";
+
+    private static readonly DateTime Now = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly IOtpChallengeRepository _challengeRepository = Substitute.For<IOtpChallengeRepository>();
+    private readonly IOtpCodeGenerator _codeGenerator = Substitute.For<IOtpCodeGenerator>();
+    private readonly IOtpSender _sender = Substitute.For<IOtpSender>();
+    private readonly ISignInDiagnostics _diagnostics = Substitute.For<ISignInDiagnostics>();
+    private readonly IIdentityUnitOfWork _unitOfWork = Substitute.For<IIdentityUnitOfWork>();
+    private readonly RequestOtpHandler _handler;
+
+    public RequestOtpHandlerTests()
     {
-        var userRepository = Substitute.For<IUserRepository>();
-        userRepository.GetByEmailAsync("nobody@example.com", Arg.Any<CancellationToken>()).Returns((User?)null);
+        _challengeRepository
+            .GetOutstandingAsync(Arg.Any<string>(), Arg.Any<OtpPurpose>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<OtpChallenge>());
+        _codeGenerator.GenerateCode().Returns(Code);
+        _codeGenerator.Hash(Arg.Any<string>()).Returns(call => "hashed-" + call.Arg<string>());
 
-        var issuer = new OtpChallengeIssuer(
-            Substitute.For<IOtpChallengeRepository>(),
-            Substitute.For<IOtpCodeGenerator>(),
-            Substitute.For<IOtpSender>(),
-            new FakeClock(DateTime.UtcNow));
+        var issuer = new OtpChallengeIssuer(_challengeRepository, _codeGenerator, _sender, new FakeClock(Now));
+        _handler = new RequestOtpHandler(_userRepository, new LoginEligibilityPolicy(), issuer, _diagnostics, _unitOfWork);
+    }
 
-        var handler = new RequestOtpHandler(userRepository, issuer, Substitute.For<IIdentityUnitOfWork>());
+    private static RequestOtpCommand Command() => new(OtpChannel.Email, Destination);
 
-        var command = new RequestOtpCommand(OtpChannel.Email, "nobody@example.com");
+    // A registered user for Destination that the repository finds by email.
+    private User ArrangeUser(Action<User>? configure = null)
+    {
+        var user = User.Register(Destination, null, new DateOnly(2000, 1, 1), "Candidate", Now);
+        user.AssignRole(Role.Create("Candidate", requiresTwoFactor: false));
+        configure?.Invoke(user);
+        _userRepository.GetByEmailAsync(Destination, Arg.Any<CancellationToken>()).Returns(user);
+        return user;
+    }
 
-        await Assert.ThrowsAsync<UserNotFoundError>(() => handler.HandleAsync(command, CancellationToken.None));
+    // Asserts the request was answered with a persisted decoy: a challenge with no user,
+    // a code hash no 6-digit code produces, nothing sent, and the challenge's own id returned.
+    private async Task AssertDecoyIssuedAsync(Guid challengeId)
+    {
+        await _challengeRepository.Received(1).AddAsync(
+            Arg.Is<OtpChallenge>(c => c.Id == challengeId && c.UserId == null && c.CodeHash != "hashed-" + Code),
+            Arg.Any<CancellationToken>());
+        await _sender.DidNotReceiveWithAnyArgs().SendAsync(default, default!, default!, default);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    // Asserts the request was refused before any lookup, so not even a decoy (which would
+    // persist the destination) was issued.
+    private async Task AssertNothingIssuedAsync()
+    {
+        Assert.Empty(_userRepository.ReceivedCalls());
+        await _challengeRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+        await _sender.DidNotReceiveWithAnyArgs().SendAsync(default, default!, default!, default);
+        await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task HandleAsync_BlankDestination_ThrowsInvalidContactError(string? destination)
+    {
+        await Assert.ThrowsAsync<InvalidContactError>(
+            () => _handler.HandleAsync(new RequestOtpCommand(OtpChannel.Email, destination!), CancellationToken.None));
+
+        await AssertNothingIssuedAsync();
     }
 
     [Fact]
-    public async Task HandleAsync_KnownDestination_IssuesChallengeAndSendsCode()
+    public async Task HandleAsync_DestinationLongerThanAChallengeStores_ThrowsInvalidContactError()
     {
-        var user = User.Register("candidate@example.com", null, new DateOnly(2000, 1, 1), "Candidate", DateTime.UtcNow);
-        var userRepository = Substitute.For<IUserRepository>();
-        userRepository.GetByEmailAsync("candidate@example.com", Arg.Any<CancellationToken>()).Returns(user);
+        var destination = new string('a', OtpChallenge.MaxDestinationLength + 1);
 
-        var challengeRepository = Substitute.For<IOtpChallengeRepository>();
-        var codeGenerator = Substitute.For<IOtpCodeGenerator>();
-        codeGenerator.GenerateCode().Returns("123456");
-        codeGenerator.Hash("123456").Returns("hashed-123456");
-        var sender = Substitute.For<IOtpSender>();
+        await Assert.ThrowsAsync<InvalidContactError>(
+            () => _handler.HandleAsync(new RequestOtpCommand(OtpChannel.Email, destination), CancellationToken.None));
 
-        var issuer = new OtpChallengeIssuer(challengeRepository, codeGenerator, sender, new FakeClock(DateTime.UtcNow));
-        var unitOfWork = Substitute.For<IIdentityUnitOfWork>();
-        var handler = new RequestOtpHandler(userRepository, issuer, unitOfWork);
+        await AssertNothingIssuedAsync();
+    }
 
-        var challengeId = await handler.HandleAsync(
-            new RequestOtpCommand(OtpChannel.Email, "candidate@example.com"), CancellationToken.None);
+    [Fact]
+    public async Task HandleAsync_UnknownDestination_ReturnsChallengeIdWithoutSending()
+    {
+        _userRepository.GetByEmailAsync(Destination, Arg.Any<CancellationToken>()).Returns((User?)null);
+
+        var challengeId = await _handler.HandleAsync(Command(), CancellationToken.None);
 
         Assert.NotEqual(Guid.Empty, challengeId);
-        await challengeRepository.Received(1).AddAsync(
-            Arg.Is<OtpChallenge>(c => c.UserId == user.Id), Arg.Any<CancellationToken>());
-        await sender.Received(1).SendAsync(OtpChannel.Email, "candidate@example.com", "123456", Arg.Any<CancellationToken>());
-        await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await AssertDecoyIssuedAsync(challengeId);
+        _diagnostics.Received(1).Explain(SignInHint.NoAccountForAddress, OtpChannel.Email, Destination);
+    }
+
+    [Fact]
+    public async Task HandleAsync_SuspendedUser_IssuesDecoyWithoutSending()
+    {
+        ArrangeUser(user => user.Suspend(Now));
+
+        var challengeId = await _handler.HandleAsync(Command(), CancellationToken.None);
+
+        await AssertDecoyIssuedAsync(challengeId);
+        _diagnostics.Received(1).Explain(SignInHint.AccountLocked, OtpChannel.Email, Destination);
+    }
+
+    [Fact]
+    public async Task HandleAsync_TwoFactorUser_IssuesDecoyWithoutSending()
+    {
+        ArrangeUser(user =>
+        {
+            user.AssignRole(Role.Create("SuperAdmin", requiresTwoFactor: true));
+            user.Activate();
+        });
+
+        var challengeId = await _handler.HandleAsync(Command(), CancellationToken.None);
+
+        // Staff must sign in with password + 2FA, so this path never sends them a code.
+        await AssertDecoyIssuedAsync(challengeId);
+        _diagnostics.Received(1).Explain(SignInHint.StaffMustUsePasswordAndCode, OtpChannel.Email, Destination);
+    }
+
+    [Fact]
+    public async Task HandleAsync_PendingTwoFactorUser_IssuesDecoyWithoutSending()
+    {
+        // Still pending verification, so a real code would have the Registration purpose;
+        // that must not become a way round password + 2FA either.
+        ArrangeUser(user => user.AssignRole(Role.Create("SuperAdmin", requiresTwoFactor: true)));
+
+        var challengeId = await _handler.HandleAsync(Command(), CancellationToken.None);
+
+        await AssertDecoyIssuedAsync(challengeId);
+        _diagnostics.Received(1).Explain(SignInHint.StaffMustUsePasswordAndCode, OtpChannel.Email, Destination);
+        await _challengeRepository.Received(1).AddAsync(
+            Arg.Is<OtpChallenge>(c => c.Id == challengeId && c.Purpose == OtpPurpose.Registration),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_PendingUser_IssuesRegistrationPurposeChallenge()
+    {
+        var user = ArrangeUser();
+        Assert.Equal(UserStatus.PendingVerification, user.Status);
+
+        var challengeId = await _handler.HandleAsync(Command(), CancellationToken.None);
+
+        await _challengeRepository.Received(1).AddAsync(
+            Arg.Is<OtpChallenge>(c => c.Id == challengeId && c.UserId == user.Id && c.Purpose == OtpPurpose.Registration),
+            Arg.Any<CancellationToken>());
+        await _sender.Received(1).SendAsync(OtpChannel.Email, Destination, Code, Arg.Any<CancellationToken>());
+        // A code was sent, so there is nothing to explain.
+        _diagnostics.DidNotReceiveWithAnyArgs().Explain(default, default, default!);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ActiveUser_IssuesLoginChallengeAndSendsCode()
+    {
+        var user = ArrangeUser(u => u.Activate());
+
+        var challengeId = await _handler.HandleAsync(Command(), CancellationToken.None);
+
+        Assert.NotEqual(Guid.Empty, challengeId);
+        await _challengeRepository.Received(1).AddAsync(
+            Arg.Is<OtpChallenge>(c =>
+                c.Id == challengeId && c.UserId == user.Id && c.Purpose == OtpPurpose.Login && c.CodeHash == "hashed-" + Code),
+            Arg.Any<CancellationToken>());
+        await _sender.Received(1).SendAsync(OtpChannel.Email, Destination, Code, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        _diagnostics.DidNotReceiveWithAnyArgs().Explain(default, default, default!);
     }
 }
