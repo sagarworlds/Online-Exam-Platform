@@ -45,7 +45,7 @@ The Online Exam Platform is a purpose-built solution for educational institution
 
 ## Features
 
-### ✅ Completed Features (Milestones M1 & M3)
+### Features (Milestones M1 & M3)
 
 #### **M1: Authentication & Authorization**
 - User registration with email/phone verification via OTP
@@ -55,12 +55,13 @@ The Online Exam Platform is a purpose-built solution for educational institution
 - Consent ledger for tracking data usage agreements
 - Audit logging for security compliance
 
-#### **M3: Exam & Batch Management**
-- **Exam Authoring**: Create exams with configurable sections, questions, and metadata
-- **Exam Scheduling**: Set exam windows with timezone support and late-entry deadlines
-- **Batch Management**: Create and manage candidate batches with member rosters
-- **Invite System**: Generate invitation codes, track invitations, manage lifecycle
-- **Guardian Portal**: Register guardians, link candidates, manage consent delegation
+#### **M3: Exam loop (see "The exam loop" below for the gaps)**
+- **Question Bank**: single-answer multiple-choice questions with an answer key kept server-side
+- **Exam Authoring**: sections, questions, scheduling (window, time per attempt, latest start), publish
+- **Invites**: e-mailed (or hand-delivered) links; accepting one, from the invited address, enrolls the candidate
+- **Exam Taking**: start, answer, submit and score with a server-held deadline
+- **Admin Controls**: permission-aware admin navigation and per-route permission checks on the API
+- **Batches and Guardians**: backend and screens exist, but are not connected to the loop yet
 
 ---
 
@@ -140,10 +141,23 @@ Online-Exam-Platform/
 **Frontend**: Registration, OTP verification, login, password reset, profile management, consent page  
 **Status**: ✅ Merged to main, CI/CD pipeline green
 
-### Milestone M3: Exam Authoring & Enrollment (✅ Complete)
-**Backend**: Exam authoring, batch management, invite system, guardian portal (complete CQRS, EF Core, REST endpoints)  
-**Frontend**: Exam builder & scheduler, batch creation & roster, invite management, guardian portal UI  
-**Status**: ✅ Merged to main, all features implemented
+### Milestone M3: Exam Authoring & Enrollment (first end-to-end loop works)
+**Backend**: question bank, exam authoring (sections, questions, schedule, publish), invites that enroll a candidate, and exam taking with scoring (ExamRuntime module); batches and guardian links exist but are not part of the loop yet  
+**Frontend**: admin question bank, exam builder/editor/scheduler, invite creation and list, candidate invitation page, "My exams", exam-taking page with countdown and result  
+**Status**: the loop below runs end to end against a live API and a real browser. Gaps are listed under it.
+
+#### The exam loop
+
+1. An administrator signs in (password + one-time code) and lands on `/admin`, which lists only the areas their permissions open.
+2. **Questions** (`/admin/questions`): single-answer multiple choice, 2 to 6 options, exactly one correct.
+3. **Exams** (`/exams`): create an exam, add sections and questions, set the schedule (window, minutes per attempt, optional latest start), publish.
+4. **Invites** (`/invites/create`): pick a published exam and a candidate's e-mail address. The invitation is e-mailed when `Smtp:Host` is configured; otherwise the page shows the link to pass on by hand.
+5. The candidate opens the link (signing in or registering first), and accepts it. Only the account holding the invited e-mail address can accept; accepting enrolls them.
+6. **My exams** (`/my-exams`): Start (the server fixes the deadline), answer (saved as they go), submit, and read the score. If time runs out the attempt is closed with the saved answers the next time anyone looks at it.
+
+Configuration: `Smtp:Host`, `Smtp:Port`, `Smtp:EnableSsl`, `Smtp:User`, `Smtp:Password`, `Smtp:From` for e-mail, and `Invite:LinkBaseUrl` (default `http://localhost:4200`) for the address in invitation links. A sign-in that has to be done by hand in development reads its code from the API log (`Identity:OtpDelivery:Provider` = `DevelopmentLog`).
+
+**Known gaps**: no background worker, so abandoned attempts close lazily; one attempt per candidate per exam (no retakes); single-answer multiple choice only; marking uses the exam's marking scheme (default +1 / 0 / 0) and the score is shown immediately whatever the result-release setting; batches do not yet feed enrollment; the guardian verification path is still a stub; e-mail needs a real SMTP server to be tried.
 
 ### Deferred (Per ADR 0001)
 - **CD Pipeline**: Infrastructure-as-code, deployment automation
@@ -507,4 +521,4 @@ Compliance-sensitive features (consent, RBAC, audit) have explicit test coverage
 MIT
 ---
 
-**Last Updated:** 2026-09-30 | **Status**: ✅ M1 & M3 Complete, Deployed to Main
+**Last Updated:** 2026-10-02 | **Status**: M1 complete; the M3 exam loop (question → exam → invite → take → score) works end to end, with the gaps listed above
