@@ -15,12 +15,17 @@ public interface IAttemptRepository
     /// <returns>The attempt, or <see langword="null"/> when none has that id.</returns>
     Task<Attempt?> GetByIdAsync(Guid attemptId, CancellationToken cancellationToken);
 
-    /// <summary>Loads a candidate's attempt at an exam with its answers, tracked so changes to it are saved.</summary>
+    /// <summary>Loads every attempt a candidate has made at an exam, oldest first, with their answers, tracked so changes to them are saved.</summary>
     /// <param name="examId">The exam.</param>
     /// <param name="candidateId">The candidate.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The attempt, or <see langword="null"/> when the candidate has not started the exam.</returns>
-    Task<Attempt?> FindAsync(Guid examId, Guid candidateId, CancellationToken cancellationToken);
+    /// <returns>Their attempts in order of <see cref="Attempt.Number"/>; empty when they have not started the exam.</returns>
+    Task<IReadOnlyList<Attempt>> ListForCandidateAtExamAsync(Guid examId, Guid candidateId, CancellationToken cancellationToken);
+
+    /// <summary>Lists every attempt anyone has made at an exam, without their answers, for read-only display.</summary>
+    /// <param name="examId">The exam.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Attempt>> ListForExamAsync(Guid examId, CancellationToken cancellationToken);
 
     /// <summary>Lists every attempt a candidate has made, without their answers, for read-only display.</summary>
     /// <param name="candidateId">The candidate.</param>

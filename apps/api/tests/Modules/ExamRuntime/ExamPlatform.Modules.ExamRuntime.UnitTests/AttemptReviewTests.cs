@@ -40,7 +40,7 @@ public class AttemptReviewTests
 
     private Attempt Open(ExamSnapshot exam, Guid? owner = null, DateTime? deadline = null)
     {
-        var attempt = Attempt.Start(exam.Id, owner ?? _candidate, Fixtures.Now, deadline ?? Fixtures.Now.AddMinutes(30));
+        var attempt = Attempt.Start(exam.Id, owner ?? _candidate, 1, Fixtures.Now, deadline ?? Fixtures.Now.AddMinutes(30));
         attempt.RecordAnswer(_right.Id, _right.Correct(), Fixtures.Now);
         attempt.RecordAnswer(_wrong.Id, _wrong.Wrong(), Fixtures.Now);
         _attempts.GetByIdAsync(attempt.Id, Arg.Any<CancellationToken>()).Returns(attempt);

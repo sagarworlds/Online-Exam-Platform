@@ -89,6 +89,16 @@ internal static class ExamScenarios
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
+    /// <summary>Invites a fresh candidate to the exam and has them accept, returning their client and who they are.</summary>
+    public static async Task<(HttpClient Client, SignedInTestUser User)> EnrollNewCandidateAsync(this ApiFactory factory, HttpClient admin, Guid examId)
+    {
+        var email = UniqueEmail();
+        var invite = await InviteAsync(admin, examId, email);
+        var (candidate, user) = await factory.CandidateClientAsync(email);
+        (await candidate.PostAsJsonAsync("/v1/invites/accept", new { code = CodeFromLink(invite.GetProperty("inviteLink").GetString()!) })).EnsureSuccessStatusCode();
+        return (candidate, user);
+    }
+
     /// <summary>The code carried by an invitation link.</summary>
     public static string CodeFromLink(string link) => Uri.UnescapeDataString(link[(link.IndexOf("code=", StringComparison.Ordinal) + "code=".Length)..]);
 

@@ -13,6 +13,9 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
     /// <summary>The candidates' attempts.</summary>
     public DbSet<Attempt> Attempts => Set<Attempt>();
 
+    /// <summary>The extra attempts administrators have granted.</summary>
+    public DbSet<ExtraAttemptGrant> ExtraAttemptGrants => Set<ExtraAttemptGrant>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -27,9 +30,10 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             b.Property(a => a.MaxScore).HasPrecision(10, 3);
             b.Ignore(a => a.DomainEvents);
 
-            // The store, not the code, guarantees one attempt per candidate per exam: two parallel "start"
-            // calls cannot both succeed, so the loser is reported as a conflict instead of creating a second sitting.
-            b.HasIndex(a => new { a.ExamId, a.CandidateId }).IsUnique();
+            // The store, not the code, guarantees each attempt number is taken once per candidate per exam: two parallel
+            // "start" calls both try for the next number and cannot both succeed, so the loser is reported as a conflict
+            // instead of creating a second sitting nobody allowed. The index also serves "all of a candidate's attempts at an exam".
+            b.HasIndex(a => new { a.ExamId, a.CandidateId, a.Number }).IsUnique();
             b.HasIndex(a => a.CandidateId);
 
             // Optimistic concurrency on xmin: two parallel submits of one attempt cannot both score it.
@@ -46,6 +50,17 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
 
             // At most one answer per question: saving again changes the row rather than adding another.
             b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
+        });
+
+        modelBuilder.Entity<ExtraAttemptGrant>(b =>
+        {
+            b.ToTable("ExtraAttemptGrants");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Reason).HasMaxLength(ExtraAttemptGrant.MaxReasonLength);
+
+            // Grants are numbered one after the last per candidate per exam, so two administrators granting at the same
+            // moment both ask for the same number and only one succeeds. The index also serves counting a candidate's grants.
+            b.HasIndex(x => new { x.ExamId, x.CandidateId, x.Number }).IsUnique();
         });
 
         modelBuilder.ApplyUtcDateTimeConversion();

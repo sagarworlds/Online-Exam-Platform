@@ -8,7 +8,7 @@ public class AttemptTests
     private static readonly DateTime Start = Fixtures.Now;
     private static readonly DateTime Deadline = Start.AddMinutes(30);
 
-    private static Attempt Open() => Attempt.Start(Guid.NewGuid(), Guid.NewGuid(), Start, Deadline);
+    private static Attempt Open() => Attempt.Start(Guid.NewGuid(), Guid.NewGuid(), 1, Start, Deadline);
 
     [Fact]
     public void Start_BeginsAnInProgressAttemptWithNoAnswersOrScore()
@@ -16,7 +16,7 @@ public class AttemptTests
         var examId = Guid.NewGuid();
         var candidateId = Guid.NewGuid();
 
-        var attempt = Attempt.Start(examId, candidateId, Start, Deadline);
+        var attempt = Attempt.Start(examId, candidateId, 1, Start, Deadline);
 
         Assert.Equal(AttemptStatus.InProgress, attempt.Status);
         Assert.Equal(examId, attempt.ExamId);
@@ -33,7 +33,7 @@ public class AttemptTests
     public void Start_WithADeadlineThatIsNotAfterTheStart_IsRefused(int minutesAfterStart)
     {
         var error = Assert.Throws<InvalidAttemptError>(
-            () => Attempt.Start(Guid.NewGuid(), Guid.NewGuid(), Start, Start.AddMinutes(minutesAfterStart)));
+            () => Attempt.Start(Guid.NewGuid(), Guid.NewGuid(), 1, Start, Start.AddMinutes(minutesAfterStart)));
 
         Assert.Equal("invalid_attempt", error.ErrorCode);
     }

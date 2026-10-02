@@ -37,6 +37,7 @@ public sealed record ReviewSectionDto(Guid Id, string Name, IReadOnlyList<Review
 /// <param name="AttemptId">The attempt.</param>
 /// <param name="ExamId">The exam.</param>
 /// <param name="ExamName">The exam's name.</param>
+/// <param name="Number">Which attempt this is for the candidate at the exam, from 1.</param>
 /// <param name="SubmittedAtUtc">When the attempt ended.</param>
 /// <param name="AutoSubmitted">Whether it ended because time ran out.</param>
 /// <param name="Score">The marks scored; the sum of the marks of the questions below.</param>
@@ -49,6 +50,7 @@ public sealed record AttemptReviewDto(
     Guid AttemptId,
     Guid ExamId,
     string ExamName,
+    int Number,
     DateTime? SubmittedAtUtc,
     bool AutoSubmitted,
     decimal Score,

@@ -13,10 +13,14 @@ namespace ExamPlatform.Modules.ExamRuntime.Endpoints;
 /// <param name="OptionId">The option the candidate chose.</param>
 public sealed record SaveAnswerRequest(Guid OptionId);
 
-/// <summary>Maps the ExamRuntime module's candidate-facing HTTP endpoints (FR-16 to FR-21).</summary>
+/// <summary>Body of <c>POST /v1/exams/{examId}/candidates/{candidateId}/extra-attempts</c>.</summary>
+/// <param name="Reason">Why the candidate is being given another attempt; optional, at most 500 characters.</param>
+public sealed record GrantExtraAttemptRequest(string? Reason);
+
+/// <summary>Maps the ExamRuntime module's HTTP endpoints: the candidate's own (FR-16 to FR-21) and the staff's view of attempts.</summary>
 public static class ExamRuntimeEndpoints
 {
-    /// <summary>Maps <c>/v1/me/exams</c> and the attempt routes.</summary>
+    /// <summary>Maps <c>/v1/me/exams</c>, the attempt routes, and the staff routes that list an exam's attempts and grant extra ones.</summary>
     /// <param name="endpoints">The endpoint route builder to map onto.</param>
     public static void MapExamRuntimeEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -69,6 +73,39 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .WithName("SubmitAttempt")
             .WithDescription("End an attempt and score it");
+
+        // Staff routes. Unlike the candidate's own, these act on someone else's data, so each names the permission it needs and
+        // the candidate is taken from the route, while the administrator who grants is taken from their token.
+        var exams = endpoints.MapGroup("/v1/exams").WithTags("ExamRuntime").RequireAuthorization();
+
+        exams.MapGet("/{examId:guid}/attempts", ListExamAttempts)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<ExamAttemptsDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("ListExamAttempts")
+            .WithDescription("List an exam's enrolled candidates with their attempts and whether another can be granted");
+
+        exams.MapPost("/{examId:guid}/candidates/{candidateId:guid}/extra-attempts", GrantExtraAttempt)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<ExamCandidateDto>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("GrantExtraAttempt")
+            .WithDescription("Give one enrolled candidate one more attempt at an exam, once they have used the ones they hold");
+    }
+
+    private static async Task<IResult> ListExamAttempts(Guid examId, ListExamAttemptsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, ct));
+
+    private static async Task<IResult> GrantExtraAttempt(
+        Guid examId, Guid candidateId, GrantExtraAttemptRequest? request, ClaimsPrincipal user, GrantExtraAttemptHandler handler, CancellationToken ct)
+    {
+        var row = await handler.HandleAsync(examId, candidateId, user.GetUserId(), request?.Reason, ct);
+        return Results.Created($"/v1/exams/{examId}/attempts", row);
     }
 
     private static async Task<IResult> ListMyExams(ClaimsPrincipal user, MyExamsHandler handler, CancellationToken ct) =>

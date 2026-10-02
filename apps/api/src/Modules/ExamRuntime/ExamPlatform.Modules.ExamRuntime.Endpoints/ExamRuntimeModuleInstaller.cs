@@ -27,6 +27,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
             .AddInterceptors(sp.GetRequiredService<DomainEventsSaveChangesInterceptor>()));
 
         services.AddScoped<IAttemptRepository, AttemptRepository>();
+        services.AddScoped<IExtraAttemptGrantRepository, ExtraAttemptGrantRepository>();
         services.AddScoped<IExamRuntimeUnitOfWork, ExamRuntimeUnitOfWork>();
 
         services.AddScoped<AttemptCloser>();
@@ -40,6 +41,8 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<GetAttemptReviewHandler>();
         services.AddScoped<SaveAnswerHandler>();
         services.AddScoped<SubmitAttemptHandler>();
+        services.AddScoped<GrantExtraAttemptHandler>();
+        services.AddScoped<ListExamAttemptsHandler>();
     }
 
     /// <inheritdoc />

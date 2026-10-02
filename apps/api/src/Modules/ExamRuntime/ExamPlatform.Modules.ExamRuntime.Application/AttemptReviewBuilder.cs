@@ -47,6 +47,7 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
             attempt.Id,
             attempt.ExamId,
             exam.Name,
+            attempt.Number,
             attempt.SubmittedAtUtc,
             attempt.AutoSubmitted,
             attempt.Score ?? throw new InvalidOperationException("A submitted attempt always has a score."),

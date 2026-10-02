@@ -9,8 +9,9 @@ namespace ExamPlatform.Modules.ExamRuntime.Domain;
 /// start, on the server, so a client clock cannot stretch the exam.
 /// </summary>
 /// <remarks>
-/// A candidate has at most one attempt per exam (the store enforces it), so "resume" and "start again"
-/// are the same call and there are no retakes in this first cut.
+/// A candidate has one attempt per exam, and one more for each <see cref="ExtraAttemptGrant"/> an administrator gives them.
+/// Attempts are numbered from 1 and the store keeps (exam, candidate, number) unique, so two parallel "start" calls cannot
+/// both take the same number. Resuming an open attempt and starting the next one are the same call; see the start handler.
 /// </remarks>
 public sealed class Attempt : AggregateRoot
 {
@@ -21,6 +22,9 @@ public sealed class Attempt : AggregateRoot
 
     /// <summary>The candidate taking it; the signed-in user's id.</summary>
     public Guid CandidateId { get; private set; }
+
+    /// <summary>Which attempt this is for the candidate at the exam, from 1.</summary>
+    public int Number { get; private set; }
 
     /// <summary>When the candidate started.</summary>
     public DateTime StartedAtUtc { get; private set; }
@@ -51,10 +55,11 @@ public sealed class Attempt : AggregateRoot
     {
     }
 
-    private Attempt(Guid id, Guid examId, Guid candidateId, DateTime startedAtUtc, DateTime deadlineUtc) : base(id)
+    private Attempt(Guid id, Guid examId, Guid candidateId, int number, DateTime startedAtUtc, DateTime deadlineUtc) : base(id)
     {
         ExamId = examId;
         CandidateId = candidateId;
+        Number = number;
         StartedAtUtc = startedAtUtc;
         DeadlineUtc = deadlineUtc;
         Status = AttemptStatus.InProgress;
@@ -63,15 +68,19 @@ public sealed class Attempt : AggregateRoot
     /// <summary>Begins an attempt.</summary>
     /// <param name="examId">The exam being taken.</param>
     /// <param name="candidateId">The candidate.</param>
+    /// <param name="number">Which attempt this is for them at the exam: the number they have already started, plus one.</param>
     /// <param name="startedAtUtc">The current instant.</param>
     /// <param name="deadlineUtc">When the attempt must end; the caller works it out from the exam's rules.</param>
-    /// <exception cref="InvalidAttemptError">The deadline is not after the start.</exception>
-    public static Attempt Start(Guid examId, Guid candidateId, DateTime startedAtUtc, DateTime deadlineUtc)
+    /// <exception cref="InvalidAttemptError">The number is not positive, or the deadline is not after the start.</exception>
+    public static Attempt Start(Guid examId, Guid candidateId, int number, DateTime startedAtUtc, DateTime deadlineUtc)
     {
+        if (number < 1)
+            throw new InvalidAttemptError("An attempt is numbered from 1.");
+
         if (deadlineUtc <= startedAtUtc)
             throw new InvalidAttemptError("An attempt must end after it starts.");
 
-        return new Attempt(Guid.NewGuid(), examId, candidateId, startedAtUtc, deadlineUtc);
+        return new Attempt(Guid.NewGuid(), examId, candidateId, number, startedAtUtc, deadlineUtc);
     }
 
     /// <summary>Whether time has run out at <paramref name="nowUtc"/>.</summary>

@@ -15,6 +15,25 @@ public enum MyExamState
     Closed,
 }
 
+/// <summary>One of a candidate's attempts at an exam, as listed: where it stands and what it scored.</summary>
+/// <param name="Id">The attempt's id.</param>
+/// <param name="Number">Which attempt this is for them at the exam, from 1.</param>
+/// <param name="Status">Whether it is still open or already submitted.</param>
+/// <param name="StartedAtUtc">When they started it.</param>
+/// <param name="SubmittedAtUtc">When it ended, once submitted.</param>
+/// <param name="AutoSubmitted">Whether it ended because time ran out.</param>
+/// <param name="Score">The marks scored, once submitted.</param>
+/// <param name="MaxScore">The marks available, once submitted.</param>
+public sealed record AttemptSummaryDto(
+    Guid Id,
+    int Number,
+    AttemptStatus Status,
+    DateTime StartedAtUtc,
+    DateTime? SubmittedAtUtc,
+    bool AutoSubmitted,
+    decimal? Score,
+    decimal? MaxScore);
+
 /// <summary>An exam a candidate is enrolled in, as shown on their exams page.</summary>
 /// <param name="ExamId">The exam's id.</param>
 /// <param name="Name">The exam's name.</param>
@@ -25,10 +44,14 @@ public enum MyExamState
 /// <param name="DurationSeconds">How long one attempt lasts, or null for "until the window closes".</param>
 /// <param name="QuestionCount">How many questions the exam has.</param>
 /// <param name="State">Whether an attempt can be started now.</param>
-/// <param name="AttemptId">The candidate's attempt at this exam, or null if they have not started it.</param>
-/// <param name="AttemptStatus">Whether that attempt is still open or already submitted; null without an attempt.</param>
-/// <param name="Score">The marks scored, once the attempt is submitted.</param>
-/// <param name="MaxScore">The marks available, once the attempt is submitted.</param>
+/// <param name="AttemptId">The candidate's latest attempt at this exam, or null if they have not started it.</param>
+/// <param name="AttemptStatus">Whether that latest attempt is still open or already submitted; null without an attempt.</param>
+/// <param name="Score">The marks the latest attempt scored, once it is submitted.</param>
+/// <param name="MaxScore">The marks available, once the latest attempt is submitted.</param>
+/// <param name="AttemptsAllowed">How many attempts they may make in all: one, plus each extra attempt an administrator granted.</param>
+/// <param name="AttemptsUsed">How many they have started.</param>
+/// <param name="CanStartAttempt">Whether they may start a new attempt now: the window is open, none is in progress, and one is left.</param>
+/// <param name="Attempts">Every attempt they have made, oldest first.</param>
 public sealed record MyExamDto(
     Guid ExamId,
     string Name,
@@ -42,4 +65,8 @@ public sealed record MyExamDto(
     Guid? AttemptId,
     AttemptStatus? AttemptStatus,
     decimal? Score,
-    decimal? MaxScore);
+    decimal? MaxScore,
+    int AttemptsAllowed,
+    int AttemptsUsed,
+    bool CanStartAttempt,
+    IReadOnlyList<AttemptSummaryDto> Attempts);

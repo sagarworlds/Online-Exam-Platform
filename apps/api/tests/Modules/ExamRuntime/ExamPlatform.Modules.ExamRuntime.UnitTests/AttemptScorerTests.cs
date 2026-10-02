@@ -12,7 +12,7 @@ public class AttemptScorerTests
 
     private static Attempt AttemptWith(params (QuestionSnapshot Question, Guid Option)[] answers)
     {
-        var attempt = Attempt.Start(Guid.NewGuid(), Guid.NewGuid(), Fixtures.Now, Fixtures.Now.AddHours(1));
+        var attempt = Attempt.Start(Guid.NewGuid(), Guid.NewGuid(), 1, Fixtures.Now, Fixtures.Now.AddHours(1));
         foreach (var (question, option) in answers)
             attempt.RecordAnswer(question.Id, option, Fixtures.Now);
         return attempt;

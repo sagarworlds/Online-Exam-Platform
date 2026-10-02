@@ -28,10 +28,7 @@ public sealed class AnswerReviewFlowTests(ApiFactory factory) : IClassFixture<Ap
             questions.Add(await CreateQuestionAsync(admin, text, "Right", "Wrong"));
         var examId = await CreateExamAsync(admin, "Review exam", questions, TimeSpan.FromMinutes(-5));
 
-        var email = UniqueEmail();
-        var invite = await InviteAsync(admin, examId, email);
-        var (candidate, _) = await factory.CandidateClientAsync(email);
-        (await candidate.PostAsJsonAsync("/v1/invites/accept", new { code = CodeFromLink(invite.GetProperty("inviteLink").GetString()!) })).EnsureSuccessStatusCode();
+        var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
         return (admin, candidate, examId);
     }
 

@@ -34,6 +34,7 @@ public sealed record AttemptSectionDto(Guid Id, string Name, IReadOnlyList<Attem
 /// <param name="ServerTimeUtc">The server's clock when this was produced, so a client can show a countdown that ignores its own clock's error.</param>
 /// <param name="Sections">The questions, while the attempt is open; empty once it is submitted.</param>
 /// <param name="Review">Whether the answers can be reviewed, once the attempt is submitted; null while it is open.</param>
+/// <param name="Number">Which attempt this is for the candidate at the exam, from 1.</param>
 public sealed record AttemptDto(
     Guid Id,
     Guid ExamId,
@@ -47,4 +48,5 @@ public sealed record AttemptDto(
     decimal? MaxScore,
     DateTime ServerTimeUtc,
     IReadOnlyList<AttemptSectionDto> Sections,
-    AttemptReviewAvailabilityDto? Review = null);
+    AttemptReviewAvailabilityDto? Review = null,
+    int Number = 1);

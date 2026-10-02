@@ -9,19 +9,21 @@ using ExamPlatform.SharedKernel.Domain.Exceptions;
 
 namespace ExamPlatform.Modules.ExamRuntime.Application.Commands;
 
-/// <summary>Starts a candidate's attempt at an exam, or returns the one they already have (FR-16, FR-17).</summary>
+/// <summary>Starts a candidate's next attempt at an exam, or returns the one they are in the middle of (FR-16, FR-17).</summary>
 public sealed class StartAttemptHandler(
     IExamCatalog catalog,
     IEnrollments enrollments,
     IAttemptRepository attempts,
+    IExtraAttemptGrantRepository grants,
     IExamRuntimeUnitOfWork unitOfWork,
     AttemptAccess access,
     AttemptViewBuilder views,
     Clock clock)
 {
     /// <summary>
-    /// Starts the attempt. Calling it again for the same exam is how a candidate resumes: it returns the same
-    /// attempt rather than creating another, with the original deadline.
+    /// Starts the attempt. Calling it again while an attempt is open is how a candidate resumes: it returns that attempt with its
+    /// original deadline. Once every attempt they are allowed has been used (one, plus any an administrator granted) it returns
+    /// their latest attempt, so the call stays safe to repeat and never creates one nobody allowed.
     /// </summary>
     /// <param name="examId">The exam to take.</param>
     /// <param name="candidateId">The signed-in candidate.</param>
@@ -38,22 +40,29 @@ public sealed class StartAttemptHandler(
         if (exam is null || !exam.IsPublished || !await enrollments.IsEnrolledAsync(candidateId, examId, cancellationToken))
             throw new ExamNotAvailableError();
 
-        var attempt = await attempts.FindAsync(examId, candidateId, cancellationToken);
-        if (attempt is null)
+        var theirs = await attempts.ListForCandidateAtExamAsync(examId, candidateId, cancellationToken);
+        var latest = theirs.Count > 0 ? theirs[^1] : null;
+
+        // An attempt in the middle is resumed, never followed by a new one in the same call: if its time has run out it is
+        // closed here and its result returned, and starting the next is a separate, deliberate request.
+        if (latest is { Status: AttemptStatus.InProgress })
         {
-            attempt = Begin(exam, candidateId);
-            attempts.Add(attempt);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
+            await access.CloseIfExpiredAsync(latest, exam, cancellationToken);
+            return await views.BuildAsync(latest, exam, cancellationToken);
         }
-        else
-        {
-            await access.CloseIfExpiredAsync(attempt, exam, cancellationToken);
-        }
+
+        var granted = await grants.CountAsync(examId, candidateId, cancellationToken);
+        if (!AttemptAllowance.CanStartAnother(theirs.Count, granted))
+            return await views.BuildAsync(latest!, exam, cancellationToken);
+
+        var attempt = Begin(exam, candidateId, theirs.Count + 1);
+        attempts.Add(attempt);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await views.BuildAsync(attempt, exam, cancellationToken);
     }
 
-    private Attempt Begin(ExamSnapshot exam, Guid candidateId)
+    private Attempt Begin(ExamSnapshot exam, Guid candidateId, int number)
     {
         var nowUtc = clock.UtcNow;
         if (nowUtc < exam.StartUtc)
@@ -64,6 +73,6 @@ public sealed class StartAttemptHandler(
         if (!ExamWindow.CanStart(exam, nowUtc) || deadlineUtc <= nowUtc)
             throw new ExamClosedError();
 
-        return Attempt.Start(exam.Id, candidateId, nowUtc, deadlineUtc);
+        return Attempt.Start(exam.Id, candidateId, number, nowUtc, deadlineUtc);
     }
 }

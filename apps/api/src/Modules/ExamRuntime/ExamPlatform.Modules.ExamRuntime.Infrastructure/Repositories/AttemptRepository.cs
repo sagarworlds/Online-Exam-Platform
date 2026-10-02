@@ -17,9 +17,15 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
         context.Attempts.Include(a => a.Answers).FirstOrDefaultAsync(a => a.Id == attemptId, cancellationToken);
 
     /// <inheritdoc />
-    public Task<Attempt?> FindAsync(Guid examId, Guid candidateId, CancellationToken cancellationToken) =>
-        context.Attempts.Include(a => a.Answers)
-            .FirstOrDefaultAsync(a => a.ExamId == examId && a.CandidateId == candidateId, cancellationToken);
+    public async Task<IReadOnlyList<Attempt>> ListForCandidateAtExamAsync(Guid examId, Guid candidateId, CancellationToken cancellationToken) =>
+        await context.Attempts.Include(a => a.Answers)
+            .Where(a => a.ExamId == examId && a.CandidateId == candidateId)
+            .OrderBy(a => a.Number)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Attempt>> ListForExamAsync(Guid examId, CancellationToken cancellationToken) =>
+        await context.Attempts.AsNoTracking().Where(a => a.ExamId == examId).OrderBy(a => a.Number).ToListAsync(cancellationToken);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListForCandidateAsync(Guid candidateId, CancellationToken cancellationToken) =>
