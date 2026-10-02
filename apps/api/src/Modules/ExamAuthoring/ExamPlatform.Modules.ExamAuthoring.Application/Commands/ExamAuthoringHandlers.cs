@@ -82,6 +82,27 @@ public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuth
     }
 }
 
+/// <summary>Handles <see cref="RemoveExamQuestionCommand"/>.</summary>
+public sealed class RemoveExamQuestionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
+{
+    /// <summary>
+    /// Takes the question out of the section and saves. The question itself stays in the bank; it is only no longer part of
+    /// this exam, which is also what lets the bank delete it again if nothing else holds it.
+    /// </summary>
+    /// <param name="command">Which question to take out of where.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="QuestionNotInExamError">The section does not hold that question.</exception>
+    public async Task HandleAsync(RemoveExamQuestionCommand command, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.RemoveQuestion(command.SectionId, command.QuestionId);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
 /// <summary>Handles publishing an exam.</summary>
 public sealed class PublishExamHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
 {

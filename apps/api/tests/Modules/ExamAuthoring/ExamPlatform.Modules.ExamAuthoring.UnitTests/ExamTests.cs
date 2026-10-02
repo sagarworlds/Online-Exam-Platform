@@ -168,6 +168,78 @@ public class ExamTests
         Assert.Throws<DuplicateQuestionError>(() => exam.AddQuestion(second.Id, questionId, QuestionPlacement.Unfiled));
     }
 
+    // ---- taking a question out ----------------------------------------------------------------------
+
+    [Fact]
+    public void RemoveQuestion_TakesItOut_AndClosesTheGapInTheNumbering()
+    {
+        var exam = NewExam();
+        var section = exam.AddSection("S", null);
+        var first = Guid.NewGuid();
+        var middle = Guid.NewGuid();
+        var last = Guid.NewGuid();
+        exam.AddQuestion(section.Id, first, QuestionPlacement.Unfiled);
+        exam.AddQuestion(section.Id, middle, QuestionPlacement.Unfiled);
+        exam.AddQuestion(section.Id, last, QuestionPlacement.Unfiled);
+
+        exam.RemoveQuestion(section.Id, middle);
+
+        Assert.Equal([(first, 1), (last, 2)], section.Questions.Select(q => (q.QuestionVersionId, q.Order)));
+    }
+
+    [Fact]
+    public void RemoveQuestion_LetsTheSameQuestionBeAddedAgain()
+    {
+        var exam = NewExam();
+        var section = exam.AddSection("S", null);
+        var questionId = Guid.NewGuid();
+        exam.AddQuestion(section.Id, questionId, QuestionPlacement.Unfiled);
+
+        exam.RemoveQuestion(section.Id, questionId);
+        var again = exam.AddQuestion(section.Id, questionId, QuestionPlacement.Unfiled);
+
+        Assert.Equal(1, again.Order);
+    }
+
+    [Fact]
+    public void RemoveQuestion_FromAnUnknownSection_ThrowsSectionNotFound()
+    {
+        var error = Assert.Throws<SectionNotFoundError>(() => NewExam().RemoveQuestion(Guid.NewGuid(), Guid.NewGuid()));
+        Assert.Equal(404, error.HttpStatusCode);
+    }
+
+    [Fact]
+    public void RemoveQuestion_ThatTheSectionDoesNotHold_ThrowsQuestionNotInExam_AndChangesNothing()
+    {
+        var exam = NewExam();
+        var one = exam.AddSection("One", null);
+        var two = exam.AddSection("Two", null);
+        var questionId = Guid.NewGuid();
+        exam.AddQuestion(one.Id, questionId, QuestionPlacement.Unfiled);
+
+        // It is in the exam, but not in that section: say so rather than quietly removing it from the other one.
+        var error = Assert.Throws<QuestionNotInExamError>(() => exam.RemoveQuestion(two.Id, questionId));
+
+        Assert.Equal(404, error.HttpStatusCode);
+        Assert.Equal("question_not_in_exam", error.ErrorCode);
+        Assert.Single(one.Questions);
+    }
+
+    [Fact]
+    public void RemoveQuestion_FromAPublishedExam_ThrowsNotDraft()
+    {
+        // A published exam may already have been sat, and its questions are what its scores mean.
+        var exam = ExamReadyToPublish();
+        var section = exam.Sections[0];
+        var questionId = section.Questions[0].QuestionVersionId;
+        exam.Publish(Now);
+
+        var error = Assert.Throws<ExamNotDraftError>(() => exam.RemoveQuestion(section.Id, questionId));
+
+        Assert.Equal(409, error.HttpStatusCode);
+        Assert.Single(section.Questions);
+    }
+
     // ---- publish ----------------------------------------------------------------------------------
 
     [Fact]

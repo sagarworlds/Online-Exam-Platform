@@ -85,6 +85,14 @@ public static class ExamAuthoringEndpoints
             .WithName("AddExamQuestion")
             .WithDescription("Add a question from the bank to a section of a draft exam");
 
+        exams.MapDelete("/{examId:guid}/sections/{sectionId:guid}/questions/{questionId:guid}", RemoveQuestion)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("RemoveExamQuestion")
+            .WithDescription("Take a question out of a section of a draft exam; the question stays in the bank");
+
         exams.MapPost("/{examId:guid}/publish", PublishExam)
             .RequireAuthorization(ExamAuthoringPermissions.Publish)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -156,6 +164,13 @@ public static class ExamAuthoringEndpoints
     {
         var result = await handler.HandleAsync(new AddExamQuestionCommand(examId, sectionId, request.QuestionId), ct);
         return Results.Created($"/v1/exams/{examId}/sections/{sectionId}/questions/{result.Id}", result);
+    }
+
+    private static async Task<IResult> RemoveQuestion(
+        Guid examId, Guid sectionId, Guid questionId, RemoveExamQuestionHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(new RemoveExamQuestionCommand(examId, sectionId, questionId), ct);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> PublishExam(Guid examId, PublishExamHandler handler, CancellationToken ct) =>

@@ -175,6 +175,23 @@ public class Exam : AggregateRoot
         return question;
     }
 
+    /// <summary>Takes a question out of a section.</summary>
+    /// <param name="sectionId">The section it is in.</param>
+    /// <param name="questionId">The question's id in the question bank.</param>
+    /// <exception cref="ExamNotDraftError">The exam is already published. A published exam may already have been sat, and its questions are what its scores mean.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="QuestionNotInExamError">The section does not hold that question.</exception>
+    public void RemoveQuestion(Guid sectionId, Guid questionId)
+    {
+        EnsureDraft();
+
+        var section = GetSection(sectionId) ?? throw new SectionNotFoundError(sectionId);
+        if (!section.RemoveQuestion(questionId))
+            throw new QuestionNotInExamError(questionId, sectionId);
+
+        UpdatedAt = DateTime.UtcNow;
+    }
+
     /// <summary>Changes what the exam's questions may be drawn from.</summary>
     /// <param name="scope">The new scope. The caller has checked that its book and chapters exist and are open.</param>
     /// <param name="placements">
