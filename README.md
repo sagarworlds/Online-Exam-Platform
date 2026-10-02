@@ -61,6 +61,7 @@ The Online Exam Platform is a purpose-built solution for educational institution
 - **Invites**: e-mailed (or hand-delivered) links; accepting one, from the invited address, enrolls the candidate
 - **Exam Taking**: start, answer, submit and score with a server-held deadline
 - **Answer review**: after submitting, a candidate sees which answers were right and wrong, with the correct options, once the exam's author allows it
+- **Extra attempts**: everyone has one attempt; an administrator can give a candidate another, and every later attempt shows questions and options shuffled
 - **Admin Controls**: permission-aware admin navigation and per-route permission checks on the API
 - **Batches and Guardians**: backend and screens exist, but are not connected to the loop yet
 
@@ -155,9 +156,9 @@ Online-Exam-Platform/
 4. **Exams** (`/exams`): create an exam, add sections and questions, set the schedule (window, minutes per attempt, optional latest start), choose when candidates may see which answers were right (see [Answer review](#answer-review)), publish.
 5. **Invites** (`/invites/create`): pick a published exam and a candidate's e-mail address. The invitation is e-mailed when `Smtp:Host` is configured; otherwise the page shows the link to pass on by hand.
 6. The candidate opens the link (signing in or registering first), and accepts it. Only the account holding the invited e-mail address can accept; accepting enrolls them.
-7. **My exams** (`/my-exams`): Start (the server fixes the deadline), answer (saved as they go), submit, and read the score, then review which answers were right once they are released. If time runs out the attempt is closed with the saved answers the next time anyone looks at it.
+7. **My exams** (`/my-exams`): Start (the server fixes the deadline), answer (saved as they go), submit, and read the score, then review which answers were right once they are released. If time runs out the attempt is closed with the saved answers the next time anyone looks at it. A candidate asks for another attempt by contacting an administrator, who gives one on the exam's **Candidates and attempts** page (see [Extra attempts](#extra-attempts)).
 
-Configuration: `Smtp:Host`, `Smtp:Port`, `Smtp:EnableSsl`, `Smtp:User`, `Smtp:Password`, `Smtp:From` for e-mail, and `Invite:LinkBaseUrl` (default `http://localhost:4200`) for the address in invitation links. A sign-in that has to be done by hand in development reads its code from the API log (`Identity:OtpDelivery:Provider` = `DevelopmentLog`).
+Configuration: `Smtp:Host`, `Smtp:Port`, `Smtp:EnableSsl`, `Smtp:User`, `Smtp:Password`, `Smtp:From` for e-mail, and `Invite:LinkBaseUrl` (default `http://localhost:4200`) for the address in invitation links. A sign-in that has to be done by hand in development reads its code from the API log (`Identity:OtpDelivery:Provider` = `DevelopmentLog`). A candidate has no password and signs in on the **One-time code** tab; staff use the **Password** tab and then get a code. When a sign-in gets no code, the same log says why, so there is no waiting at a verify screen: for example `No code was sent for c***@example.com: this account has no password. Candidates sign in with the One-time code tab.` (no account for that address, a suspended account, a staff address on the code tab, or a wrong password). The caller is told nothing different, and any other delivery says nothing, since explaining would reveal which addresses have accounts.
 
 #### Question formatting
 
@@ -193,6 +194,21 @@ The author chooses when, per exam, on the exam page (**Answer review**; this may
 
 The setting governs the answer review only: the score is still shown as soon as an attempt is submitted.
 
+#### Extra attempts
+
+Everyone has **one attempt** at an exam. When a candidate asks for another (a power cut, a dropped connection), an administrator gives them one on **Candidates and attempts** (`/exams/:id/attempts`, linked from a published exam; needs `exam.manage`). The candidate then sees "Start attempt 2" on My exams, and each attempt is numbered, scored and reviewed on its own. My exams lists every attempt and marks the highest-scoring submitted one as **Best** once there are two to compare (the earlier one on a tie); nothing is stored as the exam's official score.
+
+| What | Rule |
+|------|------|
+| Allowance | 1 + the extra attempts granted. A grant is a row recording who allowed it, when and why (an optional reason), not a counter. |
+| When it can be given | The candidate is enrolled, the exam can still be started (not past its window or its late-entry cutoff, because the attempt could never be used), and they have **used every attempt they hold**. The last rule stops a double click, or two administrators, from stockpiling attempts. |
+| Starting | An open attempt is resumed. With none open and one left, the next begins under the same window rules, with a fresh deadline that never passes the window's end. With none left, starting just returns the latest result. |
+| Races | Settled by the database: attempts are unique on (exam, candidate, number) and grants on (exam, candidate, grant number), so the loser of two simultaneous requests gets a 409 rather than a second sitting or a second grant. |
+| Shuffling | The first attempt shows questions and options as the author wrote them. **Every later attempt shows them shuffled**: the questions within each section (sections keep their order) and the options of each question. The shuffle is a function of the attempt (SHA-256 over the attempt, the list and the item), so a reload, a resume on another device and the review all show the order the candidate originally saw; it always differs from the authored order, and with two options they are swapped. Answers are saved by id, so the score does not depend on the order. |
+| Release setting | The answer-review setting applies per exam, not per attempt. With "right after they submit", a candidate who is given another attempt has already seen the correct answers; the exam page warns about it and the author decides. |
+
+Routes: `GET /v1/exams/{id}/attempts` and `POST /v1/exams/{id}/candidates/{candidateId}/extra-attempts` (409 `attempt_available` when they still have an attempt, 409 `exam_closed`, 404 `candidate_not_enrolled`). The `MultipleAttempts` migration numbers every existing attempt 1 and was checked on a database that already held attempts; rolling it back refuses, rather than lose attempts, once a candidate has used an extra one.
+
 #### Books, chapters and exam scope
 
 A **book** (name, optional subject such as "Maths", optional description) holds ordered **chapters**. A question may be filed under one chapter of one book, or under none (existing questions stay unfiled). An **exam's scope** says where its questions may come from: **anywhere** in the bank (the default, and what every exam did before), **one whole book**, or **chosen chapters** of one book. Questions are still picked by hand; the scope limits what can be picked.
@@ -210,7 +226,7 @@ Books and chapters are for authors and administrators only (the `question.manage
 
 Existing data is untouched: both migrations (`BooksAndChapters`, `ExamScope`) only add tables and nullable or defaulted columns, and existing exams read as "anywhere" (the `ExamScope` default was checked against a database that already held an exam).
 
-**Known gaps**: no background worker, so abandoned attempts close lazily; one attempt per candidate per exam (no retakes); single-answer multiple choice only; candidates do not see books or chapters, and an exam cannot yet draw questions automatically by rule ("10 from chapter 2"); chapters cannot be reordered, and a question sits in one chapter only; no difficulty or topic tags; "Exam Series" is still only an optional ID with no entity behind it (a book is not a series); the question list shows the newest 200 questions per filter, with no paging; no tables, links, math or alt-text prompt in question text, and option text is plain; marking uses the exam's marking scheme (default +1 / 0 / 0) and the score is shown immediately whatever the answer-review setting; there are no written explanations per question (the question bank has no such field), and a review shows the question as it is now, which is only correct while questions cannot be edited, as today; batches do not yet feed enrollment; the guardian verification path is still a stub; e-mail needs a real SMTP server to be tried.
+**Known gaps**: no background worker, so abandoned attempts close lazily; no per-exam "attempts allowed" setting, and a candidate cannot request another attempt in the app, only ask an administrator (there is no request queue and no e-mail when one is given); options cannot be pinned in place, so a shuffled "none of the above" can land first; single-answer multiple choice only; candidates do not see books or chapters, and an exam cannot yet draw questions automatically by rule ("10 from chapter 2"); chapters cannot be reordered, and a question sits in one chapter only; no difficulty or topic tags; "Exam Series" is still only an optional ID with no entity behind it (a book is not a series); the question list shows the newest 200 questions per filter, with no paging; no tables, links, math or alt-text prompt in question text, and option text is plain; marking uses the exam's marking scheme (default +1 / 0 / 0) and the score is shown immediately whatever the answer-review setting; there are no written explanations per question (the question bank has no such field), and a review shows the question as it is now, which is only correct while questions cannot be edited, as today; batches do not yet feed enrollment; the guardian verification path is still a stub; e-mail needs a real SMTP server to be tried.
 
 ### Deferred (Per ADR 0001)
 - **CD Pipeline**: Infrastructure-as-code, deployment automation
