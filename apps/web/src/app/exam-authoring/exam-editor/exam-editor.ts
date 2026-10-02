@@ -69,7 +69,14 @@ export class ExamEditor {
   }
 
   protected addQuestion(sectionId: string, questionId: string): void {
-    if (!questionId || this.busy()) {
+    if (this.busy()) {
+      return;
+    }
+
+    // Said out loud rather than ignored: the list behind the picker is redrawn after every change, which can
+    // clear a choice made a moment earlier, and a silent no-op would look like a button that does nothing.
+    if (!questionId) {
+      this.errorMessage.set('Choose a question to add.');
       return;
     }
 

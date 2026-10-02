@@ -135,6 +135,16 @@ describe('ExamEditor', () => {
     httpMock.expectOne(isExam).flush(examBody());
   });
 
+  it('says so, and sends nothing, when Add question is pressed with no question chosen', () => {
+    const { fixture, root } = open();
+
+    button(root, 'Add question').click();
+    fixture.detectChanges();
+
+    httpMock.expectNone((r) => r.method === 'POST');
+    expect(root.textContent).toContain('Choose a question to add.');
+  });
+
   it('does not offer a question that is already in the exam', () => {
     const withQuestion = examBody({
       sections: [{ id: 's1', name: 'Algebra', timeSeconds: null, order: 1, questions: [{ id: 'eq1', questionId: 'q1', order: 1, text: 'What is 2 + 2?' }] }],
