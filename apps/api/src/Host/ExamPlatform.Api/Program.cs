@@ -9,6 +9,7 @@ using ExamPlatform.Modules.ExamAuthoring.Endpoints;
 using ExamPlatform.Modules.Guardian.Endpoints;
 using ExamPlatform.Modules.Identity.Endpoints;
 using ExamPlatform.Modules.Invite.Endpoints;
+using ExamPlatform.Modules.QuestionBank.Endpoints;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -129,6 +130,7 @@ IModuleInstaller[] modules =
     new BatchModuleInstaller(),
     new InviteModuleInstaller(),
     new GuardianModuleInstaller(),
+    new QuestionBankModuleInstaller(),
 ];
 
 foreach (var module in modules)
