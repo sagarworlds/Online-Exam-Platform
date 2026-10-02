@@ -9,6 +9,7 @@ public sealed class RequestOtpHandler(
     IUserRepository userRepository,
     LoginEligibilityPolicy eligibilityPolicy,
     OtpChallengeIssuer otpChallengeIssuer,
+    ISignInDiagnostics diagnostics,
     IIdentityUnitOfWork unitOfWork)
 {
     /// <summary>
@@ -45,17 +46,33 @@ public sealed class RequestOtpHandler(
 
         var purpose = user?.Status == UserStatus.PendingVerification ? OtpPurpose.Registration : OtpPurpose.Login;
 
-        var challengeId = user is not null && MayReceiveCode(user, purpose)
-            ? await otpChallengeIssuer.IssueAsync(user.Id, command.Channel, command.Destination, purpose, cancellationToken)
-            : await otpChallengeIssuer.IssueDecoyAsync(command.Channel, command.Destination, purpose, cancellationToken);
+        var withheld = user is null ? SignInHint.NoAccountForAddress : WhyNoCode(user, purpose);
+
+        Guid challengeId;
+        if (user is not null && withheld is null)
+        {
+            challengeId = await otpChallengeIssuer.IssueAsync(user.Id, command.Channel, command.Destination, purpose, cancellationToken);
+        }
+        else
+        {
+            challengeId = await otpChallengeIssuer.IssueDecoyAsync(command.Channel, command.Destination, purpose, cancellationToken);
+            // Only a developer's terminal hears why; the caller gets the same answer either way (see ISignInDiagnostics).
+            diagnostics.Explain(withheld!.Value, command.Channel, command.Destination);
+        }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return challengeId;
     }
 
     // The same policy that verify enforces decides who gets a real code, so a code is never
-    // sent that verify would refuse to turn into a session.
-    private bool MayReceiveCode(User user, OtpPurpose purpose) =>
-        eligibilityPolicy.GetAccountViolation(user) is null
-        && eligibilityPolicy.GetOtpPurposeViolation(user, purpose) is null;
+    // sent that verify would refuse to turn into a session. Null means this user may have one.
+    private SignInHint? WhyNoCode(User user, OtpPurpose purpose)
+    {
+        if (eligibilityPolicy.GetAccountViolation(user) is not null)
+        {
+            return SignInHint.AccountLocked;
+        }
+
+        return eligibilityPolicy.GetOtpPurposeViolation(user, purpose) is not null ? SignInHint.StaffMustUsePasswordAndCode : null;
+    }
 }

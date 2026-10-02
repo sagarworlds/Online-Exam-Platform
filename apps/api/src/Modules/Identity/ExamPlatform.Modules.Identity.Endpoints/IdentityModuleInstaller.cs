@@ -101,6 +101,12 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<OtpDeliveryOptions>, OtpDeliveryOptionsValidator>();
 
+        // The development log that prints the codes also says why a sign-in got none; any other adapter says nothing.
+        services.AddScoped<ISignInDiagnostics>(sp =>
+            sp.GetRequiredService<IOptions<OtpDeliveryOptions>>().Value.Provider == OtpDeliveryOptions.DevelopmentLog
+                ? ActivatorUtilities.CreateInstance<LoggingSignInDiagnostics>(sp)
+                : new NoSignInDiagnostics());
+
         services.AddScoped<IOtpSender>(sp =>
             sp.GetRequiredService<IOptions<OtpDeliveryOptions>>().Value.Provider switch
             {

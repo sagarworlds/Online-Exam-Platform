@@ -17,6 +17,8 @@ public class PasswordLoginHandlerTests
     private readonly User _user = User.Register(Email, null, new DateOnly(1990, 1, 1), "Staff", Now);
     private readonly IOtpChallengeRepository _challengeRepository = Substitute.For<IOtpChallengeRepository>();
     private readonly IOtpSender _sender = Substitute.For<IOtpSender>();
+    private readonly ISignInDiagnostics _diagnostics = Substitute.For<ISignInDiagnostics>();
+    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly ITokenGenerator _tokenGenerator = Substitute.For<ITokenGenerator>();
     private readonly IIdentityUnitOfWork _unitOfWork = Substitute.For<IIdentityUnitOfWork>();
     private readonly PasswordLoginHandler _handler;
@@ -26,8 +28,7 @@ public class PasswordLoginHandlerTests
         _user.SetPasswordHash("hashed-" + Password);
         _user.Activate();
 
-        var userRepository = Substitute.For<IUserRepository>();
-        userRepository.GetByEmailAsync(Email, Arg.Any<CancellationToken>()).Returns(_user);
+        _userRepository.GetByEmailAsync(Email, Arg.Any<CancellationToken>()).Returns(_user);
         var passwordHasher = Substitute.For<IPasswordHasher>();
         passwordHasher.Verify(Arg.Any<string>(), Arg.Any<string>())
             .Returns(call => "hashed-" + call.ArgAt<string>(0) == call.ArgAt<string>(1));
@@ -41,15 +42,57 @@ public class PasswordLoginHandlerTests
 
         var clock = new FakeClock(Now);
         _handler = new PasswordLoginHandler(
-            userRepository,
+            _userRepository,
             passwordHasher,
             new LoginEligibilityPolicy(),
             new OtpChallengeIssuer(_challengeRepository, codeGenerator, _sender, clock),
             new LoginSessionIssuer(_tokenGenerator, clock),
+            _diagnostics,
             _unitOfWork);
     }
 
     private static PasswordLoginCommand Command() => new(Email, Password, null, null);
+
+    [Fact]
+    public async Task HandleAsync_UnknownEmail_IsRefusedLikeAnyOtherBadLogin_AndTheDeveloperIsToldWhy()
+    {
+        _userRepository.GetByEmailAsync(Email, Arg.Any<CancellationToken>()).Returns((User?)null);
+
+        await Assert.ThrowsAsync<InvalidCredentialsError>(() => _handler.HandleAsync(Command(), CancellationToken.None));
+
+        _diagnostics.Received(1).Explain(SignInHint.NoAccountForAddress, OtpChannel.Email, Email);
+    }
+
+    [Fact]
+    public async Task HandleAsync_AccountWithNoPassword_IsRefused_AndTheDeveloperIsToldCandidatesUseACode()
+    {
+        // Every candidate registers without a password, so a candidate typing one gets nothing, silently, unless told.
+        var candidate = User.Register(Email, null, new DateOnly(2000, 1, 1), "Candidate", Now);
+        candidate.AssignRole(Role.Create("Candidate", requiresTwoFactor: false));
+        candidate.Activate();
+        _userRepository.GetByEmailAsync(Email, Arg.Any<CancellationToken>()).Returns(candidate);
+
+        await Assert.ThrowsAsync<InvalidCredentialsError>(() => _handler.HandleAsync(Command(), CancellationToken.None));
+
+        _diagnostics.Received(1).Explain(SignInHint.CandidateHasNoPassword, OtpChannel.Email, Email);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WrongPassword_IsRefused_AndTheDeveloperIsToldWhy()
+    {
+        await Assert.ThrowsAsync<InvalidCredentialsError>(
+            () => _handler.HandleAsync(new PasswordLoginCommand(Email, "not-the-password", null, null), CancellationToken.None));
+
+        _diagnostics.Received(1).Explain(SignInHint.WrongPassword, OtpChannel.Email, Email);
+    }
+
+    [Fact]
+    public async Task HandleAsync_CorrectPassword_HasNothingToExplain()
+    {
+        await _handler.HandleAsync(Command(), CancellationToken.None);
+
+        _diagnostics.DidNotReceiveWithAnyArgs().Explain(default, default, default!);
+    }
 
     [Fact]
     public async Task HandleAsync_SuspendedAccountWithCorrectPassword_ThrowsAccountLockedError()
