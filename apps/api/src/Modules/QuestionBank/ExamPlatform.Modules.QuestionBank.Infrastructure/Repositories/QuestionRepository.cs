@@ -10,6 +10,10 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
     /// <inheritdoc />
     public void Add(Question question) => context.Questions.Add(question);
 
+    // The options are deleted with it by the cascade the model declares, so a removed question leaves no orphans behind.
+    /// <inheritdoc />
+    public void Remove(Question question) => context.Questions.Remove(question);
+
     /// <inheritdoc />
     public Task<Question?> GetByIdAsync(Guid questionId, CancellationToken cancellationToken) =>
         context.Questions.Include(q => q.Options).FirstOrDefaultAsync(q => q.Id == questionId, cancellationToken);

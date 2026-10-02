@@ -45,6 +45,19 @@ public static class QuestionBankEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("EditQuestion")
             .WithDescription("Edit a question; once candidates have answered it only the wording can change");
+
+        questions.MapDelete("/{questionId:guid}", DeleteQuestion)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("DeleteQuestion")
+            .WithDescription("Delete a question; refused while an exam holds it or candidates have answered it");
+    }
+
+    private static async Task<IResult> DeleteQuestion(Guid questionId, DeleteQuestionHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(questionId, ct);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> EditQuestion(

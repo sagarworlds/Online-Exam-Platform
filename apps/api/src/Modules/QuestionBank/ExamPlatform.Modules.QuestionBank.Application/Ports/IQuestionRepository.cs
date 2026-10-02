@@ -15,6 +15,10 @@ public interface IQuestionRepository
     /// <param name="question">The question to add.</param>
     void Add(Question question);
 
+    /// <summary>Marks a question and its options for deletion; they are removed when the unit of work saves.</summary>
+    /// <param name="question">The question to remove.</param>
+    void Remove(Question question);
+
     /// <summary>Loads one question with its options.</summary>
     /// <param name="questionId">The question's id.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
