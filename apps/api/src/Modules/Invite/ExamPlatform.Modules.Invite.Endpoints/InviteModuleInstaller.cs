@@ -1,7 +1,10 @@
 using ExamPlatform.Modules.Invite.Application;
 using ExamPlatform.Modules.Invite.Application.Commands;
 using ExamPlatform.Modules.Invite.Application.Ports;
+using ExamPlatform.Modules.Invite.Application.Queries;
+using ExamPlatform.Modules.Invite.Contracts;
 using ExamPlatform.Modules.Invite.Infrastructure;
+using ExamPlatform.Modules.Invite.Infrastructure.Email;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Routing;
@@ -26,8 +29,17 @@ public sealed class InviteModuleInstaller : IModuleInstaller
 
         services.AddScoped<IInviteRepository, EFInviteRepository>();
         services.AddScoped<IInviteUnitOfWork, InviteUnitOfWork>();
+        services.AddScoped<IEnrollments, EnrollmentReader>();
+
+        // Invitations go out by SMTP when a mail server is configured (the "Smtp" section) and are otherwise
+        // not sent at all: the inviter is given the link. There is deliberately no log-only sender, since a
+        // link written to a log is a credential in a log.
+        services.AddOptions<SmtpOptions>().Bind(configuration.GetSection(SmtpOptions.SectionName));
+        services.AddScoped<IInviteNotifier, SmtpInviteNotifier>();
+        services.AddSingleton<IInviteLinkBuilder, ConfigurationInviteLinkBuilder>();
 
         services.AddScoped<CreateInviteHandler>();
+        services.AddScoped<ListInvitesHandler>();
         services.AddScoped<GenerateInviteCodeHandler>();
         services.AddScoped<AcceptInviteHandler>();
         services.AddScoped<DeclineInviteHandler>();

@@ -2,6 +2,7 @@ using ExamPlatform.Modules.ExamAuthoring.Application;
 using ExamPlatform.Modules.ExamAuthoring.Application.Commands;
 using ExamPlatform.Modules.ExamAuthoring.Application.Ports;
 using ExamPlatform.Modules.ExamAuthoring.Application.Queries;
+using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.ExamAuthoring.Infrastructure;
 using ExamPlatform.Modules.ExamAuthoring.Infrastructure.Repositories;
 using ExamPlatform.SharedKernel.Application;
@@ -28,6 +29,7 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
 
         services.AddScoped<IExamRepository, EFExamRepository>();
         services.AddScoped<IExamAuthoringUnitOfWork, ExamAuthoringUnitOfWork>();
+        services.AddScoped<IExamCatalog, ExamCatalog>();
 
         services.AddScoped<CreateExamHandler>();
         services.AddScoped<ListExamsHandler>();

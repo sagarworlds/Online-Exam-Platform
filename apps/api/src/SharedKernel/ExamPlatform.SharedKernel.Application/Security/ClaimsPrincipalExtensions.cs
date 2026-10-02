@@ -24,6 +24,9 @@ public static class ClaimsPrincipalExtensions
     /// <summary>The JWT claim that carries one permission code (one claim per permission).</summary>
     public const string PermissionClaim = "perm";
 
+    /// <summary>The JWT claim holding the user's e-mail address, present only for accounts that have one.</summary>
+    public const string EmailClaim = "email";
+
     private const string ShortRoleClaim = "role";
     private const string UnknownRole = "Unknown";
 
@@ -32,6 +35,11 @@ public static class ClaimsPrincipalExtensions
     /// <returns>The user id.</returns>
     /// <exception cref="MissingAuthenticatedUserError">The claim is missing, is not a GUID, or is the empty GUID.</exception>
     public static Guid GetUserId(this ClaimsPrincipal user) => ReadGuidClaim(user, SubjectClaim);
+
+    /// <summary>The authenticated user's e-mail address, from the "email" claim; null for an account without one.</summary>
+    /// <param name="user">The current request's authenticated principal.</param>
+    public static string? GetEmail(this ClaimsPrincipal user) =>
+        user.FindFirst(EmailClaim)?.Value is { Length: > 0 } email ? email : null;
 
     /// <summary>
     /// The id of the session the caller's token was issued for, from the "sid" claim. Every

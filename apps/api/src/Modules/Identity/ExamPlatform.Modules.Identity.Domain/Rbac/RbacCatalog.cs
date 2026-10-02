@@ -40,6 +40,9 @@ public static class RbacCatalog
         /// <summary>Create and read questions in the question bank, answer key included (FR-5).</summary>
         public const string QuestionManage = "question.manage";
 
+        /// <summary>View exams and their questions and schedules, without being able to change them.</summary>
+        public const string ExamRead = "exam.read";
+
         /// <summary>Create and edit exams.</summary>
         public const string ExamManage = "exam.manage";
 
@@ -94,6 +97,7 @@ public static class RbacCatalog
         new(PermissionCodes.ConsentManage, "Record and withdraw consent on behalf of a candidate"),
         new(PermissionCodes.RoleAssign, "Assign roles to users"),
         new(PermissionCodes.QuestionManage, "Create and read questions, answer key included"),
+        new(PermissionCodes.ExamRead, "View exams, their questions and schedules"),
         new(PermissionCodes.ExamManage, "Create and edit exams"),
         new(PermissionCodes.ExamPublish, "Publish exams"),
         new(PermissionCodes.BatchManage, "Create batches and manage their rosters"),
@@ -116,6 +120,7 @@ public static class RbacCatalog
         new(RoleNames.ExamAdmin, RequiresTwoFactor: true,
         [
             PermissionCodes.QuestionManage,
+            PermissionCodes.ExamRead,
             PermissionCodes.ExamManage,
             PermissionCodes.ExamPublish,
             PermissionCodes.BatchManage,
@@ -130,6 +135,7 @@ public static class RbacCatalog
 
         new(RoleNames.InstituteTeacher, RequiresTwoFactor: false,
         [
+            PermissionCodes.ExamRead,
             PermissionCodes.BatchManage,
             PermissionCodes.BatchRead,
             PermissionCodes.InviteManage,

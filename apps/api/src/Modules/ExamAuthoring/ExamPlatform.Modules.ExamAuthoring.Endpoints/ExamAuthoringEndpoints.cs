@@ -29,14 +29,14 @@ public static class ExamAuthoringEndpoints
             .WithDescription("Create a new exam");
 
         exams.MapGet("/", ListExams)
-            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .RequireAuthorization(ExamAuthoringPermissions.Read)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("ListExams")
             .WithDescription("List the newest exams");
 
         exams.MapGet("/{examId:guid}", GetExam)
-            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .RequireAuthorization(ExamAuthoringPermissions.Read)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("GetExam")

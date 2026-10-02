@@ -9,6 +9,9 @@ namespace ExamPlatform.Modules.ExamAuthoring.Endpoints;
 /// </summary>
 internal static class ExamAuthoringPermissions
 {
+    /// <summary>View exams without changing them (<c>exam.read</c>).</summary>
+    public const string Read = "permission:exam.read";
+
     /// <summary>Create and edit exams (<c>exam.manage</c>).</summary>
     public const string Manage = "permission:exam.manage";
 

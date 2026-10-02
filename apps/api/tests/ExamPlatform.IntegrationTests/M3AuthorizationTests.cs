@@ -29,8 +29,8 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
     [
         new("POST", "/v1/exams", RbacCatalog.PermissionCodes.ExamManage,
             new { name = "Authorization Test Exam" }),
-        new("GET", "/v1/exams", RbacCatalog.PermissionCodes.ExamManage, null),
-        new("GET", "/v1/exams/{examId:guid}", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("GET", "/v1/exams", RbacCatalog.PermissionCodes.ExamRead, null),
+        new("GET", "/v1/exams/{examId:guid}", RbacCatalog.PermissionCodes.ExamRead, null),
         new("PUT", "/v1/exams/{examId:guid}/schedule", RbacCatalog.PermissionCodes.ExamManage,
             new { scheduledStartTime = DateTime.UtcNow.AddDays(1), scheduledEndTime = DateTime.UtcNow.AddDays(2) }),
         new("POST", "/v1/exams/{examId:guid}/sections", RbacCatalog.PermissionCodes.ExamManage,
@@ -52,11 +52,10 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("POST", "/v1/batches/{batchId}/close", RbacCatalog.PermissionCodes.BatchManage, null),
 
         new("POST", "/v1/invites", RbacCatalog.PermissionCodes.InviteManage,
-            new { examId = Guid.NewGuid(), batchMemberId = Guid.NewGuid(), email = "invitee@example.com" }),
+            new { examId = Guid.NewGuid(), email = "invitee@example.com" }),
+        new("GET", "/v1/invites", RbacCatalog.PermissionCodes.InviteManage, null),
         new("POST", "/v1/invites/{inviteId}/codes", RbacCatalog.PermissionCodes.InviteManage,
             new { expiryHours = 24 }),
-        new("POST", "/v1/invites/{inviteId}/accept", RbacCatalog.PermissionCodes.InviteManage,
-            new { inviteCodeId = Guid.NewGuid() }),
         new("POST", "/v1/invites/{inviteId}/decline", RbacCatalog.PermissionCodes.InviteManage, null),
         new("POST", "/v1/invites/{inviteId}/revoke", RbacCatalog.PermissionCodes.InviteManage, null),
 
@@ -70,7 +69,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
 
     // Routes under the module prefixes that deliberately ask for a signed-in caller only. The guardian
     // verifying their own link cannot be a staff action; the guardian model behind it is redesigned later.
-    private static readonly string[] SelfServiceRoutes = ["POST /v1/guardians/links/verify"];
+    private static readonly string[] SelfServiceRoutes = ["POST /v1/guardians/links/verify", "POST /v1/invites/accept"];
 
     private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/questions"];
 
@@ -234,11 +233,16 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
     [Fact]
     public async Task Candidate_AcceptSomeoneElsesInvite_Returns403()
     {
-        // Accept takes an invite id and is not tied to the caller, so it must not be open to any signed-in user.
+        // Accepting is open to any signed-in candidate, but only with the invite's code and only from the
+        // account that holds the invited address: holding someone else's code is not enough.
+        using var admin = await factory.AdminClientAsync();
+        var question = await ExamScenarios.CreateQuestionAsync(admin, "Q?", "A", "B");
+        var examId = await ExamScenarios.CreateExamAsync(admin, "Someone Else's Exam", [question], TimeSpan.FromHours(-1));
+        var invite = await ExamScenarios.InviteAsync(admin, examId, ExamScenarios.UniqueEmail());
+        var code = ExamScenarios.CodeFromLink(invite.GetProperty("inviteLink").GetString()!);
         using var client = AuthorizedClient(await factory.SignInAsAsync(RbacCatalog.RoleNames.Candidate));
 
-        var response = await client.PostAsJsonAsync(
-            $"/v1/invites/{Guid.NewGuid()}/accept", new { inviteCodeId = Guid.NewGuid() });
+        var response = await client.PostAsJsonAsync("/v1/invites/accept", new { code });
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
@@ -268,10 +272,12 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
     [Fact]
     public async Task InstituteTeacher_CreateInvite_Returns201()
     {
+        using var admin = await factory.AdminClientAsync();
+        var question = await ExamScenarios.CreateQuestionAsync(admin, "Q?", "A", "B");
+        var examId = await ExamScenarios.CreateExamAsync(admin, "Teacher Invite Exam", [question], TimeSpan.FromHours(-1));
         using var client = AuthorizedClient(await factory.SignInAsAsync(RbacCatalog.RoleNames.InstituteTeacher));
 
-        var response = await client.PostAsJsonAsync(
-            "/v1/invites", new { examId = Guid.NewGuid(), batchMemberId = Guid.NewGuid(), email = "invitee@example.com" });
+        var response = await client.PostAsJsonAsync("/v1/invites", new { examId, email = "invitee@example.com" });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }

@@ -3,6 +3,7 @@ using System;
 using ExamPlatform.Modules.Invite.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ExamPlatform.Modules.Invite.Infrastructure.Migrations
 {
     [DbContext(typeof(InviteDbContext))]
-    partial class InviteDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261002052412_ExamEnrollment")]
+    partial class ExamEnrollment
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

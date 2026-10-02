@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using ExamPlatform.Modules.Invite.Application.Commands;
+using ExamPlatform.Modules.Invite.Application.Queries;
 using ExamPlatform.SharedKernel.Application.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -7,15 +8,15 @@ using Microsoft.AspNetCore.Routing;
 
 namespace ExamPlatform.Modules.Invite.Endpoints;
 
-/// <summary>Maps the Invite module's HTTP endpoints (FR-20, FR-21).</summary>
+/// <summary>Maps the Invite module's HTTP endpoints (FR-14, FR-50a).</summary>
 public static class InviteEndpoints
 {
-    /// <summary>Maps <c>POST /v1/invites</c> and other invite management endpoints.</summary>
+    /// <summary>Maps <c>/v1/invites</c>: staff routes behind <c>invite.manage</c> and the candidate's accept.</summary>
     /// <param name="endpoints">The endpoint route builder to map onto.</param>
     public static void MapInviteEndpoints(this IEndpointRouteBuilder endpoints)
     {
         // The group only demands a signed-in caller. Being signed in says nothing about being allowed to
-        // issue invites (a candidate is signed in too), so every route also names the permission it needs (FR-2, NFR-5).
+        // issue invites (a candidate is signed in too), so every staff route also names the permission it needs (FR-2, NFR-5).
         var invites = endpoints.MapGroup("/v1/invites")
             .WithTags("Invite")
             .RequireAuthorization();
@@ -25,7 +26,14 @@ public static class InviteEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("CreateInvite")
-            .WithDescription("Create a new invite");
+            .WithDescription("Invite an e-mail address to an exam and e-mail it a link");
+
+        invites.MapGet("/", ListInvites)
+            .RequireAuthorization(InvitePermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ListInvites")
+            .WithDescription("List the newest invites");
 
         invites.MapPost("/{inviteId}/codes", GenerateInviteCode)
             .RequireAuthorization(InvitePermissions.Manage)
@@ -34,17 +42,12 @@ public static class InviteEndpoints
             .WithName("GenerateInviteCode")
             .WithDescription("Generate an invite code");
 
-        // Accept and decline sit behind invite.manage for now, not behind candidate self-service. The
-        // route takes an invite id and does not tie it to the caller, so once an accept can actually
-        // succeed, opening it to every signed-in user would let anyone consume a single-use invite
-        // issued to someone else. A later change replaces both routes with ones bound to the invited
-        // caller (an owner-bound accept by code).
-        invites.MapPost("/{inviteId}/accept", AcceptInvite)
-            .RequireAuthorization(InvitePermissions.Manage)
+        // Accepting is the candidate's own action, so it asks for a signed-in caller and nothing more. What
+        // keeps it safe is the code and the e-mail check: the caller must hold the invited address.
+        invites.MapPost("/accept", AcceptInvite)
             .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status403Forbidden)
             .WithName("AcceptInvite")
-            .WithDescription("Accept an invite with a code");
+            .WithDescription("Accept an invitation with its code; the signed-in account must hold the invited e-mail address");
 
         invites.MapPost("/{inviteId}/decline", DeclineInvite)
             .RequireAuthorization(InvitePermissions.Manage)
@@ -68,15 +71,14 @@ public static class InviteEndpoints
         CancellationToken ct)
     {
         // The creator is the authenticated caller, never a value from the body (FR-2, NFR-5).
-        var command = new CreateInviteCommand(
-            request.ExamId,
-            request.BatchMemberId,
-            request.Email,
-            user.GetUserId());
+        var command = new CreateInviteCommand(request.ExamId, request.BatchMemberId, request.Email, user.GetUserId());
 
         var result = await handler.HandleAsync(command, ct);
         return Results.Created($"/v1/invites/{result.Id}", result);
     }
+
+    private static async Task<IResult> ListInvites(ListInvitesHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(ct));
 
     private static async Task<IResult> GenerateInviteCode(
         Guid inviteId,
@@ -84,62 +86,48 @@ public static class InviteEndpoints
         GenerateInviteCodeHandler handler,
         CancellationToken ct)
     {
-        var command = new GenerateInviteCodeCommand(
-            inviteId,
-            request.ExpiryHours ?? 72);
-
-        var result = await handler.HandleAsync(command, ct);
+        var result = await handler.HandleAsync(new GenerateInviteCodeCommand(inviteId, request.ExpiryHours ?? 72), ct);
         return Results.Created($"/v1/invites/{inviteId}/codes", result);
     }
 
     private static async Task<IResult> AcceptInvite(
-        Guid inviteId,
         AcceptInviteRequest request,
+        ClaimsPrincipal user,
         AcceptInviteHandler handler,
         CancellationToken ct)
     {
-        var command = new AcceptInviteCommand(
-            inviteId,
-            request.InviteCodeId);
+        var command = new AcceptInviteCommand(request.Code, user.GetUserId(), user.GetEmail());
+        return Results.Ok(await handler.HandleAsync(command, ct));
+    }
 
-        await handler.HandleAsync(command, ct);
+    private static async Task<IResult> DeclineInvite(Guid inviteId, DeclineInviteHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(new DeclineInviteCommand(inviteId), ct);
         return Results.NoContent();
     }
 
-    private static async Task<IResult> DeclineInvite(
-        Guid inviteId,
-        DeclineInviteHandler handler,
-        CancellationToken ct)
+    private static async Task<IResult> RevokeInvite(Guid inviteId, RevokeInviteHandler handler, CancellationToken ct)
     {
-        var command = new DeclineInviteCommand(inviteId);
-        await handler.HandleAsync(command, ct);
-        return Results.NoContent();
-    }
-
-    private static async Task<IResult> RevokeInvite(
-        Guid inviteId,
-        RevokeInviteHandler handler,
-        CancellationToken ct)
-    {
-        var command = new RevokeInviteCommand(inviteId);
-        await handler.HandleAsync(command, ct);
+        await handler.HandleAsync(new RevokeInviteCommand(inviteId), ct);
         return Results.NoContent();
     }
 }
 
-/// <summary>Request DTO for creating an invite. The creator is the caller, so it is not part of the body.</summary>
-/// <param name="ExamId">The exam the candidate is invited to.</param>
-/// <param name="BatchMemberId">The batch member being invited.</param>
-/// <param name="Email">E-mail address the invite is sent to.</param>
+/// <summary>Request DTO for inviting an e-mail address to an exam. The inviter is the caller, so it is not part of the body.</summary>
+/// <param name="ExamId">The exam the address is invited to.</param>
+/// <param name="Email">E-mail address the invitation is sent to.</param>
+/// <param name="BatchMemberId">The roster entry it came from, if any.</param>
 public record CreateInviteRequest(
     Guid ExamId,
-    Guid BatchMemberId,
-    string Email);
+    string Email,
+    Guid? BatchMemberId = null);
 
 /// <summary>Request DTO for generating an invite code.</summary>
+/// <param name="ExpiryHours">How long the code stays valid, in hours; 72 when omitted.</param>
 public record GenerateInviteCodeRequest(
     int? ExpiryHours = null);
 
-/// <summary>Request DTO for accepting an invite.</summary>
+/// <summary>Request DTO for accepting an invitation.</summary>
+/// <param name="Code">The code from the invitation link.</param>
 public record AcceptInviteRequest(
-    Guid InviteCodeId);
+    string? Code);

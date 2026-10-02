@@ -242,13 +242,15 @@ public sealed class ExamBuilderFlowTests(ApiFactory factory) : IClassFixture<Api
     }
 
     [Fact]
-    public async Task AnAuthorWhoMayManageButNotPublish_CannotPublish()
+    public async Task ATeacher_CanReadExamsButNeitherChangeNorPublishThem()
     {
-        // No seeded role holds exam.manage without exam.publish today, so the policy itself is what is checked:
-        // InstituteTeacher holds neither and must be refused on both.
+        // InstituteTeacher holds exam.read only: it must be refused on every route that changes an exam.
         using var teacher = await AdminAsync(RbacCatalog.RoleNames.InstituteTeacher);
 
         Assert.Equal(HttpStatusCode.Forbidden, (await teacher.PostAsync($"/v1/exams/{Guid.NewGuid()}/publish", null)).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await teacher.GetAsync("/v1/exams")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await teacher.PostAsJsonAsync("/v1/exams", new { name = "Teacher Exam" })).StatusCode);
+
+        // A teacher can read exams (to choose one to invite candidates to), but not change them.
+        Assert.Equal(HttpStatusCode.OK, (await teacher.GetAsync("/v1/exams")).StatusCode);
     }
 }

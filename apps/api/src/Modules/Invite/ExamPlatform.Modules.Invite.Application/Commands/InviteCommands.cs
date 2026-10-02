@@ -1,29 +1,22 @@
 namespace ExamPlatform.Modules.Invite.Application.Commands;
 
-/// <summary>Creates a new invite for a batch member to sit an exam.</summary>
-/// <param name="ExamId">The exam the candidate is invited to.</param>
-/// <param name="BatchMemberId">The batch member being invited.</param>
-/// <param name="Email">E-mail address the invite is sent to.</param>
-/// <param name="CreatedByUserId">The user that creates the invite.</param>
-public sealed record CreateInviteCommand(
-    Guid ExamId,
-    Guid BatchMemberId,
-    string Email,
-    Guid CreatedByUserId);
+/// <summary>Invites an e-mail address to an exam and e-mails it a link.</summary>
+/// <param name="ExamId">The exam the address is invited to; it must exist.</param>
+/// <param name="BatchMemberId">The roster entry it came from, if any.</param>
+/// <param name="Email">The invited address.</param>
+/// <param name="CreatedByUserId">The staff user inviting.</param>
+public sealed record CreateInviteCommand(Guid ExamId, Guid? BatchMemberId, string Email, Guid CreatedByUserId);
 
-/// <summary>Generates an invite code for an existing invite.</summary>
-/// <param name="InviteId">The invite to generate the code for.</param>
+/// <summary>Adds another code to an invite.</summary>
+/// <param name="InviteId">The invite.</param>
 /// <param name="ExpiryHours">How long the code stays valid, in hours.</param>
-public sealed record GenerateInviteCodeCommand(
-    Guid InviteId,
-    int ExpiryHours = 72);
+public sealed record GenerateInviteCodeCommand(Guid InviteId, int ExpiryHours = 72);
 
-/// <summary>Accepts an invite with one of its codes.</summary>
-/// <param name="InviteId">The invite to accept.</param>
-/// <param name="InviteCodeId">The code that is redeemed.</param>
-public sealed record AcceptInviteCommand(
-    Guid InviteId,
-    Guid InviteCodeId);
+/// <summary>Redeems an invite code for the signed-in user.</summary>
+/// <param name="Code">The code from the invitation link.</param>
+/// <param name="UserId">The accepting account.</param>
+/// <param name="Email">The accepting account's verified e-mail address, if it has one.</param>
+public sealed record AcceptInviteCommand(string? Code, Guid UserId, string? Email);
 
 /// <summary>Declines an invite.</summary>
 /// <param name="InviteId">The invite to decline.</param>

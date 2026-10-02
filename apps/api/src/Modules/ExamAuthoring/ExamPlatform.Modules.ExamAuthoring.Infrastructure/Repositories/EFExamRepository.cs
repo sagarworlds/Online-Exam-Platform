@@ -29,6 +29,13 @@ public sealed class EFExamRepository(ExamAuthoringDbContext context) : IExamRepo
         await context.Exams.AsNoTracking().Where(e => e.SeriesId == seriesId).ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Exam>> ListByIdsAsync(IReadOnlyCollection<Guid> examIds, CancellationToken cancellationToken = default) =>
+        await context.Exams.AsNoTracking()
+            .Include(e => e.Sections).ThenInclude(s => s.Questions)
+            .Where(e => examIds.Contains(e.Id))
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Exam>> ListNewestAsync(int take, CancellationToken cancellationToken = default) =>
         await context.Exams.AsNoTracking().OrderByDescending(e => e.CreatedAt).Take(take).ToListAsync(cancellationToken);
 }

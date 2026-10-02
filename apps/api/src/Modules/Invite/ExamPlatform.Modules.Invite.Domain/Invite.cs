@@ -1,22 +1,39 @@
+using System.Security.Cryptography;
 using ExamPlatform.SharedKernel.Domain;
 using ExamPlatform.Modules.Invite.Domain.Events;
 using ExamPlatform.Modules.Invite.Domain.Exceptions;
 
 namespace ExamPlatform.Modules.Invite.Domain;
 
-/// Invite aggregate root (FR-23, FR-24, FR-25). Manages exam invitations and single-use invite codes.
+/// <summary>
+/// Invite aggregate root (FR-14, FR-50a): an invitation of one e-mail address to one exam, redeemed with a
+/// single-use code. Whoever accepts must hold the invited address, so an invite cannot be passed to someone else.
+/// </summary>
 public class Invite : AggregateRoot
 {
+    /// <summary>The fewest hours a code may live.</summary>
+    public const int MinCodeExpiryHours = 1;
+
+    /// <summary>The most hours a code may live (30 days).</summary>
+    public const int MaxCodeExpiryHours = 720;
+
+    private const string CodeAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    private const int CodeLength = 8;
+
     public new Guid Id => base.Id;
     public Guid ExamId { get; set; }
-    public Guid BatchMemberId { get; set; }
+
+    /// <summary>The roster entry this invite is for, when it came from a batch; null for a direct invite.</summary>
+    public Guid? BatchMemberId { get; set; }
     public string Email { get; set; } = null!;
     public InviteStatus Status { get; set; } = InviteStatus.Pending;
     public DateTime SentAt { get; set; }
     public DateTime? AcceptedAt { get; set; }
     public DateTime? DeclinedAt { get; set; }
-    public DateTime CreatedBy { get; set; }
     public Guid CreatedByUserId { get; set; }
+
+    /// <summary>The account that redeemed the invite; set when it is accepted.</summary>
+    public Guid? AcceptedByUserId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public bool IsDeleted { get; set; }
@@ -26,96 +43,111 @@ public class Invite : AggregateRoot
 
     private Invite() : base(Guid.Empty) { }
 
-    public Invite(Guid examId, Guid batchMemberId, string email, Guid createdByUserId)
+    /// <summary>Creates a pending invite.</summary>
+    /// <param name="examId">The exam the address is invited to.</param>
+    /// <param name="batchMemberId">The roster entry it came from, if any.</param>
+    /// <param name="email">The invited e-mail address.</param>
+    /// <param name="createdByUserId">The staff user who invited.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    public Invite(Guid examId, Guid? batchMemberId, string email, Guid createdByUserId, DateTime nowUtc)
         : base(Guid.NewGuid())
     {
         ExamId = examId;
         BatchMemberId = batchMemberId;
         Email = email;
         CreatedByUserId = createdByUserId;
-        SentAt = DateTime.UtcNow;
-        CreatedAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+        SentAt = nowUtc;
+        CreatedAt = nowUtc;
+        UpdatedAt = nowUtc;
 
         AddDomainEvent(new InviteCreatedEvent(Id, ExamId, Email, CreatedByUserId));
     }
 
-    public InviteCode GenerateCode(int expiryHours = 72)
+    /// <summary>Adds a new single-use code to the invite.</summary>
+    /// <param name="expiryHours">How long the code lives, from <see cref="MinCodeExpiryHours"/> to <see cref="MaxCodeExpiryHours"/>.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="InvalidInviteExpiryError">The lifetime is outside the allowed range.</exception>
+    public InviteCode GenerateCode(int expiryHours, DateTime nowUtc)
     {
-        var code = new InviteCode(Id, GenerateUniqueCode(), expiryHours);
+        if (expiryHours is < MinCodeExpiryHours or > MaxCodeExpiryHours)
+            throw new InvalidInviteExpiryError(MinCodeExpiryHours, MaxCodeExpiryHours);
+
+        // A cryptographic generator: the code is the credential that lets someone take the exam.
+        var code = new InviteCode(Id, RandomNumberGenerator.GetString(CodeAlphabet, CodeLength), expiryHours, nowUtc);
         _codes.Add(code);
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = nowUtc;
         return code;
     }
 
-    public InviteCode? GetValidCode()
+    /// <summary>
+    /// Redeems a code on behalf of a signed-in user, who must hold the invited address.
+    /// </summary>
+    /// <param name="code">The code as typed or copied from the link; case is ignored.</param>
+    /// <param name="acceptedByUserId">The account accepting.</param>
+    /// <param name="acceptedByEmail">The accepting account's verified e-mail address, if it has one.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="InviteStateError">The invite is no longer pending.</exception>
+    /// <exception cref="InvalidInviteCodeError">The code is not one of this invite's, or is used, revoked or expired.</exception>
+    /// <exception cref="InviteEmailMismatchError">The accepting account's address is not the invited one.</exception>
+    public void Accept(string? code, Guid acceptedByUserId, string? acceptedByEmail, DateTime nowUtc)
     {
-        return _codes.FirstOrDefault(c => c.IsValid());
-    }
+        // The code is looked up before anything about the invite is revealed: a wrong code, an
+        // already-used one and an expired one all look the same to a caller who guesses.
+        var normalized = code?.Trim().ToUpperInvariant();
+        var match = _codes.FirstOrDefault(c => c.Code == normalized);
+        if (match is null || !match.IsValid(nowUtc))
+            throw new InvalidInviteCodeError("the code is not valid");
 
-    public void RevokeAllCodes()
-    {
-        foreach (var code in _codes.Where(c => !c.RevokedAt.HasValue && !c.UsedAt.HasValue))
-        {
-            code.Revoke();
-        }
-        UpdatedAt = DateTime.UtcNow;
-    }
-
-    public void Accept(Guid inviteCodeId)
-    {
         if (Status != InviteStatus.Pending)
-            throw new InvalidOperationException("Only pending invites can be accepted.");
+            throw new InviteStateError("This invitation is no longer open.");
 
-        var code = _codes.FirstOrDefault(c => c.Id == inviteCodeId);
-        if (code == null || !code.IsValid())
-            throw new InvalidInviteCodeError("Code not found or invalid.");
+        if (!string.Equals(Email.Trim(), acceptedByEmail?.Trim(), StringComparison.OrdinalIgnoreCase))
+            throw new InviteEmailMismatchError();
 
-        code.MarkAsUsed();
+        match.MarkAsUsed(nowUtc);
         Status = InviteStatus.Accepted;
-        AcceptedAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+        AcceptedAt = nowUtc;
+        AcceptedByUserId = acceptedByUserId;
+        UpdatedAt = nowUtc;
 
         AddDomainEvent(new InviteAcceptedEvent(Id, ExamId, Email));
     }
 
-    public void Decline()
+    /// <summary>Declines a pending invite.</summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="InviteStateError">The invite is no longer pending.</exception>
+    public void Decline(DateTime nowUtc)
     {
         if (Status != InviteStatus.Pending)
-            throw new InvalidOperationException("Only pending invites can be declined.");
+            throw new InviteStateError("Only a pending invitation can be declined.");
 
         Status = InviteStatus.Declined;
-        DeclinedAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+        DeclinedAt = nowUtc;
+        UpdatedAt = nowUtc;
 
         AddDomainEvent(new InviteDeclinedEvent(Id, ExamId, Email));
     }
 
-    public void Revoke()
+    /// <summary>Revokes the invite and every code that is still unused.</summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="InviteStateError">The invite is already revoked or expired.</exception>
+    public void Revoke(DateTime nowUtc)
     {
         if (Status is InviteStatus.Revoked or InviteStatus.Expired)
-            throw new InvalidOperationException("Cannot revoke an already revoked or expired invite.");
+            throw new InviteStateError("This invitation is already revoked or expired.");
 
-        RevokeAllCodes();
+        foreach (var code in _codes.Where(c => c.RevokedAt is null && c.UsedAt is null))
+            code.Revoke(nowUtc);
+
         Status = InviteStatus.Revoked;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = nowUtc;
 
         AddDomainEvent(new InviteRevokedEvent(Id, ExamId, Email));
     }
 
-    public void SoftDelete()
+    public void SoftDelete(DateTime nowUtc)
     {
         IsDeleted = true;
-        UpdatedAt = DateTime.UtcNow;
-    }
-
-    private static string GenerateUniqueCode()
-    {
-        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        var random = new Random();
-        var code = new string(Enumerable.Range(0, 8)
-            .Select(_ => chars[random.Next(chars.Length)])
-            .ToArray());
-        return code;
+        UpdatedAt = nowUtc;
     }
 }

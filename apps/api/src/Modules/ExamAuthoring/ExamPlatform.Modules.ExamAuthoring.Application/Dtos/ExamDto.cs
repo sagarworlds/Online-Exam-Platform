@@ -3,7 +3,7 @@ using ExamPlatform.Modules.ExamAuthoring.Domain;
 namespace ExamPlatform.Modules.ExamAuthoring.Application.Dtos;
 
 /// <summary>An exam as the authoring side sees it.</summary>
-/// <param name="Sections">The sections with their questions; filled in when one exam is read, null in a listing.</param>
+/// <remarks><c>Sections</c> is filled in when one exam is read and is null in a listing.</remarks>
 public record ExamDto(
     Guid Id,
     Guid? SeriesId,
