@@ -1,11 +1,11 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { BookApiService } from '../book-management/book-api.service';
 import { BookDto } from '../book-management/book.models';
 import { extractErrorMessage } from '../shared/problem-details';
 import { BookChapterPicker, isCompletePlacement, NO_PLACEMENT, Placement } from './book-chapter-picker/book-chapter-picker';
 import { QuestionApiService } from './question-api.service';
+import { QuestionCard } from './question-card/question-card';
 import { createQuestionForm, newOption, toNewOptions } from './question-form';
 import { QuestionFields } from './question-fields/question-fields';
 import { CreateQuestionRequest, QuestionDto, QuestionFilter } from './question.models';
@@ -19,7 +19,7 @@ export const UNFILED = 'unfiled';
  */
 @Component({
   selector: 'app-question-bank',
-  imports: [ReactiveFormsModule, RouterLink, BookChapterPicker, QuestionFields],
+  imports: [ReactiveFormsModule, BookChapterPicker, QuestionCard, QuestionFields],
   templateUrl: './question-bank.html',
 })
 export class QuestionBank {
@@ -33,6 +33,12 @@ export class QuestionBank {
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+  /** What the last action on the list did, such as a deletion; announced to screen readers. */
+  protected readonly notice = signal<string | null>(null);
+  /** The question a request is running for, if any, so only its card is locked meanwhile. */
+  protected readonly busyId = signal<string | null>(null);
+  /** Why the last request about a question failed, by question id, so the reason shows on that question's own card. */
+  protected readonly cardErrors = signal<Record<string, string>>({});
 
   /** Every book, archived ones included: the list filter must reach questions filed under them. */
   protected readonly books = signal<BookDto[]>([]);
@@ -97,6 +103,30 @@ export class QuestionBank {
         this.errorMessage.set(extractErrorMessage(error));
       },
     });
+  }
+
+  protected deleteQuestion(id: string): void {
+    this.startAction(id);
+    this.api.remove(id).subscribe({
+      next: () => {
+        this.busyId.set(null);
+        this.questions.update((list) => list.filter((question) => question.id !== id));
+        this.notice.set('Question deleted.');
+      },
+      error: (error: unknown) => this.failAction(id, error),
+    });
+  }
+
+  private startAction(id: string): void {
+    this.busyId.set(id);
+    this.notice.set(null);
+    this.saved.set(false);
+    this.cardErrors.update((errors) => Object.fromEntries(Object.entries(errors).filter(([key]) => key !== id)));
+  }
+
+  private failAction(id: string, error: unknown): void {
+    this.busyId.set(null);
+    this.cardErrors.update((errors) => ({ ...errors, [id]: extractErrorMessage(error) }));
   }
 
   /** The filter the list is currently narrowed by; a chapter implies its book, so only one of them is sent. */

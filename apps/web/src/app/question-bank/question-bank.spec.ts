@@ -4,6 +4,7 @@ import { FormGroup } from '@angular/forms';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { QuestionBank } from './question-bank';
+import { QuestionUsageDto } from './question.models';
 
 // The base URL differs between builds and the test environment, so requests are matched by their path.
 const isList = (r: { method: string; url: string }) => r.method === 'GET' && /\/v1\/questions(\?.*)?$/.test(r.url);
@@ -13,6 +14,7 @@ const chapter = (id: string, order: number, title: string, isArchived = false) =
 const book = (id: string, name: string, chapters: ReturnType<typeof chapter>[], isArchived = false) => ({
   id, name, subject: null, description: null, isArchived, chapters, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
 });
+const UNUSED: QuestionUsageDto = { examCount: 0, examNames: [], answered: false };
 const MATHS = book('b1', 'Maths Grade 10', [chapter('c1', 1, 'Algebra'), chapter('c2', 2, 'Geometry'), chapter('c3', 3, 'Old chapter', true)]);
 const OLD_BOOK = book('b2', 'Old Physics', [{ ...chapter('c9', 1, 'Optics'), bookId: 'b2' }], true);
 
@@ -63,6 +65,7 @@ describe('QuestionBank', () => {
         chapterTitle: null,
         bookId: null,
         bookName: null,
+        usage: UNUSED,
       },
     ]);
     fixture.detectChanges();
@@ -78,7 +81,7 @@ describe('QuestionBank', () => {
     httpMock.expectOne(isList).flush([
       {
         id: 'q1', text: 'Solve x', options: [{ id: 'o1', text: '1', isCorrect: true }, { id: 'o2', text: '2', isCorrect: false }],
-        createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths Grade 10',
+        createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths Grade 10', usage: UNUSED,
       },
     ]);
     fixture.detectChanges();
@@ -100,6 +103,7 @@ describe('QuestionBank', () => {
         ],
         createdBy: 'u1',
         createdAtUtc: '2026-10-02T00:00:00Z',
+        usage: UNUSED,
       },
     ]);
     fixture.detectChanges();
@@ -305,5 +309,60 @@ describe('QuestionBank', () => {
     fixture.detectChanges();
 
     expect(root.textContent).toContain('Exactly one option must be marked correct.');
+  });
+
+  describe('deleting a question', () => {
+    const listed = (id: string, text: string, usage = UNUSED) => ({
+      id, text, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: null, chapterTitle: null, bookId: null, bookName: null, usage,
+      options: [{ id: `${id}-a`, text: 'A', isCorrect: true }, { id: `${id}-b`, text: 'B', isCorrect: false }],
+    });
+    const isDelete = (id: string) => (r: { method: string; url: string }) => r.method === 'DELETE' && r.url.endsWith(`/v1/questions/${id}`);
+
+    function open(questions: ReturnType<typeof listed>[]) {
+      const fixture = create();
+      httpMock.expectOne(isList).flush(questions);
+      fixture.detectChanges();
+      return { fixture, root: fixture.nativeElement as HTMLElement };
+    }
+    const cardOf = (root: HTMLElement, text: string) =>
+      Array.from(root.querySelectorAll('app-question-card')).find((c) => c.textContent?.includes(text)) as HTMLElement;
+    const buttonIn = (card: HTMLElement, label: string) =>
+      Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
+
+    it('removes the question from the list once the API has deleted it, and says so', () => {
+      const { fixture, root } = open([listed('q1', 'First question'), listed('q2', 'Second question')]);
+
+      buttonIn(cardOf(root, 'First question'), 'Delete').click();
+      fixture.detectChanges();
+      buttonIn(cardOf(root, 'First question'), 'Delete').click(); // the confirming one
+      httpMock.expectOne(isDelete('q1')).flush(null, { status: 204, statusText: 'No Content' });
+      fixture.detectChanges();
+
+      expect(root.textContent).not.toContain('First question');
+      expect(root.textContent).toContain('Second question');
+      expect(root.querySelector('[role="status"]')?.textContent).toContain('Question deleted.');
+    });
+
+    it('keeps the question and shows the reason on its own card when the API refuses', () => {
+      const { fixture, root } = open([listed('q1', 'First question'), listed('q2', 'Second question')]);
+
+      buttonIn(cardOf(root, 'Second question'), 'Delete').click();
+      fixture.detectChanges();
+      buttonIn(cardOf(root, 'Second question'), 'Delete').click();
+      httpMock
+        .expectOne(isDelete('q2'))
+        .flush({ title: 'question_in_use', detail: 'It is part of the exam "Maths mock", so it cannot be deleted.' }, { status: 409, statusText: 'Conflict' });
+      fixture.detectChanges();
+
+      expect(cardOf(root, 'Second question').querySelector('[role="alert"]')?.textContent).toContain('Maths mock');
+      expect(cardOf(root, 'First question').querySelector('[role="alert"]')).toBeNull();
+      expect(root.textContent).toContain('Second question');
+    });
+
+    it('does not offer to delete a question that an exam holds', () => {
+      const { root } = open([listed('q1', 'Held question', { examCount: 1, examNames: ['Maths mock'], answered: false })]);
+
+      expect(buttonIn(cardOf(root, 'Held question'), 'Delete').disabled).toBe(true);
+    });
   });
 });

@@ -431,6 +431,28 @@ button.primary:hover:not(:disabled),
   font-weight: 600;
 }
 
+/* Where a question is in use, under its options; the badges carry their own spacing. */
+.question-card__usage {
+  margin: 0.5rem 0 0;
+}
+
+.question-card__usage .badge:first-child {
+  margin-inline-start: 0;
+}
+
+.question-card__actions {
+  margin-top: 0.75rem;
+}
+
+/* The inline "are you sure?" that replaces a card's Delete button; no dialog to open, nothing to lose focus into. */
+.question-card__confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
 /* The exam scope choice: radios stacked, and the chosen book's chapters as a checklist. */
 .scope-fields {
   gap: 0.5rem;

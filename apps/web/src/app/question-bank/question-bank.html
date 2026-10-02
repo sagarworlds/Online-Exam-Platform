@@ -7,6 +7,9 @@
   @if (saved()) {
     <p class="success-message">Question saved.</p>
   }
+  @if (notice()) {
+    <p class="success-message" role="status">{{ notice() }}</p>
+  }
 
   <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="New question">
     <h2>New question</h2>
@@ -46,28 +49,12 @@
     <p>{{ filterBook() ? 'No questions match this filter.' : 'No questions yet.' }}</p>
   } @else {
     @for (question of questions(); track question.id) {
-      <div class="card question-card">
-        <p class="question-card__where">
-          @if (question.chapterId) {
-            {{ question.bookName }} <span aria-hidden="true">›</span> {{ question.chapterTitle }}
-          } @else {
-            <span class="hint">Not filed under a chapter</span>
-          }
-        </p>
-        <div class="rich-text question-card__text" [innerHTML]="question.text"></div>
-        <ol>
-          @for (option of question.options; track option.id) {
-            <li [class.correct-option]="option.isCorrect">
-              {{ option.text }}@if (option.isCorrect) {
-                <span class="badge badge--active">correct</span>
-              }
-            </li>
-          }
-        </ol>
-        <div class="actions">
-          <a class="btn btn--small" [routerLink]="['/admin/questions', question.id, 'edit']">Edit</a>
-        </div>
-      </div>
+      <app-question-card
+        [question]="question"
+        [busy]="busyId() === question.id"
+        [error]="cardErrors()[question.id] ?? null"
+        (deleteConfirmed)="deleteQuestion($event)"
+      />
     }
   }
 </div>
