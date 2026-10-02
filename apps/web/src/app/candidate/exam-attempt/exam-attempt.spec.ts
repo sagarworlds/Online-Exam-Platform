@@ -53,6 +53,10 @@ describe('ExamAttempt', () => {
 
   const root = (fixture: ComponentFixture<ExamAttempt>) => fixture.nativeElement as HTMLElement;
   const textOf = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).textContent ?? '';
+  const radios = (fixture: ComponentFixture<ExamAttempt>) =>
+    Array.from(root(fixture).querySelectorAll<HTMLInputElement>('input[type="radio"]'));
+  const buttonLabelled = (fixture: ComponentFixture<ExamAttempt>, label: string) =>
+    Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes(label));
 
   async function open(initial: AttemptDto) {
     await TestBed.configureTestingModule({
@@ -83,32 +87,69 @@ describe('ExamAttempt', () => {
     vi.useRealTimers();
   });
 
-  it('shows the questions with the answers saved so far, and no hint of which option is right', async () => {
+  it('shows the first question with the answers saved so far, and no hint of which option is right', async () => {
     const fixture = await open(attempt());
 
     expect(textOf(fixture)).toContain('Maths Final');
-    expect(textOf(fixture)).toContain('1. What is 2 + 2?');
+    expect(textOf(fixture)).toContain('Section A · Question 1 of 2');
+    expect(textOf(fixture)).toContain('What is 2 + 2?');
+    expect(textOf(fixture)).not.toContain('Capital of France?');
     expect(textOf(fixture)).toContain('1 of 2 answered');
-    const radios = Array.from(root(fixture).querySelectorAll<HTMLInputElement>('input[type="radio"]'));
-    expect(radios.map((r) => r.checked)).toEqual([false, false, true, false]);
+    expect(radios(fixture).map((r) => r.checked)).toEqual([false, false]);
+
+    buttonLabelled(fixture, 'Next')?.click();
+    fixture.detectChanges();
+
+    expect(textOf(fixture)).toContain('Question 2 of 2');
+    expect(radios(fixture).map((r) => r.checked)).toEqual([true, false]);
+  });
+
+  it('moves between questions with Previous and Next, and disables each at the ends of the exam', async () => {
+    const fixture = await open(attempt());
+    expect((buttonLabelled(fixture, 'Previous') as HTMLButtonElement).disabled).toBe(true);
+    expect((buttonLabelled(fixture, 'Next') as HTMLButtonElement).disabled).toBe(false);
+
+    buttonLabelled(fixture, 'Next')?.click();
+    fixture.detectChanges();
+    expect((buttonLabelled(fixture, 'Next') as HTMLButtonElement).disabled).toBe(true);
+
+    buttonLabelled(fixture, 'Previous')?.click();
+    fixture.detectChanges();
+    expect(textOf(fixture)).toContain('Question 1 of 2');
+  });
+
+  it('numbers every question in a palette, marks the answered ones, and jumps to the one pressed', async () => {
+    const fixture = await open(attempt());
+
+    const items = Array.from(root(fixture).querySelectorAll<HTMLButtonElement>('.palette__item'));
+    expect(items.map((b) => b.textContent?.trim())).toEqual(['1', '2']);
+    expect(items.map((b) => b.classList.contains('palette__item--answered'))).toEqual([false, true]);
+    expect(items[0].getAttribute('aria-current')).toBe('true');
+
+    items[1].click();
+    fixture.detectChanges();
+
+    expect(textOf(fixture)).toContain('Capital of France?');
+    expect(root(fixture).querySelectorAll('.palette__item')[1].getAttribute('aria-current')).toBe('true');
   });
 
   it('counts down to the deadline the server set, using the server clock rather than the candidate clock', async () => {
     // The candidate's clock is 10 minutes slow; the server says it is 04:30:00 and the deadline is 05:00:00.
     vi.setSystemTime(NOW - 10 * 60_000);
     const fixture = await open(attempt());
-    expect(textOf(fixture)).toContain('Time left: 30:00');
+    const countdown = () => root(fixture).querySelector('.countdown')?.textContent?.trim();
+    expect(countdown()).toBe('30:00');
 
     vi.advanceTimersByTime(65_000);
     fixture.detectChanges();
 
-    expect(textOf(fixture)).toContain('Time left: 28:55');
+    expect(countdown()).toBe('28:55');
   });
 
   it('saves a choice as it is made', async () => {
     const fixture = await open(attempt());
 
-    root(fixture).querySelectorAll<HTMLInputElement>('input[type="radio"]')[1].click();
+    radios(fixture)[1].click();
     const save = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q1'));
     expect(save.request.method).toBe('PUT');
     expect(save.request.body).toEqual({ optionId: 'o2' });
@@ -122,26 +163,27 @@ describe('ExamAttempt', () => {
     const fixture = await open(attempt());
 
     // q2 was Paris (o3); picking Rome (o4) shows at once, then the save fails.
-    root(fixture).querySelectorAll<HTMLInputElement>('input[type="radio"]')[3].click();
+    buttonLabelled(fixture, 'Next')?.click();
     fixture.detectChanges();
-    expect(root(fixture).querySelectorAll<HTMLInputElement>('input[type="radio"]')[3].checked).toBe(true);
+    radios(fixture)[1].click();
+    fixture.detectChanges();
+    expect(radios(fixture)[1].checked).toBe(true);
     httpMock.expectOne((r) => r.url.endsWith('/answers/q2')).flush(null, { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
 
-    const radios = Array.from(root(fixture).querySelectorAll<HTMLInputElement>('input[type="radio"]'));
-    expect(radios.map((r) => r.checked)).toEqual([false, false, true, false]);
+    expect(radios(fixture).map((r) => r.checked)).toEqual([true, false]);
     expect(textOf(fixture)).toContain('could not be saved');
   });
 
   it('asks before submitting, then shows the score', async () => {
     const fixture = await open(attempt());
 
-    root(fixture).querySelector<HTMLButtonElement>('button.primary')?.click();
+    buttonLabelled(fixture, 'Submit exam')?.click();
     fixture.detectChanges();
     expect(textOf(fixture)).toContain('Submit now? 1 of 2 questions are answered');
     httpMock.expectNone((r) => r.url.endsWith('/submit'));
 
-    Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes('Yes, submit'))?.click();
+    buttonLabelled(fixture, 'Yes, submit')?.click();
     const submit = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/submit'));
     expect(submit.request.method).toBe('POST');
     submit.flush(attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [], submittedAtUtc: '2026-10-05T04:40:00Z' }));
@@ -155,9 +197,9 @@ describe('ExamAttempt', () => {
   it('lets the candidate back out of submitting', async () => {
     const fixture = await open(attempt());
 
-    root(fixture).querySelector<HTMLButtonElement>('button.primary')?.click();
+    buttonLabelled(fixture, 'Submit exam')?.click();
     fixture.detectChanges();
-    Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes('Keep working'))?.click();
+    buttonLabelled(fixture, 'Keep working')?.click();
     fixture.detectChanges();
 
     expect(textOf(fixture)).not.toContain('Submit now?');
@@ -179,7 +221,7 @@ describe('ExamAttempt', () => {
   it('reloads when a save is refused because the attempt has just ended', async () => {
     const fixture = await open(attempt());
 
-    root(fixture).querySelectorAll<HTMLInputElement>('input[type="radio"]')[0].click();
+    radios(fixture)[0].click();
     httpMock
       .expectOne((r) => r.url.endsWith('/answers/q1'))
       .flush({ title: 'attempt_not_in_progress', detail: 'This attempt has already been submitted.' }, { status: 409, statusText: 'Conflict' });

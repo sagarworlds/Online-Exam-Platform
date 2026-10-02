@@ -34,6 +34,41 @@ export class ExamAttempt {
   protected readonly answeredCount = computed(() => this.questions().filter((q) => q.selectedOptionId !== null).length);
   protected readonly isOpen = computed(() => this.attempt()?.status === 'InProgress');
 
+  /** Which question is on screen, as an index into the flat list of every section's questions. */
+  private readonly requestedIndex = signal(0);
+
+  /** The question on screen. Clamped, so a reload that changes the question count can never leave it pointing nowhere. */
+  protected readonly position = computed(() => Math.min(this.requestedIndex(), Math.max(0, this.questions().length - 1)));
+  protected readonly currentQuestion = computed<AttemptQuestionDto | null>(() => this.questions()[this.position()] ?? null);
+  protected readonly isFirst = computed(() => this.position() === 0);
+  protected readonly isLast = computed(() => this.position() >= this.questions().length - 1);
+
+  /** The name of the section the on-screen question belongs to. */
+  protected readonly currentSectionName = computed(() => {
+    let remaining = this.position();
+    for (const section of this.attempt()?.sections ?? []) {
+      if (remaining < section.questions.length) {
+        return section.name;
+      }
+      remaining -= section.questions.length;
+    }
+    return '';
+  });
+
+  /** The question palette: every question numbered across sections, with whether it has an answer. */
+  protected readonly palette = computed(() => {
+    let offset = 0;
+    return (this.attempt()?.sections ?? []).map((section) => {
+      const items = section.questions.map((question, i) => ({
+        index: offset + i,
+        number: offset + i + 1,
+        answered: question.selectedOptionId !== null,
+      }));
+      offset += section.questions.length;
+      return { id: section.id, name: section.name, items };
+    });
+  });
+
   /** Server clock minus the candidate's clock at the moment the attempt was fetched, so the countdown tracks the server. */
   private clockOffsetMs = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -60,6 +95,26 @@ export class ExamAttempt {
     const seconds = totalSeconds % 60;
     const pad = (value: number) => value.toString().padStart(2, '0');
     return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
+  }
+
+  /** Shows the question at <paramref name="index"/> (0-based); an index outside the exam is ignored. */
+  protected goTo(index: number): void {
+    if (index >= 0 && index < this.questions().length) {
+      this.requestedIndex.set(index);
+    }
+  }
+
+  protected next(): void {
+    this.goTo(this.position() + 1);
+  }
+
+  protected previous(): void {
+    this.goTo(this.position() - 1);
+  }
+
+  /** A, B, C… for the n-th choice (0-based), the way printed papers label them. */
+  protected optionLetter(index: number): string {
+    return String.fromCharCode(65 + index);
   }
 
   /** Records a choice. It shows at once and is saved in the background; if the save fails the previous choice comes back. */
