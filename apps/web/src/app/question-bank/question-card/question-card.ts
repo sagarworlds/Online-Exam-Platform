@@ -1,5 +1,7 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, effect, input, output, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { BookDto } from '../../book-management/book.models';
+import { BookChapterPicker, NO_PLACEMENT, Placement } from '../book-chapter-picker/book-chapter-picker';
 import { QuestionDto } from '../question.models';
 
 /**
@@ -9,11 +11,15 @@ import { QuestionDto } from '../question.models';
  */
 @Component({
   selector: 'app-question-card',
-  imports: [RouterLink],
+  imports: [RouterLink, BookChapterPicker],
   templateUrl: './question-card.html',
 })
 export class QuestionCard {
   readonly question = input.required<QuestionDto>();
+  /** Every book, for the "File under" choice; archived ones are not offered there. */
+  readonly books = input<readonly BookDto[]>([]);
+  /** Whether the question is ticked for a bulk action. The page owns the selection. */
+  readonly selected = input(false);
   /** True while a request about this question is running, so its buttons cannot be pressed twice. */
   readonly busy = input(false);
   /** Why the last request about this question failed, if it did. */
@@ -21,8 +27,31 @@ export class QuestionCard {
 
   /** The author confirmed deleting this question; carries its id. */
   readonly deleteConfirmed = output<string>();
+  /** The author ticked or unticked the question. */
+  readonly selectionChanged = output<boolean>();
+  /** The author chose a chapter to file this question under. */
+  readonly fileRequested = output<{ questionId: string; chapterId: string }>();
 
   protected readonly confirmingDelete = signal(false);
+  protected readonly filing = signal(false);
+  protected readonly placement = signal<Placement>(NO_PLACEMENT);
+
+  /** The chapter the question was filed under when the "File under" row was last reset; undefined before the first look. */
+  private shownChapterId: string | null | undefined;
+
+  constructor() {
+    // Once the question sits somewhere new, the "File under" row has done its job; close it and forget the old choice.
+    effect(() => {
+      const chapterId = this.question().chapterId;
+      untracked(() => {
+        if (chapterId !== this.shownChapterId) {
+          this.shownChapterId = chapterId;
+          this.filing.set(false);
+          this.placement.set(NO_PLACEMENT);
+        }
+      });
+    });
+  }
 
   /** An exam holds the question, so the API would refuse to delete it; say so up front instead of after a click. */
   protected readonly inExam = computed(() => this.question().usage.examCount > 0);
@@ -30,6 +59,13 @@ export class QuestionCard {
     const count = this.question().usage.examCount;
     return `In ${count} ${count === 1 ? 'exam' : 'exams'}`;
   });
+
+  protected fileHere(): void {
+    const chapterId = this.placement().chapterId;
+    if (chapterId) {
+      this.fileRequested.emit({ questionId: this.question().id, chapterId });
+    }
+  }
 
   protected confirmDelete(): void {
     this.confirmingDelete.set(false);

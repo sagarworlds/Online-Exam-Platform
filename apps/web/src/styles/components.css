@@ -444,6 +444,38 @@ button.primary:hover:not(:disabled),
   margin-top: 0.75rem;
 }
 
+/* The tick box sits at the end of the line that says where the question is filed. */
+.question-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.question-card__filing {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+/* The bar that appears above the list while questions are ticked: where to file them, and the button. */
+.bulk-bar {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 1;
+  border-color: var(--primary);
+}
+
+.bulk-bar__count {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.select-all {
+  display: flex;
+  margin-bottom: 0.75rem;
+}
+
 /* The inline "are you sure?" that replaces a card's Delete button; no dialog to open, nothing to lose focus into. */
 .question-card__confirm {
   display: inline-flex;

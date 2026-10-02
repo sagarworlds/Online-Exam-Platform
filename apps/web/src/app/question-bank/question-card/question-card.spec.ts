@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { BookDto } from '../../book-management/book.models';
 import { QuestionDto } from '../question.models';
 import { QuestionCard } from './question-card';
 
@@ -14,22 +15,36 @@ const question = (overrides: Partial<QuestionDto> = {}): QuestionDto => ({
   ...overrides,
 });
 
+const chapter = (id: string, order: number, title: string) => ({ id, bookId: 'b1', title, order, isArchived: false, questionCount: 0 });
+const MATHS: BookDto = {
+  id: 'b1', name: 'Maths', subject: null, description: null, isArchived: false, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
+  chapters: [chapter('c1', 1, 'Algebra'), chapter('c2', 2, 'Geometry')],
+};
+
 describe('QuestionCard', () => {
   let fixture: ComponentFixture<QuestionCard>;
   let root: HTMLElement;
   let deleted: string[];
+  let selections: boolean[];
+  let filed: { questionId: string; chapterId: string }[];
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({ imports: [QuestionCard], providers: [provideRouter([])] }).compileComponents();
   });
 
-  function show(q: QuestionDto = question(), inputs: { busy?: boolean; error?: string | null } = {}) {
+  function show(q: QuestionDto = question(), inputs: { busy?: boolean; error?: string | null; selected?: boolean } = {}) {
     fixture = TestBed.createComponent(QuestionCard);
     fixture.componentRef.setInput('question', q);
+    fixture.componentRef.setInput('books', [MATHS]);
+    if (inputs.selected !== undefined) fixture.componentRef.setInput('selected', inputs.selected);
     if (inputs.busy !== undefined) fixture.componentRef.setInput('busy', inputs.busy);
     if (inputs.error !== undefined) fixture.componentRef.setInput('error', inputs.error);
     deleted = [];
+    selections = [];
+    filed = [];
     fixture.componentInstance.deleteConfirmed.subscribe((id) => deleted.push(id));
+    fixture.componentInstance.selectionChanged.subscribe((value) => selections.push(value));
+    fixture.componentInstance.fileRequested.subscribe((request) => filed.push(request));
     fixture.detectChanges();
     root = fixture.nativeElement as HTMLElement;
   }
@@ -125,6 +140,83 @@ describe('QuestionCard', () => {
       show(question(), { busy: true });
 
       expect(button('Delete').disabled).toBe(true);
+    });
+  });
+
+  describe('selecting', () => {
+    const checkbox = () => root.querySelector('input[type="checkbox"]') as HTMLInputElement;
+
+    it('reflects whether the page has it selected, and has an accessible name', () => {
+      show(question(), { selected: true });
+
+      expect(checkbox().checked).toBe(true);
+      expect(root.querySelector('.inline-check')?.textContent).toContain('Select this question');
+    });
+
+    it('tells the page when it is ticked and unticked', () => {
+      show();
+
+      checkbox().checked = true;
+      checkbox().dispatchEvent(new Event('change'));
+      checkbox().checked = false;
+      checkbox().dispatchEvent(new Event('change'));
+
+      expect(selections).toEqual([true, false]);
+    });
+  });
+
+  describe('filing', () => {
+    const choose = (id: string, value: string) => {
+      const select = root.querySelector(`#${id}`) as HTMLSelectElement;
+      select.value = value;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    };
+
+    it('opens a book and chapter choice, and files only once a chapter is chosen', () => {
+      show(question({ chapterId: null, chapterTitle: null, bookId: null, bookName: null }));
+      expect(root.querySelector('#file-q1-book')).toBeNull();
+
+      press('File under…');
+      expect(button('File question').disabled).toBe(true);
+
+      choose('file-q1-book', 'b1');
+      expect(button('File question').disabled).toBe(true); // a book alone is not a place
+      choose('file-q1-chapter', 'c2');
+      expect(button('File question').disabled).toBe(false);
+      press('File question');
+
+      expect(filed).toEqual([{ questionId: 'q1', chapterId: 'c2' }]);
+    });
+
+    it('closes and forgets the choice once the question has moved', () => {
+      show();
+      press('File under…');
+      choose('file-q1-book', 'b1');
+      choose('file-q1-chapter', 'c2');
+
+      fixture.componentRef.setInput('question', question({ chapterId: 'c2', chapterTitle: 'Geometry' }));
+      fixture.detectChanges();
+      expect(root.querySelector('#file-q1-book')).toBeNull();
+
+      press('File under…');
+      expect((root.querySelector('#file-q1-book') as HTMLSelectElement).value).toBe('');
+    });
+
+    it('stays open when nothing about the question changed, such as after a refusal', () => {
+      show();
+      press('File under…');
+
+      fixture.componentRef.setInput('error', 'The chapter is archived.');
+      fixture.detectChanges();
+
+      expect(root.querySelector('#file-q1-book')).not.toBeNull();
+    });
+
+    it('cannot be used while a request about the question is running', () => {
+      show(question(), { busy: true });
+
+      expect(button('File under…').disabled).toBe(true);
     });
   });
 

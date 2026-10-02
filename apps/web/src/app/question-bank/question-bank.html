@@ -7,9 +7,6 @@
   @if (saved()) {
     <p class="success-message">Question saved.</p>
   }
-  @if (notice()) {
-    <p class="success-message" role="status">{{ notice() }}</p>
-  }
 
   <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="New question">
     <h2>New question</h2>
@@ -43,16 +40,48 @@
       }
     </div>
   </div>
+  @if (notice()) {
+    <p class="success-message" role="status">{{ notice() }}</p>
+  }
+  @if (selectedIds().size > 0) {
+    <div class="card bulk-bar" role="region" aria-label="File the selected questions">
+      <p class="bulk-bar__count">{{ selectedIds().size }} selected</p>
+      <app-book-chapter-picker
+        [books]="books()"
+        idPrefix="bulk"
+        bookLabel="File under book"
+        noBookLabel="Choose a book…"
+        [(value)]="bulkPlacement"
+      />
+      @if (bulkError()) {
+        <p class="error-message" role="alert">{{ bulkError() }}</p>
+      }
+      <div class="actions">
+        <button type="button" class="primary" (click)="fileSelected()" [disabled]="!bulkPlacement().chapterId || bulkBusy()">
+          File {{ selectedIds().size === 1 ? 'the question' : 'the ' + selectedIds().size + ' questions' }}
+        </button>
+        <button type="button" (click)="toggleAll(false)" [disabled]="bulkBusy()">Clear selection</button>
+      </div>
+    </div>
+  }
   @if (loading()) {
     <p>Loading…</p>
   } @else if (questions().length === 0) {
     <p>{{ filterBook() ? 'No questions match this filter.' : 'No questions yet.' }}</p>
   } @else {
+    <label class="inline-check select-all">
+      <input type="checkbox" [checked]="allSelected()" (change)="toggleAll($any($event.target).checked)" />
+      Select all {{ questions().length }} shown
+    </label>
     @for (question of questions(); track question.id) {
       <app-question-card
         [question]="question"
+        [books]="books()"
+        [selected]="selectedIds().has(question.id)"
         [busy]="busyId() === question.id"
         [error]="cardErrors()[question.id] ?? null"
+        (selectionChanged)="toggleSelected(question.id, $event)"
+        (fileRequested)="fileQuestion($event.questionId, $event.chapterId)"
         (deleteConfirmed)="deleteQuestion($event)"
       />
     }

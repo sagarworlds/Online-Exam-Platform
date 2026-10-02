@@ -15,6 +15,10 @@ const book = (id: string, name: string, chapters: ReturnType<typeof chapter>[], 
   id, name, subject: null, description: null, isArchived, chapters, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
 });
 const UNUSED: QuestionUsageDto = { examCount: 0, examNames: [], answered: false };
+const listedQuestion = (id: string, text: string, usage: QuestionUsageDto = UNUSED) => ({
+  id, text, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: null, chapterTitle: null, bookId: null, bookName: null, usage,
+  options: [{ id: `${id}-a`, text: 'A', isCorrect: true }, { id: `${id}-b`, text: 'B', isCorrect: false }],
+});
 const MATHS = book('b1', 'Maths Grade 10', [chapter('c1', 1, 'Algebra'), chapter('c2', 2, 'Geometry'), chapter('c3', 3, 'Old chapter', true)]);
 const OLD_BOOK = book('b2', 'Old Physics', [{ ...chapter('c9', 1, 'Optics'), bookId: 'b2' }], true);
 
@@ -312,13 +316,9 @@ describe('QuestionBank', () => {
   });
 
   describe('deleting a question', () => {
-    const listed = (id: string, text: string, usage = UNUSED) => ({
-      id, text, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: null, chapterTitle: null, bookId: null, bookName: null, usage,
-      options: [{ id: `${id}-a`, text: 'A', isCorrect: true }, { id: `${id}-b`, text: 'B', isCorrect: false }],
-    });
     const isDelete = (id: string) => (r: { method: string; url: string }) => r.method === 'DELETE' && r.url.endsWith(`/v1/questions/${id}`);
 
-    function open(questions: ReturnType<typeof listed>[]) {
+    function open(questions: ReturnType<typeof listedQuestion>[]) {
       const fixture = create();
       httpMock.expectOne(isList).flush(questions);
       fixture.detectChanges();
@@ -330,7 +330,7 @@ describe('QuestionBank', () => {
       Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
 
     it('removes the question from the list once the API has deleted it, and says so', () => {
-      const { fixture, root } = open([listed('q1', 'First question'), listed('q2', 'Second question')]);
+      const { fixture, root } = open([listedQuestion('q1', 'First question'), listedQuestion('q2', 'Second question')]);
 
       buttonIn(cardOf(root, 'First question'), 'Delete').click();
       fixture.detectChanges();
@@ -344,7 +344,7 @@ describe('QuestionBank', () => {
     });
 
     it('keeps the question and shows the reason on its own card when the API refuses', () => {
-      const { fixture, root } = open([listed('q1', 'First question'), listed('q2', 'Second question')]);
+      const { fixture, root } = open([listedQuestion('q1', 'First question'), listedQuestion('q2', 'Second question')]);
 
       buttonIn(cardOf(root, 'Second question'), 'Delete').click();
       fixture.detectChanges();
@@ -360,9 +360,150 @@ describe('QuestionBank', () => {
     });
 
     it('does not offer to delete a question that an exam holds', () => {
-      const { root } = open([listed('q1', 'Held question', { examCount: 1, examNames: ['Maths mock'], answered: false })]);
+      const { root } = open([listedQuestion('q1', 'Held question', { examCount: 1, examNames: ['Maths mock'], answered: false })]);
 
       expect(buttonIn(cardOf(root, 'Held question'), 'Delete').disabled).toBe(true);
+    });
+  });
+
+  describe('filing questions under a chapter', () => {
+    const isFile = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/questions/placement');
+
+    function open(questions: ReturnType<typeof listedQuestion>[]) {
+      const fixture = create([MATHS, OLD_BOOK]);
+      httpMock.expectOne(isList).flush(questions);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const choose = (scope: ParentNode, id: string, value: string) => {
+        const select = scope.querySelector(`#${id}`) as HTMLSelectElement;
+        select.value = value;
+        select.dispatchEvent(new Event('change'));
+        fixture.detectChanges();
+      };
+      const tick = (index: number) => {
+        const box = root.querySelectorAll<HTMLInputElement>('app-question-card input[type="checkbox"]')[index];
+        box.checked = !box.checked;
+        box.dispatchEvent(new Event('change'));
+        fixture.detectChanges();
+      };
+      return { fixture, root, choose, tick };
+    }
+    const bar = (root: HTMLElement) => root.querySelector('.bulk-bar') as HTMLElement | null;
+    const barButton = (root: HTMLElement, label: string) =>
+      Array.from((bar(root) as HTMLElement).querySelectorAll('button')).find((b) => b.textContent?.trim().startsWith(label)) as HTMLButtonElement;
+    const result = { moved: 2, chapterId: 'c2', chapterTitle: 'Geometry', bookId: 'b1', bookName: 'Maths Grade 10' };
+
+    it('shows no bulk bar until a question is ticked, then counts the ticked ones', () => {
+      const { root, tick } = open([listedQuestion('q1', 'One'), listedQuestion('q2', 'Two'), listedQuestion('q3', 'Three')]);
+      expect(bar(root)).toBeNull();
+
+      tick(0);
+      tick(2);
+
+      expect(bar(root)?.textContent).toContain('2 selected');
+    });
+
+    it('ticks everything shown, and clears the selection again', () => {
+      const { fixture, root } = open([listedQuestion('q1', 'One'), listedQuestion('q2', 'Two')]);
+
+      const all = root.querySelector('.select-all input') as HTMLInputElement;
+      all.checked = true;
+      all.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      expect(bar(root)?.textContent).toContain('2 selected');
+      expect(root.querySelector('.select-all')?.textContent).toContain('Select all 2 shown');
+
+      barButton(root, 'Clear selection').click();
+      fixture.detectChanges();
+      expect(bar(root)).toBeNull();
+    });
+
+    it('files the ticked questions in one request, says how many moved, and reads the list again', () => {
+      const { fixture, root, choose, tick } = open([listedQuestion('q1', 'One'), listedQuestion('q2', 'Two'), listedQuestion('q3', 'Three')]);
+      tick(0);
+      tick(1);
+      expect(barButton(root, 'File the 2 questions').disabled).toBe(true); // no chapter chosen yet
+
+      choose(bar(root) as HTMLElement, 'bulk-book', 'b1');
+      choose(bar(root) as HTMLElement, 'bulk-chapter', 'c2');
+      expect(barButton(root, 'File the 2 questions').disabled).toBe(false);
+      barButton(root, 'File the 2 questions').click();
+
+      const post = httpMock.expectOne(isFile);
+      expect(post.request.body).toEqual({ questionIds: ['q1', 'q2'], chapterId: 'c2' });
+      post.flush(result);
+      httpMock.expectOne(isList).flush([listedQuestion('q3', 'Three')]);
+      fixture.detectChanges();
+
+      expect(root.querySelector('[role="status"]')?.textContent).toContain('Filed 2 questions under Maths Grade 10 › Geometry.');
+      expect(bar(root)).toBeNull();
+      expect(root.textContent).not.toContain('One');
+    });
+
+    it('keeps the selection and shows the API’s reason when it refuses, so nothing is half done', () => {
+      const { fixture, root, choose, tick } = open([listedQuestion('q1', 'One'), listedQuestion('q2', 'Two')]);
+      tick(0);
+      choose(bar(root) as HTMLElement, 'bulk-book', 'b1');
+      choose(bar(root) as HTMLElement, 'bulk-chapter', 'c2');
+      barButton(root, 'File the question').click();
+
+      httpMock.expectOne(isFile).flush(
+        { title: 'placement_refused', detail: 'The draft exam "Maths mock" only takes questions from other chapters. Nothing was moved.' },
+        { status: 409, statusText: 'Conflict' },
+      );
+      fixture.detectChanges();
+
+      expect(bar(root)?.querySelector('[role="alert"]')?.textContent).toContain('Nothing was moved.');
+      expect(bar(root)?.textContent).toContain('1 selected');
+    });
+
+    it('files one question from its own card, and reads the list again', () => {
+      const { fixture, root, choose } = open([listedQuestion('q1', 'One'), listedQuestion('q2', 'Two')]);
+      const card = root.querySelectorAll('app-question-card')[1] as HTMLElement;
+
+      (Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.includes('File under')) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      choose(card, 'file-q2-book', 'b1');
+      choose(card, 'file-q2-chapter', 'c1');
+      (Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'File question') as HTMLButtonElement).click();
+
+      const post = httpMock.expectOne(isFile);
+      expect(post.request.body).toEqual({ questionIds: ['q2'], chapterId: 'c1' });
+      post.flush({ ...result, moved: 1, chapterId: 'c1', chapterTitle: 'Algebra' });
+      httpMock.expectOne(isList).flush([listedQuestion('q1', 'One')]);
+      fixture.detectChanges();
+
+      expect(root.querySelector('[role="status"]')?.textContent).toContain('Filed 1 question under Maths Grade 10 › Algebra.');
+    });
+
+    it('shows a single question’s refusal on its own card', () => {
+      const { fixture, root, choose } = open([listedQuestion('q1', 'One'), listedQuestion('q2', 'Two')]);
+      const card = root.querySelectorAll('app-question-card')[0] as HTMLElement;
+      (Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.includes('File under')) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      choose(card, 'file-q1-book', 'b1');
+      choose(card, 'file-q1-chapter', 'c1');
+      (Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'File question') as HTMLButtonElement).click();
+
+      httpMock.expectOne(isFile).flush({ title: 'book_archived', detail: 'The chapter "Algebra" is archived.' }, { status: 409, statusText: 'Conflict' });
+      fixture.detectChanges();
+
+      expect(card.querySelector('[role="alert"]')?.textContent).toContain('archived');
+      expect((root.querySelectorAll('app-question-card')[1] as HTMLElement).querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('says when everything chosen was already in that chapter', () => {
+      const { fixture, root, choose, tick } = open([listedQuestion('q1', 'One')]);
+      tick(0);
+      choose(bar(root) as HTMLElement, 'bulk-book', 'b1');
+      choose(bar(root) as HTMLElement, 'bulk-chapter', 'c2');
+      barButton(root, 'File the question').click();
+
+      httpMock.expectOne(isFile).flush({ ...result, moved: 0 });
+      httpMock.expectOne(isList).flush([listedQuestion('q1', 'One')]);
+      fixture.detectChanges();
+
+      expect(root.querySelector('[role="status"]')?.textContent).toContain('already in Maths Grade 10 › Geometry');
     });
   });
 });

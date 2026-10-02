@@ -8,7 +8,7 @@ import { QuestionApiService } from './question-api.service';
 import { QuestionCard } from './question-card/question-card';
 import { createQuestionForm, newOption, toNewOptions } from './question-form';
 import { QuestionFields } from './question-fields/question-fields';
-import { CreateQuestionRequest, QuestionDto, QuestionFilter } from './question.models';
+import { CreateQuestionRequest, FileQuestionsResult, QuestionDto, QuestionFilter } from './question.models';
 
 /** The value of the list filter's book select that means "questions not filed under any chapter". */
 export const UNFILED = 'unfiled';
@@ -39,6 +39,14 @@ export class QuestionBank {
   protected readonly busyId = signal<string | null>(null);
   /** Why the last request about a question failed, by question id, so the reason shows on that question's own card. */
   protected readonly cardErrors = signal<Record<string, string>>({});
+
+  /** The questions ticked for a bulk action, by id. */
+  protected readonly selectedIds = signal<ReadonlySet<string>>(new Set());
+  protected readonly allSelected = computed(() => this.questions().length > 0 && this.questions().every((q) => this.selectedIds().has(q.id)));
+  /** Where the selected questions will be filed. */
+  protected readonly bulkPlacement = signal<Placement>(NO_PLACEMENT);
+  protected readonly bulkBusy = signal(false);
+  protected readonly bulkError = signal<string | null>(null);
 
   /** Every book, archived ones included: the list filter must reach questions filed under them. */
   protected readonly books = signal<BookDto[]>([]);
@@ -105,16 +113,76 @@ export class QuestionBank {
     });
   }
 
+  protected toggleSelected(id: string, selected: boolean): void {
+    this.selectedIds.update((current) => {
+      const next = new Set(current);
+      if (selected) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  protected toggleAll(selected: boolean): void {
+    this.selectedIds.set(selected ? new Set(this.questions().map((q) => q.id)) : new Set());
+  }
+
+  /** Files every ticked question under the chosen chapter, all or none; the API refuses the lot if any one may not move. */
+  protected fileSelected(): void {
+    const chapterId = this.bulkPlacement().chapterId;
+    if (!chapterId || this.bulkBusy()) {
+      return;
+    }
+
+    this.bulkBusy.set(true);
+    this.bulkError.set(null);
+    this.notice.set(null);
+    this.api.file({ questionIds: [...this.selectedIds()], chapterId }).subscribe({
+      next: (result) => {
+        this.bulkBusy.set(false);
+        this.selectedIds.set(new Set());
+        this.announceFiled(result);
+        this.refresh();
+      },
+      error: (error: unknown) => {
+        this.bulkBusy.set(false);
+        this.bulkError.set(extractErrorMessage(error));
+      },
+    });
+  }
+
+  protected fileQuestion(questionId: string, chapterId: string): void {
+    this.startAction(questionId);
+    this.api.file({ questionIds: [questionId], chapterId }).subscribe({
+      next: (result) => {
+        this.busyId.set(null);
+        this.announceFiled(result);
+        // The list is read again, not patched: under a filter, a question that has moved no longer belongs in it.
+        this.refresh();
+      },
+      error: (error: unknown) => this.failAction(questionId, error),
+    });
+  }
+
   protected deleteQuestion(id: string): void {
     this.startAction(id);
     this.api.remove(id).subscribe({
       next: () => {
         this.busyId.set(null);
         this.questions.update((list) => list.filter((question) => question.id !== id));
+        this.selectedIds.update((current) => new Set([...current].filter((selectedId) => selectedId !== id)));
         this.notice.set('Question deleted.');
       },
       error: (error: unknown) => this.failAction(id, error),
     });
+  }
+
+  private announceFiled(result: FileQuestionsResult): void {
+    const where = `${result.bookName} › ${result.chapterTitle}`;
+    this.notice.set(
+      result.moved === 0
+        ? `Nothing to move: those questions are already in ${where}.`
+        : `Filed ${result.moved} ${result.moved === 1 ? 'question' : 'questions'} under ${where}.`,
+    );
   }
 
   private startAction(id: string): void {
@@ -146,6 +214,9 @@ export class QuestionBank {
     this.api.list(this.currentFilter()).subscribe({
       next: (questions) => {
         this.questions.set(questions);
+        // Only what is still in the list can stay ticked: a filter change or a filing may have taken questions out of it.
+        const present = new Set(questions.map((q) => q.id));
+        this.selectedIds.update((current) => new Set([...current].filter((id) => present.has(id))));
         this.loading.set(false);
       },
       error: (error: unknown) => {
