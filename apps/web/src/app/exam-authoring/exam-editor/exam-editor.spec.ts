@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { ExamEditor } from './exam-editor';
 
 const isExam = (r: { method: string; url: string }) => r.method === 'GET' && /\/v1\/exams\/exam-1$/.test(r.url);
@@ -473,6 +473,206 @@ describe('ExamEditor', () => {
       expect(button(root, 'Edit')).toBeDefined();
       expect(button(root, 'Change')).toBeUndefined();
       expect(root.textContent).not.toContain('Set schedule');
+    });
+  });
+  describe('putting a draft right', () => {
+    const withQuestions = () =>
+      examBody({
+        sections: [
+          {
+            id: 's1', name: 'Algebra', timeSeconds: 900, order: 1,
+            questions: [
+              { id: 'eq1', questionId: 'q1', order: 1, text: 'What is 2 + 2?' },
+              { id: 'eq2', questionId: 'q2', order: 2, text: 'Capital of France?' },
+            ],
+          },
+        ],
+      });
+    const isDelete = (suffix: string) => (r: { method: string; url: string }) => r.method === 'DELETE' && r.url.endsWith(`/v1/exams/exam-1${suffix}`);
+    const press = (fixture: { detectChanges(): void }, root: HTMLElement, label: string) => {
+      button(root, label).click();
+      fixture.detectChanges();
+    };
+
+    it('takes a question out of its section and reads the exam again', () => {
+      const { fixture, root } = open(withQuestions());
+
+      (root.querySelectorAll('li button')[1] as HTMLButtonElement).click();
+
+      httpMock.expectOne(isDelete('/sections/s1/questions/q2')).flush(null, { status: 204, statusText: 'No Content' });
+      const after = withQuestions();
+      after.sections[0].questions.pop();
+      httpMock.expectOne(isExam).flush(after);
+      fixture.detectChanges();
+
+      expect(root.querySelectorAll('li').length).toBe(1);
+      // It can be added again now: the picker offers it.
+      expect(Array.from(root.querySelectorAll('select option')).map((o) => o.textContent?.trim())).toContain('Capital of France?');
+    });
+
+    it('removes a section after asking, and reads the exam again', () => {
+      const { fixture, root } = open(withQuestions());
+
+      press(fixture, root, 'Remove section');
+      httpMock.expectNone((r) => r.method === 'DELETE');
+      press(fixture, root, 'Remove section');
+
+      httpMock.expectOne(isDelete('/sections/s1')).flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectOne(isExam).flush(examBody({ sections: [] }));
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('No sections yet.');
+    });
+
+    it('renames a section and sends the time limit it already has, so a rename never removes it', () => {
+      const { fixture, root } = open(withQuestions());
+      press(fixture, root, 'Rename');
+      const field = root.querySelector('input[aria-label="Section name"]') as HTMLInputElement;
+      field.value = 'Geometry';
+      field.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      press(fixture, root, 'Save name');
+
+      const put = httpMock.expectOne((r) => r.method === 'PUT' && r.url.endsWith('/v1/exams/exam-1/sections/s1'));
+      expect(put.request.body).toEqual({ name: 'Geometry', timeSeconds: 900 });
+      put.flush(null, { status: 204, statusText: 'No Content' });
+      const renamed = withQuestions();
+      renamed.sections[0].name = 'Geometry';
+      httpMock.expectOne(isExam).flush(renamed);
+      fixture.detectChanges();
+
+      expect(root.querySelector('h3')?.textContent?.trim()).toBe('1. Geometry');
+      expect(root.querySelector('input[aria-label="Section name"]')).toBeNull();
+    });
+
+    it('shows why a change was refused and keeps the page', () => {
+      const { fixture, root } = open(withQuestions());
+      (root.querySelectorAll('li button')[0] as HTMLButtonElement).click();
+
+      httpMock
+        .expectOne(isDelete('/sections/s1/questions/q1'))
+        .flush({ title: 'exam_not_draft', detail: 'Only a draft exam can be changed; this one is already published.' }, { status: 409, statusText: 'Conflict' });
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Only a draft exam can be changed');
+      expect(root.querySelectorAll('li').length).toBe(2);
+    });
+
+    it('offers none of this on a published exam', () => {
+      const published = { ...withQuestions(), status: 'Published' };
+      const { root } = open(published);
+
+      expect(root.querySelector('li button')).toBeNull();
+      expect(button(root, 'Rename')).toBeUndefined();
+      expect(button(root, 'Remove section')).toBeUndefined();
+      expect(button(root, 'Delete draft')).toBeUndefined();
+    });
+
+    describe('name and description', () => {
+      it('opens a form with what the exam has, saves it, and shows the new name', () => {
+        const { fixture, root } = open(examBody({ description: 'Chapters 1 to 4' }));
+        press(fixture, root, 'Edit details');
+        expect((root.querySelector('#exam-name') as HTMLInputElement).value).toBe('Maths Final');
+        expect((root.querySelector('#exam-description') as HTMLTextAreaElement).value).toBe('Chapters 1 to 4');
+
+        const name = root.querySelector('#exam-name') as HTMLInputElement;
+        name.value = 'Maths Final 2026';
+        name.dispatchEvent(new Event('input'));
+        fixture.detectChanges();
+        press(fixture, root, 'Save details');
+
+        const put = httpMock.expectOne((r) => r.method === 'PUT' && r.url.endsWith('/v1/exams/exam-1/details'));
+        expect(put.request.body).toEqual({ name: 'Maths Final 2026', description: 'Chapters 1 to 4' });
+        put.flush(examBody({ name: 'Maths Final 2026' }));
+        httpMock.expectOne(isExam).flush(examBody({ name: 'Maths Final 2026', description: 'Chapters 1 to 4' }));
+        fixture.detectChanges();
+
+        expect(root.querySelector('h1')?.textContent).toContain('Maths Final 2026');
+        expect(root.querySelector('app-exam-details-form')).toBeNull();
+      });
+
+      it('is offered on a published exam as well, because it changes nothing that is asked or scored', () => {
+        const { root } = open(examBody({ status: 'Published' }));
+
+        expect(button(root, 'Edit details')).toBeDefined();
+      });
+
+      it('is not offered for an archived exam', () => {
+        const { root } = open(examBody({ status: 'Archived' }));
+
+        expect(button(root, 'Edit details')).toBeUndefined();
+      });
+
+      it('stays open with the typing when the API refuses', () => {
+        const { fixture, root } = open();
+        press(fixture, root, 'Edit details');
+        const name = root.querySelector('#exam-name') as HTMLInputElement;
+        name.value = 'Kept';
+        name.dispatchEvent(new Event('input'));
+        fixture.detectChanges();
+        press(fixture, root, 'Save details');
+
+        httpMock
+          .expectOne((r) => r.method === 'PUT' && r.url.endsWith('/details'))
+          .flush({ title: 'invalid_exam_config', detail: 'Invalid exam config: An exam name must be at most 255 characters.' }, { status: 400, statusText: 'Bad Request' });
+        fixture.detectChanges();
+
+        expect(root.textContent).toContain('An exam name must be at most 255 characters.');
+        expect((root.querySelector('#exam-name') as HTMLInputElement).value).toBe('Kept');
+      });
+
+      it('can be backed out of with nothing sent', () => {
+        const { fixture, root } = open();
+        press(fixture, root, 'Edit details');
+
+        press(fixture, root, 'Cancel');
+
+        expect(root.querySelector('app-exam-details-form')).toBeNull();
+      });
+    });
+
+    describe('deleting the draft', () => {
+      it('asks first, then deletes and goes back to the list without reading the deleted exam', () => {
+        const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+        const { fixture, root } = open();
+
+        press(fixture, root, 'Delete draft');
+        expect(root.querySelector('[role="alertdialog"]')?.textContent).toContain('Delete “Maths Final” for good?');
+        httpMock.expectNone((r) => r.method === 'DELETE');
+        press(fixture, root, 'Delete draft'); // the confirming one
+
+        httpMock.expectOne(isDelete('')).flush(null, { status: 204, statusText: 'No Content' });
+        httpMock.expectNone(isExam);
+
+        expect(navigate).toHaveBeenCalledWith(['/exams']);
+      });
+
+      it('can be backed out of with nothing deleted', () => {
+        const { fixture, root } = open();
+        press(fixture, root, 'Delete draft');
+
+        press(fixture, root, 'Cancel');
+
+        expect(root.querySelector('[role="alertdialog"]')).toBeNull();
+        httpMock.expectNone((r) => r.method === 'DELETE');
+      });
+
+      it('shows the reason and stays on the page when the API refuses, such as when candidates were invited', () => {
+        const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+        const { fixture, root } = open();
+        press(fixture, root, 'Delete draft');
+        press(fixture, root, 'Delete draft');
+
+        httpMock
+          .expectOne(isDelete(''))
+          .flush({ title: 'exam_not_deletable', detail: 'This exam cannot be deleted. Candidates have been invited to it; revoke the invitations first.' }, { status: 409, statusText: 'Conflict' });
+        fixture.detectChanges();
+
+        expect(root.textContent).toContain('revoke the invitations first');
+        expect(navigate).not.toHaveBeenCalled();
+        expect(button(root, 'Delete draft').disabled).toBe(false);
+      });
     });
   });
 });

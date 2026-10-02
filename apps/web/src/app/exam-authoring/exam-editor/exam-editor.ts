@@ -1,20 +1,21 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { BookApiService } from '../../book-management/book-api.service';
 import { BookDto } from '../../book-management/book.models';
 import { QuestionApiService } from '../../question-bank/question-api.service';
 import { QuestionDto } from '../../question-bank/question.models';
-import { PlainTextPipe } from '../../shared/rich-text/plain-text.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { ExamApiService } from '../exam-api.service';
-import { ExamDto, ExamScopeDto } from '../exam.models';
+import { ExamDto, ExamScopeDto, UpdateExamDetailsRequest } from '../exam.models';
+import { ExamDetailsForm } from '../exam-details-form/exam-details-form';
 import { NO_SCOPE, ScopeSelection, describeScope, isScopeComplete, selectionOf, toScopeRequest } from '../exam-scope-fields/exam-scope';
 import { ExamScopeFields } from '../exam-scope-fields/exam-scope-fields';
 import { INSTANT_RELEASE, ReleaseSelection, isReleaseComplete, selectionOfRelease, toReleaseRequest } from '../exam-release-fields/exam-release';
 import { ExamReleaseFields } from '../exam-release-fields/exam-release-fields';
+import { ExamSectionCard } from '../exam-section-card/exam-section-card';
 
 /** Whether a question may go into an exam with this scope; mirrors the rule the API enforces. */
 function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): boolean {
@@ -29,12 +30,13 @@ function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): bool
 }
 
 /**
- * Admin page for one exam: its sections and questions, the schedule, and publishing (FR-11, FR-13).
- * A published exam is shown read-only, because the API refuses edits to it.
+ * Admin page for one exam: its sections and questions, the schedule, and publishing (FR-11, FR-13). While the exam is a
+ * draft, mistakes can be put right: a question or section taken out, a section renamed, the whole draft deleted. A published
+ * exam is shown read-only, because the API refuses those; only its name and description and its answer review can still change.
  */
 @Component({
   selector: 'app-exam-editor',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, PlainTextPipe, ExamScopeFields, ExamReleaseFields],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamSectionCard],
   templateUrl: './exam-editor.html',
 })
 export class ExamEditor {
@@ -42,6 +44,7 @@ export class ExamEditor {
   private readonly examApi = inject(ExamApiService);
   private readonly questionApi = inject(QuestionApiService);
   private readonly bookApi = inject(BookApiService);
+  private readonly router = inject(Router);
   private readonly examId = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
 
   protected readonly exam = signal<ExamDto | null>(null);
@@ -65,6 +68,13 @@ export class ExamEditor {
   protected readonly changingRelease = signal(false);
   protected readonly releaseDraft = signal<ReleaseSelection>(INSTANT_RELEASE);
   protected readonly releaseDraftComplete = computed(() => isReleaseComplete(this.releaseDraft()));
+
+  /** Changing the name and description. Allowed on a published exam too: it changes nothing that is asked or scored. */
+  protected readonly changingDetails = signal(false);
+  protected readonly canChangeDetails = computed(() => this.exam() !== null && this.exam()?.status !== 'Archived');
+
+  /** Asking "delete this draft for good?" inline, instead of in a dialog. */
+  protected readonly confirmingDelete = signal(false);
 
   protected readonly isDraft = computed(() => this.exam()?.status === 'Draft');
   protected readonly canChangeRelease = computed(() => this.exam() !== null && this.exam()?.status !== 'Archived');
@@ -159,6 +169,22 @@ export class ExamEditor {
     this.run(this.examApi.releaseResults(this.examId));
   }
 
+  protected startChangingDetails(): void {
+    this.changingDetails.set(true);
+  }
+
+  protected cancelChangingDetails(): void {
+    this.changingDetails.set(false);
+  }
+
+  protected saveDetails(request: UpdateExamDetailsRequest): void {
+    if (this.busy()) {
+      return;
+    }
+
+    this.run(this.examApi.updateDetails(this.examId, request), () => this.changingDetails.set(false));
+  }
+
   protected addSection(): void {
     if (this.sectionForm.invalid || this.busy()) {
       return;
@@ -182,6 +208,47 @@ export class ExamEditor {
     }
 
     this.run(this.examApi.addQuestion(this.examId, sectionId, questionId));
+  }
+
+  protected removeQuestion(target: { sectionId: string; questionId: string }): void {
+    if (!this.busy()) {
+      this.run(this.examApi.removeQuestion(this.examId, target.sectionId, target.questionId));
+    }
+  }
+
+  protected removeSection(sectionId: string): void {
+    if (!this.busy()) {
+      this.run(this.examApi.removeSection(this.examId, sectionId));
+    }
+  }
+
+  protected renameSection(change: { sectionId: string; name: string }): void {
+    if (this.busy()) {
+      return;
+    }
+
+    // The API replaces the name and the time limit together, so the limit the section already has is sent back as it is;
+    // renaming must not quietly remove it.
+    const timeSeconds = this.exam()?.sections?.find((section) => section.id === change.sectionId)?.timeSeconds ?? null;
+    this.run(this.examApi.editSection(this.examId, change.sectionId, { name: change.name, timeSeconds }));
+  }
+
+  protected deleteDraft(): void {
+    if (this.busy()) {
+      return;
+    }
+
+    this.confirmingDelete.set(false);
+    this.busy.set(true);
+    this.errorMessage.set(null);
+    this.examApi.deleteExam(this.examId).subscribe({
+      // Nothing to reload: the exam is gone, so go back to the list that no longer has it.
+      next: () => void this.router.navigate(['/exams']),
+      error: (error: unknown) => {
+        this.busy.set(false);
+        this.errorMessage.set(extractErrorMessage(error));
+      },
+    });
   }
 
   protected publish(): void {

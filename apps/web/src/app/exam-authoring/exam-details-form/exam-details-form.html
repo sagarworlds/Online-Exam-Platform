@@ -1,0 +1,21 @@
+<form class="card" (submit)="save($event)" aria-label="Exam name and description">
+  <h2>Name and description</h2>
+  <div class="field">
+    <label for="exam-name">Name</label>
+    <input id="exam-name" type="text" [value]="nameDraft()" (input)="nameDraft.set($any($event.target).value)" [attr.maxlength]="maxName" />
+  </div>
+  <div class="field">
+    <label for="exam-description">Description <span class="hint">(optional, shown to candidates)</span></label>
+    <textarea
+      id="exam-description"
+      rows="3"
+      [value]="descriptionDraft()"
+      (input)="descriptionDraft.set($any($event.target).value)"
+      [attr.maxlength]="maxDescription"
+    ></textarea>
+  </div>
+  <div class="actions">
+    <button type="submit" class="primary" [disabled]="busy() || nameDraft().trim() === ''">Save details</button>
+    <button type="button" (click)="cancelled.emit()" [disabled]="busy()">Cancel</button>
+  </div>
+</form>

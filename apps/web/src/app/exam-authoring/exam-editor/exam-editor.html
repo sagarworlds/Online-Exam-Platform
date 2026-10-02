@@ -13,8 +13,13 @@
         {{ e.name }}
         <span class="badge" [class.badge--active]="e.status === 'Published'" [class.badge--inactive]="e.status !== 'Published'">{{ e.status }}</span>
       </h1>
+      @if (canChangeDetails() && !changingDetails()) {
+        <button type="button" (click)="startChangingDetails()" [disabled]="busy()">Edit details</button>
+      }
     </div>
-    @if (e.description) {
+    @if (changingDetails()) {
+      <app-exam-details-form [name]="e.name" [description]="e.description" [busy]="busy()" (saved)="saveDetails($event)" (cancelled)="cancelChangingDetails()" />
+    } @else if (e.description) {
       <p class="hint">{{ e.description }}</p>
     }
 
@@ -103,38 +108,17 @@
 
     <h2>Sections and questions</h2>
     @for (section of e.sections ?? []; track section.id) {
-      <div class="card section-card">
-        <h3>{{ section.order }}. {{ section.name }}</h3>
-        @if (section.questions.length === 0) {
-          <p class="hint">No questions yet.</p>
-        } @else {
-          <ol>
-            @for (question of section.questions; track question.id) {
-              <li>{{ question.text ? (question.text | plainText: 160) : '(question no longer in the bank)' }}</li>
-            }
-          </ol>
-        }
-
-        @if (isDraft()) {
-          <div class="option-row">
-            <select #pick [attr.aria-label]="'Question to add to ' + section.name">
-              <option value="">Choose a question…</option>
-              @for (question of availableQuestions(); track question.id) {
-                <option [value]="question.id">{{ question.text | plainText: 100 }}</option>
-              }
-            </select>
-            <button type="button" (click)="addQuestion(section.id, pick.value)" [disabled]="busy()">Add question</button>
-          </div>
-          @if (isScoped()) {
-            <p class="hint">
-              Only questions from this exam's {{ e.scope.type === 'Book' ? 'book' : 'chapters' }} are offered.
-              @if (availableQuestions().length === 0) {
-                There are none left to add: file more questions under {{ e.scope.type === 'Book' ? 'its chapters' : 'these chapters' }} on the Questions page.
-              }
-            </p>
-          }
-        }
-      </div>
+      <app-exam-section-card
+        [section]="section"
+        [editable]="isDraft()"
+        [busy]="busy()"
+        [choices]="availableQuestions()"
+        [scope]="e.scope.type"
+        (renameRequested)="renameSection($event)"
+        (removeConfirmed)="removeSection($event)"
+        (addRequested)="addQuestion($event.sectionId, $event.questionId)"
+        (takeOutRequested)="removeQuestion($event)"
+      />
     } @empty {
       <p>No sections yet.</p>
     }
@@ -157,6 +141,20 @@
           </p>
         }
         <button type="button" class="primary" (click)="publish()" [disabled]="!canPublish() || busy()">Publish exam</button>
+      </div>
+
+      <div class="card">
+        <h2>Delete this draft</h2>
+        <p class="hint">A draft that was started by mistake can be deleted. Its questions stay in the question bank. It cannot be deleted once candidates have been invited to it.</p>
+        @if (confirmingDelete()) {
+          <span class="inline-confirm" role="alertdialog" aria-label="Delete this draft exam?">
+            Delete “{{ e.name }}” for good?
+            <button type="button" class="btn--danger" (click)="deleteDraft()" [disabled]="busy()">Delete draft</button>
+            <button type="button" (click)="confirmingDelete.set(false)">Cancel</button>
+          </span>
+        } @else {
+          <button type="button" (click)="confirmingDelete.set(true)" [disabled]="busy()">Delete draft</button>
+        }
       </div>
     } @else {
       <p class="hint">This exam is published, so its questions and schedule can no longer be edited.</p>
