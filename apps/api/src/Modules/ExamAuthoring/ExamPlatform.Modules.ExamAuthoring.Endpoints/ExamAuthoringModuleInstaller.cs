@@ -5,6 +5,7 @@ using ExamPlatform.Modules.ExamAuthoring.Application.Queries;
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.ExamAuthoring.Infrastructure;
 using ExamPlatform.Modules.ExamAuthoring.Infrastructure.Repositories;
+using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Routing;
@@ -30,6 +31,7 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
         services.AddScoped<IExamRepository, EFExamRepository>();
         services.AddScoped<IExamAuthoringUnitOfWork, ExamAuthoringUnitOfWork>();
         services.AddScoped<IExamCatalog, ExamCatalog>();
+        services.AddScoped<IQuestionUsageSource, ExamQuestionUsageSource>();
 
         services.AddScoped<ExamScopeResolver>();
         services.AddScoped<ExamDtoFactory>();

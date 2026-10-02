@@ -4,6 +4,7 @@ using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure.Repositories;
+using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Routing;
@@ -29,6 +30,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<IAttemptRepository, AttemptRepository>();
         services.AddScoped<IExtraAttemptGrantRepository, ExtraAttemptGrantRepository>();
         services.AddScoped<IExamRuntimeUnitOfWork, ExamRuntimeUnitOfWork>();
+        services.AddScoped<IQuestionUsageSource, AnsweredQuestionUsageSource>();
 
         services.AddScoped<AttemptCloser>();
         services.AddScoped<AttemptViewBuilder>();

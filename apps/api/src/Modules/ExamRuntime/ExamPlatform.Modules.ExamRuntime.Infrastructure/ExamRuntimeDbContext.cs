@@ -50,6 +50,10 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
 
             // At most one answer per question: saving again changes the row rather than adding another.
             b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
+
+            // The question bank asks "has anyone answered this question?" before it lets the answer key change. The index
+            // above starts with the attempt, so it cannot answer that; this one can.
+            b.HasIndex(x => x.QuestionId);
         });
 
         modelBuilder.Entity<ExtraAttemptGrant>(b =>

@@ -35,6 +35,17 @@ public sealed class EFExamRepository(ExamAuthoringDbContext context) : IExamRepo
             .Where(e => examIds.Contains(e.Id))
             .ToListAsync(cancellationToken);
 
+    // A projection over the question rows, not a load of whole exams: a page of 200 questions can sit in many exams,
+    // and only the exam's name and status are wanted. Exams marked deleted are left out by the context's query filter.
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ExamQuestionUse>> ListUsesOfQuestionsAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken = default) =>
+        await (from exam in context.Exams.AsNoTracking()
+               from section in exam.Sections
+               from question in section.Questions
+               where questionIds.Contains(question.QuestionVersionId)
+               select new ExamQuestionUse(question.QuestionVersionId, exam.Id, exam.Name, exam.Status))
+            .ToListAsync(cancellationToken);
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<Exam>> ListNewestAsync(int take, CancellationToken cancellationToken = default) =>
         await context.Exams.AsNoTracking().OrderByDescending(e => e.CreatedAt).Take(take).ToListAsync(cancellationToken);

@@ -28,6 +28,14 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
         await context.Attempts.AsNoTracking().Where(a => a.ExamId == examId).OrderBy(a => a.Number).ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyCollection<Guid>> FindAnsweredQuestionIdsAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken) =>
+        await context.Set<AttemptAnswer>().AsNoTracking()
+            .Where(a => questionIds.Contains(a.QuestionId))
+            .Select(a => a.QuestionId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListForCandidateAsync(Guid candidateId, CancellationToken cancellationToken) =>
         await context.Attempts.AsNoTracking().Where(a => a.CandidateId == candidateId).ToListAsync(cancellationToken);
 }

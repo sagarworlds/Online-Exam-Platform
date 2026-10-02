@@ -5,12 +5,12 @@ using ExamPlatform.Modules.QuestionBank.Domain.Exceptions;
 namespace ExamPlatform.Modules.QuestionBank.Application.Queries;
 
 /// <summary>Lists the newest questions for the authoring screens.</summary>
-public sealed class ListQuestionsHandler(IQuestionRepository repository, IBookRepository books)
+public sealed class ListQuestionsHandler(IQuestionRepository repository, IBookRepository books, QuestionUsageReader usageReader)
 {
     /// <summary>How many questions one listing returns at most; paging arrives with the full bank.</summary>
     public const int PageSize = 200;
 
-    /// <summary>Returns the newest questions that match the filter, answer key included.</summary>
+    /// <summary>Returns the newest questions that match the filter, answer key and usage included.</summary>
     /// <param name="filter">Which questions to include; none set means all.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<IReadOnlyList<QuestionDto>> HandleAsync(QuestionFilter filter, CancellationToken cancellationToken)
@@ -18,15 +18,16 @@ public sealed class ListQuestionsHandler(IQuestionRepository repository, IBookRe
         var found = await repository.ListNewestAsync(filter, PageSize, cancellationToken);
         var chapters = await books.GetChapterRefsAsync(
             found.Where(q => q.ChapterId is not null).Select(q => q.ChapterId!.Value).Distinct().ToList(), cancellationToken);
+        var usage = await usageReader.ReadAsync(found.Select(q => q.Id).ToList(), cancellationToken);
 
-        return found.Select(q => q.ToDto(q.ChapterId is { } id ? chapters.GetValueOrDefault(id) : null)).ToList();
+        return found.Select(q => q.ToDto(q.ChapterId is { } id ? chapters.GetValueOrDefault(id) : null, usage[q.Id])).ToList();
     }
 }
 
 /// <summary>Reads one question for the authoring screens.</summary>
-public sealed class GetQuestionHandler(IQuestionRepository repository, IBookRepository books)
+public sealed class GetQuestionHandler(IQuestionRepository repository, IBookRepository books, QuestionUsageReader usageReader)
 {
-    /// <summary>Returns the question with its answer key.</summary>
+    /// <summary>Returns the question with its answer key and where it is in use.</summary>
     /// <param name="questionId">The question's id.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="QuestionNotFoundError">No question has that id.</exception>
@@ -36,7 +37,8 @@ public sealed class GetQuestionHandler(IQuestionRepository repository, IBookRepo
         var chapters = question.ChapterId is { } id
             ? await books.GetChapterRefsAsync([id], cancellationToken)
             : new Dictionary<Guid, ChapterRef>();
+        var usage = await usageReader.ReadOneAsync(questionId, cancellationToken);
 
-        return question.ToDto(question.ChapterId is { } chapterId ? chapters.GetValueOrDefault(chapterId) : null);
+        return question.ToDto(question.ChapterId is { } chapterId ? chapters.GetValueOrDefault(chapterId) : null, usage);
     }
 }

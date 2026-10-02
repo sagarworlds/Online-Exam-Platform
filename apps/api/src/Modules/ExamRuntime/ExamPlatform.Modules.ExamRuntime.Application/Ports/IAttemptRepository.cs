@@ -27,6 +27,12 @@ public interface IAttemptRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Attempt>> ListForExamAsync(Guid examId, CancellationToken cancellationToken);
 
+    /// <summary>Finds which of the given questions a candidate has saved an answer to, in any attempt.</summary>
+    /// <param name="questionIds">The question-bank ids to look for.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The ids among <paramref name="questionIds"/> that have at least one saved answer.</returns>
+    Task<IReadOnlyCollection<Guid>> FindAnsweredQuestionIdsAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken);
+
     /// <summary>Lists every attempt a candidate has made, without their answers, for read-only display.</summary>
     /// <param name="candidateId">The candidate.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

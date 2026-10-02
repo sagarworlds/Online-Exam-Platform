@@ -31,6 +31,12 @@ public interface IExamRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Exam>> ListByIdsAsync(IReadOnlyCollection<Guid> examIds, CancellationToken cancellationToken = default);
 
+    /// <summary>Finds the exams that contain any of the given questions, without loading the exams themselves.</summary>
+    /// <param name="questionIds">The question-bank ids to look for.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>One entry per question and exam it sits in; a question in no exam has none.</returns>
+    Task<IReadOnlyList<ExamQuestionUse>> ListUsesOfQuestionsAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken = default);
+
     /// <summary>Lists the most recently created exams, newest first, without their sections.</summary>
     /// <param name="take">How many to return at most.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

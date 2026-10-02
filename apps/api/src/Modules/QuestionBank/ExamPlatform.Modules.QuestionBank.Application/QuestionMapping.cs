@@ -10,7 +10,8 @@ internal static class QuestionMapping
     /// <summary>Maps a question and its options, in display order (the database returns them in no particular order).</summary>
     /// <param name="question">The question to map.</param>
     /// <param name="filedUnder">Where the question is filed, or null when it is not filed anywhere.</param>
-    public static QuestionDto ToDto(this Question question, ChapterRef? filedUnder = null) =>
+    /// <param name="usage">Where the question is in use; null means nothing uses it, which is true of a question just created.</param>
+    public static QuestionDto ToDto(this Question question, ChapterRef? filedUnder = null, QuestionUsageDto? usage = null) =>
         new(
             question.Id,
             question.Text,
@@ -20,5 +21,6 @@ internal static class QuestionMapping
             filedUnder?.ChapterId,
             filedUnder?.ChapterTitle,
             filedUnder?.BookId,
-            filedUnder?.BookName);
+            filedUnder?.BookName,
+            usage ?? QuestionUsageDto.Unused);
 }
