@@ -20,7 +20,7 @@ describe('AdminHome', () => {
   it('offers every admin area to a user holding all the permissions', () => {
     const text = render(['question.manage', 'exam.read', 'invite.manage', 'batch.manage', 'guardian.link.manage']).textContent;
 
-    for (const label of ['Questions', 'Exams', 'Invites', 'Batches', 'Guardians']) {
+    for (const label of ['Questions', 'Books', 'Exams', 'Invites', 'Batches', 'Guardians']) {
       expect(text).toContain(label);
     }
   });

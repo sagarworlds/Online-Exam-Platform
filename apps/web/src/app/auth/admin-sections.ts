@@ -22,6 +22,7 @@ export interface AdminSection {
  */
 export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { label: 'Questions', description: 'Write questions and mark the correct answer.', path: '/admin/questions', permission: Permission.QuestionManage },
+  { label: 'Books', description: 'Organise questions into books and chapters.', path: '/admin/books', permission: Permission.QuestionManage },
   { label: 'Exams', description: 'Build an exam from questions, schedule it and publish it.', path: '/exams', permission: Permission.ExamRead },
   { label: 'Invites', description: 'Invite candidates to an exam by email.', path: '/invites', permission: Permission.InviteManage },
   { label: 'Batches', description: 'Group candidates into batches.', path: '/batches', permission: Permission.BatchManage },

@@ -69,6 +69,16 @@ export const routes: Routes = [
     loadComponent: () => import('./question-bank/question-bank').then((m) => m.QuestionBank),
   },
   {
+    path: 'admin/books',
+    canActivate: [permissionGuard(Permission.QuestionManage)],
+    loadComponent: () => import('./book-management/book-list/book-list').then((m) => m.BookList),
+  },
+  {
+    path: 'admin/books/:id',
+    canActivate: [permissionGuard(Permission.QuestionManage)],
+    loadComponent: () => import('./book-management/book-detail/book-detail').then((m) => m.BookDetail),
+  },
+  {
     path: 'exams',
     canActivate: [permissionGuard(Permission.ExamRead)],
     loadComponent: () => import('./exam-authoring/exam-list/exam-list').then((m) => m.ExamList),

@@ -11,6 +11,32 @@
   <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="New question">
     <h2>New question</h2>
 
+    <div class="form-row form-row--pair">
+      <div class="field">
+        <label for="question-book">Book (optional)</label>
+        <select id="question-book" formControlName="bookId" (change)="onFormBookChanged()">
+          <option value="">Not filed under a book</option>
+          @for (book of openBooks(); track book.id) {
+            <option [value]="book.id">{{ book.name }}</option>
+          }
+        </select>
+      </div>
+      @if (formBookId()) {
+        <div class="field">
+          <label for="question-chapter">Chapter</label>
+          <select id="question-chapter" formControlName="chapterId">
+            <option value="">Choose a chapter…</option>
+            @for (chapter of formChapters(); track chapter.id) {
+              <option [value]="chapter.id">{{ chapter.order }}. {{ chapter.title }}</option>
+            }
+          </select>
+          @if (formChapters().length === 0) {
+            <span class="hint">This book has no open chapters. <a [routerLink]="['/admin/books', formBookId()]">Add one</a>.</span>
+          }
+        </div>
+      }
+    </div>
+
     <div class="field">
       <label id="question-text-label" for="question-text">Question</label>
       <app-rich-text-editor formControlName="text" inputId="question-text" labelledBy="question-text-label" />
@@ -40,14 +66,42 @@
     <button type="submit" class="primary" [disabled]="form.invalid || saving()">Save question</button>
   </form>
 
-  <h2>Newest questions</h2>
+  <div class="page-header">
+    <h2>Newest questions</h2>
+    <div class="list-filter">
+      <label class="visually-hidden" for="filter-book">Show questions from</label>
+      <select id="filter-book" [value]="filterBook()" (change)="onFilterBookChanged($any($event.target).value)">
+        <option value="">All questions</option>
+        <option [value]="unfiled">Not filed under a chapter</option>
+        @for (book of books(); track book.id) {
+          <option [value]="book.id">{{ book.name }}{{ book.isArchived ? ' (archived)' : '' }}</option>
+        }
+      </select>
+      @if (filterBook() && filterBook() !== unfiled) {
+        <label class="visually-hidden" for="filter-chapter">Chapter</label>
+        <select id="filter-chapter" [value]="filterChapter()" (change)="onFilterChapterChanged($any($event.target).value)">
+          <option value="">All chapters</option>
+          @for (chapter of filterChapters(); track chapter.id) {
+            <option [value]="chapter.id">{{ chapter.order }}. {{ chapter.title }}{{ chapter.isArchived ? ' (archived)' : '' }}</option>
+          }
+        </select>
+      }
+    </div>
+  </div>
   @if (loading()) {
     <p>Loading…</p>
   } @else if (questions().length === 0) {
-    <p>No questions yet.</p>
+    <p>{{ filterBook() ? 'No questions match this filter.' : 'No questions yet.' }}</p>
   } @else {
     @for (question of questions(); track question.id) {
       <div class="card question-card">
+        <p class="question-card__where">
+          @if (question.chapterId) {
+            {{ question.bookName }} <span aria-hidden="true">›</span> {{ question.chapterTitle }}
+          } @else {
+            <span class="hint">Not filed under a chapter</span>
+          }
+        </p>
         <div class="rich-text question-card__text" [innerHTML]="question.text"></div>
         <ol>
           @for (option of question.options; track option.id) {
