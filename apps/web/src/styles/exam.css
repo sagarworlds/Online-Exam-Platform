@@ -1,0 +1,245 @@
+/*
+ * The exam-taking screen, laid out like an online test portal: a sticky bar with the exam name and the time left,
+ * one question at a time with large answer choices, and a palette of numbered buttons showing what is answered.
+ */
+
+.exam-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+}
+
+.exam-bar__title {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.exam-bar__label {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.exam-bar__timer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+.countdown {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown--low {
+  color: var(--danger);
+}
+
+.exam-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 52rem) {
+  .exam-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.question {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.question__meta {
+  margin: 0 0 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.question__text {
+  padding: 0;
+  margin-bottom: 1rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  white-space: pre-line;
+}
+
+/* A choice is a whole clickable row; the radio input stays in the page for keyboards and screen readers. */
+.option-choice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.option-choice:hover {
+  background: var(--surface-muted);
+}
+
+.option-choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.option-choice__marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.option-choice:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.option-choice:has(input:checked) .option-choice__marker {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
+.option-choice:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+
+.exam-pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.exam-side {
+  position: sticky;
+  top: 5.5rem;
+}
+
+.exam-side h2 {
+  font-size: 1rem;
+}
+
+.palette__section {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.palette {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
+  gap: 0.4rem;
+}
+
+.palette__item {
+  padding: 0;
+  height: 2.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.palette__item--answered {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.palette__item--current {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.palette-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin: 1rem 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.palette-legend li::before {
+  content: '';
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-inline-end: 0.35rem;
+  vertical-align: -0.1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.2rem;
+}
+
+.palette-legend .legend--answered::before {
+  background: var(--success-soft);
+  border-color: var(--success);
+}
+
+.palette-legend .legend--current::before {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.submit-confirm {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.submit-confirm .actions {
+  margin-top: 0.75rem;
+}
+
+.result {
+  max-width: 32rem;
+  margin-inline: auto;
+  text-align: center;
+  padding: 2rem 1.25rem;
+}
+
+.result .actions {
+  justify-content: center;
+}
+
+.score {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0.5rem 0;
+  color: var(--primary);
+}

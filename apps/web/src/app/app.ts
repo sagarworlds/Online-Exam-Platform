@@ -1,13 +1,13 @@
 import { Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { Router, RouterLink, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ADMIN_SECTIONS } from './auth/admin-sections';
 import { AuthSessionService } from './auth/auth-session.service';
 import { HealthService } from './health/health.service';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterOutlet],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet],
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
