@@ -1,0 +1,94 @@
+<div class="page page--exam">
+  <a [routerLink]="attemptId ? ['/attempt', attemptId] : ['/my-exams']" class="back-link">&larr; Back to the result</a>
+
+  @if (loading()) {
+    <p>Loading…</p>
+  }
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+
+  @if (review(); as r) {
+    <div class="card">
+      <p class="exam-bar__label">Answer review</p>
+      <h1>{{ r.examName }}</h1>
+      <div class="review-summary">
+        <p class="review-summary__score">{{ r.score }} / {{ r.maxScore }}</p>
+        <ul class="review-counts" aria-label="Summary">
+          <li class="badge badge--active">{{ r.correctCount }} correct</li>
+          <li class="badge badge--danger">{{ r.wrongCount }} wrong</li>
+          <li class="badge badge--inactive">{{ r.unansweredCount }} not answered</li>
+        </ul>
+      </div>
+      @if (r.autoSubmitted) {
+        <p class="hint">Time ran out, so the exam was submitted automatically with the answers you had saved.</p>
+      }
+
+      <div class="review-strip" role="group" aria-label="Jump to a question">
+        @for (section of sections(r); track section.id) {
+          @for (question of section.questions; track question.id) {
+            <button
+              type="button"
+              class="review-strip__item"
+              [class.review-strip__item--correct]="question.verdict === 'Correct'"
+              [class.review-strip__item--wrong]="question.verdict === 'Wrong'"
+              [attr.aria-label]="'Question ' + question.number + ', ' + verdictLabel(question.verdict)"
+              (click)="scrollTo(question.number)"
+            >
+              {{ question.number }}
+            </button>
+          }
+        }
+      </div>
+    </div>
+
+    @for (section of sections(r); track section.id) {
+      <h2 class="palette__section">{{ section.name }}</h2>
+      @for (question of section.questions; track question.id) {
+        <div class="card review-question" [id]="'review-question-' + question.number">
+          <div class="review-question__head">
+            <p class="review-question__meta">Question {{ question.number }}</p>
+            <span>
+              <span
+                class="badge"
+                [class.badge--active]="question.verdict === 'Correct'"
+                [class.badge--danger]="question.verdict === 'Wrong'"
+                [class.badge--inactive]="question.verdict === 'Unanswered'"
+              >{{ verdictLabel(question.verdict) }}</span>
+              <span class="review-question__marks" aria-label="Marks">{{ formatMarks(question.marks) }}</span>
+            </span>
+          </div>
+          <!-- The text is the API's sanitized HTML, rendered through Angular's own sanitizer as a second layer. -->
+          <div class="question__text rich-text" [innerHTML]="question.text"></div>
+          <ul class="review-options">
+            @for (option of question.options; track option.id; let i = $index) {
+              <li
+                class="review-option"
+                [class.review-option--correct]="option.isCorrect"
+                [class.review-option--wrong]="option.wasChosen && !option.isCorrect"
+              >
+                <span class="review-option__marker" aria-hidden="true">{{ optionLetter(i) }}</span>
+                <span class="review-option__text">{{ option.text }}</span>
+                @if (option.wasChosen && option.isCorrect) {
+                  <span class="review-option__tag">Your answer · Correct</span>
+                } @else if (option.wasChosen) {
+                  <span class="review-option__tag">Your answer</span>
+                } @else if (option.isCorrect) {
+                  <span class="review-option__tag">Correct answer</span>
+                }
+              </li>
+            }
+          </ul>
+          @if (question.verdict === 'Unanswered') {
+            <p class="hint">You did not answer this question.</p>
+          }
+        </div>
+      }
+    }
+
+    <div class="actions">
+      <a routerLink="/my-exams" class="btn btn--primary">Back to my exams</a>
+    </div>
+  }
+</div>

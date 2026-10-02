@@ -23,7 +23,18 @@ export interface MyExamDto {
   maxScore: number | null;
 }
 
-/** An answer option as the candidate sees it. The API never says which one is correct. */
+/** When candidates may see which of their answers were right, as the exam's author chose it. */
+export type ReviewReleaseMode = 'Instant' | 'Scheduled' | 'Manual';
+
+/** Whether a submitted attempt's answers can be reviewed, and if not, when they will be able to. */
+export interface AttemptReviewAvailability {
+  available: boolean;
+  mode: ReviewReleaseMode;
+  /** From when the review opens, when that is already decided (Scheduled); null otherwise. UTC. */
+  availableFromUtc: string | null;
+}
+
+/** An answer option as the candidate sees it while sitting the exam. The API never says which one is correct. */
 export interface AttemptOptionDto {
   id: string;
   text: string;
@@ -62,4 +73,48 @@ export interface AttemptDto {
   serverTimeUtc: string;
   /** Empty once the attempt is submitted. */
   sections: AttemptSectionDto[];
+  /** Whether the answers can be reviewed; null (or absent) while the attempt is still open. */
+  review?: AttemptReviewAvailability | null;
+}
+
+/** How one question was marked. */
+export type AnswerVerdict = 'Correct' | 'Wrong' | 'Unanswered';
+
+/** An option in a review: whether it is the right one, and whether the candidate chose it. */
+export interface ReviewOptionDto {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+  wasChosen: boolean;
+}
+
+/** A question in a review, with how it was marked. `text` is sanitized HTML. */
+export interface ReviewQuestionDto {
+  id: string;
+  text: string;
+  options: ReviewOptionDto[];
+  verdict: AnswerVerdict;
+  /** The marks this question earned; may be negative. */
+  marks: number;
+}
+
+export interface ReviewSectionDto {
+  id: string;
+  name: string;
+  questions: ReviewQuestionDto[];
+}
+
+/** A submitted attempt with its answer key; only ever sent once the attempt is over and the answers are released. */
+export interface AttemptReviewDto {
+  attemptId: string;
+  examId: string;
+  examName: string;
+  submittedAtUtc: string | null;
+  autoSubmitted: boolean;
+  score: number;
+  maxScore: number;
+  correctCount: number;
+  wrongCount: number;
+  unansweredCount: number;
+  sections: ReviewSectionDto[];
 }

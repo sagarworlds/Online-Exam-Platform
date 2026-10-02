@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -16,7 +17,7 @@ const TICK_MS = 1000;
  */
 @Component({
   selector: 'app-exam-attempt',
-  imports: [RouterLink],
+  imports: [RouterLink, DatePipe],
   templateUrl: './exam-attempt.html',
 })
 export class ExamAttempt {

@@ -103,8 +103,24 @@
         @if (current.autoSubmitted) {
           <p class="hint">Time ran out, so the exam was submitted automatically with the answers you had saved.</p>
         }
+        @if (current.review?.available) {
+          <p class="hint">Your answers have been marked. See which were right and which were not.</p>
+        } @else if (current.review) {
+          <p class="hint">
+            @if (current.review.availableFromUtc) {
+              The correct answers will be shown from {{ current.review.availableFromUtc | date: 'medium' }}.
+            } @else {
+              The correct answers will be shown when the exam's organiser releases them.
+            }
+          </p>
+        }
         <div class="actions">
-          <a routerLink="/my-exams" class="btn btn--primary">Back to my exams</a>
+          @if (current.review?.available) {
+            <a [routerLink]="['/attempt', current.id, 'review']" class="btn btn--primary">Review answers</a>
+            <a routerLink="/my-exams" class="btn">Back to my exams</a>
+          } @else {
+            <a routerLink="/my-exams" class="btn btn--primary">Back to my exams</a>
+          }
         </div>
       </div>
     }

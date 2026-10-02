@@ -8,6 +8,9 @@ export interface MarkingSchemeDto {
   unattemptedMarks: number;
 }
 
+/** When candidates may see which of their answers were right: right after submitting, from a set time, or when released by hand. */
+export type ResultReleaseMode = 'Instant' | 'Scheduled' | 'Manual';
+
 export interface ExamConfigDto {
   /** How long one attempt lasts; null means "until the window closes". */
   totalTimeSeconds: number | null;
@@ -18,7 +21,17 @@ export interface ExamConfigDto {
   scratchpadAllowed: boolean;
   maxAttempts: number;
   maxRetakes: number;
+  resultReleaseMode: ResultReleaseMode;
+  /** From when the answers are visible: set for Scheduled, and for Manual once released; null otherwise. UTC. */
+  resultReleaseTime: string | null;
   markingScheme: MarkingSchemeDto;
+}
+
+/** The body of PUT /v1/exams/{id}/result-release. */
+export interface ResultReleaseRequest {
+  mode: ResultReleaseMode;
+  /** UTC instant; required for Scheduled, ignored otherwise. */
+  releaseTime?: string | null;
 }
 
 /** A question as it sits in an exam; `text` comes from the question bank and is null if the bank lost it. */

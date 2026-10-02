@@ -8,6 +8,7 @@ import {
   ExamScopeRequest,
   ExamQuestionDto,
   ExamSectionDto,
+  ResultReleaseRequest,
   ScheduleExamRequest,
 } from './exam.models';
 
@@ -37,6 +38,16 @@ export class ExamApiService {
 
   setScope(examId: string, scope: ExamScopeRequest): Observable<ExamDto> {
     return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/scope`, scope);
+  }
+
+  /** Chooses when candidates may see which of their answers were right. Allowed after publishing too. */
+  setResultRelease(examId: string, request: ResultReleaseRequest): Observable<ExamDto> {
+    return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/result-release`, request);
+  }
+
+  /** Shows candidates which answers were right, for an exam set to manual release. Safe to repeat. */
+  releaseResults(examId: string): Observable<ExamDto> {
+    return this.http.post<ExamDto>(`${this.apiUrl}/${examId}/results/release`, {});
   }
 
   addSection(examId: string, name: string, timeSeconds?: number | null): Observable<ExamSectionDto> {

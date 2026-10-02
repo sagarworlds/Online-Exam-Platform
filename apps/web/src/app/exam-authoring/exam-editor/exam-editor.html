@@ -64,6 +64,43 @@
       }
     </div>
 
+    <div class="card">
+      <h2>Answer review</h2>
+      @if (changingRelease()) {
+        <app-exam-release-fields [(selection)]="releaseDraft" [disabled]="busy()" />
+        <div class="actions">
+          <button type="button" class="primary" (click)="saveRelease()" [disabled]="!releaseDraftComplete() || busy()">Save</button>
+          <button type="button" (click)="cancelChangingRelease()" [disabled]="busy()">Cancel</button>
+        </div>
+      } @else {
+        @switch (e.config.resultReleaseMode) {
+          @case ('Scheduled') {
+            <p>Candidates see which of their answers were right from {{ e.config.resultReleaseTime | date: 'medium' }}.</p>
+          }
+          @case ('Manual') {
+            @if (e.config.resultReleaseTime) {
+              <p>Released on {{ e.config.resultReleaseTime | date: 'medium' }}. Candidates can see which of their answers were right.</p>
+            } @else if (isDraft()) {
+              <p>Held back until you release them. You can do that once the exam is published.</p>
+            } @else {
+              <p>Held back until you release them.</p>
+            }
+          }
+          @default {
+            <p>Candidates see which of their answers were right as soon as they submit.</p>
+          }
+        }
+        <div class="actions">
+          @if (canChangeRelease()) {
+            <button type="button" (click)="startChangingRelease()" aria-label="Edit when answers are shown">Edit</button>
+          }
+          @if (canReleaseNow()) {
+            <button type="button" class="primary" (click)="releaseNow()" [disabled]="busy()">Release answers now</button>
+          }
+        </div>
+      }
+    </div>
+
     <h2>Sections and questions</h2>
     @for (section of e.sections ?? []; track section.id) {
       <div class="card section-card">
@@ -122,7 +159,7 @@
         <button type="button" class="primary" (click)="publish()" [disabled]="!canPublish() || busy()">Publish exam</button>
       </div>
     } @else {
-      <p class="hint">This exam is published, so it can no longer be edited.</p>
+      <p class="hint">This exam is published, so its questions and schedule can no longer be edited.</p>
     }
   }
 </div>

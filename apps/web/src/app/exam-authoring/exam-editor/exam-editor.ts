@@ -13,6 +13,8 @@ import { ExamApiService } from '../exam-api.service';
 import { ExamDto, ExamScopeDto } from '../exam.models';
 import { NO_SCOPE, ScopeSelection, describeScope, isScopeComplete, selectionOf, toScopeRequest } from '../exam-scope-fields/exam-scope';
 import { ExamScopeFields } from '../exam-scope-fields/exam-scope-fields';
+import { INSTANT_RELEASE, ReleaseSelection, isReleaseComplete, selectionOfRelease, toReleaseRequest } from '../exam-release-fields/exam-release';
+import { ExamReleaseFields } from '../exam-release-fields/exam-release-fields';
 
 /** Whether a question may go into an exam with this scope; mirrors the rule the API enforces. */
 function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): boolean {
@@ -32,7 +34,7 @@ function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): bool
  */
 @Component({
   selector: 'app-exam-editor',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, PlainTextPipe, ExamScopeFields],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, PlainTextPipe, ExamScopeFields, ExamReleaseFields],
   templateUrl: './exam-editor.html',
 })
 export class ExamEditor {
@@ -59,7 +61,18 @@ export class ExamEditor {
   protected readonly scopeDraft = signal<ScopeSelection>(NO_SCOPE);
   protected readonly scopeDraftComplete = computed(() => isScopeComplete(this.scopeDraft()));
 
+  /** Changing when candidates may see which answers were right. Allowed on a published exam too: the review is worked out when asked for. */
+  protected readonly changingRelease = signal(false);
+  protected readonly releaseDraft = signal<ReleaseSelection>(INSTANT_RELEASE);
+  protected readonly releaseDraftComplete = computed(() => isReleaseComplete(this.releaseDraft()));
+
   protected readonly isDraft = computed(() => this.exam()?.status === 'Draft');
+  protected readonly canChangeRelease = computed(() => this.exam() !== null && this.exam()?.status !== 'Archived');
+  /** A manual-release exam that is published and whose answers have not been released yet. */
+  protected readonly canReleaseNow = computed(() => {
+    const exam = this.exam();
+    return exam?.status === 'Published' && exam.config.resultReleaseMode === 'Manual' && exam.config.resultReleaseTime === null;
+  });
   protected readonly questionCount = computed(
     () => this.exam()?.sections?.reduce((total, section) => total + section.questions.length, 0) ?? 0,
   );
@@ -119,6 +132,31 @@ export class ExamEditor {
     }
 
     this.run(this.examApi.setScope(this.examId, toScopeRequest(this.scopeDraft())), () => this.changingScope.set(false));
+  }
+
+  protected startChangingRelease(): void {
+    this.releaseDraft.set(selectionOfRelease(this.exam()?.config));
+    this.changingRelease.set(true);
+  }
+
+  protected cancelChangingRelease(): void {
+    this.changingRelease.set(false);
+  }
+
+  protected saveRelease(): void {
+    if (!this.releaseDraftComplete() || this.busy()) {
+      return;
+    }
+
+    this.run(this.examApi.setResultRelease(this.examId, toReleaseRequest(this.releaseDraft())), () => this.changingRelease.set(false));
+  }
+
+  protected releaseNow(): void {
+    if (!this.canReleaseNow() || this.busy()) {
+      return;
+    }
+
+    this.run(this.examApi.releaseResults(this.examId));
   }
 
   protected addSection(): void {

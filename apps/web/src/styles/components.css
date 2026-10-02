@@ -231,6 +231,12 @@ button.primary:hover:not(:disabled),
   color: var(--success);
 }
 
+.badge--danger {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 .badge--inactive,
 .status-Closed,
 .status-Revoked {
@@ -436,4 +442,21 @@ button.primary:hover:not(:disabled),
 
 .scope-fields__chapters {
   padding-inline-start: 1rem;
+}
+
+/* The answer-review choice: a radio per mode, with a one-line explanation under its label. */
+.release-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.release-fields__choice {
+  display: flex;
+  align-items: flex-start;
+}
+
+.release-fields__hint {
+  display: block;
+  margin: 0;
 }

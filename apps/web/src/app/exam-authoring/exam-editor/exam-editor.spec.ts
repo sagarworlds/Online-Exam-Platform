@@ -29,7 +29,12 @@ function examBody(overrides: Record<string, unknown> = {}) {
     name: 'Maths Final',
     description: null,
     status: 'Draft',
-    config: { totalTimeSeconds: null, markingScheme: { correctMarks: 1, incorrectMarks: 0, unattemptedMarks: 0 } },
+    config: {
+      totalTimeSeconds: null,
+      resultReleaseMode: 'Instant',
+      resultReleaseTime: null,
+      markingScheme: { correctMarks: 1, incorrectMarks: 0, unattemptedMarks: 0 },
+    },
     scheduledStartTime: '0001-01-01T00:00:00Z',
     scheduledEndTime: '0001-01-01T00:00:00Z',
     lateEntryDeadline: null,
@@ -106,7 +111,7 @@ describe('ExamEditor', () => {
     httpMock.expectOne(isExam).flush({ ...scheduled, status: 'Published' });
     fixture.detectChanges();
 
-    expect(root.textContent).toContain('published, so it can no longer be edited');
+    expect(root.textContent).toContain('published, so its questions and schedule can no longer be edited');
     expect(button(root, 'Publish exam')).toBeUndefined();
   });
 
@@ -327,5 +332,134 @@ describe('ExamEditor', () => {
     expect(root.querySelector('form[aria-label="New section"]')).toBeNull();
     expect(button(root, 'Add question')).toBeUndefined();
     expect(root.textContent).toContain('no longer be edited');
+  });
+  describe('answer review', () => {
+    const config = (overrides: Record<string, unknown>) => ({
+      totalTimeSeconds: null,
+      resultReleaseMode: 'Instant',
+      resultReleaseTime: null,
+      markingScheme: { correctMarks: 1, incorrectMarks: 0, unattemptedMarks: 0 },
+      ...overrides,
+    });
+    const isRelease = (r: { method: string; url: string }) => r.method === 'PUT' && r.url.endsWith('/v1/exams/exam-1/result-release');
+    const radio = (root: HTMLElement, label: string) =>
+      Array.from(root.querySelectorAll<HTMLInputElement>('input[type="radio"]')).find((r) => r.parentElement?.textContent?.includes(label)) as HTMLInputElement;
+
+    /** Opens the Answer review form: its button is "Edit" (the scope card's is "Change"). */
+    function openForm(exam = examBody()) {
+      const opened = open(exam);
+      button(opened.root, 'Edit').click();
+      opened.fixture.detectChanges();
+      return opened;
+    }
+
+    it('says the answers are shown right after submitting, which is how an exam starts', () => {
+      const { root } = open();
+
+      expect(root.textContent).toContain('as soon as they submit');
+      expect(button(root, 'Release answers now')).toBeUndefined();
+    });
+
+    it('says from when a scheduled exam shows its answers', () => {
+      const { root } = open(examBody({ config: config({ resultReleaseMode: 'Scheduled', resultReleaseTime: '2026-10-08T09:00:00Z' }) }));
+
+      expect(root.textContent).toContain('Candidates see which of their answers were right from');
+      expect(root.textContent).toContain('2026');
+    });
+
+    it('holds a manual draft back, and says it can be released once the exam is published', () => {
+      const { root } = open(examBody({ config: config({ resultReleaseMode: 'Manual' }) }));
+
+      expect(root.textContent).toContain('Held back until you release them. You can do that once the exam is published.');
+      expect(button(root, 'Release answers now')).toBeUndefined();
+    });
+
+    it('lets the author pick a mode and save it, then shows what the server stored', () => {
+      const { fixture, root } = openForm();
+
+      radio(root, 'When I release them').click();
+      fixture.detectChanges();
+      button(root, 'Save').click();
+
+      const put = httpMock.expectOne(isRelease);
+      expect(put.request.body).toEqual({ mode: 'Manual', releaseTime: null });
+      const manual = examBody({ config: config({ resultReleaseMode: 'Manual' }) });
+      put.flush(manual);
+      httpMock.expectOne(isExam).flush(manual);
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Held back until you release them');
+      expect(root.querySelector('app-exam-release-fields')).toBeNull();
+    });
+
+    it('keeps Save off for a scheduled release until it has a time, then sends it as UTC', () => {
+      const { fixture, root } = openForm();
+      radio(root, 'From a set time').click();
+      fixture.detectChanges();
+      expect(button(root, 'Save').disabled).toBe(true);
+
+      const time = root.querySelector('input[type="datetime-local"]') as HTMLInputElement;
+      time.value = '2026-10-08T14:30';
+      time.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(button(root, 'Save').disabled).toBe(false);
+      button(root, 'Save').click();
+
+      const put = httpMock.expectOne(isRelease);
+      expect(put.request.body).toEqual({ mode: 'Scheduled', releaseTime: new Date('2026-10-08T14:30').toISOString() });
+      put.flush(examBody());
+      httpMock.expectOne(isExam).flush(examBody());
+    });
+
+    it('starts the form from what the exam is set to, and Cancel leaves it unchanged', () => {
+      const { fixture, root } = openForm(examBody({ config: config({ resultReleaseMode: 'Manual' }) }));
+      expect(radio(root, 'When I release them').checked).toBe(true);
+
+      button(root, 'Cancel').click();
+      fixture.detectChanges();
+
+      expect(root.querySelector('app-exam-release-fields')).toBeNull();
+      expect(root.textContent).toContain('Held back until you release them');
+    });
+
+    it('shows the API’s reason when the choice is refused, and keeps the form open', () => {
+      const { fixture, root } = openForm();
+      button(root, 'Save').click();
+
+      httpMock.expectOne(isRelease).flush({ title: 'exam_archived', detail: 'This exam is archived and can no longer be changed.' }, { status: 409, statusText: 'Conflict' });
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('This exam is archived and can no longer be changed.');
+      expect(root.querySelector('app-exam-release-fields')).not.toBeNull();
+    });
+
+    it('offers “Release answers now” on a published manual exam, and releases it', () => {
+      const { fixture, root } = open(examBody({ status: 'Published', config: config({ resultReleaseMode: 'Manual' }) }));
+
+      button(root, 'Release answers now').click();
+
+      const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/exams/exam-1/results/release'));
+      const released = examBody({ status: 'Published', config: config({ resultReleaseMode: 'Manual', resultReleaseTime: '2026-10-05T10:00:00Z' }) });
+      post.flush(released);
+      httpMock.expectOne(isExam).flush(released);
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Released on');
+      expect(button(root, 'Release answers now')).toBeUndefined();
+    });
+
+    it('offers no manual release on a published exam that is not set to it', () => {
+      const { root } = open(examBody({ status: 'Published' }));
+
+      expect(button(root, 'Release answers now')).toBeUndefined();
+    });
+
+    it('can still be edited once the exam is published, unlike its questions, scope and schedule', () => {
+      const { root } = open(examBody({ status: 'Published' }));
+
+      expect(button(root, 'Edit')).toBeDefined();
+      expect(button(root, 'Change')).toBeUndefined();
+      expect(root.textContent).not.toContain('Set schedule');
+    });
   });
 });

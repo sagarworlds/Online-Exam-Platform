@@ -264,6 +264,40 @@ describe('ExamAttempt', () => {
     expect(textOf(fixture)).not.toContain('Time left');
   });
 
+  describe('reviewing the answers', () => {
+    const submitted = (review: AttemptDto['review']) => attempt({ status: 'Submitted', score: 7, maxScore: 10, sections: [], review });
+    const reviewLink = (fixture: ComponentFixture<ExamAttempt>) =>
+      Array.from(root(fixture).querySelectorAll('a')).find((a) => a.textContent?.includes('Review answers'));
+
+    it('offers the review once the answers are released, linking to this attempt', async () => {
+      const fixture = await open(submitted({ available: true, mode: 'Instant', availableFromUtc: null }));
+
+      expect(reviewLink(fixture)?.getAttribute('href')).toBe('/attempt/a1/review');
+    });
+
+    it('says from when the answers will be shown, for a scheduled release, and offers no link yet', async () => {
+      const fixture = await open(submitted({ available: false, mode: 'Scheduled', availableFromUtc: '2026-10-08T09:00:00Z' }));
+
+      expect(textOf(fixture)).toContain('The correct answers will be shown from');
+      expect(textOf(fixture)).toContain('2026');
+      expect(reviewLink(fixture)).toBeUndefined();
+    });
+
+    it('says an administrator will release them, for a manual release', async () => {
+      const fixture = await open(submitted({ available: false, mode: 'Manual', availableFromUtc: null }));
+
+      expect(textOf(fixture)).toContain('organiser releases them');
+      expect(reviewLink(fixture)).toBeUndefined();
+    });
+
+    it('says nothing about a review for an attempt that is still open', async () => {
+      const fixture = await open(attempt());
+
+      expect(textOf(fixture)).not.toContain('correct answers');
+      expect(reviewLink(fixture)).toBeUndefined();
+    });
+  });
+
   it('shows why an attempt cannot be opened', async () => {
     await TestBed.configureTestingModule({
       imports: [ExamAttempt],
