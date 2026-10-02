@@ -1,0 +1,64 @@
+<div class="page page--wide">
+  <h1>Question bank</h1>
+
+  @if (errorMessage()) {
+    <p class="error-message">{{ errorMessage() }}</p>
+  }
+  @if (saved()) {
+    <p class="success-message">Question saved.</p>
+  }
+
+  <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="New question">
+    <h2>New question</h2>
+
+    <div class="field">
+      <label for="question-text">Question</label>
+      <textarea id="question-text" rows="3" formControlName="text"></textarea>
+    </div>
+
+    <fieldset class="field" formArrayName="options">
+      <legend>Options (pick the correct one)</legend>
+      @for (option of options.controls; track option; let i = $index) {
+        <div class="option-row" [formGroupName]="i">
+          <input
+            type="radio"
+            name="correct"
+            [value]="i"
+            [checked]="form.controls.correctIndex.value === i"
+            (change)="form.controls.correctIndex.setValue(i)"
+            [attr.aria-label]="'Option ' + (i + 1) + ' is correct'"
+          />
+          <input type="text" formControlName="text" [attr.aria-label]="'Option ' + (i + 1) + ' text'" />
+          <button type="button" (click)="removeOption(i)" [disabled]="options.length <= limits.minOptions">
+            Remove
+          </button>
+        </div>
+      }
+      <button type="button" (click)="addOption()" [disabled]="options.length >= limits.maxOptions">Add option</button>
+    </fieldset>
+
+    <button type="submit" class="primary" [disabled]="form.invalid || saving()">Save question</button>
+  </form>
+
+  <h2>Newest questions</h2>
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (questions().length === 0) {
+    <p>No questions yet.</p>
+  } @else {
+    @for (question of questions(); track question.id) {
+      <div class="card question-card">
+        <p><strong>{{ question.text }}</strong></p>
+        <ol>
+          @for (option of question.options; track option.id) {
+            <li [class.correct-option]="option.isCorrect">
+              {{ option.text }}@if (option.isCorrect) {
+                <span class="badge badge--active">correct</span>
+              }
+            </li>
+          }
+        </ol>
+      </div>
+    }
+  }
+</div>

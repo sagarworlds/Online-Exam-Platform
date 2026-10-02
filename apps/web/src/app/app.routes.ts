@@ -36,6 +36,11 @@ export const routes: Routes = [
     loadComponent: () => import('./consent/consent').then((m) => m.Consent),
   },
   {
+    path: 'admin/questions',
+    canActivate: [authGuard],
+    loadComponent: () => import('./question-bank/question-bank').then((m) => m.QuestionBank),
+  },
+  {
     path: 'exams',
     canActivate: [authGuard],
     loadComponent: () => import('./exam-authoring/exam-list/exam-list').then((m) => m.ExamList),
