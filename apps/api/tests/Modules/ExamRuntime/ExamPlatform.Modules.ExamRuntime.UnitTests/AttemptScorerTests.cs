@@ -95,4 +95,44 @@ public class AttemptScorerTests
 
         Assert.Throws<ExamContentUnavailableError>(() => AttemptScorer.Score(exam, Index(q1), attempt.Answers.ToList()));
     }
+    // ---- marking one question (the answer review shows exactly what the total adds up) ------------------------
+
+    [Fact]
+    public void Mark_GivesEachKindOfAnswerItsVerdictAndTheExamsMarks()
+    {
+        var question = Fixtures.Question();
+        var exam = Fixtures.Exam([question], correct: 4m, incorrect: -1m, unattempted: 0.5m);
+
+        Assert.Equal(new QuestionMark(AnswerVerdict.Correct, 4m), AttemptScorer.Mark(exam, question, question.Correct()));
+        Assert.Equal(new QuestionMark(AnswerVerdict.Wrong, -1m), AttemptScorer.Mark(exam, question, question.Wrong()));
+        Assert.Equal(new QuestionMark(AnswerVerdict.Unanswered, 0.5m), AttemptScorer.Mark(exam, question, null));
+    }
+
+    [Fact]
+    public void Mark_WithAnOptionTheQuestionDoesNotHave_FailsLoudly()
+    {
+        var question = Fixtures.Question();
+        var exam = Fixtures.Exam([question]);
+
+        Assert.Throws<ExamContentUnavailableError>(() => AttemptScorer.Mark(exam, question, Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void TheMarksOfEveryQuestion_AddUpToTheScore()
+    {
+        var right = Fixtures.Question();
+        var wrong = Fixtures.Question();
+        var skipped = Fixtures.Question();
+        var exam = Fixtures.Exam([right, wrong, skipped], correct: 4m, incorrect: -1m, unattempted: -0.25m);
+        var attempt = AttemptWith((right, right.Correct()), (wrong, wrong.Wrong()));
+
+        var score = AttemptScorer.Score(exam, Index(right, wrong, skipped), attempt.Answers.ToList());
+        var byQuestion =
+            AttemptScorer.Mark(exam, right, right.Correct()).Marks
+            + AttemptScorer.Mark(exam, wrong, wrong.Wrong()).Marks
+            + AttemptScorer.Mark(exam, skipped, null).Marks;
+
+        Assert.Equal(2.75m, score.Score);
+        Assert.Equal(score.Score, byQuestion);
+    }
 }

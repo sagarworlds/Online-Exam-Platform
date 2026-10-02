@@ -10,9 +10,34 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 /// <param name="MaxScore">The marks available.</param>
 public readonly record struct AttemptScore(decimal Score, decimal MaxScore);
 
+/// <summary>How one question was marked: the verdict and the marks it earned.</summary>
+/// <param name="Verdict">Correct, wrong or unanswered.</param>
+/// <param name="Marks">The marks earned, which the exam's marking scheme may make negative or zero.</param>
+public readonly record struct QuestionMark(AnswerVerdict Verdict, decimal Marks);
+
 /// <summary>Marks an attempt against the exam's marking scheme. Pure: everything it needs is passed in.</summary>
 public static class AttemptScorer
 {
+    /// <summary>
+    /// Marks one question. The one place the marking scheme is applied: <see cref="Score"/> adds these up and the answer
+    /// review shows them, so a question's marks can never disagree with the total.
+    /// </summary>
+    /// <param name="exam">The exam, which holds the marking scheme.</param>
+    /// <param name="question">The question from the question bank, answer key included.</param>
+    /// <param name="chosenOptionId">The option the candidate chose, or null if they chose none.</param>
+    /// <exception cref="ExamContentUnavailableError">The chosen option is not one of the question's options.</exception>
+    public static QuestionMark Mark(ExamSnapshot exam, QuestionSnapshot question, Guid? chosenOptionId)
+    {
+        if (chosenOptionId is not { } optionId)
+            return new QuestionMark(AnswerVerdict.Unanswered, exam.UnattemptedMarks);
+
+        var option = question.Options.FirstOrDefault(o => o.Id == optionId)
+            ?? throw new ExamContentUnavailableError();
+        return option.IsCorrect
+            ? new QuestionMark(AnswerVerdict.Correct, exam.CorrectMarks)
+            : new QuestionMark(AnswerVerdict.Wrong, exam.IncorrectMarks);
+    }
+
     /// <summary>Scores every question of the exam: correct, wrong and unanswered each carry the exam's own marks.</summary>
     /// <param name="exam">The exam, with its marking scheme and the questions in it.</param>
     /// <param name="questions">The questions of the exam from the question bank, answer key included.</param>
@@ -36,16 +61,7 @@ public static class AttemptScorer
                 throw new ExamContentUnavailableError();
 
             max += exam.CorrectMarks;
-
-            if (!chosen.TryGetValue(questionId, out var optionId))
-            {
-                score += exam.UnattemptedMarks;
-                continue;
-            }
-
-            var option = question.Options.FirstOrDefault(o => o.Id == optionId)
-                ?? throw new ExamContentUnavailableError();
-            score += option.IsCorrect ? exam.CorrectMarks : exam.IncorrectMarks;
+            score += Mark(exam, question, chosen.TryGetValue(questionId, out var optionId) ? optionId : null).Marks;
         }
 
         return new AttemptScore(score, max);

@@ -31,7 +31,9 @@ internal static class Fixtures
         int? durationSeconds = 1800,
         decimal correct = 1m,
         decimal incorrect = 0m,
-        decimal unattempted = 0m) =>
+        decimal unattempted = 0m,
+        ExamResultReleaseMode resultRelease = ExamResultReleaseMode.Instant,
+        DateTime? resultReleaseTime = null) =>
         new(
             Guid.NewGuid(),
             "Physics",
@@ -44,5 +46,7 @@ internal static class Fixtures
             correct,
             incorrect,
             unattempted,
-            [new ExamSectionSnapshot(Guid.NewGuid(), "Section A", 1, questions.Select(q => q.Id).ToList())]);
+            [new ExamSectionSnapshot(Guid.NewGuid(), "Section A", 1, questions.Select(q => q.Id).ToList())],
+            resultRelease,
+            resultReleaseTime);
 }

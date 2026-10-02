@@ -46,6 +46,14 @@ public static class ExamRuntimeEndpoints
             .WithName("GetAttempt")
             .WithDescription("Read an attempt: its questions while open, its score once submitted");
 
+        me.MapGet("/attempts/{attemptId:guid}/review", GetAttemptReview)
+            .Produces<AttemptReviewDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("GetAttemptReview")
+            .WithDescription("Read a submitted attempt with which answers were right, once the exam's author has released them");
+
         me.MapPut("/attempts/{attemptId:guid}/answers/{questionId:guid}", SaveAnswer)
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status400BadRequest)
@@ -70,6 +78,9 @@ public static class ExamRuntimeEndpoints
         Results.Ok(await handler.HandleAsync(examId, user.GetUserId(), ct));
 
     private static async Task<IResult> GetAttempt(Guid attemptId, ClaimsPrincipal user, GetAttemptHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct));
+
+    private static async Task<IResult> GetAttemptReview(Guid attemptId, ClaimsPrincipal user, GetAttemptReviewHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct));
 
     private static async Task<IResult> SaveAnswer(

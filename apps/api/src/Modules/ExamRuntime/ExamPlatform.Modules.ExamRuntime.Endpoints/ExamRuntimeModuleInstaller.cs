@@ -31,11 +31,13 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
 
         services.AddScoped<AttemptCloser>();
         services.AddScoped<AttemptViewBuilder>();
+        services.AddScoped<AttemptReviewBuilder>();
         services.AddScoped<AttemptAccess>();
 
         services.AddScoped<MyExamsHandler>();
         services.AddScoped<StartAttemptHandler>();
         services.AddScoped<GetAttemptHandler>();
+        services.AddScoped<GetAttemptReviewHandler>();
         services.AddScoped<SaveAnswerHandler>();
         services.AddScoped<SubmitAttemptHandler>();
     }
