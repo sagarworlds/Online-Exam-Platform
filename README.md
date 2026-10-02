@@ -60,6 +60,7 @@ The Online Exam Platform is a purpose-built solution for educational institution
 - **Exam Authoring**: sections, questions, scheduling (window, time per attempt, latest start), publish
 - **Invites**: e-mailed (or hand-delivered) links; accepting one, from the invited address, enrolls the candidate
 - **Exam Taking**: start, answer, submit and score with a server-held deadline
+- **Answer review**: after submitting, a candidate sees which answers were right and wrong, with the correct options, once the exam's author allows it
 - **Admin Controls**: permission-aware admin navigation and per-route permission checks on the API
 - **Batches and Guardians**: backend and screens exist, but are not connected to the loop yet
 
@@ -151,10 +152,10 @@ Online-Exam-Platform/
 1. An administrator signs in (password + one-time code) and lands on `/admin`, which lists only the areas their permissions open.
 2. **Questions** (`/admin/questions`): single-answer multiple choice, 2 to 6 options, exactly one correct. The question text is written in a rich-text editor (see [Question formatting](#question-formatting)); options are plain text.
 3. **Books** (`/admin/books`, optional): a book has chapters; questions can be filed under a chapter and exams can be limited to a book or some of its chapters (see [Books, chapters and exam scope](#books-chapters-and-exam-scope)).
-4. **Exams** (`/exams`): create an exam, add sections and questions, set the schedule (window, minutes per attempt, optional latest start), publish.
+4. **Exams** (`/exams`): create an exam, add sections and questions, set the schedule (window, minutes per attempt, optional latest start), choose when candidates may see which answers were right (see [Answer review](#answer-review)), publish.
 5. **Invites** (`/invites/create`): pick a published exam and a candidate's e-mail address. The invitation is e-mailed when `Smtp:Host` is configured; otherwise the page shows the link to pass on by hand.
 6. The candidate opens the link (signing in or registering first), and accepts it. Only the account holding the invited e-mail address can accept; accepting enrolls them.
-7. **My exams** (`/my-exams`): Start (the server fixes the deadline), answer (saved as they go), submit, and read the score. If time runs out the attempt is closed with the saved answers the next time anyone looks at it.
+7. **My exams** (`/my-exams`): Start (the server fixes the deadline), answer (saved as they go), submit, and read the score, then review which answers were right once they are released. If time runs out the attempt is closed with the saved answers the next time anyone looks at it.
 
 Configuration: `Smtp:Host`, `Smtp:Port`, `Smtp:EnableSsl`, `Smtp:User`, `Smtp:Password`, `Smtp:From` for e-mail, and `Invite:LinkBaseUrl` (default `http://localhost:4200`) for the address in invitation links. A sign-in that has to be done by hand in development reads its code from the API log (`Identity:OtpDelivery:Provider` = `DevelopmentLog`).
 
@@ -170,6 +171,27 @@ The question text is HTML from a rich-text editor: bold, italic, underline, subs
 | Stored size | At most about 1.5 million characters of HTML per question. |
 
 Questions written before this change were plain text; the `RichQuestionText` migration converts them to escaped HTML so they look the same. Because pictures live inside the question, every response that carries the question carries them too (the admin question list returns up to 200 questions); if that becomes heavy, the upgrade path is an image upload endpoint with cacheable URLs.
+
+#### Answer review
+
+After submitting, a candidate sees their score at once, and then, once the exam's author allows it, a page showing every question with each option marked as the correct one and as the one they chose, whether the answer was correct, wrong or missing, the marks it earned (negative marking included) and the totals.
+
+The author chooses when, per exam, on the exam page (**Answer review**; this may also be changed after publishing, and applies to attempts already made):
+
+| Setting | The answers are shown |
+|---------|-----------------------|
+| Right after they submit (the default, and how every exam behaved before) | as soon as an attempt is submitted. Someone who finishes early can pass the answers on to candidates still sitting the exam, so the page says so. |
+| From a set time | from that time, for example once the whole exam window has closed. |
+| When I release them | when an administrator presses **Release answers now** on the published exam. Releasing twice keeps the first time; switching the setting resets it. |
+
+| What | Rule |
+|------|------|
+| Where the key is sent | Only by `GET /v1/me/attempts/{id}/review`. Nothing shown while sitting the exam carries it, and a test fails if a property naming it is ever added to those types. |
+| Refused | `404` for anyone but the attempt's owner (an administrator too); `409 attempt_not_submitted` while the attempt is open; `409 results_not_released` before the answers are released, saying from when if that is known. The answer key is not even read in those cases. |
+| One rule | released = "Instant, or the release time has arrived". A manual release just sets that time to now. |
+| Permissions | Setting and releasing need `exam.manage`; reading a review needs only being the candidate who sat the attempt. |
+
+The setting governs the answer review only: the score is still shown as soon as an attempt is submitted.
 
 #### Books, chapters and exam scope
 
@@ -188,7 +210,7 @@ Books and chapters are for authors and administrators only (the `question.manage
 
 Existing data is untouched: both migrations (`BooksAndChapters`, `ExamScope`) only add tables and nullable or defaulted columns, and existing exams read as "anywhere" (the `ExamScope` default was checked against a database that already held an exam).
 
-**Known gaps**: no background worker, so abandoned attempts close lazily; one attempt per candidate per exam (no retakes); single-answer multiple choice only; candidates do not see books or chapters, and an exam cannot yet draw questions automatically by rule ("10 from chapter 2"); chapters cannot be reordered, and a question sits in one chapter only; no difficulty or topic tags; "Exam Series" is still only an optional ID with no entity behind it (a book is not a series); the question list shows the newest 200 questions per filter, with no paging; no tables, links, math or alt-text prompt in question text, and option text is plain; marking uses the exam's marking scheme (default +1 / 0 / 0) and the score is shown immediately whatever the result-release setting; batches do not yet feed enrollment; the guardian verification path is still a stub; e-mail needs a real SMTP server to be tried.
+**Known gaps**: no background worker, so abandoned attempts close lazily; one attempt per candidate per exam (no retakes); single-answer multiple choice only; candidates do not see books or chapters, and an exam cannot yet draw questions automatically by rule ("10 from chapter 2"); chapters cannot be reordered, and a question sits in one chapter only; no difficulty or topic tags; "Exam Series" is still only an optional ID with no entity behind it (a book is not a series); the question list shows the newest 200 questions per filter, with no paging; no tables, links, math or alt-text prompt in question text, and option text is plain; marking uses the exam's marking scheme (default +1 / 0 / 0) and the score is shown immediately whatever the answer-review setting; there are no written explanations per question (the question bank has no such field), and a review shows the question as it is now, which is only correct while questions cannot be edited, as today; batches do not yet feed enrollment; the guardian verification path is still a stub; e-mail needs a real SMTP server to be tried.
 
 ### Deferred (Per ADR 0001)
 - **CD Pipeline**: Infrastructure-as-code, deployment automation
