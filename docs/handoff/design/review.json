@@ -1,0 +1,221 @@
+﻿{
+    "conflicts":  [
+                      "Test-auth helpers are defined four times, incompatibly. PR1 commit 1 adds TestSessions.SignInAsAsync(factory, role, email?, dob?, password?), which mints real sessions through ITokenGenerator. PR2 commit 5 adds TestUsers.CreateAsync(factory, role) through LoginSessionIssuer, which duplicates PR1 and has a different signature. PR3 adds a NEW TestUsers.cs (register via /v1/auth/register plus OTP) that collides with PR2\u0027s file, and gets staff tokens from \u0027TestJwtTokenBuilder perm claims\u0027. PR4 edits TestUsers.cs (SeedActiveCandidateAsync) and also relies on a \u0027TestJwtTokenBuilder perm variant\u0027. After PR1, TestJwtTokenBuilder tokens carry no sid (TestJwtTokenBuilder.cs:38-42), so they get 401. Consolidate on PR1\u0027s TestSessions, add a RegisterViaApiAsync overload there for PR3, and never add perm claims to TestJwtTokenBuilder.",
+                      "ConcurrencyConflictError is created twice. PR1 commit 3 adds SharedKernel.Domain/Exceptions/ConcurrencyConflictError.cs (409 concurrency_conflict) plus a DomainException(message, inner) ctor. PR2 commit 17 adds SharedKernel.Domain/ConcurrencyConflictError.cs (new), which is the same type at a different path and won\u0027t compile next to PR1\u0027s. PR3 adds ConcurrentGuardianLinkUpdateError and ConsentConcurrentUpdateError, and PR4 adds InviteStateConflictError, all for the same xmin DbUpdateConcurrencyException case. Reuse PR1\u0027s type, or have module-specific codes subclass it. Also extract one shared \u0027Postgres 23505 on index X\u0027 helper into SharedKernel.Infrastructure. Today PR2 (Batch, Guardian UoW), PR3 (Guardian, Consent UoW) and PR4 (Batch, Invite UoW) each hand-roll it.",
+                      "PageRequest and the SharedKernel.UnitTests project are created twice. PR2\u0027s last-but-one commit creates tests/SharedKernel/ExamPlatform.SharedKernel.UnitTests and SharedKernel.Application/Paging/PageRequest with InvalidPageRequestError (\u0027invalid_paging\u0027), default 50, max 200. PR4 commit 1 creates the same project and file with InvalidPagingError, default 25, max 100. Keep PR2\u0027s and have PR4 add only PagedResult\u003cT\u003e.",
+                      "ADR number collision: PR2 writes docs/adr/0002-migrations-and-reference-data-seeding.md and PR4 writes docs/adr/0002-m3-enrollment-scheduling-ownership.md. docs/adr currently holds only 0001-stack.md and template.md. PR4\u0027s ADR must be 0003.",
+                      "Audit handlers will double-write. PR2 adds Application/Audit/{ExamAuthoring,Batch,Invite,Guardian}AuditTrail.cs and registers them with the assembly-scanning AddDomainEventHandlersFrom. PR4 adds NEW Application/Events/{Exam,Batch,Invite}AuditHandlers.cs for ExamPublished, InviteCodeIssued, InviteAccepted and InviteRevoked, which PR2\u0027s trails already handle. Two handler classes on the same event means two audit rows. If PR4 also registers its handlers explicitly, the scan registers them a second time and each runs twice. PR4 should extend PR2\u0027s trail classes and rely on the scan only.",
+                      "Guardian work in PR2 is thrown away by PR3. PR2 commits 13 (typed errors plus Guardian.RevokeCandidateLink), 14 (Include CandidateLinks), 18 (UniqueActiveGuardianLink migration with dedupe SQL), 22 (Clock, events, private setters) and 28 (GuardianAuditTrail over GuardianCreated, LinkRequested, LinkRevoked, CandidateUnlinked) all target a model that PR3 commit 5 deletes. PR3 commit 6 then drops and recreates the guardian tables. PR3\u0027s file lists also don\u0027t delete PR2\u0027s GuardianAuditTrail.cs, GuardianAuditTrailTests.cs, GuardianTests.cs, GuardianLinkHandlerTests.cs, the Guardian part of M3AuditTrailTests (GuardianLinkRevoked_IsAudited_WithStaffActor) or PR2\u0027s Guardian FakeClock (PR3 marks FakeClock as \u0027new\u0027). PR3 won\u0027t compile unless it removes them. PR2 also says InvalidLinkTokenError is \u0027kept for PR3\u0027, while PR3 deletes it.",
+                      "Invite code and state logic is implemented twice with different names. PR2 commit 22 does an 8-char CSPRNG code (RandomNumberGenerator.GetString in the domain), InvalidInviteExpiryError for 1..720h, InviteNotPendingError, InviteCodeIssuedEvent, Accept(codeId, actor, now), and the AddInviteRowVersion xmin migration. PR4 does a 10-char IInviteCodeGenerator port, InvalidInviteConfigError for the same 1..720h rule, re-creates InviteNotPendingError and InviteCodeIssuedEvent (listed as new files), and maps xmin again (\u0027shadow uint Version IsRowVersion\u0027) in M3InviteCodeHashing. PR4 must build on PR2\u0027s types and mapping rather than re-declare them.",
+                      "Batch member validation and the unique index are done twice, incompatibly. PR2 commit 12 adds InvalidBatchMemberError plus MailAddress/E.164 checks and lower-cases email inside Batch.AddMember(email, phone, actor, now). PR2 commit 18 adds a unique index on (BatchId, Email) WHERE IsDeleted=false, with dedupe SQL and a 23505 translation keyed on that index name. PR4 commit 18 adds a MemberContact value object with InvalidRosterEntryError, re-lowercases emails in SQL, changes AddMember to (name, contact, isMinor, guardian, now) and drops the actor, and creates a partial unique (BatchId, Email) WHERE Email IS NOT NULL AND NOT IsDeleted. That is the same default name, IX_BatchMembers_BatchId_Email, so EF will drop and recreate it, and PR2\u0027s 23505 name match needs updating for the new phone index.",
+                      "Role-claim handling disagrees. PR2\u0027s GetPrimaryRole reads ClaimTypes.Role, then \u0027role\u0027. PR3\u0027s risks say the role claim is written as \u0027role\u0027, so RequireRole or ClaimTypes.Role never match. PR4\u0027s jwt.ts reads both keys. The code supports PR2 (see wrongAssumptions). PR3\u0027s workaround of server-side role checks is fine either way, but its risk note should be corrected so PR4 isn\u0027t misled.",
+                      "Rate-limit policy ownership is inconsistent. PR1 defines Identity-owned consts (\u0027identity-otp-request\u0027, etc.) in Identity.Endpoints, configured under \u0027Identity:RateLimits\u0027. PR3 plans to put \u0027PR1\u0027s OTP policy name\u0027 on Guardian endpoints, but under ADR 0001 and PR2\u0027s arch rule 6 Guardian.Endpoints cannot reference Identity.Endpoints. PR4 defines an Invite-owned \u0027invite-accept\u0027 policy but binds \u0027RateLimiting:InviteAccept\u0027, which is the Host namespace PR1 uses for RateLimiting:Global. Each module should own its policy and config section: \u0027Guardian:RateLimits:*\u0027 and \u0027Invite:RateLimits:Accept\u0027.",
+                      "Dev-only sender pattern diverges. PR1 makes LoggingOtpSender Development-only with OtpDeliveryOptions plus a ValidateOnStart fail-fast validator. PR3\u0027s LoggingGuardianVerificationSender is registered in every environment, and its LogCodesInDevelopment flag isn\u0027t tied to IHostEnvironment. That repeats the audited NFR-6 defect (IdentityModuleInstaller.cs:39) for guardian codes. Use PR1\u0027s Provider plus environment-validator pattern.",
+                      "Web OTP navigation conflicts. PR1\u0027s final web commit moves the destination out of the /verify-otp query string into router state and masks it (NFR-6). PR3\u0027s guardian-register navigates to /verify-otp with queryParams {challengeId, purpose, destination, returnUrl}, which re-introduces PII in the URL and bypasses PR1\u0027s masked-destination copy.",
+                      "Claims-helper surface and name. PR2 deletes Identity.Endpoints/ClaimsPrincipalExtensions.cs and adds SharedKernel.Application/Security GetUserId and GetPrimaryRole only. PR1 adds GetSessionId in that deleted file for LogoutHandler. PR3 assumes a HasPermission(code) helper. PR4 calls the helper \u0027GetRequiredUserId()\u0027 and adds HasPermission itself, which is too late for PR3. PR2 must carry over GetSessionId and add HasPermission.",
+                      "Roster guardian contacts to guardian links has no owner. PR3 says PR4 will add a Guardian.Contracts IGuardianLinkRequests adapter for CSV guardian contacts (FR-50). PR4 explicitly lists \u0027turning roster guardian contacts into guardian accounts or links\u0027 as out of scope. Pick one.",
+                      "Contracts leaking through Endpoints. PR2\u0027s new arch rule 6 says Endpoints depend on no other module except their own Contracts. PR3\u0027s GuardianEndpoints return Consent.Contracts ConsentRecordDto and ConsentStatusDto straight from POST /v1/guardians/consent and GET /v1/guardians/me/candidates/{id}/consent, which breaks that rule. Map them to Guardian-owned DTOs in Guardian.Application, or explicitly relax the rule in PR2.",
+                      "Minor duplications: PR4 commit 4 deletes Application/Dtos/CreateExamRequest.cs, which PR2 commit 6 already deletes. PR4 says ExamPublishedEvent \u0027gains ActorUserId\u0027, which PR2 commit 21 already adds. PR4\u0027s risk about the \u0027public new Guid Id\u0027 pattern is stale because PR2 removes it. PR3 deletes Consent\u0027s CallerId, which PR2 commit 4 already removed."
+                  ],
+    "orderingIssues":  [
+                           "PR2\u0027s NonDevelopmentStartupTests.ProductionEnvironment_WithMigrateAndSeedFlag... boots the Host with UseEnvironment(\"Production\"). After PR1, OtpDeliveryOptionsValidator (ValidateOnStart) fails any non-Development start without a real provider, and a real provider can\u0027t exist until FR-39. So the PR2 test can never start. The test must remove the validator or IValidateOptions\u003cOtpDeliveryOptions\u003e and swap in CapturingOtpSender in ConfigureTestServices. PR3 must also set Guardian:VerificationCodePepper there once its pepper validation lands.",
+                           "PR3 depends on a ClaimsPrincipal HasPermission(code) helper (for ConsentActor.CanManageConsent) that only PR4 adds. Move it into PR2 commit 4.",
+                           "PR4 bases Invite.Contracts integration events on the SharedKernel.Domain DomainEvent record, which PR2\u0027s \u0027remove the DomainEvent base\u0027 commit deletes. Only M3 events use it today; Identity and Consent events implement IDomainEvent directly.",
+                           "PR2 commit 4 deletes Identity.Endpoints/ClaimsPrincipalExtensions.cs, which PR1 extended with GetSessionId() for POST /v1/auth/logout. PR2 must move GetSessionId (reading \u0027sid\u0027, typed 401 on missing) into the shared helper or the solution won\u0027t build.",
+                           "PR3 and PR4 integration tests authenticate staff with TestJwtTokenBuilder perm-claim tokens. Because of PR1\u0027s session validation (sid-less tokens get 401), they must use PR1\u0027s TestSessions.SignInAsAsync from the start.",
+                           "PR4\u0027s TimeTravelApiFactory (e.g. AcceptByCode_ExpiredCode_Returns410, GetInvite_AllCodesExpired...) conflicts with PR1. SessionValidator uses the injected Clock, so advancing a fake clock past invite expiry (1..720h) marks the 1h test session Expired. And a token minted after advancing gets nbf = the fake time (PR1 sets notBefore = session.IssuedAtUtc), which JwtBearer, running on real time, rejects. PR1\u0027s SignInAsAsync needs a sessionLifetime parameter, and PR4\u0027s time-travel tests must sign in before advancing the clock.",
+                           "The exam-builder blank-seriesId 400 (high, exam-builder.ts:160 / ExamAuthoringEndpoints.cs:40) is fixed only in PR4, so the one working authoring UI flow stays broken through PR1-PR3. PR2 already edits CreateExamRequest (removing CreatedBy) and the web exam-api service, so the Guid? SeriesId change belongs in PR2 commit 6/7.",
+                           "After PR1, staff must log in with a password (FR-3), but no staff provisioning or bootstrap exists (PR1 risk). Every developer loses admin access from PR1 until someone hand-seeds a hash. PR2\u0027s seeder commit should add a Development-only, config-driven bootstrap SuperAdmin (email plus password hash from user-secrets). Otherwise the manual verification steps in PR2 and PR4 (\u0027ExamAdmin creates...\u0027) cannot be performed.",
+                           "PR4 seeds batch.read.all by editing IdentitySeeder.cs. After PR2 the grants live in Identity.Domain/Rbac/RbacCatalog.cs, with RbacCatalogTests and RbacSeedingTests guarding the matrix, so PR4 must edit those."
+                       ],
+    "uncoveredFindings":  [
+                              {
+                                  "finding":  "NFR-5 gap (admin-crosscutting): no security response headers (X-Content-Type-Options, X-Frame-Options/frame-ancestors, Referrer-Policy, a basic CSP) anywhere in Program.cs. PR1 adds HSTS, ForwardedHeaders and dev-only OpenAPI only, and PR2 wrongly thinks nobody owns this area.",
+                                  "suggestedPr":  "PR1 (add to commit 14: a small SecurityHeadersMiddleware in the Host, plus an integration assertion)"
+                              },
+                              {
+                                  "finding":  "FR-40 gap: CorrelationId is always null in AssignRoleHandler.cs:37 (and ConsentService.cs:70). PR2 lists this as PR1\u0027s job, but PR1 doesn\u0027t include it.",
+                                  "suggestedPr":  "PR2 (it introduces IRequestContext; inject it into AssignRoleHandler in the request-context commit). PR3 uses it for Consent audit entries."
+                              },
+                              {
+                                  "finding":  "FR-40 medium bug ConsentService.cs:60 also names AssignRoleHandler.cs:27/29: the role assignment commits before its audit write. PR3 fixes only Consent via its outbox, and no plan fixes or explicitly defers AssignRoleHandler.",
+                                  "suggestedPr":  "PR2: explicitly defer with the same accepted post-commit trade-off documented in ADR 0002, or reuse PR3\u0027s outbox later. It must be written down either way."
+                              },
+                              {
+                                  "finding":  "FR-40 gap: Identity register, password reset, logout and profile update are not audited (security-relevant events PR1 touches).",
+                                  "suggestedPr":  "PR1 (UserRegisteredEvent/PasswordReset audit via Admin.Contracts IAuditLogger), or defer explicitly to PR2\u0027s audit foundation."
+                              },
+                              {
+                                  "finding":  "FR-2 gaps: no endpoints to list roles, permissions or users, revoke a role, or provision staff accounts; role assignment needs a raw roleId GUID; there is no admin role-assignment or audit-log UI. PR1 defers staff provisioning and PR2 defers the audit UI, but role listing and revoke are not mentioned by any plan.",
+                                  "suggestedPr":  "PR2 (at least GET /v1/admin/roles plus a dev bootstrap admin), or record an explicit deferral in PR2\u0027s out-of-scope list."
+                              },
+                              {
+                                  "finding":  "FR-50 gap: no remove-member endpoint even though Batch.RemoveMember exists (Batch.cs:53-61).",
+                                  "suggestedPr":  "PR4 (DELETE /v1/batches/{id}/members/{memberId}, batch.manage plus BatchAccessScope)"
+                              },
+                              {
+                                  "finding":  "FR-43 gaps: DOB is not viewable or correctable in the profile. UserStatus.PendingVerification\u0027s doc still implies minors wait for guardian consent, but the chosen design gates at exam access.",
+                                  "suggestedPr":  "PR3 (return DOB read-only in UserProfileDto next to AgeBand; fix the UserStatus doc comment; defer DOB correction explicitly)"
+                              },
+                              {
+                                  "finding":  "Web contracts (FR-45/FR-2 UI): the guardian portal has no nav entry (app.html:4-8). PR4\u0027s role-aware nav covers only staff links and \u0027My exams\u0027, and PR3 adds only profile links.",
+                                  "suggestedPr":  "PR4 (nav item for users whose roles include Guardian)"
+                              },
+                              {
+                                  "finding":  "README/DEV-INFRA accuracy gaps nobody touches: the .env.example values are never consumed, the README says \u0027Redis session/cache store\u0027, \u0027CQRS via MediatR\u0027 (PR2 fixes only this one), \u0027TypeScript 5.6\u0027, Tailwind, npm run format/e2e scripts, and a non-existent Identity.IntegrationTests project.",
+                                  "suggestedPr":  "PR4 docs commit (low severity)"
+                              },
+                              {
+                                  "finding":  "DATA-MODEL-EXAM gap: ExamSection.IsDeleted has no query filter while RemoveSection hard-removes, and there is no unique (SectionId, Order) index. PR4 fixes Order computation and adds only the (SectionId, QuestionVersionId) index.",
+                                  "suggestedPr":  "PR4 (either drop IsDeleted from ExamSection or add the filter; add the unique (ExamId, Order) and (SectionId, Order) indexes in M3ExamAuthoringCompletion)"
+                              }
+                          ],
+    "wrongAssumptions":  [
+                             "PR3 (risks): \u0027JwtSecurityTokenHandler\u0027s outbound map writes ClaimTypes.Role as role ... FindFirst(ClaimTypes.Role) probably never matches\u0027. That\u0027s wrong. JwtTokenGenerator.cs:34 and :44-51 build a new JwtSecurityToken(claims: ...), and JwtPayload stores each claim under its own Type, so the long ClaimTypes.Role URI is what goes into the token. OutboundClaimTypeMap applies only to the SecurityTokenDescriptor/CreateToken path. With MapInboundClaims=false (Program.cs:32), ClaimTypes.Role therefore matches. PR2\u0027s explanation is the correct one. Add a unit test to lock this in.",
+                             "PR3: \u0027Consent\u0027s private CallerId (ConsentEndpoints.cs:28)\u0027. It is at ConsentEndpoints.cs:40, and PR2 commit 4 already deletes it.",
+                             "PR3 dependsOn (f) and PR4 dependsOn: \u0027TestJwtTokenBuilder can emit perm claims (PR2)\u0027. PR2 never does this. It adds TestUsers with real sessions, and PR1 explicitly forbids perm claims on TestJwtTokenBuilder. Its tokens also lack \u0027sid\u0027 (TestJwtTokenBuilder.cs:38-42), so after PR1 they always get 401.",
+                             "PR4: integration events are \u0027records deriving from SharedKernel.Domain DomainEvent\u0027. PR2 deletes DomainEvent.cs. Today only M3 events use it, and Identity and Consent events already implement IDomainEvent (UserRegisteredEvent.cs:8), so the type won\u0027t exist when PR4 lands.",
+                             "PR3 dependsOn (a): \u0027PR1\u0027s named policy e.g. otp\u0027. PR1 names its policies identity-otp-request, identity-otp-verify, identity-password-login and identity-password-reset, as consts in Identity.Endpoints. ADR 0001:45 and PR2\u0027s rule 6 stop Guardian.Endpoints from referencing them.",
+                             "PR2 outOfScope: \u0027Security headers, HSTS, forwarded headers, and OpenAPI/Scalar only in Development ... not assigned to any PR\u0027. PR1 commit 14 covers HSTS, ForwardedHeaders and dev-only OpenAPI/Scalar. Only security headers are actually unassigned.",
+                             "PR2 outOfScope: \u0027PR1: ... plus CorrelationId in AssignRoleHandler\u0027s audit entry\u0027. PR1\u0027s commits never touch AssignRoleHandler.",
+                             "PR4: seeding batch.read.all means \u0027one entry\u0027 in IdentitySeeder.cs. After PR2 the permission matrix lives in Identity.Domain/Rbac/RbacCatalog.cs, and RbacCatalogTests/RbacSeedingTests assert it.",
+                             "PR4 risk: the concurrency test depends on the \u0027public new Guid Id =\u003e base.Id\u0027 pattern. That pattern exists today (Batch.cs:10, Exam.cs:10, Guardian.cs:10, Invite.cs:10), but PR2 commits 21-23 remove it before PR4. PR2 also adds the Invite xmin token (AddInviteRowVersion), so PR4 should not map it again.",
+                             "PR1: \u0027delete TokenLifetime and DateTime.UtcNow at line 47\u0027. The UtcNow expiry is at JwtTokenGenerator.cs:48 and TokenLifetime at :19. This is trivial, but engineers are told to trust line numbers.",
+                             "Confirmed correct, spot-checked: PR2\u0027s claim that SharedKernel.Application already has FrameworkReference Microsoft.AspNetCore.App (true). PR4\u0027s claim of InvariantGlobalization=true at Directory.Build.props:10 (true). PR1\u0027s claims that ApiFactory is sealed (ApiFactory.cs:18), that Program.cs:34-39 has the stale-config comment, that OtpChallenge Destination is max 320 and RevokedReason is varchar(30) (IdentityDbContext.cs:60,87), and that VerifyOtpHandler throws at :29 before the save at :42 (all true). PR2\u0027s claims that IdentitySeeder returns early at :19-22 with role names at :31-42 (true), that Invite.CreatedBy is a DateTime (Invite.cs:18, true), that M3 routes are unconstrained \u0027/{inviteId}\u0027 (true), and that only M3 events derive from DomainEvent (true)."
+                         ],
+    "adjustments":  [
+                        {
+                            "pr":  "PR1",
+                            "change":  "TestSessions.SignInAsAsync gets an optional `TimeSpan? sessionLifetime` (default 1h) and `bool viaApi` / RegisterViaApiAsync overloads. It is the single test-auth helper for PR2-PR4. State this in the commit message and TestJwtTokenBuilder\u0027s docstring."
+                        },
+                        {
+                            "pr":  "PR1",
+                            "change":  "Add a SecurityHeaders middleware to commit 14 (nosniff, frame-ancestors \u0027none\u0027 / X-Frame-Options DENY, Referrer-Policy no-referrer, minimal CSP for API responses) and assert it in AuthRateLimitTests or a new SecurityHeadersTests."
+                        },
+                        {
+                            "pr":  "PR1",
+                            "change":  "Keep ConcurrencyConflictError at SharedKernel.Domain/Exceptions and document it as THE shared 409 for xmin conflicts. Consider adding SharedKernel.Infrastructure PostgresConstraintViolations.IsUniqueViolation(DbUpdateException, string indexName) here too, so PR2-PR4 don\u0027t hand-roll 23505 parsing."
+                        },
+                        {
+                            "pr":  "PR1",
+                            "change":  "Make OtpDeliveryOptionsValidator testable: document the ConfigureTestServices override (remove IValidateOptions\u003cOtpDeliveryOptions\u003e, register CapturingOtpSender) that non-Development WebApplicationFactory tests (PR2 NonDevelopmentStartupTests) must use."
+                        },
+                        {
+                            "pr":  "PR1",
+                            "change":  "Optionally audit Identity security events (register, password reset, logout) through IAuditLogger, or explicitly defer them to PR2\u0027s audit foundation in outOfScope."
+                        },
+                        {
+                            "pr":  "PR2",
+                            "change":  "Drop commit 5 (TestUsers). Use PR1\u0027s TestSessions.SignInAsAsync everywhere, and move the TestJson helper into PR1\u0027s harness file or keep it standalone."
+                        },
+                        {
+                            "pr":  "PR2",
+                            "change":  "Commit 4: move PR1\u0027s GetSessionId into SharedKernel.Application/Security/ClaimsPrincipalExtensions (typed 401 on missing or invalid sid) and add HasPermission(this ClaimsPrincipal, string code), which PR3 and PR4 need. Update PR1\u0027s LogoutHandler endpoint and SessionValidatingJwtBearerEvents usages."
+                        },
+                        {
+                            "pr":  "PR2",
+                            "change":  "Commit 17: do not create a second ConcurrencyConflictError. Reuse PR1\u0027s SharedKernel.Domain/Exceptions/ConcurrencyConflictError."
+                        },
+                        {
+                            "pr":  "PR2",
+                            "change":  "Commit 6/7: also make CreateExamRequest/CreateExamCommand.SeriesId Guid?, reject Guid.Empty, and have the web send null for a blank value. This fixes the high exam-builder.ts:160 bug now instead of in PR4. Then drop PR4 commit 4\u0027s backend half."
+                        },
+                        {
+                            "pr":  "PR2",
+                            "change":  "Minimise Guardian work, because PR3 replaces the model. Keep MediatR removal, UTC/GUID conventions, the RBAC gate (guardian.link.manage), removal of the NotImplementedException verify route, typed not-found and state errors, and the Include fix (it is the high bug). Skip the UniqueActiveGuardianLink migration, the Guardian Clock/event refactor (commit 22 Guardian part) and GuardianAuditTrail (commit 28). Don\u0027t keep InvalidLinkTokenError. Leave a note in the PR description."
+                        },
+                        {
+                            "pr":  "PR2",
+                            "change":  "Seeder commit: add an optional Development-only bootstrap SuperAdmin (Identity:Bootstrap:AdminEmail plus password from user-secrets, hashed with IPasswordHasher, idempotent) so staff can log in after PR1\u0027s password+2FA rule. Also add GET /v1/admin/roles (identity.role.assign) or record the FR-2 role list/revoke deferral explicitly."
+                        },
+                        {
+                            "pr":  "PR2",
+                            "change":  "NonDevelopmentStartupTests: in ConfigureTestServices, remove PR1\u0027s OtpDelivery validator and register CapturingOtpSender, otherwise the Production host cannot start. Better still, exercise the \u0027--migrate-and-seed\u0027 path, which returns before app.Run() and never triggers ValidateOnStart."
+                        },
+                        {
+                            "pr":  "PR2",
+                            "change":  "Inject IRequestContext into AssignRoleHandler so its audit entry gets CorrelationId. Record in ADR 0002 that AssignRoleHandler\u0027s post-commit audit is the same accepted non-atomic trade-off, or plan the fix."
+                        },
+                        {
+                            "pr":  "PR2",
+                            "change":  "Correct outOfScope: HSTS, forwarded headers and dev-only OpenAPI are in PR1. Only security headers were unassigned, and PR1 now takes them."
+                        },
+                        {
+                            "pr":  "PR2",
+                            "change":  "Keep invite code generation to the minimal CSPRNG swap. Name the expiry error so PR4 reuses it (InvalidInviteExpiryError), and document in the commit that PR4 introduces hashing and the IInviteCodeGenerator port."
+                        },
+                        {
+                            "pr":  "PR3",
+                            "change":  "Delete PR2\u0027s Guardian leftovers explicitly in commit 5: Application/Audit/GuardianAuditTrail.cs, the GuardianAuditTrailTests/GuardianTests/GuardianLinkHandlerTests unit tests, the Guardian test in M3AuditTrailTests, and the Guardian FakeClock (reuse it; don\u0027t recreate it)."
+                        },
+                        {
+                            "pr":  "PR3",
+                            "change":  "Use PR1\u0027s TestSessions.SignInAsAsync for staff tokens (SuperAdmin/ExamAdmin with a password when 2FA is needed) and a RegisterViaApiAsync helper for minors and guardians. Do not create a new TestUsers.cs or rely on TestJwtTokenBuilder perm claims."
+                        },
+                        {
+                            "pr":  "PR3",
+                            "change":  "Define Guardian-owned rate-limit policies (\u0027guardian-link-request\u0027, \u0027guardian-link-verify\u0027) in Guardian.Endpoints, registered via services.AddOptions\u003cRateLimiterOptions\u003e().Configure\u003c...\u003e and bound from \u0027Guardian:RateLimits\u0027, copying PR1\u0027s IdentityRateLimitPolicies pattern. Raise the limits in ApiFactory.AdditionalConfiguration."
+                        },
+                        {
+                            "pr":  "PR3",
+                            "change":  "Replace the always-registered LoggingGuardianVerificationSender and LogCodesInDevelopment flag with PR1\u0027s pattern: GuardianVerificationDeliveryOptions.Provider plus an IHostEnvironment validator that fails outside Development, with codes logged only in Development and destinations masked."
+                        },
+                        {
+                            "pr":  "PR3",
+                            "change":  "guardian-register.ts must navigate to /verify-otp with router state {destination} (PR1\u0027s NFR-6 fix), not queryParams.destination."
+                        },
+                        {
+                            "pr":  "PR3",
+                            "change":  "Guardian endpoints must not return Consent.Contracts DTOs directly (PR2 arch rule 6). Map them to Guardian.Application DTOs, or amend the rule in PR2 with a positive control."
+                        },
+                        {
+                            "pr":  "PR3",
+                            "change":  "Use PR2\u0027s HasPermission(\"consent.manage\") and IRequestContext.CorrelationId for the Consent outbox audit entries. Reuse PR1\u0027s ConcurrencyConflictError (or subclass it) instead of ConcurrentGuardianLinkUpdateError/ConsentConcurrentUpdateError. Correct the role-claim risk note. Edit RbacCatalog (not IdentitySeeder) when introducing WellKnownRoleNames, and add a test that the names match."
+                        },
+                        {
+                            "pr":  "PR3",
+                            "change":  "Resolve the FR-50 roster guardian-contact handoff with PR4: either PR3 exposes a Guardian.Contracts IGuardianLinkRequests port now, or both plans state it is deferred."
+                        },
+                        {
+                            "pr":  "PR3",
+                            "change":  "Return DOB read-only on /v1/me/profile next to AgeBand, and update the UserStatus.PendingVerification doc to say the minor gate happens at exam access (IConsentGate), not activation."
+                        },
+                        {
+                            "pr":  "PR4",
+                            "change":  "Drop commit 1. Reuse PR2\u0027s PageRequest/InvalidPageRequestError and SharedKernel.UnitTests project, and add only PagedResult\u003cT\u003e. Renumber the ADR to docs/adr/0003-m3-enrollment-scheduling-ownership.md."
+                        },
+                        {
+                            "pr":  "PR4",
+                            "change":  "Integration events implement IDomainEvent with an explicit OccurredAtUtc (PR2 convention), not DomainEvent. Call the shared helper GetUserId/HasPermission (PR2 names), not GetRequiredUserId."
+                        },
+                        {
+                            "pr":  "PR4",
+                            "change":  "Audit: extend PR2\u0027s {ExamAuthoring,Batch,Invite}AuditTrail classes with the new events (ExamConfigUpdated, ExamScheduled, ExamArchived, ExamBatchAssignmentsChanged, RosterImported, EnrollmentCreated), and update PR2\u0027s handlers for the changed InviteAccepted/InviteRevoked shapes. Do not add parallel *AuditHandlers files or explicit registrations; rely on AddDomainEventHandlersFrom. Add a test asserting exactly one audit row per event."
+                        },
+                        {
+                            "pr":  "PR4",
+                            "change":  "Invite: build on PR2\u0027s InviteNotPendingError, InviteCodeIssuedEvent, InvalidInviteExpiryError and the existing xmin mapping (no re-mapping in M3InviteCodeHashing). Remove or adapt PR2\u0027s accept-by-GUID InviteFlowTests (AcceptInvite_WithCodeGeneratedInEarlierRequest, AcceptInvite_Twice, TwoConcurrentRequests) when the route is replaced."
+                        },
+                        {
+                            "pr":  "PR4",
+                            "change":  "Batch: evolve PR2\u0027s AddMember validation into MemberContact, reusing InvalidBatchMemberError or renaming it deliberately, and keep the actorUserId parameter for BatchMemberAddedEvent. In M3RosterMemberFields, explicitly drop and recreate PR2\u0027s IX_BatchMembers_BatchId_Email with the new filter, skip the redundant lower-casing UPDATE, and extend PR2\u0027s 23505 translation to the phone index."
+                        },
+                        {
+                            "pr":  "PR4",
+                            "change":  "Seed batch.read.all through PR2\u0027s RbacCatalog and update RbacCatalogTests. Flag it as a D3 extension in the PR description."
+                        },
+                        {
+                            "pr":  "PR4",
+                            "change":  "Time-travel tests: sign in with TestSessions.SignInAsAsync(sessionLifetime: \u003e advance) BEFORE advancing the FakeClock, because PR1\u0027s session validator uses Clock and JwtBearer checks nbf/exp against real time. Replace TestUsers.SeedActiveCandidateAsync with SignInAsAsync(\"Candidate\", email)."
+                        },
+                        {
+                            "pr":  "PR4",
+                            "change":  "Bind the invite-accept limits from \u0027Invite:RateLimits:Accept\u0027 (module-owned, like PR1\u0027s Identity:RateLimits) and raise them in ApiFactory.AdditionalConfiguration, with a low-limit subclass for the 429 test."
+                        },
+                        {
+                            "pr":  "PR4",
+                            "change":  "Add DELETE /v1/batches/{id}/members/{memberId} (FR-50), a Guardian nav item for users with the Guardian role, ExamSection soft-delete consistency plus a (SectionId, Order) unique index, and README/.env.example accuracy fixes in the docs commit."
+                        }
+                    ],
+    "verdict":  "Approve with changes. The four plans cover every confirmed high-severity bug and nearly all medium bugs and M1/M3 gaps, and the stacking order PR1 to PR4 is sound. They cannot be executed as written, for three reasons.\n\n1. Several pieces are defined twice and would collide:\n   - test-auth helpers (TestSessions vs TestUsers x3, plus TestJwtTokenBuilder perm tokens that PR1 makes 401);\n   - ConcurrencyConflictError;\n   - PageRequest and the SharedKernel.UnitTests project;\n   - ADR 0002;\n   - audit handlers, which would double-write rows;\n   - invite code, expiry and xmin logic;\n   - the batch-member unique index.\n2. A few dependencies point forward or at things an earlier PR deletes:\n   - PR3 needs HasPermission, which only PR4 adds;\n   - PR4 uses the DomainEvent base, which PR2 deletes;\n   - PR2 deletes PR1\u0027s GetSessionId file;\n   - PR2\u0027s Production startup test is blocked by PR1\u0027s OTP fail-fast;\n   - PR4\u0027s time-travel tests clash with PR1\u0027s Clock-based session validation and the nbf claim.\n3. PR2 spends about five commits and a migration on a Guardian model that PR3 deletes, and PR3 doesn\u0027t clean up PR2\u0027s leftovers.\n\nSmaller issues:\n- The high-severity seriesId 400 bug should move from PR4 to PR2.\n- PR2 needs a dev bootstrap admin, or developers lose admin access after PR1.\n- Security headers, AssignRoleHandler CorrelationId and atomicity, Identity event auditing, FR-2 role list/revoke, and member removal are unowned. Assign them or defer them in writing.\n- PR3\u0027s role-claim risk is factually wrong.\n- PR3\u0027s guardian sender repeats the dev-logging NFR-6 defect.\n- PR3\u0027s guardian sign-up puts PII back into URLs.\n\nWith the listed adjustments, PR2 should reuse PR1\u0027s primitives, PR3 should reuse PR2\u0027s, and PR4 should reuse both. The plans are then consistent with D1-D10, with D3 extended only by PR4\u0027s flagged batch.read.all."
+}
