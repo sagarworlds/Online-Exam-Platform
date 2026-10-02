@@ -25,6 +25,13 @@
           Opens {{ exam.startUtc | date: 'medium' }}, closes {{ exam.endUtc | date: 'medium' }}<br />
           {{ exam.questionCount }} questions{{ exam.durationSeconds ? ', ' + exam.durationSeconds / 60 + ' minutes' : '' }}
         </p>
+        @if (exam.attemptId && exam.attemptStatus === 'Submitted') {
+          <p>Your score: <strong>{{ exam.score }} / {{ exam.maxScore }}</strong> <a [routerLink]="['/attempt', exam.attemptId]">View result</a></p>
+        } @else if (exam.attemptId) {
+          <a [routerLink]="['/attempt', exam.attemptId]">Resume exam</a>
+        } @else if (exam.state === 'Open') {
+          <button type="button" class="primary" [disabled]="startingExamId() !== null" (click)="start(exam)">Start exam</button>
+        }
       </div>
     }
   }
