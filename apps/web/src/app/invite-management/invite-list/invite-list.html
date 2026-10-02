@@ -1,6 +1,8 @@
 <div class="page page--wide">
-  <h1>Invitations</h1>
-  <p><a routerLink="/invites/create">Invite a candidate</a></p>
+  <div class="page-header">
+    <h1>Invitations</h1>
+    <a routerLink="/invites/create" class="btn btn--primary">Invite a candidate</a>
+  </div>
 
   @if (errorMessage()) {
     <p class="error-message">{{ errorMessage() }}</p>
@@ -9,17 +11,19 @@
   @if (loading()) {
     <p>Loading…</p>
   } @else if (invites().length === 0) {
-    <p>No invitations yet.</p>
+    <div class="card empty-state">No invitations yet.</div>
   } @else {
     @for (invite of invites(); track invite.id) {
       <div class="card">
-        <p>
-          <strong>{{ invite.email }}</strong>
+        <h3 class="card__title">
+          {{ invite.email }}
           <span class="badge" [class.badge--active]="invite.status === 'Accepted'" [class.badge--inactive]="invite.status !== 'Accepted'">{{ invite.status }}</span>
-        </p>
-        <p class="hint">Invited {{ invite.sentAt | date: 'medium' }}</p>
+        </h3>
+        <p class="card__meta">Invited {{ invite.sentAt | date: 'medium' }}</p>
         @if (invite.status === 'Pending') {
-          <button type="button" (click)="revoke(invite)">Revoke</button>
+          <div class="actions">
+            <button type="button" (click)="revoke(invite)">Revoke</button>
+          </div>
         }
       </div>
     }

@@ -21,56 +21,53 @@ export function optionalGuid(control: AbstractControl): ValidationErrors | null 
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
-    <div class="exam-builder-container">
-      <h2>Create New Exam</h2>
+    <div class="page">
+      <h1>Create New Exam</h1>
 
-      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="exam-form">
-        <div class="form-group">
+      <form class="card" [formGroup]="form" (ngSubmit)="onSubmit()">
+        <div class="field">
           <label for="name">Exam Name *</label>
           <input
             type="text"
             id="name"
             formControlName="name"
             placeholder="Enter exam name"
-            class="form-control"
           />
           @if (form.get('name')?.invalid && form.get('name')?.touched) {
-            <div class="error-text">Exam name is required</div>
+            <div class="field-error">Exam name is required</div>
           }
         </div>
 
-        <div class="form-group">
+        <div class="field">
           <label for="description">Description</label>
           <textarea
             id="description"
             formControlName="description"
             placeholder="Enter exam description"
-            class="form-control"
             rows="4"
           ></textarea>
         </div>
 
-        <div class="form-group">
+        <div class="field">
           <label for="seriesId">Series ID (Optional)</label>
           <input
             type="text"
             id="seriesId"
             formControlName="seriesId"
             placeholder="Leave blank for a standalone exam"
-            class="form-control"
           />
           @if (form.get('seriesId')?.hasError('guid')) {
-            <div class="error-text">
+            <div class="field-error">
               A series ID looks like 7c9e6679-7425-40de-944b-e07fc1f90ae7. Leave it blank for a standalone exam.
             </div>
           }
         </div>
 
         <div class="actions">
-          <button type="submit" [disabled]="!form.valid || loading" class="btn btn-primary">
+          <button type="submit" [disabled]="!form.valid || loading" class="btn btn--primary">
             {{ loading ? 'Creating...' : 'Create Exam' }}
           </button>
-          <a routerLink="/exams" class="btn btn-secondary">Cancel</a>
+          <a routerLink="/exams" class="btn">Cancel</a>
         </div>
 
         @if (error) {
@@ -78,22 +75,7 @@ export function optionalGuid(control: AbstractControl): ValidationErrors | null 
         }
       </form>
     </div>
-  `,
-  styles: [`
-    .exam-builder-container { max-width: 600px; margin: 0 auto; padding: 2rem; }
-    .exam-form { background: white; padding: 2rem; border-radius: 8px; border: 1px solid #ddd; }
-    .form-group { margin-bottom: 1.5rem; }
-    .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
-    .form-control { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; }
-    .form-control:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); }
-    .error-text { color: #dc3545; font-size: 0.875rem; margin-top: 0.25rem; }
-    .actions { display: flex; gap: 1rem; margin-top: 2rem; }
-    .btn { padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
-    .btn-primary { background: #007bff; color: white; }
-    .btn-primary:disabled { background: #6c757d; cursor: not-allowed; }
-    .btn-secondary { background: #6c757d; color: white; }
-    .error-message { color: #dc3545; background: #f8d7da; padding: 1rem; border-radius: 4px; border: 1px solid #f5c6cb; margin-top: 1rem; }
-  `]
+  `
 })
 export class ExamBuilder implements OnInit {
   private fb = inject(FormBuilder);

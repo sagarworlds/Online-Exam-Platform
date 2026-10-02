@@ -1,14 +1,18 @@
 <div class="page page--wide">
-  <h1>Admin</h1>
+  <div class="page-header">
+    <h1>Admin</h1>
+  </div>
 
   @if (sections().length === 0) {
     <p class="hint">Your account has no admin areas.</p>
   } @else {
-    @for (section of sections(); track section.path) {
-      <div class="card">
-        <h3><a [routerLink]="section.path">{{ section.label }}</a></h3>
-        <p class="hint">{{ section.description }}</p>
-      </div>
-    }
+    <div class="card-grid">
+      @for (section of sections(); track section.path) {
+        <div class="card">
+          <h3><a [routerLink]="section.path">{{ section.label }}</a></h3>
+          <p class="hint">{{ section.description }}</p>
+        </div>
+      }
+    </div>
   }
 </div>

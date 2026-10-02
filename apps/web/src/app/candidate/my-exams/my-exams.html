@@ -1,5 +1,7 @@
 <div class="page page--wide">
-  <h1>My exams</h1>
+  <div class="page-header">
+    <h1>My exams</h1>
+  </div>
 
   @if (errorMessage()) {
     <p class="error-message">{{ errorMessage() }}</p>
@@ -8,11 +10,13 @@
   @if (loading()) {
     <p>Loading…</p>
   } @else if (exams().length === 0) {
-    <p>You have no exams yet. Open the link in your invitation e-mail to add one.</p>
+    <div class="card empty-state">
+      You have no exams yet. Open the link in your invitation e-mail to add one.
+    </div>
   } @else {
     @for (exam of exams(); track exam.examId) {
       <div class="card">
-        <h3>
+        <h3 class="card__title">
           {{ exam.name }}
           <span class="badge" [class.badge--active]="exam.state === 'Open'" [class.badge--inactive]="exam.state !== 'Open'">
             {{ exam.state === 'NotOpen' ? 'Not open yet' : exam.state === 'Open' ? 'Open' : 'Closed' }}
@@ -21,16 +25,23 @@
         @if (exam.description) {
           <p>{{ exam.description }}</p>
         }
-        <p>
+        <p class="card__meta">
           Opens {{ exam.startUtc | date: 'medium' }}, closes {{ exam.endUtc | date: 'medium' }}<br />
           {{ exam.questionCount }} questions{{ exam.durationSeconds ? ', ' + exam.durationSeconds / 60 + ' minutes' : '' }}
         </p>
         @if (exam.attemptId && exam.attemptStatus === 'Submitted') {
-          <p>Your score: <strong>{{ exam.score }} / {{ exam.maxScore }}</strong> <a [routerLink]="['/attempt', exam.attemptId]">View result</a></p>
+          <div class="actions">
+            <span>Your score: <strong>{{ exam.score }} / {{ exam.maxScore }}</strong></span>
+            <a [routerLink]="['/attempt', exam.attemptId]" class="btn">View result</a>
+          </div>
         } @else if (exam.attemptId) {
-          <a [routerLink]="['/attempt', exam.attemptId]">Resume exam</a>
+          <div class="actions">
+            <a [routerLink]="['/attempt', exam.attemptId]" class="btn btn--primary">Resume exam</a>
+          </div>
         } @else if (exam.state === 'Open') {
-          <button type="button" class="primary" [disabled]="startingExamId() !== null" (click)="start(exam)">Start exam</button>
+          <div class="actions">
+            <button type="button" class="primary" [disabled]="startingExamId() !== null" (click)="start(exam)">Start exam</button>
+          </div>
         }
       </div>
     }

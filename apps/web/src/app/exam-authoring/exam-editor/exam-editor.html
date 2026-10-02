@@ -1,5 +1,5 @@
 <div class="page page--wide">
-  <p><a routerLink="/exams">&larr; All exams</a></p>
+  <a routerLink="/exams" class="back-link">&larr; All exams</a>
 
   @if (errorMessage()) {
     <p class="error-message">{{ errorMessage() }}</p>
@@ -8,12 +8,14 @@
   @if (loading()) {
     <p>Loading…</p>
   } @else if (exam(); as e) {
-    <h1>
-      {{ e.name }}
-      <span class="badge" [class.badge--active]="e.status === 'Published'" [class.badge--inactive]="e.status !== 'Published'">{{ e.status }}</span>
-    </h1>
+    <div class="page-header">
+      <h1>
+        {{ e.name }}
+        <span class="badge" [class.badge--active]="e.status === 'Published'" [class.badge--inactive]="e.status !== 'Published'">{{ e.status }}</span>
+      </h1>
+    </div>
     @if (e.description) {
-      <p>{{ e.description }}</p>
+      <p class="hint">{{ e.description }}</p>
     }
 
     <div class="card">
@@ -32,7 +34,9 @@
         <p>Not scheduled yet.</p>
       }
       @if (isDraft()) {
-        <a [routerLink]="['/exams', e.id, 'schedule']">{{ e.isScheduled ? 'Change schedule' : 'Set schedule' }}</a>
+        <div class="actions">
+          <a [routerLink]="['/exams', e.id, 'schedule']" class="btn">{{ e.isScheduled ? 'Change schedule' : 'Set schedule' }}</a>
+        </div>
       }
     </div>
 
@@ -41,7 +45,7 @@
       <div class="card section-card">
         <h3>{{ section.order }}. {{ section.name }}</h3>
         @if (section.questions.length === 0) {
-          <p>No questions yet.</p>
+          <p class="hint">No questions yet.</p>
         } @else {
           <ol>
             @for (question of section.questions; track question.id) {
@@ -75,15 +79,18 @@
         <button type="submit" class="primary" [disabled]="sectionForm.invalid || busy()">Add section</button>
       </form>
 
-      <button type="button" class="primary" (click)="publish()" [disabled]="!canPublish() || busy()">Publish exam</button>
-      @if (!canPublish()) {
-        <p class="hint">
-          To publish: {{ e.isScheduled ? 'schedule is set' : 'set a schedule' }}, and
-          {{ questionCount() > 0 ? 'questions added' : 'add at least one question' }}.
-        </p>
-      }
+      <div class="card">
+        <h2>Publish</h2>
+        @if (!canPublish()) {
+          <p class="hint">
+            To publish: {{ e.isScheduled ? 'schedule is set' : 'set a schedule' }}, and
+            {{ questionCount() > 0 ? 'questions added' : 'add at least one question' }}.
+          </p>
+        }
+        <button type="button" class="primary" (click)="publish()" [disabled]="!canPublish() || busy()">Publish exam</button>
+      </div>
     } @else {
-      <p>This exam is published, so it can no longer be edited.</p>
+      <p class="hint">This exam is published, so it can no longer be edited.</p>
     }
   }
 </div>

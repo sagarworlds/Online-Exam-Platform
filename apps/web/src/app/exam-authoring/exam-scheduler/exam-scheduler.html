@@ -5,7 +5,7 @@
     <p class="error-message">{{ errorMessage() }}</p>
   }
 
-  <form [formGroup]="form" (ngSubmit)="submit()">
+  <form class="card" [formGroup]="form" (ngSubmit)="submit()">
     <p class="hint">Times are in your browser's local time and are stored as UTC.</p>
 
     <div class="field">
@@ -40,7 +40,9 @@
       </select>
     </div>
 
-    <button type="submit" class="primary" [disabled]="form.invalid || saving()">Save schedule</button>
-    <a [routerLink]="['/exams', examId]">Cancel</a>
+    <div class="actions">
+      <button type="submit" class="primary" [disabled]="form.invalid || saving()">Save schedule</button>
+      <a [routerLink]="['/exams', examId]" class="btn">Cancel</a>
+    </div>
   </form>
 </div>

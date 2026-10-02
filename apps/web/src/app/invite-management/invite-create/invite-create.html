@@ -21,9 +21,9 @@
   @if (loading()) {
     <p>Loading…</p>
   } @else if (exams().length === 0) {
-    <p>There are no published exams to invite candidates to yet.</p>
+    <div class="card empty-state">There are no published exams to invite candidates to yet.</div>
   } @else {
-    <form [formGroup]="form" (ngSubmit)="submit()" aria-label="New invitation">
+    <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="New invitation">
       <div class="field">
         <label for="invite-exam">Exam</label>
         <select id="invite-exam" formControlName="examId">
