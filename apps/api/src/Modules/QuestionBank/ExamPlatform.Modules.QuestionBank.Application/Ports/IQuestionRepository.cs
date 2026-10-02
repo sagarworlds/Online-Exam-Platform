@@ -30,6 +30,11 @@ public interface IQuestionRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Question>> GetManyAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken);
 
+    /// <summary>Loads several questions without their options, tracked so changes to them are saved.</summary>
+    /// <param name="questionIds">The ids to load; unknown ids are skipped.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Question>> GetManyForUpdateAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken);
+
     /// <summary>Lists the most recently created questions that match the filter, newest first.</summary>
     /// <param name="filter">Which questions to include.</param>
     /// <param name="take">How many to return at most.</param>

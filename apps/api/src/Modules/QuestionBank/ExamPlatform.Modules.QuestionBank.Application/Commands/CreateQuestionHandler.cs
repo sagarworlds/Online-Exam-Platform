@@ -17,7 +17,7 @@ public sealed record CreateQuestionCommand(
 /// <summary>Handles <see cref="CreateQuestionCommand"/>.</summary>
 public sealed class CreateQuestionHandler(
     IQuestionRepository repository,
-    IBookRepository books,
+    OpenChapterResolver chapters,
     IQuestionBankUnitOfWork unitOfWork,
     IRichTextSanitizer sanitizer,
     Clock clock)
@@ -33,7 +33,7 @@ public sealed class CreateQuestionHandler(
     {
         var html = QuestionText.Clean(sanitizer, command.Text);
 
-        var filedUnder = command.ChapterId is { } chapterId ? await FindOpenChapterAsync(chapterId, cancellationToken) : null;
+        var filedUnder = command.ChapterId is { } chapterId ? await chapters.ResolveAsync(chapterId, cancellationToken) : null;
 
         var question = Question.Create(html, command.Options, command.CreatedBy, clock.UtcNow, filedUnder?.ChapterId);
 
@@ -41,20 +41,5 @@ public sealed class CreateQuestionHandler(
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return question.ToDto(filedUnder);
-    }
-
-    // A question may only be filed under a chapter that exists and is still open: an archived chapter keeps what it
-    // has but takes nothing new, which is what archiving is for.
-    private async Task<ChapterRef> FindOpenChapterAsync(Guid chapterId, CancellationToken cancellationToken)
-    {
-        var book = await books.GetByChapterIdAsync(chapterId, cancellationToken) ?? throw new ChapterNotFoundError();
-        var chapter = book.GetChapter(chapterId);
-
-        if (book.IsArchived)
-            throw new BookArchivedError($"The book \"{book.Name}\" is archived; restore it or choose another chapter.");
-        if (chapter.IsArchived)
-            throw new BookArchivedError($"The chapter \"{chapter.Title}\" is archived; restore it or choose another chapter.");
-
-        return new ChapterRef(chapter.Id, chapter.Title, book.Id, book.Name);
     }
 }

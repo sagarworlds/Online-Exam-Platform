@@ -24,7 +24,7 @@ public class CreateQuestionHandlerTests
         var clock = Substitute.For<Clock>();
         clock.UtcNow.Returns(Now);
         // The real sanitizer, not a stub: these rules are about what survives the cleaning.
-        handler = new CreateQuestionHandler(repository, books, unitOfWork, new RichTextSanitizer(), clock);
+        handler = new CreateQuestionHandler(repository, new OpenChapterResolver(books), unitOfWork, new RichTextSanitizer(), clock);
     }
 
     private static List<NewQuestionOption> TwoOptions() => [new("Paris", true), new("Rome", false)];

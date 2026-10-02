@@ -24,6 +24,12 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
             .Where(q => questionIds.Contains(q.Id))
             .ToListAsync(cancellationToken);
 
+    // Without the options on purpose: filing changes only where a question sits, and a page of up to 200 questions does not
+    // need every one of their options loaded to do that.
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Question>> GetManyForUpdateAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken) =>
+        await context.Questions.Where(q => questionIds.Contains(q.Id)).ToListAsync(cancellationToken);
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<Question>> ListNewestAsync(QuestionFilter filter, int take, CancellationToken cancellationToken)
     {

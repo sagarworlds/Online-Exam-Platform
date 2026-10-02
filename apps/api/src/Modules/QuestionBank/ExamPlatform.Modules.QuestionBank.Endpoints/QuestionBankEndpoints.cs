@@ -52,7 +52,17 @@ public static class QuestionBankEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("DeleteQuestion")
             .WithDescription("Delete a question; refused while an exam holds it or candidates have answered it");
+
+        // A collection action, not /{questionId}/chapter, so filing one question and filing a hundred are the same call.
+        questions.MapPost("/placement", FileQuestions)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("FileQuestions")
+            .WithDescription("File one or more questions under a chapter, all or none");
     }
+
+    private static async Task<IResult> FileQuestions(FileQuestionsRequest request, FileQuestionsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new FileQuestionsCommand(request.QuestionIds, request.ChapterId), ct));
 
     private static async Task<IResult> DeleteQuestion(Guid questionId, DeleteQuestionHandler handler, CancellationToken ct)
     {
@@ -88,6 +98,11 @@ public static class QuestionBankEndpoints
 /// <param name="Options">The answer options in display order; exactly one must be correct.</param>
 /// <param name="ChapterId">The chapter to file the question under; omit or send null to leave it unfiled.</param>
 public sealed record CreateQuestionRequest(string? Text, IReadOnlyList<CreateQuestionOptionRequest?>? Options, Guid? ChapterId = null);
+
+/// <summary>Request body for filing questions under a chapter.</summary>
+/// <param name="QuestionIds">The questions to file, at least one.</param>
+/// <param name="ChapterId">The chapter to file them under; it must be open.</param>
+public sealed record FileQuestionsRequest(IReadOnlyList<Guid>? QuestionIds, Guid ChapterId);
 
 /// <summary>Request body for editing a question: its whole new content, not a patch.</summary>
 /// <param name="Text">The question text; HTML from the author's editor, which the server sanitizes before storing it.</param>

@@ -172,6 +172,21 @@ public sealed class Question : AggregateRoot
         _options.AddRange(revised);
     }
 
+    /// <summary>Files the question under a chapter, wherever it was before. Nothing about its content changes.</summary>
+    /// <param name="chapterId">
+    /// The chapter to file it under. The caller has already checked that the chapter exists and is open; this aggregate
+    /// cannot, because chapters belong to another aggregate.
+    /// </param>
+    /// <returns><see langword="true"/> when the question moved; <see langword="false"/> when it was already filed there.</returns>
+    public bool FileUnder(Guid chapterId)
+    {
+        if (ChapterId == chapterId)
+            return false;
+
+        ChapterId = chapterId;
+        return true;
+    }
+
     // Once candidates have answered, the key and the list of options are part of their results. Wording is the one thing
     // that can still be corrected without touching any of that: the same options, in the same order, with the same one correct.
     private void EnsureOnlyWordingChanges(IReadOnlyList<QuestionOptionEdit> edits)

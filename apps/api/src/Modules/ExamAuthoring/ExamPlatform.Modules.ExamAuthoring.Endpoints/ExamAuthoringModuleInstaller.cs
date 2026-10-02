@@ -32,6 +32,7 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
         services.AddScoped<IExamAuthoringUnitOfWork, ExamAuthoringUnitOfWork>();
         services.AddScoped<IExamCatalog, ExamCatalog>();
         services.AddScoped<IQuestionUsageSource, ExamQuestionUsageSource>();
+        services.AddScoped<IQuestionPlacementGuard, ExamScopePlacementGuard>();
 
         services.AddScoped<ExamScopeResolver>();
         services.AddScoped<ExamDtoFactory>();
