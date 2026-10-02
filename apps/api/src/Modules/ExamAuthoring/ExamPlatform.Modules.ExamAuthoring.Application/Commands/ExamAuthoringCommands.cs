@@ -29,6 +29,11 @@ public sealed record AddSectionCommand(Guid ExamId, string? Name, int? TimeSecon
 /// <param name="QuestionId">The question's id in the question bank.</param>
 public sealed record AddExamQuestionCommand(Guid ExamId, Guid SectionId, Guid QuestionId);
 
+/// <summary>Takes a section, with its questions, out of a draft exam.</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="SectionId">The section to remove.</param>
+public sealed record RemoveSectionCommand(Guid ExamId, Guid SectionId);
+
 /// <summary>Takes a question out of a section of a draft exam.</summary>
 /// <param name="ExamId">The exam.</param>
 /// <param name="SectionId">The section the question is in.</param>

@@ -56,6 +56,23 @@ public sealed class AddSectionHandler(IExamRepository repository, IExamAuthoring
     }
 }
 
+/// <summary>Handles <see cref="RemoveSectionCommand"/>.</summary>
+public sealed class RemoveSectionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
+{
+    /// <summary>Removes the section and the places its questions held, then saves. The questions stay in the bank.</summary>
+    /// <param name="command">Which section to remove.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    public async Task HandleAsync(RemoveSectionCommand command, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.RemoveSection(command.SectionId);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
 /// <summary>Handles <see cref="AddExamQuestionCommand"/>.</summary>
 public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, IQuestionBank questionBank)
 {

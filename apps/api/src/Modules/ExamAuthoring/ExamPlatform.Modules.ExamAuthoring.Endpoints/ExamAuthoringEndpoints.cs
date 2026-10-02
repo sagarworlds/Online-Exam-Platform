@@ -78,6 +78,14 @@ public static class ExamAuthoringEndpoints
             .WithName("AddExamSection")
             .WithDescription("Add a section to a draft exam");
 
+        exams.MapDelete("/{examId:guid}/sections/{sectionId:guid}", RemoveSection)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("RemoveExamSection")
+            .WithDescription("Remove a section and the places its questions held from a draft exam; the questions stay in the bank");
+
         exams.MapPost("/{examId:guid}/sections/{sectionId:guid}/questions", AddQuestion)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -157,6 +165,13 @@ public static class ExamAuthoringEndpoints
     {
         var result = await handler.HandleAsync(new AddSectionCommand(examId, request.Name, request.TimeSeconds), ct);
         return Results.Created($"/v1/exams/{examId}/sections/{result.Id}", result);
+    }
+
+    private static async Task<IResult> RemoveSection(
+        Guid examId, Guid sectionId, RemoveSectionHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(new RemoveSectionCommand(examId, sectionId), ct);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> AddQuestion(

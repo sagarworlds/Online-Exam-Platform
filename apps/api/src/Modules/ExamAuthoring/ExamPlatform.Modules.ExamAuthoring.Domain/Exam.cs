@@ -269,14 +269,27 @@ public class Exam : AggregateRoot
         UpdatedAt = nowUtc;
     }
 
+    /// <summary>
+    /// Takes a section out of the exam together with the questions in it. Those questions only lose their place in this
+    /// exam; they stay in the question bank, free to go into another section or exam.
+    /// </summary>
+    /// <param name="sectionId">The section to remove.</param>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
     public void RemoveSection(Guid sectionId)
     {
-        var section = _sections.FirstOrDefault(s => s.Id == sectionId);
-        if (section != null)
-        {
-            _sections.Remove(section);
-            UpdatedAt = DateTime.UtcNow;
-        }
+        EnsureDraft();
+
+        var section = GetSection(sectionId) ?? throw new SectionNotFoundError(sectionId);
+        _sections.Remove(section);
+
+        // Sections are numbered 1, 2, 3 ... and the next one added takes the number after the count, so a hole here
+        // would give two sections the same number.
+        var order = 1;
+        foreach (var remaining in _sections.OrderBy(s => s.Order))
+            remaining.Order = order++;
+
+        UpdatedAt = DateTime.UtcNow;
     }
 
     public ExamSection? GetSection(Guid sectionId) => _sections.FirstOrDefault(s => s.Id == sectionId);

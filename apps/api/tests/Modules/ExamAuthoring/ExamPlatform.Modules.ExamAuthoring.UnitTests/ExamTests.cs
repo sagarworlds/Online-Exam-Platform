@@ -240,6 +240,75 @@ public class ExamTests
         Assert.Single(section.Questions);
     }
 
+    // ---- taking a section out -----------------------------------------------------------------------
+
+    [Fact]
+    public void RemoveSection_TakesItAndItsQuestionsOut_AndClosesTheGapInTheNumbering()
+    {
+        var exam = NewExam();
+        var one = exam.AddSection("One", null);
+        var two = exam.AddSection("Two", null);
+        var three = exam.AddSection("Three", null);
+        exam.AddQuestion(two.Id, Guid.NewGuid(), QuestionPlacement.Unfiled);
+
+        exam.RemoveSection(two.Id);
+
+        Assert.Equal([(one.Id, 1), (three.Id, 2)], exam.Sections.Select(s => (s.Id, s.Order)));
+        Assert.Empty(exam.Sections.SelectMany(s => s.Questions));
+    }
+
+    [Fact]
+    public void RemoveSection_ThenAddSection_GivesTheNewOneTheNextNumber()
+    {
+        var exam = NewExam();
+        exam.AddSection("One", null);
+        var two = exam.AddSection("Two", null);
+        exam.AddSection("Three", null);
+        exam.RemoveSection(two.Id);
+
+        var added = exam.AddSection("Four", null);
+
+        Assert.Equal([1, 2, 3], exam.Sections.Select(s => s.Order));
+        Assert.Equal(3, added.Order);
+    }
+
+    [Fact]
+    public void RemoveSection_FreesItsQuestionsToBeAddedElsewhereInTheExam()
+    {
+        var exam = NewExam();
+        var one = exam.AddSection("One", null);
+        var two = exam.AddSection("Two", null);
+        var questionId = Guid.NewGuid();
+        exam.AddQuestion(one.Id, questionId, QuestionPlacement.Unfiled);
+
+        exam.RemoveSection(one.Id);
+
+        Assert.Equal(1, exam.AddQuestion(two.Id, questionId, QuestionPlacement.Unfiled).Order);
+    }
+
+    [Fact]
+    public void RemoveSection_ThatDoesNotExist_ThrowsSectionNotFound_AndChangesNothing()
+    {
+        var exam = NewExam();
+        exam.AddSection("One", null);
+
+        var error = Assert.Throws<SectionNotFoundError>(() => exam.RemoveSection(Guid.NewGuid()));
+
+        Assert.Equal(404, error.HttpStatusCode);
+        Assert.Single(exam.Sections);
+    }
+
+    [Fact]
+    public void RemoveSection_FromAPublishedExam_ThrowsNotDraft()
+    {
+        var exam = ExamReadyToPublish();
+        var section = exam.Sections[0];
+        exam.Publish(Now);
+
+        Assert.Throws<ExamNotDraftError>(() => exam.RemoveSection(section.Id));
+        Assert.Single(exam.Sections);
+    }
+
     // ---- publish ----------------------------------------------------------------------------------
 
     [Fact]

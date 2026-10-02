@@ -70,6 +70,58 @@ public sealed class ExamDraftCorrectionFlowTests(ApiFactory factory) : IClassFix
         Assert.Equal([questionId], QuestionIdsIn(await ReadExamAsync(admin, examId)));
     }
 
+    private static async Task<Guid> AddSectionAsync(HttpClient admin, Guid examId, string name)
+    {
+        var response = await admin.PostAsJsonAsync($"/v1/exams/{examId}/sections", new { name });
+        response.EnsureSuccessStatusCode();
+        return (await JsonAsync(response)).GetProperty("id").GetGuid();
+    }
+
+    [Fact]
+    public async Task ATakenOutSection_LeavesTheExamWithItsQuestions_TheOthersAreRenumbered_AndItsQuestionsCanBeDeletedAgain()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var kept = await CreateQuestionAsync(admin, "Stays", "A", "B");
+        var dropped = await CreateQuestionAsync(admin, "Goes with its section", "A", "B");
+        var examId = await CreateExamAsync(admin, "Draft with a spare section", [kept], TimeSpan.FromHours(1), publish: false);
+        var keptSection = await FirstSectionAsync(admin, examId);
+        var spare = await AddSectionAsync(admin, examId, "Spare");
+        var last = await AddSectionAsync(admin, examId, "Last");
+        (await admin.PostAsJsonAsync($"/v1/exams/{examId}/sections/{spare}/questions", new { questionId = dropped })).EnsureSuccessStatusCode();
+        await AssertProblemAsync(await admin.DeleteAsync($"/v1/questions/{dropped}"), HttpStatusCode.Conflict, "question_in_use");
+
+        var removed = await admin.DeleteAsync($"/v1/exams/{examId}/sections/{spare}");
+
+        Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
+        var exam = await ReadExamAsync(admin, examId);
+        Assert.Equal([(keptSection, 1), (last, 2)], exam.GetProperty("sections").EnumerateArray().Select(s => (s.GetProperty("id").GetGuid(), s.GetProperty("order").GetInt32())));
+        Assert.Equal([kept], QuestionIdsIn(exam));
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/v1/questions/{dropped}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task TakingASectionOut_OfAPublishedExam_Returns409_AndChangesNothing()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var questionId = await CreateQuestionAsync(admin, "Published", "A", "B");
+        var examId = await CreateExamAsync(admin, "Published exam", [questionId], TimeSpan.FromMinutes(-5));
+        var sectionId = await FirstSectionAsync(admin, examId);
+
+        await AssertProblemAsync(await admin.DeleteAsync($"/v1/exams/{examId}/sections/{sectionId}"), HttpStatusCode.Conflict, "exam_not_draft");
+
+        Assert.Equal([questionId], QuestionIdsIn(await ReadExamAsync(admin, examId)));
+    }
+
+    [Fact]
+    public async Task TakingASectionOut_ThatIsNotThere_Returns404()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var examId = await CreateExamAsync(admin, "Draft", [], TimeSpan.FromHours(1), publish: false);
+
+        await AssertProblemAsync(await admin.DeleteAsync($"/v1/exams/{examId}/sections/{Guid.NewGuid()}"), HttpStatusCode.NotFound, "section_not_found");
+        await AssertProblemAsync(await admin.DeleteAsync($"/v1/exams/{Guid.NewGuid()}/sections/{Guid.NewGuid()}"), HttpStatusCode.NotFound, "exam_not_found");
+    }
+
     [Fact]
     public async Task TakingAQuestionOut_OfAPublishedExam_Returns409_AndChangesNothing()
     {
