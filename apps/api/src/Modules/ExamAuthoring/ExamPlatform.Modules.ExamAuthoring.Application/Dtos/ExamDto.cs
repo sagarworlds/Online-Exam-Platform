@@ -2,7 +2,8 @@ using ExamPlatform.Modules.ExamAuthoring.Domain;
 
 namespace ExamPlatform.Modules.ExamAuthoring.Application.Dtos;
 
-/// DTO for exam details.
+/// <summary>An exam as the authoring side sees it.</summary>
+/// <param name="Sections">The sections with their questions; filled in when one exam is read, null in a listing.</param>
 public record ExamDto(
     Guid Id,
     Guid? SeriesId,
@@ -16,7 +17,9 @@ public record ExamDto(
     string TimeZone,
     Guid CreatedBy,
     DateTime CreatedAt,
-    DateTime UpdatedAt
+    DateTime UpdatedAt,
+    bool IsScheduled = false,
+    IReadOnlyList<ExamSectionDto>? Sections = null
 );
 
 /// DTO for exam configuration.

@@ -29,43 +29,14 @@ public sealed class CreateExamHandler(IExamRepository examRepository, IExamAutho
             command.SeriesId,
             command.Name,
             command.Description,
-            DateTime.MinValue, // Scheduling is set via separate ScheduleExamCommand
-            DateTime.MinValue,
+            Exam.NotScheduledAt, // Scheduling is set afterwards, by ScheduleExamHandler
+            Exam.NotScheduledAt,
             command.CreatedBy
         );
 
         examRepository.Add(exam);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return MapToDto(exam);
+        return exam.ToDto();
     }
-
-    private static ExamDto MapToDto(Exam exam) =>
-        new(
-            exam.Id,
-            exam.SeriesId,
-            exam.Name,
-            exam.Description,
-            exam.Status,
-            new ExamConfigDto(
-                exam.Config.TotalTimeSeconds,
-                exam.Config.ShuffleQuestions,
-                exam.Config.ShuffleOptions,
-                exam.Config.SectionLockEnabled,
-                exam.Config.CalculatorAllowed,
-                exam.Config.ScratchpadAllowed,
-                exam.Config.MaxAttempts,
-                exam.Config.MaxRetakes,
-                exam.Config.ResultReleaseMode,
-                exam.Config.ResultReleaseTime,
-                exam.Config.MarkingScheme
-            ),
-            exam.ScheduledStartTime,
-            exam.ScheduledEndTime,
-            exam.LateEntryDeadline,
-            exam.TimeZone,
-            exam.CreatedBy,
-            exam.CreatedAt,
-            exam.UpdatedAt
-        );
 }

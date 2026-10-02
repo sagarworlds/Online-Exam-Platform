@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ExamPlatform.Modules.ExamAuthoring.Domain;
+using ExamPlatform.SharedKernel.Infrastructure;
 
 namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure;
 
@@ -65,5 +66,8 @@ public class ExamAuthoringDbContext(DbContextOptions<ExamAuthoringDbContext> opt
             q.Property(x => x.Id).ValueGeneratedNever();
             q.ToTable("ExamQuestions", "examAuthoring");
         });
+
+        modelBuilder.ApplyUtcDateTimeConversion();
+        modelBuilder.ApplyClientGeneratedGuidKeys();
     }
 }

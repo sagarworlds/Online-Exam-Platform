@@ -29,6 +29,20 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
     [
         new("POST", "/v1/exams", RbacCatalog.PermissionCodes.ExamManage,
             new { name = "Authorization Test Exam" }),
+        new("GET", "/v1/exams", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("GET", "/v1/exams/{examId:guid}", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("PUT", "/v1/exams/{examId:guid}/schedule", RbacCatalog.PermissionCodes.ExamManage,
+            new { scheduledStartTime = DateTime.UtcNow.AddDays(1), scheduledEndTime = DateTime.UtcNow.AddDays(2) }),
+        new("POST", "/v1/exams/{examId:guid}/sections", RbacCatalog.PermissionCodes.ExamManage,
+            new { name = "Section" }),
+        new("POST", "/v1/exams/{examId:guid}/sections/{sectionId:guid}/questions", RbacCatalog.PermissionCodes.ExamManage,
+            new { questionId = Guid.NewGuid() }),
+        new("POST", "/v1/exams/{examId:guid}/publish", RbacCatalog.PermissionCodes.ExamPublish, null),
+
+        new("POST", "/v1/questions", RbacCatalog.PermissionCodes.QuestionManage,
+            new { text = "Q?", options = new[] { new { text = "A", isCorrect = true }, new { text = "B", isCorrect = false } } }),
+        new("GET", "/v1/questions", RbacCatalog.PermissionCodes.QuestionManage, null),
+        new("GET", "/v1/questions/{questionId:guid}", RbacCatalog.PermissionCodes.QuestionManage, null),
 
         new("POST", "/v1/batches", RbacCatalog.PermissionCodes.BatchManage,
             new { examId = Guid.NewGuid(), name = "Authorization Test Batch", maxMembers = 10 }),
@@ -58,7 +72,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
     // verifying their own link cannot be a staff action; the guardian model behind it is redesigned later.
     private static readonly string[] SelfServiceRoutes = ["POST /v1/guardians/links/verify"];
 
-    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians"];
+    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/questions"];
 
     public static TheoryData<string> StaffRouteKeys => [.. StaffRoutes.Select(r => r.Key)];
 

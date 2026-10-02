@@ -2,20 +2,32 @@ using ExamPlatform.Modules.ExamAuthoring.Domain;
 
 namespace ExamPlatform.Modules.ExamAuthoring.Application.Ports;
 
-/// Repository port for Exam aggregate.
+/// <summary>Persistence port for the <see cref="Exam"/> aggregate.</summary>
 public interface IExamRepository
 {
-    /// Add a new exam aggregate to the repository.
+    /// <summary>Starts tracking a new exam; it is stored when the unit of work saves.</summary>
+    /// <param name="exam">The exam to add.</param>
     void Add(Exam exam);
 
-    /// Get an exam by its ID, or null if not found.
+    /// <summary>Loads an exam with its sections and their questions, tracked so changes to it are saved.</summary>
+    /// <param name="examId">The exam's id.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The exam, or <see langword="null"/> when none has that id.</returns>
     Task<Exam?> GetByIdAsync(Guid examId, CancellationToken cancellationToken = default);
 
-    /// Get an exam by its ID, or throw ExamNotFoundError if not found.
+    /// <summary>Like <see cref="GetByIdAsync"/>, but a missing exam is an error.</summary>
+    /// <param name="examId">The exam's id.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="Domain.Exceptions.ExamNotFoundError">No exam has that id.</exception>
     Task<Exam> GetByIdOrThrowAsync(Guid examId, CancellationToken cancellationToken = default);
 
-    /// List all exams for a series, excluding soft-deleted ones.
+    /// <summary>Lists the exams of a series.</summary>
+    /// <param name="seriesId">The series.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Exam>> ListBySeriesAsync(Guid seriesId, CancellationToken cancellationToken = default);
 
-    /// Update an existing exam aggregate.
+    /// <summary>Lists the most recently created exams, newest first, without their sections.</summary>
+    /// <param name="take">How many to return at most.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Exam>> ListNewestAsync(int take, CancellationToken cancellationToken = default);
 }

@@ -11,4 +11,7 @@ internal static class ExamAuthoringPermissions
 {
     /// <summary>Create and edit exams (<c>exam.manage</c>).</summary>
     public const string Manage = "permission:exam.manage";
+
+    /// <summary>Publish an exam so invited candidates can take it (<c>exam.publish</c>).</summary>
+    public const string Publish = "permission:exam.publish";
 }

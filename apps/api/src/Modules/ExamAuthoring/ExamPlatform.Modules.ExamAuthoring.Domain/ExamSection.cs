@@ -26,13 +26,15 @@ public class ExamSection
         CreatedAt = DateTime.UtcNow;
     }
 
-    public void AddQuestion(Guid questionVersionId, int order)
+    public ExamQuestion AddQuestion(Guid questionVersionId, int order)
     {
         var exists = _questions.Any(q => q.QuestionVersionId == questionVersionId);
         if (exists)
             throw new DuplicateQuestionError(questionVersionId, Id);
 
-        _questions.Add(new ExamQuestion(Id, questionVersionId, order));
+        var question = new ExamQuestion(Id, questionVersionId, order);
+        _questions.Add(question);
+        return question;
     }
 
     public void RemoveQuestion(Guid questionVersionId)

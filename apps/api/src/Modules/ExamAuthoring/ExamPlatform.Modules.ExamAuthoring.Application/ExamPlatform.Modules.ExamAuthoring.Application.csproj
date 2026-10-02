@@ -2,5 +2,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
     <ProjectReference Include="..\ExamPlatform.Modules.ExamAuthoring.Domain\ExamPlatform.Modules.ExamAuthoring.Domain.csproj" />
+    <ProjectReference Include="..\..\QuestionBank\ExamPlatform.Modules.QuestionBank.Contracts\ExamPlatform.Modules.QuestionBank.Contracts.csproj" />
   </ItemGroup>
 </Project>
