@@ -89,13 +89,41 @@ public class CreateExamHandlerTests
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public async Task HandleAsync_WithEmptyName_ThrowsException(string name)
+    public async Task HandleAsync_WithEmptyName_ThrowsInvalidExamConfig_AndStoresNothing(string name)
     {
-        var handler = HandlerFor(Substitute.For<IExamRepository>(), Substitute.For<IExamAuthoringUnitOfWork>());
+        // A typed 400, not an ArgumentException that reached the client as a 500.
+        var repository = Substitute.For<IExamRepository>();
+        var unitOfWork = Substitute.For<IExamAuthoringUnitOfWork>();
+        var handler = HandlerFor(repository, unitOfWork);
 
         var command = new CreateExamCommand(Guid.NewGuid(), name, null, Guid.NewGuid());
 
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(command, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<InvalidExamConfigError>(() => handler.HandleAsync(command, CancellationToken.None));
+        Assert.Equal(400, error.HttpStatusCode);
+        repository.DidNotReceive().Add(Arg.Any<Exam>());
+        await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithATooLongNameOrDescription_ThrowsInvalidExamConfig_InsteadOfFailingInTheDatabase()
+    {
+        var handler = HandlerFor(Substitute.For<IExamRepository>(), Substitute.For<IExamAuthoringUnitOfWork>());
+
+        await Assert.ThrowsAsync<InvalidExamConfigError>(() =>
+            handler.HandleAsync(new CreateExamCommand(null, new string('x', Exam.MaxNameLength + 1), null, Guid.NewGuid()), CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidExamConfigError>(() =>
+            handler.HandleAsync(new CreateExamCommand(null, "Maths", new string('x', Exam.MaxDescriptionLength + 1), Guid.NewGuid()), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task HandleAsync_TrimsTheNameAndTurnsABlankDescriptionIntoNone()
+    {
+        var handler = HandlerFor(Substitute.For<IExamRepository>(), Substitute.For<IExamAuthoringUnitOfWork>());
+
+        var dto = await handler.HandleAsync(new CreateExamCommand(null, "  Maths mock  ", "   ", Guid.NewGuid()), CancellationToken.None);
+
+        Assert.Equal("Maths mock", dto.Name);
+        Assert.Null(dto.Description);
     }
 
     [Fact]

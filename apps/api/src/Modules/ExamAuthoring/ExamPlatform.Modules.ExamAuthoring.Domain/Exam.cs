@@ -38,9 +38,12 @@ public class Exam : AggregateRoot
     public Exam(Guid? seriesId, string name, string? description, DateTime scheduledStartTime, DateTime scheduledEndTime, Guid createdBy)
         : base(Guid.NewGuid())
     {
+        // The same rule as correcting the name later, so an exam can never be created with a name it could not be given.
+        var (cleanName, cleanDescription) = CleanDetails(name, description);
+
         SeriesId = seriesId;
-        Name = name;
-        Description = description;
+        Name = cleanName;
+        Description = cleanDescription;
         ScheduledStartTime = scheduledStartTime;
         ScheduledEndTime = scheduledEndTime;
         CreatedBy = createdBy;
@@ -180,6 +183,14 @@ public class Exam : AggregateRoot
     {
         EnsureNotArchived();
 
+        (Name, Description) = CleanDetails(name, description);
+        UpdatedAt = nowUtc;
+    }
+
+    // Checks an exam's name and description and returns them cleaned up: trimmed, and a blank description as none. One rule
+    // for creating an exam and for correcting one, so the two can never disagree about what an exam may be called.
+    private static (string Name, string? Description) CleanDetails(string? name, string? description)
+    {
         var trimmedName = name?.Trim();
         if (string.IsNullOrEmpty(trimmedName))
             throw new InvalidExamConfigError("An exam needs a name.");
@@ -190,9 +201,7 @@ public class Exam : AggregateRoot
         if (trimmedDescription?.Length > MaxDescriptionLength)
             throw new InvalidExamConfigError($"An exam description must be at most {MaxDescriptionLength} characters.");
 
-        Name = trimmedName;
-        Description = trimmedDescription;
-        UpdatedAt = nowUtc;
+        return (trimmedName, trimmedDescription);
     }
 
     // Checks a section's name and time limit and returns the name cleaned up. One rule for a new section and an edited

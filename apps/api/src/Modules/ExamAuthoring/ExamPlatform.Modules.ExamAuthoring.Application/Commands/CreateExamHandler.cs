@@ -16,9 +16,9 @@ public sealed class CreateExamHandler(
     /// <param name="command">The exam to create.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The created exam.</returns>
-    /// <exception cref="ArgumentException"><see cref="CreateExamCommand.Name"/> is empty or whitespace.</exception>
     /// <exception cref="InvalidExamConfigError">
-    /// <see cref="CreateExamCommand.SeriesId"/> is the empty GUID, or the scope names a book or chapters that cannot be used.
+    /// <see cref="CreateExamCommand.SeriesId"/> is the empty GUID, the name is blank or too long, the description is too long,
+    /// or the scope names a book or chapters that cannot be used.
     /// </exception>
     public async Task<ExamDto> HandleAsync(CreateExamCommand command, CancellationToken cancellationToken)
     {
@@ -27,9 +27,6 @@ public sealed class CreateExamHandler(
         // so it is refused with a 400 instead of being accepted silently.
         if (command.SeriesId == Guid.Empty)
             throw new InvalidExamConfigError("SeriesId must be omitted or a non-empty GUID.");
-
-        if (string.IsNullOrWhiteSpace(command.Name))
-            throw new ArgumentException("Name cannot be empty or whitespace", nameof(command.Name));
 
         // Resolved before anything is created, so a bad scope leaves nothing behind.
         var scope = await scopeResolver.ResolveAsync(command.Scope, cancellationToken);
