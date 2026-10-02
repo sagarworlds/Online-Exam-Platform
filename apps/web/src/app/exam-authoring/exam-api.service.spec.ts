@@ -78,6 +78,36 @@ describe('ExamApiService', () => {
     expect(question.request.body).toEqual({ questionId: 'q1' });
   });
 
+  it('changes the name and description with a PUT to the details route', () => {
+    service.updateDetails('exam-1', { name: 'Maths mock', description: null }).subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1/details`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ name: 'Maths mock', description: null });
+  });
+
+  it('edits a section with a PUT that carries both its name and its time limit', () => {
+    service.editSection('exam-1', 's1', { name: 'Geometry', timeSeconds: 900 }).subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1/sections/s1`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ name: 'Geometry', timeSeconds: 900 });
+  });
+
+  it('removes a section, a question from a section, and a whole exam with DELETEs to their own routes', () => {
+    service.removeSection('exam-1', 's1').subscribe();
+    const section = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1/sections/s1`);
+    expect(section.request.method).toBe('DELETE');
+
+    service.removeQuestion('exam-1', 's1', 'q1').subscribe();
+    const question = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1/sections/s1/questions/q1`);
+    expect(question.request.method).toBe('DELETE');
+
+    service.deleteExam('exam-1').subscribe();
+    const exam = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1`);
+    expect(exam.request.method).toBe('DELETE');
+  });
+
   it('publishes an exam with a POST to its publish route', () => {
     service.publish('exam-1').subscribe();
 

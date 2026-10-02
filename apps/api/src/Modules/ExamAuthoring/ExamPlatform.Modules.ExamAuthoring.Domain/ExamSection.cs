@@ -37,10 +37,22 @@ public class ExamSection
         return question;
     }
 
-    public void RemoveQuestion(Guid questionVersionId)
+    /// <summary>Takes a question out of the section and closes the gap it leaves in the numbering.</summary>
+    /// <param name="questionVersionId">The question's id in the question bank.</param>
+    /// <returns><see langword="true"/> when the question was here; <see langword="false"/> when it was not, so the caller can say so.</returns>
+    public bool RemoveQuestion(Guid questionVersionId)
     {
         var question = _questions.FirstOrDefault(q => q.QuestionVersionId == questionVersionId);
-        if (question != null)
-            _questions.Remove(question);
+        if (question is null)
+            return false;
+
+        _questions.Remove(question);
+
+        // Candidates see the questions in this order, so it must stay 1, 2, 3 ... with no hole where one was removed.
+        var order = 1;
+        foreach (var remaining in _questions.OrderBy(q => q.Order))
+            remaining.Order = order++;
+
+        return true;
     }
 }

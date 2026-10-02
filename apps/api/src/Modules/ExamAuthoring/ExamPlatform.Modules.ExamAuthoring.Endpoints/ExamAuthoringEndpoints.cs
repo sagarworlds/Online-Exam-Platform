@@ -43,6 +43,21 @@ public static class ExamAuthoringEndpoints
             .WithName("GetExam")
             .WithDescription("Get an exam with its sections and questions");
 
+        exams.MapDelete("/{examId:guid}", DeleteExam)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("DeleteExam")
+            .WithDescription("Delete a draft exam that no invitation or batch refers to; its questions stay in the bank");
+
+        exams.MapPut("/{examId:guid}/details", UpdateDetails)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("UpdateExamDetails")
+            .WithDescription("Change the exam's name and description, in a draft or published exam");
+
         exams.MapPut("/{examId:guid}/schedule", ScheduleExam)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -78,12 +93,36 @@ public static class ExamAuthoringEndpoints
             .WithName("AddExamSection")
             .WithDescription("Add a section to a draft exam");
 
+        exams.MapPut("/{examId:guid}/sections/{sectionId:guid}", EditSection)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("EditExamSection")
+            .WithDescription("Rename a section of a draft exam and set its time limit");
+
+        exams.MapDelete("/{examId:guid}/sections/{sectionId:guid}", RemoveSection)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("RemoveExamSection")
+            .WithDescription("Remove a section and the places its questions held from a draft exam; the questions stay in the bank");
+
         exams.MapPost("/{examId:guid}/sections/{sectionId:guid}/questions", AddQuestion)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("AddExamQuestion")
             .WithDescription("Add a question from the bank to a section of a draft exam");
+
+        exams.MapDelete("/{examId:guid}/sections/{sectionId:guid}/questions/{questionId:guid}", RemoveQuestion)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("RemoveExamQuestion")
+            .WithDescription("Take a question out of a section of a draft exam; the question stays in the bank");
 
         exams.MapPost("/{examId:guid}/publish", PublishExam)
             .RequireAuthorization(ExamAuthoringPermissions.Publish)
@@ -118,6 +157,16 @@ public static class ExamAuthoringEndpoints
     private static async Task<IResult> GetExam(Guid examId, GetExamHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(examId, ct));
 
+    private static async Task<IResult> DeleteExam(Guid examId, DeleteExamHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(examId, ct);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> UpdateDetails(
+        Guid examId, ExamDetailsRequest request, UpdateExamDetailsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new UpdateExamDetailsCommand(examId, request.Name, request.Description), ct));
+
     private static async Task<IResult> ScheduleExam(
         Guid examId, ScheduleExamRequest request, ScheduleExamHandler handler, CancellationToken ct)
     {
@@ -151,11 +200,32 @@ public static class ExamAuthoringEndpoints
         return Results.Created($"/v1/exams/{examId}/sections/{result.Id}", result);
     }
 
+    private static async Task<IResult> EditSection(
+        Guid examId, Guid sectionId, EditSectionRequest request, EditSectionHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(new EditSectionCommand(examId, sectionId, request.Name, request.TimeSeconds), ct);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> RemoveSection(
+        Guid examId, Guid sectionId, RemoveSectionHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(new RemoveSectionCommand(examId, sectionId), ct);
+        return Results.NoContent();
+    }
+
     private static async Task<IResult> AddQuestion(
         Guid examId, Guid sectionId, AddQuestionRequest request, AddExamQuestionHandler handler, CancellationToken ct)
     {
         var result = await handler.HandleAsync(new AddExamQuestionCommand(examId, sectionId, request.QuestionId), ct);
         return Results.Created($"/v1/exams/{examId}/sections/{sectionId}/questions/{result.Id}", result);
+    }
+
+    private static async Task<IResult> RemoveQuestion(
+        Guid examId, Guid sectionId, Guid questionId, RemoveExamQuestionHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(new RemoveExamQuestionCommand(examId, sectionId, questionId), ct);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> PublishExam(Guid examId, PublishExamHandler handler, CancellationToken ct) =>
@@ -200,6 +270,16 @@ public record ScheduleExamRequest(
 /// <param name="Mode">Instant (right after submitting), Scheduled (from <paramref name="ReleaseTime"/>) or Manual (when released by an administrator).</param>
 /// <param name="ReleaseTime">From when the answers are visible; required for Scheduled, ignored otherwise.</param>
 public record ResultReleaseRequest(ResultReleaseMode? Mode, DateTime? ReleaseTime);
+
+/// <summary>Request body for changing an exam's name and description.</summary>
+/// <param name="Name">The exam's new name.</param>
+/// <param name="Description">The new description; blank or omitted means none.</param>
+public record ExamDetailsRequest(string? Name, string? Description);
+
+/// <summary>Request body for renaming a section and setting its time limit.</summary>
+/// <param name="Name">The section's new name.</param>
+/// <param name="TimeSeconds">The new time limit, or null/omitted for none.</param>
+public record EditSectionRequest(string? Name, int? TimeSeconds);
 
 /// <summary>Request body for adding a section.</summary>
 /// <param name="Name">The section's name.</param>

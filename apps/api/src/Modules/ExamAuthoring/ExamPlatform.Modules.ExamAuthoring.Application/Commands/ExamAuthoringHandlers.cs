@@ -1,6 +1,7 @@
 using ExamPlatform.Modules.ExamAuthoring.Application.Dtos;
 using ExamPlatform.Modules.ExamAuthoring.Application.Ports;
 using ExamPlatform.Modules.ExamAuthoring.Domain;
+using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.ExamAuthoring.Domain.Exceptions;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
@@ -56,6 +57,60 @@ public sealed class AddSectionHandler(IExamRepository repository, IExamAuthoring
     }
 }
 
+/// <summary>Handles <see cref="UpdateExamDetailsCommand"/>.</summary>
+public sealed class UpdateExamDetailsHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
+{
+    /// <summary>Changes the exam's name and description and saves.</summary>
+    /// <param name="command">The new details.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The name is blank or too long, or the description is too long.</exception>
+    public async Task<ExamDto> HandleAsync(UpdateExamDetailsCommand command, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.Describe(command.Name, command.Description, clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await dtos.ToDtoAsync(exam, cancellationToken);
+    }
+}
+
+/// <summary>Handles <see cref="EditSectionCommand"/>.</summary>
+public sealed class EditSectionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
+{
+    /// <summary>Renames the section, sets its time limit and saves.</summary>
+    /// <param name="command">The new name and time limit.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="InvalidExamConfigError">The name is blank or too long, or the time limit is not positive.</exception>
+    public async Task HandleAsync(EditSectionCommand command, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.EditSection(command.SectionId, command.Name, command.TimeSeconds);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>Handles <see cref="RemoveSectionCommand"/>.</summary>
+public sealed class RemoveSectionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
+{
+    /// <summary>Removes the section and the places its questions held, then saves. The questions stay in the bank.</summary>
+    /// <param name="command">Which section to remove.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    public async Task HandleAsync(RemoveSectionCommand command, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.RemoveSection(command.SectionId);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
 /// <summary>Handles <see cref="AddExamQuestionCommand"/>.</summary>
 public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, IQuestionBank questionBank)
 {
@@ -79,6 +134,63 @@ public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuth
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new ExamQuestionDto(question.Id, question.QuestionVersionId, question.Order, snapshot.Text);
+    }
+}
+
+/// <summary>Handles <see cref="RemoveExamQuestionCommand"/>.</summary>
+public sealed class RemoveExamQuestionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
+{
+    /// <summary>
+    /// Takes the question out of the section and saves. The question itself stays in the bank; it is only no longer part of
+    /// this exam, which is also what lets the bank delete it again if nothing else holds it.
+    /// </summary>
+    /// <param name="command">Which question to take out of where.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="QuestionNotInExamError">The section does not hold that question.</exception>
+    public async Task HandleAsync(RemoveExamQuestionCommand command, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.RemoveQuestion(command.SectionId, command.QuestionId);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>Handles deleting a draft exam.</summary>
+public sealed class DeleteExamHandler(
+    IExamRepository repository,
+    IExamAuthoringUnitOfWork unitOfWork,
+    IEnumerable<IExamDeletionGuard> guards,
+    Clock clock)
+{
+    /// <summary>
+    /// Deletes the exam if it is a draft that nothing else refers to. The questions it held stay in the bank and, no longer
+    /// in any exam, can be deleted from it.
+    /// </summary>
+    /// <param name="examId">The exam to delete.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDeletableError">The exam is published, or a module that keeps its id (an invitation, a batch) objects.</exception>
+    public async Task HandleAsync(Guid examId, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(examId, cancellationToken);
+
+        // The exam's own rule first: a published exam is refused whatever the guards would say, and asking them is wasted work.
+        exam.EnsureCanBeDeleted();
+
+        // Every guard is asked and every reason reported, so the author learns everything in the way in one go instead of
+        // finding the second reason only after sorting out the first.
+        var reasons = new List<string>();
+        foreach (var guard in guards)
+            reasons.AddRange(await guard.FindObjectionsAsync(examId, cancellationToken));
+
+        if (reasons.Count > 0)
+            throw new ExamNotDeletableError(string.Join(" ", reasons));
+
+        exam.Delete(clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
 

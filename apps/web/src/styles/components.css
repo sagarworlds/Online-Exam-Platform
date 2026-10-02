@@ -476,13 +476,19 @@ button.primary:hover:not(:disabled),
   margin-bottom: 0.75rem;
 }
 
-/* The inline "are you sure?" that replaces a card's Delete button; no dialog to open, nothing to lose focus into. */
-.question-card__confirm {
+/* The inline "are you sure?" that replaces a Delete or Remove button; no dialog to open, nothing to lose focus into. */
+.question-card__confirm,
+.inline-confirm {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   font-size: 0.9rem;
+}
+
+/* A section card's own actions sit under its questions, apart from the Add question row. */
+.section-card__actions {
+  margin-top: 0.75rem;
 }
 
 /* The exam scope choice: radios stacked, and the chosen book's chapters as a checklist. */

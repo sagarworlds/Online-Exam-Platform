@@ -1,0 +1,71 @@
+<div class="card section-card">
+  @if (renaming()) {
+    <form class="option-row" (submit)="saveName($event)" [attr.aria-label]="'Rename section ' + section().name">
+      <input type="text" [value]="nameDraft()" (input)="nameDraft.set($any($event.target).value)" aria-label="Section name" />
+      <button type="submit" class="primary btn--small" [disabled]="busy() || nameDraft().trim() === ''">Save name</button>
+      <button type="button" class="btn--small" (click)="renaming.set(false)" [disabled]="busy()">Cancel</button>
+    </form>
+  } @else {
+    <h3>{{ section().order }}. {{ section().name }}</h3>
+  }
+
+  @if (section().questions.length === 0) {
+    <p class="hint">No questions yet.</p>
+  } @else {
+    <ol>
+      @for (question of section().questions; track question.id) {
+        <li>
+          {{ question.text ? (question.text | plainText: 160) : '(question no longer in the bank)' }}
+          @if (editable()) {
+            <button
+              type="button"
+              class="btn--small"
+              (click)="takeOutRequested.emit({ sectionId: section().id, questionId: question.questionId })"
+              [disabled]="busy()"
+              [attr.aria-label]="removeLabel(question)"
+            >
+              Remove
+            </button>
+          }
+        </li>
+      }
+    </ol>
+  }
+
+  @if (editable()) {
+    <div class="option-row">
+      <select #pick [attr.aria-label]="'Question to add to ' + section().name">
+        <option value="">Choose a question…</option>
+        @for (question of choices(); track question.id) {
+          <option [value]="question.id">{{ question.text | plainText: 100 }}</option>
+        }
+      </select>
+      <button type="button" (click)="addRequested.emit({ sectionId: section().id, questionId: pick.value })" [disabled]="busy()">Add question</button>
+    </div>
+    @if (scope() !== 'Independent') {
+      <p class="hint">
+        Only questions from this exam's {{ scope() === 'Book' ? 'book' : 'chapters' }} are offered.
+        @if (choices().length === 0) {
+          There are none left to add: file more questions under {{ scope() === 'Book' ? 'its chapters' : 'these chapters' }} on the Questions page.
+        }
+      </p>
+    }
+
+    <div class="actions section-card__actions">
+      @if (!renaming()) {
+        <button type="button" class="btn--small" (click)="startRenaming()" [disabled]="busy()" [attr.aria-label]="'Rename section ' + section().name">Rename</button>
+      }
+
+      @if (confirmingRemove()) {
+        <span class="inline-confirm" role="alertdialog" [attr.aria-label]="'Remove section ' + section().name + '?'">
+          Remove this section{{ section().questions.length > 0 ? ' and its ' + section().questions.length + (section().questions.length === 1 ? ' question' : ' questions') : '' }}
+          from the exam? They stay in the question bank.
+          <button type="button" class="btn--danger btn--small" (click)="confirmRemove()" [disabled]="busy()">Remove section</button>
+          <button type="button" class="btn--small" (click)="confirmingRemove.set(false)">Cancel</button>
+        </span>
+      } @else {
+        <button type="button" class="btn--small" (click)="confirmingRemove.set(true)" [disabled]="busy()">Remove section</button>
+      }
+    </div>
+  }
+</div>

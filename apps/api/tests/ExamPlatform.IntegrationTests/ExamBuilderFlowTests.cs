@@ -151,6 +151,16 @@ public sealed class ExamBuilderFlowTests(ApiFactory factory) : IClassFixture<Api
     }
 
     [Fact]
+    public async Task CreateExam_WithABlankOrTooLongName_Returns400_NotAServerError()
+    {
+        using var client = await AdminAsync();
+
+        await AssertProblemAsync(await client.PostAsJsonAsync("/v1/exams", new { name = "   " }), HttpStatusCode.BadRequest, "invalid_exam_config");
+        await AssertProblemAsync(await client.PostAsJsonAsync("/v1/exams", new { name = new string('x', 256) }), HttpStatusCode.BadRequest, "invalid_exam_config");
+        await AssertProblemAsync(await client.PostAsJsonAsync("/v1/exams", new { name = "Fine", description = new string('x', 1001) }), HttpStatusCode.BadRequest, "invalid_exam_config");
+    }
+
+    [Fact]
     public async Task AddQuestion_ThatIsNotInTheBank_Returns404()
     {
         using var client = await AdminAsync();

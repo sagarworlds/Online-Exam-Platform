@@ -4,12 +4,14 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
   CreateExamRequest,
+  EditSectionRequest,
   ExamDto,
   ExamScopeRequest,
   ExamQuestionDto,
   ExamSectionDto,
   ResultReleaseRequest,
   ScheduleExamRequest,
+  UpdateExamDetailsRequest,
 } from './exam.models';
 
 /** Thin HTTP wrapper over the ExamAuthoring module's /v1/exams endpoints. */
@@ -56,6 +58,31 @@ export class ExamApiService {
 
   addQuestion(examId: string, sectionId: string, questionId: string): Observable<ExamQuestionDto> {
     return this.http.post<ExamQuestionDto>(`${this.apiUrl}/${examId}/sections/${sectionId}/questions`, { questionId });
+  }
+
+  /** Changes the name and description. Allowed after publishing too: it changes nothing that is asked or scored. */
+  updateDetails(examId: string, request: UpdateExamDetailsRequest): Observable<ExamDto> {
+    return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/details`, request);
+  }
+
+  /** Renames a section of a draft exam and sets its time limit. */
+  editSection(examId: string, sectionId: string, request: EditSectionRequest): Observable<void> {
+    return this.http.put<void>(`${this.apiUrl}/${examId}/sections/${sectionId}`, request);
+  }
+
+  /** Removes a section and the places its questions held from a draft exam; the questions stay in the bank. */
+  removeSection(examId: string, sectionId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${examId}/sections/${sectionId}`);
+  }
+
+  /** Takes a question out of a section of a draft exam; `questionId` is its id in the question bank. */
+  removeQuestion(examId: string, sectionId: string, questionId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${examId}/sections/${sectionId}/questions/${questionId}`);
+  }
+
+  /** Deletes a draft exam that no invitation or batch refers to. */
+  deleteExam(examId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${examId}`);
   }
 
   publish(examId: string): Observable<ExamDto> {

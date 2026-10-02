@@ -38,9 +38,12 @@ public class Exam : AggregateRoot
     public Exam(Guid? seriesId, string name, string? description, DateTime scheduledStartTime, DateTime scheduledEndTime, Guid createdBy)
         : base(Guid.NewGuid())
     {
+        // The same rule as correcting the name later, so an exam can never be created with a name it could not be given.
+        var (cleanName, cleanDescription) = CleanDetails(name, description);
+
         SeriesId = seriesId;
-        Name = name;
-        Description = description;
+        Name = cleanName;
+        Description = cleanDescription;
         ScheduledStartTime = scheduledStartTime;
         ScheduledEndTime = scheduledEndTime;
         CreatedBy = createdBy;
@@ -61,6 +64,12 @@ public class Exam : AggregateRoot
     /// itself, because the persistence layer refuses any timestamp whose kind is not UTC.
     /// </summary>
     public static readonly DateTime NotScheduledAt = DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc);
+
+    /// <summary>The longest name an exam may have.</summary>
+    public const int MaxNameLength = 255;
+
+    /// <summary>The longest description an exam may have.</summary>
+    public const int MaxDescriptionLength = 1000;
 
     /// <summary>The longest name an exam section may have.</summary>
     public const int MaxSectionNameLength = 255;
@@ -133,6 +142,72 @@ public class Exam : AggregateRoot
     {
         EnsureDraft();
 
+        var trimmed = CleanSectionName(name, timeSeconds);
+
+        var section = new ExamSection(Id, trimmed, timeSeconds, _sections.Count + 1);
+        _sections.Add(section);
+        UpdatedAt = DateTime.UtcNow;
+        return section;
+    }
+
+    /// <summary>Renames a section and sets its time limit.</summary>
+    /// <param name="sectionId">The section to change.</param>
+    /// <param name="name">The section's new name; leading and trailing whitespace is removed.</param>
+    /// <param name="timeSeconds">The section's new time limit, or <see langword="null"/> for none.</param>
+    /// <exception cref="ExamNotDraftError">The exam is already published. A section's time limit changes how long a candidate has, so it is fixed with the rest of the exam.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="InvalidExamConfigError">The name is blank or too long, or the time limit is not positive.</exception>
+    public void EditSection(Guid sectionId, string? name, int? timeSeconds)
+    {
+        EnsureDraft();
+
+        var section = GetSection(sectionId) ?? throw new SectionNotFoundError(sectionId);
+        var trimmed = CleanSectionName(name, timeSeconds);
+
+        section.Name = trimmed;
+        section.TimeSeconds = timeSeconds;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Changes the name and description candidates see. Unlike the questions and the schedule this may change after
+    /// publishing, for the reason the answer review may: it changes nothing that is asked or scored, so correcting a
+    /// typo in the title of an exam that is already open does no harm.
+    /// </summary>
+    /// <param name="name">The exam's new name; leading and trailing whitespace is removed.</param>
+    /// <param name="description">The new description; blank means none.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The name is blank or too long, or the description is too long.</exception>
+    public void Describe(string? name, string? description, DateTime nowUtc)
+    {
+        EnsureNotArchived();
+
+        (Name, Description) = CleanDetails(name, description);
+        UpdatedAt = nowUtc;
+    }
+
+    // Checks an exam's name and description and returns them cleaned up: trimmed, and a blank description as none. One rule
+    // for creating an exam and for correcting one, so the two can never disagree about what an exam may be called.
+    private static (string Name, string? Description) CleanDetails(string? name, string? description)
+    {
+        var trimmedName = name?.Trim();
+        if (string.IsNullOrEmpty(trimmedName))
+            throw new InvalidExamConfigError("An exam needs a name.");
+        if (trimmedName.Length > MaxNameLength)
+            throw new InvalidExamConfigError($"An exam name must be at most {MaxNameLength} characters.");
+
+        var trimmedDescription = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        if (trimmedDescription?.Length > MaxDescriptionLength)
+            throw new InvalidExamConfigError($"An exam description must be at most {MaxDescriptionLength} characters.");
+
+        return (trimmedName, trimmedDescription);
+    }
+
+    // Checks a section's name and time limit and returns the name cleaned up. One rule for a new section and an edited
+    // one, so the two can never disagree about what a section may be.
+    private static string CleanSectionName(string? name, int? timeSeconds)
+    {
         var trimmed = name?.Trim();
         if (string.IsNullOrEmpty(trimmed))
             throw new InvalidExamConfigError("A section needs a name.");
@@ -141,10 +216,7 @@ public class Exam : AggregateRoot
         if (timeSeconds is <= 0)
             throw new InvalidExamConfigError("A section time limit must be positive.");
 
-        var section = new ExamSection(Id, trimmed, timeSeconds, _sections.Count + 1);
-        _sections.Add(section);
-        UpdatedAt = DateTime.UtcNow;
-        return section;
+        return trimmed;
     }
 
     /// <summary>Appends a question to a section.</summary>
@@ -173,6 +245,23 @@ public class Exam : AggregateRoot
         var question = section.AddQuestion(questionId, section.Questions.Count + 1);
         UpdatedAt = DateTime.UtcNow;
         return question;
+    }
+
+    /// <summary>Takes a question out of a section.</summary>
+    /// <param name="sectionId">The section it is in.</param>
+    /// <param name="questionId">The question's id in the question bank.</param>
+    /// <exception cref="ExamNotDraftError">The exam is already published. A published exam may already have been sat, and its questions are what its scores mean.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="QuestionNotInExamError">The section does not hold that question.</exception>
+    public void RemoveQuestion(Guid sectionId, Guid questionId)
+    {
+        EnsureDraft();
+
+        var section = GetSection(sectionId) ?? throw new SectionNotFoundError(sectionId);
+        if (!section.RemoveQuestion(questionId))
+            throw new QuestionNotInExamError(questionId, sectionId);
+
+        UpdatedAt = DateTime.UtcNow;
     }
 
     /// <summary>Changes what the exam's questions may be drawn from.</summary>
@@ -252,17 +341,55 @@ public class Exam : AggregateRoot
         UpdatedAt = nowUtc;
     }
 
+    /// <summary>
+    /// Takes a section out of the exam together with the questions in it. Those questions only lose their place in this
+    /// exam; they stay in the question bank, free to go into another section or exam.
+    /// </summary>
+    /// <param name="sectionId">The section to remove.</param>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
     public void RemoveSection(Guid sectionId)
     {
-        var section = _sections.FirstOrDefault(s => s.Id == sectionId);
-        if (section != null)
-        {
-            _sections.Remove(section);
-            UpdatedAt = DateTime.UtcNow;
-        }
+        EnsureDraft();
+
+        var section = GetSection(sectionId) ?? throw new SectionNotFoundError(sectionId);
+        _sections.Remove(section);
+
+        // Sections are numbered 1, 2, 3 ... and the next one added takes the number after the count, so a hole here
+        // would give two sections the same number.
+        var order = 1;
+        foreach (var remaining in _sections.OrderBy(s => s.Order))
+            remaining.Order = order++;
+
+        UpdatedAt = DateTime.UtcNow;
     }
 
     public ExamSection? GetSection(Guid sectionId) => _sections.FirstOrDefault(s => s.Id == sectionId);
+
+    /// <summary>Checks the part of "may this exam be deleted?" that the exam itself knows: only a draft may.</summary>
+    /// <exception cref="ExamNotDeletableError">
+    /// The exam is published or archived. Candidates may already have been invited to it or sat it, and their results
+    /// refer to it, so it stays.
+    /// </exception>
+    public void EnsureCanBeDeleted()
+    {
+        if (Status != ExamStatus.Draft)
+            throw new ExamNotDeletableError("Only a draft can be deleted; once an exam is published, candidates may have been invited to it or sat it.");
+    }
+
+    /// <summary>
+    /// Deletes the exam. It is only marked deleted, as every module's records are: every query leaves it out, so it is gone
+    /// for everyone, and the question bank stops counting it as using the questions it held.
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamNotDeletableError">The exam is not a draft.</exception>
+    public void Delete(DateTime nowUtc)
+    {
+        EnsureCanBeDeleted();
+
+        IsDeleted = true;
+        UpdatedAt = nowUtc;
+    }
 
     /// <summary>
     /// Opens the exam to the candidates invited to it. Refused until the exam is scheduled and has

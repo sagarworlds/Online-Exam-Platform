@@ -106,6 +106,21 @@ export interface CreateExamRequest {
   scope?: ExamScopeRequest;
 }
 
+/** The body of PUT /v1/exams/{id}/details: the name and description candidates see. A blank description clears it. */
+export interface UpdateExamDetailsRequest {
+  name: string;
+  description: string | null;
+}
+
+/**
+ * The body of PUT /v1/exams/{id}/sections/{sectionId}. It replaces both values, so `timeSeconds` must carry the section's
+ * current limit (or null for none) unless the author means to change it; leaving it out would clear a limit.
+ */
+export interface EditSectionRequest {
+  name: string;
+  timeSeconds: number | null;
+}
+
 /** The body of PUT /v1/exams/{id}/schedule. Every instant is UTC (ISO 8601). */
 export interface ScheduleExamRequest {
   scheduledStartTime: string;

@@ -41,6 +41,14 @@ public interface IInviteRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<InviteAggregate>> ListAcceptedForExamAsync(Guid examId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Whether any invite to the exam can still be used or has been: one waiting to be accepted or already accepted. Revoked,
+    /// declined and expired invites are history and do not count.
+    /// </summary>
+    /// <param name="examId">The exam.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<bool> AnyLiveForExamAsync(Guid examId, CancellationToken cancellationToken = default);
+
     /// <summary>Whether the user has accepted an invite to the exam.</summary>
     /// <param name="userId">The accepting user.</param>
     /// <param name="examId">The exam.</param>
