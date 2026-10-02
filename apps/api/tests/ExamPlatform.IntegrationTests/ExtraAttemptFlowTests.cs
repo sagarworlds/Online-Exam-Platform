@@ -241,4 +241,69 @@ public sealed class ExtraAttemptFlowTests(ApiFactory factory) : IClassFixture<Ap
         Assert.All(results.Where(r => r.StatusCode != HttpStatusCode.Created), r => Assert.Equal(HttpStatusCode.Conflict, r.StatusCode));
         Assert.Equal(2, (await StaffRowAsync(admin, examId, candidateId)).GetProperty("attemptsAllowed").GetInt32());
     }
+    [Fact]
+    public async Task AFurtherAttempt_ShowsQuestionsAndOptionsShuffled_TheSameWayOnReload_AndTheReviewKeepsThatOrder()
+    {
+        var admin = await factory.AdminClientAsync();
+        using var _a = admin;
+        var questions = new List<Guid>();
+        foreach (var text in new[] { "Q1", "Q2", "Q3", "Q4" })
+            questions.Add(await CreateQuestionAsync(admin, text, "Alpha", "Beta", "Gamma"));
+        var examId = await CreateExamAsync(admin, "Shuffle exam", questions, TimeSpan.FromMinutes(-5));
+        var (candidate, user) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _c = candidate;
+
+        static string[] QuestionOrder(JsonElement attempt) =>
+            attempt.GetProperty("sections")[0].GetProperty("questions").EnumerateArray().Select(q => q.GetProperty("text").GetString()!).ToArray();
+        static string[][] OptionOrders(JsonElement attempt) =>
+            attempt.GetProperty("sections")[0].GetProperty("questions").EnumerateArray()
+                .Select(q => q.GetProperty("options").EnumerateArray().Select(o => o.GetProperty("text").GetString()!).ToArray()).ToArray();
+
+        // Attempt 1 is as the author wrote it.
+        var first = await StartAsync(candidate, examId);
+        Assert.Equal(["Q1", "Q2", "Q3", "Q4"], QuestionOrder(first));
+        Assert.All(OptionOrders(first), options => Assert.Equal(["Alpha", "Beta", "Gamma"], options));
+        var firstId = first.GetProperty("id").GetGuid();
+        (await candidate.PostAsync($"/v1/me/attempts/{firstId}/submit", content: null)).EnsureSuccessStatusCode();
+
+        (await GrantAsync(admin, examId, user.UserId)).EnsureSuccessStatusCode();
+
+        // Attempt 2: the same questions and options, none of them in the authored order.
+        var second = await StartAsync(candidate, examId);
+        Assert.Equal(2, second.GetProperty("number").GetInt32());
+        Assert.Equal(["Q1", "Q2", "Q3", "Q4"], QuestionOrder(second).Order());
+        Assert.NotEqual(["Q1", "Q2", "Q3", "Q4"], QuestionOrder(second));
+        Assert.All(OptionOrders(second), options =>
+        {
+            Assert.Equal(["Alpha", "Beta", "Gamma"], options.Order());
+            Assert.NotEqual(["Alpha", "Beta", "Gamma"], options);
+        });
+
+        // Reading it again (a reload, a resume on another device) shows what was shown before.
+        var resumed = await StartAsync(candidate, examId);
+        var reread = await candidate.GetFromJsonAsync<JsonElement>($"/v1/me/attempts/{second.GetProperty("id").GetGuid()}");
+        Assert.Equal(QuestionOrder(second), QuestionOrder(resumed));
+        Assert.Equal(QuestionOrder(second), QuestionOrder(reread));
+        Assert.Equal(OptionOrders(second), OptionOrders(reread));
+
+        // An answer is saved by id, so it follows its option wherever it is shown, and the score is unaffected by the order.
+        foreach (var question in second.GetProperty("sections")[0].GetProperty("questions").EnumerateArray())
+        {
+            var alpha = question.GetProperty("options").EnumerateArray().Single(o => o.GetProperty("text").GetString() == "Alpha").GetProperty("id").GetGuid();
+            (await candidate.PutAsJsonAsync($"/v1/me/attempts/{second.GetProperty("id").GetGuid()}/answers/{question.GetProperty("id").GetGuid()}", new { optionId = alpha })).EnsureSuccessStatusCode();
+        }
+
+        var submitted = await JsonAsync((await candidate.PostAsync($"/v1/me/attempts/{second.GetProperty("id").GetGuid()}/submit", content: null)).EnsureSuccessStatusCode());
+        Assert.Equal(4m, submitted.GetProperty("score").GetDecimal());
+
+        // The review lists questions and options in the order the candidate sat, so "question 3" means the same in both.
+        var review = await candidate.GetFromJsonAsync<JsonElement>($"/v1/me/attempts/{second.GetProperty("id").GetGuid()}/review");
+        Assert.Equal(QuestionOrder(second), review.GetProperty("sections")[0].GetProperty("questions").EnumerateArray().Select(q => q.GetProperty("text").GetString()!).ToArray());
+        Assert.Equal(OptionOrders(second), review.GetProperty("sections")[0].GetProperty("questions").EnumerateArray()
+            .Select(q => q.GetProperty("options").EnumerateArray().Select(o => o.GetProperty("text").GetString()!).ToArray()).ToArray());
+
+        // The first attempt's review still reads in the authored order.
+        var firstReview = await candidate.GetFromJsonAsync<JsonElement>($"/v1/me/attempts/{firstId}/review");
+        Assert.Equal(["Q1", "Q2", "Q3", "Q4"], firstReview.GetProperty("sections")[0].GetProperty("questions").EnumerateArray().Select(q => q.GetProperty("text").GetString()!).ToArray());
+    }
 }

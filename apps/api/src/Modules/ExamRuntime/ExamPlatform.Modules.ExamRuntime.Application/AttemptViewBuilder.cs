@@ -54,13 +54,16 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock)
             .Select(section => new AttemptSectionDto(
                 section.Id,
                 section.Name,
-                section.QuestionIds.Select(id =>
+                // Sections stay in the author's order; the questions in each, and the options of each question, are shuffled
+                // from the second attempt on (AttemptOrdering), the same way every time this attempt is read.
+                AttemptOrdering.Arrange(section.QuestionIds, id => id, attempt.Id, attempt.Number, section.Id).Select(id =>
                 {
                     var question = questions.GetValueOrDefault(id) ?? throw new ExamContentUnavailableError();
                     return new AttemptQuestionDto(
                         question.Id,
                         question.Text,
-                        question.Options.Select(o => new AttemptOptionDto(o.Id, o.Text)).ToList(),
+                        AttemptOrdering.Arrange(question.Options, o => o.Id, attempt.Id, attempt.Number, question.Id)
+                            .Select(o => new AttemptOptionDto(o.Id, o.Text)).ToList(),
                         chosen.TryGetValue(id, out var optionId) ? optionId : null);
                 }).ToList()))
             .ToList();

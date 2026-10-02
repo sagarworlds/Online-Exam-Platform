@@ -39,7 +39,9 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
             .Select(section => new ReviewSectionDto(
                 section.Id,
                 section.Name,
-                section.QuestionIds.Select(id => ReviewQuestion(exam, questions, id, chosen)).ToList()))
+                // In the order the candidate saw them, so "question 3" in the review is question 3 on the screen they sat.
+                AttemptOrdering.Arrange(section.QuestionIds, id => id, attempt.Id, attempt.Number, section.Id)
+                    .Select(id => ReviewQuestion(attempt, exam, questions, id, chosen)).ToList()))
             .ToList();
 
         var marked = sections.SelectMany(s => s.Questions).ToList();
@@ -59,6 +61,7 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
     }
 
     private static ReviewQuestionDto ReviewQuestion(
+        Attempt attempt,
         ExamSnapshot exam,
         IReadOnlyDictionary<Guid, QuestionSnapshot> questions,
         Guid questionId,
@@ -71,7 +74,8 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
         return new ReviewQuestionDto(
             question.Id,
             question.Text,
-            question.Options.Select(o => new ReviewOptionDto(o.Id, o.Text, o.IsCorrect, o.Id == chosenOptionId)).ToList(),
+            AttemptOrdering.Arrange(question.Options, o => o.Id, attempt.Id, attempt.Number, question.Id)
+                .Select(o => new ReviewOptionDto(o.Id, o.Text, o.IsCorrect, o.Id == chosenOptionId)).ToList(),
             mark.Verdict,
             mark.Marks);
     }
