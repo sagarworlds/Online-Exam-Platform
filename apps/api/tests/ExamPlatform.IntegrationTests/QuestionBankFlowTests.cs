@@ -217,6 +217,7 @@ public sealed class QuestionBankFlowTests(ApiFactory factory) : IClassFixture<Ap
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/v1/questions", ValidQuestion)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/v1/questions")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"/v1/questions/{Guid.NewGuid()}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PutAsJsonAsync($"/v1/questions/{Guid.NewGuid()}", ValidQuestion)).StatusCode);
     }
 
     [Fact]
@@ -226,5 +227,6 @@ public sealed class QuestionBankFlowTests(ApiFactory factory) : IClassFixture<Ap
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/v1/questions", ValidQuestion)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/v1/questions")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PutAsJsonAsync($"/v1/questions/{Guid.NewGuid()}", ValidQuestion)).StatusCode);
     }
 }

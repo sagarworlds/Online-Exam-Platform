@@ -27,4 +27,12 @@ public sealed class QuestionOption : Entity
         IsCorrect = isCorrect;
         Order = order;
     }
+
+    // Edited in place, never replaced, so the option keeps its id: a saved answer points at that id.
+    internal void Revise(string text, bool isCorrect, int order)
+    {
+        Text = text;
+        IsCorrect = isCorrect;
+        Order = order;
+    }
 }

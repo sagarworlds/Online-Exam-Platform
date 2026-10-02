@@ -39,6 +39,19 @@ public static class QuestionBankEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("GetQuestion")
             .WithDescription("Get one question with its answer key");
+
+        questions.MapPut("/{questionId:guid}", EditQuestion)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("EditQuestion")
+            .WithDescription("Edit a question; once candidates have answered it only the wording can change");
+    }
+
+    private static async Task<IResult> EditQuestion(
+        Guid questionId, EditQuestionRequest request, EditQuestionHandler handler, CancellationToken ct)
+    {
+        var options = request.Options?.Select(o => new QuestionOptionEdit(o?.Id, o?.Text, o?.IsCorrect ?? false)).ToList();
+        return Results.Ok(await handler.HandleAsync(new EditQuestionCommand(questionId, request.Text, options), ct));
     }
 
     private static async Task<IResult> CreateQuestion(
@@ -62,6 +75,17 @@ public static class QuestionBankEndpoints
 /// <param name="Options">The answer options in display order; exactly one must be correct.</param>
 /// <param name="ChapterId">The chapter to file the question under; omit or send null to leave it unfiled.</param>
 public sealed record CreateQuestionRequest(string? Text, IReadOnlyList<CreateQuestionOptionRequest?>? Options, Guid? ChapterId = null);
+
+/// <summary>Request body for editing a question: its whole new content, not a patch.</summary>
+/// <param name="Text">The question text; HTML from the author's editor, which the server sanitizes before storing it.</param>
+/// <param name="Options">All the options after the edit, in display order; an option the question already has is named by its id.</param>
+public sealed record EditQuestionRequest(string? Text, IReadOnlyList<EditQuestionOptionRequest?>? Options);
+
+/// <summary>One option in an <see cref="EditQuestionRequest"/>.</summary>
+/// <param name="Id">The id of the existing option being edited; omit it for a new option.</param>
+/// <param name="Text">The option text.</param>
+/// <param name="IsCorrect">Whether this is the right answer.</param>
+public sealed record EditQuestionOptionRequest(Guid? Id, string? Text, bool IsCorrect);
 
 /// <summary>One option in a <see cref="CreateQuestionRequest"/>.</summary>
 /// <param name="Text">The option text.</param>

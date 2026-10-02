@@ -34,10 +34,12 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         services.AddScoped<IBookCatalog, BookCatalog>();
         // Combines the IQuestionUsageSource each module that uses questions registers for itself.
         services.AddScoped<QuestionUsageReader>();
+        services.AddScoped<QuestionDtoFactory>();
         // A new sanitizer per request: the library's instance carries mutable configuration.
         services.AddScoped<IRichTextSanitizer, RichTextSanitizer>();
 
         services.AddScoped<CreateQuestionHandler>();
+        services.AddScoped<EditQuestionHandler>();
         services.AddScoped<ListQuestionsHandler>();
         services.AddScoped<GetQuestionHandler>();
 

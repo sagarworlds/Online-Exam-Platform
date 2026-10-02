@@ -25,7 +25,7 @@ public sealed class ListQuestionsHandler(IQuestionRepository repository, IBookRe
 }
 
 /// <summary>Reads one question for the authoring screens.</summary>
-public sealed class GetQuestionHandler(IQuestionRepository repository, IBookRepository books, QuestionUsageReader usageReader)
+public sealed class GetQuestionHandler(IQuestionRepository repository, QuestionUsageReader usageReader, QuestionDtoFactory dtos)
 {
     /// <summary>Returns the question with its answer key and where it is in use.</summary>
     /// <param name="questionId">The question's id.</param>
@@ -34,11 +34,7 @@ public sealed class GetQuestionHandler(IQuestionRepository repository, IBookRepo
     public async Task<QuestionDto> HandleAsync(Guid questionId, CancellationToken cancellationToken)
     {
         var question = await repository.GetByIdAsync(questionId, cancellationToken) ?? throw new QuestionNotFoundError();
-        var chapters = question.ChapterId is { } id
-            ? await books.GetChapterRefsAsync([id], cancellationToken)
-            : new Dictionary<Guid, ChapterRef>();
-        var usage = await usageReader.ReadOneAsync(questionId, cancellationToken);
 
-        return question.ToDto(question.ChapterId is { } chapterId ? chapters.GetValueOrDefault(chapterId) : null, usage);
+        return await dtos.CreateAsync(question, await usageReader.ReadOneAsync(questionId, cancellationToken), cancellationToken);
     }
 }

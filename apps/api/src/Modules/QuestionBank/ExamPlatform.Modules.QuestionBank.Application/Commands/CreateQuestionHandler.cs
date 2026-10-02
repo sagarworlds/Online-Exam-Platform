@@ -31,23 +31,11 @@ public sealed class CreateQuestionHandler(
     /// <exception cref="BookArchivedError">The chapter, or its book, is archived.</exception>
     public async Task<QuestionDto> HandleAsync(CreateQuestionCommand command, CancellationToken cancellationToken)
     {
-        // Sanitizing comes first: every length rule below is about what survives the cleaning, not what was sent.
-        var text = sanitizer.Sanitize(command.Text);
-
-        if (text.RejectedImageCount > 0)
-            throw new InvalidQuestionError(
-                "A picture could not be used. Add pictures with the image button: PNG, JPEG, GIF or WebP, " +
-                $"at most {Question.MaxImageBytes / 1024} KB each.");
-        if (!text.HasContent)
-            throw new InvalidQuestionError("The question text is required.");
-        if (text.PlainText.Length > Question.MaxVisibleTextLength)
-            throw new InvalidQuestionError($"The question text must be at most {Question.MaxVisibleTextLength} characters.");
-        if (text.ImageCount > Question.MaxImages)
-            throw new InvalidQuestionError($"A question can have at most {Question.MaxImages} images.");
+        var html = QuestionText.Clean(sanitizer, command.Text);
 
         var filedUnder = command.ChapterId is { } chapterId ? await FindOpenChapterAsync(chapterId, cancellationToken) : null;
 
-        var question = Question.Create(text.Html, command.Options, command.CreatedBy, clock.UtcNow, filedUnder?.ChapterId);
+        var question = Question.Create(html, command.Options, command.CreatedBy, clock.UtcNow, filedUnder?.ChapterId);
 
         repository.Add(question);
         await unitOfWork.SaveChangesAsync(cancellationToken);
