@@ -1,3 +1,5 @@
+using ExamPlatform.Modules.ExamAuthoring.Domain;
+
 namespace ExamPlatform.Modules.ExamAuthoring.Application.Commands;
 
 /// <summary>Sets when an exam runs (FR-13).</summary>
@@ -26,3 +28,9 @@ public sealed record AddSectionCommand(Guid ExamId, string? Name, int? TimeSecon
 /// <param name="SectionId">The section to add the question to.</param>
 /// <param name="QuestionId">The question's id in the question bank.</param>
 public sealed record AddExamQuestionCommand(Guid ExamId, Guid SectionId, Guid QuestionId);
+
+/// <summary>Chooses when candidates may see which of their answers were right.</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="Mode">Instant, Scheduled or Manual, or null if the caller did not send it.</param>
+/// <param name="ReleaseTimeUtc">From when the answers are visible; required for Scheduled.</param>
+public sealed record SetResultReleaseCommand(Guid ExamId, ResultReleaseMode? Mode, DateTime? ReleaseTimeUtc);

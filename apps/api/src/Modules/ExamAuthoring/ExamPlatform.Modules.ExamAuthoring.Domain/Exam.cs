@@ -201,6 +201,57 @@ public class Exam : AggregateRoot
         UpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Chooses when candidates may see which of their answers were right, with the correct options (the answer review).
+    /// Unlike the schedule and the questions this may change after publishing: the review is only worked out when a
+    /// candidate asks for it, so the author can still move the date or hold the answers back until everyone has sat the exam.
+    /// </summary>
+    /// <param name="mode">Instant (as soon as an attempt is submitted), Scheduled (from <paramref name="releaseTimeUtc"/>) or Manual (when an administrator releases them).</param>
+    /// <param name="releaseTimeUtc">When the answers become visible; required for Scheduled and ignored otherwise, so a stale time can never release a manual exam by itself.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The mode is not one of the three, or a scheduled release has no time.</exception>
+    public void SetResultRelease(ResultReleaseMode mode, DateTime? releaseTimeUtc, DateTime nowUtc)
+    {
+        EnsureNotArchived();
+
+        if (!Enum.IsDefined(mode))
+            throw new InvalidExamConfigError("Choose when the answers are shown: right after submitting, at a set time, or when released.");
+
+        if (mode == ResultReleaseMode.Scheduled && releaseTimeUtc is null)
+            throw new InvalidExamConfigError("Choose the time from which the answers are shown.");
+
+        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
+        Config = Config with
+        {
+            ResultReleaseMode = mode,
+            ResultReleaseTime = mode == ResultReleaseMode.Scheduled ? releaseTimeUtc : null,
+            MarkingScheme = Config.MarkingScheme with { },
+        };
+        UpdatedAt = nowUtc;
+    }
+
+    /// <summary>
+    /// Releases the answers of a manual-release exam now: the release time is set to the current instant, so the one rule
+    /// "released when the mode is Instant or the release time has arrived" covers every mode. Calling it again keeps the first time.
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="InvalidExamConfigError">The exam is not published, or its answers are not set to be released by hand.</exception>
+    public void ReleaseResults(DateTime nowUtc)
+    {
+        if (Status != ExamStatus.Published)
+            throw new InvalidExamConfigError("Only a published exam has answers to release.");
+
+        if (Config.ResultReleaseMode != ResultReleaseMode.Manual)
+            throw new InvalidExamConfigError("The answers are released by hand only when the exam is set to manual release.");
+
+        if (Config.ResultReleaseTime is not null)
+            return;
+
+        Config = Config with { ResultReleaseTime = nowUtc, MarkingScheme = Config.MarkingScheme with { } };
+        UpdatedAt = nowUtc;
+    }
+
     public void RemoveSection(Guid sectionId)
     {
         var section = _sections.FirstOrDefault(s => s.Id == sectionId);
@@ -242,5 +293,11 @@ public class Exam : AggregateRoot
     {
         if (Status != ExamStatus.Draft)
             throw new ExamNotDraftError();
+    }
+
+    private void EnsureNotArchived()
+    {
+        if (Status == ExamStatus.Archived)
+            throw new ExamArchivedError();
     }
 }

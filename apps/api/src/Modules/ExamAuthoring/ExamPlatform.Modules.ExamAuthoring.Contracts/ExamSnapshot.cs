@@ -13,6 +13,10 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// <param name="IncorrectMarks">Marks for a wrong answer (zero or negative).</param>
 /// <param name="UnattemptedMarks">Marks for an unanswered question.</param>
 /// <param name="Sections">The sections in order, each with its question ids in order.</param>
+/// <param name="ResultRelease">When candidates may see which answers were right; Instant unless the author chose otherwise.</param>
+/// <param name="ResultReleaseTimeUtc">
+/// From when the answers are visible, for Scheduled, and for Manual once an administrator has released them; null otherwise.
+/// </param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -25,7 +29,9 @@ public sealed record ExamSnapshot(
     decimal CorrectMarks,
     decimal IncorrectMarks,
     decimal UnattemptedMarks,
-    IReadOnlyList<ExamSectionSnapshot> Sections);
+    IReadOnlyList<ExamSectionSnapshot> Sections,
+    ExamResultReleaseMode ResultRelease = ExamResultReleaseMode.Instant,
+    DateTime? ResultReleaseTimeUtc = null);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>

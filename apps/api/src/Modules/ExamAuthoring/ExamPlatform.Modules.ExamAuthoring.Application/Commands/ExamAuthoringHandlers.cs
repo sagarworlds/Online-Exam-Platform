@@ -25,21 +25,16 @@ public sealed class ScheduleExamHandler(IExamRepository repository, IExamAuthori
 
         var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
         exam.Schedule(
-            AsUtc(command.StartUtc.Value),
-            AsUtc(command.EndUtc.Value),
+            UtcInstant.From(command.StartUtc.Value),
+            UtcInstant.From(command.EndUtc.Value),
             command.TimeZone,
-            command.LateEntryDeadlineUtc is { } lateEntry ? AsUtc(lateEntry) : null,
+            command.LateEntryDeadlineUtc is { } lateEntry ? UtcInstant.From(lateEntry) : null,
             command.DurationSeconds,
             clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await dtos.ToDtoAsync(exam, cancellationToken);
     }
-
-    // A time sent without an offset arrives with an unspecified kind; the API's contract is that
-    // every instant is UTC, so it is read as UTC rather than guessed to be server-local time.
-    private static DateTime AsUtc(DateTime value) =>
-        value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(value, DateTimeKind.Utc) : value.ToUniversalTime();
 }
 
 /// <summary>Handles <see cref="AddSectionCommand"/>.</summary>
@@ -132,6 +127,48 @@ public sealed class SetExamScopeHandler(
             .ToDictionary(q => q.Id, q => new QuestionPlacement(q.BookId, q.ChapterId));
 
         exam.SetScope(scope, placements);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await dtos.ToDtoAsync(exam, cancellationToken);
+    }
+}
+
+/// <summary>Handles <see cref="SetResultReleaseCommand"/>.</summary>
+public sealed class SetResultReleaseHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
+{
+    /// <summary>Chooses when candidates may see which of their answers were right.</summary>
+    /// <param name="command">The new setting.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">No mode was sent, or a scheduled release has no time.</exception>
+    public async Task<ExamDto> HandleAsync(SetResultReleaseCommand command, CancellationToken cancellationToken)
+    {
+        // A body without a mode binds to null, since JSON binding does not enforce the non-nullable annotation;
+        // that is a 400 about the missing value, not a crash.
+        if (command.Mode is null)
+            throw new InvalidExamConfigError("Choose when the answers are shown: right after submitting, at a set time, or when released.");
+
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.SetResultRelease(command.Mode.Value, command.ReleaseTimeUtc is { } time ? UtcInstant.From(time) : null, clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await dtos.ToDtoAsync(exam, cancellationToken);
+    }
+}
+
+/// <summary>Handles releasing the answers of a manual-release exam.</summary>
+public sealed class ReleaseResultsHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
+{
+    /// <summary>Makes the answers visible to candidates from now on. Safe to repeat: the first release time is kept.</summary>
+    /// <param name="examId">The exam whose answers to release.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="InvalidExamConfigError">The exam is not published, or is not set to manual release.</exception>
+    public async Task<ExamDto> HandleAsync(Guid examId, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(examId, cancellationToken);
+        exam.ReleaseResults(clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await dtos.ToDtoAsync(exam, cancellationToken);

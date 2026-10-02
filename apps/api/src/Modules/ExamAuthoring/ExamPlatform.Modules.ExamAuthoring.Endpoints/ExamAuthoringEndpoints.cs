@@ -57,6 +57,20 @@ public static class ExamAuthoringEndpoints
             .WithName("SetExamScope")
             .WithDescription("Limit the exam's questions to a book or chosen chapters, or lift the limit");
 
+        exams.MapPut("/{examId:guid}/result-release", SetResultRelease)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("SetExamResultRelease")
+            .WithDescription("Choose when candidates may see which of their answers were right: right after submitting, at a set time, or when released");
+
+        exams.MapPost("/{examId:guid}/results/release", ReleaseResults)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ReleaseExamResults")
+            .WithDescription("Show candidates which of their answers were right, for an exam set to manual release");
+
         exams.MapPost("/{examId:guid}/sections", AddSection)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -123,6 +137,13 @@ public static class ExamAuthoringEndpoints
         Guid examId, ExamScopeRequest request, SetExamScopeHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetExamScopeCommand(examId, request.ToInput()), ct));
 
+    private static async Task<IResult> SetResultRelease(
+        Guid examId, ResultReleaseRequest request, SetResultReleaseHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new SetResultReleaseCommand(examId, request.Mode, request.ReleaseTime), ct));
+
+    private static async Task<IResult> ReleaseResults(Guid examId, ReleaseResultsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, ct));
+
     private static async Task<IResult> AddSection(
         Guid examId, AddSectionRequest request, AddSectionHandler handler, CancellationToken ct)
     {
@@ -174,6 +195,11 @@ public record ScheduleExamRequest(
     string? TimeZone,
     DateTime? LateEntryDeadline,
     int? DurationMinutes);
+
+/// <summary>Request body for choosing when candidates may see which of their answers were right; the time is UTC.</summary>
+/// <param name="Mode">Instant (right after submitting), Scheduled (from <paramref name="ReleaseTime"/>) or Manual (when released by an administrator).</param>
+/// <param name="ReleaseTime">From when the answers are visible; required for Scheduled, ignored otherwise.</param>
+public record ResultReleaseRequest(ResultReleaseMode? Mode, DateTime? ReleaseTime);
 
 /// <summary>Request body for adding a section.</summary>
 /// <param name="Name">The section's name.</param>

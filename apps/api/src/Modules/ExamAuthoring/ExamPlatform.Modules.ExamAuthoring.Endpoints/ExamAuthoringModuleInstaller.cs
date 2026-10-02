@@ -42,6 +42,8 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
         services.AddScoped<AddExamQuestionHandler>();
         services.AddScoped<PublishExamHandler>();
         services.AddScoped<SetExamScopeHandler>();
+        services.AddScoped<SetResultReleaseHandler>();
+        services.AddScoped<ReleaseResultsHandler>();
     }
 
     /// <inheritdoc />
