@@ -146,6 +146,7 @@ public static class ExamAuthoringEndpoints
             .WithDescription("Add a question from the bank to a section of a draft exam");
 
         exams.MapPost("/{examId:guid}/sections/{sectionId:guid}/questions/draw", DrawQuestions)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("DrawExamQuestions")
