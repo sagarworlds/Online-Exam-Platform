@@ -442,3 +442,40 @@
   justify-content: flex-end;
   align-items: center;
 }
+
+.exam-shortcuts {
+  text-align: right;
+}
+
+/*
+ * High contrast: a black-and-white scheme chosen by the candidate, whatever the system theme. It only redefines the
+ * colour tokens, so every exam component picks it up; state is still told apart by border style and the corner dot,
+ * never by colour alone.
+ */
+.page--contrast {
+  --bg: #000000;
+  --surface: #000000;
+  --surface-muted: #000000;
+  --border: #ffffff;
+  --border-strong: #ffffff;
+  --text: #ffffff;
+  --text-muted: #ffffff;
+  --primary: #ffe600;
+  --primary-hover: #fff27a;
+  --primary-soft: #000000;
+  --on-primary: #000000;
+  --success: #00ff7f;
+  --success-soft: #000000;
+  --danger: #ff6b6b;
+  --danger-soft: #000000;
+  --warning: #ffe600;
+  --warning-soft: #000000;
+  --focus-ring: 0 0 0 3px #ffe600;
+
+  background: var(--bg);
+  color: var(--text);
+}
+
+.page--contrast .card {
+  border: 2px solid var(--border);
+}

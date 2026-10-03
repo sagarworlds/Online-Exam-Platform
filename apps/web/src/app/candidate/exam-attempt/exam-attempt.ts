@@ -1,10 +1,11 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
 import { AttemptDto, AttemptQuestionDto } from '../candidate.models';
+import { shortcutFor } from './exam-shortcuts';
 import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-store';
 
 /** How often the countdown is redrawn. */
@@ -15,6 +16,18 @@ const ZOOM_LEVELS = [1, 1.15, 1.3, 1.5] as const;
 
 /** Where the chosen size is remembered. Browser-only: it is a comfort setting, not part of the exam. */
 const ZOOM_STORAGE_KEY = 'exam.textZoom';
+
+/** Where the high contrast choice is remembered. Browser-only, like the text size. */
+const CONTRAST_STORAGE_KEY = 'exam.highContrast';
+
+/** Reads whether high contrast was left on, treating a blocked store as off. */
+function loadHighContrast(): boolean {
+  try {
+    return localStorage.getItem(CONTRAST_STORAGE_KEY) === 'on';
+  } catch {
+    return false;
+  }
+}
 
 /** Reads the remembered text size, ignoring anything that is not one of the offered levels or a blocked store. */
 function loadZoomLevel(): number {
@@ -58,6 +71,8 @@ export class ExamAttempt {
 
   /** The question text size, as a multiple of normal. */
   protected readonly zoom = signal<number>(loadZoomLevel());
+  /** Whether the stronger black-and-white colour scheme is on. */
+  protected readonly highContrast = signal(loadHighContrast());
   protected readonly canZoomOut = computed(() => this.zoom() > ZOOM_LEVELS[0]);
   protected readonly canZoomIn = computed(() => this.zoom() < ZOOM_LEVELS[ZOOM_LEVELS.length - 1]);
 
@@ -253,6 +268,46 @@ export class ExamAttempt {
   protected saveAndNext(): void {
     if (!this.isLast()) {
       this.next();
+    }
+  }
+
+  /** Turns the high contrast colours on or off and remembers the choice in this browser. */
+  protected toggleHighContrast(): void {
+    const next = !this.highContrast();
+    this.highContrast.set(next);
+    try {
+      localStorage.setItem(CONTRAST_STORAGE_KEY, next ? 'on' : 'off');
+    } catch {
+      // A blocked store only means the choice is forgotten on the next visit; the change on screen still applies.
+    }
+  }
+
+  /**
+   * Keyboard shortcuts while sitting the exam: N next, P previous, M mark for review, C clear response.
+   * They stand down while a confirmation is open, so a stray key cannot move the candidate under a question they are being asked.
+   */
+  @HostListener('document:keydown', ['$event'])
+  protected onKeydown(event: KeyboardEvent): void {
+    const question = this.currentQuestion();
+    const shortcut = shortcutFor(event);
+    if (shortcut === null || question === null || !this.isOpen() || this.confirmingSubmit() || this.leavingTo() !== null) {
+      return;
+    }
+
+    event.preventDefault();
+    switch (shortcut) {
+      case 'next':
+        this.next();
+        break;
+      case 'previous':
+        this.previous();
+        break;
+      case 'mark':
+        this.toggleMark(question);
+        break;
+      case 'clear':
+        this.clearResponse(question);
+        break;
     }
   }
 

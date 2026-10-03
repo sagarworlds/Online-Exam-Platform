@@ -694,4 +694,63 @@ describe('ExamAttempt', () => {
 
     expect(textOf(fixture)).toContain('No attempt matches the given id.');
   });
+
+  describe('display options and keyboard shortcuts', () => {
+    const press = (fixture: ComponentFixture<ExamAttempt>, key: string, init: KeyboardEventInit = {}) => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }));
+      fixture.detectChanges();
+    };
+    const position = (fixture: ComponentFixture<ExamAttempt>) => textOf(fixture).match(/Question (\d+) of/)?.[1];
+
+    it('moves between questions with N and P', async () => {
+      const fixture = await open(attempt());
+
+      press(fixture, 'n');
+      expect(position(fixture)).toBe('2');
+
+      press(fixture, 'p');
+      expect(position(fixture)).toBe('1');
+    });
+
+    it('ignores a letter pressed with Ctrl held, so browser shortcuts keep working', async () => {
+      const fixture = await open(attempt());
+
+      press(fixture, 'n', { ctrlKey: true });
+
+      expect(position(fixture)).toBe('1');
+    });
+
+    it('marks a question for review with M', async () => {
+      const fixture = await open(attempt());
+
+      press(fixture, 'm');
+
+      const request = httpMock.expectOne((r) => r.url.includes('/marks/q1'));
+      request.flush(null);
+      fixture.detectChanges();
+      expect(buttonLabelled(fixture, 'Mark for review')?.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('stands down while the submit confirmation is open', async () => {
+      const fixture = await open(attempt());
+      buttonLabelled(fixture, 'Submit exam')?.click();
+      fixture.detectChanges();
+
+      press(fixture, 'n');
+
+      expect(position(fixture)).toBe('1');
+    });
+
+    it('turns high contrast on and remembers it for the next visit', async () => {
+      const fixture = await open(attempt());
+      expect(root(fixture).querySelector('.page--contrast')).toBeNull();
+
+      buttonLabelled(fixture, 'High contrast')?.click();
+      fixture.detectChanges();
+
+      expect(root(fixture).querySelector('.page--contrast')).not.toBeNull();
+      expect(buttonLabelled(fixture, 'High contrast')?.getAttribute('aria-pressed')).toBe('true');
+      expect(localStorage.getItem('exam.highContrast')).toBe('on');
+    });
+  });
 });
