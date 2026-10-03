@@ -68,12 +68,12 @@ public class MarkingSchemeTests
     public void SettingIt_StoresTheMarks_AndKeepsTheRestOfTheConfig()
     {
         var exam = DraftExam();
-        exam.SetMaxAttempts(3, Now);
+        exam.SetResultRelease(ResultReleaseMode.Manual, null, Now);
 
         exam.SetMarkingScheme(new MarkingScheme(4m, -1m, 0m), Now.AddMinutes(5));
 
         Assert.Equal(new MarkingScheme(4m, -1m, 0m), exam.Config.MarkingScheme);
-        Assert.Equal(3, exam.Config.MaxAttempts);
+        Assert.Equal(ResultReleaseMode.Manual, exam.Config.ResultReleaseMode);
         Assert.Equal(Now.AddMinutes(5), exam.UpdatedAt);
     }
 
