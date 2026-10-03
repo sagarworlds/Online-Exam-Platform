@@ -168,7 +168,7 @@ public class MultipleAnswerHandlerTests
     [Fact]
     public async Task OneOption_IsAValidAnswerToAMultipleAnswerQuestion()
     {
-        await Save.HandleAsync(_attempt.Id, _candidate, _multi.Id, _multi.Correct(), CancellationToken.None);
+        await Save.HandleAsync(_attempt.Id, _candidate, _multi.Id, _multi.CorrectSet()[0], CancellationToken.None);
 
         Assert.Single(Assert.Single(_attempt.Answers).SelectedOptionIds);
     }
@@ -194,7 +194,7 @@ public class MultipleAnswerHandlerTests
     public async Task AnOptionFromAnotherQuestion_IsRefused_EvenAmongValidOnes()
     {
         await Assert.ThrowsAsync<InvalidAnswerError>(() =>
-            Save.HandleAsync(_attempt.Id, _candidate, _multi.Id, new[] { _multi.Correct(), _single.Correct() }, CancellationToken.None));
+            Save.HandleAsync(_attempt.Id, _candidate, _multi.Id, new[] { _multi.CorrectSet()[0], _single.Correct() }, CancellationToken.None));
 
         Assert.Empty(_attempt.Answers);
     }
