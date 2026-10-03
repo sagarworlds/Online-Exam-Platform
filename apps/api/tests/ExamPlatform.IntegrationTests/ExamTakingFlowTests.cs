@@ -427,6 +427,7 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [InlineData("DELETE", "/v1/me/attempts/{id}/answers/{id}")]
     [InlineData("PUT", "/v1/me/attempts/{id}/marks/{id}")]
     [InlineData("DELETE", "/v1/me/attempts/{id}/marks/{id}")]
+    [InlineData("PUT", "/v1/me/attempts/{id}/section/{id}")]
     [InlineData("POST", "/v1/me/attempts/{id}/submit")]
     public async Task EveryAttemptRoute_WithoutAuth_Returns401(string method, string pattern)
     {
