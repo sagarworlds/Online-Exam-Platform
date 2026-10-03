@@ -33,7 +33,7 @@ public static class QuestionBankEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("ListQuestions")
-            .WithDescription("List the newest questions, 200 at a time (skip leaves out that many of the newest), optionally only those under a book or chapter, only unfiled ones, of one difficulty, or on one topic");
+            .WithDescription("List the newest questions, 200 at a time (skip leaves out that many of the newest), optionally only those under a book or chapter, only unfiled ones, of one difficulty, on one topic, or containing some text (q)");
 
         questions.MapGet("/topics", ListTopics)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -93,9 +93,9 @@ public static class QuestionBankEndpoints
     }
 
     private static async Task<IResult> ListQuestions(
-        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, int? skip, CancellationToken ct) =>
+        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, int? skip, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(
-            new QuestionFilter(bookId, chapterId, unfiled ?? false, QuestionDifficultyText.Parse(difficulty), Question.NormalizeTopic(topic)), ct, skip ?? 0));
+            new QuestionFilter(bookId, chapterId, unfiled ?? false, QuestionDifficultyText.Parse(difficulty), Question.NormalizeTopic(topic), q), ct, skip ?? 0));
 
     private static async Task<IResult> ListTopics(ListTopicsHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(ct));

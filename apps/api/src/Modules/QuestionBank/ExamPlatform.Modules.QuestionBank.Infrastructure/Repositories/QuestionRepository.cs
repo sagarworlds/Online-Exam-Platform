@@ -47,6 +47,9 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
         return found.Select(q => (q.Id, q.ChapterId)).ToList();
     }
 
+    // What the author typed is text to find, not a pattern: a "%" or "_" in it must match itself, so the wildcards are escaped.
+    private static string EscapeLike(string text) => text.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+
     private IQueryable<Question> Matching(IQueryable<Question> query, QuestionFilter filter)
     {
         if (filter.UnfiledOnly)
@@ -59,6 +62,12 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
             query = query.Where(q => q.Difficulty == difficulty);
         if (filter.Topic is { Length: > 0 } topic)
             query = query.Where(q => q.Topics.Contains(topic));
+        if (filter.Search?.Trim() is { Length: > 0 } search)
+        {
+            var pattern = $"%{EscapeLike(search)}%";
+            query = query.Where(q => EF.Functions.ILike(q.SearchText, pattern, "\\")
+                || q.Options.Any(o => EF.Functions.ILike(o.Text, pattern, "\\")));
+        }
 
         return query;
     }

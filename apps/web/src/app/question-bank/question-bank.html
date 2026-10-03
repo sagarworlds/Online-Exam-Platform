@@ -29,6 +29,15 @@
           <option [value]="book.id">{{ book.name }}{{ book.isArchived ? ' (archived)' : '' }}</option>
         }
       </select>
+      <label class="visually-hidden" for="filter-search">Search questions</label>
+      <input
+        id="filter-search"
+        type="search"
+        placeholder="Search questions"
+        [value]="filterSearch()"
+        (keydown.enter)="onSearch($any($event.target).value)"
+        (change)="onSearch($any($event.target).value)"
+      />
       <label class="visually-hidden" for="filter-difficulty">Difficulty</label>
       <select id="filter-difficulty" [value]="filterDifficulty()" (change)="onFilterDifficultyChanged($any($event.target).value)">
         <option value="">Any difficulty</option>
@@ -81,7 +90,7 @@
   @if (loading()) {
     <p>Loading…</p>
   } @else if (questions().length === 0) {
-    <p>{{ filterBook() || filterDifficulty() || filterTopic() ? 'No questions match this filter.' : 'No questions yet.' }}</p>
+    <p>{{ filterBook() || filterDifficulty() || filterTopic() || filterSearch() ? 'No questions match this filter.' : 'No questions yet.' }}</p>
   } @else {
     <label class="inline-check select-all">
       <input type="checkbox" [checked]="allSelected()" (change)="toggleAll($any($event.target).checked)" />

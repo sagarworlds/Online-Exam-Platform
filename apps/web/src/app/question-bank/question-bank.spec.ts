@@ -287,6 +287,60 @@ describe('QuestionBank', () => {
     });
   });
 
+  describe('searching', () => {
+    const search = (fixture: ComponentFixture<QuestionBank>, text: string, how: 'enter' | 'change' = 'enter') => {
+      const box = (fixture.nativeElement as HTMLElement).querySelector('#filter-search') as HTMLInputElement;
+      box.value = text;
+      box.dispatchEvent(how === 'enter' ? new KeyboardEvent('keydown', { key: 'Enter' }) : new Event('change'));
+      fixture.detectChanges();
+    };
+
+    it('sends the typed text as q, trimmed, together with the other filters', () => {
+      const fixture = create([], ['fractions']);
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+
+      search(fixture, '  half of  ');
+
+      expect(httpMock.expectOne(isList).request.params.get('q')).toBe('half of');
+    });
+
+    it('does not send the same search twice when Enter and leaving the field both fire', () => {
+      const fixture = create();
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+
+      search(fixture, 'zebra');
+      search(fixture, 'zebra', 'change');
+
+      expect(httpMock.match(isList).length).toBe(1);
+    });
+
+    it('lists everything again when the search is cleared', () => {
+      const fixture = create();
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      search(fixture, 'zebra');
+      httpMock.expectOne(isList).flush([]);
+
+      search(fixture, '', 'change');
+
+      expect(httpMock.expectOne(isList).request.params.has('q')).toBe(false);
+    });
+
+    it('keeps the search when a later page is loaded, and says so when nothing matches', () => {
+      const fixture = create();
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+
+      search(fixture, 'zebra');
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('No questions match this filter.');
+    });
+  });
+
   it('files a question under a chapter, requires one once a book is chosen, and keeps the choice after saving', () => {
     const fixture = create([MATHS, OLD_BOOK]);
     httpMock.expectOne(isList).flush([]);

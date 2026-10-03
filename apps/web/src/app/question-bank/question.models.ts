@@ -93,6 +93,8 @@ export interface QuestionFilter {
   difficulty?: QuestionDifficulty;
   /** Combines with the others: only questions that carry this topic. */
   topic?: string;
+  /** Combines with the others: only questions whose text, or an option's text, contains this; case does not matter. */
+  search?: string;
 }
 
 /** The API's limits on one question, mirrored here so the form can refuse early. */

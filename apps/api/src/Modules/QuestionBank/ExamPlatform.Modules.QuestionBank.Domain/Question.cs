@@ -61,6 +61,13 @@ public sealed class Question : AggregateRoot
     /// </summary>
     public string Text { get; private set; }
 
+    /// <summary>
+    /// The readable text of <see cref="Text"/> with the markup taken out, kept so the bank can be searched by what a candidate reads
+    /// rather than by tag names and image data. It follows the text: whoever sets or changes the text sets this too
+    /// (see <see cref="IndexText"/>). Empty for a question stored before searching existed and not yet edited.
+    /// </summary>
+    public string SearchText { get; private set; } = string.Empty;
+
     /// <summary>The answer options, in display order.</summary>
     public IReadOnlyList<QuestionOption> Options => _options.AsReadOnly();
 
@@ -193,6 +200,10 @@ public sealed class Question : AggregateRoot
         _options.Clear();
         _options.AddRange(revised);
     }
+
+    /// <summary>Records the readable text of the question for searching.</summary>
+    /// <param name="plainText">The question text with all markup removed; null counts as empty.</param>
+    public void IndexText(string? plainText) => SearchText = plainText?.Trim() ?? string.Empty;
 
     /// <summary>Sets how hard the question is and which topics it covers, replacing what was there.</summary>
     /// <remarks>
