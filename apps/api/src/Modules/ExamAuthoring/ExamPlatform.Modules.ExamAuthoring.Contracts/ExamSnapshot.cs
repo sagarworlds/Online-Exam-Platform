@@ -23,6 +23,10 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// </param>
 /// <param name="ShuffleQuestions">Whether the author asked for the questions within each section to be shuffled on every attempt, the first included.</param>
 /// <param name="ShuffleOptions">Whether the author asked for the options of each question to be shuffled on every attempt, the first included.</param>
+/// <param name="PartialCredit">
+/// Whether a multiple-answer question that is partly right earns a share of the correct-answer marks: the correct options chosen,
+/// less the wrong ones, over the correct options there are. Otherwise only the exact set earns marks.
+/// </param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -41,7 +45,8 @@ public sealed record ExamSnapshot(
     bool SectionLockEnabled = false,
     int MaxAttempts = 1,
     bool ShuffleQuestions = false,
-    bool ShuffleOptions = false);
+    bool ShuffleOptions = false,
+    bool PartialCredit = false);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>

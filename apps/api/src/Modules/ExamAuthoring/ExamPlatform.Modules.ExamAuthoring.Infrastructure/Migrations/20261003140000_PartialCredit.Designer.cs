@@ -3,6 +3,7 @@ using System;
 using ExamPlatform.Modules.ExamAuthoring.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
 {
     [DbContext(typeof(ExamAuthoringDbContext))]
-    partial class ExamAuthoringDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261003140000_PartialCredit")]
+    partial class PartialCredit
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

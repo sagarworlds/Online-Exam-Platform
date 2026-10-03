@@ -20,7 +20,7 @@ public sealed record ReviewOptionDto(Guid Id, string Text, bool IsCorrect, bool 
 /// <param name="Id">The question's id.</param>
 /// <param name="Text">The question text, as sanitized HTML; render it with an HTML sanitizer in place, never as trusted markup.</param>
 /// <param name="Options">The options, in display order.</param>
-/// <param name="Verdict">Whether the answer was correct, wrong, or missing.</param>
+/// <param name="Verdict">Whether the answer was correct, partly correct, wrong, or missing.</param>
 /// <param name="Marks">The marks this question earned, which may be negative.</param>
 /// <param name="AllowsMultiple">Whether more than one option may be correct, so the candidate had to choose exactly the correct ones.</param>
 public sealed record ReviewQuestionDto(
@@ -48,6 +48,7 @@ public sealed record ReviewSectionDto(Guid Id, string Name, IReadOnlyList<Review
 /// <param name="WrongCount">How many were answered wrongly.</param>
 /// <param name="UnansweredCount">How many were left unanswered.</param>
 /// <param name="Sections">The questions, section by section.</param>
+/// <param name="PartialCount">How many multiple-answer questions were answered partly right and earned part of the marks.</param>
 public sealed record AttemptReviewDto(
     Guid AttemptId,
     Guid ExamId,
@@ -60,4 +61,5 @@ public sealed record AttemptReviewDto(
     int CorrectCount,
     int WrongCount,
     int UnansweredCount,
-    IReadOnlyList<ReviewSectionDto> Sections);
+    IReadOnlyList<ReviewSectionDto> Sections,
+    int PartialCount = 0);

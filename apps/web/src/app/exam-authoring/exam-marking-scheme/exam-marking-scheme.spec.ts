@@ -71,7 +71,7 @@ describe('ExamMarkingScheme', () => {
     type('incorrect', '-1');
     button('Save').click();
 
-    expect(changes).toEqual([{ correctMarks: 4, incorrectMarks: -1, unattemptedMarks: 0 }]);
+    expect(changes).toEqual([{ correctMarks: 4, incorrectMarks: -1, unattemptedMarks: 0, partialCredit: false }]);
   });
 
   it.each([
@@ -105,7 +105,29 @@ describe('ExamMarkingScheme', () => {
     type('unattempted', '-0.25');
     submit();
 
-    expect(changes).toEqual([{ correctMarks: 100, incorrectMarks: -100, unattemptedMarks: -0.25 }]);
+    expect(changes).toEqual([{ correctMarks: 100, incorrectMarks: -100, unattemptedMarks: -0.25, partialCredit: false }]);
+  });
+
+  it('sends partial credit when the author turns it on, and shows the current choice', () => {
+    show();
+    expect(text()).toContain('all or nothing');
+    startEditing();
+
+    const box = root.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    box.checked = true;
+    box.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    button('Save').click();
+
+    expect(changes).toEqual([{ correctMarks: 1, incorrectMarks: 0, unattemptedMarks: 0, partialCredit: true }]);
+  });
+
+  it('starts the checkbox from the scheme the exam has', () => {
+    show({ ...plain, partialCredit: true });
+    expect(text()).toContain('partial credit');
+    startEditing();
+
+    expect((root.querySelector('input[type="checkbox"]') as HTMLInputElement).checked).toBe(true);
   });
 
   it('closes without sending anything when the marks are unchanged', () => {

@@ -6,7 +6,11 @@ namespace ExamPlatform.Modules.ExamAuthoring.Domain;
 /// <param name="CorrectMarks">Marks for a correct answer.</param>
 /// <param name="IncorrectMarks">Marks for an incorrect answer; zero or negative (negative marking).</param>
 /// <param name="UnattemptedMarks">Marks for a question left unanswered; zero or negative.</param>
-public record MarkingScheme(decimal CorrectMarks, decimal IncorrectMarks, decimal UnattemptedMarks)
+/// <param name="PartialCredit">
+/// Whether a multiple-answer question that is only partly right earns a share of <paramref name="CorrectMarks"/> instead of being wrong.
+/// Off unless the author asks, so an exam keeps the all-or-nothing marking its candidates were told to expect.
+/// </param>
+public record MarkingScheme(decimal CorrectMarks, decimal IncorrectMarks, decimal UnattemptedMarks, bool PartialCredit = false)
 {
     /// <summary>The most marks any one question can be worth, or cost: a guard against a slipped digit.</summary>
     public const decimal LargestMagnitude = 100m;

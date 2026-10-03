@@ -17,6 +17,9 @@
         <p class="review-summary__score">{{ r.score }} / {{ r.maxScore }}</p>
         <ul class="review-counts" aria-label="Summary">
           <li class="badge badge--active">{{ r.correctCount }} correct</li>
+          @if (r.partialCount) {
+            <li class="badge badge--warning">{{ r.partialCount }} partly correct</li>
+          }
           <li class="badge badge--danger">{{ r.wrongCount }} wrong</li>
           <li class="badge badge--inactive">{{ r.unansweredCount }} not answered</li>
         </ul>
@@ -32,6 +35,7 @@
               type="button"
               class="review-strip__item"
               [class.review-strip__item--correct]="question.verdict === 'Correct'"
+              [class.review-strip__item--partial]="question.verdict === 'Partial'"
               [class.review-strip__item--wrong]="question.verdict === 'Wrong'"
               [attr.aria-label]="'Question ' + question.number + ', ' + verdictLabel(question.verdict)"
               (click)="scrollTo(question.number)"
@@ -53,6 +57,7 @@
               <span
                 class="badge"
                 [class.badge--active]="question.verdict === 'Correct'"
+                [class.badge--warning]="question.verdict === 'Partial'"
                 [class.badge--danger]="question.verdict === 'Wrong'"
                 [class.badge--inactive]="question.verdict === 'Unanswered'"
               >{{ verdictLabel(question.verdict) }}</span>
