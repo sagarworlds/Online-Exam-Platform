@@ -548,7 +548,7 @@ describe('ExamEditor', () => {
       button(card(root), 'Save').click();
 
       const put = httpMock.expectOne(isMarks);
-      expect(put.request.body).toEqual({ correctMarks: 4, incorrectMarks: 0, unattemptedMarks: 0 });
+      expect(put.request.body).toEqual({ correctMarks: 4, incorrectMarks: 0, unattemptedMarks: 0, partialCredit: false });
       const stored = withMarks(4, 0);
       put.flush(stored);
       httpMock.expectOne(isExam).flush(stored);

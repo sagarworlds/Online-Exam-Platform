@@ -92,7 +92,9 @@ public sealed record SetResultReleaseCommand(Guid ExamId, ResultReleaseMode? Mod
 /// <param name="CorrectMarks">Marks for a correct answer, or null if the caller did not send it.</param>
 /// <param name="IncorrectMarks">Marks for an incorrect answer (zero or negative), or null if not sent.</param>
 /// <param name="UnattemptedMarks">Marks for an unanswered question (zero or negative), or null if not sent.</param>
-public sealed record SetMarkingSchemeCommand(Guid ExamId, decimal? CorrectMarks, decimal? IncorrectMarks, decimal? UnattemptedMarks);
+/// <param name="PartialCredit">Whether partly right multiple-answer questions earn a share of the marks; null keeps what the exam has.</param>
+public sealed record SetMarkingSchemeCommand(
+    Guid ExamId, decimal? CorrectMarks, decimal? IncorrectMarks, decimal? UnattemptedMarks, bool? PartialCredit = null);
 
 /// <summary>Chooses whether an exam's questions and options are shown shuffled.</summary>
 /// <param name="ExamId">The exam.</param>

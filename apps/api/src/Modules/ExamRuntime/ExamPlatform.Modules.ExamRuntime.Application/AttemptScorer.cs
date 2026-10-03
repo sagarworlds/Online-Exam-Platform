@@ -30,10 +30,15 @@ public static class AttemptScorer
         Mark(exam, question, chosenOptionId is { } id ? new[] { id } : Array.Empty<Guid>());
 
     /// <summary>
-    /// Marks one question against the set of options chosen. All or nothing: the answer is right only when the options chosen are
-    /// exactly the question's correct options (for a single-answer question, the one correct option). Choosing some of them, or one
-    /// too many, is wrong, because partly right is still not what the question asks for. Choosing nothing is unanswered.
+    /// Marks one question against the set of options chosen. The answer is right when the options chosen are exactly the question's
+    /// correct options (for a single-answer question, the one correct option). Choosing nothing is unanswered.
     /// </summary>
+    /// <remarks>
+    /// Anything else is wrong, unless the exam gives partial credit: then a multiple-answer question earns
+    /// <c>(correct options chosen - wrong options chosen) / correct options there are</c> of the correct-answer marks when that is
+    /// above zero. Subtracting the wrong choices is what stops "tick everything" from scoring well. When it is not above zero the
+    /// answer is plainly wrong and carries the incorrect-answer marks, so negative marking still bites on a bad guess.
+    /// </remarks>
     /// <param name="exam">The exam, which holds the marking scheme.</param>
     /// <param name="question">The question from the question bank, answer key included.</param>
     /// <param name="chosenOptionIds">The options the candidate chose; empty when they chose none.</param>
@@ -50,9 +55,21 @@ public static class AttemptScorer
             throw new ExamContentUnavailableError();
 
         var correct = question.Options.Where(o => o.IsCorrect).Select(o => o.Id).ToHashSet();
-        return chosen.SetEquals(correct)
-            ? new QuestionMark(AnswerVerdict.Correct, exam.CorrectMarks)
-            : new QuestionMark(AnswerVerdict.Wrong, exam.IncorrectMarks);
+        if (chosen.SetEquals(correct))
+            return new QuestionMark(AnswerVerdict.Correct, exam.CorrectMarks);
+
+        if (exam.PartialCredit && correct.Count > 1)
+        {
+            var net = chosen.Count(correct.Contains) - chosen.Count(id => !correct.Contains(id));
+            if (net > 0)
+            {
+                // Rounded to the hundredths a mark can have, so a share of 1/3 does not produce a total nobody can add up by hand.
+                var share = decimal.Round(exam.CorrectMarks * net / correct.Count, 2, MidpointRounding.AwayFromZero);
+                return new QuestionMark(AnswerVerdict.Partial, share);
+            }
+        }
+
+        return new QuestionMark(AnswerVerdict.Wrong, exam.IncorrectMarks);
     }
 
     /// <summary>Scores every question of the exam: correct, wrong and unanswered each carry the exam's own marks.</summary>

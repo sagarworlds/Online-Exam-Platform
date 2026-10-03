@@ -8,6 +8,8 @@ export interface MarkingSchemeDto {
   correctMarks: number;
   incorrectMarks: number;
   unattemptedMarks: number;
+  /** Whether a multiple-answer question that is partly right earns a share of the marks. Absent means off. */
+  partialCredit?: boolean;
 }
 
 /** When candidates may see which of their answers were right: right after submitting, from a set time, or when released by hand. */

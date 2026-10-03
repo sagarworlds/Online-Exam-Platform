@@ -245,6 +245,7 @@ button.primary:hover:not(:disabled),
   color: var(--text-muted);
 }
 
+.badge--warning,
 .status-Draft,
 .status-Pending {
   background: var(--warning-soft);

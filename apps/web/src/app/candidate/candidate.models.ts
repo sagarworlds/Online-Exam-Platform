@@ -137,7 +137,7 @@ export interface AttemptDto {
 }
 
 /** How one question was marked. */
-export type AnswerVerdict = 'Correct' | 'Wrong' | 'Unanswered';
+export type AnswerVerdict = 'Correct' | 'Partial' | 'Wrong' | 'Unanswered';
 
 /** An option in a review: whether it is the right one, and whether the candidate chose it. */
 export interface ReviewOptionDto {
@@ -179,5 +179,7 @@ export interface AttemptReviewDto {
   correctCount: number;
   wrongCount: number;
   unansweredCount: number;
+  /** Multiple-answer questions answered partly right, for an exam with partial credit. Absent means none. */
+  partialCount?: number;
   sections: ReviewSectionDto[];
 }

@@ -69,7 +69,16 @@ export class AttemptReview {
   }
 
   protected verdictLabel(verdict: AnswerVerdict): string {
-    return verdict === 'Correct' ? 'Correct' : verdict === 'Wrong' ? 'Wrong' : 'Not answered';
+    switch (verdict) {
+      case 'Correct':
+        return 'Correct';
+      case 'Partial':
+        return 'Partly correct';
+      case 'Wrong':
+        return 'Wrong';
+      default:
+        return 'Not answered';
+    }
   }
 
   protected scrollTo(number: number): void {

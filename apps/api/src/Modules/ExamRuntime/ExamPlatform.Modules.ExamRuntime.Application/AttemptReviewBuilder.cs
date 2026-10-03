@@ -57,7 +57,8 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
             marked.Count(q => q.Verdict == AnswerVerdict.Correct),
             marked.Count(q => q.Verdict == AnswerVerdict.Wrong),
             marked.Count(q => q.Verdict == AnswerVerdict.Unanswered),
-            sections);
+            sections,
+            marked.Count(q => q.Verdict == AnswerVerdict.Partial));
     }
 
     private static ReviewQuestionDto ReviewQuestion(

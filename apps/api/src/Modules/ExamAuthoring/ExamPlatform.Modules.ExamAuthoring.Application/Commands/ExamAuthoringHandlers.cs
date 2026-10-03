@@ -392,7 +392,8 @@ public sealed class SetMarkingSchemeHandler(IExamRepository repository, IExamAut
             throw new InvalidExamConfigError("Send the marks for a correct answer, an incorrect answer and an unattempted question.");
 
         var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
-        exam.SetMarkingScheme(new MarkingScheme(correct, incorrect, unattempted), clock.UtcNow);
+        // A caller that does not know about partial credit leaves the setting as it was rather than quietly turning it off.
+        exam.SetMarkingScheme(new MarkingScheme(correct, incorrect, unattempted, command.PartialCredit ?? exam.Config.MarkingScheme.PartialCredit), clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await dtos.ToDtoAsync(exam, cancellationToken);

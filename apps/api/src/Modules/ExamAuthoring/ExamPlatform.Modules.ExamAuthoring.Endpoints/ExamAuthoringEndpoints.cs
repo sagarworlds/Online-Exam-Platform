@@ -239,7 +239,7 @@ public static class ExamAuthoringEndpoints
 
     private static async Task<IResult> SetMarkingScheme(
         Guid examId, MarkingSchemeRequest request, SetMarkingSchemeHandler handler, CancellationToken ct) =>
-        Results.Ok(await handler.HandleAsync(new SetMarkingSchemeCommand(examId, request.CorrectMarks, request.IncorrectMarks, request.UnattemptedMarks), ct));
+        Results.Ok(await handler.HandleAsync(new SetMarkingSchemeCommand(examId, request.CorrectMarks, request.IncorrectMarks, request.UnattemptedMarks, request.PartialCredit), ct));
 
     private static async Task<IResult> SetShuffle(
         Guid examId, ShuffleRequest request, SetShuffleHandler handler, CancellationToken ct) =>
@@ -366,7 +366,8 @@ public record ResultReleaseRequest(ResultReleaseMode? Mode, DateTime? ReleaseTim
 /// <param name="CorrectMarks">Marks for a correct answer; more than 0.</param>
 /// <param name="IncorrectMarks">Marks for an incorrect answer; 0 or negative.</param>
 /// <param name="UnattemptedMarks">Marks for an unanswered question; 0 or negative.</param>
-public record MarkingSchemeRequest(decimal? CorrectMarks, decimal? IncorrectMarks, decimal? UnattemptedMarks);
+/// <param name="PartialCredit">Whether a partly right multiple-answer question earns a share of the marks; omit to keep the current setting.</param>
+public record MarkingSchemeRequest(decimal? CorrectMarks, decimal? IncorrectMarks, decimal? UnattemptedMarks, bool? PartialCredit = null);
 
 /// <summary>Request body for choosing whether an exam's questions and options are shuffled.</summary>
 /// <param name="ShuffleQuestions">Whether the questions within each section are shuffled.</param>

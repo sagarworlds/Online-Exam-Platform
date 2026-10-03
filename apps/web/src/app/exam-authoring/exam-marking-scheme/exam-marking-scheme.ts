@@ -10,6 +10,7 @@ interface MarkDraft {
   correct: string;
   incorrect: string;
   unattempted: string;
+  partialCredit: boolean;
 }
 
 /**
@@ -34,7 +35,7 @@ export class ExamMarkingScheme {
 
   protected readonly largest = LARGEST_MAGNITUDE;
   protected readonly editing = signal(false);
-  protected readonly draft = signal<MarkDraft>({ correct: '', incorrect: '', unattempted: '' });
+  protected readonly draft = signal<MarkDraft>({ correct: '', incorrect: '', unattempted: '', partialCredit: false });
 
   /** The scheme that was shown when the form was last reset; undefined before the first look. */
   private shown: MarkingSchemeDto | undefined;
@@ -55,7 +56,7 @@ export class ExamMarkingScheme {
 
   /** The three fields as numbers in range with the right signs, or null while any is not. */
   protected parsedDraft(): MarkingSchemeDto | null {
-    const { correct, incorrect, unattempted } = this.draft();
+    const { correct, incorrect, unattempted, partialCredit } = this.draft();
     const correctMarks = parseMark(correct);
     const incorrectMarks = parseMark(incorrect);
     const unattemptedMarks = parseMark(unattempted);
@@ -65,16 +66,25 @@ export class ExamMarkingScheme {
 
     const inRange =
       correctMarks > 0 && correctMarks <= LARGEST_MAGNITUDE && incorrectMarks <= 0 && incorrectMarks >= -LARGEST_MAGNITUDE && unattemptedMarks <= 0 && unattemptedMarks >= -LARGEST_MAGNITUDE;
-    return inRange ? { correctMarks, incorrectMarks, unattemptedMarks } : null;
+    return inRange ? { correctMarks, incorrectMarks, unattemptedMarks, partialCredit } : null;
   }
 
-  protected setField(field: keyof MarkDraft, value: string): void {
+  protected setPartialCredit(on: boolean): void {
+    this.draft.update((current) => ({ ...current, partialCredit: on }));
+  }
+
+  protected setField(field: 'correct' | 'incorrect' | 'unattempted', value: string): void {
     this.draft.update((current) => ({ ...current, [field]: value }));
   }
 
   protected startEditing(): void {
-    const { correctMarks, incorrectMarks, unattemptedMarks } = this.scheme();
-    this.draft.set({ correct: String(correctMarks), incorrect: String(incorrectMarks), unattempted: String(unattemptedMarks) });
+    const { correctMarks, incorrectMarks, unattemptedMarks, partialCredit } = this.scheme();
+    this.draft.set({
+      correct: String(correctMarks),
+      incorrect: String(incorrectMarks),
+      unattempted: String(unattemptedMarks),
+      partialCredit: partialCredit === true,
+    });
     this.editing.set(true);
   }
 
@@ -109,5 +119,10 @@ function parseMark(text: string): number | null {
 }
 
 function sameMarks(a: MarkingSchemeDto, b: MarkingSchemeDto): boolean {
-  return a.correctMarks === b.correctMarks && a.incorrectMarks === b.incorrectMarks && a.unattemptedMarks === b.unattemptedMarks;
+  return (
+    a.correctMarks === b.correctMarks &&
+    a.incorrectMarks === b.incorrectMarks &&
+    a.unattemptedMarks === b.unattemptedMarks &&
+    (a.partialCredit ?? false) === (b.partialCredit ?? false)
+  );
 }
