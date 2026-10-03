@@ -80,6 +80,39 @@ describe('QuestionBank', () => {
     expect(text).toContain('Not filed under a chapter');
   });
 
+  describe('paging', () => {
+    const page = (from: number, count: number) => Array.from({ length: count }, (_, i) => listedQuestion(`q${from + i}`, `Question ${from + i}`));
+    const items = (fixture: ComponentFixture<QuestionBank>) => (fixture.nativeElement as HTMLElement).querySelectorAll('app-question-card').length;
+    const loadMore = (fixture: ComponentFixture<QuestionBank>) =>
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find((b) => b.textContent?.includes('Load older')) as HTMLButtonElement | undefined;
+
+    it('offers no more once a short page has come back', () => {
+      const fixture = create();
+      httpMock.expectOne(isList).flush(page(1, 3));
+      fixture.detectChanges();
+
+      expect(items(fixture)).toBe(3);
+      expect(loadMore(fixture)).toBeUndefined();
+    });
+
+    it('loads the next page below the first, skipping what is already shown, until a short page ends it', () => {
+      const fixture = create();
+      httpMock.expectOne(isList).flush(page(1, 200));
+      fixture.detectChanges();
+      expect(items(fixture)).toBe(200);
+
+      loadMore(fixture)!.click();
+      const next = httpMock.expectOne(isList);
+      expect(next.request.params.get('skip')).toBe('200');
+      // The last question of the first page comes back again because one was created meanwhile; it is not shown twice.
+      next.flush(page(200, 5));
+      fixture.detectChanges();
+
+      expect(items(fixture)).toBe(204);
+      expect(loadMore(fixture)).toBeUndefined();
+    });
+  });
+
   it('shows which book and chapter a question is filed under', () => {
     const fixture = create();
     httpMock.expectOne(isList).flush([

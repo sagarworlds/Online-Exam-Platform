@@ -31,7 +31,7 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
         await context.Questions.Where(q => questionIds.Contains(q.Id)).ToListAsync(cancellationToken);
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Question>> ListNewestAsync(QuestionFilter filter, int take, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Question>> ListNewestAsync(QuestionFilter filter, int skip, int take, CancellationToken cancellationToken)
     {
         var query = context.Questions.AsNoTracking().Include(q => q.Options).AsQueryable();
 
@@ -42,7 +42,8 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
         if (filter.BookId is { } bookId)
             query = query.Where(q => context.Chapters.Any(c => c.Id == q.ChapterId && c.BookId == bookId));
 
-        return await query.OrderByDescending(q => q.CreatedAtUtc).Take(take).ToListAsync(cancellationToken);
+        // The id breaks ties between questions created in the same instant, so a page boundary never repeats or skips one.
+        return await query.OrderByDescending(q => q.CreatedAtUtc).ThenBy(q => q.Id).Skip(skip).Take(take).ToListAsync(cancellationToken);
     }
 
     /// <inheritdoc />

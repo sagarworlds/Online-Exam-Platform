@@ -8,7 +8,7 @@ import { QuestionApiService } from './question-api.service';
 import { QuestionCard } from './question-card/question-card';
 import { createQuestionForm, newOption, toNewOptions } from './question-form';
 import { QuestionFields } from './question-fields/question-fields';
-import { CreateQuestionRequest, FileQuestionsResult, QuestionDto, QuestionFilter } from './question.models';
+import { CreateQuestionRequest, FileQuestionsResult, QUESTION_LIST_PAGE_SIZE, QuestionDto, QuestionFilter } from './question.models';
 
 /** The value of the list filter's book select that means "questions not filed under any chapter". */
 export const UNFILED = 'unfiled';
@@ -30,6 +30,9 @@ export class QuestionBank {
   protected readonly unfiled = UNFILED;
   protected readonly questions = signal<QuestionDto[]>([]);
   protected readonly loading = signal(true);
+  protected readonly loadingMore = signal(false);
+  /** Whether the last page came back full, so there may be older questions to load. */
+  protected readonly mayHaveMore = signal(false);
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
@@ -209,11 +212,33 @@ export class QuestionBank {
     return book ? { bookId: book } : {};
   }
 
+  /** Adds the next page of older questions below the ones shown. Ones already shown are not repeated, whatever was created meanwhile. */
+  protected loadMore(): void {
+    if (this.loadingMore() || !this.mayHaveMore()) {
+      return;
+    }
+
+    this.loadingMore.set(true);
+    this.api.list(this.currentFilter(), this.questions().length).subscribe({
+      next: (page) => {
+        const shown = new Set(this.questions().map((q) => q.id));
+        this.questions.update((list) => [...list, ...page.filter((q) => !shown.has(q.id))]);
+        this.mayHaveMore.set(page.length >= QUESTION_LIST_PAGE_SIZE);
+        this.loadingMore.set(false);
+      },
+      error: (error: unknown) => {
+        this.loadingMore.set(false);
+        this.errorMessage.set(extractErrorMessage(error));
+      },
+    });
+  }
+
   private refresh(): void {
     this.loading.set(true);
     this.api.list(this.currentFilter()).subscribe({
       next: (questions) => {
         this.questions.set(questions);
+        this.mayHaveMore.set(questions.length >= QUESTION_LIST_PAGE_SIZE);
         // Only what is still in the list can stay ticked: a filter change or a filing may have taken questions out of it.
         const present = new Set(questions.map((q) => q.id));
         this.selectedIds.update((current) => new Set([...current].filter((id) => present.has(id))));

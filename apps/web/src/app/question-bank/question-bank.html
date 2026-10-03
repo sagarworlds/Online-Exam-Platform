@@ -85,5 +85,10 @@
         (deleteConfirmed)="deleteQuestion($event)"
       />
     }
+    @if (mayHaveMore()) {
+      <div class="actions">
+        <button type="button" (click)="loadMore()" [disabled]="loadingMore()">{{ loadingMore() ? 'Loading…' : 'Load older questions' }}</button>
+      </div>
+    }
   }
 </div>
