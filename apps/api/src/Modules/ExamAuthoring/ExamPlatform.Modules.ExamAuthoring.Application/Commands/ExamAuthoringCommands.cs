@@ -40,6 +40,23 @@ public sealed record AddExamQuestionCommand(Guid ExamId, Guid SectionId, Guid Qu
 public sealed record DrawExamQuestionsCommand(
     Guid ExamId, Guid SectionId, int Count, Guid? BookId = null, Guid? ChapterId = null, string? Difficulty = null, string? Topic = null);
 
+/// <summary>Adds a rule to a section that draws questions at random for each candidate when they start an attempt.</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="SectionId">The section.</param>
+/// <param name="Count">How many questions to draw, from 1 to 100.</param>
+/// <param name="BookId">Only questions of this book.</param>
+/// <param name="ChapterId">Only questions of this chapter.</param>
+/// <param name="Difficulty">Only questions of this difficulty ("easy", "medium", "hard").</param>
+/// <param name="Topic">Only questions that carry this topic.</param>
+public sealed record AddDrawRuleCommand(
+    Guid ExamId, Guid SectionId, int Count, Guid? BookId = null, Guid? ChapterId = null, string? Difficulty = null, string? Topic = null);
+
+/// <summary>Takes a draw rule out of a section of a draft exam.</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="SectionId">The section.</param>
+/// <param name="RuleId">The rule to remove.</param>
+public sealed record RemoveDrawRuleCommand(Guid ExamId, Guid SectionId, Guid RuleId);
+
 /// <summary>Changes the name and description candidates see.</summary>
 /// <param name="ExamId">The exam.</param>
 /// <param name="Name">The new name, or null if the caller did not send it.</param>

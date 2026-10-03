@@ -48,4 +48,22 @@ public sealed record ExamSnapshot(
 /// <param name="Name">The section's name.</param>
 /// <param name="Order">Position in the exam, from 1.</param>
 /// <param name="QuestionIds">The question-bank ids of the section's questions, in order.</param>
-public sealed record ExamSectionSnapshot(Guid Id, string Name, int Order, IReadOnlyList<Guid> QuestionIds);
+/// <param name="DrawRules">
+/// Rules that add questions drawn at random for each candidate on top of <paramref name="QuestionIds"/>; empty for a section whose
+/// questions are all fixed.
+/// </param>
+public sealed record ExamSectionSnapshot(
+    Guid Id, string Name, int Order, IReadOnlyList<Guid> QuestionIds, IReadOnlyList<DrawRuleSnapshot>? DrawRules = null);
+
+/// <summary>
+/// A rule that draws questions for a candidate's paper, with the exam's scope already folded into where it may draw from, so the
+/// module that draws needs no knowledge of scopes.
+/// </summary>
+/// <param name="Count">How many questions to draw.</param>
+/// <param name="BookId">Only questions of this book, or null for any.</param>
+/// <param name="ChapterId">Only questions of this chapter, or null for any.</param>
+/// <param name="ChapterIds">Only questions of one of these chapters, or null for any; set when the exam is limited to chosen chapters.</param>
+/// <param name="Difficulty">Only this difficulty ("easy", "medium", "hard"), or null for any.</param>
+/// <param name="Topic">Only questions with this topic, or null for any.</param>
+public sealed record DrawRuleSnapshot(
+    int Count, Guid? BookId, Guid? ChapterId, IReadOnlyList<Guid>? ChapterIds, string? Difficulty, string? Topic);

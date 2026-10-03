@@ -2,7 +2,7 @@ import { Component, computed, effect, input, output, signal, untracked } from '@
 import { QUESTION_DIFFICULTIES, QuestionDifficulty, QuestionDto } from '../../question-bank/question.models';
 import { PlainTextPipe } from '../../shared/rich-text/plain-text.pipe';
 import { htmlToPlainText } from '../../shared/rich-text/html-to-text';
-import { DrawQuestionsRequest, ExamQuestionDto, ExamScopeType, ExamSectionDto, MAX_DRAW_COUNT } from '../exam.models';
+import { DrawQuestionsRequest, DrawRuleDto, ExamQuestionDto, ExamScopeType, ExamSectionDto, MAX_DRAW_COUNT } from '../exam.models';
 
 /**
  * One section of an exam in the editor (FR-11): its name, its questions in order, and, while the exam is a draft, what the
@@ -28,6 +28,11 @@ export class ExamSectionCard {
   /** Topics in use in the bank, offered in the draw's topic picker. */
   readonly topics = input<readonly string[]>([]);
 
+  /** The author asked for a rule that draws random questions for each candidate when they start. */
+  readonly drawRuleRequested = output<{ sectionId: string; request: DrawQuestionsRequest }>();
+  /** The author asked to take a draw rule out. */
+  readonly drawRuleRemoveRequested = output<{ sectionId: string; ruleId: string }>();
+
   /** The author asked for random questions to be drawn into this section. */
   readonly drawRequested = output<{ sectionId: string; request: DrawQuestionsRequest }>();
 
@@ -49,6 +54,8 @@ export class ExamSectionCard {
   protected readonly drawCount = signal(5);
   protected readonly drawDifficulty = signal<QuestionDifficulty | ''>('');
   protected readonly drawTopic = signal('');
+  /** Whether the draw becomes a rule, drawn again for every candidate, instead of picking the questions now. */
+  protected readonly drawPerCandidate = signal(false);
   protected readonly difficulties = QUESTION_DIFFICULTIES;
   protected readonly maxDrawCount = MAX_DRAW_COUNT;
   protected readonly drawCountValid = computed(() => Number.isInteger(this.drawCount()) && this.drawCount() >= 1 && this.drawCount() <= MAX_DRAW_COUNT);
@@ -88,10 +95,18 @@ export class ExamSectionCard {
       return;
     }
 
-    this.drawRequested.emit({
+    const target = {
       sectionId: this.section().id,
       request: { count: this.drawCount(), difficulty: this.drawDifficulty() || null, topic: this.drawTopic() || null },
-    });
+    };
+    (this.drawPerCandidate() ? this.drawRuleRequested : this.drawRequested).emit(target);
+  }
+
+  /** A short description of what a rule draws, e.g. "5 easy questions on algebra". */
+  protected describeRule(rule: DrawRuleDto): string {
+    const level = rule.difficulty ? `${rule.difficulty} ` : '';
+    const topic = rule.topic ? ` on ${rule.topic}` : '';
+    return `${rule.count} ${level}${rule.count === 1 ? 'question' : 'questions'}${topic}`;
   }
 
   protected confirmRemove(): void {

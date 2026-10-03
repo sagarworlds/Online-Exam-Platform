@@ -5,7 +5,9 @@ namespace ExamPlatform.Modules.QuestionBank.Contracts;
 /// <param name="ChapterId">Only questions filed under this chapter.</param>
 /// <param name="Difficulty">Only questions of this difficulty: "easy", "medium" or "hard".</param>
 /// <param name="Topic">Only questions that carry this topic; case and surrounding spaces do not matter.</param>
-public sealed record QuestionCriteria(Guid? BookId = null, Guid? ChapterId = null, string? Difficulty = null, string? Topic = null);
+/// <param name="ChapterIds">Only questions filed under one of these chapters; null or empty sets no limit. Combines with <paramref name="ChapterId"/>.</param>
+public sealed record QuestionCriteria(
+    Guid? BookId = null, Guid? ChapterId = null, string? Difficulty = null, string? Topic = null, IReadOnlyList<Guid>? ChapterIds = null);
 
 /// <summary>Where a found question is filed: enough to choose among questions without reading each one.</summary>
 /// <param name="Id">The question's id.</param>

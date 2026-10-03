@@ -160,6 +160,21 @@ public static class ExamAuthoringEndpoints
             .WithName("RemoveExamQuestion")
             .WithDescription("Take a question out of a section of a draft exam; the question stays in the bank");
 
+        exams.MapPost("/{examId:guid}/sections/{sectionId:guid}/draw-rules", AddDrawRule)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("AddExamDrawRule")
+            .WithDescription("Add a rule that draws random questions, matching a book, chapter, difficulty or topic, for each candidate when they start");
+
+        exams.MapDelete("/{examId:guid}/sections/{sectionId:guid}/draw-rules/{ruleId:guid}", RemoveDrawRule)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("RemoveExamDrawRule")
+            .WithDescription("Take a draw rule out of a section of a draft exam");
+
         exams.MapPost("/{examId:guid}/publish", PublishExam)
             .RequireAuthorization(ExamAuthoringPermissions.Publish)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -273,6 +288,21 @@ public static class ExamAuthoringEndpoints
         Guid examId, Guid sectionId, DrawQuestionsRequest request, DrawExamQuestionsHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(
             new DrawExamQuestionsCommand(examId, sectionId, request.Count, request.BookId, request.ChapterId, request.Difficulty, request.Topic), ct));
+
+    private static async Task<IResult> AddDrawRule(
+        Guid examId, Guid sectionId, DrawQuestionsRequest request, AddDrawRuleHandler handler, CancellationToken ct)
+    {
+        var result = await handler.HandleAsync(
+            new AddDrawRuleCommand(examId, sectionId, request.Count, request.BookId, request.ChapterId, request.Difficulty, request.Topic), ct);
+        return Results.Created($"/v1/exams/{examId}/sections/{sectionId}/draw-rules/{result.Id}", result);
+    }
+
+    private static async Task<IResult> RemoveDrawRule(
+        Guid examId, Guid sectionId, Guid ruleId, RemoveDrawRuleHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(new RemoveDrawRuleCommand(examId, sectionId, ruleId), ct);
+        return Results.NoContent();
+    }
 
     private static async Task<IResult> RemoveQuestion(
         Guid examId, Guid sectionId, Guid questionId, RemoveExamQuestionHandler handler, CancellationToken ct)

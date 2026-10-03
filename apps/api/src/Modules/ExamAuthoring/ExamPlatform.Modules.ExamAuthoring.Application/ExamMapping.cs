@@ -69,5 +69,11 @@ internal static class ExamMapping
                     q.QuestionVersionId,
                     q.Order,
                     questionTexts.GetValueOrDefault(q.QuestionVersionId)))
-                .ToList());
+                .ToList(),
+            section.DrawRules.OrderBy(r => r.Order).Select(r => r.ToDto()).ToList());
+
+    /// <summary>Maps one draw rule.</summary>
+    /// <param name="rule">The rule to map.</param>
+    public static DrawRuleDto ToDto(this SectionDrawRule rule) =>
+        new(rule.Id, rule.Order, rule.Count, rule.BookId, rule.ChapterId, rule.Difficulty, rule.Topic);
 }

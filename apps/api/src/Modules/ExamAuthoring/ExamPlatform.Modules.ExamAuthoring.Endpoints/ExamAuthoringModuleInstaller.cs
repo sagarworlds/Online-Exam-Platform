@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ExamPlatform.Modules.ExamAuthoring.Endpoints;
 
@@ -45,7 +46,10 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
         services.AddScoped<AddExamQuestionHandler>();
         services.AddScoped<RemoveExamQuestionHandler>();
         services.AddScoped<DrawExamQuestionsHandler>();
-        services.AddSingleton<IQuestionPicker, RandomQuestionPicker>();
+        services.AddScoped<AddDrawRuleHandler>();
+        services.AddScoped<RemoveDrawRuleHandler>();
+        services.AddScoped<DrawPoolChecker>();
+        services.TryAddSingleton<IQuestionPicker, RandomQuestionPicker>();
         services.AddScoped<RemoveSectionHandler>();
         services.AddScoped<UpdateExamDetailsHandler>();
         services.AddScoped<DeleteExamHandler>();

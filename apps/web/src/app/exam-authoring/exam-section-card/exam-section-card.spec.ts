@@ -273,6 +273,31 @@ describe('ExamSectionCard', () => {
       expect(drawn).toEqual([{ sectionId: 's1', request: { count: 3, difficulty: 'hard', topic: 'fractions' } }]);
     });
 
+    it('asks for a rule instead of a draw when the author wants it redrawn for each candidate', () => {
+      show();
+      const rules: { sectionId: string; request: DrawQuestionsRequest }[] = [];
+      fixture.componentInstance.drawRuleRequested.subscribe((r) => rules.push(r));
+      press('Add random questions…');
+
+      field('Draw again for each candidate').click();
+      fixture.detectChanges();
+      press('Add rule');
+
+      expect(rules).toEqual([{ sectionId: 's1', request: { count: 5, difficulty: null, topic: null } }]);
+      expect(drawn).toEqual([]);
+    });
+
+    it('lists the section\'s rules and lets the author take one out', () => {
+      show(section({ drawRules: [{ id: 'r1', order: 1, count: 3, bookId: null, chapterId: null, difficulty: 'easy', topic: 'algebra' }] }));
+      const removedRules: { sectionId: string; ruleId: string }[] = [];
+      fixture.componentInstance.drawRuleRemoveRequested.subscribe((r) => removedRules.push(r));
+
+      expect(root.textContent).toContain('3 easy questions on algebra');
+      press('Remove rule');
+
+      expect(removedRules).toEqual([{ sectionId: 's1', ruleId: 'r1' }]);
+    });
+
     it('sends null for "Any", and starts at five questions', () => {
       show();
       press('Add random questions…');

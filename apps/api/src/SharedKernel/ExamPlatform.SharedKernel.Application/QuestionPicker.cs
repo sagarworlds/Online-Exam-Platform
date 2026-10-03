@@ -1,4 +1,4 @@
-namespace ExamPlatform.Modules.ExamAuthoring.Application;
+namespace ExamPlatform.SharedKernel.Application;
 
 /// <summary>Chooses which of some candidates a draw takes. A port so a test can make the choice predictable.</summary>
 public interface IQuestionPicker
@@ -11,7 +11,7 @@ public interface IQuestionPicker
     IReadOnlyList<T> Pick<T>(IReadOnlyList<T> items, int count);
 }
 
-/// <summary>Picks uniformly at random. The draw is a one-off authoring convenience, so it needs no seed or reproducibility.</summary>
+/// <summary>Picks uniformly at random. Draws are never replayed, so it needs no seed or reproducibility.</summary>
 public sealed class RandomQuestionPicker : IQuestionPicker
 {
     /// <inheritdoc />

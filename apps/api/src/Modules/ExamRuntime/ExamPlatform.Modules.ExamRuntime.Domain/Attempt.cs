@@ -17,6 +17,7 @@ public sealed class Attempt : AggregateRoot
 {
     private readonly List<AttemptAnswer> _answers = [];
     private readonly List<AttemptMark> _marks = [];
+    private readonly List<AttemptQuestion> _paper = [];
 
     /// <summary>The exam being taken.</summary>
     public Guid ExamId { get; private set; }
@@ -60,6 +61,12 @@ public sealed class Attempt : AggregateRoot
     /// <summary>The questions the candidate has marked for review, at most one mark per question. Marks never affect the score.</summary>
     public IReadOnlyList<AttemptMark> Marks => _marks.AsReadOnly();
 
+    /// <summary>
+    /// The questions drawn for this attempt, section by section. Empty when the exam has no draw rules, in which case the exam's
+    /// fixed list is the paper.
+    /// </summary>
+    public IReadOnlyList<AttemptQuestion> Paper => _paper.AsReadOnly();
+
     // For EF Core.
     private Attempt() : base(Guid.Empty)
     {
@@ -91,6 +98,28 @@ public sealed class Attempt : AggregateRoot
             throw new InvalidAttemptError("An attempt must end after it starts.");
 
         return new Attempt(Guid.NewGuid(), examId, candidateId, number, startedAtUtc, deadlineUtc);
+    }
+
+    /// <summary>Fixes the questions this attempt consists of. Done once, as the attempt starts.</summary>
+    /// <param name="questions">The questions in the order they were drawn, each with its section; within a section they keep that order.</param>
+    /// <exception cref="InvalidAttemptError">The attempt already has a paper, or a question appears twice.</exception>
+    public void SetPaper(IEnumerable<(Guid SectionId, Guid QuestionId)> questions)
+    {
+        if (_paper.Count > 0)
+            throw new InvalidAttemptError("This attempt already has its paper.");
+
+        var seen = new HashSet<Guid>();
+        var perSection = new Dictionary<Guid, int>();
+        foreach (var (sectionId, questionId) in questions)
+        {
+            // A repeated question would share one answer between two places on the paper.
+            if (!seen.Add(questionId))
+                throw new InvalidAttemptError("A question cannot be on the paper twice.");
+
+            var order = perSection.GetValueOrDefault(sectionId) + 1;
+            perSection[sectionId] = order;
+            _paper.Add(new AttemptQuestion(Id, sectionId, order, questionId));
+        }
     }
 
     /// <summary>Whether time has run out at <paramref name="nowUtc"/>.</summary>

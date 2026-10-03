@@ -8,6 +8,7 @@ import {
   AttemptLimitRequest,
   CreateExamRequest,
   DrawQuestionsRequest,
+  DrawRuleDto,
   EditSectionRequest,
   ExamDto,
   ExamScopeRequest,
@@ -80,6 +81,15 @@ export class ExamApiService {
   }
 
   /** Adds random bank questions that match the request to a section of a draft exam; all or none. Returns the ones added. */
+  /** Adds a rule that draws {@link DrawQuestionsRequest.count} random questions for each candidate when they start. */
+  addDrawRule(examId: string, sectionId: string, request: DrawQuestionsRequest): Observable<DrawRuleDto> {
+    return this.http.post<DrawRuleDto>(`${this.apiUrl}/${examId}/sections/${sectionId}/draw-rules`, request);
+  }
+
+  removeDrawRule(examId: string, sectionId: string, ruleId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${examId}/sections/${sectionId}/draw-rules/${ruleId}`);
+  }
+
   drawQuestions(examId: string, sectionId: string, request: DrawQuestionsRequest): Observable<ExamQuestionDto[]> {
     return this.http.post<ExamQuestionDto[]>(`${this.apiUrl}/${examId}/sections/${sectionId}/questions/draw`, request);
   }

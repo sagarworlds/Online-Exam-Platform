@@ -1,3 +1,4 @@
+using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.ExamRuntime.Application;
 using ExamPlatform.Modules.ExamRuntime.Application.Commands;
@@ -45,7 +46,7 @@ public class AttemptHandlerTests
     private AttemptViewBuilder Views => new(_bank, _clock);
     private AttemptCloser Closer => new(_bank, _unitOfWork, _clock);
     private AttemptAccess Access => new(_attempts, _catalog, Closer, _clock);
-    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _unitOfWork, Access, Views, _clock);
+    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _clock);
     private SaveAnswerHandler Save => new(Access, _bank, _unitOfWork, _clock);
     private ClearAnswerHandler Clear => new(Access, _unitOfWork, _clock);
     private MarkQuestionHandler Mark => new(Access, _unitOfWork, _clock);

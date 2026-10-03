@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ExamPlatform.Modules.ExamRuntime.Endpoints;
 
@@ -45,6 +46,8 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<AttemptRequestDtoFactory>();
 
         services.AddScoped<MyExamsHandler>();
+        services.AddScoped<PaperDrawer>();
+        services.TryAddSingleton<IQuestionPicker, RandomQuestionPicker>();
         services.AddScoped<StartAttemptHandler>();
         services.AddScoped<GetAttemptHandler>();
         services.AddScoped<GetAttemptReviewHandler>();

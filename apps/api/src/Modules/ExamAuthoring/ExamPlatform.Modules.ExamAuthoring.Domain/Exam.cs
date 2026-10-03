@@ -259,6 +259,44 @@ public class Exam : AggregateRoot
         return question;
     }
 
+    /// <summary>Adds a rule to a section that draws questions at random for each candidate who starts an attempt.</summary>
+    /// <param name="sectionId">The section.</param>
+    /// <param name="count">How many to draw.</param>
+    /// <param name="bookId">Only questions of this book, or null for any.</param>
+    /// <param name="chapterId">Only questions of this chapter, or null for any.</param>
+    /// <param name="difficulty">Only this difficulty ("easy", "medium", "hard"), or blank for any.</param>
+    /// <param name="topic">Only this topic, or blank for any.</param>
+    /// <returns>The rule as added.</returns>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="InvalidExamConfigError">A part of the rule is invalid, or the section has the most rules it may.</exception>
+    public SectionDrawRule AddDrawRule(Guid sectionId, int count, Guid? bookId, Guid? chapterId, string? difficulty, string? topic)
+    {
+        EnsureDraft();
+
+        var section = GetSection(sectionId) ?? throw new SectionNotFoundError(sectionId);
+        var rule = section.AddDrawRule(count, bookId, chapterId, difficulty, topic);
+        UpdatedAt = DateTime.UtcNow;
+        return rule;
+    }
+
+    /// <summary>Takes a draw rule out of a section.</summary>
+    /// <param name="sectionId">The section.</param>
+    /// <param name="ruleId">The rule's id.</param>
+    /// <exception cref="ExamNotDraftError">The exam is already published. A published exam may already have been sat, and its rules are what its papers are drawn from.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="DrawRuleNotFoundError">The section has no such rule.</exception>
+    public void RemoveDrawRule(Guid sectionId, Guid ruleId)
+    {
+        EnsureDraft();
+
+        var section = GetSection(sectionId) ?? throw new SectionNotFoundError(sectionId);
+        if (!section.RemoveDrawRule(ruleId))
+            throw new DrawRuleNotFoundError(ruleId, sectionId);
+
+        UpdatedAt = DateTime.UtcNow;
+    }
+
     /// <summary>Takes a question out of a section.</summary>
     /// <param name="sectionId">The section it is in.</param>
     /// <param name="questionId">The question's id in the question bank.</param>
@@ -481,8 +519,8 @@ public class Exam : AggregateRoot
         if (ScheduledEndTime <= nowUtc)
             throw new InvalidExamConfigError("The exam's end is in the past; schedule it again before publishing.");
 
-        if (!_sections.Any(s => s.Questions.Count > 0))
-            throw new InvalidExamConfigError("Add at least one question before publishing.");
+        if (!_sections.Any(s => s.Questions.Count > 0 || s.DrawRules.Count > 0))
+            throw new InvalidExamConfigError("Add at least one question, or a rule that draws questions, before publishing.");
 
         Status = ExamStatus.Published;
         UpdatedAt = nowUtc;

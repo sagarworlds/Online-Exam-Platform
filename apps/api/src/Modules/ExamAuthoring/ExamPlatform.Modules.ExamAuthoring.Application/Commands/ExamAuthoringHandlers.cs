@@ -195,6 +195,49 @@ public sealed class DrawExamQuestionsHandler(
     }
 }
 
+/// <summary>Handles <see cref="AddDrawRuleCommand"/>.</summary>
+public sealed class AddDrawRuleHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
+{
+    /// <summary>Adds the rule to the section and saves. Nothing is drawn now: each candidate's questions are drawn when they start.</summary>
+    /// <param name="command">The rule to add.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The rule as added.</returns>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="InvalidExamConfigError">The rule is invalid, or lies outside the exam's scope.</exception>
+    public async Task<DrawRuleDto> HandleAsync(AddDrawRuleCommand command, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        var rule = exam.AddDrawRule(command.SectionId, command.Count, command.BookId, command.ChapterId, command.Difficulty, command.Topic);
+
+        // Refused now rather than at publish, while the author is looking at the rule they just typed.
+        if (DrawRuleScoping.Apply(rule, exam.Scope) is null)
+            throw new InvalidExamConfigError("That rule asks for questions outside the exam's book or chapters, so it could never match.");
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return rule.ToDto();
+    }
+}
+
+/// <summary>Handles <see cref="RemoveDrawRuleCommand"/>.</summary>
+public sealed class RemoveDrawRuleHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
+{
+    /// <summary>Takes the rule out of the section and saves.</summary>
+    /// <param name="command">Which rule to remove from where.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="DrawRuleNotFoundError">The section has no such rule.</exception>
+    public async Task HandleAsync(RemoveDrawRuleCommand command, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.RemoveDrawRule(command.SectionId, command.RuleId);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
 /// <summary>Handles <see cref="RemoveExamQuestionCommand"/>.</summary>
 public sealed class RemoveExamQuestionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
 {
@@ -253,17 +296,22 @@ public sealed class DeleteExamHandler(
 }
 
 /// <summary>Handles publishing an exam.</summary>
-public sealed class PublishExamHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
+public sealed class PublishExamHandler(
+    IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, DrawPoolChecker drawPools, Clock clock)
 {
     /// <summary>Publishes the exam so the candidates invited to it can take it.</summary>
     /// <param name="examId">The exam to publish.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
     /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
-    /// <exception cref="InvalidExamConfigError">The exam is not scheduled, ends in the past, or has no questions.</exception>
+    /// <exception cref="InvalidExamConfigError">The exam is not scheduled, ends in the past, or has no questions or draw rules.</exception>
+    /// <exception cref="DrawPoolTooSmallError">A draw rule needs more questions than the bank has for it.</exception>
     public async Task<ExamDto> HandleAsync(Guid examId, CancellationToken cancellationToken)
     {
         var exam = await repository.GetByIdOrThrowAsync(examId, cancellationToken);
+        // Only a draft is checked: a published exam is refused by Publish itself, whatever the bank holds.
+        if (exam.Status == ExamStatus.Draft)
+            await drawPools.EnsureFillableAsync(exam, cancellationToken);
         exam.Publish(clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 

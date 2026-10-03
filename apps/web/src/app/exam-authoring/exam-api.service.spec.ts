@@ -86,6 +86,17 @@ describe('ExamApiService', () => {
     expect(req.request.body).toEqual({ count: 3, difficulty: 'hard', topic: 'fractions' });
   });
 
+  it('adds and removes draw rules through the draw-rules routes', () => {
+    service.addDrawRule('exam-1', 's1', { count: 2, difficulty: 'easy', topic: null }).subscribe();
+    const add = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1/sections/s1/draw-rules`);
+    expect(add.request.method).toBe('POST');
+    expect(add.request.body).toEqual({ count: 2, difficulty: 'easy', topic: null });
+
+    service.removeDrawRule('exam-1', 's1', 'r1').subscribe();
+    const remove = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1/sections/s1/draw-rules/r1`);
+    expect(remove.request.method).toBe('DELETE');
+  });
+
   it('changes the name and description with a PUT to the details route', () => {
     service.updateDetails('exam-1', { name: 'Maths mock', description: null }).subscribe();
 

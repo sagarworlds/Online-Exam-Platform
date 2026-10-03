@@ -29,6 +29,8 @@ public sealed class AttemptAccess(IAttemptRepository attempts, IExamCatalog cata
         var exam = await catalog.FindAsync(attempt.ExamId, cancellationToken)
             ?? throw new ExamContentUnavailableError();
 
+        // The exam as this attempt sees it: its drawn paper, if the exam draws one.
+        exam = exam.For(attempt);
         await CloseIfExpiredAsync(attempt, exam, cancellationToken);
         return (attempt, exam);
     }

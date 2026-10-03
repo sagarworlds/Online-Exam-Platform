@@ -90,7 +90,12 @@ export class ExamEditor {
     return exam?.status === 'Published' && exam.config.resultReleaseMode === 'Manual' && exam.config.resultReleaseTime === null;
   });
   protected readonly questionCount = computed(
-    () => this.exam()?.sections?.reduce((total, section) => total + section.questions.length, 0) ?? 0,
+    // A rule counts for what it draws: an exam made only of rules still has questions for every candidate.
+    () =>
+      this.exam()?.sections?.reduce(
+        (total, section) => total + section.questions.length + (section.drawRules ?? []).reduce((sum, rule) => sum + rule.count, 0),
+        0,
+      ) ?? 0,
   );
   protected readonly canPublish = computed(
     () => this.isDraft() && this.exam()?.isScheduled === true && this.questionCount() > 0,
@@ -240,6 +245,18 @@ export class ExamEditor {
     }
 
     this.run(this.examApi.addQuestion(this.examId, sectionId, questionId));
+  }
+
+  protected addDrawRule(sectionId: string, request: DrawQuestionsRequest): void {
+    if (!this.busy()) {
+      this.run(this.examApi.addDrawRule(this.examId, sectionId, request));
+    }
+  }
+
+  protected removeDrawRule(target: { sectionId: string; ruleId: string }): void {
+    if (!this.busy()) {
+      this.run(this.examApi.removeDrawRule(this.examId, target.sectionId, target.ruleId));
+    }
   }
 
   protected drawQuestions(sectionId: string, request: DrawQuestionsRequest): void {

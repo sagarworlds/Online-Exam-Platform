@@ -1,3 +1,4 @@
+using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.Modules.ExamAuthoring.Application;
 using ExamPlatform.Modules.ExamAuthoring.Application.Commands;
 using ExamPlatform.Modules.ExamAuthoring.Application.Ports;
