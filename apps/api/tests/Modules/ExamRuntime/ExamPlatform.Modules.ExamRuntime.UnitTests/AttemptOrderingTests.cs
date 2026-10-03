@@ -139,6 +139,67 @@ public class AttemptOrderingTests
             AttemptOrdering.Arrange(authored, id => id, Id(0xa1), 1, Id(0xb1), authorShuffles: true));
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(5)]
+    public void APinnedOption_KeepsItsPlace_WhateverTheAttempt(int number)
+    {
+        var authored = Ids(5);
+        var last = authored[^1];
+
+        for (var attempt = 1; attempt <= 12; attempt++)
+        {
+            var arranged = AttemptOrdering.Arrange(authored, id => id, Guid.NewGuid(), number, Id(0xb1), authorShuffles: true, isPinned: id => id == last);
+
+            Assert.Equal(last, arranged[^1]);
+            Assert.Equal(authored.OrderBy(id => id), arranged.OrderBy(id => id));
+        }
+    }
+
+    [Fact]
+    public void APinnedOptionInTheMiddle_StaysThere_AndTheOthersStillMove()
+    {
+        var authored = Ids(6);
+        var pinned = authored[2];
+
+        var arranged = AttemptOrdering.Arrange(authored, id => id, Id(0xa1), 2, Id(0xb1), isPinned: id => id == pinned);
+
+        Assert.Equal(pinned, arranged[2]);
+        Assert.NotEqual(authored, arranged);
+    }
+
+    [Fact]
+    public void TheUnpinnedOptions_AreNeverLeftInTheirAuthoredOrder_WhenThereAreTwoOrMore()
+    {
+        var authored = Ids(4);
+        var pinned = authored[3];
+
+        var arranged = AttemptOrdering.Arrange(authored, id => id, Id(0xa1), 2, Id(0xb1), isPinned: id => id == pinned);
+
+        Assert.NotEqual(authored.Take(3), arranged.Take(3));
+    }
+
+    [Fact]
+    public void WithFewerThanTwoMovableOptions_NothingMoves()
+    {
+        var authored = Ids(3);
+
+        var arranged = AttemptOrdering.Arrange(authored, id => id, Id(0xa1), 2, Id(0xb1), isPinned: id => id != authored[0]);
+
+        Assert.Equal(authored, arranged);
+    }
+
+    [Fact]
+    public void WithNothingPinned_TheOrderIsTheSameAsWithoutThePinRule()
+    {
+        var authored = Ids(8);
+
+        Assert.Equal(
+            Arrange(authored, Id(0xa1), 2),
+            AttemptOrdering.Arrange(authored, id => id, Id(0xa1), 2, Id(0xb1), isPinned: _ => false));
+    }
+
     [Fact]
     public void WhenTheAuthorDoesNotAsk_TheFirstAttemptKeepsTheAuthoredOrder()
     {

@@ -73,14 +73,14 @@ public static class QuestionBankEndpoints
     private static async Task<IResult> EditQuestion(
         Guid questionId, EditQuestionRequest request, EditQuestionHandler handler, CancellationToken ct)
     {
-        var options = request.Options?.Select(o => new QuestionOptionEdit(o?.Id, o?.Text, o?.IsCorrect ?? false)).ToList();
+        var options = request.Options?.Select(o => new QuestionOptionEdit(o?.Id, o?.Text, o?.IsCorrect ?? false, o?.IsPinned ?? false)).ToList();
         return Results.Ok(await handler.HandleAsync(new EditQuestionCommand(questionId, request.Text, options), ct));
     }
 
     private static async Task<IResult> CreateQuestion(
         CreateQuestionRequest request, ClaimsPrincipal user, CreateQuestionHandler handler, CancellationToken ct)
     {
-        var options = request.Options?.Select(o => new NewQuestionOption(o?.Text, o?.IsCorrect ?? false)).ToList();
+        var options = request.Options?.Select(o => new NewQuestionOption(o?.Text, o?.IsCorrect ?? false, o?.IsPinned ?? false)).ToList();
         var result = await handler.HandleAsync(new CreateQuestionCommand(request.Text, options, user.GetUserId(), request.ChapterId), ct);
         return Results.Created($"/v1/questions/{result.Id}", result);
     }
@@ -113,9 +113,11 @@ public sealed record EditQuestionRequest(string? Text, IReadOnlyList<EditQuestio
 /// <param name="Id">The id of the existing option being edited; omit it for a new option.</param>
 /// <param name="Text">The option text.</param>
 /// <param name="IsCorrect">Whether this is the right answer.</param>
-public sealed record EditQuestionOptionRequest(Guid? Id, string? Text, bool IsCorrect);
+/// <param name="IsPinned">Whether the option keeps its place when options are shuffled; omitted means not pinned.</param>
+public sealed record EditQuestionOptionRequest(Guid? Id, string? Text, bool IsCorrect, bool IsPinned = false);
 
 /// <summary>One option in a <see cref="CreateQuestionRequest"/>.</summary>
 /// <param name="Text">The option text.</param>
 /// <param name="IsCorrect">Whether this is the right answer.</param>
-public sealed record CreateQuestionOptionRequest(string? Text, bool IsCorrect);
+/// <param name="IsPinned">Whether the option keeps its place when options are shuffled; omitted means not pinned.</param>
+public sealed record CreateQuestionOptionRequest(string? Text, bool IsCorrect, bool IsPinned = false);

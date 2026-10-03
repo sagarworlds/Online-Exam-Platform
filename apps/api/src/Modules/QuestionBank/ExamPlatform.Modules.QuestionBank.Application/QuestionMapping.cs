@@ -15,7 +15,7 @@ internal static class QuestionMapping
         new(
             question.Id,
             question.Text,
-            question.Options.OrderBy(o => o.Order).Select(o => new QuestionOptionDto(o.Id, o.Text, o.IsCorrect)).ToList(),
+            question.Options.OrderBy(o => o.Order).Select(o => new QuestionOptionDto(o.Id, o.Text, o.IsCorrect, o.IsPinned)).ToList(),
             question.CreatedBy,
             question.CreatedAtUtc,
             filedUnder?.ChapterId,

@@ -20,9 +20,9 @@ const QUESTION: QuestionDto = {
   chapterId: null, chapterTitle: null, bookId: null, bookName: null,
   usage: { examCount: 0, examNames: [], answered: false },
   options: [
-    { id: 'o1', text: 'Paris', isCorrect: true },
-    { id: 'o2', text: 'Rome', isCorrect: false },
-    { id: 'o3', text: 'Oslo', isCorrect: false },
+    { id: 'o1', text: 'Paris', isCorrect: true, isPinned: false },
+    { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },
+    { id: 'o3', text: 'Oslo', isCorrect: false, isPinned: false },
   ],
 };
 
@@ -46,6 +46,20 @@ describe('QuestionFields', () => {
     expect(fixture.componentInstance.form.controls.correctIndex.value).toBe(-1);
   });
 
+  it('lets the author keep an option in place, and sends that with the options', () => {
+    const inputs = root.querySelectorAll<HTMLInputElement>('input[type="text"]');
+    inputs[0].value = 'Rome';
+    inputs[0].dispatchEvent(new Event('input'));
+    inputs[1].value = 'None of the above';
+    inputs[1].dispatchEvent(new Event('input'));
+
+    const pins = root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    expect(pins).toHaveLength(2);
+    pins[1].click();
+
+    expect(toNewOptions(fixture.componentInstance.form).map((o) => o.isPinned)).toEqual([false, true]);
+  });
+
   it('works on the page’s own form: what is typed and chosen is in it', () => {
     const inputs = root.querySelectorAll<HTMLInputElement>('input[type="text"]');
     inputs[0].value = 'Rome';
@@ -55,8 +69,8 @@ describe('QuestionFields', () => {
     (root.querySelectorAll('input[type="radio"]')[1] as HTMLInputElement).dispatchEvent(new Event('change'));
 
     expect(toNewOptions(fixture.componentInstance.form)).toEqual([
-      { text: 'Rome', isCorrect: false },
-      { text: 'Paris', isCorrect: true },
+      { text: 'Rome', isCorrect: false, isPinned: false },
+      { text: 'Paris', isCorrect: true, isPinned: false },
     ]);
   });
 
@@ -114,7 +128,7 @@ describe('QuestionFields', () => {
       first.value = 'Paris, France';
       first.dispatchEvent(new Event('input'));
 
-      expect(toEditedOptions(fixture.componentInstance.form)[0]).toEqual({ id: 'o1', text: 'Paris, France', isCorrect: true });
+      expect(toEditedOptions(fixture.componentInstance.form)[0]).toEqual({ id: 'o1', text: 'Paris, France', isCorrect: true, isPinned: false });
     });
 
     it('does not show the lock note for a question nobody has answered', () => {
@@ -138,18 +152,18 @@ describe('question form helpers', () => {
     expect(form.getRawValue().text).toBe('<p>Capital of France?</p>');
     expect(form.getRawValue().correctIndex).toBe(0);
     expect(toEditedOptions(form)).toEqual([
-      { id: 'o1', text: 'Paris', isCorrect: true },
-      { id: 'o2', text: 'Rome', isCorrect: false },
-      { id: 'o3', text: 'Oslo', isCorrect: false },
+      { id: 'o1', text: 'Paris', isCorrect: true, isPinned: false },
+      { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },
+      { id: 'o3', text: 'Oslo', isCorrect: false, isPinned: false },
     ]);
   });
 
   it('sends an option that was added while editing without an id, and a new question’s options without ids at all', () => {
     const form = createQuestionForm(formBuilder);
     fillQuestionForm(form, formBuilder, QUESTION);
-    (form.controls.options as unknown as { push(c: unknown): void }).push(formBuilder.nonNullable.group({ id: [''], text: ['Madrid'] }));
+    (form.controls.options as unknown as { push(c: unknown): void }).push(formBuilder.nonNullable.group({ id: [''], text: ['Madrid'], pinned: [false] }));
 
-    expect(toEditedOptions(form)[3]).toEqual({ id: null, text: 'Madrid', isCorrect: false });
-    expect(toNewOptions(form)[0]).toEqual({ text: 'Paris', isCorrect: true });
+    expect(toEditedOptions(form)[3]).toEqual({ id: null, text: 'Madrid', isCorrect: false, isPinned: false });
+    expect(toNewOptions(form)[0]).toEqual({ text: 'Paris', isCorrect: true, isPinned: false });
   });
 });

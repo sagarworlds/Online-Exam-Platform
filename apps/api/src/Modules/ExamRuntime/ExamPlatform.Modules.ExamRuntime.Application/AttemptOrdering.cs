@@ -32,10 +32,34 @@ public static class AttemptOrdering
     /// <param name="attemptNumber">Which attempt this is for the candidate at the exam, from 1; the first is not shuffled.</param>
     /// <param name="scopeId">What the items belong to (a section's id for its questions, a question's id for its options), so each list is shuffled independently.</param>
     /// <param name="authorShuffles">Whether the exam's author turned shuffling on for this kind of item, which shuffles the first attempt as well.</param>
-    /// <returns>The authored list itself for an unshuffled attempt or fewer than two items; otherwise a shuffled copy that differs from it.</returns>
-    public static IReadOnlyList<T> Arrange<T>(IReadOnlyList<T> authored, Func<T, Guid> idOf, Guid attemptId, int attemptNumber, Guid scopeId, bool authorShuffles = false)
+    /// <param name="isPinned">
+    /// Says which items keep the position the author gave them, such as a "none of the above" that must stay last. Null means
+    /// nothing is pinned. The other items are shuffled among the positions the pinned ones leave free.
+    /// </param>
+    /// <returns>The authored list itself for an unshuffled attempt or fewer than two movable items; otherwise a shuffled copy that differs from it.</returns>
+    public static IReadOnlyList<T> Arrange<T>(
+        IReadOnlyList<T> authored, Func<T, Guid> idOf, Guid attemptId, int attemptNumber, Guid scopeId, bool authorShuffles = false, Func<T, bool>? isPinned = null)
     {
-        if (!IsShuffled(attemptNumber, authorShuffles) || authored.Count < 2)
+        if (!IsShuffled(attemptNumber, authorShuffles))
+            return authored;
+
+        if (isPinned is null)
+            return Shuffle(authored, idOf, attemptId, scopeId);
+
+        // Only the movable items are shuffled, then dealt back into the positions the pinned items do not occupy, so a pinned
+        // item's place never depends on the shuffle.
+        var movable = authored.Where(item => !isPinned(item)).ToList();
+        var shuffled = Shuffle(movable, idOf, attemptId, scopeId);
+        if (ReferenceEquals(shuffled, movable))
+            return authored;
+
+        var next = 0;
+        return authored.Select(item => isPinned(item) ? item : shuffled[next++]).ToList();
+    }
+
+    private static IReadOnlyList<T> Shuffle<T>(IReadOnlyList<T> authored, Func<T, Guid> idOf, Guid attemptId, Guid scopeId)
+    {
+        if (authored.Count < 2)
             return authored;
 
         var authoredIds = authored.Select(idOf).ToList();

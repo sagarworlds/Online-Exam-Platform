@@ -27,4 +27,5 @@ public sealed record QuestionDto(
 /// <param name="Id">The option's id.</param>
 /// <param name="Text">The option text.</param>
 /// <param name="IsCorrect">Whether this option is the right answer.</param>
-public sealed record QuestionOptionDto(Guid Id, string Text, bool IsCorrect);
+/// <param name="IsPinned">Whether this option keeps its place when options are shuffled.</param>
+public sealed record QuestionOptionDto(Guid Id, string Text, bool IsCorrect, bool IsPinned = false);

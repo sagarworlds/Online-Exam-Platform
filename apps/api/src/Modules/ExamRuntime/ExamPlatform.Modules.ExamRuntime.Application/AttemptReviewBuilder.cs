@@ -74,7 +74,7 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
         return new ReviewQuestionDto(
             question.Id,
             question.Text,
-            AttemptOrdering.Arrange(question.Options, o => o.Id, attempt.Id, attempt.Number, question.Id, exam.ShuffleOptions)
+            AttemptOrdering.Arrange(question.Options, o => o.Id, attempt.Id, attempt.Number, question.Id, exam.ShuffleOptions, o => o.IsPinned)
                 .Select(o => new ReviewOptionDto(o.Id, o.Text, o.IsCorrect, o.Id == chosenOptionId)).ToList(),
             mark.Verdict,
             mark.Marks);

@@ -9,8 +9,8 @@ const question = (overrides: Partial<QuestionDto> = {}): QuestionDto => ({
   chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths',
   usage: { examCount: 0, examNames: [], answered: false },
   options: [
-    { id: 'o1', text: 'Paris', isCorrect: true },
-    { id: 'o2', text: 'Rome', isCorrect: false },
+    { id: 'o1', text: 'Paris', isCorrect: true, isPinned: false },
+    { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },
   ],
   ...overrides,
 });
