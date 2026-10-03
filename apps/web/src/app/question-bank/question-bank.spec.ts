@@ -8,6 +8,7 @@ import { QuestionUsageDto } from './question.models';
 
 // The base URL differs between builds and the test environment, so requests are matched by their path.
 const isList = (r: { method: string; url: string }) => r.method === 'GET' && /\/v1\/questions(\?.*)?$/.test(r.url);
+const isTopics = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/questions/topics');
 const isBooks = (r: { method: string; url: string }) => r.method === 'GET' && r.url.includes('/v1/books');
 
 const chapter = (id: string, order: number, title: string, isArchived = false) => ({ id, bookId: 'b1', title, order, isArchived, questionCount: 0 });
@@ -17,6 +18,7 @@ const book = (id: string, name: string, chapters: ReturnType<typeof chapter>[], 
 const UNUSED: QuestionUsageDto = { examCount: 0, examNames: [], answered: false };
 const listedQuestion = (id: string, text: string, usage: QuestionUsageDto = UNUSED) => ({
   id, text, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: null, chapterTitle: null, bookId: null, bookName: null, usage,
+  difficulty: null, topics: [],
   options: [{ id: `${id}-a`, text: 'A', isCorrect: true, isPinned: false }, { id: `${id}-b`, text: 'B', isCorrect: false, isPinned: false }],
 });
 const MATHS = book('b1', 'Maths Grade 10', [chapter('c1', 1, 'Algebra'), chapter('c2', 2, 'Geometry'), chapter('c3', 3, 'Old chapter', true)]);
@@ -33,12 +35,17 @@ describe('QuestionBank', () => {
     httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    // Saving a question re-reads the topics in use; tests about something else do not need to answer that.
+    httpMock.match(isTopics).forEach((request) => request.flush([]));
+    httpMock.verify();
+  });
 
-  function create(books: ReturnType<typeof book>[] = []) {
+  function create(books: ReturnType<typeof book>[] = [], topics: string[] = []) {
     const fixture = TestBed.createComponent(QuestionBank);
     fixture.detectChanges();
     httpMock.expectOne(isBooks).flush(books);
+    httpMock.expectOne(isTopics).flush(topics);
     return fixture;
   }
 
@@ -46,7 +53,7 @@ describe('QuestionBank', () => {
     const root = fixture.nativeElement as HTMLElement;
     // The question text lives in a rich-text editor, so it is set through the form control the editor is bound to.
     (fixture.componentInstance as unknown as { form: FormGroup }).form.controls['text'].setValue(text);
-    const inputs = root.querySelectorAll<HTMLInputElement>('input[type="text"]');
+    const inputs = root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]');
     options.forEach((value, i) => {
       inputs[i].value = value;
       inputs[i].dispatchEvent(new Event('input'));
@@ -70,6 +77,8 @@ describe('QuestionBank', () => {
         bookId: null,
         bookName: null,
         usage: UNUSED,
+        difficulty: null,
+        topics: [],
       },
     ]);
     fixture.detectChanges();
@@ -118,7 +127,7 @@ describe('QuestionBank', () => {
     httpMock.expectOne(isList).flush([
       {
         id: 'q1', text: 'Solve x', options: [{ id: 'o1', text: '1', isCorrect: true, isPinned: false }, { id: 'o2', text: '2', isCorrect: false, isPinned: false }],
-        createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths Grade 10', usage: UNUSED,
+        createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths Grade 10', usage: UNUSED, difficulty: null, topics: [],
       },
     ]);
     fixture.detectChanges();
@@ -141,6 +150,8 @@ describe('QuestionBank', () => {
         createdBy: 'u1',
         createdAtUtc: '2026-10-02T00:00:00Z',
         usage: UNUSED,
+        difficulty: null,
+        topics: [],
       },
     ]);
     fixture.detectChanges();
@@ -182,6 +193,8 @@ describe('QuestionBank', () => {
     expect(post.request.body).toEqual({
       text: 'Capital of France?',
       chapterId: null,
+      difficulty: null,
+      topics: [],
       options: [
         { text: 'Rome', isCorrect: false, isPinned: false },
         { text: 'Paris', isCorrect: true, isPinned: false },
@@ -191,6 +204,87 @@ describe('QuestionBank', () => {
     httpMock.expectOne(isList).flush([]);
     fixture.detectChanges();
     expect(root.textContent).toContain('Question saved.');
+  });
+
+  describe('difficulty and topics', () => {
+    const field = (root: HTMLElement, id: string) => root.querySelector(`#${id}`) as HTMLInputElement & HTMLSelectElement;
+
+    it('sends the difficulty and the cleaned topics a new question was given', () => {
+      const fixture = create([], ['fractions']);
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      fill(fixture, 'Q?', ['A', 'B']);
+      (root.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).dispatchEvent(new Event('change'));
+      field(root, 'question-difficulty').value = 'hard';
+      field(root, 'question-difficulty').dispatchEvent(new Event('change'));
+      field(root, 'question-topics').value = ' Fractions, ratios ,FRACTIONS,, ';
+      field(root, 'question-topics').dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+
+      const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/questions'));
+      expect(post.request.body).toMatchObject({ difficulty: 'hard', topics: ['fractions', 'ratios'] });
+      post.flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
+      httpMock.expectOne(isList).flush([]);
+    });
+
+    it('offers the topics already in use as suggestions, and as a filter', () => {
+      const fixture = create([], ['algebra', 'fractions']);
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      const suggestions = Array.from(root.querySelectorAll('#question-topic-suggestions option')).map((o) => o.getAttribute('value'));
+      const filterOptions = Array.from(root.querySelectorAll('#filter-topic option')).map((o) => o.textContent?.trim());
+      expect(suggestions).toEqual(['algebra', 'fractions']);
+      expect(filterOptions).toEqual(['Any topic', 'algebra', 'fractions']);
+    });
+
+    it('refuses more than five topics before anything is sent', () => {
+      const fixture = create();
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      field(root, 'question-topics').value = 'a, b, c, d, e, f';
+      field(root, 'question-topics').dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Use at most 5 topics.');
+      expect((root.querySelector('button.primary') as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('narrows the list by difficulty and by topic, together with the place filter', () => {
+      const fixture = create([MATHS], ['fractions']);
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const choose = (id: string, value: string) => {
+        const select = root.querySelector(`#${id}`) as HTMLSelectElement;
+        select.value = value;
+        select.dispatchEvent(new Event('change'));
+        fixture.detectChanges();
+      };
+
+      choose('filter-difficulty', 'hard');
+      expect(httpMock.expectOne(isList).request.params.get('difficulty')).toBe('hard');
+
+      choose('filter-topic', 'fractions');
+      const both = httpMock.expectOne(isList).request.params;
+      expect([both.get('difficulty'), both.get('topic')]).toEqual(['hard', 'fractions']);
+
+      choose('filter-book', 'b1');
+      const withBook = httpMock.expectOne(isList).request.params;
+      expect([withBook.get('bookId'), withBook.get('difficulty'), withBook.get('topic')]).toEqual(['b1', 'hard', 'fractions']);
+
+      choose('filter-difficulty', '');
+      choose('filter-topic', '');
+      httpMock.match(isList).forEach((request) => request.flush([]));
+      fixture.detectChanges();
+      expect(root.textContent).toContain('No questions match this filter.');
+    });
   });
 
   it('files a question under a chapter, requires one once a book is chosen, and keeps the choice after saving', () => {
@@ -311,7 +405,7 @@ describe('QuestionBank', () => {
     httpMock.expectOne(isList).flush([]);
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
-    const count = () => root.querySelectorAll('input[type="text"]').length;
+    const count = () => root.querySelectorAll('.option-row input[type="text"]').length;
     const addButton = () =>
       Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Add option') as HTMLButtonElement;
 

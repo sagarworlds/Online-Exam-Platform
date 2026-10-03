@@ -13,7 +13,7 @@
 
     <app-book-chapter-picker [books]="books()" idPrefix="question" [(value)]="placement" />
 
-    <app-question-fields />
+    <app-question-fields [topicSuggestions]="topics()" />
 
     <button type="submit" class="primary" [disabled]="form.invalid || !placementComplete() || saving()">Save question</button>
   </form>
@@ -27,6 +27,20 @@
         <option [value]="unfiled">Not filed under a chapter</option>
         @for (book of books(); track book.id) {
           <option [value]="book.id">{{ book.name }}{{ book.isArchived ? ' (archived)' : '' }}</option>
+        }
+      </select>
+      <label class="visually-hidden" for="filter-difficulty">Difficulty</label>
+      <select id="filter-difficulty" [value]="filterDifficulty()" (change)="onFilterDifficultyChanged($any($event.target).value)">
+        <option value="">Any difficulty</option>
+        @for (level of difficulties; track level.value) {
+          <option [value]="level.value">{{ level.label }}</option>
+        }
+      </select>
+      <label class="visually-hidden" for="filter-topic">Topic</label>
+      <select id="filter-topic" [value]="filterTopic()" (change)="onFilterTopicChanged($any($event.target).value)">
+        <option value="">Any topic</option>
+        @for (topic of topics(); track topic) {
+          <option [value]="topic">{{ topic }}</option>
         }
       </select>
       @if (filterBook() && filterBook() !== unfiled) {
@@ -67,7 +81,7 @@
   @if (loading()) {
     <p>Loading…</p>
   } @else if (questions().length === 0) {
-    <p>{{ filterBook() ? 'No questions match this filter.' : 'No questions yet.' }}</p>
+    <p>{{ filterBook() || filterDifficulty() || filterTopic() ? 'No questions match this filter.' : 'No questions yet.' }}</p>
   } @else {
     <label class="inline-check select-all">
       <input type="checkbox" [checked]="allSelected()" (change)="toggleAll($any($event.target).checked)" />

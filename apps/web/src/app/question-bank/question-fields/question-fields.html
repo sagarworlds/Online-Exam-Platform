@@ -3,6 +3,34 @@
   <app-rich-text-editor formControlName="text" inputId="question-text" labelledBy="question-text-label" />
 </div>
 
+<div class="field-row">
+  <div class="field">
+    <label for="question-difficulty">Difficulty</label>
+    <select id="question-difficulty" formControlName="difficulty">
+      <option value="">Not set</option>
+      @for (level of difficulties; track level.value) {
+        <option [value]="level.value">{{ level.label }}</option>
+      }
+    </select>
+  </div>
+  <div class="field">
+    <label for="question-topics">Topics</label>
+    <input id="question-topics" type="text" formControlName="topics" list="question-topic-suggestions" autocomplete="off" aria-describedby="question-topics-hint" />
+    <datalist id="question-topic-suggestions">
+      @for (topic of topicSuggestions(); track topic) {
+        <option [value]="topic"></option>
+      }
+    </datalist>
+    <p class="hint" id="question-topics-hint">Separate with commas, up to {{ limits.maxTopics }}, for example "fractions, ratios".</p>
+    @if (form.controls.topics.errors?.['tooManyTopics']) {
+      <p class="error-message" role="alert">Use at most {{ limits.maxTopics }} topics.</p>
+    }
+    @if (form.controls.topics.errors?.['topicTooLong']) {
+      <p class="error-message" role="alert">A topic can be at most {{ limits.maxTopicLength }} characters.</p>
+    }
+  </div>
+</div>
+
 <fieldset class="field" formArrayName="options">
   <legend>Options (pick the correct one)</legend>
   <p class="hint">Tick "Keep in place" on an option such as "None of the above" so it stays where it is when options are shuffled.</p>

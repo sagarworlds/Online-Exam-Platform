@@ -17,6 +17,16 @@ export interface QuestionUsageDto {
   answered: boolean;
 }
 
+/** How hard an author judges a question to be; a label for finding questions, never part of a score. */
+export type QuestionDifficulty = 'easy' | 'medium' | 'hard';
+
+/** The difficulties in the order a picker lists them, with the words an author reads. */
+export const QUESTION_DIFFICULTIES: readonly { value: QuestionDifficulty; label: string }[] = [
+  { value: 'easy', label: 'Easy' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'hard', label: 'Hard' },
+];
+
 /** A question with its answer key (FR-5). Only authors get this shape; candidates never see `isCorrect`. */
 export interface QuestionDto {
   id: string;
@@ -31,6 +41,10 @@ export interface QuestionDto {
   bookId: string | null;
   bookName: string | null;
   usage: QuestionUsageDto;
+  /** Null when the author has not said how hard the question is. */
+  difficulty: QuestionDifficulty | null;
+  /** Free-text topics in lower case, such as "fractions"; at most {@link QUESTION_LIMITS}.maxTopics. */
+  topics: string[];
 }
 
 /** The body of POST /v1/questions. The author is the caller, so it carries no user id. */
@@ -40,6 +54,8 @@ export interface CreateQuestionRequest {
   options: { text: string; isCorrect: boolean; isPinned: boolean }[];
   /** The chapter to file the question under; null leaves it unfiled. */
   chapterId: string | null;
+  difficulty: QuestionDifficulty | null;
+  topics: string[];
 }
 
 /** The body of PUT /v1/questions/{id}: the question's whole new content, not a patch. */
@@ -47,6 +63,9 @@ export interface UpdateQuestionRequest {
   text: string;
   /** All the options after the edit, in display order. An option the question already has keeps its `id`; a new one has none. */
   options: { id: string | null; text: string; isCorrect: boolean; isPinned: boolean }[];
+  /** Like everything else here these replace what was there, so an edit that omits them clears the labels. */
+  difficulty: QuestionDifficulty | null;
+  topics: string[];
 }
 
 /** The body of POST /v1/questions/placement: one question is a bulk of one. */
@@ -70,10 +89,14 @@ export interface QuestionFilter {
   bookId?: string;
   chapterId?: string;
   unfiled?: boolean;
+  /** Combines with the place filters: only questions of this difficulty. */
+  difficulty?: QuestionDifficulty;
+  /** Combines with the others: only questions that carry this topic. */
+  topic?: string;
 }
 
 /** The API's limits on one question, mirrored here so the form can refuse early. */
-export const QUESTION_LIMITS = { minOptions: 2, maxOptions: 6 } as const;
+export const QUESTION_LIMITS = { minOptions: 2, maxOptions: 6, maxTopics: 5, maxTopicLength: 40 } as const;
 
 /** How many questions one listing returns at most, as the API sets it. A full page means there may be more to load. */
 export const QUESTION_LIST_PAGE_SIZE = 200;

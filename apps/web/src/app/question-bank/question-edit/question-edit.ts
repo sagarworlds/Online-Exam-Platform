@@ -4,7 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { extractErrorMessage, extractProblemCode } from '../../shared/problem-details';
 import { QuestionApiService } from '../question-api.service';
 import { QuestionFields } from '../question-fields/question-fields';
-import { createQuestionForm, fillQuestionForm, toEditedOptions } from '../question-form';
+import { createQuestionForm, fillQuestionForm, toEditedOptions, toLabels } from '../question-form';
 import { QuestionDto } from '../question.models';
 
 /**
@@ -28,6 +28,9 @@ export class QuestionEdit {
   protected readonly saved = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
 
+  /** Topics already in use, offered as completions. */
+  protected readonly topics = signal<string[]>([]);
+
   protected readonly form = createQuestionForm(this.formBuilder);
   /** Whether candidates have answered the question, which locks its answer key and option list. */
   protected readonly wordingOnly = computed(() => this.question()?.usage.answered ?? false);
@@ -40,6 +43,8 @@ export class QuestionEdit {
     }
 
     this.load(this.questionId);
+    // Only a convenience; without suggestions the author can still type any topic.
+    this.api.topics().subscribe({ next: (topics) => this.topics.set(topics), error: () => this.topics.set([]) });
   }
 
   protected submit(): void {
@@ -52,7 +57,7 @@ export class QuestionEdit {
     this.saved.set(false);
     this.errorMessage.set(null);
 
-    this.api.update(question.id, { text: this.form.getRawValue().text, options: toEditedOptions(this.form) }).subscribe({
+    this.api.update(question.id, { text: this.form.getRawValue().text, options: toEditedOptions(this.form), ...toLabels(this.form) }).subscribe({
       next: (updated) => {
         this.saving.set(false);
         this.saved.set(true);

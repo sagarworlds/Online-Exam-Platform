@@ -19,6 +19,8 @@ const bankQuestion = (id: string, text: string): QuestionDto => ({
   id, text, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
   chapterId: null, chapterTitle: null, bookId: null, bookName: null,
   usage: { examCount: 0, examNames: [], answered: false },
+  difficulty: null,
+  topics: [],
   options: [{ id: `${id}-a`, text: 'A', isCorrect: true, isPinned: false }, { id: `${id}-b`, text: 'B', isCorrect: false, isPinned: false }],
 });
 

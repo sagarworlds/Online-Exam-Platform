@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ExamPlatform.Modules.QuestionBank.Application;
 using ExamPlatform.Modules.QuestionBank.Application.Commands;
 using ExamPlatform.Modules.QuestionBank.Application.Ports;
 using ExamPlatform.Modules.QuestionBank.Application.Queries;
@@ -32,7 +33,13 @@ public static class QuestionBankEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("ListQuestions")
-            .WithDescription("List the newest questions, 200 at a time (skip leaves out that many of the newest), optionally only those under a book or chapter, or only unfiled ones");
+            .WithDescription("List the newest questions, 200 at a time (skip leaves out that many of the newest), optionally only those under a book or chapter, only unfiled ones, of one difficulty, or on one topic");
+
+        questions.MapGet("/topics", ListTopics)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ListQuestionTopics")
+            .WithDescription("List every topic in use, once each, alphabetically");
 
         questions.MapGet("/{questionId:guid}", GetQuestion)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -74,20 +81,24 @@ public static class QuestionBankEndpoints
         Guid questionId, EditQuestionRequest request, EditQuestionHandler handler, CancellationToken ct)
     {
         var options = request.Options?.Select(o => new QuestionOptionEdit(o?.Id, o?.Text, o?.IsCorrect ?? false, o?.IsPinned ?? false)).ToList();
-        return Results.Ok(await handler.HandleAsync(new EditQuestionCommand(questionId, request.Text, options), ct));
+        return Results.Ok(await handler.HandleAsync(new EditQuestionCommand(questionId, request.Text, options, request.Difficulty, request.Topics), ct));
     }
 
     private static async Task<IResult> CreateQuestion(
         CreateQuestionRequest request, ClaimsPrincipal user, CreateQuestionHandler handler, CancellationToken ct)
     {
         var options = request.Options?.Select(o => new NewQuestionOption(o?.Text, o?.IsCorrect ?? false, o?.IsPinned ?? false)).ToList();
-        var result = await handler.HandleAsync(new CreateQuestionCommand(request.Text, options, user.GetUserId(), request.ChapterId), ct);
+        var result = await handler.HandleAsync(new CreateQuestionCommand(request.Text, options, user.GetUserId(), request.ChapterId, request.Difficulty, request.Topics), ct);
         return Results.Created($"/v1/questions/{result.Id}", result);
     }
 
     private static async Task<IResult> ListQuestions(
-        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, int? skip, CancellationToken ct) =>
-        Results.Ok(await handler.HandleAsync(new QuestionFilter(bookId, chapterId, unfiled ?? false), ct, skip ?? 0));
+        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, int? skip, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(
+            new QuestionFilter(bookId, chapterId, unfiled ?? false, QuestionDifficultyText.Parse(difficulty), Question.NormalizeTopic(topic)), ct, skip ?? 0));
+
+    private static async Task<IResult> ListTopics(ListTopicsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(ct));
 
     private static async Task<IResult> GetQuestion(Guid questionId, GetQuestionHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(questionId, ct));
@@ -97,7 +108,11 @@ public static class QuestionBankEndpoints
 /// <param name="Text">The question text; HTML from the author's editor, which the server sanitizes before storing it.</param>
 /// <param name="Options">The answer options in display order; exactly one must be correct.</param>
 /// <param name="ChapterId">The chapter to file the question under; omit or send null to leave it unfiled.</param>
-public sealed record CreateQuestionRequest(string? Text, IReadOnlyList<CreateQuestionOptionRequest?>? Options, Guid? ChapterId = null);
+/// <param name="Difficulty">"easy", "medium" or "hard"; omit or send null for unsaid.</param>
+/// <param name="Topics">Up to five short topics such as "fractions"; omit for none.</param>
+public sealed record CreateQuestionRequest(
+    string? Text, IReadOnlyList<CreateQuestionOptionRequest?>? Options, Guid? ChapterId = null,
+    string? Difficulty = null, IReadOnlyList<string?>? Topics = null);
 
 /// <summary>Request body for filing questions under a chapter.</summary>
 /// <param name="QuestionIds">The questions to file, at least one.</param>
@@ -107,7 +122,10 @@ public sealed record FileQuestionsRequest(IReadOnlyList<Guid>? QuestionIds, Guid
 /// <summary>Request body for editing a question: its whole new content, not a patch.</summary>
 /// <param name="Text">The question text; HTML from the author's editor, which the server sanitizes before storing it.</param>
 /// <param name="Options">All the options after the edit, in display order; an option the question already has is named by its id.</param>
-public sealed record EditQuestionRequest(string? Text, IReadOnlyList<EditQuestionOptionRequest?>? Options);
+/// <param name="Difficulty">"easy", "medium" or "hard"; omitting it clears the difficulty, as the body is the whole new content.</param>
+/// <param name="Topics">The topics after the edit; omitting them clears the topics. Allowed even once candidates have answered.</param>
+public sealed record EditQuestionRequest(
+    string? Text, IReadOnlyList<EditQuestionOptionRequest?>? Options, string? Difficulty = null, IReadOnlyList<string?>? Topics = null);
 
 /// <summary>One option in an <see cref="EditQuestionRequest"/>.</summary>
 /// <param name="Id">The id of the existing option being edited; omit it for a new option.</param>

@@ -70,6 +70,21 @@ public sealed class Question : AggregateRoot
     /// </summary>
     public Guid? ChapterId { get; private set; }
 
+    /// <summary>The most topics one question may carry.</summary>
+    public const int MaxTopics = 5;
+
+    /// <summary>The longest topic, after trimming.</summary>
+    public const int MaxTopicLength = 40;
+
+    /// <summary>How hard the author judges the question to be, or null when they have not said.</summary>
+    public QuestionDifficulty? Difficulty { get; private set; }
+
+    /// <summary>
+    /// Free-text topics, such as "fractions", in lower case and without duplicates. They are labels for finding questions in the
+    /// bank and take no part in marking, so they can change at any time, even after candidates have answered.
+    /// </summary>
+    public string[] Topics { get; private set; } = [];
+
     /// <summary>The authoring user who created the question.</summary>
     public Guid CreatedBy { get; private set; }
 
@@ -96,17 +111,22 @@ public sealed class Question : AggregateRoot
     /// The chapter to file it under, or null for none. The caller has already checked that the chapter exists and is
     /// open; this aggregate cannot, because chapters belong to another aggregate.
     /// </param>
+    /// <param name="difficulty">How hard the question is, or null for unsaid.</param>
+    /// <param name="topics">The question's topics; see <see cref="Classify"/>.</param>
     /// <exception cref="InvalidQuestionError">
     /// The text is blank or larger than <see cref="MaxHtmlLength"/>, the number of options is outside <see cref="MinOptions"/> to
-    /// <see cref="MaxOptions"/>, an option is blank or too long, or the options do not have exactly one correct answer.
+    /// <see cref="MaxOptions"/>, an option is blank or too long, the options do not have exactly one correct answer, or the topics
+    /// break the rules of <see cref="Classify"/>.
     /// </exception>
     public static Question Create(
-        string? text, IReadOnlyList<NewQuestionOption>? options, Guid createdBy, DateTime nowUtc, Guid? chapterId = null)
+        string? text, IReadOnlyList<NewQuestionOption>? options, Guid createdBy, DateTime nowUtc, Guid? chapterId = null,
+        QuestionDifficulty? difficulty = null, IReadOnlyList<string?>? topics = null)
     {
         var trimmedText = RequireText(text);
         RequireOptionShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0);
 
         var question = new Question(Guid.NewGuid(), trimmedText, chapterId, createdBy, nowUtc);
+        question.Classify(difficulty, topics);
         foreach (var option in options!)
         {
             var optionText = RequireOptionText(option?.Text);
@@ -173,6 +193,35 @@ public sealed class Question : AggregateRoot
         _options.Clear();
         _options.AddRange(revised);
     }
+
+    /// <summary>Sets how hard the question is and which topics it covers, replacing what was there.</summary>
+    /// <remarks>
+    /// Allowed whatever the question's use: labels never reach a candidate or a score. Topics are trimmed, lower-cased and
+    /// de-duplicated so "Fractions" and "fractions " are one topic and a filter by topic finds both.
+    /// </remarks>
+    /// <param name="difficulty">The difficulty, or null to leave it unsaid.</param>
+    /// <param name="topics">The topics, or null for none; blank ones are ignored.</param>
+    /// <exception cref="InvalidQuestionError">There are more than <see cref="MaxTopics"/> topics or one is longer than <see cref="MaxTopicLength"/>.</exception>
+    public void Classify(QuestionDifficulty? difficulty, IReadOnlyList<string?>? topics)
+    {
+        if (difficulty is { } level && !Enum.IsDefined(level))
+            throw new InvalidQuestionError("The difficulty must be easy, medium or hard.");
+
+        var normalized = (topics ?? []).Select(NormalizeTopic).Where(t => t.Length > 0).Distinct().ToArray();
+        if (normalized.Length > MaxTopics)
+            throw new InvalidQuestionError($"A question can have at most {MaxTopics} topics.");
+        if (normalized.Any(t => t.Length > MaxTopicLength))
+            throw new InvalidQuestionError($"A topic must be at most {MaxTopicLength} characters.");
+
+        Difficulty = difficulty;
+        Topics = normalized;
+    }
+
+    /// <summary>Puts a topic in the form it is stored and searched in: trimmed, inner whitespace collapsed to one space, lower case.</summary>
+    /// <param name="topic">The topic as typed; null counts as blank.</param>
+    /// <returns>The normalized topic, empty when the input was blank.</returns>
+    public static string NormalizeTopic(string? topic) =>
+        string.Join(' ', (topic ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
 
     /// <summary>Files the question under a chapter, wherever it was before. Nothing about its content changes.</summary>
     /// <param name="chapterId">

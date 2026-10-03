@@ -6,7 +6,10 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Ports;
 /// <param name="BookId">Only questions filed under a chapter of this book.</param>
 /// <param name="ChapterId">Only questions filed under this chapter.</param>
 /// <param name="UnfiledOnly">Only questions that are not filed under any chapter.</param>
-public sealed record QuestionFilter(Guid? BookId = null, Guid? ChapterId = null, bool UnfiledOnly = false);
+/// <param name="Difficulty">Only questions of this difficulty.</param>
+/// <param name="Topic">Only questions that carry this topic, already normalized (see <see cref="Question.NormalizeTopic"/>).</param>
+public sealed record QuestionFilter(
+    Guid? BookId = null, Guid? ChapterId = null, bool UnfiledOnly = false, QuestionDifficulty? Difficulty = null, string? Topic = null);
 
 /// <summary>Persistence port for <see cref="Question"/>.</summary>
 public interface IQuestionRepository
@@ -41,6 +44,10 @@ public interface IQuestionRepository
     /// <param name="take">How many to return at most.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Question>> ListNewestAsync(QuestionFilter filter, int skip, int take, CancellationToken cancellationToken);
+
+    /// <summary>Lists every topic any question carries, once each, in alphabetical order.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<string>> ListTopicsAsync(CancellationToken cancellationToken);
 
     /// <summary>Counts the questions filed under each chapter.</summary>
     /// <param name="chapterIds">The chapters to count for.</param>

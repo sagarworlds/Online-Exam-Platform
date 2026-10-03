@@ -2,7 +2,7 @@ import { Component, inject, input } from '@angular/core';
 import { ControlContainer, FormBuilder, FormGroupDirective, ReactiveFormsModule } from '@angular/forms';
 import { RichTextEditor } from '../../shared/rich-text/rich-text-editor';
 import { newOption, QuestionForm } from '../question-form';
-import { QUESTION_LIMITS } from '../question.models';
+import { QUESTION_DIFFICULTIES, QUESTION_LIMITS } from '../question.models';
 
 /**
  * The question text and its options with the choice of the correct one: the part of the question form that creating
@@ -26,7 +26,11 @@ export class QuestionFields {
    */
   readonly wordingOnly = input(false);
 
+  /** Topics already in use, offered as completions so authors reuse "fractions" instead of spelling it three ways. */
+  readonly topicSuggestions = input<readonly string[]>([]);
+
   protected readonly limits = QUESTION_LIMITS;
+  protected readonly difficulties = QUESTION_DIFFICULTIES;
 
   protected get form(): QuestionForm {
     return this.container.control as unknown as QuestionForm;

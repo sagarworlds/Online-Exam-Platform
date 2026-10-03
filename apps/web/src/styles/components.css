@@ -556,3 +556,41 @@ button.primary:hover:not(:disabled),
   flex: 1;
   min-width: 10rem;
 }
+
+/* Difficulty and topics of a question, between where it is filed and its text. */
+.question-card__labels {
+  margin: 0 0 0.5rem;
+}
+
+.question-card__labels .badge:first-child {
+  margin-inline-start: 0;
+}
+
+.badge--difficulty-easy {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.badge--difficulty-medium {
+  background: var(--warning-soft);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.badge--difficulty-hard {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Two form fields side by side, stacking on a narrow screen. */
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.field-row > .field {
+  flex: 1 1 14rem;
+}
