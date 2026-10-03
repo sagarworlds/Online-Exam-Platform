@@ -15,6 +15,51 @@ public class QuestionReviseTests
     private static List<QuestionOptionEdit> Unchanged(Question question) =>
         question.Options.Select(o => new QuestionOptionEdit(o.Id, o.Text, o.IsCorrect)).ToList();
 
+    // ---- pinning an option in place ---------------------------------------------------------------
+
+    [Fact]
+    public void AnOptionIsNotPinned_UnlessTheAuthorSaysSo()
+    {
+        Assert.All(Capitals().Options, o => Assert.False(o.IsPinned));
+    }
+
+    [Fact]
+    public void ACreatedQuestion_KeepsWhichOptionsWerePinned()
+    {
+        var question = Question.Create(
+            "Which is a prime?", [new("4", false), new("7", true), new("None of the above", false, IsPinned: true)], Guid.NewGuid(), Now);
+
+        Assert.Equal([false, false, true], question.Options.OrderBy(o => o.Order).Select(o => o.IsPinned));
+    }
+
+    [Fact]
+    public void RevisingBeforeAnyoneAnswers_CanPinAndUnpinAnOption_AndTheOptionKeepsItsId()
+    {
+        var question = Capitals();
+        var oslo = question.Options[2].Id;
+        var pin = Unchanged(question);
+        pin[2] = pin[2] with { IsPinned = true };
+
+        question.Revise("Capital of France?", pin, answered: false);
+
+        Assert.True(question.Options.Single(o => o.Id == oslo).IsPinned);
+
+        question.Revise("Capital of France?", Unchanged(question), answered: false);
+
+        Assert.False(question.Options.Single(o => o.Id == oslo).IsPinned);
+    }
+
+    [Fact]
+    public void OnceAnswered_ChangingWhichOptionIsPinned_IsRefused_BecauseItWouldMoveWhatAReviewShows()
+    {
+        var question = Capitals();
+        var pin = Unchanged(question);
+        pin[2] = pin[2] with { IsPinned = true };
+
+        Assert.Throws<QuestionLockedError>(() => question.Revise("Capital of France?", pin, answered: true));
+        Assert.All(question.Options, o => Assert.False(o.IsPinned));
+    }
+
     // ---- before anyone has answered ---------------------------------------------------------------
 
     [Fact]

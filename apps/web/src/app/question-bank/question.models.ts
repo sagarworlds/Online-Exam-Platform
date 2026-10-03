@@ -3,6 +3,8 @@ export interface QuestionOptionDto {
   id: string;
   text: string;
   isCorrect: boolean;
+  /** Whether the option keeps its place when options are shuffled, such as a "none of the above" that must stay last. */
+  isPinned: boolean;
 }
 
 /** Where a question is in use, which decides what an author may still do to it. */
@@ -35,7 +37,7 @@ export interface QuestionDto {
 export interface CreateQuestionRequest {
   /** The question as HTML from the editor; the API sanitizes it before storing. */
   text: string;
-  options: { text: string; isCorrect: boolean }[];
+  options: { text: string; isCorrect: boolean; isPinned: boolean }[];
   /** The chapter to file the question under; null leaves it unfiled. */
   chapterId: string | null;
 }
@@ -44,7 +46,7 @@ export interface CreateQuestionRequest {
 export interface UpdateQuestionRequest {
   text: string;
   /** All the options after the edit, in display order. An option the question already has keeps its `id`; a new one has none. */
-  options: { id: string | null; text: string; isCorrect: boolean }[];
+  options: { id: string | null; text: string; isCorrect: boolean; isPinned: boolean }[];
 }
 
 /** The body of POST /v1/questions/placement: one question is a bulk of one. */

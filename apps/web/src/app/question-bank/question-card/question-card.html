@@ -19,6 +19,9 @@
         {{ option.text }}@if (option.isCorrect) {
           <span class="badge badge--active">correct</span>
         }
+        @if (option.isPinned) {
+          <span class="badge">stays in place</span>
+        }
       </li>
     }
   </ol>

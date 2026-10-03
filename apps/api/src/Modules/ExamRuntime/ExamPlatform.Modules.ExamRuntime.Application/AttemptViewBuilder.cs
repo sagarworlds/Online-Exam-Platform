@@ -67,7 +67,7 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock)
                     return new AttemptQuestionDto(
                         question.Id,
                         question.Text,
-                        AttemptOrdering.Arrange(question.Options, o => o.Id, attempt.Id, attempt.Number, question.Id, exam.ShuffleOptions)
+                        AttemptOrdering.Arrange(question.Options, o => o.Id, attempt.Id, attempt.Number, question.Id, exam.ShuffleOptions, o => o.IsPinned)
                             .Select(o => new AttemptOptionDto(o.Id, o.Text)).ToList(),
                         chosen.TryGetValue(id, out var optionId) ? optionId : null,
                         marked.Contains(id));

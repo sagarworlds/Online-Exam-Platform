@@ -15,8 +15,8 @@ const question = (id: string, text: string, filedUnder: { chapterId: string; boo
   bookId: filedUnder?.bookId ?? null,
   bookName: null,
   options: [
-    { id: `${id}-a`, text: 'A', isCorrect: true },
-    { id: `${id}-b`, text: 'B', isCorrect: false },
+    { id: `${id}-a`, text: 'A', isCorrect: true, isPinned: false },
+    { id: `${id}-b`, text: 'B', isCorrect: false, isPinned: false },
   ],
   createdBy: 'u1',
   createdAtUtc: '2026-10-02T00:00:00Z',

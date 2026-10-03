@@ -13,8 +13,8 @@ const question = (overrides: Partial<QuestionDto> = {}): QuestionDto => ({
   chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths',
   usage: { examCount: 0, examNames: [], answered: false },
   options: [
-    { id: 'o1', text: 'Paris', isCorrect: true },
-    { id: 'o2', text: 'Rome', isCorrect: false },
+    { id: 'o1', text: 'Paris', isCorrect: true, isPinned: false },
+    { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },
   ],
   ...overrides,
 });
@@ -79,15 +79,15 @@ describe('QuestionEdit', () => {
     expect(put.request.body).toEqual({
       text: '<p>Capital of France?</p>',
       options: [
-        { id: 'o1', text: 'Paris, France', isCorrect: true },
-        { id: 'o2', text: 'Rome', isCorrect: false },
-        { id: null, text: 'Madrid', isCorrect: false },
+        { id: 'o1', text: 'Paris, France', isCorrect: true, isPinned: false },
+        { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },
+        { id: null, text: 'Madrid', isCorrect: false, isPinned: false },
       ],
     });
     put.flush(question({ options: [
-      { id: 'o1', text: 'Paris, France', isCorrect: true },
-      { id: 'o2', text: 'Rome', isCorrect: false },
-      { id: 'o9', text: 'Madrid', isCorrect: false },
+      { id: 'o1', text: 'Paris, France', isCorrect: true, isPinned: false },
+      { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },
+      { id: 'o9', text: 'Madrid', isCorrect: false, isPinned: false },
     ] }));
     fixture.detectChanges();
 
@@ -121,7 +121,7 @@ describe('QuestionEdit', () => {
 
     type(0, 'Paris!');
     submit();
-    expect(httpMock.expectOne(isPut).request.body.options[0]).toEqual({ id: 'o1', text: 'Paris!', isCorrect: true });
+    expect(httpMock.expectOne(isPut).request.body.options[0]).toEqual({ id: 'o1', text: 'Paris!', isCorrect: true, isPinned: false });
   });
 
   it('says how many exams hold the question', () => {

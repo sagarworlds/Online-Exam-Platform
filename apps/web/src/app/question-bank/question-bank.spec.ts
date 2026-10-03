@@ -17,7 +17,7 @@ const book = (id: string, name: string, chapters: ReturnType<typeof chapter>[], 
 const UNUSED: QuestionUsageDto = { examCount: 0, examNames: [], answered: false };
 const listedQuestion = (id: string, text: string, usage: QuestionUsageDto = UNUSED) => ({
   id, text, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: null, chapterTitle: null, bookId: null, bookName: null, usage,
-  options: [{ id: `${id}-a`, text: 'A', isCorrect: true }, { id: `${id}-b`, text: 'B', isCorrect: false }],
+  options: [{ id: `${id}-a`, text: 'A', isCorrect: true, isPinned: false }, { id: `${id}-b`, text: 'B', isCorrect: false, isPinned: false }],
 });
 const MATHS = book('b1', 'Maths Grade 10', [chapter('c1', 1, 'Algebra'), chapter('c2', 2, 'Geometry'), chapter('c3', 3, 'Old chapter', true)]);
 const OLD_BOOK = book('b2', 'Old Physics', [{ ...chapter('c9', 1, 'Optics'), bookId: 'b2' }], true);
@@ -60,8 +60,8 @@ describe('QuestionBank', () => {
         id: 'q1',
         text: 'What is 2 + 2?',
         options: [
-          { id: 'o1', text: '3', isCorrect: false },
-          { id: 'o2', text: '4', isCorrect: true },
+          { id: 'o1', text: '3', isCorrect: false, isPinned: false },
+          { id: 'o2', text: '4', isCorrect: true, isPinned: false },
         ],
         createdBy: 'u1',
         createdAtUtc: '2026-10-02T00:00:00Z',
@@ -84,7 +84,7 @@ describe('QuestionBank', () => {
     const fixture = create();
     httpMock.expectOne(isList).flush([
       {
-        id: 'q1', text: 'Solve x', options: [{ id: 'o1', text: '1', isCorrect: true }, { id: 'o2', text: '2', isCorrect: false }],
+        id: 'q1', text: 'Solve x', options: [{ id: 'o1', text: '1', isCorrect: true, isPinned: false }, { id: 'o2', text: '2', isCorrect: false, isPinned: false }],
         createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths Grade 10', usage: UNUSED,
       },
     ]);
@@ -102,8 +102,8 @@ describe('QuestionBank', () => {
         id: 'q1',
         text: '<p>Water is H<sub>2</sub>O</p><img src="x" onerror="window.__ran = true">',
         options: [
-          { id: 'o1', text: 'Yes', isCorrect: true },
-          { id: 'o2', text: 'No', isCorrect: false },
+          { id: 'o1', text: 'Yes', isCorrect: true, isPinned: false },
+          { id: 'o2', text: 'No', isCorrect: false, isPinned: false },
         ],
         createdBy: 'u1',
         createdAtUtc: '2026-10-02T00:00:00Z',
@@ -150,8 +150,8 @@ describe('QuestionBank', () => {
       text: 'Capital of France?',
       chapterId: null,
       options: [
-        { text: 'Rome', isCorrect: false },
-        { text: 'Paris', isCorrect: true },
+        { text: 'Rome', isCorrect: false, isPinned: false },
+        { text: 'Paris', isCorrect: true, isPinned: false },
       ],
     });
     post.flush({ id: 'q9' }, { status: 201, statusText: 'Created' });

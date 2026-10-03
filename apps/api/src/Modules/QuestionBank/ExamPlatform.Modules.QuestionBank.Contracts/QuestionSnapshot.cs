@@ -17,4 +17,5 @@ public sealed record QuestionSnapshot(
 /// <param name="Id">The option's id.</param>
 /// <param name="Text">The option text.</param>
 /// <param name="IsCorrect">Whether this is the right answer. Never to be sent to a candidate.</param>
-public sealed record QuestionOptionSnapshot(Guid Id, string Text, bool IsCorrect);
+/// <param name="IsPinned">Whether the option keeps its place when options are shuffled for a candidate.</param>
+public sealed record QuestionOptionSnapshot(Guid Id, string Text, bool IsCorrect, bool IsPinned = false);

@@ -2,8 +2,8 @@ import { FormArray, FormBuilder, Validators } from '@angular/forms';
 import { QuestionDto } from './question.models';
 
 /** One option row of the question form. `id` is the existing option's id when editing, and '' for a new option. */
-function newOptionGroup(formBuilder: FormBuilder, id = '', text = '') {
-  return formBuilder.nonNullable.group({ id: [id], text: [text, Validators.required] });
+function newOptionGroup(formBuilder: FormBuilder, id = '', text = '', pinned = false) {
+  return formBuilder.nonNullable.group({ id: [id], text: [text, Validators.required], pinned: [pinned] });
 }
 
 /** The form shared by creating and editing a question: its text, its options and which option is correct. */
@@ -27,19 +27,24 @@ export function newOption(formBuilder: FormBuilder) {
 export function fillQuestionForm(form: QuestionForm, formBuilder: FormBuilder, question: QuestionDto): void {
   const options = form.controls.options as FormArray;
   options.clear();
-  question.options.forEach((option) => options.push(newOptionGroup(formBuilder, option.id, option.text)));
+  question.options.forEach((option) => options.push(newOptionGroup(formBuilder, option.id, option.text, option.isPinned ?? false)));
   form.controls.text.setValue(question.text);
   form.controls.correctIndex.setValue(question.options.findIndex((option) => option.isCorrect));
 }
 
 /** The options as a new question sends them: no ids, the chosen one marked correct. */
-export function toNewOptions(form: QuestionForm): { text: string; isCorrect: boolean }[] {
+export function toNewOptions(form: QuestionForm): { text: string; isCorrect: boolean; isPinned: boolean }[] {
   const { options, correctIndex } = form.getRawValue();
-  return options.map((option, index) => ({ text: option.text, isCorrect: index === correctIndex }));
+  return options.map((option, index) => ({ text: option.text, isCorrect: index === correctIndex, isPinned: option.pinned }));
 }
 
 /** The options as an edit sends them: an option the question already has is named by its id. */
-export function toEditedOptions(form: QuestionForm): { id: string | null; text: string; isCorrect: boolean }[] {
+export function toEditedOptions(form: QuestionForm): { id: string | null; text: string; isCorrect: boolean; isPinned: boolean }[] {
   const { options, correctIndex } = form.getRawValue();
-  return options.map((option, index) => ({ id: option.id || null, text: option.text, isCorrect: index === correctIndex }));
+  return options.map((option, index) => ({
+    id: option.id || null,
+    text: option.text,
+    isCorrect: index === correctIndex,
+    isPinned: option.pinned,
+  }));
 }

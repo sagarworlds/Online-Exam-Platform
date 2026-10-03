@@ -6,13 +6,15 @@ namespace ExamPlatform.Modules.QuestionBank.Domain;
 /// <summary>An option as an author writes it, before it becomes part of a <see cref="Question"/>.</summary>
 /// <param name="Text">The option text.</param>
 /// <param name="IsCorrect">Whether this is the right answer.</param>
-public sealed record NewQuestionOption(string? Text, bool IsCorrect);
+/// <param name="IsPinned">Whether the option keeps its place when options are shuffled.</param>
+public sealed record NewQuestionOption(string? Text, bool IsCorrect, bool IsPinned = false);
 
 /// <summary>An option as an author left it after editing, which may be one the question already has or a new one.</summary>
 /// <param name="Id">The id of the existing option this edits, or null for an option that is new.</param>
 /// <param name="Text">The option text.</param>
 /// <param name="IsCorrect">Whether this is the right answer.</param>
-public sealed record QuestionOptionEdit(Guid? Id, string? Text, bool IsCorrect);
+/// <param name="IsPinned">Whether the option keeps its place when options are shuffled.</param>
+public sealed record QuestionOptionEdit(Guid? Id, string? Text, bool IsCorrect, bool IsPinned = false);
 
 /// <summary>
 /// A multiple-choice question with exactly one correct option (FR-5). The first cut of the bank is
@@ -108,7 +110,7 @@ public sealed class Question : AggregateRoot
         foreach (var option in options!)
         {
             var optionText = RequireOptionText(option?.Text);
-            question._options.Add(new QuestionOption(question.Id, optionText, option!.IsCorrect, question._options.Count + 1));
+            question._options.Add(new QuestionOption(question.Id, optionText, option!.IsCorrect, question._options.Count + 1, option.IsPinned));
         }
 
         return question;
@@ -159,12 +161,12 @@ public sealed class Question : AggregateRoot
             if (edit.Id is { } id)
             {
                 var option = existing[id];
-                option.Revise(optionTexts[i], edit.IsCorrect, i + 1);
+                option.Revise(optionTexts[i], edit.IsCorrect, i + 1, edit.IsPinned);
                 revised.Add(option);
             }
             else
             {
-                revised.Add(new QuestionOption(Id, optionTexts[i], edit.IsCorrect, i + 1));
+                revised.Add(new QuestionOption(Id, optionTexts[i], edit.IsCorrect, i + 1, edit.IsPinned));
             }
         }
 
@@ -188,13 +190,14 @@ public sealed class Question : AggregateRoot
     }
 
     // Once candidates have answered, the key and the list of options are part of their results. Wording is the one thing
-    // that can still be corrected without touching any of that: the same options, in the same order, with the same one correct.
+    // that can still be corrected without touching any of that: the same options, in the same order, with the same one correct and
+    // the same ones pinned (a pin decides where an option lands in each candidate's shuffled order, which a review must reproduce).
     private void EnsureOnlyWordingChanges(IReadOnlyList<QuestionOptionEdit> edits)
     {
         var current = _options.OrderBy(o => o.Order).ToList();
 
         var unchanged = edits.Count == current.Count
-            && current.Select((option, i) => edits[i].Id == option.Id && edits[i].IsCorrect == option.IsCorrect).All(same => same);
+            && current.Select((option, i) => edits[i].Id == option.Id && edits[i].IsCorrect == option.IsCorrect && edits[i].IsPinned == option.IsPinned).All(same => same);
 
         if (!unchanged)
             throw new QuestionLockedError();

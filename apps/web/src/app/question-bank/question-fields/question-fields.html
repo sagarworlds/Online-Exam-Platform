@@ -5,10 +5,11 @@
 
 <fieldset class="field" formArrayName="options">
   <legend>Options (pick the correct one)</legend>
+  <p class="hint">Tick "Keep in place" on an option such as "None of the above" so it stays where it is when options are shuffled.</p>
   @if (wordingOnly()) {
     <p class="hint question-lock-note" role="note">
-      Candidates have answered this question, so only its wording can change. The correct option and the list of options are
-      locked, because their results were worked out against them. To change the answers, create a new question instead.
+      Candidates have answered this question, so only its wording can change. The correct option, the list of options and
+      which options stay in place are locked, because their results were worked out against them. To change the answers, create a new question instead.
     </p>
   }
   @for (option of options.controls; track option; let i = $index) {
@@ -23,6 +24,10 @@
         [attr.aria-label]="'Option ' + (i + 1) + ' is correct'"
       />
       <input type="text" formControlName="text" [attr.aria-label]="'Option ' + (i + 1) + ' text'" />
+      <label class="inline-check option-pin">
+        <input type="checkbox" formControlName="pinned" [attr.disabled]="wordingOnly() ? '' : null" [attr.aria-label]="'Keep option ' + (i + 1) + ' in place when options are shuffled'" />
+        Keep in place
+      </label>
       <button type="button" (click)="removeOption(i)" [disabled]="wordingOnly() || options.length <= limits.minOptions">
         Remove
       </button>
