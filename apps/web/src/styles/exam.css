@@ -479,3 +479,9 @@
 .page--contrast .card {
   border: 2px solid var(--border);
 }
+
+/* The per-section lines of the pre-submit confirmation: plain, so a screen reader reads them as a list. */
+.submit-summary {
+  margin: 0.5rem 0 0.75rem;
+  padding-left: 1.25rem;
+}
