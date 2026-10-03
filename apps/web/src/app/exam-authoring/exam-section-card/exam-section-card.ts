@@ -1,8 +1,8 @@
-import { Component, effect, input, output, signal, untracked } from '@angular/core';
-import { QuestionDto } from '../../question-bank/question.models';
+import { Component, computed, effect, input, output, signal, untracked } from '@angular/core';
+import { QUESTION_DIFFICULTIES, QuestionDifficulty, QuestionDto } from '../../question-bank/question.models';
 import { PlainTextPipe } from '../../shared/rich-text/plain-text.pipe';
 import { htmlToPlainText } from '../../shared/rich-text/html-to-text';
-import { ExamQuestionDto, ExamScopeType, ExamSectionDto } from '../exam.models';
+import { DrawQuestionsRequest, ExamQuestionDto, ExamScopeType, ExamSectionDto, MAX_DRAW_COUNT } from '../exam.models';
 
 /**
  * One section of an exam in the editor (FR-11): its name, its questions in order, and, while the exam is a draft, what the
@@ -25,6 +25,12 @@ export class ExamSectionCard {
   /** What the exam's questions may come from, which decides what the hint under the picker says. */
   readonly scope = input<ExamScopeType>('Independent');
 
+  /** Topics in use in the bank, offered in the draw's topic picker. */
+  readonly topics = input<readonly string[]>([]);
+
+  /** The author asked for random questions to be drawn into this section. */
+  readonly drawRequested = output<{ sectionId: string; request: DrawQuestionsRequest }>();
+
   /** The author saved a new name for the section. */
   readonly renameRequested = output<{ sectionId: string; name: string }>();
   /** The author confirmed removing the section; carries its id. */
@@ -37,6 +43,15 @@ export class ExamSectionCard {
   protected readonly renaming = signal(false);
   protected readonly nameDraft = signal('');
   protected readonly confirmingRemove = signal(false);
+
+  /** The draw row: closed until asked for, since most sections are filled by choosing questions one at a time. */
+  protected readonly drawing = signal(false);
+  protected readonly drawCount = signal(5);
+  protected readonly drawDifficulty = signal<QuestionDifficulty | ''>('');
+  protected readonly drawTopic = signal('');
+  protected readonly difficulties = QUESTION_DIFFICULTIES;
+  protected readonly maxDrawCount = MAX_DRAW_COUNT;
+  protected readonly drawCountValid = computed(() => Number.isInteger(this.drawCount()) && this.drawCount() >= 1 && this.drawCount() <= MAX_DRAW_COUNT);
 
   /** The name the section had when the rename row was last reset; undefined before the first look. */
   private shownName: string | undefined;
@@ -66,6 +81,17 @@ export class ExamSectionCard {
     if (name !== '' && name !== this.section().name) {
       this.renameRequested.emit({ sectionId: this.section().id, name });
     }
+  }
+
+  protected draw(): void {
+    if (!this.drawCountValid()) {
+      return;
+    }
+
+    this.drawRequested.emit({
+      sectionId: this.section().id,
+      request: { count: this.drawCount(), difficulty: this.drawDifficulty() || null, topic: this.drawTopic() || null },
+    });
   }
 
   protected confirmRemove(): void {

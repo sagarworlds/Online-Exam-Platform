@@ -137,6 +137,64 @@ public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuth
     }
 }
 
+/// <summary>Handles <see cref="DrawExamQuestionsCommand"/>.</summary>
+public sealed class DrawExamQuestionsHandler(
+    IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, IQuestionBank questionBank, IQuestionPicker picker)
+{
+    /// <summary>The most questions one draw may add, so a slip of a zero cannot fill a section with a whole bank.</summary>
+    public const int MaxCount = 100;
+
+    /// <summary>
+    /// Picks <see cref="DrawExamQuestionsCommand.Count"/> questions at random from the bank questions that match the criteria, are
+    /// inside the exam's scope and are not already in the exam, adds them to the section and saves. All or none.
+    /// </summary>
+    /// <remarks>
+    /// The draw happens now, while the exam is a draft: the exam keeps the fixed list it picked, exactly as if the author had added
+    /// each question by hand. Candidates therefore still all sit the same questions.
+    /// </remarks>
+    /// <param name="command">What to draw and where to put it.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The questions added, in the order they now sit in the section.</returns>
+    /// <exception cref="InvalidExamConfigError">The count is outside 1 to <see cref="MaxCount"/>.</exception>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="NotEnoughQuestionsError">Fewer questions are available than were asked for; nothing is added.</exception>
+    public async Task<IReadOnlyList<ExamQuestionDto>> HandleAsync(DrawExamQuestionsCommand command, CancellationToken cancellationToken)
+    {
+        if (command.Count is < 1 or > MaxCount)
+            throw new InvalidExamConfigError($"Draw between 1 and {MaxCount} questions.");
+
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        // Checked up front, so a published exam is refused before the bank is asked anything.
+        exam.EnsureCanAddQuestions(command.SectionId);
+
+        var matches = await questionBank.FindAsync(
+            new QuestionCriteria(command.BookId, command.ChapterId, command.Difficulty, command.Topic), cancellationToken);
+
+        var held = exam.Sections.SelectMany(s => s.Questions).Select(q => q.QuestionVersionId).ToHashSet();
+        var candidates = matches
+            .Where(q => !held.Contains(q.Id) && exam.Scope.Allows(new QuestionPlacement(q.BookId, q.ChapterId)))
+            .ToList();
+
+        if (candidates.Count < command.Count)
+            throw new NotEnoughQuestionsError(command.Count, candidates.Count);
+
+        var chosen = picker.Pick(candidates, command.Count);
+        foreach (var question in chosen)
+            exam.AddQuestion(command.SectionId, question.Id, new QuestionPlacement(question.BookId, question.ChapterId));
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var texts = (await questionBank.GetAsync(chosen.Select(q => q.Id).ToList(), cancellationToken)).ToDictionary(q => q.Id, q => q.Text);
+        var section = exam.Sections.Single(s => s.Id == command.SectionId);
+        return section.Questions
+            .Where(q => texts.ContainsKey(q.QuestionVersionId))
+            .Select(q => new ExamQuestionDto(q.Id, q.QuestionVersionId, q.Order, texts[q.QuestionVersionId]))
+            .ToList();
+    }
+}
+
 /// <summary>Handles <see cref="RemoveExamQuestionCommand"/>.</summary>
 public sealed class RemoveExamQuestionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
 {

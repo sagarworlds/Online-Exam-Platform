@@ -42,6 +42,45 @@
       </select>
       <button type="button" (click)="addRequested.emit({ sectionId: section().id, questionId: pick.value })" [disabled]="busy()">Add question</button>
     </div>
+    <div class="section-card__draw">
+      <button type="button" class="btn--small" (click)="drawing.set(!drawing())" [attr.aria-expanded]="drawing()" [disabled]="busy()">
+        Add random questions…
+      </button>
+      @if (drawing()) {
+        <form class="option-row" (submit)="$event.preventDefault(); draw()" [attr.aria-label]="'Draw random questions into ' + section().name">
+          <label>
+            How many
+            <input type="number" min="1" [max]="maxDrawCount" [value]="drawCount()" (input)="drawCount.set($any($event.target).valueAsNumber)" />
+          </label>
+          <label>
+            Difficulty
+            <select [value]="drawDifficulty()" (change)="drawDifficulty.set($any($event.target).value)">
+              <option value="">Any</option>
+              @for (level of difficulties; track level.value) {
+                <option [value]="level.value">{{ level.label }}</option>
+              }
+            </select>
+          </label>
+          <label>
+            Topic
+            <select [value]="drawTopic()" (change)="drawTopic.set($any($event.target).value)">
+              <option value="">Any</option>
+              @for (topic of topics(); track topic) {
+                <option [value]="topic">{{ topic }}</option>
+              }
+            </select>
+          </label>
+          <button type="submit" class="primary btn--small" [disabled]="busy() || !drawCountValid()">Draw</button>
+        </form>
+        @if (!drawCountValid()) {
+          <p class="error-message" role="alert">Draw between 1 and {{ maxDrawCount }} questions.</p>
+        }
+        <p class="hint">
+          Picks at random from the bank{{ scope() === 'Independent' ? '' : ', inside this exam’s ' + (scope() === 'Book' ? 'book' : 'chapters') }},
+          skipping questions already in the exam. The exam keeps the questions drawn; nothing is redrawn for each candidate.
+        </p>
+      }
+    </div>
     @if (scope() !== 'Independent') {
       <p class="hint">
         Only questions from this exam's {{ scope() === 'Book' ? 'book' : 'chapters' }} are offered.

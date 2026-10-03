@@ -9,7 +9,7 @@ import { QuestionApiService } from '../../question-bank/question-api.service';
 import { QuestionDto } from '../../question-bank/question.models';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { ExamApiService } from '../exam-api.service';
-import { ExamDto, ExamScopeDto, MarkingSchemeDto, ShuffleRequest, UpdateExamDetailsRequest } from '../exam.models';
+import { DrawQuestionsRequest, ExamDto, ExamScopeDto, MarkingSchemeDto, ShuffleRequest, UpdateExamDetailsRequest } from '../exam.models';
 import { ExamMarkingScheme } from '../exam-marking-scheme/exam-marking-scheme';
 import { ExamShuffle } from '../exam-shuffle/exam-shuffle';
 import { ExamAttemptLimit } from '../exam-attempt-limit/exam-attempt-limit';
@@ -53,6 +53,8 @@ export class ExamEditor {
 
   protected readonly exam = signal<ExamDto | null>(null);
   protected readonly bank = signal<QuestionDto[]>([]);
+  /** Topics in use in the bank, for the sections' draw pickers. */
+  protected readonly topics = signal<string[]>([]);
   protected readonly loading = signal(true);
   protected readonly busy = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
@@ -115,6 +117,11 @@ export class ExamEditor {
 
   constructor() {
     this.reload();
+    // Only feeds a picker; the draw works without it, so a failure is shown but does not stop the page.
+    this.questionApi.topics().subscribe({
+      next: (topics) => this.topics.set(topics),
+      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
+    });
   }
 
   protected startChangingScope(): void {
@@ -233,6 +240,12 @@ export class ExamEditor {
     }
 
     this.run(this.examApi.addQuestion(this.examId, sectionId, questionId));
+  }
+
+  protected drawQuestions(sectionId: string, request: DrawQuestionsRequest): void {
+    if (!this.busy()) {
+      this.run(this.examApi.drawQuestions(this.examId, sectionId, request));
+    }
   }
 
   protected removeQuestion(target: { sectionId: string; questionId: string }): void {

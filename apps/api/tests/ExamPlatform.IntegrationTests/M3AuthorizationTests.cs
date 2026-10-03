@@ -53,6 +53,8 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             new { name = "Section" }),
         new("POST", "/v1/exams/{examId:guid}/sections/{sectionId:guid}/questions", RbacCatalog.PermissionCodes.ExamManage,
             new { questionId = Guid.NewGuid() }),
+        new("POST", "/v1/exams/{examId:guid}/sections/{sectionId:guid}/questions/draw", RbacCatalog.PermissionCodes.ExamManage,
+            new { count = 1 }),
         new("DELETE", "/v1/exams/{examId:guid}/sections/{sectionId:guid}", RbacCatalog.PermissionCodes.ExamManage, null),
         new("DELETE", "/v1/exams/{examId:guid}/sections/{sectionId:guid}/questions/{questionId:guid}", RbacCatalog.PermissionCodes.ExamManage, null),
         new("POST", "/v1/exams/{examId:guid}/publish", RbacCatalog.PermissionCodes.ExamPublish, null),

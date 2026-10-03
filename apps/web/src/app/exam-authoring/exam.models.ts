@@ -1,3 +1,5 @@
+import { QuestionDifficulty } from '../question-bank/question.models';
+
 /** An exam's lifecycle: only a Draft can be edited, only a Published exam can be taken. */
 export type ExamStatus = 'Draft' | 'Published' | 'Archived';
 
@@ -49,6 +51,19 @@ export interface AttemptLimitRequest {
 }
 
 /** A question as it sits in an exam; `text` comes from the question bank and is null if the bank lost it. */
+/** The body of POST .../sections/{id}/questions/draw: how many random bank questions to add, and which ones are eligible. */
+export interface DrawQuestionsRequest {
+  /** How many to draw, 1 to {@link MAX_DRAW_COUNT}. */
+  count: number;
+  /** Only questions of this difficulty; null for any. */
+  difficulty: QuestionDifficulty | null;
+  /** Only questions with this topic; null for any. */
+  topic: string | null;
+}
+
+/** The most questions one draw may add; the API refuses more. */
+export const MAX_DRAW_COUNT = 100;
+
 export interface ExamQuestionDto {
   id: string;
   questionId: string;

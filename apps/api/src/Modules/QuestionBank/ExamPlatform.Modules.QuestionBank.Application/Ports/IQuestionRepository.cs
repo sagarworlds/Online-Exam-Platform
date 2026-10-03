@@ -45,6 +45,12 @@ public interface IQuestionRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Question>> ListNewestAsync(QuestionFilter filter, int skip, int take, CancellationToken cancellationToken);
 
+    /// <summary>Finds where the questions that match the filter are filed, newest first, without loading them.</summary>
+    /// <param name="filter">Which questions to include.</param>
+    /// <param name="take">How many to return at most.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<(Guid Id, Guid? ChapterId)>> FindPlacementsAsync(QuestionFilter filter, int take, CancellationToken cancellationToken);
+
     /// <summary>Lists every topic any question carries, once each, in alphabetical order.</summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<string>> ListTopicsAsync(CancellationToken cancellationToken);

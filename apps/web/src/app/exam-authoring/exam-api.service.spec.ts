@@ -78,6 +78,14 @@ describe('ExamApiService', () => {
     expect(question.request.body).toEqual({ questionId: 'q1' });
   });
 
+  it('draws random questions with a POST to the draw route', () => {
+    service.drawQuestions('exam-1', 's1', { count: 3, difficulty: 'hard', topic: 'fractions' }).subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1/sections/s1/questions/draw`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ count: 3, difficulty: 'hard', topic: 'fractions' });
+  });
+
   it('changes the name and description with a PUT to the details route', () => {
     service.updateDetails('exam-1', { name: 'Maths mock', description: null }).subscribe();
 

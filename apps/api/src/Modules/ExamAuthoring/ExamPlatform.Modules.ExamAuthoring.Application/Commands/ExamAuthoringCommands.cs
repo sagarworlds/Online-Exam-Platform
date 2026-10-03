@@ -29,6 +29,17 @@ public sealed record AddSectionCommand(Guid ExamId, string? Name, int? TimeSecon
 /// <param name="QuestionId">The question's id in the question bank.</param>
 public sealed record AddExamQuestionCommand(Guid ExamId, Guid SectionId, Guid QuestionId);
 
+/// <summary>Adds a random selection of bank questions that match some criteria to a section.</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="SectionId">The section to add the questions to.</param>
+/// <param name="Count">How many questions to draw, from 1 to <see cref="DrawExamQuestionsHandler.MaxCount"/>.</param>
+/// <param name="BookId">Only questions of this book.</param>
+/// <param name="ChapterId">Only questions of this chapter.</param>
+/// <param name="Difficulty">Only questions of this difficulty ("easy", "medium", "hard").</param>
+/// <param name="Topic">Only questions that carry this topic.</param>
+public sealed record DrawExamQuestionsCommand(
+    Guid ExamId, Guid SectionId, int Count, Guid? BookId = null, Guid? ChapterId = null, string? Difficulty = null, string? Topic = null);
+
 /// <summary>Changes the name and description candidates see.</summary>
 /// <param name="ExamId">The exam.</param>
 /// <param name="Name">The new name, or null if the caller did not send it.</param>
