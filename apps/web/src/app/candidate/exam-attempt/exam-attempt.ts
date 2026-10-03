@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
 import { AttemptDto, AttemptQuestionDto } from '../candidate.models';
+import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-store';
 
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
@@ -67,10 +68,12 @@ export class ExamAttempt {
 
   /**
    * The questions the candidate has had on screen, so the palette can tell "not visited" from "not answered". It is
-   * kept in the page only: a visit is not scored or saved, so after a reload only what the server holds (answers and
-   * review marks) is remembered and the rest starts again as not visited.
+   * kept in this browser, per attempt: a visit is not scored or sent to the server, so it survives a reload
+   * but not a change of device, where only answers and review marks follow the candidate.
    */
-  private readonly visited = signal<ReadonlySet<string>>(new Set());
+  private readonly visited = signal<ReadonlySet<string>>(
+    this.attemptId === null ? new Set() : loadVisitedQuestions(this.attemptId),
+  );
 
   /** Which question is on screen, as an index into the flat list of every section's questions. */
   private readonly requestedIndex = signal(0);
@@ -385,7 +388,14 @@ export class ExamAttempt {
   private markCurrentVisited(): void {
     const id = this.currentQuestion()?.id;
     if (id !== undefined) {
-      this.visited.update((seen) => (seen.has(id) ? seen : new Set(seen).add(id)));
+      if (this.visited().has(id)) {
+        return;
+      }
+      const seen = new Set(this.visited()).add(id);
+      this.visited.set(seen);
+      if (this.attemptId !== null) {
+        saveVisitedQuestions(this.attemptId, seen);
+      }
     }
   }
 
