@@ -11,7 +11,11 @@ namespace ExamPlatform.IntegrationTests;
 /// </summary>
 public sealed class SmtpMailSenderTests
 {
-    private static readonly OutgoingMail Mail = new("candidate@example.com", "A subject", "A body with a secret link https://app.example/invite?code=AB12CD34");
+    private static readonly OutgoingMail Mail = new(
+        "candidate@example.com",
+        "A subject",
+        // Several lines, as every real message is: how the library encodes a body depends on its lines.
+        "A body with a secret link:\r\nhttps://app.example/invite?code=AB12CD34\r\n\r\nIt works once.");
 
     private static SmtpMailSender SenderFor(int port, bool configured = true) =>
         new(Options.Create(new SmtpOptions
