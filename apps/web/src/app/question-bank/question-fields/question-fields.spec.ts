@@ -19,6 +19,8 @@ const QUESTION: QuestionDto = {
   id: 'q1', text: '<p>Capital of France?</p>', createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
   chapterId: null, chapterTitle: null, bookId: null, bookName: null,
   usage: { examCount: 0, examNames: [], answered: false },
+  difficulty: null,
+  topics: [],
   options: [
     { id: 'o1', text: 'Paris', isCorrect: true, isPinned: false },
     { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },
@@ -37,7 +39,7 @@ describe('QuestionFields', () => {
     root = fixture.nativeElement as HTMLElement;
   });
 
-  const texts = () => Array.from(root.querySelectorAll<HTMLInputElement>('input[type="text"]')).map((input) => input.value);
+  const texts = () => Array.from(root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]')).map((input) => input.value);
   const button = (label: string) => Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
   const removeButtons = () => Array.from(root.querySelectorAll('button')).filter((b) => b.textContent?.trim() === 'Remove') as HTMLButtonElement[];
 
@@ -47,7 +49,7 @@ describe('QuestionFields', () => {
   });
 
   it('lets the author keep an option in place, and sends that with the options', () => {
-    const inputs = root.querySelectorAll<HTMLInputElement>('input[type="text"]');
+    const inputs = root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]');
     inputs[0].value = 'Rome';
     inputs[0].dispatchEvent(new Event('input'));
     inputs[1].value = 'None of the above';
@@ -61,7 +63,7 @@ describe('QuestionFields', () => {
   });
 
   it('works on the page’s own form: what is typed and chosen is in it', () => {
-    const inputs = root.querySelectorAll<HTMLInputElement>('input[type="text"]');
+    const inputs = root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]');
     inputs[0].value = 'Rome';
     inputs[0].dispatchEvent(new Event('input'));
     inputs[1].value = 'Paris';
@@ -123,7 +125,7 @@ describe('QuestionFields', () => {
     });
 
     it('still lets the wording of every option be corrected', () => {
-      const first = root.querySelector<HTMLInputElement>('input[type="text"]') as HTMLInputElement;
+      const first = root.querySelector<HTMLInputElement>('.option-row input[type="text"]') as HTMLInputElement;
       expect(first.disabled).toBe(false);
       first.value = 'Paris, France';
       first.dispatchEvent(new Event('input'));

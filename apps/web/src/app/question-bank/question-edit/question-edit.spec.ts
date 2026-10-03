@@ -6,12 +6,15 @@ import { QuestionDto } from '../question.models';
 import { QuestionEdit } from './question-edit';
 
 const isGet = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/questions/q1');
+const isTopics = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/questions/topics');
 const isPut = (r: { method: string; url: string }) => r.method === 'PUT' && r.url.endsWith('/v1/questions/q1');
 
 const question = (overrides: Partial<QuestionDto> = {}): QuestionDto => ({
   id: 'q1', text: '<p>Capital of France?</p>', createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
   chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths',
   usage: { examCount: 0, examNames: [], answered: false },
+  difficulty: null,
+  topics: [],
   options: [
     { id: 'o1', text: 'Paris', isCorrect: true, isPinned: false },
     { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },
@@ -37,7 +40,11 @@ describe('QuestionEdit', () => {
     httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    // The topic suggestions load alongside the question; tests that fail to load it never look at them.
+    httpMock.match(isTopics).forEach((request) => request.flush([]));
+    httpMock.verify();
+  });
 
   function open(loaded: QuestionDto = question()) {
     fixture = TestBed.createComponent(QuestionEdit);
@@ -47,9 +54,9 @@ describe('QuestionEdit', () => {
     root = fixture.nativeElement as HTMLElement;
   }
 
-  const texts = () => Array.from(root.querySelectorAll<HTMLInputElement>('input[type="text"]')).map((input) => input.value);
+  const texts = () => Array.from(root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]')).map((input) => input.value);
   const type = (index: number, value: string) => {
-    const input = root.querySelectorAll<HTMLInputElement>('input[type="text"]')[index];
+    const input = root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]')[index];
     input.value = value;
     input.dispatchEvent(new Event('input'));
     fixture.detectChanges();
@@ -78,6 +85,8 @@ describe('QuestionEdit', () => {
     const put = httpMock.expectOne(isPut);
     expect(put.request.body).toEqual({
       text: '<p>Capital of France?</p>',
+      difficulty: null,
+      topics: [],
       options: [
         { id: 'o1', text: 'Paris, France', isCorrect: true, isPinned: false },
         { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },
@@ -157,6 +166,29 @@ describe('QuestionEdit', () => {
 
     expect(root.querySelector('.error-message')?.textContent).toContain('Every option needs text.');
     expect(root.querySelector('.question-lock-note')).toBeNull();
+  });
+
+  it('shows the labels the question has, and sends them back changed', () => {
+    open(question({ difficulty: 'easy', topics: ['fractions', 'ratios'] }));
+    const difficulty = root.querySelector('#question-difficulty') as HTMLSelectElement;
+    const topics = root.querySelector('#question-topics') as HTMLInputElement;
+    expect(difficulty.value).toBe('easy');
+    expect(topics.value).toBe('fractions, ratios');
+
+    difficulty.value = 'hard';
+    difficulty.dispatchEvent(new Event('change'));
+    topics.value = 'Percentages';
+    topics.dispatchEvent(new Event('input'));
+    submit();
+
+    expect(httpMock.expectOne(isPut).request.body).toMatchObject({ difficulty: 'hard', topics: ['percentages'] });
+  });
+
+  it('still lets the labels be changed once candidates have answered', () => {
+    open(question({ usage: { examCount: 1, examNames: ['Maths mock'], answered: true }, difficulty: 'easy' }));
+
+    expect((root.querySelector('#question-difficulty') as HTMLSelectElement).disabled).toBe(false);
+    expect((root.querySelector('#question-topics') as HTMLInputElement).disabled).toBe(false);
   });
 
   it('discards unsaved changes by reading the question again', () => {

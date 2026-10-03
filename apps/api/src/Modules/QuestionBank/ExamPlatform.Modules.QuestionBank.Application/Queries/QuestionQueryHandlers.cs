@@ -25,6 +25,15 @@ public sealed class ListQuestionsHandler(IQuestionRepository repository, IBookRe
     }
 }
 
+/// <summary>Lists the topics in use, for the authoring screens to offer as a filter and as suggestions.</summary>
+public sealed class ListTopicsHandler(IQuestionRepository repository)
+{
+    /// <summary>Returns every topic any question carries, once each, alphabetically.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<IReadOnlyList<string>> HandleAsync(CancellationToken cancellationToken) =>
+        await repository.ListTopicsAsync(cancellationToken);
+}
+
 /// <summary>Reads one question for the authoring screens.</summary>
 public sealed class GetQuestionHandler(IQuestionRepository repository, QuestionUsageReader usageReader, QuestionDtoFactory dtos)
 {

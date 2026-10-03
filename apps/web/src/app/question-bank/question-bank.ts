@@ -6,9 +6,17 @@ import { extractErrorMessage } from '../shared/problem-details';
 import { BookChapterPicker, isCompletePlacement, NO_PLACEMENT, Placement } from './book-chapter-picker/book-chapter-picker';
 import { QuestionApiService } from './question-api.service';
 import { QuestionCard } from './question-card/question-card';
-import { createQuestionForm, newOption, toNewOptions } from './question-form';
+import { createQuestionForm, newOption, toLabels, toNewOptions } from './question-form';
 import { QuestionFields } from './question-fields/question-fields';
-import { CreateQuestionRequest, FileQuestionsResult, QUESTION_LIST_PAGE_SIZE, QuestionDto, QuestionFilter } from './question.models';
+import {
+  CreateQuestionRequest,
+  FileQuestionsResult,
+  QUESTION_DIFFICULTIES,
+  QUESTION_LIST_PAGE_SIZE,
+  QuestionDifficulty,
+  QuestionDto,
+  QuestionFilter,
+} from './question.models';
 
 /** The value of the list filter's book select that means "questions not filed under any chapter". */
 export const UNFILED = 'unfiled';
@@ -64,12 +72,19 @@ export class QuestionBank {
   /** The list filter: a book id, {@link UNFILED}, or '' for everything; and a chapter id or ''. */
   protected readonly filterBook = signal('');
   protected readonly filterChapter = signal('');
+  /** The difficulty and topic the list is narrowed to, '' for any. */
+  protected readonly filterDifficulty = signal<QuestionDifficulty | ''>('');
+  protected readonly filterTopic = signal('');
+  protected readonly difficulties = QUESTION_DIFFICULTIES;
+  /** Every topic in use, for the topic filter and for the form's suggestions. */
+  protected readonly topics = signal<string[]>([]);
   protected readonly filterChapters = computed(() => this.books().find((book) => book.id === this.filterBook())?.chapters ?? []);
 
   protected readonly form = createQuestionForm(this.formBuilder);
 
   constructor() {
     this.refresh();
+    this.loadTopics();
     this.bookApi.list(true).subscribe({
       next: (books) => this.books.set(books),
       error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
@@ -87,6 +102,16 @@ export class QuestionBank {
     this.refresh();
   }
 
+  protected onFilterDifficultyChanged(value: string): void {
+    this.filterDifficulty.set(value as QuestionDifficulty | '');
+    this.refresh();
+  }
+
+  protected onFilterTopicChanged(value: string): void {
+    this.filterTopic.set(value);
+    this.refresh();
+  }
+
   protected submit(): void {
     if (this.form.invalid || !this.placementComplete() || this.saving()) {
       return;
@@ -96,6 +121,7 @@ export class QuestionBank {
       text: this.form.getRawValue().text,
       chapterId: this.placement().chapterId || null,
       options: toNewOptions(this.form),
+      ...toLabels(this.form),
     };
 
     this.saving.set(true);
@@ -108,6 +134,8 @@ export class QuestionBank {
         this.saved.set(true);
         this.resetForm();
         this.refresh();
+        // The new question may have brought a topic nobody used before.
+        this.loadTopics();
       },
       error: (error: unknown) => {
         this.saving.set(false);
@@ -202,6 +230,10 @@ export class QuestionBank {
 
   /** The filter the list is currently narrowed by; a chapter implies its book, so only one of them is sent. */
   private currentFilter(): QuestionFilter {
+    return { ...this.placeFilter(), ...this.labelFilter() };
+  }
+
+  private placeFilter(): QuestionFilter {
     const book = this.filterBook();
     if (book === UNFILED) {
       return { unfiled: true };
@@ -210,6 +242,20 @@ export class QuestionBank {
       return { chapterId: this.filterChapter() };
     }
     return book ? { bookId: book } : {};
+  }
+
+  private labelFilter(): QuestionFilter {
+    const difficulty = this.filterDifficulty();
+    const topic = this.filterTopic();
+    return { ...(difficulty ? { difficulty } : {}), ...(topic ? { topic } : {}) };
+  }
+
+  private loadTopics(): void {
+    this.api.topics().subscribe({
+      next: (topics) => this.topics.set(topics),
+      // Suggestions and the topic filter are conveniences; a failure here must not stop the page, but it is not hidden.
+      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
+    });
   }
 
   /** Adds the next page of older questions below the ones shown. Ones already shown are not repeated, whatever was created meanwhile. */
@@ -252,7 +298,7 @@ export class QuestionBank {
   }
 
   private resetForm(): void {
-    this.form.reset({ text: '', correctIndex: -1 });
+    this.form.reset({ text: '', correctIndex: -1, difficulty: '', topics: '' });
     this.form.controls.options.clear();
     this.form.controls.options.push(newOption(this.formBuilder));
     this.form.controls.options.push(newOption(this.formBuilder));

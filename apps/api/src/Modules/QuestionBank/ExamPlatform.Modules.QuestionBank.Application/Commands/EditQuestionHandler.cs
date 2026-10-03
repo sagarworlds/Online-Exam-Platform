@@ -9,7 +9,11 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 /// <param name="QuestionId">The question to edit.</param>
 /// <param name="Text">The new question text as the author's editor produced it (HTML); it is sanitized before it is stored.</param>
 /// <param name="Options">All the options after the edit, in display order; options that already exist are named by id.</param>
-public sealed record EditQuestionCommand(Guid QuestionId, string? Text, IReadOnlyList<QuestionOptionEdit>? Options);
+/// <param name="Difficulty">"easy", "medium" or "hard", or null for unsaid. Like the rest it replaces what was there.</param>
+/// <param name="Topics">The question's topics after the edit, or null for none.</param>
+public sealed record EditQuestionCommand(
+    Guid QuestionId, string? Text, IReadOnlyList<QuestionOptionEdit>? Options,
+    string? Difficulty = null, IReadOnlyList<string?>? Topics = null);
 
 /// <summary>Handles <see cref="EditQuestionCommand"/>.</summary>
 public sealed class EditQuestionHandler(
@@ -35,6 +39,8 @@ public sealed class EditQuestionHandler(
         // Asked after loading and just before changing, so the lock is decided on the freshest answer there is.
         var usage = await usageReader.ReadOneAsync(question.Id, cancellationToken);
         question.Revise(html, command.Options, usage.Answered);
+        // Labels never reach a candidate, so they are not covered by the lock Revise applies to an answered question.
+        question.Classify(QuestionDifficultyText.Parse(command.Difficulty), command.Topics);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 

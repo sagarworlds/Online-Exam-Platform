@@ -8,6 +8,8 @@ const question = (overrides: Partial<QuestionDto> = {}): QuestionDto => ({
   id: 'q1', text: '<p>Capital of France?</p>', createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
   chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths',
   usage: { examCount: 0, examNames: [], answered: false },
+  difficulty: null,
+  topics: [],
   options: [
     { id: 'o1', text: 'Paris', isCorrect: true, isPinned: false },
     { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },
@@ -68,6 +70,20 @@ describe('QuestionCard', () => {
     show(question({ chapterId: null, chapterTitle: null, bookId: null, bookName: null }));
 
     expect(root.querySelector('.question-card__where')?.textContent).toContain('Not filed under a chapter');
+  });
+
+  it('shows no labels for a question without a difficulty or topics', () => {
+    show();
+
+    expect(root.querySelector('.question-card__labels')).toBeNull();
+  });
+
+  it('shows the difficulty and each topic as badges', () => {
+    show(question({ difficulty: 'hard', topics: ['fractions', 'ratios'] }));
+
+    const badges = Array.from(root.querySelectorAll('.question-card__labels .badge')).map((b) => b.textContent?.trim());
+    expect(badges).toEqual(['hard', 'fractions', 'ratios']);
+    expect(root.querySelector('.badge--difficulty-hard')).not.toBeNull();
   });
 
   it('shows the question’s formatting and nothing executable', () => {

@@ -41,10 +41,18 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
             query = query.Where(q => q.ChapterId == chapterId);
         if (filter.BookId is { } bookId)
             query = query.Where(q => context.Chapters.Any(c => c.Id == q.ChapterId && c.BookId == bookId));
+        if (filter.Difficulty is { } difficulty)
+            query = query.Where(q => q.Difficulty == difficulty);
+        if (filter.Topic is { Length: > 0 } topic)
+            query = query.Where(q => q.Topics.Contains(topic));
 
         // The id breaks ties between questions created in the same instant, so a page boundary never repeats or skips one.
         return await query.OrderByDescending(q => q.CreatedAtUtc).ThenBy(q => q.Id).Skip(skip).Take(take).ToListAsync(cancellationToken);
     }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> ListTopicsAsync(CancellationToken cancellationToken) =>
+        await context.Questions.AsNoTracking().SelectMany(q => q.Topics).Distinct().OrderBy(t => t).ToListAsync(cancellationToken);
 
     /// <inheritdoc />
     public async Task<IReadOnlyDictionary<Guid, int>> CountByChapterAsync(IReadOnlyCollection<Guid> chapterIds, CancellationToken cancellationToken)

@@ -27,6 +27,10 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
             b.HasKey(q => q.Id);
             // HTML that may embed images, so the unbounded text type; Question.MaxHtmlLength is the real ceiling.
             b.Property(q => q.Text).IsRequired().HasColumnType("text");
+            // Stored as its name rather than its number, so the column reads the same in a query and survives a reordered enum.
+            b.Property(q => q.Difficulty).HasConversion<string>().HasMaxLength(10);
+            // A Postgres text[]; topics are filtered with "= ANY(...)" and listed with unnest, which a delimited string could not do.
+            b.PrimitiveCollection(q => q.Topics).HasColumnType("text[]");
             b.Ignore(q => q.DomainEvents);
             b.HasIndex(q => q.CreatedAtUtc);
             b.HasIndex(q => q.ChapterId);

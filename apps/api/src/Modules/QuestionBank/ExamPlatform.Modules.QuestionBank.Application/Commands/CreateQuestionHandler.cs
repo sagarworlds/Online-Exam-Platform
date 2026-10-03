@@ -11,8 +11,11 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 /// <param name="Options">The answer options in display order; exactly one correct.</param>
 /// <param name="CreatedBy">The authoring user, taken from the caller's token.</param>
 /// <param name="ChapterId">The chapter to file the question under, or null to leave it unfiled.</param>
+/// <param name="Difficulty">"easy", "medium" or "hard", or null for unsaid.</param>
+/// <param name="Topics">The question's topics, or null for none.</param>
 public sealed record CreateQuestionCommand(
-    string? Text, IReadOnlyList<NewQuestionOption>? Options, Guid CreatedBy, Guid? ChapterId = null);
+    string? Text, IReadOnlyList<NewQuestionOption>? Options, Guid CreatedBy, Guid? ChapterId = null,
+    string? Difficulty = null, IReadOnlyList<string?>? Topics = null);
 
 /// <summary>Handles <see cref="CreateQuestionCommand"/>.</summary>
 public sealed class CreateQuestionHandler(
@@ -35,7 +38,9 @@ public sealed class CreateQuestionHandler(
 
         var filedUnder = command.ChapterId is { } chapterId ? await chapters.ResolveAsync(chapterId, cancellationToken) : null;
 
-        var question = Question.Create(html, command.Options, command.CreatedBy, clock.UtcNow, filedUnder?.ChapterId);
+        var question = Question.Create(
+            html, command.Options, command.CreatedBy, clock.UtcNow, filedUnder?.ChapterId,
+            QuestionDifficultyText.Parse(command.Difficulty), command.Topics);
 
         repository.Add(question);
         await unitOfWork.SaveChangesAsync(cancellationToken);

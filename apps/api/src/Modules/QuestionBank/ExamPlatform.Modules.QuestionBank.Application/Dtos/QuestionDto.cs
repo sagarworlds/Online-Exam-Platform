@@ -11,6 +11,8 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Dtos;
 /// <param name="BookId">The book the chapter belongs to, or null.</param>
 /// <param name="BookName">That book's name, or null.</param>
 /// <param name="Usage">Whether exams contain the question and candidates have answered it.</param>
+/// <param name="Difficulty">"easy", "medium" or "hard", or null when the author has not said.</param>
+/// <param name="Topics">The question's topics, lower case.</param>
 public sealed record QuestionDto(
     Guid Id,
     string Text,
@@ -21,7 +23,9 @@ public sealed record QuestionDto(
     string? ChapterTitle = null,
     Guid? BookId = null,
     string? BookName = null,
-    QuestionUsageDto? Usage = null);
+    QuestionUsageDto? Usage = null,
+    string? Difficulty = null,
+    IReadOnlyList<string>? Topics = null);
 
 /// <summary>One option of a <see cref="QuestionDto"/>.</summary>
 /// <param name="Id">The option's id.</param>

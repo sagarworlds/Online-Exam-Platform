@@ -24,8 +24,15 @@ export class QuestionApiService {
     if (filter.bookId) params['bookId'] = filter.bookId;
     if (filter.chapterId) params['chapterId'] = filter.chapterId;
     if (filter.unfiled) params['unfiled'] = true;
+    if (filter.difficulty) params['difficulty'] = filter.difficulty;
+    if (filter.topic) params['topic'] = filter.topic;
     if (skip > 0) params['skip'] = String(skip);
     return this.http.get<QuestionDto[]>(this.baseUrl, { params });
+  }
+
+  /** Every topic in use, once each, alphabetically, for the topic filter and for suggestions. */
+  topics(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.baseUrl}/topics`);
   }
 
   get(id: string): Observable<QuestionDto> {
