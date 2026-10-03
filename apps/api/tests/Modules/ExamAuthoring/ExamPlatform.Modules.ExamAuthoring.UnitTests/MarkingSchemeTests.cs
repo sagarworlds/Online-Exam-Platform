@@ -133,9 +133,9 @@ public class MarkingSchemeTests
     }
 
     [Theory]
-    [InlineData(null, -1, 0)]
-    [InlineData(4, null, 0)]
-    [InlineData(4, -1, null)]
+    [InlineData(null, -1.0, 0.0)]
+    [InlineData(4.0, null, 0.0)]
+    [InlineData(4.0, -1.0, null)]
     public async Task AMissingMark_IsRefusedWithAReason_AndNothingIsLoadedOrSaved(double? correct, double? incorrect, double? unattempted)
     {
         var exam = Stored(DraftExam());
