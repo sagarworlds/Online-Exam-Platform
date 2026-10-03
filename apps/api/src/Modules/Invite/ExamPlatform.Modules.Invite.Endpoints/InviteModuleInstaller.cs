@@ -34,10 +34,9 @@ public sealed class InviteModuleInstaller : IModuleInstaller
         services.AddScoped<IExamRoster, ExamRosterReader>();
         services.AddScoped<IExamDeletionGuard, InviteExamDeletionGuard>();
 
-        // Invitations go out by SMTP when a mail server is configured (the "Smtp" section) and are otherwise
-        // not sent at all: the inviter is given the link. There is deliberately no log-only sender, since a
+        // Invitations go out through the platform's mail sender when a mail server is configured (the "Smtp" section) and are
+        // otherwise not sent at all: the inviter is given the link. There is deliberately no log-only sender, since a
         // link written to a log is a credential in a log.
-        services.AddOptions<SmtpOptions>().Bind(configuration.GetSection(SmtpOptions.SectionName));
         services.AddScoped<IInviteNotifier, SmtpInviteNotifier>();
         services.AddSingleton<IInviteLinkBuilder, ConfigurationInviteLinkBuilder>();
 

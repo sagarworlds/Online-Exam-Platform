@@ -1,90 +1,65 @@
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure.Email;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
+using ExamPlatform.SharedKernel.Infrastructure.Email;
+using NSubstitute;
 
 namespace ExamPlatform.IntegrationTests;
 
-/// <summary>
-/// The SMTP adapter that tells a candidate how their request for another attempt was answered, against a small SMTP server running
-/// in this process: the right message reaches the right person, and a missing or refusing server is "not sent", never an exception.
-/// </summary>
+/// <summary>What the answer to an attempt request says and who it goes to; how mail is delivered is the mail sender's job (see SmtpMailSenderTests).</summary>
 public sealed class SmtpAttemptRequestNotifierTests
 {
     private static readonly AttemptRequestDecisionEmail Approved = new("candidate@example.com", "Maths Final", Approved: true, Note: null);
     private static readonly AttemptRequestDecisionEmail Declined = new("candidate@example.com", "Maths Final", Approved: false, Note: "Speak to your teacher");
 
-    private static SmtpAttemptRequestNotifier NotifierFor(int port, bool configured = true) =>
-        new(Options.Create(new SmtpOptions
-        {
-            Host = configured ? "127.0.0.1" : null,
-            Port = port,
-            EnableSsl = false,
-            From = "exams@examplatform.test",
-        }), NullLogger<SmtpAttemptRequestNotifier>.Instance);
+    private readonly IMailSender _sender = Substitute.For<IMailSender>();
+
+    private SmtpAttemptRequestNotifier Notifier => new(_sender);
+
+    private async Task<OutgoingMail> SentFor(AttemptRequestDecisionEmail email)
+    {
+        OutgoingMail? sent = null;
+        _sender.SendAsync(Arg.Do<OutgoingMail>(m => sent = m), Arg.Any<CancellationToken>()).Returns(true);
+
+        Assert.True(await Notifier.SendDecisionAsync(email, CancellationToken.None));
+
+        return sent ?? throw new InvalidOperationException("Nothing was handed to the mail sender.");
+    }
 
     [Fact]
-    public async Task AnApproval_IsDeliveredToTheCandidate_AndSaysTheyCanSitAgain()
+    public async Task AnApproval_GoesToTheCandidate_AndSaysTheyCanSitAgain()
     {
-        await using var server = new SmtpSink();
+        var mail = await SentFor(Approved);
 
-        var sent = await NotifierFor(server.Port).SendDecisionAsync(Approved, CancellationToken.None);
-
-        Assert.True(sent);
-        var message = await server.WaitForMessageAsync();
-        Assert.Contains("RCPT TO:<candidate@example.com>", message.Envelope, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("MAIL FROM:<exams@examplatform.test>", message.Envelope, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Subject: You can take Maths Final again", message.Data);
-        Assert.Contains("another attempt", message.Data);
+        Assert.Equal("candidate@example.com", mail.To);
+        Assert.Equal("You can take Maths Final again", mail.Subject);
+        Assert.Contains("another attempt", mail.Body);
     }
 
     [Fact]
     public async Task ADecline_CarriesTheAdministratorsReason()
     {
-        await using var server = new SmtpSink();
+        var mail = await SentFor(Declined);
 
-        var sent = await NotifierFor(server.Port).SendDecisionAsync(Declined, CancellationToken.None);
-
-        Assert.True(sent);
-        var message = await server.WaitForMessageAsync();
-        Assert.Contains("Subject: Your request for another attempt at Maths Final", message.Data);
-        Assert.Contains("was declined", message.Data);
-        Assert.Contains("Speak to your teacher", message.Data);
+        Assert.Equal("Your request for another attempt at Maths Final", mail.Subject);
+        Assert.Contains("was declined", mail.Body);
+        Assert.Contains("Speak to your teacher", mail.Body);
     }
 
     [Fact]
     public async Task ADeclineWithoutAReason_DoesNotInventOne()
     {
-        await using var server = new SmtpSink();
+        var mail = await SentFor(Declined with { Note = null });
 
-        await NotifierFor(server.Port).SendDecisionAsync(Declined with { Note = null }, CancellationToken.None);
-
-        var message = await server.WaitForMessageAsync();
-        Assert.DoesNotContain("What they said", message.Data);
+        Assert.DoesNotContain("What they said", mail.Body);
     }
 
-    [Fact]
-    public async Task WithNoMailServerConfigured_NothingIsSent_AndItIsSaid()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ItReportsWhatTheMailSenderReported_SoTheAdministratorKnowsWhetherTheyWereTold(bool delivered)
     {
-        await using var server = new SmtpSink();
+        _sender.SendAsync(Arg.Any<OutgoingMail>(), Arg.Any<CancellationToken>()).Returns(delivered);
 
-        var sent = await NotifierFor(server.Port, configured: false).SendDecisionAsync(Approved, CancellationToken.None);
-
-        Assert.False(sent);
-        Assert.Equal(0, server.Connections);
-    }
-
-    [Fact]
-    public async Task WhenTheServerRefusesTheRecipient_ItReportsNotSent_InsteadOfThrowing()
-    {
-        await using var server = new SmtpSink(refuseRecipients: true);
-
-        Assert.False(await NotifierFor(server.Port).SendDecisionAsync(Approved, CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task WhenNothingIsListening_ItReportsNotSent_InsteadOfThrowing()
-    {
-        Assert.False(await NotifierFor(SmtpSink.FreePort()).SendDecisionAsync(Approved, CancellationToken.None));
+        Assert.Equal(delivered, await Notifier.SendDecisionAsync(Approved, CancellationToken.None));
     }
 }
