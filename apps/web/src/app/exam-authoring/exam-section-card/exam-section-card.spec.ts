@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { QuestionDto } from '../../question-bank/question.models';
-import { ExamScopeType, ExamSectionDto } from '../exam.models';
+import { DrawQuestionsRequest, ExamScopeType, ExamSectionDto } from '../exam.models';
 import { ExamSectionCard } from './exam-section-card';
 
 const section = (overrides: Partial<ExamSectionDto> = {}): ExamSectionDto => ({
@@ -31,6 +31,7 @@ describe('ExamSectionCard', () => {
   let removed: string[];
   let added: { sectionId: string; questionId: string }[];
   let takenOut: { sectionId: string; questionId: string }[];
+  let drawn: { sectionId: string; request: DrawQuestionsRequest }[];
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({ imports: [ExamSectionCard] }).compileComponents();
@@ -38,7 +39,7 @@ describe('ExamSectionCard', () => {
 
   function show(
     s: ExamSectionDto = section(),
-    inputs: { editable?: boolean; busy?: boolean; choices?: QuestionDto[]; scope?: ExamScopeType } = {},
+    inputs: { editable?: boolean; busy?: boolean; choices?: QuestionDto[]; scope?: ExamScopeType; topics?: string[] } = {},
   ) {
     fixture = TestBed.createComponent(ExamSectionCard);
     fixture.componentRef.setInput('section', s);
@@ -46,10 +47,13 @@ describe('ExamSectionCard', () => {
     if (inputs.busy !== undefined) fixture.componentRef.setInput('busy', inputs.busy);
     if (inputs.choices !== undefined) fixture.componentRef.setInput('choices', inputs.choices);
     if (inputs.scope !== undefined) fixture.componentRef.setInput('scope', inputs.scope);
+    if (inputs.topics !== undefined) fixture.componentRef.setInput('topics', inputs.topics);
     renamed = [];
     removed = [];
     added = [];
     takenOut = [];
+    drawn = [];
+    fixture.componentInstance.drawRequested.subscribe((r) => drawn.push(r));
     fixture.componentInstance.renameRequested.subscribe((r) => renamed.push(r));
     fixture.componentInstance.removeConfirmed.subscribe((id) => removed.push(id));
     fixture.componentInstance.addRequested.subscribe((r) => added.push(r));
@@ -234,6 +238,73 @@ describe('ExamSectionCard', () => {
       press('Remove section');
 
       expect(root.querySelector('[role="alertdialog"]')?.textContent).toContain('Remove this section from the exam?');
+    });
+  });
+
+  describe('drawing random questions', () => {
+    const field = (label: string) => Array.from(root.querySelectorAll('label')).find((l) => l.textContent?.trim().startsWith(label))?.querySelector('input, select') as HTMLInputElement & HTMLSelectElement;
+    const set = (label: string, value: string) => {
+      field(label).value = value;
+      field(label).dispatchEvent(new Event(field(label).tagName === 'SELECT' ? 'change' : 'input'));
+      fixture.detectChanges();
+    };
+
+    it('keeps the draw row closed until asked for, and offers it only while editable', () => {
+      show();
+      expect(root.querySelector('.section-card__draw form')).toBeNull();
+
+      press('Add random questions…');
+      expect(root.querySelector('.section-card__draw form')).not.toBeNull();
+
+      show(section(), { editable: false });
+      expect(button('Add random questions…')).toBeUndefined();
+    });
+
+    it('asks for the count, difficulty and topic chosen, for this section', () => {
+      show(section(), { topics: ['algebra', 'fractions'] });
+      press('Add random questions…');
+
+      set('How many', '3');
+      set('Difficulty', 'hard');
+      set('Topic', 'fractions');
+      press('Draw');
+
+      expect(drawn).toEqual([{ sectionId: 's1', request: { count: 3, difficulty: 'hard', topic: 'fractions' } }]);
+    });
+
+    it('sends null for "Any", and starts at five questions', () => {
+      show();
+      press('Add random questions…');
+
+      press('Draw');
+
+      expect(drawn).toEqual([{ sectionId: 's1', request: { count: 5, difficulty: null, topic: null } }]);
+    });
+
+    it('lists the topics in use', () => {
+      show(section(), { topics: ['algebra', 'fractions'] });
+      press('Add random questions…');
+
+      const options = Array.from(field('Topic').querySelectorAll('option')).map((o) => o.textContent?.trim());
+      expect(options).toEqual(['Any', 'algebra', 'fractions']);
+    });
+
+    it('refuses a count outside 1 to 100 without sending anything', () => {
+      show();
+      press('Add random questions…');
+
+      set('How many', '0');
+      expect(button('Draw').disabled).toBe(true);
+      expect(root.textContent).toContain('Draw between 1 and 100 questions.');
+      set('How many', '101');
+      expect(button('Draw').disabled).toBe(true);
+      expect(drawn).toEqual([]);
+    });
+
+    it('cannot be pressed while a request is running', () => {
+      show(section(), { busy: true });
+
+      expect(button('Add random questions…').disabled).toBe(true);
     });
   });
 });

@@ -7,6 +7,7 @@ import {
   ShuffleRequest,
   AttemptLimitRequest,
   CreateExamRequest,
+  DrawQuestionsRequest,
   EditSectionRequest,
   ExamDto,
   ExamScopeRequest,
@@ -76,6 +77,11 @@ export class ExamApiService {
 
   addQuestion(examId: string, sectionId: string, questionId: string): Observable<ExamQuestionDto> {
     return this.http.post<ExamQuestionDto>(`${this.apiUrl}/${examId}/sections/${sectionId}/questions`, { questionId });
+  }
+
+  /** Adds random bank questions that match the request to a section of a draft exam; all or none. Returns the ones added. */
+  drawQuestions(examId: string, sectionId: string, request: DrawQuestionsRequest): Observable<ExamQuestionDto[]> {
+    return this.http.post<ExamQuestionDto[]>(`${this.apiUrl}/${examId}/sections/${sectionId}/questions/draw`, request);
   }
 
   /** Changes the name and description. Allowed after publishing too: it changes nothing that is asked or scored. */

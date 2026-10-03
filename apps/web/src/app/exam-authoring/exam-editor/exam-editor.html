@@ -137,9 +137,11 @@
         [busy]="busy()"
         [choices]="availableQuestions()"
         [scope]="e.scope.type"
+        [topics]="topics()"
         (renameRequested)="renameSection($event)"
         (removeConfirmed)="removeSection($event)"
         (addRequested)="addQuestion($event.sectionId, $event.questionId)"
+        (drawRequested)="drawQuestions($event.sectionId, $event.request)"
         (takeOutRequested)="removeQuestion($event)"
       />
     } @empty {

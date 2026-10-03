@@ -16,4 +16,13 @@ public interface IQuestionBank
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The questions found, in no particular order.</returns>
     Task<IReadOnlyList<QuestionSnapshot>> GetAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken);
+
+    /// <summary>Finds the questions that match the criteria, without their text or answer key.</summary>
+    /// <param name="criteria">What the questions must match; nothing set matches every question.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Where each match is filed, newest first, at most <see cref="MaxFound"/> of them.</returns>
+    Task<IReadOnlyList<FoundQuestion>> FindAsync(QuestionCriteria criteria, CancellationToken cancellationToken);
+
+    /// <summary>The most questions <see cref="FindAsync"/> returns, so a draw from a huge bank stays one cheap query.</summary>
+    const int MaxFound = 5000;
 }

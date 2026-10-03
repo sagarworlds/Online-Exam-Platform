@@ -31,10 +31,24 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
         await context.Questions.Where(q => questionIds.Contains(q.Id)).ToListAsync(cancellationToken);
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Question>> ListNewestAsync(QuestionFilter filter, int skip, int take, CancellationToken cancellationToken)
-    {
-        var query = context.Questions.AsNoTracking().Include(q => q.Options).AsQueryable();
+    public async Task<IReadOnlyList<Question>> ListNewestAsync(QuestionFilter filter, int skip, int take, CancellationToken cancellationToken) =>
+        // The id breaks ties between questions created in the same instant, so a page boundary never repeats or skips one.
+        await Matching(context.Questions.AsNoTracking().Include(q => q.Options), filter)
+            .OrderByDescending(q => q.CreatedAtUtc).ThenBy(q => q.Id).Skip(skip).Take(take).ToListAsync(cancellationToken);
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<(Guid Id, Guid? ChapterId)>> FindPlacementsAsync(QuestionFilter filter, int take, CancellationToken cancellationToken)
+    {
+        var found = await Matching(context.Questions.AsNoTracking(), filter)
+            .OrderByDescending(q => q.CreatedAtUtc).ThenBy(q => q.Id).Take(take)
+            .Select(q => new { q.Id, q.ChapterId })
+            .ToListAsync(cancellationToken);
+
+        return found.Select(q => (q.Id, q.ChapterId)).ToList();
+    }
+
+    private IQueryable<Question> Matching(IQueryable<Question> query, QuestionFilter filter)
+    {
         if (filter.UnfiledOnly)
             query = query.Where(q => q.ChapterId == null);
         if (filter.ChapterId is { } chapterId)
@@ -46,8 +60,7 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
         if (filter.Topic is { Length: > 0 } topic)
             query = query.Where(q => q.Topics.Contains(topic));
 
-        // The id breaks ties between questions created in the same instant, so a page boundary never repeats or skips one.
-        return await query.OrderByDescending(q => q.CreatedAtUtc).ThenBy(q => q.Id).Skip(skip).Take(take).ToListAsync(cancellationToken);
+        return query;
     }
 
     /// <inheritdoc />

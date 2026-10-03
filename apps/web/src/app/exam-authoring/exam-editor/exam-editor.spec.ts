@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angul
 import { ExamEditor } from './exam-editor';
 
 const isExam = (r: { method: string; url: string }) => r.method === 'GET' && /\/v1\/exams\/exam-1$/.test(r.url);
+const isTopics = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/questions/topics');
 const isBank = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/questions');
 
 const question = (id: string, text: string, filedUnder: { chapterId: string; bookId: string } | null = null) => ({
@@ -66,7 +67,11 @@ describe('ExamEditor', () => {
     httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    // The topics for the draw picker load with the page; tests about something else need not answer them.
+    httpMock.match(isTopics).forEach((request) => request.flush([]));
+    httpMock.verify();
+  });
 
   function open(exam = examBody(), bank = [question('q1', 'What is 2 + 2?'), question('q2', 'Capital of France?')]) {
     const fixture = TestBed.createComponent(ExamEditor);
@@ -144,6 +149,37 @@ describe('ExamEditor', () => {
     expect(post.request.body).toEqual({ questionId: 'q2' });
     post.flush({ id: 'eq', questionId: 'q2', order: 1, text: 'Capital of France?' }, { status: 201, statusText: 'Created' });
     httpMock.expectOne(isExam).flush(examBody());
+  });
+
+  it('draws random questions into a section and reads the exam again', () => {
+    const { fixture, root } = open();
+    button(root, 'Add random questions…').click();
+    fixture.detectChanges();
+    const difficulty = Array.from(root.querySelectorAll('label')).find((l) => l.textContent?.trim().startsWith('Difficulty'))?.querySelector('select') as HTMLSelectElement;
+    difficulty.value = 'easy';
+    difficulty.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    button(root, 'Draw').click();
+
+    const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/exams/exam-1/sections/s1/questions/draw'));
+    expect(post.request.body).toEqual({ count: 5, difficulty: 'easy', topic: null });
+    post.flush([]);
+    httpMock.expectOne(isExam).flush(examBody());
+  });
+
+  it('shows the API’s reason when a draw finds too few questions', () => {
+    const { fixture, root } = open();
+    button(root, 'Add random questions…').click();
+    fixture.detectChanges();
+
+    button(root, 'Draw').click();
+    httpMock
+      .expectOne((r) => r.method === 'POST' && r.url.endsWith('/draw'))
+      .flush({ title: 'not_enough_questions', detail: '5 questions were asked for but only 2 match and are not already in this exam.' }, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    expect(root.textContent).toContain('only 2 match');
   });
 
   it('says so, and sends nothing, when Add question is pressed with no question chosen', () => {

@@ -145,6 +145,12 @@ public static class ExamAuthoringEndpoints
             .WithName("AddExamQuestion")
             .WithDescription("Add a question from the bank to a section of a draft exam");
 
+        exams.MapPost("/{examId:guid}/sections/{sectionId:guid}/questions/draw", DrawQuestions)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("DrawExamQuestions")
+            .WithDescription("Add a random selection of bank questions, matching a book, chapter, difficulty or topic, to a draft section; all or none");
+
         exams.MapDelete("/{examId:guid}/sections/{sectionId:guid}/questions/{questionId:guid}", RemoveQuestion)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status204NoContent)
@@ -262,6 +268,11 @@ public static class ExamAuthoringEndpoints
         return Results.Created($"/v1/exams/{examId}/sections/{sectionId}/questions/{result.Id}", result);
     }
 
+    private static async Task<IResult> DrawQuestions(
+        Guid examId, Guid sectionId, DrawQuestionsRequest request, DrawExamQuestionsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(
+            new DrawExamQuestionsCommand(examId, sectionId, request.Count, request.BookId, request.ChapterId, request.Difficulty, request.Topic), ct));
+
     private static async Task<IResult> RemoveQuestion(
         Guid examId, Guid sectionId, Guid questionId, RemoveExamQuestionHandler handler, CancellationToken ct)
     {
@@ -283,6 +294,14 @@ public record CreateExamRequest(
     string Name,
     string? Description,
     ExamScopeRequest? Scope = null);
+
+/// <summary>Request body for drawing random questions from the bank into a section.</summary>
+/// <param name="Count">How many to draw, 1 to 100.</param>
+/// <param name="BookId">Only questions of this book; omit for any.</param>
+/// <param name="ChapterId">Only questions of this chapter; omit for any.</param>
+/// <param name="Difficulty">"easy", "medium" or "hard"; omit for any.</param>
+/// <param name="Topic">Only questions with this topic; omit for any.</param>
+public record DrawQuestionsRequest(int Count, Guid? BookId = null, Guid? ChapterId = null, string? Difficulty = null, string? Topic = null);
 
 /// <summary>Request body for limiting an exam to a book or chosen chapters.</summary>
 /// <param name="Type">Independent (anywhere), Book (any chapter of one book) or Chapters (chosen chapters of one book).</param>

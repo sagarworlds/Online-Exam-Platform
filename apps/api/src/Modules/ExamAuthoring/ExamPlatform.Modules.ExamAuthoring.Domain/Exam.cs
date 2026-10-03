@@ -219,6 +219,18 @@ public class Exam : AggregateRoot
         return trimmed;
     }
 
+    /// <summary>Checks that questions could be added to a section now, without adding any.</summary>
+    /// <param name="sectionId">The section they would go into.</param>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    public void EnsureCanAddQuestions(Guid sectionId)
+    {
+        EnsureDraft();
+
+        if (GetSection(sectionId) is null)
+            throw new SectionNotFoundError(sectionId);
+    }
+
     /// <summary>Appends a question to a section.</summary>
     /// <param name="sectionId">The section to add it to.</param>
     /// <param name="questionId">The question's id in the question bank.</param>
