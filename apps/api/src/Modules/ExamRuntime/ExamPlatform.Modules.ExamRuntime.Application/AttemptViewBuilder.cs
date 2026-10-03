@@ -40,7 +40,11 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock)
             sections,
             // Only a finished attempt has anything to review, so an open one reports none.
             attempt.Status == AttemptStatus.Submitted ? ResultRelease.AvailabilityOf(exam, clock.UtcNow) : null,
-            attempt.Number);
+            attempt.Number,
+            exam.SectionLockEnabled,
+            exam.SectionLockEnabled && attempt.Status == AttemptStatus.InProgress
+                ? exam.Sections.FirstOrDefault(s => s.Order == attempt.ActiveSectionOrder)?.Id
+                : null);
     }
 
     private async Task<IReadOnlyList<AttemptSectionDto>> BuildSectionsAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken)

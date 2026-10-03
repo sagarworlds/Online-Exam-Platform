@@ -21,6 +21,7 @@ public sealed class SaveAnswerHandler(
     /// <exception cref="AttemptNotFoundError">No such attempt, or it is someone else's.</exception>
     /// <exception cref="AttemptNotInProgressError">The attempt is already submitted, or its time has just run out and it was closed.</exception>
     /// <exception cref="InvalidAnswerError">The question is not in the exam, or the option is not one of its options.</exception>
+    /// <exception cref="SectionLockedError">The exam locks sections and the question is in a section the candidate is not in.</exception>
     /// <exception cref="ConcurrencyConflictError">The same answer was saved twice at the same moment.</exception>
     public async Task HandleAsync(Guid attemptId, Guid candidateId, Guid questionId, Guid optionId, CancellationToken cancellationToken)
     {
@@ -36,6 +37,7 @@ public sealed class SaveAnswerHandler(
         if (question.Options.All(o => o.Id != optionId))
             throw new InvalidAnswerError();
 
+        SectionLock.EnsureQuestionReachable(exam, attempt, questionId);
         attempt.RecordAnswer(questionId, optionId, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }

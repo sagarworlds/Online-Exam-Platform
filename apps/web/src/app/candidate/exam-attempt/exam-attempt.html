@@ -57,8 +57,18 @@
             <div class="exam-pager">
               <button type="button" [disabled]="isFirst()" (click)="previous()">&larr; Previous</button>
               <button type="button" [disabled]="isLast()" (click)="next()">Next &rarr;</button>
-              <button type="button" class="primary" [disabled]="isLast()" (click)="saveAndNext()">Save &amp; Next</button>
+              <button type="button" class="primary" [disabled]="isLast()" (click)="saveAndNext()">{{ nextLeavesSection() ? 'Save & Next section' : 'Save & Next' }}</button>
             </div>
+
+            @if (leavingTo(); as target) {
+              <div class="submit-confirm" role="alertdialog" aria-label="Confirm leaving the section">
+                <p>Move to {{ target.name }}? You will not be able to come back to this section.</p>
+                <div class="actions">
+                  <button type="button" class="primary" (click)="confirmLeaveSection()">Yes, move on</button>
+                  <button type="button" (click)="stayInSection()">Stay here</button>
+                </div>
+              </div>
+            }
           }
         </section>
 
@@ -81,6 +91,7 @@
                   [class.palette__item--current]="item.index === position()"
                   [attr.aria-current]="item.index === position() ? 'true' : null"
                   [attr.aria-label]="'Question ' + item.number + ', ' + item.status"
+                  [disabled]="item.closed"
                   (click)="goTo(item.index)"
                 >
                   {{ item.number }}

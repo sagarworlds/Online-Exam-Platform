@@ -17,6 +17,7 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// <param name="ResultReleaseTimeUtc">
 /// From when the answers are visible, for Scheduled, and for Manual once an administrator has released them; null otherwise.
 /// </param>
+/// <param name="SectionLockEnabled">Whether a candidate who leaves a section may not come back to it (FR-12 "section lock").</param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -31,7 +32,8 @@ public sealed record ExamSnapshot(
     decimal UnattemptedMarks,
     IReadOnlyList<ExamSectionSnapshot> Sections,
     ExamResultReleaseMode ResultRelease = ExamResultReleaseMode.Instant,
-    DateTime? ResultReleaseTimeUtc = null);
+    DateTime? ResultReleaseTimeUtc = null,
+    bool SectionLockEnabled = false);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>

@@ -49,6 +49,7 @@ public class AttemptHandlerTests
     private SaveAnswerHandler Save => new(Access, _bank, _unitOfWork, _clock);
     private ClearAnswerHandler Clear => new(Access, _unitOfWork, _clock);
     private MarkQuestionHandler Mark => new(Access, _unitOfWork, _clock);
+    private MoveToSectionHandler MoveSection => new(Access, _unitOfWork, _clock);
     private SubmitAttemptHandler Submit => new(Access, Closer, Views);
     private GetAttemptHandler Get => new(Access, Views);
 
@@ -491,5 +492,99 @@ public class AttemptHandlerTests
         Assert.Null(item.AttemptId);
         Assert.Null(item.AttemptStatus);
         Assert.Null(item.Score);
+    }
+
+    // ---- section lock ------------------------------------------------------------------------------------------
+
+    /// <summary>Makes the exam two sections, the first question in A and the second in B, with the lock on.</summary>
+    private (ExamSnapshot Exam, ExamSectionSnapshot A, ExamSectionSnapshot B) LockedTwoSectionExam()
+    {
+        var a = new ExamSectionSnapshot(Guid.NewGuid(), "Section A", 1, [_q1.Id]);
+        var b = new ExamSectionSnapshot(Guid.NewGuid(), "Section B", 2, [_q2.Id]);
+        var locked = _exam with { Sections = [a, b], SectionLockEnabled = true };
+        _catalog.FindAsync(_exam.Id, Arg.Any<CancellationToken>()).Returns(locked);
+        return (locked, a, b);
+    }
+
+    [Fact]
+    public async Task SectionLock_RefusesAnAnswerMarkOrClearOutsideTheCurrentSection()
+    {
+        LockedTwoSectionExam();
+        var attempt = OpenAttempt();
+
+        await Assert.ThrowsAsync<SectionLockedError>(() => Save.HandleAsync(attempt.Id, _candidate, _q2.Id, _q2.Correct(), CancellationToken.None));
+        await Assert.ThrowsAsync<SectionLockedError>(() => Mark.HandleAsync(attempt.Id, _candidate, _q2.Id, marked: true, CancellationToken.None));
+        await Assert.ThrowsAsync<SectionLockedError>(() => Clear.HandleAsync(attempt.Id, _candidate, _q2.Id, CancellationToken.None));
+        Assert.Empty(attempt.Answers);
+        Assert.Empty(attempt.Marks);
+
+        await Save.HandleAsync(attempt.Id, _candidate, _q1.Id, _q1.Correct(), CancellationToken.None);
+        Assert.Single(attempt.Answers);
+    }
+
+    [Fact]
+    public async Task SectionLock_MovingOnOpensTheNextSection_AndClosesTheOneLeft()
+    {
+        var (_, _, b) = LockedTwoSectionExam();
+        var attempt = OpenAttempt();
+        await Save.HandleAsync(attempt.Id, _candidate, _q1.Id, _q1.Correct(), CancellationToken.None);
+
+        await MoveSection.HandleAsync(attempt.Id, _candidate, b.Id, CancellationToken.None);
+
+        await Save.HandleAsync(attempt.Id, _candidate, _q2.Id, _q2.Correct(), CancellationToken.None);
+        await Assert.ThrowsAsync<SectionLockedError>(() => Save.HandleAsync(attempt.Id, _candidate, _q1.Id, _q1.Wrong(), CancellationToken.None));
+        Assert.Equal(2, attempt.Answers.Count);
+    }
+
+    [Fact]
+    public async Task SectionLock_GoingBackToALeftSection_IsRefused()
+    {
+        var (_, a, b) = LockedTwoSectionExam();
+        var attempt = OpenAttempt();
+        await MoveSection.HandleAsync(attempt.Id, _candidate, b.Id, CancellationToken.None);
+
+        await Assert.ThrowsAsync<SectionLockedError>(() => MoveSection.HandleAsync(attempt.Id, _candidate, a.Id, CancellationToken.None));
+        Assert.Equal(2, attempt.ActiveSectionOrder);
+    }
+
+    [Fact]
+    public async Task SectionLock_MovingToASectionThatIsNotInTheExam_IsNotFound()
+    {
+        LockedTwoSectionExam();
+        var attempt = OpenAttempt();
+
+        await Assert.ThrowsAsync<SectionNotInAttemptError>(() => MoveSection.HandleAsync(attempt.Id, _candidate, Guid.NewGuid(), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task WithoutTheLock_EverySectionIsOpen_AndMovingChangesNothing()
+    {
+        var a = new ExamSectionSnapshot(Guid.NewGuid(), "Section A", 1, [_q1.Id]);
+        var b = new ExamSectionSnapshot(Guid.NewGuid(), "Section B", 2, [_q2.Id]);
+        _catalog.FindAsync(_exam.Id, Arg.Any<CancellationToken>()).Returns(_exam with { Sections = [a, b] });
+        var attempt = OpenAttempt();
+
+        await Save.HandleAsync(attempt.Id, _candidate, _q2.Id, _q2.Correct(), CancellationToken.None);
+        await MoveSection.HandleAsync(attempt.Id, _candidate, b.Id, CancellationToken.None);
+
+        Assert.Equal(1, attempt.ActiveSectionOrder);
+        var dto = await Get.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+        Assert.False(dto.SectionLockEnabled);
+        Assert.Null(dto.ActiveSectionId);
+    }
+
+    [Fact]
+    public async Task Get_WhenSectionsAreLocked_NamesTheSectionTheCandidateIsIn()
+    {
+        var (_, a, b) = LockedTwoSectionExam();
+        var attempt = OpenAttempt();
+
+        var first = await Get.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+        Assert.True(first.SectionLockEnabled);
+        Assert.Equal(a.Id, first.ActiveSectionId);
+
+        await MoveSection.HandleAsync(attempt.Id, _candidate, b.Id, CancellationToken.None);
+        var second = await Get.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+        Assert.Equal(b.Id, second.ActiveSectionId);
     }
 }

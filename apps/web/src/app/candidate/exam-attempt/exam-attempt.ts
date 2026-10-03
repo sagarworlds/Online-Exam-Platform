@@ -75,11 +75,45 @@ export class ExamAttempt {
   /** Which question is on screen, as an index into the flat list of every section's questions. */
   private readonly requestedIndex = signal(0);
 
-  /** The question on screen. Clamped, so a reload that changes the question count can never leave it pointing nowhere. */
-  protected readonly position = computed(() => Math.min(this.requestedIndex(), Math.max(0, this.questions().length - 1)));
+  /** Where each section's questions sit in the flat list: the first index and the last. */
+  private readonly sectionRanges = computed(() => {
+    let start = 0;
+    return (this.attempt()?.sections ?? []).map((section) => {
+      const range = { id: section.id, name: section.name, start, end: start + section.questions.length - 1 };
+      start += section.questions.length;
+      return range;
+    });
+  });
+
+  protected readonly sectionLocked = computed(() => this.attempt()?.sectionLockEnabled === true);
+
+  /** The section the candidate is in when sections are locked (the first until the server says otherwise); null when they roam. */
+  private readonly activeRange = computed(() => {
+    if (!this.sectionLocked()) {
+      return null;
+    }
+    const ranges = this.sectionRanges();
+    return ranges.find((r) => r.id === this.attempt()?.activeSectionId) ?? ranges[0] ?? null;
+  });
+
+  /** The question on screen. Clamped into the open section when sections are locked, and into the exam always, so a reload can never leave it pointing nowhere. */
+  protected readonly position = computed(() => {
+    const active = this.activeRange();
+    const last = Math.max(0, this.questions().length - 1);
+    return Math.min(Math.max(this.requestedIndex(), active?.start ?? 0), active?.end ?? last);
+  });
+  /** The section the candidate has asked to move to and is being asked to confirm; null when no move is pending. */
+  protected readonly leavingTo = signal<{ id: string; name: string; start: number } | null>(null);
   protected readonly currentQuestion = computed<AttemptQuestionDto | null>(() => this.questions()[this.position()] ?? null);
-  protected readonly isFirst = computed(() => this.position() === 0);
+  /** First in the open section when sections are locked: the section before it cannot be returned to. */
+  protected readonly isFirst = computed(() => this.position() <= (this.activeRange()?.start ?? 0));
   protected readonly isLast = computed(() => this.position() >= this.questions().length - 1);
+
+  /** True on the last question of a locked section that has another after it, where "next" means leaving the section. */
+  protected readonly nextLeavesSection = computed(() => {
+    const active = this.activeRange();
+    return active !== null && this.position() === active.end && !this.isLast();
+  });
 
   /** The name of the section the on-screen question belongs to. */
   protected readonly currentSectionName = computed(() => {
@@ -101,6 +135,7 @@ export class ExamAttempt {
   protected readonly palette = computed(() => {
     let offset = 0;
     const visited = this.visited();
+    const active = this.activeRange();
     return (this.attempt()?.sections ?? []).map((section) => {
       const items = section.questions.map((question, i) => {
         const answered = question.selectedOptionId !== null;
@@ -113,6 +148,8 @@ export class ExamAttempt {
           marked,
           seen,
           status: paletteStatus(answered, marked, seen),
+          // A section behind the candidate is closed for good; one ahead can be moved to (after a confirmation).
+          closed: active !== null && offset + i < active.start,
         };
       });
       offset += section.questions.length;
@@ -148,16 +185,57 @@ export class ExamAttempt {
     return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
   }
 
-  /** Shows the question at <paramref name="index"/> (0-based); an index outside the exam is ignored. */
+  /**
+   * Shows the question at <paramref name="index"/> (0-based); an index outside the exam is ignored. With sections locked,
+   * a question in a section already left is ignored and one in a later section asks for confirmation first.
+   */
   protected goTo(index: number): void {
-    if (index >= 0 && index < this.questions().length) {
-      this.requestedIndex.set(index);
-      this.markCurrentVisited();
+    if (index < 0 || index >= this.questions().length) {
+      return;
     }
+
+    const active = this.activeRange();
+    if (active !== null && (index < active.start || index > active.end)) {
+      const target = this.sectionRanges().find((r) => index >= r.start && index <= r.end);
+      if (target !== undefined && target.start > active.end) {
+        this.leavingTo.set({ id: target.id, name: target.name, start: index });
+      }
+      return;
+    }
+
+    this.requestedIndex.set(index);
+    this.markCurrentVisited();
   }
 
   protected next(): void {
     this.goTo(this.position() + 1);
+  }
+
+  protected stayInSection(): void {
+    this.leavingTo.set(null);
+  }
+
+  /** Tells the server the candidate is leaving their section for good, then shows the question they chose. */
+  protected confirmLeaveSection(): void {
+    const attempt = this.attempt();
+    const target = this.leavingTo();
+    if (attempt === null || target === null) {
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.api.moveToSection(attempt.id, target.id).subscribe({
+      next: () => {
+        this.leavingTo.set(null);
+        this.attempt.update((current) => (current === null ? null : { ...current, activeSectionId: target.id }));
+        this.requestedIndex.set(target.start);
+        this.markCurrentVisited();
+      },
+      error: (error: unknown) => {
+        this.leavingTo.set(null);
+        this.explainFailure(error, 'You could not move to that section. Please try again.');
+      },
+    });
   }
 
   protected previous(): void {
