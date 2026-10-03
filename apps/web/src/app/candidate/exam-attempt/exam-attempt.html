@@ -119,8 +119,22 @@
                 } @else if (markedCount() > 1) {
                   {{ markedCount() }} questions are marked for review.
                 }
+                @if (submitSummary().notVisited === 1) {
+                  1 question was never opened.
+                } @else if (submitSummary().notVisited > 1) {
+                  {{ submitSummary().notVisited }} questions were never opened.
+                }
                 You cannot change your answers afterwards.
               </p>
+              @if (submitSummary().sections.length > 1) {
+                <ul class="submit-summary" aria-label="Summary by section">
+                  @for (section of submitSummary().sections; track section.id) {
+                    <li>
+                      <strong>{{ section.name }}</strong>: {{ section.answered }} of {{ section.total }} answered@if (section.marked > 0) {, {{ section.marked }} marked for review}@if (section.notVisited > 0) {, {{ section.notVisited }} not visited}
+                    </li>
+                  }
+                </ul>
+              }
               <div class="actions">
                 <button type="button" class="primary" [disabled]="submitting()" (click)="submit()">Yes, submit</button>
                 <button type="button" [disabled]="submitting()" (click)="cancelSubmit()">Keep working</button>

@@ -338,6 +338,43 @@ describe('ExamAttempt', () => {
       expect(textOf(fixture)).toContain('1 / 2');
     });
 
+    it('does not mention unopened questions when every one has been opened', async () => {
+      // The first question is on screen (so seen) and the second is answered: nothing is unvisited.
+      const fixture = await open(attempt());
+      buttonLabelled(fixture, 'Submit exam')?.click();
+      fixture.detectChanges();
+      expect(textOf(fixture)).not.toContain('never opened');
+    });
+
+    it('counts questions never opened, and lists each section when there are several', async () => {
+      const many = attempt({
+        sections: [
+          { id: 's1', name: 'Section A', questions: ['q1', 'q2', 'q3'].map((id) => ({ id, text: id, options: [{ id: `${id}-a`, text: 'A' }], selectedOptionId: null, markedForReview: false })) },
+          { id: 's2', name: 'Section B', questions: ['q4', 'q5'].map((id) => ({ id, text: id, options: [{ id: `${id}-a`, text: 'A' }], selectedOptionId: id === 'q5' ? `${id}-a` : null, markedForReview: id === 'q4' })) },
+        ],
+      });
+      const fixture = await open(many);
+
+      buttonLabelled(fixture, 'Submit exam')?.click();
+      fixture.detectChanges();
+
+      // q1 is on screen; q2 and q3 were never opened; q4 is marked and q5 answered.
+      expect(textOf(fixture)).toContain('2 questions were never opened.');
+      const lines = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.submit-summary li')).map((li) => li.textContent?.replace(/\s+/g, ' ').trim());
+      expect(lines).toEqual([
+        'Section A: 0 of 3 answered, 2 not visited',
+        'Section B: 1 of 2 answered, 1 marked for review',
+      ]);
+    });
+
+    it('shows no per-section list for an exam with one section', async () => {
+      const fixture = await open(attempt());
+      buttonLabelled(fixture, 'Submit exam')?.click();
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('.submit-summary')).toBeNull();
+    });
+
     it('says in the submit question how many are marked, so none is forgotten', async () => {
       const marked = attempt();
       marked.sections[0].questions[0].markedForReview = true;

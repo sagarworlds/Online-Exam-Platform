@@ -175,6 +175,23 @@ export class ExamAttempt {
     });
   });
 
+  /**
+   * What the pre-submit confirmation tells the candidate, per section and in all: how many questions are answered, marked for
+   * review, and never opened. "Not visited" counts only questions with no answer and no mark, the same rule as the palette, so
+   * the two always agree.
+   */
+  protected readonly submitSummary = computed(() => {
+    const sections = this.palette().map((section) => ({
+      id: section.id,
+      name: section.name,
+      total: section.items.length,
+      answered: section.items.filter((item) => item.answered).length,
+      marked: section.items.filter((item) => item.marked).length,
+      notVisited: section.items.filter((item) => !item.answered && !item.marked && !item.seen).length,
+    }));
+    return { sections, notVisited: sections.reduce((sum, section) => sum + section.notVisited, 0) };
+  });
+
   /** Server clock minus the candidate's clock at the moment the attempt was fetched, so the countdown tracks the server. */
   private clockOffsetMs = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
