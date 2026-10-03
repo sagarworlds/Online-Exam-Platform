@@ -33,6 +33,21 @@ export class CandidateApiService {
     return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { optionId });
   }
 
+  /** Takes back the option chosen for one question, so it counts as unanswered again. Safe to repeat. */
+  clearAnswer(attemptId: string, questionId: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`);
+  }
+
+  /** Marks one question of an open attempt for review. Safe to repeat. */
+  markForReview(attemptId: string, questionId: string): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/marks/${questionId}`, null);
+  }
+
+  /** Takes the review mark off one question. Safe to repeat. */
+  unmarkForReview(attemptId: string, questionId: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/attempts/${attemptId}/marks/${questionId}`);
+  }
+
   /** Ends the attempt and returns it with its score. Safe to repeat. */
   submitAttempt(attemptId: string): Observable<AttemptDto> {
     return this.http.post<AttemptDto>(`${this.baseUrl}/attempts/${attemptId}/submit`, null);

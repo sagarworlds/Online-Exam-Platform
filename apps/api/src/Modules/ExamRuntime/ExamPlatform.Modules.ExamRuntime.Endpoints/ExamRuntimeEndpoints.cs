@@ -67,6 +67,30 @@ public static class ExamRuntimeEndpoints
             .WithName("SaveAnswer")
             .WithDescription("Save the option chosen for one question of an open attempt");
 
+        me.MapDelete("/attempts/{attemptId:guid}/answers/{questionId:guid}", ClearAnswer)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("ClearAnswer")
+            .WithDescription("Take back the option chosen for one question of an open attempt, so it counts as unanswered");
+
+        me.MapPut("/attempts/{attemptId:guid}/marks/{questionId:guid}", MarkQuestion)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("MarkQuestion")
+            .WithDescription("Mark one question of an open attempt for review; marking a marked question changes nothing");
+
+        me.MapDelete("/attempts/{attemptId:guid}/marks/{questionId:guid}", UnmarkQuestion)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("UnmarkQuestion")
+            .WithDescription("Take the review mark off one question of an open attempt; unmarking an unmarked question changes nothing");
+
         me.MapPost("/attempts/{attemptId:guid}/submit", SubmitAttempt)
             .Produces<AttemptDto>()
             .Produces(StatusCodes.Status401Unauthorized)
@@ -124,6 +148,27 @@ public static class ExamRuntimeEndpoints
         Guid attemptId, Guid questionId, SaveAnswerRequest request, ClaimsPrincipal user, SaveAnswerHandler handler, CancellationToken ct)
     {
         await handler.HandleAsync(attemptId, user.GetUserId(), questionId, request.OptionId, ct);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> ClearAnswer(
+        Guid attemptId, Guid questionId, ClaimsPrincipal user, ClearAnswerHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(attemptId, user.GetUserId(), questionId, ct);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> MarkQuestion(
+        Guid attemptId, Guid questionId, ClaimsPrincipal user, MarkQuestionHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(attemptId, user.GetUserId(), questionId, marked: true, ct);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> UnmarkQuestion(
+        Guid attemptId, Guid questionId, ClaimsPrincipal user, MarkQuestionHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(attemptId, user.GetUserId(), questionId, marked: false, ct);
         return Results.NoContent();
     }
 

@@ -41,6 +41,11 @@
                   </label>
                 }
               </fieldset>
+
+              <div class="actions exam-tools">
+                <button type="button" [attr.aria-pressed]="question.markedForReview" (click)="toggleMark(question)">Mark for review</button>
+                <button type="button" [disabled]="question.selectedOptionId === null" (click)="clearResponse(question)">Clear response</button>
+              </div>
             </div>
 
             <div class="exam-pager">
@@ -52,7 +57,9 @@
 
         <aside class="card exam-side" aria-label="Question palette">
           <h2>Questions</h2>
-          <p class="hint">{{ answeredCount() }} of {{ questions().length }} answered</p>
+          <p class="hint">
+            {{ answeredCount() }} of {{ questions().length }} answered@if (markedCount() > 0) { · {{ markedCount() }} marked for review }
+          </p>
 
           @for (section of palette(); track section.id) {
             <h3 class="palette__section">{{ section.name }}</h3>
@@ -62,9 +69,11 @@
                   type="button"
                   class="palette__item"
                   [class.palette__item--answered]="item.answered"
+                  [class.palette__item--marked]="item.marked"
+                  [class.palette__item--seen]="item.seen"
                   [class.palette__item--current]="item.index === position()"
                   [attr.aria-current]="item.index === position() ? 'true' : null"
-                  [attr.aria-label]="'Question ' + item.number + (item.answered ? ', answered' : ', not answered')"
+                  [attr.aria-label]="'Question ' + item.number + ', ' + item.status"
                   (click)="goTo(item.index)"
                 >
                   {{ item.number }}
@@ -75,15 +84,22 @@
 
           <ul class="palette-legend" aria-hidden="true">
             <li class="legend--answered">Answered</li>
-            <li>Not answered</li>
+            <li class="legend--seen">Not answered</li>
+            <li>Not visited</li>
+            <li class="legend--marked">Marked for review</li>
             <li class="legend--current">Current</li>
           </ul>
 
           @if (confirmingSubmit()) {
             <div class="submit-confirm" role="alertdialog" aria-label="Confirm submit">
               <p>
-                Submit now? {{ answeredCount() }} of {{ questions().length }} questions are answered. You cannot change
-                your answers afterwards.
+                Submit now? {{ answeredCount() }} of {{ questions().length }} questions are answered.
+                @if (markedCount() === 1) {
+                  1 question is marked for review.
+                } @else if (markedCount() > 1) {
+                  {{ markedCount() }} questions are marked for review.
+                }
+                You cannot change your answers afterwards.
               </p>
               <div class="actions">
                 <button type="button" class="primary" [disabled]="submitting()" (click)="submit()">Yes, submit</button>

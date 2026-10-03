@@ -12,7 +12,13 @@ public sealed record AttemptOptionDto(Guid Id, string Text);
 /// <param name="Text">The question text, as sanitized HTML; render it with an HTML sanitizer in place, never as trusted markup.</param>
 /// <param name="Options">The options, in display order.</param>
 /// <param name="SelectedOptionId">The option the candidate chose, or null when unanswered.</param>
-public sealed record AttemptQuestionDto(Guid Id, string Text, IReadOnlyList<AttemptOptionDto> Options, Guid? SelectedOptionId);
+/// <param name="MarkedForReview">Whether the candidate has marked the question to come back to. It has no effect on the score.</param>
+public sealed record AttemptQuestionDto(
+    Guid Id,
+    string Text,
+    IReadOnlyList<AttemptOptionDto> Options,
+    Guid? SelectedOptionId,
+    bool MarkedForReview = false);
 
 /// <summary>A section of the exam as a candidate sees it.</summary>
 /// <param name="Id">The section's id.</param>

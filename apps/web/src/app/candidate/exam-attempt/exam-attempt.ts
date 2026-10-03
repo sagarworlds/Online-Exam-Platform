@@ -9,6 +9,14 @@ import { AttemptDto, AttemptQuestionDto } from '../candidate.models';
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
 
+/** The palette's wording for a question, for a screen reader; sighted candidates get the same from the colours and the legend. */
+function paletteStatus(answered: boolean, marked: boolean, seen: boolean): string {
+  if (answered && marked) return 'answered and marked for review';
+  if (marked) return 'marked for review';
+  if (answered) return 'answered';
+  return seen ? 'not answered' : 'not visited';
+}
+
 /**
  * Where a candidate sits an exam and reads their result (FR-16 to FR-21). While the attempt is open it shows the
  * questions and a countdown to the deadline the server set; each choice is saved as it is made, so a closed tab
@@ -33,7 +41,15 @@ export class ExamAttempt {
 
   protected readonly questions = computed(() => this.attempt()?.sections.flatMap((s) => s.questions) ?? []);
   protected readonly answeredCount = computed(() => this.questions().filter((q) => q.selectedOptionId !== null).length);
+  protected readonly markedCount = computed(() => this.questions().filter((q) => q.markedForReview).length);
   protected readonly isOpen = computed(() => this.attempt()?.status === 'InProgress');
+
+  /**
+   * The questions the candidate has had on screen, so the palette can tell "not visited" from "not answered". It is
+   * kept in the page only: a visit is not scored or saved, so after a reload only what the server holds (answers and
+   * review marks) is remembered and the rest starts again as not visited.
+   */
+  private readonly visited = signal<ReadonlySet<string>>(new Set());
 
   /** Which question is on screen, as an index into the flat list of every section's questions. */
   private readonly requestedIndex = signal(0);
@@ -56,15 +72,28 @@ export class ExamAttempt {
     return '';
   });
 
-  /** The question palette: every question numbered across sections, with whether it has an answer. */
+  /**
+   * The question palette: every question numbered across sections, with where it stands. A question is answered, marked
+   * for review, both, or neither; a question with neither is "not answered" once seen and "not visited" until then.
+   * Each item also says so in words for a screen reader, so the colours are never the only signal.
+   */
   protected readonly palette = computed(() => {
     let offset = 0;
+    const visited = this.visited();
     return (this.attempt()?.sections ?? []).map((section) => {
-      const items = section.questions.map((question, i) => ({
-        index: offset + i,
-        number: offset + i + 1,
-        answered: question.selectedOptionId !== null,
-      }));
+      const items = section.questions.map((question, i) => {
+        const answered = question.selectedOptionId !== null;
+        const marked = question.markedForReview;
+        const seen = !answered && !marked && visited.has(question.id);
+        return {
+          index: offset + i,
+          number: offset + i + 1,
+          answered,
+          marked,
+          seen,
+          status: paletteStatus(answered, marked, seen),
+        };
+      });
       offset += section.questions.length;
       return { id: section.id, name: section.name, items };
     });
@@ -102,6 +131,7 @@ export class ExamAttempt {
   protected goTo(index: number): void {
     if (index >= 0 && index < this.questions().length) {
       this.requestedIndex.set(index);
+      this.markCurrentVisited();
     }
   }
 
@@ -132,12 +162,48 @@ export class ExamAttempt {
     this.api.saveAnswer(attempt.id, question.id, optionId).subscribe({
       error: (error: unknown) => {
         this.setSelection(question.id, previous);
-        // A 409 means the attempt ended under the candidate (time ran out): the saved state is the truth now.
-        if (error instanceof HttpErrorResponse && error.status === 409) {
-          this.reload();
-        } else {
-          this.errorMessage.set(extractErrorMessage(error, 'Your answer could not be saved. Please try again.'));
-        }
+        this.explainFailure(error, 'Your answer could not be saved. Please try again.');
+      },
+    });
+  }
+
+  /** Takes back the question's answer. It shows at once and is saved in the background; if the save fails the answer comes back. */
+  protected clearResponse(question: AttemptQuestionDto): void {
+    const attempt = this.attempt();
+    if (attempt === null || !this.isOpen() || question.selectedOptionId === null) {
+      return;
+    }
+
+    const previous = question.selectedOptionId;
+    this.setSelection(question.id, null);
+    this.errorMessage.set(null);
+
+    this.api.clearAnswer(attempt.id, question.id).subscribe({
+      error: (error: unknown) => {
+        this.setSelection(question.id, previous);
+        this.explainFailure(error, 'Your answer could not be cleared. Please try again.');
+      },
+    });
+  }
+
+  /** Marks the question for review, or takes the mark off. It shows at once; if the save fails the mark goes back as it was. */
+  protected toggleMark(question: AttemptQuestionDto): void {
+    const attempt = this.attempt();
+    if (attempt === null || !this.isOpen()) {
+      return;
+    }
+
+    const previous = question.markedForReview;
+    this.setMarked(question.id, !previous);
+    this.errorMessage.set(null);
+
+    const request = previous
+      ? this.api.unmarkForReview(attempt.id, question.id)
+      : this.api.markForReview(attempt.id, question.id);
+    request.subscribe({
+      error: (error: unknown) => {
+        this.setMarked(question.id, previous);
+        this.explainFailure(error, 'The review mark could not be saved. Please try again.');
       },
     });
   }
@@ -177,9 +243,30 @@ export class ExamAttempt {
     this.stopTimer();
 
     if (attempt.status === 'InProgress') {
+      this.markCurrentVisited();
       this.clockOffsetMs = Date.parse(attempt.serverTimeUtc) - Date.now();
       this.tick();
       this.timer = setInterval(() => this.tick(), TICK_MS);
+    }
+  }
+
+  /** Notes that the question on screen has been seen. */
+  private markCurrentVisited(): void {
+    const id = this.currentQuestion()?.id;
+    if (id !== undefined) {
+      this.visited.update((seen) => (seen.has(id) ? seen : new Set(seen).add(id)));
+    }
+  }
+
+  /**
+   * Says why a change could not be saved. A 409 means the attempt ended under the candidate (time ran out), so the
+   * saved state is the truth now and the page reloads it; anything else is shown and the candidate can try again.
+   */
+  private explainFailure(error: unknown, fallback: string): void {
+    if (error instanceof HttpErrorResponse && error.status === 409) {
+      this.reload();
+    } else {
+      this.errorMessage.set(extractErrorMessage(error, fallback));
     }
   }
 
@@ -211,6 +298,15 @@ export class ExamAttempt {
   }
 
   private setSelection(questionId: string, optionId: string | null): void {
+    this.changeQuestion(questionId, { selectedOptionId: optionId });
+  }
+
+  private setMarked(questionId: string, marked: boolean): void {
+    this.changeQuestion(questionId, { markedForReview: marked });
+  }
+
+  /** Applies a change to one question of the open attempt, leaving every other question as it was. */
+  private changeQuestion(questionId: string, change: Partial<AttemptQuestionDto>): void {
     this.attempt.update((attempt) =>
       attempt === null
         ? null
@@ -218,7 +314,7 @@ export class ExamAttempt {
             ...attempt,
             sections: attempt.sections.map((section) => ({
               ...section,
-              questions: section.questions.map((q) => (q.id === questionId ? { ...q, selectedOptionId: optionId } : q)),
+              questions: section.questions.map((q) => (q.id === questionId ? { ...q, ...change } : q)),
             })),
           },
     );

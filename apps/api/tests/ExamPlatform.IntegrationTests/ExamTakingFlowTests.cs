@@ -203,6 +203,142 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         await AssertProblemAsync(late, HttpStatusCode.Conflict, "attempt_not_in_progress");
     }
 
+    private static IEnumerable<JsonElement> QuestionsOf(JsonElement attempt) => attempt.GetProperty("sections")[0].GetProperty("questions").EnumerateArray();
+
+    [Fact]
+    public async Task ACandidate_CanClearAResponse_AndANewAnswerCanBeGivenAfterwards()
+    {
+        var (admin, candidate, examId, questions) = await EnrolledCandidateAsync();
+        using var _ = admin;
+        using var __ = candidate;
+        var attemptId = (await StartAsync(candidate, examId)).GetProperty("id").GetGuid();
+        (await candidate.PutAsJsonAsync($"/v1/me/attempts/{attemptId}/answers/{questions[0].Id}", new { optionId = questions[0].CorrectOptionId })).EnsureSuccessStatusCode();
+        (await candidate.PutAsJsonAsync($"/v1/me/attempts/{attemptId}/answers/{questions[1].Id}", new { optionId = questions[1].CorrectOptionId })).EnsureSuccessStatusCode();
+
+        var cleared = await candidate.DeleteAsync($"/v1/me/attempts/{attemptId}/answers/{questions[0].Id}");
+        // Asking again, for a question with nothing saved, is the same request and gets the same answer.
+        var again = await candidate.DeleteAsync($"/v1/me/attempts/{attemptId}/answers/{questions[0].Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, cleared.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, again.StatusCode);
+        var resumed = QuestionsOf(await candidate.GetFromJsonAsync<JsonElement>($"/v1/me/attempts/{attemptId}")).ToList();
+        Assert.Equal(JsonValueKind.Null, resumed[0].GetProperty("selectedOptionId").ValueKind);
+        Assert.Equal(questions[1].CorrectOptionId, resumed[1].GetProperty("selectedOptionId").GetGuid());
+
+        // A cleared question is unanswered: it earns the unattempted marks (none by default), not the right answer it once had.
+        var submitted = await (await candidate.PostAsync($"/v1/me/attempts/{attemptId}/submit", content: null)).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1m, submitted.GetProperty("score").GetDecimal());
+    }
+
+    [Fact]
+    public async Task ACandidate_CanMarkAndUnmarkQuestionsForReview_AndTheMarksSurviveAResume()
+    {
+        var (admin, candidate, examId, questions) = await EnrolledCandidateAsync();
+        using var _ = admin;
+        using var __ = candidate;
+        var attemptId = (await StartAsync(candidate, examId)).GetProperty("id").GetGuid();
+        Assert.All(QuestionsOf(await StartAsync(candidate, examId)), q => Assert.False(q.GetProperty("markedForReview").GetBoolean()));
+
+        var first = await candidate.PutAsync($"/v1/me/attempts/{attemptId}/marks/{questions[0].Id}", content: null);
+        // Marking a marked question is not an error, so a retry after a dropped connection is safe.
+        var repeat = await candidate.PutAsync($"/v1/me/attempts/{attemptId}/marks/{questions[0].Id}", content: null);
+
+        Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, repeat.StatusCode);
+        var resumed = QuestionsOf(await StartAsync(candidate, examId)).ToList();
+        Assert.True(resumed[0].GetProperty("markedForReview").GetBoolean());
+        Assert.False(resumed[1].GetProperty("markedForReview").GetBoolean());
+
+        (await candidate.DeleteAsync($"/v1/me/attempts/{attemptId}/marks/{questions[0].Id}")).EnsureSuccessStatusCode();
+        // Unmarking an unmarked question changes nothing and is not an error either.
+        Assert.Equal(HttpStatusCode.NoContent, (await candidate.DeleteAsync($"/v1/me/attempts/{attemptId}/marks/{questions[1].Id}")).StatusCode);
+        Assert.All(QuestionsOf(await StartAsync(candidate, examId)), q => Assert.False(q.GetProperty("markedForReview").GetBoolean()));
+    }
+
+    [Fact]
+    public async Task MarkingAQuestion_NeitherChangesItsAnswerNorTheScore()
+    {
+        var (admin, candidate, examId, questions) = await EnrolledCandidateAsync();
+        using var _ = admin;
+        using var __ = candidate;
+        var attemptId = (await StartAsync(candidate, examId)).GetProperty("id").GetGuid();
+        (await candidate.PutAsJsonAsync($"/v1/me/attempts/{attemptId}/answers/{questions[0].Id}", new { optionId = questions[0].CorrectOptionId })).EnsureSuccessStatusCode();
+
+        // Answered and marked, and marked without an answer: both are ordinary states, and only the answer is scored.
+        (await candidate.PutAsync($"/v1/me/attempts/{attemptId}/marks/{questions[0].Id}", content: null)).EnsureSuccessStatusCode();
+        (await candidate.PutAsync($"/v1/me/attempts/{attemptId}/marks/{questions[1].Id}", content: null)).EnsureSuccessStatusCode();
+
+        var resumed = QuestionsOf(await candidate.GetFromJsonAsync<JsonElement>($"/v1/me/attempts/{attemptId}")).ToList();
+        Assert.Equal(questions[0].CorrectOptionId, resumed[0].GetProperty("selectedOptionId").GetGuid());
+        Assert.True(resumed[0].GetProperty("markedForReview").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, resumed[1].GetProperty("selectedOptionId").ValueKind);
+        Assert.True(resumed[1].GetProperty("markedForReview").GetBoolean());
+        var submitted = await (await candidate.PostAsync($"/v1/me/attempts/{attemptId}/submit", content: null)).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1m, submitted.GetProperty("score").GetDecimal());
+    }
+
+    [Fact]
+    public async Task AfterSubmitting_ClearingAndMarkingAreRefused_AndTheScoredAnswerStays()
+    {
+        var (admin, candidate, examId, questions) = await EnrolledCandidateAsync();
+        using var _ = admin;
+        using var __ = candidate;
+        var attemptId = (await StartAsync(candidate, examId)).GetProperty("id").GetGuid();
+        (await candidate.PutAsJsonAsync($"/v1/me/attempts/{attemptId}/answers/{questions[0].Id}", new { optionId = questions[0].CorrectOptionId })).EnsureSuccessStatusCode();
+        (await candidate.PostAsync($"/v1/me/attempts/{attemptId}/submit", content: null)).EnsureSuccessStatusCode();
+
+        await AssertProblemAsync(
+            await candidate.DeleteAsync($"/v1/me/attempts/{attemptId}/answers/{questions[0].Id}"), HttpStatusCode.Conflict, "attempt_not_in_progress");
+        await AssertProblemAsync(
+            await candidate.PutAsync($"/v1/me/attempts/{attemptId}/marks/{questions[0].Id}", content: null), HttpStatusCode.Conflict, "attempt_not_in_progress");
+        await AssertProblemAsync(
+            await candidate.DeleteAsync($"/v1/me/attempts/{attemptId}/marks/{questions[0].Id}"), HttpStatusCode.Conflict, "attempt_not_in_progress");
+
+        var again = await (await candidate.PostAsync($"/v1/me/attempts/{attemptId}/submit", content: null)).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1m, again.GetProperty("score").GetDecimal());
+    }
+
+    [Fact]
+    public async Task AQuestionThatIsNotInTheExam_CannotBeClearedOrMarked()
+    {
+        var (admin, candidate, examId, _) = await EnrolledCandidateAsync();
+        using var _a = admin;
+        using var _c = candidate;
+        var attemptId = (await StartAsync(candidate, examId)).GetProperty("id").GetGuid();
+        var outsider = await CreateTwoOptionQuestionAsync(admin, "Not in the exam?");
+
+        await AssertProblemAsync(
+            await candidate.DeleteAsync($"/v1/me/attempts/{attemptId}/answers/{outsider.Id}"), HttpStatusCode.NotFound, "question_not_in_attempt");
+        await AssertProblemAsync(
+            await candidate.PutAsync($"/v1/me/attempts/{attemptId}/marks/{outsider.Id}", content: null), HttpStatusCode.NotFound, "question_not_in_attempt");
+        await AssertProblemAsync(
+            await candidate.DeleteAsync($"/v1/me/attempts/{attemptId}/marks/{Guid.NewGuid()}"), HttpStatusCode.NotFound, "question_not_in_attempt");
+    }
+
+    [Fact]
+    public async Task AnotherCandidate_CannotClearOrMarkSomeoneElsesAttempt()
+    {
+        var (admin, owner, examId, questions) = await EnrolledCandidateAsync();
+        using var _a = admin;
+        using var _o = owner;
+        var attemptId = (await StartAsync(owner, examId)).GetProperty("id").GetGuid();
+        (await owner.PutAsJsonAsync($"/v1/me/attempts/{attemptId}/answers/{questions[0].Id}", new { optionId = questions[0].CorrectOptionId })).EnsureSuccessStatusCode();
+        var (stranger, _) = await factory.CandidateClientAsync(UniqueEmail());
+        using var _s = stranger;
+
+        await AssertProblemAsync(
+            await stranger.DeleteAsync($"/v1/me/attempts/{attemptId}/answers/{questions[0].Id}"), HttpStatusCode.NotFound, "attempt_not_found");
+        await AssertProblemAsync(
+            await stranger.PutAsync($"/v1/me/attempts/{attemptId}/marks/{questions[0].Id}", content: null), HttpStatusCode.NotFound, "attempt_not_found");
+        await AssertProblemAsync(
+            await stranger.DeleteAsync($"/v1/me/attempts/{attemptId}/marks/{questions[0].Id}"), HttpStatusCode.NotFound, "attempt_not_found");
+
+        // The owner's answer is untouched by all of that.
+        var mine = QuestionsOf(await owner.GetFromJsonAsync<JsonElement>($"/v1/me/attempts/{attemptId}")).First();
+        Assert.Equal(questions[0].CorrectOptionId, mine.GetProperty("selectedOptionId").GetGuid());
+        Assert.False(mine.GetProperty("markedForReview").GetBoolean());
+    }
+
     [Fact]
     public async Task AnAnswerThatDoesNotBelongToTheExam_IsRefused()
     {
@@ -288,6 +424,9 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [InlineData("GET", "/v1/me/attempts/{id}")]
     [InlineData("GET", "/v1/me/attempts/{id}/review")]
     [InlineData("PUT", "/v1/me/attempts/{id}/answers/{id}")]
+    [InlineData("DELETE", "/v1/me/attempts/{id}/answers/{id}")]
+    [InlineData("PUT", "/v1/me/attempts/{id}/marks/{id}")]
+    [InlineData("DELETE", "/v1/me/attempts/{id}/marks/{id}")]
     [InlineData("POST", "/v1/me/attempts/{id}/submit")]
     public async Task EveryAttemptRoute_WithoutAuth_Returns401(string method, string pattern)
     {
@@ -309,7 +448,7 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
             .Where(r => r.Pattern.StartsWith("/v1/me/exams", StringComparison.Ordinal) || r.Pattern.StartsWith("/v1/me/attempts", StringComparison.Ordinal))
             .ToList();
 
-        Assert.Equal(6, routes.Count);
+        Assert.Equal(9, routes.Count);
         Assert.All(routes, r => Assert.True(r.RequiresAuthorization, $"{r.Key} must require a signed-in caller."));
     }
 }

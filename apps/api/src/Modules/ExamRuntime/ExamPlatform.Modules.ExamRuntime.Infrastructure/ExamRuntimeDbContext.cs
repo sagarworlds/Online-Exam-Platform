@@ -41,6 +41,9 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
 
             b.HasMany(a => a.Answers).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(a => a.Answers).HasField("_answers").UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            b.HasMany(a => a.Marks).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
+            b.Navigation(a => a.Marks).HasField("_marks").UsePropertyAccessMode(PropertyAccessMode.Field);
         });
 
         modelBuilder.Entity<AttemptAnswer>(b =>
@@ -54,6 +57,16 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             // The question bank asks "has anyone answered this question?" before it lets the answer key change. The index
             // above starts with the attempt, so it cannot answer that; this one can.
             b.HasIndex(x => x.QuestionId);
+        });
+
+        modelBuilder.Entity<AttemptMark>(b =>
+        {
+            b.ToTable("AttemptMarks");
+            b.HasKey(x => x.Id);
+
+            // At most one mark per question: marking twice at once cannot leave two rows, and the loser is a harmless conflict.
+            // The index also serves loading an attempt's marks.
+            b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
         });
 
         modelBuilder.Entity<ExtraAttemptGrant>(b =>

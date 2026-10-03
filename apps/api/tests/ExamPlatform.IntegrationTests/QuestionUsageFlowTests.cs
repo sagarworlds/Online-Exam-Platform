@@ -72,6 +72,31 @@ public sealed class QuestionUsageFlowTests(ApiFactory factory) : IClassFixture<A
     }
 
     [Fact]
+    public async Task AMarkIsNotAnAnswer_AndTakingTheOnlyAnswerBackFreesTheQuestionAgain()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var question = await CreateQuestionAsync(admin, "Answered then cleared", "Right", "Wrong");
+        var examId = await CreateExamAsync(admin, "Sat and cleared", [question], TimeSpan.FromMinutes(-5));
+        var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _c = candidate;
+        var sitting = await (await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null)).Content.ReadFromJsonAsync<JsonElement>();
+        var attemptId = sitting.GetProperty("id").GetGuid();
+        var shown = sitting.GetProperty("sections")[0].GetProperty("questions")[0];
+        var questionId = shown.GetProperty("id").GetGuid();
+
+        (await candidate.PutAsync($"/v1/me/attempts/{attemptId}/marks/{questionId}", content: null)).EnsureSuccessStatusCode();
+        Assert.False((await UsageOfAsync(admin, question)).GetProperty("answered").GetBoolean()); // a note to oneself fixes nothing
+
+        var option = shown.GetProperty("options")[0].GetProperty("id").GetGuid();
+        (await candidate.PutAsJsonAsync($"/v1/me/attempts/{attemptId}/answers/{questionId}", new { optionId = option })).EnsureSuccessStatusCode();
+        Assert.True((await UsageOfAsync(admin, question)).GetProperty("answered").GetBoolean());
+
+        // No stored score depends on the answer key any more, so it may change again.
+        (await candidate.DeleteAsync($"/v1/me/attempts/{attemptId}/answers/{questionId}")).EnsureSuccessStatusCode();
+        Assert.False((await UsageOfAsync(admin, question)).GetProperty("answered").GetBoolean());
+    }
+
+    [Fact]
     public void BothModulesThatUseQuestions_HaveRegisteredAUsageSource_SoNoQuestionIsEverTakenForUnusedByOmission()
     {
         using var scope = factory.Services.CreateScope();

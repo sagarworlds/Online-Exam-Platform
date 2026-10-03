@@ -89,6 +89,156 @@ public class AttemptTests
     }
 
     [Fact]
+    public void ClearAnswer_RemovesTheChoice_SoTheQuestionCountsAsUnanswered()
+    {
+        var attempt = Open();
+        var question = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        attempt.RecordAnswer(question, Guid.NewGuid(), Start.AddMinutes(1));
+        attempt.RecordAnswer(other, Guid.NewGuid(), Start.AddMinutes(1));
+
+        attempt.ClearAnswer(question, Start.AddMinutes(2));
+
+        Assert.Equal(other, Assert.Single(attempt.Answers).QuestionId);
+    }
+
+    [Fact]
+    public void ClearAnswer_ForAQuestionWithNoAnswer_ChangesNothing()
+    {
+        var attempt = Open();
+
+        attempt.ClearAnswer(Guid.NewGuid(), Start.AddMinutes(1));
+
+        Assert.Empty(attempt.Answers);
+    }
+
+    [Fact]
+    public void ClearAnswer_ThenAnswerAgain_StoresTheNewChoice()
+    {
+        var attempt = Open();
+        var question = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        attempt.RecordAnswer(question, Guid.NewGuid(), Start.AddMinutes(1));
+        attempt.ClearAnswer(question, Start.AddMinutes(2));
+
+        attempt.RecordAnswer(question, second, Start.AddMinutes(3));
+
+        Assert.Equal(second, Assert.Single(attempt.Answers).SelectedOptionId);
+    }
+
+    [Fact]
+    public void ClearAnswer_AtOrAfterTheDeadline_IsRefused_AndKeepsTheAnswer()
+    {
+        var attempt = Open();
+        var question = Guid.NewGuid();
+        attempt.RecordAnswer(question, Guid.NewGuid(), Start.AddMinutes(1));
+
+        Assert.Throws<AttemptTimeExpiredError>(() => attempt.ClearAnswer(question, Deadline));
+
+        Assert.Single(attempt.Answers);
+    }
+
+    [Fact]
+    public void ClearAnswer_OnASubmittedAttempt_IsRefused_SoTheScoredAnswersCannotBeTakenBack()
+    {
+        var attempt = Open();
+        var question = Guid.NewGuid();
+        attempt.RecordAnswer(question, Guid.NewGuid(), Start.AddMinutes(1));
+        attempt.Submit(Start.AddMinutes(5), 1, 2);
+
+        Assert.Throws<AttemptNotInProgressError>(() => attempt.ClearAnswer(question, Start.AddMinutes(6)));
+
+        Assert.Single(attempt.Answers);
+    }
+
+    [Fact]
+    public void SetMarked_MarksTheQuestion_WithoutTouchingItsAnswer()
+    {
+        var attempt = Open();
+        var question = Guid.NewGuid();
+        var option = Guid.NewGuid();
+        attempt.RecordAnswer(question, option, Start.AddMinutes(1));
+
+        attempt.SetMarked(question, true, Start.AddMinutes(2));
+
+        var mark = Assert.Single(attempt.Marks);
+        Assert.Equal(question, mark.QuestionId);
+        Assert.Equal(Start.AddMinutes(2), mark.MarkedAtUtc);
+        Assert.Equal(option, Assert.Single(attempt.Answers).SelectedOptionId);
+    }
+
+    [Fact]
+    public void SetMarked_AnUnansweredQuestion_IsAllowed()
+    {
+        var attempt = Open();
+
+        attempt.SetMarked(Guid.NewGuid(), true, Start.AddMinutes(1));
+
+        Assert.Single(attempt.Marks);
+        Assert.Empty(attempt.Answers);
+    }
+
+    [Fact]
+    public void SetMarked_Twice_KeepsOneMark()
+    {
+        var attempt = Open();
+        var question = Guid.NewGuid();
+
+        attempt.SetMarked(question, true, Start.AddMinutes(1));
+        attempt.SetMarked(question, true, Start.AddMinutes(2));
+
+        // The first mark stays as it was: marking a marked question is not a change.
+        Assert.Equal(Start.AddMinutes(1), Assert.Single(attempt.Marks).MarkedAtUtc);
+    }
+
+    [Fact]
+    public void SetMarked_False_TakesTheMarkOff_AndIsHarmlessWhenThereIsNone()
+    {
+        var attempt = Open();
+        var marked = Guid.NewGuid();
+        var kept = Guid.NewGuid();
+        attempt.SetMarked(marked, true, Start.AddMinutes(1));
+        attempt.SetMarked(kept, true, Start.AddMinutes(1));
+
+        attempt.SetMarked(marked, false, Start.AddMinutes(2));
+        attempt.SetMarked(Guid.NewGuid(), false, Start.AddMinutes(2));
+
+        Assert.Equal(kept, Assert.Single(attempt.Marks).QuestionId);
+    }
+
+    [Fact]
+    public void SetMarked_AtOrAfterTheDeadline_IsRefused()
+    {
+        var attempt = Open();
+
+        Assert.Throws<AttemptTimeExpiredError>(() => attempt.SetMarked(Guid.NewGuid(), true, Deadline));
+
+        Assert.Empty(attempt.Marks);
+    }
+
+    [Fact]
+    public void SetMarked_OnASubmittedAttempt_IsRefused()
+    {
+        var attempt = Open();
+        attempt.Submit(Start.AddMinutes(5), 0, 2);
+
+        Assert.Throws<AttemptNotInProgressError>(() => attempt.SetMarked(Guid.NewGuid(), true, Start.AddMinutes(6)));
+    }
+
+    [Fact]
+    public void Submit_KeepsTheScoreIndependentOfMarks()
+    {
+        var attempt = Open();
+        attempt.SetMarked(Guid.NewGuid(), true, Start.AddMinutes(1));
+
+        attempt.Submit(Start.AddMinutes(10), 3m, 5m);
+
+        // A mark is only a note to the candidate; the caller scores from the answers alone.
+        Assert.Equal(3m, attempt.Score);
+        Assert.Single(attempt.Marks);
+    }
+
+    [Fact]
     public void Submit_BeforeTheDeadline_RecordsTheScoreAndTheSubmissionTime()
     {
         var attempt = Open();
