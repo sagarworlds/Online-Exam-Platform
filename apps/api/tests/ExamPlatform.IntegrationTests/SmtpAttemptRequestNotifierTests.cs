@@ -1,7 +1,6 @@
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure.Email;
 using ExamPlatform.SharedKernel.Infrastructure.Email;
-using NSubstitute;
 
 namespace ExamPlatform.IntegrationTests;
 
@@ -11,18 +10,15 @@ public sealed class SmtpAttemptRequestNotifierTests
     private static readonly AttemptRequestDecisionEmail Approved = new("candidate@example.com", "Maths Final", Approved: true, Note: null);
     private static readonly AttemptRequestDecisionEmail Declined = new("candidate@example.com", "Maths Final", Approved: false, Note: "Speak to your teacher");
 
-    private readonly IMailSender _sender = Substitute.For<IMailSender>();
+    private readonly RecordingMailSender _sender = new();
 
     private SmtpAttemptRequestNotifier Notifier => new(_sender);
 
     private async Task<OutgoingMail> SentFor(AttemptRequestDecisionEmail email)
     {
-        OutgoingMail? sent = null;
-        _sender.SendAsync(Arg.Do<OutgoingMail>(m => sent = m), Arg.Any<CancellationToken>()).Returns(true);
-
         Assert.True(await Notifier.SendDecisionAsync(email, CancellationToken.None));
 
-        return sent ?? throw new InvalidOperationException("Nothing was handed to the mail sender.");
+        return Assert.Single(_sender.Sent);
     }
 
     [Fact]
@@ -58,7 +54,7 @@ public sealed class SmtpAttemptRequestNotifierTests
     [InlineData(false)]
     public async Task ItReportsWhatTheMailSenderReported_SoTheAdministratorKnowsWhetherTheyWereTold(bool delivered)
     {
-        _sender.SendAsync(Arg.Any<OutgoingMail>(), Arg.Any<CancellationToken>()).Returns(delivered);
+        _sender.Delivers = delivered;
 
         Assert.Equal(delivered, await Notifier.SendDecisionAsync(Approved, CancellationToken.None));
     }
