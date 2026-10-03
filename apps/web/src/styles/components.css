@@ -415,7 +415,8 @@ button.primary:hover:not(:disabled),
   gap: 0.5rem;
 }
 
-.list-filter select {
+.list-filter select,
+.list-filter input[type='search'] {
   padding: 0.4rem 0.6rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);

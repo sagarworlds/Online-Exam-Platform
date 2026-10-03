@@ -26,6 +26,7 @@ export class QuestionApiService {
     if (filter.unfiled) params['unfiled'] = true;
     if (filter.difficulty) params['difficulty'] = filter.difficulty;
     if (filter.topic) params['topic'] = filter.topic;
+    if (filter.search) params['q'] = filter.search;
     if (skip > 0) params['skip'] = String(skip);
     return this.http.get<QuestionDto[]>(this.baseUrl, { params });
   }

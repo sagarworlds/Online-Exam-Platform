@@ -75,6 +75,8 @@ export class QuestionBank {
   /** The difficulty and topic the list is narrowed to, '' for any. */
   protected readonly filterDifficulty = signal<QuestionDifficulty | ''>('');
   protected readonly filterTopic = signal('');
+  /** The text the list is searched for; empty for no search. */
+  protected readonly filterSearch = signal('');
   protected readonly difficulties = QUESTION_DIFFICULTIES;
   /** Every topic in use, for the topic filter and for the form's suggestions. */
   protected readonly topics = signal<string[]>([]);
@@ -104,6 +106,20 @@ export class QuestionBank {
 
   protected onFilterDifficultyChanged(value: string): void {
     this.filterDifficulty.set(value as QuestionDifficulty | '');
+    this.refresh();
+  }
+
+  /**
+   * Searches the list for the typed text. Both Enter and leaving the field call this, so it does nothing when the text is the one
+   * already searched for, and one search is never sent twice.
+   */
+  protected onSearch(value: string): void {
+    const text = value.trim();
+    if (text === this.filterSearch()) {
+      return;
+    }
+
+    this.filterSearch.set(text);
     this.refresh();
   }
 
@@ -247,7 +263,8 @@ export class QuestionBank {
   private labelFilter(): QuestionFilter {
     const difficulty = this.filterDifficulty();
     const topic = this.filterTopic();
-    return { ...(difficulty ? { difficulty } : {}), ...(topic ? { topic } : {}) };
+    const search = this.filterSearch();
+    return { ...(difficulty ? { difficulty } : {}), ...(topic ? { topic } : {}), ...(search ? { search } : {}) };
   }
 
   private loadTopics(): void {

@@ -42,6 +42,14 @@ public class CreateQuestionHandlerTests
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task Create_KeepsTheReadableTextForSearching_WithoutTheMarkup()
+    {
+        await Create("<p>Capital of <strong>France</strong>?</p>");
+
+        repository.Received(1).Add(Arg.Is<Question>(q => q.SearchText == "Capital of France?"));
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

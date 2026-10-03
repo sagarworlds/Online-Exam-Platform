@@ -13,9 +13,9 @@ internal static class QuestionText
     /// <summary>Cleans the text an author sent and checks everything that is about what survives the cleaning.</summary>
     /// <param name="sanitizer">The rich-text sanitizer.</param>
     /// <param name="text">The text as the author's editor produced it (HTML).</param>
-    /// <returns>The sanitized HTML, which is the only form that may be stored.</returns>
+    /// <returns>The sanitized text: its HTML is the only form that may be stored, and its plain text is what searching reads.</returns>
     /// <exception cref="InvalidQuestionError">A picture was rejected, nothing visible is left, or the text is too long or has too many images.</exception>
-    public static string Clean(IRichTextSanitizer sanitizer, string? text)
+    public static SanitizedRichText Clean(IRichTextSanitizer sanitizer, string? text)
     {
         // Sanitizing comes first: every length rule below is about what survives the cleaning, not what was sent.
         var cleaned = sanitizer.Sanitize(text);
@@ -31,6 +31,6 @@ internal static class QuestionText
         if (cleaned.ImageCount > Question.MaxImages)
             throw new InvalidQuestionError($"A question can have at most {Question.MaxImages} images.");
 
-        return cleaned.Html;
+        return cleaned;
     }
 }

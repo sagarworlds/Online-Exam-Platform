@@ -34,13 +34,14 @@ public sealed class CreateQuestionHandler(
     /// <exception cref="BookArchivedError">The chapter, or its book, is archived.</exception>
     public async Task<QuestionDto> HandleAsync(CreateQuestionCommand command, CancellationToken cancellationToken)
     {
-        var html = QuestionText.Clean(sanitizer, command.Text);
+        var cleaned = QuestionText.Clean(sanitizer, command.Text);
 
         var filedUnder = command.ChapterId is { } chapterId ? await chapters.ResolveAsync(chapterId, cancellationToken) : null;
 
         var question = Question.Create(
-            html, command.Options, command.CreatedBy, clock.UtcNow, filedUnder?.ChapterId,
+            cleaned.Html, command.Options, command.CreatedBy, clock.UtcNow, filedUnder?.ChapterId,
             QuestionDifficultyText.Parse(command.Difficulty), command.Topics);
+        question.IndexText(cleaned.PlainText);
 
         repository.Add(question);
         await unitOfWork.SaveChangesAsync(cancellationToken);

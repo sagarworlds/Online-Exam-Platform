@@ -32,13 +32,14 @@ public sealed class EditQuestionHandler(
     /// <exception cref="QuestionLockedError">Candidates have answered the question and the edit changes more than its wording.</exception>
     public async Task<QuestionDto> HandleAsync(EditQuestionCommand command, CancellationToken cancellationToken)
     {
-        var html = QuestionText.Clean(sanitizer, command.Text);
+        var cleaned = QuestionText.Clean(sanitizer, command.Text);
 
         var question = await repository.GetByIdAsync(command.QuestionId, cancellationToken) ?? throw new QuestionNotFoundError();
 
         // Asked after loading and just before changing, so the lock is decided on the freshest answer there is.
         var usage = await usageReader.ReadOneAsync(question.Id, cancellationToken);
-        question.Revise(html, command.Options, usage.Answered);
+        question.Revise(cleaned.Html, command.Options, usage.Answered);
+        question.IndexText(cleaned.PlainText);
         // Labels never reach a candidate, so they are not covered by the lock Revise applies to an answered question.
         question.Classify(QuestionDifficultyText.Parse(command.Difficulty), command.Topics);
 
