@@ -13,5 +13,14 @@ public record ExamConfig(
     DateTime? ResultReleaseTime,
     MarkingScheme MarkingScheme)
 {
-    public ExamConfig() : this(null, true, true, false, false, true, 1, 0, ResultReleaseMode.Instant, null, new MarkingScheme()) { }
+    /// <summary>The fewest attempts an exam can allow: every candidate can sit it once.</summary>
+    public const int FewestAttempts = 1;
+
+    /// <summary>
+    /// The most attempts an exam can allow per candidate. A guard against a slipped digit rather than a product rule: an
+    /// administrator can still give one candidate more, one at a time, once they have used what they have.
+    /// </summary>
+    public const int MostAttempts = 10;
+
+    public ExamConfig() : this(null, true, true, false, false, true, FewestAttempts, 0, ResultReleaseMode.Instant, null, new MarkingScheme()) { }
 }

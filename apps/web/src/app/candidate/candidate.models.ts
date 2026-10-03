@@ -36,7 +36,7 @@ export interface MyExamDto {
   /** The marks the latest attempt scored and the marks available, once it is submitted. */
   score: number | null;
   maxScore: number | null;
-  /** How many attempts they may make in all: one, plus each extra attempt an administrator gave them. */
+  /** How many attempts they may make in all: the exam's limit per candidate, plus each extra attempt an administrator gave them. */
   attemptsAllowed: number;
   attemptsUsed: number;
   /** Whether they may start a new attempt now: the window is open, none is in progress, and one is left. */

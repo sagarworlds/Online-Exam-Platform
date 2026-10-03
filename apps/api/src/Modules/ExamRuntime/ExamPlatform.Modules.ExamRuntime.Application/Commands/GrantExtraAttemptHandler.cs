@@ -28,6 +28,7 @@ public sealed class GrantExtraAttemptHandler(
     /// <exception cref="CandidateNotEnrolledError">The person never accepted an invitation to the exam.</exception>
     /// <exception cref="ExamClosedError">Nobody can start the exam any more, so an attempt granted now could never be used.</exception>
     /// <exception cref="AttemptAvailableError">The candidate still has an attempt they have not used.</exception>
+    /// <exception cref="AttemptOverLimitError">The exam's limit was lowered below the attempts they have made, so a grant would change nothing.</exception>
     /// <exception cref="InvalidAttemptError">The reason is too long.</exception>
     /// <exception cref="ConcurrencyConflictError">Another administrator granted an attempt to the same candidate at the same moment.</exception>
     public async Task<ExamCandidateDto> HandleAsync(
@@ -44,7 +45,10 @@ public sealed class GrantExtraAttemptHandler(
 
         var theirs = await attempts.ListForCandidateAtExamAsync(examId, candidateId, cancellationToken);
         var granted = await grants.CountAsync(examId, candidateId, cancellationToken);
-        if (!AttemptAllowance.CanGrant(theirs.Count, granted))
+        if (AttemptAllowance.IsOverLimit(exam.MaxAttempts, theirs.Count, granted))
+            throw new AttemptOverLimitError();
+
+        if (!AttemptAllowance.CanGrant(exam.MaxAttempts, theirs.Count, granted))
             throw new AttemptAvailableError();
 
         // Numbered one after the last, and unique in the store, so two administrators acting at once cannot both succeed.

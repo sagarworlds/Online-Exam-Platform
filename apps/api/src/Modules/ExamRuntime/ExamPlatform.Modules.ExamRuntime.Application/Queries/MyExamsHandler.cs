@@ -51,10 +51,10 @@ public sealed class MyExamsHandler(
                     latest?.Status,
                     latest?.Score,
                     latest?.MaxScore,
-                    AttemptAllowance.Allowed(granted),
+                    AttemptAllowance.Allowed(e.MaxAttempts, granted),
                     made.Count,
                     // The window is open, nothing is in progress (that one is resumed, not followed by another), and one is left.
-                    state == MyExamState.Open && latest is not { Status: AttemptStatus.InProgress } && AttemptAllowance.CanStartAnother(made.Count, granted),
+                    state == MyExamState.Open && latest is not { Status: AttemptStatus.InProgress } && AttemptAllowance.CanStartAnother(e.MaxAttempts, made.Count, granted),
                     made.Select(ExamCandidateRows.Summary).ToList());
             })
             .ToList();
