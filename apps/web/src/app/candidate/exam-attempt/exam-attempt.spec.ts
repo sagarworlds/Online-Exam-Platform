@@ -538,6 +538,36 @@ describe('ExamAttempt', () => {
     expect(textOf(open2)).toContain('Exam · Attempt 2');
   });
 
+  it('moves to the next question on Save & Next and stays put on the last one', async () => {
+    const fixture = await open(attempt());
+    expect(textOf(fixture)).toContain('Question 1 of 2');
+
+    buttonLabelled(fixture, 'Save & Next')!.click();
+    fixture.detectChanges();
+    expect(textOf(fixture)).toContain('Question 2 of 2');
+    expect(buttonLabelled(fixture, 'Save & Next')!.disabled).toBe(true);
+  });
+
+  it('makes the question text larger and smaller, within limits, and remembers the size', async () => {
+    localStorage.removeItem('exam.textZoom');
+    const fixture = await open(attempt());
+    const card = () => root(fixture).querySelector<HTMLElement>('.exam-question')!;
+
+    expect(buttonLabelled(fixture, 'A−')!.disabled).toBe(true);
+    for (let i = 0; i < 5; i++) {
+      (root(fixture).querySelector('button[aria-label="Larger text"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    }
+    expect(card().style.getPropertyValue('--exam-zoom')).toBe('1.5');
+    expect((root(fixture).querySelector('button[aria-label="Larger text"]') as HTMLButtonElement).disabled).toBe(true);
+    expect(localStorage.getItem('exam.textZoom')).toBe('1.5');
+
+    (root(fixture).querySelector('button[aria-label="Smaller text"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(card().style.getPropertyValue('--exam-zoom')).toBe('1.3');
+    localStorage.removeItem('exam.textZoom');
+  });
+
   it('shows why an attempt cannot be opened', async () => {
     await TestBed.configureTestingModule({
       imports: [ExamAttempt],

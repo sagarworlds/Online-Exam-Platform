@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -8,6 +8,22 @@ import { AttemptDto, AttemptQuestionDto } from '../candidate.models';
 
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
+
+/** The text sizes a candidate can pick, as a share of normal. Capped at 150% so the question and palette still fit side by side. */
+const ZOOM_LEVELS = [1, 1.15, 1.3, 1.5] as const;
+
+/** Where the chosen size is remembered. Browser-only: it is a comfort setting, not part of the exam. */
+const ZOOM_STORAGE_KEY = 'exam.textZoom';
+
+/** Reads the remembered text size, ignoring anything that is not one of the offered levels or a blocked store. */
+function loadZoomLevel(): number {
+  try {
+    const stored = Number(localStorage.getItem(ZOOM_STORAGE_KEY));
+    return ZOOM_LEVELS.find((level) => level === stored) ?? ZOOM_LEVELS[0];
+  } catch {
+    return ZOOM_LEVELS[0];
+  }
+}
 
 /** The palette's wording for a question, for a screen reader; sighted candidates get the same from the colours and the legend. */
 function paletteStatus(answered: boolean, marked: boolean, seen: boolean): string {
@@ -25,7 +41,7 @@ function paletteStatus(answered: boolean, marked: boolean, seen: boolean): strin
  */
 @Component({
   selector: 'app-exam-attempt',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, DecimalPipe],
   templateUrl: './exam-attempt.html',
 })
 export class ExamAttempt {
@@ -38,6 +54,11 @@ export class ExamAttempt {
   protected readonly confirmingSubmit = signal(false);
   protected readonly submitting = signal(false);
   protected readonly remainingSeconds = signal(0);
+
+  /** The question text size, as a multiple of normal. */
+  protected readonly zoom = signal<number>(loadZoomLevel());
+  protected readonly canZoomOut = computed(() => this.zoom() > ZOOM_LEVELS[0]);
+  protected readonly canZoomIn = computed(() => this.zoom() < ZOOM_LEVELS[ZOOM_LEVELS.length - 1]);
 
   protected readonly questions = computed(() => this.attempt()?.sections.flatMap((s) => s.questions) ?? []);
   protected readonly answeredCount = computed(() => this.questions().filter((q) => q.selectedOptionId !== null).length);
@@ -141,6 +162,38 @@ export class ExamAttempt {
 
   protected previous(): void {
     this.goTo(this.position() - 1);
+  }
+
+  /**
+   * Saves & Next: makes sure the choice on screen is stored, then moves on. Every choice is already saved the moment it
+   * is made, so there is nothing left to send here; the button exists so a candidate used to "save, then next" has the
+   * action they expect, and on the last question it simply stays put.
+   */
+  protected saveAndNext(): void {
+    if (!this.isLast()) {
+      this.next();
+    }
+  }
+
+  /** Makes the question text one step larger. */
+  protected zoomIn(): void {
+    this.stepZoom(1);
+  }
+
+  /** Makes the question text one step smaller. */
+  protected zoomOut(): void {
+    this.stepZoom(-1);
+  }
+
+  private stepZoom(direction: 1 | -1): void {
+    const current = ZOOM_LEVELS.findIndex((level) => level === this.zoom());
+    const next = ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, Math.max(0, current + direction))];
+    this.zoom.set(next);
+    try {
+      localStorage.setItem(ZOOM_STORAGE_KEY, String(next));
+    } catch {
+      // A blocked store only means the size is forgotten on the next visit; the change on screen still applies.
+    }
   }
 
   /** A, B, C… for the n-th choice (0-based), the way printed papers label them. */
