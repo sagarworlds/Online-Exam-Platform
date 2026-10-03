@@ -80,6 +80,7 @@ describe('ExamAttempt', () => {
   }
 
   beforeEach(() => {
+    localStorage.clear();
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
   });
@@ -389,6 +390,39 @@ describe('ExamAttempt', () => {
       fixture.detectChanges();
 
       expect(labels(fixture)).toEqual(['Question 1, not answered', 'Question 2, not answered', 'Question 3, not visited']);
+    });
+
+    it('remembers which questions were visited when the page is reloaded', async () => {
+      const threeQuestions = attempt({
+        sections: [{
+          id: 's1',
+          name: 'Section A',
+          questions: ['q1', 'q2', 'q3'].map((id) => ({
+            id, text: id, options: [{ id: `${id}-a`, text: 'A' }], selectedOptionId: null, markedForReview: false,
+          })),
+        }],
+      });
+      const first = await open(threeQuestions);
+      buttonLabelled(first, 'Next')?.click();
+      first.detectChanges();
+      first.destroy();
+      httpMock.verify();
+      TestBed.resetTestingModule();
+
+      const reloaded = await open(threeQuestions);
+
+      expect(labels(reloaded)).toEqual(['Question 1, not answered', 'Question 2, not answered', 'Question 3, not visited']);
+    });
+
+    it('treats a damaged remembered value as nothing visited', async () => {
+      localStorage.setItem('exam.visited.a1', '{not json');
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      const fixture = await open(attempt());
+
+      expect(labels(fixture)).toEqual(['Question 1, not answered', 'Question 2, answered']);
+      expect(warn).toHaveBeenCalled();
+      warn.mockRestore();
     });
 
     it('gives each of the five states its own wording', async () => {
