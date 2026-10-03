@@ -1,4 +1,4 @@
-<div class="page page--exam">
+<div class="page page--exam" [class.page--contrast]="highContrast()">
   @if (loading()) {
     <p>Loading…</p>
   }
@@ -20,11 +20,13 @@
         </div>
       </header>
 
-      <div class="exam-zoom actions" role="group" aria-label="Text size">
+      <div class="exam-zoom actions" role="group" aria-label="Display options">
+        <button type="button" [attr.aria-pressed]="highContrast()" (click)="toggleHighContrast()">High contrast</button>
         <button type="button" [disabled]="!canZoomOut()" (click)="zoomOut()" aria-label="Smaller text">A&minus;</button>
         <span class="hint" aria-live="polite">{{ zoom() * 100 | number: '1.0-0' }}%</span>
         <button type="button" [disabled]="!canZoomIn()" (click)="zoomIn()" aria-label="Larger text">A+</button>
       </div>
+      <p class="hint exam-shortcuts">Keyboard: N next, P previous, M mark for review, C clear response.</p>
 
       <div class="exam-layout">
         <section aria-label="Question">
