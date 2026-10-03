@@ -29,6 +29,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
 
         services.AddScoped<IAttemptRepository, AttemptRepository>();
         services.AddScoped<IExtraAttemptGrantRepository, ExtraAttemptGrantRepository>();
+        services.AddScoped<IAttemptRequestRepository, AttemptRequestRepository>();
         services.AddScoped<IExamRuntimeUnitOfWork, ExamRuntimeUnitOfWork>();
         services.AddScoped<IQuestionUsageSource, AnsweredQuestionUsageSource>();
 
@@ -36,6 +37,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<AttemptViewBuilder>();
         services.AddScoped<AttemptReviewBuilder>();
         services.AddScoped<AttemptAccess>();
+        services.AddScoped<AttemptRequestDtoFactory>();
 
         services.AddScoped<MyExamsHandler>();
         services.AddScoped<StartAttemptHandler>();
@@ -48,6 +50,10 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<SubmitAttemptHandler>();
         services.AddScoped<GrantExtraAttemptHandler>();
         services.AddScoped<ListExamAttemptsHandler>();
+        services.AddScoped<RequestAttemptHandler>();
+        services.AddScoped<ListAttemptRequestsHandler>();
+        services.AddScoped<ApproveAttemptRequestHandler>();
+        services.AddScoped<DeclineAttemptRequestHandler>();
     }
 
     /// <inheritdoc />

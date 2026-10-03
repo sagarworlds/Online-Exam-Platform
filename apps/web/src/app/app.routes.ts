@@ -104,6 +104,11 @@ export const routes: Routes = [
     loadComponent: () => import('./exam-authoring/exam-editor/exam-editor').then((m) => m.ExamEditor),
   },
   {
+    path: 'admin/attempt-requests',
+    canActivate: [permissionGuard(Permission.ExamManage)],
+    loadComponent: () => import('./attempt-management/attempt-requests/attempt-requests').then((m) => m.AttemptRequests),
+  },
+  {
     path: 'exams/:id/attempts',
     canActivate: [permissionGuard(Permission.ExamManage)],
     loadComponent: () => import('./attempt-management/exam-attempts/exam-attempts').then((m) => m.ExamAttempts),

@@ -13,6 +13,9 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
     /// <summary>The candidates' attempts.</summary>
     public DbSet<Attempt> Attempts => Set<Attempt>();
 
+    /// <summary>The requests candidates made for another attempt.</summary>
+    public DbSet<AttemptRequest> AttemptRequests => Set<AttemptRequest>();
+
     /// <summary>The extra attempts administrators have granted.</summary>
     public DbSet<ExtraAttemptGrant> ExtraAttemptGrants => Set<ExtraAttemptGrant>();
 
@@ -67,6 +70,22 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             // At most one mark per question: marking twice at once cannot leave two rows, and the loser is a harmless conflict.
             // The index also serves loading an attempt's marks.
             b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
+        });
+
+        modelBuilder.Entity<AttemptRequest>(b =>
+        {
+            b.ToTable("AttemptRequests");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            b.Property(x => x.Message).HasMaxLength(AttemptRequest.MaxTextLength);
+            b.Property(x => x.DecisionNote).HasMaxLength(AttemptRequest.MaxTextLength);
+
+            // The store, not the code, keeps a candidate to one waiting request per exam: two taps of "ask" at the same moment
+            // both pass the check, and only one insert survives. A decided request is history and may be repeated.
+            b.HasIndex(x => new { x.ExamId, x.CandidateId }).IsUnique().HasFilter("\"Status\" = 'Pending'");
+            // The staff queue lists by status, oldest first.
+            b.HasIndex(x => new { x.Status, x.RequestedAtUtc });
+            b.HasIndex(x => x.CandidateId);
         });
 
         modelBuilder.Entity<ExtraAttemptGrant>(b =>

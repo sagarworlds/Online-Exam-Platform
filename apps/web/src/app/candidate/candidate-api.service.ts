@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { AttemptDto, AttemptReviewDto, MyExamDto } from './candidate.models';
+import { AttemptDto, AttemptReviewDto, MyAttemptRequestDto, MyExamDto } from './candidate.models';
 
 /** Thin HTTP wrapper over the ExamRuntime module's candidate-facing /v1/me endpoints. */
 @Injectable({ providedIn: 'root' })
@@ -17,6 +17,11 @@ export class CandidateApiService {
   /** Starts the candidate's attempt at an exam, or returns the one they already have (resume). */
   startAttempt(examId: string): Observable<AttemptDto> {
     return this.http.post<AttemptDto>(`${this.baseUrl}/exams/${examId}/attempts`, null);
+  }
+
+  /** Asks an administrator for one more attempt at an exam; they decide, and the answer shows on the exams page. */
+  requestAttempt(examId: string, message: string | null): Observable<MyAttemptRequestDto> {
+    return this.http.post<MyAttemptRequestDto>(`${this.baseUrl}/exams/${examId}/attempt-requests`, { message });
   }
 
   getAttempt(attemptId: string): Observable<AttemptDto> {

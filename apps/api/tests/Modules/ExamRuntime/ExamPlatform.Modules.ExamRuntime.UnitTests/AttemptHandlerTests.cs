@@ -469,7 +469,7 @@ public class AttemptHandlerTests
         _catalog.FindPublishedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns([_exam]);
         _attempts.ListForCandidateAsync(_candidate, Arg.Any<CancellationToken>()).Returns([attempt]);
 
-        var exams = await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, _clock).HandleAsync(_candidate, CancellationToken.None);
+        var exams = await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _clock).HandleAsync(_candidate, CancellationToken.None);
 
         var item = Assert.Single(exams);
         Assert.Equal(attempt.Id, item.AttemptId);
@@ -486,7 +486,7 @@ public class AttemptHandlerTests
         _catalog.FindPublishedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns([_exam]);
         _attempts.ListForCandidateAsync(_candidate, Arg.Any<CancellationToken>()).Returns([]);
 
-        var exams = await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, _clock).HandleAsync(_candidate, CancellationToken.None);
+        var exams = await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _clock).HandleAsync(_candidate, CancellationToken.None);
 
         var item = Assert.Single(exams);
         Assert.Null(item.AttemptId);

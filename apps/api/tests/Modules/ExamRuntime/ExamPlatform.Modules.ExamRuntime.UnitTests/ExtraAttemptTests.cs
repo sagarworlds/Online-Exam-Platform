@@ -536,7 +536,7 @@ public class ExtraAttemptHandlerTests
         _grants.CountsForCandidateAsync(_candidate, Arg.Any<CancellationToken>())
             .Returns(granted > 0 ? new Dictionary<Guid, int> { [_exam.Id] = granted } : new Dictionary<Guid, int>());
 
-        return Assert.Single(await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, _clock).HandleAsync(_candidate, CancellationToken.None));
+        return Assert.Single(await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _clock).HandleAsync(_candidate, CancellationToken.None));
     }
 
     [Fact]

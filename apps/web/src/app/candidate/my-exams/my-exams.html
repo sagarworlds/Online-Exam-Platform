@@ -58,6 +58,36 @@
             }
           </ul>
         }
+        @if (exam.attemptRequest?.status === 'Pending') {
+          <p class="hint" role="status">
+            Your request for another attempt is waiting for an administrator.
+          </p>
+        } @else if (exam.attemptRequest?.status === 'Declined' && !exam.canStartAttempt) {
+          <p class="hint" role="status">
+            Your last request for another attempt was declined{{ exam.attemptRequest?.decisionNote ? ': ' + exam.attemptRequest?.decisionNote : '.' }}
+          </p>
+        }
+        @if (exam.canRequestAttempt) {
+          @if (requestingFor() === exam.examId) {
+            <form class="request-form" (submit)="$event.preventDefault(); sendRequest(exam)" [attr.aria-label]="'Ask for another attempt at ' + exam.name">
+              <label>
+                Why do you need another attempt? (optional)
+                <textarea rows="3" [maxLength]="maxRequestText" [value]="requestMessage()" (input)="requestMessage.set($any($event.target).value)"></textarea>
+              </label>
+              @if (requestError()) {
+                <p class="error-message" role="alert">{{ requestError() }}</p>
+              }
+              <div class="actions">
+                <button type="submit" class="primary" [disabled]="requestBusy()">Send request</button>
+                <button type="button" (click)="closeRequestForm()" [disabled]="requestBusy()">Cancel</button>
+              </div>
+            </form>
+          } @else {
+            <div class="actions">
+              <button type="button" (click)="openRequestForm(exam)">Ask for another attempt</button>
+            </div>
+          }
+        }
         @if (exam.canStartAttempt) {
           <div class="actions">
             <button type="button" class="primary" [disabled]="startingExamId() !== null" (click)="start(exam)">{{ startLabel(exam) }}</button>

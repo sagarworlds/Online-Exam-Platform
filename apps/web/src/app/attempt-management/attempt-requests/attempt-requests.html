@@ -1,0 +1,54 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>Attempt requests</h1>
+  </div>
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+  @if (notice()) {
+    <p class="success-message" role="status">{{ notice() }}</p>
+  }
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (requests().length === 0) {
+    <div class="card empty-state">No candidates are waiting for another attempt.</div>
+  } @else {
+    @for (request of requests(); track request.id) {
+      <div class="card">
+        <h3 class="card__title">{{ request.candidateEmail ?? 'A candidate who is no longer enrolled' }}</h3>
+        <p class="card__meta">
+          <a [routerLink]="['/exams', request.examId, 'attempts']">{{ request.examName ?? 'An exam that can no longer be read' }}</a>
+          · asked {{ request.requestedAtUtc | date: 'medium' }}
+        </p>
+        @if (request.message) {
+          <blockquote>{{ request.message }}</blockquote>
+        } @else {
+          <p class="hint">They gave no reason.</p>
+        }
+        @if (rowErrors()[request.id]) {
+          <p class="error-message" role="alert">{{ rowErrors()[request.id] }}</p>
+        }
+
+        @if (decliningId() === request.id) {
+          <form (submit)="$event.preventDefault(); confirmDecline(request)" [attr.aria-label]="'Decline the request from ' + request.candidateEmail">
+            <label>
+              Reason to show the candidate (optional)
+              <textarea rows="2" [maxLength]="maxNoteLength" [value]="note()" (input)="note.set($any($event.target).value)"></textarea>
+            </label>
+            <div class="actions">
+              <button type="submit" class="btn--danger" [disabled]="busyId() !== null">Decline request</button>
+              <button type="button" (click)="cancelDeclining()" [disabled]="busyId() !== null">Cancel</button>
+            </div>
+          </form>
+        } @else {
+          <div class="actions">
+            <button type="button" class="primary" (click)="approve(request)" [disabled]="busyId() !== null">Give another attempt</button>
+            <button type="button" (click)="startDeclining(request)" [disabled]="busyId() !== null">Decline…</button>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>
