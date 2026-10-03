@@ -20,10 +20,16 @@
         </div>
       </header>
 
+      <div class="exam-zoom actions" role="group" aria-label="Text size">
+        <button type="button" [disabled]="!canZoomOut()" (click)="zoomOut()" aria-label="Smaller text">A&minus;</button>
+        <span class="hint" aria-live="polite">{{ zoom() * 100 | number: '1.0-0' }}%</span>
+        <button type="button" [disabled]="!canZoomIn()" (click)="zoomIn()" aria-label="Larger text">A+</button>
+      </div>
+
       <div class="exam-layout">
         <section aria-label="Question">
           @if (currentQuestion(); as question) {
-            <div class="card">
+            <div class="card exam-question" [style.--exam-zoom]="zoom()">
               <p class="question__meta">{{ currentSectionName() }} · Question {{ position() + 1 }} of {{ questions().length }}</p>
               <fieldset class="question" [attr.aria-labelledby]="'question-text-' + question.id">
                 <!-- The text is the API's sanitized HTML, rendered through Angular's own sanitizer as a second layer. -->
@@ -50,8 +56,19 @@
 
             <div class="exam-pager">
               <button type="button" [disabled]="isFirst()" (click)="previous()">&larr; Previous</button>
-              <button type="button" class="primary" [disabled]="isLast()" (click)="next()">Next &rarr;</button>
+              <button type="button" [disabled]="isLast()" (click)="next()">Next &rarr;</button>
+              <button type="button" class="primary" [disabled]="isLast()" (click)="saveAndNext()">{{ nextLeavesSection() ? 'Save & Next section' : 'Save & Next' }}</button>
             </div>
+
+            @if (leavingTo(); as target) {
+              <div class="submit-confirm" role="alertdialog" aria-label="Confirm leaving the section">
+                <p>Move to {{ target.name }}? You will not be able to come back to this section.</p>
+                <div class="actions">
+                  <button type="button" class="primary" (click)="confirmLeaveSection()">Yes, move on</button>
+                  <button type="button" (click)="stayInSection()">Stay here</button>
+                </div>
+              </div>
+            }
           }
         </section>
 
@@ -74,6 +91,7 @@
                   [class.palette__item--current]="item.index === position()"
                   [attr.aria-current]="item.index === position() ? 'true' : null"
                   [attr.aria-label]="'Question ' + item.number + ', ' + item.status"
+                  [disabled]="item.closed"
                   (click)="goTo(item.index)"
                 >
                   {{ item.number }}

@@ -48,6 +48,12 @@ public sealed class Attempt : AggregateRoot
     /// <summary>The marks available, once submitted.</summary>
     public decimal? MaxScore { get; private set; }
 
+    /// <summary>
+    /// Position (the section's <c>Order</c>, from 1) of the section the candidate is in. It only moves forward, which is
+    /// what makes a locked section stay left; exams without section lock never read it.
+    /// </summary>
+    public int ActiveSectionOrder { get; private set; } = 1;
+
     /// <summary>The answers saved so far, at most one per question.</summary>
     public IReadOnlyList<AttemptAnswer> Answers => _answers.AsReadOnly();
 
@@ -150,6 +156,25 @@ public sealed class Attempt : AggregateRoot
             _marks.Add(new AttemptMark(Id, questionId, nowUtc));
         else if (!marked && existing is not null)
             _marks.Remove(existing);
+    }
+
+    /// <summary>
+    /// Moves the candidate on to a later section. The position is stored on the server so a locked section stays left
+    /// however the page is reloaded or the request is replayed. Moving to the section already open does nothing.
+    /// </summary>
+    /// <param name="sectionOrder">The <c>Order</c> of the section to move to.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
+    /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
+    /// <exception cref="SectionLockedError">The section is before the one the candidate is in.</exception>
+    public void MoveToSection(int sectionOrder, DateTime nowUtc)
+    {
+        EnsureOpen(nowUtc);
+
+        if (sectionOrder < ActiveSectionOrder)
+            throw new SectionLockedError();
+
+        ActiveSectionOrder = sectionOrder;
     }
 
     /// <summary>

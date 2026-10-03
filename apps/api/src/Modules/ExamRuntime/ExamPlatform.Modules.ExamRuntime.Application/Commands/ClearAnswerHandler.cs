@@ -15,6 +15,7 @@ public sealed class ClearAnswerHandler(AttemptAccess access, IExamRuntimeUnitOfW
     /// <exception cref="AttemptNotFoundError">No such attempt, or it is someone else's.</exception>
     /// <exception cref="AttemptNotInProgressError">The attempt is already submitted, or its time has just run out and it was closed.</exception>
     /// <exception cref="QuestionNotInAttemptError">The question is not in the exam.</exception>
+    /// <exception cref="SectionLockedError">The exam locks sections and the question is in a section the candidate is not in.</exception>
     /// <exception cref="ConcurrencyConflictError">Another request changed the same attempt at the same moment.</exception>
     public async Task HandleAsync(Guid attemptId, Guid candidateId, Guid questionId, CancellationToken cancellationToken)
     {
@@ -23,6 +24,7 @@ public sealed class ClearAnswerHandler(AttemptAccess access, IExamRuntimeUnitOfW
         if (!exam.Includes(questionId))
             throw new QuestionNotInAttemptError();
 
+        SectionLock.EnsureQuestionReachable(exam, attempt, questionId);
         attempt.ClearAnswer(questionId, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }

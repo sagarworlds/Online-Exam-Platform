@@ -280,4 +280,31 @@ public class AttemptTests
     [InlineData(31, true)]
     public void IsExpired_IsTrueFromTheDeadlineOnwards(int minutesAfterStart, bool expected) =>
         Assert.Equal(expected, Open().IsExpired(Start.AddMinutes(minutesAfterStart)));
+
+    [Fact]
+    public void MoveToSection_StartsInTheFirstSection_AndOnlyMovesForward()
+    {
+        var attempt = Open();
+        Assert.Equal(1, attempt.ActiveSectionOrder);
+
+        attempt.MoveToSection(3, Start.AddMinutes(1));
+        Assert.Equal(3, attempt.ActiveSectionOrder);
+
+        attempt.MoveToSection(3, Start.AddMinutes(2));
+        Assert.Equal(3, attempt.ActiveSectionOrder);
+
+        Assert.Throws<SectionLockedError>(() => attempt.MoveToSection(2, Start.AddMinutes(3)));
+        Assert.Equal(3, attempt.ActiveSectionOrder);
+    }
+
+    [Fact]
+    public void MoveToSection_AfterTheDeadlineOrSubmit_IsRefused()
+    {
+        var late = Open();
+        Assert.Throws<AttemptTimeExpiredError>(() => late.MoveToSection(2, Deadline));
+
+        var done = Open();
+        done.Submit(Start.AddMinutes(1), 0, 1);
+        Assert.Throws<AttemptNotInProgressError>(() => done.MoveToSection(2, Start.AddMinutes(2)));
+    }
 }

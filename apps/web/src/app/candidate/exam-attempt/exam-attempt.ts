@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -8,6 +8,22 @@ import { AttemptDto, AttemptQuestionDto } from '../candidate.models';
 
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
+
+/** The text sizes a candidate can pick, as a share of normal. Capped at 150% so the question and palette still fit side by side. */
+const ZOOM_LEVELS = [1, 1.15, 1.3, 1.5] as const;
+
+/** Where the chosen size is remembered. Browser-only: it is a comfort setting, not part of the exam. */
+const ZOOM_STORAGE_KEY = 'exam.textZoom';
+
+/** Reads the remembered text size, ignoring anything that is not one of the offered levels or a blocked store. */
+function loadZoomLevel(): number {
+  try {
+    const stored = Number(localStorage.getItem(ZOOM_STORAGE_KEY));
+    return ZOOM_LEVELS.find((level) => level === stored) ?? ZOOM_LEVELS[0];
+  } catch {
+    return ZOOM_LEVELS[0];
+  }
+}
 
 /** The palette's wording for a question, for a screen reader; sighted candidates get the same from the colours and the legend. */
 function paletteStatus(answered: boolean, marked: boolean, seen: boolean): string {
@@ -25,7 +41,7 @@ function paletteStatus(answered: boolean, marked: boolean, seen: boolean): strin
  */
 @Component({
   selector: 'app-exam-attempt',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, DecimalPipe],
   templateUrl: './exam-attempt.html',
 })
 export class ExamAttempt {
@@ -38,6 +54,11 @@ export class ExamAttempt {
   protected readonly confirmingSubmit = signal(false);
   protected readonly submitting = signal(false);
   protected readonly remainingSeconds = signal(0);
+
+  /** The question text size, as a multiple of normal. */
+  protected readonly zoom = signal<number>(loadZoomLevel());
+  protected readonly canZoomOut = computed(() => this.zoom() > ZOOM_LEVELS[0]);
+  protected readonly canZoomIn = computed(() => this.zoom() < ZOOM_LEVELS[ZOOM_LEVELS.length - 1]);
 
   protected readonly questions = computed(() => this.attempt()?.sections.flatMap((s) => s.questions) ?? []);
   protected readonly answeredCount = computed(() => this.questions().filter((q) => q.selectedOptionId !== null).length);
@@ -54,11 +75,45 @@ export class ExamAttempt {
   /** Which question is on screen, as an index into the flat list of every section's questions. */
   private readonly requestedIndex = signal(0);
 
-  /** The question on screen. Clamped, so a reload that changes the question count can never leave it pointing nowhere. */
-  protected readonly position = computed(() => Math.min(this.requestedIndex(), Math.max(0, this.questions().length - 1)));
+  /** Where each section's questions sit in the flat list: the first index and the last. */
+  private readonly sectionRanges = computed(() => {
+    let start = 0;
+    return (this.attempt()?.sections ?? []).map((section) => {
+      const range = { id: section.id, name: section.name, start, end: start + section.questions.length - 1 };
+      start += section.questions.length;
+      return range;
+    });
+  });
+
+  protected readonly sectionLocked = computed(() => this.attempt()?.sectionLockEnabled === true);
+
+  /** The section the candidate is in when sections are locked (the first until the server says otherwise); null when they roam. */
+  private readonly activeRange = computed(() => {
+    if (!this.sectionLocked()) {
+      return null;
+    }
+    const ranges = this.sectionRanges();
+    return ranges.find((r) => r.id === this.attempt()?.activeSectionId) ?? ranges[0] ?? null;
+  });
+
+  /** The question on screen. Clamped into the open section when sections are locked, and into the exam always, so a reload can never leave it pointing nowhere. */
+  protected readonly position = computed(() => {
+    const active = this.activeRange();
+    const last = Math.max(0, this.questions().length - 1);
+    return Math.min(Math.max(this.requestedIndex(), active?.start ?? 0), active?.end ?? last);
+  });
+  /** The section the candidate has asked to move to and is being asked to confirm; null when no move is pending. */
+  protected readonly leavingTo = signal<{ id: string; name: string; start: number } | null>(null);
   protected readonly currentQuestion = computed<AttemptQuestionDto | null>(() => this.questions()[this.position()] ?? null);
-  protected readonly isFirst = computed(() => this.position() === 0);
+  /** First in the open section when sections are locked: the section before it cannot be returned to. */
+  protected readonly isFirst = computed(() => this.position() <= (this.activeRange()?.start ?? 0));
   protected readonly isLast = computed(() => this.position() >= this.questions().length - 1);
+
+  /** True on the last question of a locked section that has another after it, where "next" means leaving the section. */
+  protected readonly nextLeavesSection = computed(() => {
+    const active = this.activeRange();
+    return active !== null && this.position() === active.end && !this.isLast();
+  });
 
   /** The name of the section the on-screen question belongs to. */
   protected readonly currentSectionName = computed(() => {
@@ -80,6 +135,7 @@ export class ExamAttempt {
   protected readonly palette = computed(() => {
     let offset = 0;
     const visited = this.visited();
+    const active = this.activeRange();
     return (this.attempt()?.sections ?? []).map((section) => {
       const items = section.questions.map((question, i) => {
         const answered = question.selectedOptionId !== null;
@@ -92,6 +148,8 @@ export class ExamAttempt {
           marked,
           seen,
           status: paletteStatus(answered, marked, seen),
+          // A section behind the candidate is closed for good; one ahead can be moved to (after a confirmation).
+          closed: active !== null && offset + i < active.start,
         };
       });
       offset += section.questions.length;
@@ -127,20 +185,93 @@ export class ExamAttempt {
     return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
   }
 
-  /** Shows the question at <paramref name="index"/> (0-based); an index outside the exam is ignored. */
+  /**
+   * Shows the question at <paramref name="index"/> (0-based); an index outside the exam is ignored. With sections locked,
+   * a question in a section already left is ignored and one in a later section asks for confirmation first.
+   */
   protected goTo(index: number): void {
-    if (index >= 0 && index < this.questions().length) {
-      this.requestedIndex.set(index);
-      this.markCurrentVisited();
+    if (index < 0 || index >= this.questions().length) {
+      return;
     }
+
+    const active = this.activeRange();
+    if (active !== null && (index < active.start || index > active.end)) {
+      const target = this.sectionRanges().find((r) => index >= r.start && index <= r.end);
+      if (target !== undefined && target.start > active.end) {
+        this.leavingTo.set({ id: target.id, name: target.name, start: index });
+      }
+      return;
+    }
+
+    this.requestedIndex.set(index);
+    this.markCurrentVisited();
   }
 
   protected next(): void {
     this.goTo(this.position() + 1);
   }
 
+  protected stayInSection(): void {
+    this.leavingTo.set(null);
+  }
+
+  /** Tells the server the candidate is leaving their section for good, then shows the question they chose. */
+  protected confirmLeaveSection(): void {
+    const attempt = this.attempt();
+    const target = this.leavingTo();
+    if (attempt === null || target === null) {
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.api.moveToSection(attempt.id, target.id).subscribe({
+      next: () => {
+        this.leavingTo.set(null);
+        this.attempt.update((current) => (current === null ? null : { ...current, activeSectionId: target.id }));
+        this.requestedIndex.set(target.start);
+        this.markCurrentVisited();
+      },
+      error: (error: unknown) => {
+        this.leavingTo.set(null);
+        this.explainFailure(error, 'You could not move to that section. Please try again.');
+      },
+    });
+  }
+
   protected previous(): void {
     this.goTo(this.position() - 1);
+  }
+
+  /**
+   * Saves & Next: makes sure the choice on screen is stored, then moves on. Every choice is already saved the moment it
+   * is made, so there is nothing left to send here; the button exists so a candidate used to "save, then next" has the
+   * action they expect, and on the last question it simply stays put.
+   */
+  protected saveAndNext(): void {
+    if (!this.isLast()) {
+      this.next();
+    }
+  }
+
+  /** Makes the question text one step larger. */
+  protected zoomIn(): void {
+    this.stepZoom(1);
+  }
+
+  /** Makes the question text one step smaller. */
+  protected zoomOut(): void {
+    this.stepZoom(-1);
+  }
+
+  private stepZoom(direction: 1 | -1): void {
+    const current = ZOOM_LEVELS.findIndex((level) => level === this.zoom());
+    const next = ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, Math.max(0, current + direction))];
+    this.zoom.set(next);
+    try {
+      localStorage.setItem(ZOOM_STORAGE_KEY, String(next));
+    } catch {
+      // A blocked store only means the size is forgotten on the next visit; the change on screen still applies.
+    }
   }
 
   /** A, B, C… for the n-th choice (0-based), the way printed papers label them. */

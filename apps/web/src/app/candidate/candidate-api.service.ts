@@ -48,6 +48,11 @@ export class CandidateApiService {
     return this.http.delete<void>(`${this.baseUrl}/attempts/${attemptId}/marks/${questionId}`);
   }
 
+  /** Moves on to a later section of an exam that locks sections; the section left cannot be returned to. */
+  moveToSection(attemptId: string, sectionId: string): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/section/${sectionId}`, null);
+  }
+
   /** Ends the attempt and returns it with its score. Safe to repeat. */
   submitAttempt(attemptId: string): Observable<AttemptDto> {
     return this.http.post<AttemptDto>(`${this.baseUrl}/attempts/${attemptId}/submit`, null);

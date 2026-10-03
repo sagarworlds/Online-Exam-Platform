@@ -538,6 +538,107 @@ describe('ExamAttempt', () => {
     expect(textOf(open2)).toContain('Exam · Attempt 2');
   });
 
+  it('moves to the next question on Save & Next and stays put on the last one', async () => {
+    const fixture = await open(attempt());
+    expect(textOf(fixture)).toContain('Question 1 of 2');
+
+    buttonLabelled(fixture, 'Save & Next')!.click();
+    fixture.detectChanges();
+    expect(textOf(fixture)).toContain('Question 2 of 2');
+    expect(buttonLabelled(fixture, 'Save & Next')!.disabled).toBe(true);
+  });
+
+  it('makes the question text larger and smaller, within limits, and remembers the size', async () => {
+    localStorage.removeItem('exam.textZoom');
+    const fixture = await open(attempt());
+    const card = () => root(fixture).querySelector<HTMLElement>('.exam-question')!;
+
+    expect(buttonLabelled(fixture, 'A−')!.disabled).toBe(true);
+    for (let i = 0; i < 5; i++) {
+      (root(fixture).querySelector('button[aria-label="Larger text"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    }
+    expect(card().style.getPropertyValue('--exam-zoom')).toBe('1.5');
+    expect((root(fixture).querySelector('button[aria-label="Larger text"]') as HTMLButtonElement).disabled).toBe(true);
+    expect(localStorage.getItem('exam.textZoom')).toBe('1.5');
+
+    (root(fixture).querySelector('button[aria-label="Smaller text"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(card().style.getPropertyValue('--exam-zoom')).toBe('1.3');
+    localStorage.removeItem('exam.textZoom');
+  });
+
+  describe('with sections locked', () => {
+    const lockedAttempt = (activeSectionId = 's1') =>
+      attempt({
+        sectionLockEnabled: true,
+        activeSectionId,
+        sections: [
+          {
+            id: 's1',
+            name: 'Section A',
+            questions: [
+              { id: 'q1', text: 'One', options: [{ id: 'o1', text: 'x' }], selectedOptionId: null, markedForReview: false },
+              { id: 'q2', text: 'Two', options: [{ id: 'o2', text: 'y' }], selectedOptionId: null, markedForReview: false },
+            ],
+          },
+          {
+            id: 's2',
+            name: 'Section B',
+            questions: [{ id: 'q3', text: 'Three', options: [{ id: 'o3', text: 'z' }], selectedOptionId: null, markedForReview: false }],
+          },
+        ],
+      });
+    const paletteButton = (fixture: ComponentFixture<ExamAttempt>, number: number) =>
+      Array.from(root(fixture).querySelectorAll<HTMLButtonElement>('.palette__item')).find((b) => b.textContent?.trim() === String(number))!;
+
+    it('asks before leaving the section, then moves on and closes the one left', async () => {
+      const fixture = await open(lockedAttempt());
+      buttonLabelled(fixture, 'Save & Next')!.click();
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('Question 2 of 3');
+      expect(buttonLabelled(fixture, 'Save & Next section')).toBeTruthy();
+
+      buttonLabelled(fixture, 'Save & Next section')!.click();
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('You will not be able to come back to this section');
+      expect(textOf(fixture)).toContain('Question 2 of 3');
+
+      buttonLabelled(fixture, 'Yes, move on')!.click();
+      const request = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/section/s2') && r.method === 'PUT');
+      request.flush(null, { status: 204, statusText: 'No Content' });
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Section B · Question 3 of 3');
+      expect(paletteButton(fixture, 1).disabled).toBe(true);
+      expect(paletteButton(fixture, 2).disabled).toBe(true);
+      expect(buttonLabelled(fixture, 'Previous')!.disabled).toBe(true);
+    });
+
+    it('stays put when the candidate chooses to stay', async () => {
+      const fixture = await open(lockedAttempt());
+      paletteButton(fixture, 3).click();
+      fixture.detectChanges();
+      buttonLabelled(fixture, 'Stay here')!.click();
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Section A · Question 1 of 3');
+      expect(textOf(fixture)).not.toContain('You will not be able to come back');
+    });
+
+    it('opens in the section the server says the candidate is in, after a reload', async () => {
+      const fixture = await open(lockedAttempt('s2'));
+
+      expect(textOf(fixture)).toContain('Section B · Question 3 of 3');
+      expect(paletteButton(fixture, 1).disabled).toBe(true);
+    });
+
+    it('leaves every section open when sections are not locked', async () => {
+      const fixture = await open(attempt());
+      expect(Array.from(root(fixture).querySelectorAll<HTMLButtonElement>('.palette__item')).some((b) => b.disabled)).toBe(false);
+    });
+  });
+
   it('shows why an attempt cannot be opened', async () => {
     await TestBed.configureTestingModule({
       imports: [ExamAttempt],

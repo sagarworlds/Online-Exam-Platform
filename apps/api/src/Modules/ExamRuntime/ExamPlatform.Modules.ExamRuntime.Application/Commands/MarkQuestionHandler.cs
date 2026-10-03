@@ -16,6 +16,7 @@ public sealed class MarkQuestionHandler(AttemptAccess access, IExamRuntimeUnitOf
     /// <exception cref="AttemptNotFoundError">No such attempt, or it is someone else's.</exception>
     /// <exception cref="AttemptNotInProgressError">The attempt is already submitted, or its time has just run out and it was closed.</exception>
     /// <exception cref="QuestionNotInAttemptError">The question is not in the exam.</exception>
+    /// <exception cref="SectionLockedError">The exam locks sections and the question is in a section the candidate is not in.</exception>
     /// <exception cref="ConcurrencyConflictError">The same question was marked twice at the same moment.</exception>
     public async Task HandleAsync(Guid attemptId, Guid candidateId, Guid questionId, bool marked, CancellationToken cancellationToken)
     {
@@ -24,6 +25,7 @@ public sealed class MarkQuestionHandler(AttemptAccess access, IExamRuntimeUnitOf
         if (!exam.Includes(questionId))
             throw new QuestionNotInAttemptError();
 
+        SectionLock.EnsureQuestionReachable(exam, attempt, questionId);
         attempt.SetMarked(questionId, marked, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }

@@ -41,6 +41,8 @@ public sealed record AttemptSectionDto(Guid Id, string Name, IReadOnlyList<Attem
 /// <param name="Sections">The questions, while the attempt is open; empty once it is submitted.</param>
 /// <param name="Review">Whether the answers can be reviewed, once the attempt is submitted; null while it is open.</param>
 /// <param name="Number">Which attempt this is for the candidate at the exam, from 1.</param>
+/// <param name="SectionLockEnabled">Whether sections are locked: once the candidate moves past one they cannot return to it.</param>
+/// <param name="ActiveSectionId">The section the candidate is in, while the attempt is open and sections are locked; otherwise null.</param>
 public sealed record AttemptDto(
     Guid Id,
     Guid ExamId,
@@ -55,4 +57,6 @@ public sealed record AttemptDto(
     DateTime ServerTimeUtc,
     IReadOnlyList<AttemptSectionDto> Sections,
     AttemptReviewAvailabilityDto? Review = null,
-    int Number = 1);
+    int Number = 1,
+    bool SectionLockEnabled = false,
+    Guid? ActiveSectionId = null);

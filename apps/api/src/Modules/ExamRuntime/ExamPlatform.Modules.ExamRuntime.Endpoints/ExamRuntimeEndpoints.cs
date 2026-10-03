@@ -91,6 +91,14 @@ public static class ExamRuntimeEndpoints
             .WithName("UnmarkQuestion")
             .WithDescription("Take the review mark off one question of an open attempt; unmarking an unmarked question changes nothing");
 
+        me.MapPut("/attempts/{attemptId:guid}/section/{sectionId:guid}", MoveToSection)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("MoveToSection")
+            .WithDescription("Move to a later section of an open attempt; when the exam locks sections the earlier one cannot be returned to");
+
         me.MapPost("/attempts/{attemptId:guid}/submit", SubmitAttempt)
             .Produces<AttemptDto>()
             .Produces(StatusCodes.Status401Unauthorized)
@@ -169,6 +177,13 @@ public static class ExamRuntimeEndpoints
         Guid attemptId, Guid questionId, ClaimsPrincipal user, MarkQuestionHandler handler, CancellationToken ct)
     {
         await handler.HandleAsync(attemptId, user.GetUserId(), questionId, marked: false, ct);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> MoveToSection(
+        Guid attemptId, Guid sectionId, ClaimsPrincipal user, MoveToSectionHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(attemptId, user.GetUserId(), sectionId, ct);
         return Results.NoContent();
     }
 

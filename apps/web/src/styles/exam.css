@@ -432,3 +432,13 @@
   border-color: var(--danger);
   color: var(--danger);
 }
+
+/* Text size for the question and its options only: the palette and timer keep their size so they never crowd the screen. */
+.exam-question {
+  font-size: calc(1rem * var(--exam-zoom, 1));
+}
+
+.exam-zoom {
+  justify-content: flex-end;
+  align-items: center;
+}

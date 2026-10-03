@@ -101,6 +101,10 @@ export interface AttemptDto {
   review?: AttemptReviewAvailability | null;
   /** Which attempt this is for the candidate at the exam, from 1. */
   number?: number;
+  /** Whether sections are locked: once the candidate moves past a section they cannot return to it. */
+  sectionLockEnabled?: boolean;
+  /** The section the candidate is in, while the attempt is open and sections are locked. */
+  activeSectionId?: string | null;
 }
 
 /** How one question was marked. */
