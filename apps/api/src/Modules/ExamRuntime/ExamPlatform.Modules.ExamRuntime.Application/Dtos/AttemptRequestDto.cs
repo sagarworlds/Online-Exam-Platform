@@ -13,6 +13,11 @@ namespace ExamPlatform.Modules.ExamRuntime.Application.Dtos;
 /// <param name="Status">Whether it is waiting, approved or declined.</param>
 /// <param name="DecidedAtUtc">When it was decided, if it has been.</param>
 /// <param name="DecisionNote">What the administrator said when declining, if anything.</param>
+/// <param name="CandidateNotified">
+/// Whether the candidate was e-mailed the answer: set only on the response to approving or declining, and null in a listing.
+/// False means nothing was sent (no mail server, the server refused, or the candidate is no longer enrolled), so the administrator
+/// should let them know by other means.
+/// </param>
 public sealed record AttemptRequestDto(
     Guid Id,
     Guid ExamId,
@@ -23,7 +28,8 @@ public sealed record AttemptRequestDto(
     DateTime RequestedAtUtc,
     AttemptRequestStatus Status,
     DateTime? DecidedAtUtc,
-    string? DecisionNote);
+    string? DecisionNote,
+    bool? CandidateNotified = null);
 
 /// <summary>A candidate's own request for another attempt, as their exams page shows it. It leaves out who decided it.</summary>
 /// <param name="Id">The request's id.</param>

@@ -67,6 +67,11 @@ export class AttemptRequests {
     );
   }
 
+  /** What to add to the notice about telling the candidate: said either way, so an administrator never has to wonder. */
+  private static notifiedNote(answer: AttemptRequestRow): string {
+    return answer.candidateNotified ? ' They were e-mailed.' : ' They could not be e-mailed, so let them know yourself.';
+  }
+
   private run(request: AttemptRequestRow, call: ReturnType<AttemptAdminApiService['approveAttemptRequest']>, done: string): void {
     if (this.busyId() !== null) {
       return;
@@ -76,12 +81,12 @@ export class AttemptRequests {
     this.notice.set(null);
     this.rowErrors.update((errors) => Object.fromEntries(Object.entries(errors).filter(([id]) => id !== request.id)));
     call.subscribe({
-      next: () => {
+      next: (answer) => {
         this.busyId.set(null);
         this.decliningId.set(null);
         // Decided, so it leaves the waiting queue.
         this.requests.update((list) => list.filter((r) => r.id !== request.id));
-        this.notice.set(done);
+        this.notice.set(done + AttemptRequests.notifiedNote(answer));
       },
       error: (error: unknown) => {
         this.busyId.set(null);

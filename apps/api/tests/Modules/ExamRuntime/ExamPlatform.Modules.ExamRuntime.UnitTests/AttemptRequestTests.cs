@@ -105,6 +105,7 @@ public class AttemptRequestHandlerTests
     private readonly IExtraAttemptGrantRepository _grants = Substitute.For<IExtraAttemptGrantRepository>();
     private readonly IAttemptRequestRepository _requests = Substitute.For<IAttemptRequestRepository>();
     private readonly IExamRuntimeUnitOfWork _unitOfWork = Substitute.For<IExamRuntimeUnitOfWork>();
+    private readonly IAttemptRequestNotifier _notifier = Substitute.For<IAttemptRequestNotifier>();
 
     private ExamSnapshot _exam;
     private readonly List<Attempt> _theirs = [];
@@ -123,13 +124,14 @@ public class AttemptRequestHandlerTests
         _grants.CountAsync(_exam.Id, _candidate, Arg.Any<CancellationToken>()).Returns(_ => _granted);
         _grants.When(g => g.Add(Arg.Any<ExtraAttemptGrant>())).Do(_ => _granted++);
         _requests.HasPendingAsync(_exam.Id, _candidate, Arg.Any<CancellationToken>()).Returns(_ => _pending);
+        _notifier.SendDecisionAsync(Arg.Any<AttemptRequestDecisionEmail>(), Arg.Any<CancellationToken>()).Returns(true);
     }
 
     private RequestAttemptHandler Request => new(_catalog, _enrollments, _attempts, _grants, _requests, _unitOfWork, _clock);
     private AttemptRequestDtoFactory Dtos => new(_catalog, _roster);
     private ApproveAttemptRequestHandler Approve =>
-        new(_requests, new GrantExtraAttemptHandler(_catalog, _roster, _attempts, _grants, _unitOfWork, _clock), Dtos);
-    private DeclineAttemptRequestHandler Decline => new(_requests, _unitOfWork, Dtos, _clock);
+        new(_requests, new GrantExtraAttemptHandler(_catalog, _roster, _attempts, _grants, _unitOfWork, _clock), Dtos, _notifier);
+    private DeclineAttemptRequestHandler Decline => new(_requests, _unitOfWork, Dtos, _clock, _notifier);
 
     private Attempt Made(bool open = false)
     {
@@ -278,6 +280,70 @@ public class AttemptRequestHandlerTests
         Assert.Equal("Speak to your teacher", dto.DecisionNote);
         _grants.DidNotReceive().Add(Arg.Any<ExtraAttemptGrant>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    // ---- telling the candidate -------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Approve_EmailsTheCandidate_AndSaysSo()
+    {
+        Made();
+        var request = Waiting();
+
+        var dto = await Approve.HandleAsync(request.Id, _admin, CancellationToken.None);
+
+        Assert.True(dto.CandidateNotified);
+        await _notifier.Received(1).SendDecisionAsync(
+            Arg.Is<AttemptRequestDecisionEmail>(e => e.To == "student@example.com" && e.ExamName == "Physics" && e.Approved), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Decline_EmailsTheCandidateTheNote()
+    {
+        var request = Waiting();
+
+        var dto = await Decline.HandleAsync(request.Id, _admin, "Speak to your teacher", CancellationToken.None);
+
+        Assert.True(dto.CandidateNotified);
+        await _notifier.Received(1).SendDecisionAsync(
+            Arg.Is<AttemptRequestDecisionEmail>(e => !e.Approved && e.Note == "Speak to your teacher"), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task WhenTheEmailCannotBeSent_TheDecisionStands_AndTheAdministratorIsToldTheyWereNotNotified()
+    {
+        _notifier.SendDecisionAsync(Arg.Any<AttemptRequestDecisionEmail>(), Arg.Any<CancellationToken>()).Returns(false);
+        var request = Waiting();
+
+        var dto = await Decline.HandleAsync(request.Id, _admin, null, CancellationToken.None);
+
+        Assert.False(dto.CandidateNotified);
+        Assert.Equal(AttemptRequestStatus.Declined, request.Status);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ACandidateWhoIsNoLongerEnrolled_IsNotEmailed_AndTheAdministratorIsToldSo()
+    {
+        _roster.GetEnrolledCandidatesAsync(_exam.Id, Arg.Any<CancellationToken>()).Returns([]);
+        var request = Waiting();
+
+        var dto = await Decline.HandleAsync(request.Id, _admin, null, CancellationToken.None);
+
+        Assert.False(dto.CandidateNotified);
+        await _notifier.DidNotReceive().SendDecisionAsync(Arg.Any<AttemptRequestDecisionEmail>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Approve_ThatIsRefused_SendsNoEmail()
+    {
+        Made();
+        _granted = 1;
+        var request = Waiting();
+
+        await Assert.ThrowsAsync<AttemptAvailableError>(() => Approve.HandleAsync(request.Id, _admin, CancellationToken.None));
+
+        await _notifier.DidNotReceive().SendDecisionAsync(Arg.Any<AttemptRequestDecisionEmail>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

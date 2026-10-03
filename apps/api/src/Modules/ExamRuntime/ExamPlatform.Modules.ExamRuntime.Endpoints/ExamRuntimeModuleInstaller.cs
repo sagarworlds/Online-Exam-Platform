@@ -3,6 +3,7 @@ using ExamPlatform.Modules.ExamRuntime.Application.Commands;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure;
+using ExamPlatform.Modules.ExamRuntime.Infrastructure.Email;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure.Repositories;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
@@ -30,6 +31,11 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<IAttemptRepository, AttemptRepository>();
         services.AddScoped<IExtraAttemptGrantRepository, ExtraAttemptGrantRepository>();
         services.AddScoped<IAttemptRequestRepository, AttemptRequestRepository>();
+
+        // Answers to attempt requests go out by SMTP when a mail server is configured (the same "Smtp" section the invitation e-mail
+        // reads) and are otherwise not sent; the administrator is told so in the response.
+        services.AddOptions<SmtpOptions>().Bind(configuration.GetSection(SmtpOptions.SectionName));
+        services.AddScoped<IAttemptRequestNotifier, SmtpAttemptRequestNotifier>();
         services.AddScoped<IExamRuntimeUnitOfWork, ExamRuntimeUnitOfWork>();
         services.AddScoped<IQuestionUsageSource, AnsweredQuestionUsageSource>();
 

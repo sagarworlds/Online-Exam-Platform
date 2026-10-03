@@ -80,9 +80,9 @@ public sealed class ListAttemptRequestsHandler(IAttemptRequestRepository request
 
 /// <summary>Lets an administrator approve a request, which gives the candidate the attempt.</summary>
 public sealed class ApproveAttemptRequestHandler(
-    IAttemptRequestRepository requests, GrantExtraAttemptHandler grantHandler, AttemptRequestDtoFactory dtos)
+    IAttemptRequestRepository requests, GrantExtraAttemptHandler grantHandler, AttemptRequestDtoFactory dtos, IAttemptRequestNotifier notifier)
 {
-    /// <summary>Grants the attempt and marks the request approved, in one save.</summary>
+    /// <summary>Grants the attempt and marks the request approved, in one save, then e-mails the candidate.</summary>
     /// <param name="requestId">The request.</param>
     /// <param name="decidedByUserId">The signed-in staff user, taken from their token.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -102,15 +102,16 @@ public sealed class ApproveAttemptRequestHandler(
 
         await grantHandler.HandleAsync(request.ExamId, request.CandidateId, decidedByUserId, request.Message, cancellationToken, fulfilling: request);
 
-        return (await dtos.CreateAsync([request], cancellationToken))[0];
+        var dto = (await dtos.CreateAsync([request], cancellationToken))[0];
+        return dto with { CandidateNotified = await dtos.NotifyAsync(dto, notifier, approved: true, cancellationToken) };
     }
 }
 
 /// <summary>Lets an administrator turn a request down.</summary>
 public sealed class DeclineAttemptRequestHandler(
-    IAttemptRequestRepository requests, IExamRuntimeUnitOfWork unitOfWork, AttemptRequestDtoFactory dtos, Clock clock)
+    IAttemptRequestRepository requests, IExamRuntimeUnitOfWork unitOfWork, AttemptRequestDtoFactory dtos, Clock clock, IAttemptRequestNotifier notifier)
 {
-    /// <summary>Marks the request declined and saves.</summary>
+    /// <summary>Marks the request declined and saves, then e-mails the candidate.</summary>
     /// <param name="requestId">The request.</param>
     /// <param name="decidedByUserId">The signed-in staff user, taken from their token.</param>
     /// <param name="note">A reason the candidate will see; optional, at most 500 characters.</param>
@@ -125,6 +126,7 @@ public sealed class DeclineAttemptRequestHandler(
         request.Decline(decidedByUserId, clock.UtcNow, note);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return (await dtos.CreateAsync([request], cancellationToken))[0];
+        var dto = (await dtos.CreateAsync([request], cancellationToken))[0];
+        return dto with { CandidateNotified = await dtos.NotifyAsync(dto, notifier, approved: false, cancellationToken) };
     }
 }
