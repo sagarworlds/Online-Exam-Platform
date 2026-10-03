@@ -9,9 +9,10 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Ports;
 /// <param name="Difficulty">Only questions of this difficulty.</param>
 /// <param name="Topic">Only questions that carry this topic, already normalized (see <see cref="Question.NormalizeTopic"/>).</param>
 /// <param name="Search">Only questions whose text, or any option's text, contains this; case does not matter.</param>
+/// <param name="ChapterIds">Only questions filed under one of these chapters; null or empty sets no limit.</param>
 public sealed record QuestionFilter(
     Guid? BookId = null, Guid? ChapterId = null, bool UnfiledOnly = false, QuestionDifficulty? Difficulty = null, string? Topic = null,
-    string? Search = null);
+    string? Search = null, IReadOnlyList<Guid>? ChapterIds = null);
 
 /// <summary>Persistence port for <see cref="Question"/>.</summary>
 public interface IQuestionRepository

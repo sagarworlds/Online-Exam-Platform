@@ -47,6 +47,21 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
 
             b.HasMany(a => a.Marks).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(a => a.Marks).HasField("_marks").UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            b.HasMany(a => a.Paper).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
+            b.Navigation(a => a.Paper).HasField("_paper").UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        modelBuilder.Entity<AttemptQuestion>(b =>
+        {
+            b.ToTable("AttemptQuestions");
+            b.HasKey(x => x.Id);
+
+            // A question is on a paper once. The index also serves loading an attempt's paper.
+            b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
+
+            // The question bank asks whether a question has been put in front of a candidate before it lets the key change.
+            b.HasIndex(x => x.QuestionId);
         });
 
         modelBuilder.Entity<AttemptAnswer>(b =>

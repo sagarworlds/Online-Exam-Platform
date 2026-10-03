@@ -32,6 +32,28 @@
     </ol>
   }
 
+  @if ((section().drawRules ?? []).length > 0) {
+    <p class="hint">Drawn for each candidate when they start, on top of the questions above:</p>
+    <ul>
+      @for (rule of section().drawRules; track rule.id) {
+        <li>
+          {{ describeRule(rule) }}
+          @if (editable()) {
+            <button
+              type="button"
+              class="btn--small"
+              (click)="drawRuleRemoveRequested.emit({ sectionId: section().id, ruleId: rule.id })"
+              [disabled]="busy()"
+              [attr.aria-label]="'Remove the rule drawing ' + describeRule(rule)"
+            >
+              Remove rule
+            </button>
+          }
+        </li>
+      }
+    </ul>
+  }
+
   @if (editable()) {
     <div class="option-row">
       <select #pick [attr.aria-label]="'Question to add to ' + section().name">
@@ -70,14 +92,26 @@
               }
             </select>
           </label>
-          <button type="submit" class="primary btn--small" [disabled]="busy() || !drawCountValid()">Draw</button>
+          <label>
+            <input type="checkbox" [checked]="drawPerCandidate()" (change)="drawPerCandidate.set($any($event.target).checked)" />
+            Draw again for each candidate
+          </label>
+          <button type="submit" class="primary btn--small" [disabled]="busy() || !drawCountValid()">
+            {{ drawPerCandidate() ? 'Add rule' : 'Draw' }}
+          </button>
         </form>
         @if (!drawCountValid()) {
           <p class="error-message" role="alert">Draw between 1 and {{ maxDrawCount }} questions.</p>
         }
         <p class="hint">
           Picks at random from the bank{{ scope() === 'Independent' ? '' : ', inside this exam’s ' + (scope() === 'Book' ? 'book' : 'chapters') }},
-          skipping questions already in the exam. The exam keeps the questions drawn; nothing is redrawn for each candidate.
+          skipping questions already in the exam.
+          @if (drawPerCandidate()) {
+            Nothing is picked now: every candidate gets their own random questions when they start, and the exam cannot be published
+            or started unless the bank has enough.
+          } @else {
+            The exam keeps the questions drawn; every candidate gets the same ones.
+          }
         </p>
       }
     </div>

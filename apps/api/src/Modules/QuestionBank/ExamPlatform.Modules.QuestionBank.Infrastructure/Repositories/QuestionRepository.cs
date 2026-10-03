@@ -56,6 +56,8 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
             query = query.Where(q => q.ChapterId == null);
         if (filter.ChapterId is { } chapterId)
             query = query.Where(q => q.ChapterId == chapterId);
+        if (filter.ChapterIds is { Count: > 0 } chapterIds)
+            query = query.Where(q => q.ChapterId != null && chapterIds.Contains(q.ChapterId.Value));
         if (filter.BookId is { } bookId)
             query = query.Where(q => context.Chapters.Any(c => c.Id == q.ChapterId && c.BookId == bookId));
         if (filter.Difficulty is { } difficulty)

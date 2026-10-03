@@ -48,7 +48,7 @@ public sealed class MyExamsHandler(
                     e.EndUtc,
                     e.LateEntryDeadlineUtc,
                     e.DurationSeconds,
-                    e.Sections.Sum(s => s.QuestionIds.Count),
+                    e.Sections.Sum(s => s.QuestionIds.Count + (s.DrawRules?.Sum(r => r.Count) ?? 0)),
                     state,
                     latest?.Id,
                     latest?.Status,

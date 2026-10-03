@@ -43,7 +43,12 @@ public sealed class ExamCatalog(IExamRepository repository) : IExamCatalog
                     s.Id,
                     s.Name,
                     s.Order,
-                    s.Questions.OrderBy(q => q.Order).Select(q => q.QuestionVersionId).ToList()))
+                    s.Questions.OrderBy(q => q.Order).Select(q => q.QuestionVersionId).ToList(),
+                    s.DrawRules
+                        .OrderBy(r => r.Order)
+                        .Select(r => DrawRuleScoping.Apply(r, exam.Scope))
+                        .OfType<DrawRuleSnapshot>()
+                        .ToList()))
                 .ToList(),
             ToContract(exam.Config.ResultReleaseMode),
             exam.Config.ResultReleaseTime,

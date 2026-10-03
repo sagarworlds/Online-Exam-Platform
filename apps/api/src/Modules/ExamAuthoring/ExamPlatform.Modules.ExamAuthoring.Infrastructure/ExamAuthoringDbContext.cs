@@ -65,6 +65,11 @@ public class ExamAuthoringDbContext(DbContextOptions<ExamAuthoringDbContext> opt
                 .HasForeignKey(q => q.SectionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            s.HasMany(x => x.DrawRules)
+                .WithOne()
+                .HasForeignKey(r => r.SectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             s.ToTable("ExamSections", "examAuthoring");
         });
 
@@ -79,6 +84,15 @@ public class ExamAuthoringDbContext(DbContextOptions<ExamAuthoringDbContext> opt
             // changed. Without this the answer would be a scan of every exam question.
             q.HasIndex(x => x.QuestionVersionId);
             q.ToTable("ExamQuestions", "examAuthoring");
+        });
+
+        modelBuilder.Entity<SectionDrawRule>(r =>
+        {
+            r.HasKey(x => x.Id);
+            r.Property(x => x.Id).ValueGeneratedNever();
+            r.Property(x => x.Difficulty).HasMaxLength(10);
+            r.Property(x => x.Topic).HasMaxLength(SectionDrawRule.MaxTopicLength);
+            r.ToTable("SectionDrawRules", "examAuthoring");
         });
 
         modelBuilder.ApplyUtcDateTimeConversion();

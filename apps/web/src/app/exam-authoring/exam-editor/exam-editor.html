@@ -142,6 +142,8 @@
         (removeConfirmed)="removeSection($event)"
         (addRequested)="addQuestion($event.sectionId, $event.questionId)"
         (drawRequested)="drawQuestions($event.sectionId, $event.request)"
+        (drawRuleRequested)="addDrawRule($event.sectionId, $event.request)"
+        (drawRuleRemoveRequested)="removeDrawRule($event)"
         (takeOutRequested)="removeQuestion($event)"
       />
     } @empty {

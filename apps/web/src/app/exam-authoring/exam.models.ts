@@ -77,6 +77,19 @@ export interface ExamSectionDto {
   timeSeconds: number | null;
   order: number;
   questions: ExamQuestionDto[];
+  /** Rules that add questions drawn afresh for each candidate when they start; absent from older responses. */
+  drawRules?: DrawRuleDto[];
+}
+
+/** A rule that draws random bank questions for each candidate who starts an attempt. */
+export interface DrawRuleDto {
+  id: string;
+  order: number;
+  count: number;
+  bookId: string | null;
+  chapterId: string | null;
+  difficulty: string | null;
+  topic: string | null;
 }
 
 /** What an exam's questions may be drawn from: anywhere in the bank, one whole book, or chosen chapters of one book. */

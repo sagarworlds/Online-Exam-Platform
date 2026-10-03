@@ -33,7 +33,8 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
     {
         var filter = new QuestionFilter(
             criteria.BookId, criteria.ChapterId, UnfiledOnly: false,
-            QuestionDifficultyText.Parse(criteria.Difficulty), Question.NormalizeTopic(criteria.Topic));
+            QuestionDifficultyText.Parse(criteria.Difficulty), Question.NormalizeTopic(criteria.Topic),
+            Search: null, criteria.ChapterIds);
 
         var found = await repository.FindPlacementsAsync(filter, IQuestionBank.MaxFound, cancellationToken);
         var chapters = await books.GetChapterRefsAsync(

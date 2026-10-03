@@ -18,6 +18,7 @@ public sealed class StartAttemptHandler(
     IExamRuntimeUnitOfWork unitOfWork,
     AttemptAccess access,
     AttemptViewBuilder views,
+    PaperDrawer paperDrawer,
     Clock clock)
 {
     /// <summary>
@@ -31,6 +32,7 @@ public sealed class StartAttemptHandler(
     /// <exception cref="ExamNotAvailableError">The exam does not exist, is not published, or the candidate is not enrolled in it.</exception>
     /// <exception cref="ExamNotOpenError">The window has not opened yet.</exception>
     /// <exception cref="ExamClosedError">The window, or the late-entry cutoff, has passed.</exception>
+    /// <exception cref="PaperCannotBeDrawnError">A draw rule of the exam finds fewer questions than it needs.</exception>
     /// <exception cref="ConcurrencyConflictError">Another request started the same attempt at the same moment.</exception>
     public async Task<AttemptDto> HandleAsync(Guid examId, Guid candidateId, CancellationToken cancellationToken)
     {
@@ -47,19 +49,23 @@ public sealed class StartAttemptHandler(
         // closed here and its result returned, and starting the next is a separate, deliberate request.
         if (latest is { Status: AttemptStatus.InProgress })
         {
-            await access.CloseIfExpiredAsync(latest, exam, cancellationToken);
-            return await views.BuildAsync(latest, exam, cancellationToken);
+            var theirExam = exam.For(latest);
+            await access.CloseIfExpiredAsync(latest, theirExam, cancellationToken);
+            return await views.BuildAsync(latest, theirExam, cancellationToken);
         }
 
         var granted = await grants.CountAsync(examId, candidateId, cancellationToken);
         if (!AttemptAllowance.CanStartAnother(exam.MaxAttempts, theirs.Count, granted))
-            return await views.BuildAsync(latest!, exam, cancellationToken);
+            return await views.BuildAsync(latest!, exam.For(latest!), cancellationToken);
 
         var attempt = Begin(exam, candidateId, theirs.Count + 1);
+        if (PaperDrawer.Draws(exam))
+            attempt.SetPaper(await paperDrawer.DrawAsync(exam, cancellationToken));
+
         attempts.Add(attempt);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return await views.BuildAsync(attempt, exam, cancellationToken);
+        return await views.BuildAsync(attempt, exam.For(attempt), cancellationToken);
     }
 
     private Attempt Begin(ExamSnapshot exam, Guid candidateId, int number)

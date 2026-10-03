@@ -1,3 +1,4 @@
+using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.ExamRuntime.Application;
 using ExamPlatform.Modules.ExamRuntime.Application.Commands;
@@ -146,7 +147,7 @@ public class ExtraAttemptHandlerTests
 
     private AttemptViewBuilder Views => new(_bank, _clock);
     private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock);
-    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _unitOfWork, Access, Views, _clock);
+    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _clock);
     private GrantExtraAttemptHandler Grant => new(_catalog, _roster, _attempts, _grants, _unitOfWork, _clock);
 
     /// <summary>An attempt the candidate has already made: submitted unless <paramref name="open"/>.</summary>

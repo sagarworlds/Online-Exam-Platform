@@ -18,6 +18,7 @@ public sealed class EFExamRepository(ExamAuthoringDbContext context) : IExamRepo
     public async Task<Exam?> GetByIdAsync(Guid examId, CancellationToken cancellationToken = default) =>
         await context.Exams
             .Include(e => e.Sections).ThenInclude(s => s.Questions)
+            .Include(e => e.Sections).ThenInclude(s => s.DrawRules)
             .FirstOrDefaultAsync(e => e.Id == examId, cancellationToken);
 
     /// <inheritdoc />
@@ -32,6 +33,7 @@ public sealed class EFExamRepository(ExamAuthoringDbContext context) : IExamRepo
     public async Task<IReadOnlyList<Exam>> ListByIdsAsync(IReadOnlyCollection<Guid> examIds, CancellationToken cancellationToken = default) =>
         await context.Exams.AsNoTracking()
             .Include(e => e.Sections).ThenInclude(s => s.Questions)
+            .Include(e => e.Sections).ThenInclude(s => s.DrawRules)
             .Where(e => examIds.Contains(e.Id))
             .ToListAsync(cancellationToken);
 
