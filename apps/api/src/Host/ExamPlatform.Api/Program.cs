@@ -13,6 +13,7 @@ using ExamPlatform.Modules.Invite.Endpoints;
 using ExamPlatform.Modules.QuestionBank.Endpoints;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
+using ExamPlatform.SharedKernel.Infrastructure.Email;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
@@ -26,6 +27,11 @@ var builder = WebApplication.CreateBuilder(args);
 // registered once here, before any module's AddModule, so every module resolves
 // the same singleton Clock/dispatcher instead of each registering its own.
 builder.Services.AddSharedKernel();
+
+// One mail server for everything the platform sends (invitations, answers to attempt requests), read from the "Smtp" section.
+// With no Smtp:Host nothing is sent, and each caller says so to the person who needs to pass the message on by hand.
+builder.Services.AddOptions<SmtpOptions>().Bind(builder.Configuration.GetSection(SmtpOptions.SectionName));
+builder.Services.AddSmtpMailer();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

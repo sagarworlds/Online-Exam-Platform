@@ -1,9 +1,8 @@
-namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Email;
+namespace ExamPlatform.SharedKernel.Infrastructure.Email;
 
 /// <summary>
-/// The mail server attempt-request answers are sent through, bound from the same <c>Smtp</c> configuration section the invitation
-/// e-mail uses, so one set of settings serves both. It is a separate class because a module may not reach into another module's
-/// infrastructure (ADR 0001); with no <see cref="Host"/> set, e-mail is simply not configured.
+/// The one mail server everything the platform sends goes through (invitations, answers to attempt requests), bound from the
+/// <c>Smtp</c> configuration section. With no <see cref="Host"/> set, e-mail is simply not configured and nothing is sent.
 /// </summary>
 public sealed class SmtpOptions
 {
@@ -25,7 +24,7 @@ public sealed class SmtpOptions
     /// <summary>The account's password.</summary>
     public string? Password { get; set; }
 
-    /// <summary>The sender address shown on the message.</summary>
+    /// <summary>The sender address shown on every message.</summary>
     public string From { get; set; } = "no-reply@examplatform.local";
 
     /// <summary>Whether a mail server is configured.</summary>

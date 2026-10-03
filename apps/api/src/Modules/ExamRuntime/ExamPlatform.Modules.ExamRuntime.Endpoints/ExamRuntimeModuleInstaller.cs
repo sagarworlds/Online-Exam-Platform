@@ -32,9 +32,8 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<IExtraAttemptGrantRepository, ExtraAttemptGrantRepository>();
         services.AddScoped<IAttemptRequestRepository, AttemptRequestRepository>();
 
-        // Answers to attempt requests go out by SMTP when a mail server is configured (the same "Smtp" section the invitation e-mail
-        // reads) and are otherwise not sent; the administrator is told so in the response.
-        services.AddOptions<SmtpOptions>().Bind(configuration.GetSection(SmtpOptions.SectionName));
+        // Answers to attempt requests go out through the platform's mail sender when a mail server is configured and are otherwise
+        // not sent; the administrator is told so in the response.
         services.AddScoped<IAttemptRequestNotifier, SmtpAttemptRequestNotifier>();
         services.AddScoped<IExamRuntimeUnitOfWork, ExamRuntimeUnitOfWork>();
         services.AddScoped<IQuestionUsageSource, AnsweredQuestionUsageSource>();

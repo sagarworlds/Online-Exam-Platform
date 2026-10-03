@@ -1,73 +1,38 @@
 using ExamPlatform.Modules.Invite.Application.Ports;
 using ExamPlatform.Modules.Invite.Infrastructure.Email;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 
 namespace ExamPlatform.IntegrationTests;
 
-/// <summary>
-/// Exercises the SMTP adapter against a small SMTP server running in this process, so what is checked is the real
-/// protocol exchange: a message is delivered to the right recipient, and a server that refuses it, or that is not
-/// there at all, turns into "not sent" rather than an exception that would lose the invite.
-/// </summary>
+/// <summary>What an invitation says and who it goes to; how mail is delivered is the mail sender's job (see SmtpMailSenderTests).</summary>
 public sealed class SmtpInviteNotifierTests
 {
     private static readonly InviteEmail Email =
         new("candidate@example.com", "Maths Final", "https://app.example/invite?code=AB12CD34", new DateTime(2026, 10, 5, 9, 0, 0, DateTimeKind.Utc));
 
-    private static SmtpInviteNotifier NotifierFor(int port, bool configured = true) =>
-        new(Options.Create(new SmtpOptions
-        {
-            Host = configured ? "127.0.0.1" : null,
-            Port = port,
-            EnableSsl = false,
-            From = "exams@examplatform.test",
-        }), NullLogger<SmtpInviteNotifier>.Instance);
+    private readonly RecordingMailSender _sender = new();
+
+    private SmtpInviteNotifier Notifier => new(_sender);
 
     [Fact]
-    public async Task Send_DeliversTheInvitationToTheRecipient_WithTheLinkInTheBody()
+    public async Task Send_AddressesTheInvitedPerson_NamesTheExam_AndCarriesTheLinkAndItsExpiry()
     {
-        await using var server = new SmtpSink();
+        var result = await Notifier.SendAsync(Email, CancellationToken.None);
 
-        var sent = await NotifierFor(server.Port).SendAsync(Email, CancellationToken.None);
-
-        Assert.True(sent);
-        var message = await server.WaitForMessageAsync();
-        Assert.Contains("RCPT TO:<candidate@example.com>", message.Envelope, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("MAIL FROM:<exams@examplatform.test>", message.Envelope, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Subject: You are invited to take Maths Final", message.Data);
-        Assert.Contains("AB12CD34", message.Data);
-        Assert.Contains("invite", message.Data);
+        Assert.True(result);
+        var sent = Assert.Single(_sender.Sent);
+        Assert.Equal("candidate@example.com", sent.To);
+        Assert.Equal("You are invited to take Maths Final", sent.Subject);
+        Assert.Contains("AB12CD34", sent.Body);
+        Assert.Contains("2026-10-05", sent.Body);
     }
 
-    [Fact]
-    public async Task Send_WithNoMailServerConfigured_SendsNothingAndSaysSo()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Send_ReportsWhatTheMailSenderReported_SoTheInviterCanPassTheLinkOnByHand(bool delivered)
     {
-        await using var server = new SmtpSink();
+        _sender.Delivers = delivered;
 
-        var sent = await NotifierFor(server.Port, configured: false).SendAsync(Email, CancellationToken.None);
-
-        Assert.False(sent);
-        Assert.Equal(0, server.Connections);
-    }
-
-    [Fact]
-    public async Task Send_WhenTheServerRefusesTheRecipient_ReportsNotSent_InsteadOfThrowing()
-    {
-        await using var server = new SmtpSink(refuseRecipients: true);
-
-        var sent = await NotifierFor(server.Port).SendAsync(Email, CancellationToken.None);
-
-        Assert.False(sent);
-    }
-
-    [Fact]
-    public async Task Send_WhenNothingIsListening_ReportsNotSent_InsteadOfThrowing()
-    {
-        var closedPort = SmtpSink.FreePort();
-
-        var sent = await NotifierFor(closedPort).SendAsync(Email, CancellationToken.None);
-
-        Assert.False(sent);
+        Assert.Equal(delivered, await Notifier.SendAsync(Email, CancellationToken.None));
     }
 }
