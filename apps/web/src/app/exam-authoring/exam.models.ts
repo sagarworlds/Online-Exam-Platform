@@ -37,6 +37,11 @@ export interface ResultReleaseRequest {
 /** The body of PUT /v1/exams/{id}/marking-scheme; draft exams only. A correct answer earns more than 0, the others 0 or less. */
 export type MarkingSchemeRequest = MarkingSchemeDto;
 
+/** The body of PUT /v1/exams/{id}/attempt-limit: how many attempts every enrolled candidate has, from 1 to 10. */
+export interface AttemptLimitRequest {
+  maxAttempts: number;
+}
+
 /** A question as it sits in an exam; `text` comes from the question bank and is null if the bank lost it. */
 export interface ExamQuestionDto {
   id: string;

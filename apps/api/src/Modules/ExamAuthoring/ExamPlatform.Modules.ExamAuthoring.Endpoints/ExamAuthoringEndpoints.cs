@@ -82,6 +82,15 @@ public static class ExamAuthoringEndpoints
             .WithName("SetExamMarkingScheme")
             .WithDescription("Set the marks for a correct, an incorrect and an unattempted question on a draft exam");
 
+        exams.MapPut("/{examId:guid}/attempt-limit", SetAttemptLimit)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("SetExamAttemptLimit")
+            .WithDescription("Set how many attempts every enrolled candidate has at the exam, before any extra attempt is given");
+
         exams.MapPut("/{examId:guid}/result-release", SetResultRelease)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -200,6 +209,10 @@ public static class ExamAuthoringEndpoints
         Guid examId, MarkingSchemeRequest request, SetMarkingSchemeHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetMarkingSchemeCommand(examId, request.CorrectMarks, request.IncorrectMarks, request.UnattemptedMarks), ct));
 
+    private static async Task<IResult> SetAttemptLimit(
+        Guid examId, AttemptLimitRequest request, SetMaxAttemptsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new SetMaxAttemptsCommand(examId, request.MaxAttempts), ct));
+
     private static async Task<IResult> SetResultRelease(
         Guid examId, ResultReleaseRequest request, SetResultReleaseHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetResultReleaseCommand(examId, request.Mode, request.ReleaseTime), ct));
@@ -290,6 +303,10 @@ public record ResultReleaseRequest(ResultReleaseMode? Mode, DateTime? ReleaseTim
 /// <param name="IncorrectMarks">Marks for an incorrect answer; 0 or negative.</param>
 /// <param name="UnattemptedMarks">Marks for an unanswered question; 0 or negative.</param>
 public record MarkingSchemeRequest(decimal? CorrectMarks, decimal? IncorrectMarks, decimal? UnattemptedMarks);
+
+/// <summary>Request body for setting how many attempts every enrolled candidate has at an exam.</summary>
+/// <param name="MaxAttempts">The attempts each candidate has, from 1 to 10; administrators can still give one candidate more.</param>
+public record AttemptLimitRequest(int? MaxAttempts);
 
 /// <summary>Request body for changing an exam's name and description.</summary>
 /// <param name="Name">The exam's new name.</param>

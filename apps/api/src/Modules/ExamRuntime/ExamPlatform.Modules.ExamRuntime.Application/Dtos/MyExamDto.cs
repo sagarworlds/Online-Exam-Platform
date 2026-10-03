@@ -48,7 +48,7 @@ public sealed record AttemptSummaryDto(
 /// <param name="AttemptStatus">Whether that latest attempt is still open or already submitted; null without an attempt.</param>
 /// <param name="Score">The marks the latest attempt scored, once it is submitted.</param>
 /// <param name="MaxScore">The marks available, once the latest attempt is submitted.</param>
-/// <param name="AttemptsAllowed">How many attempts they may make in all: one, plus each extra attempt an administrator granted.</param>
+/// <param name="AttemptsAllowed">How many attempts they may make in all: the exam's limit per candidate, plus each extra attempt an administrator granted.</param>
 /// <param name="AttemptsUsed">How many they have started.</param>
 /// <param name="CanStartAttempt">Whether they may start a new attempt now: the window is open, none is in progress, and one is left.</param>
 /// <param name="Attempts">Every attempt they have made, oldest first.</param>

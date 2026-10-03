@@ -42,6 +42,8 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             new { type = "Independent" }),
         new("PUT", "/v1/exams/{examId:guid}/marking-scheme", RbacCatalog.PermissionCodes.ExamManage,
             new { correctMarks = 4, incorrectMarks = -1, unattemptedMarks = 0 }),
+        new("PUT", "/v1/exams/{examId:guid}/attempt-limit", RbacCatalog.PermissionCodes.ExamManage,
+            new { maxAttempts = 2 }),
         new("PUT", "/v1/exams/{examId:guid}/result-release", RbacCatalog.PermissionCodes.ExamManage,
             new { mode = "Instant" }),
         new("POST", "/v1/exams/{examId:guid}/results/release", RbacCatalog.PermissionCodes.ExamManage, null),

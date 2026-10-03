@@ -11,6 +11,7 @@ import { extractErrorMessage } from '../../shared/problem-details';
 import { ExamApiService } from '../exam-api.service';
 import { ExamDto, ExamScopeDto, MarkingSchemeDto, UpdateExamDetailsRequest } from '../exam.models';
 import { ExamMarkingScheme } from '../exam-marking-scheme/exam-marking-scheme';
+import { ExamAttemptLimit } from '../exam-attempt-limit/exam-attempt-limit';
 import { ExamDetailsForm } from '../exam-details-form/exam-details-form';
 import { NO_SCOPE, ScopeSelection, describeScope, isScopeComplete, selectionOf, toScopeRequest } from '../exam-scope-fields/exam-scope';
 import { ExamScopeFields } from '../exam-scope-fields/exam-scope-fields';
@@ -33,11 +34,12 @@ function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): bool
 /**
  * Admin page for one exam: its sections and questions, the schedule, and publishing (FR-11, FR-13). While the exam is a
  * draft, mistakes can be put right: a question or section taken out, a section renamed, the whole draft deleted. A published
- * exam is shown read-only, because the API refuses those; only its name and description and its answer review can still change.
+ * exam is shown read-only, because the API refuses those; only its name and description, its answer review and its attempts
+ * allowed can still change.
  */
 @Component({
   selector: 'app-exam-editor',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamSectionCard],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamAttemptLimit, ExamSectionCard],
   templateUrl: './exam-editor.html',
 })
 export class ExamEditor {
@@ -166,6 +168,13 @@ export class ExamEditor {
   protected saveMarkingScheme(scheme: MarkingSchemeDto): void {
     if (!this.busy() && this.isDraft()) {
       this.run(this.examApi.setMarkingScheme(this.examId, scheme));
+    }
+  }
+
+  /** Sets how many attempts every candidate has. Allowed on a published exam too: it changes nothing that is asked or scored. */
+  protected saveAttemptLimit(maxAttempts: number): void {
+    if (!this.busy()) {
+      this.run(this.examApi.setAttemptLimit(this.examId, { maxAttempts }));
     }
   }
 

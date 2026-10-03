@@ -341,6 +341,27 @@ public class Exam : AggregateRoot
     }
 
     /// <summary>
+    /// Sets how many attempts every enrolled candidate has before an administrator gives them any extra. Like the answer
+    /// review this may change after publishing, because it changes nothing that is asked or scored: lowering it never takes
+    /// back an attempt already started, it only stops further ones, and raising it opens more at once.
+    /// </summary>
+    /// <param name="attempts">The attempts each candidate has, from <see cref="ExamConfig.FewestAttempts"/> to <see cref="ExamConfig.MostAttempts"/>.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The number is outside the allowed range.</exception>
+    public void SetMaxAttempts(int attempts, DateTime nowUtc)
+    {
+        EnsureNotArchived();
+
+        if (attempts is < ExamConfig.FewestAttempts or > ExamConfig.MostAttempts)
+            throw new InvalidExamConfigError($"Choose a number of attempts from {ExamConfig.FewestAttempts} to {ExamConfig.MostAttempts}.");
+
+        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
+        Config = Config with { MaxAttempts = attempts, MarkingScheme = Config.MarkingScheme with { } };
+        UpdatedAt = nowUtc;
+    }
+
+    /// <summary>
     /// Releases the answers of a manual-release exam now: the release time is set to the current instant, so the one rule
     /// "released when the mode is Instant or the release time has arrived" covers every mode. Calling it again keeps the first time.
     /// </summary>
