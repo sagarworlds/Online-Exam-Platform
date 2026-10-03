@@ -32,7 +32,7 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
 
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
         var questions = (await questionBank.GetAsync(questionIds, cancellationToken)).ToDictionary(q => q.Id);
-        var chosen = attempt.Answers.ToDictionary(a => a.QuestionId, a => a.SelectedOptionId);
+        var chosen = attempt.Answers.ToDictionary(a => a.QuestionId, a => (IReadOnlyCollection<Guid>)a.SelectedOptionIds);
 
         var sections = exam.Sections
             .OrderBy(s => s.Order)
@@ -65,18 +65,19 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
         ExamSnapshot exam,
         IReadOnlyDictionary<Guid, QuestionSnapshot> questions,
         Guid questionId,
-        IReadOnlyDictionary<Guid, Guid> chosen)
+        IReadOnlyDictionary<Guid, IReadOnlyCollection<Guid>> chosen)
     {
         var question = questions.GetValueOrDefault(questionId) ?? throw new ExamContentUnavailableError();
-        Guid? chosenOptionId = chosen.TryGetValue(questionId, out var optionId) ? optionId : null;
-        var mark = AttemptScorer.Mark(exam, question, chosenOptionId);
+        var chosenIds = chosen.TryGetValue(questionId, out var optionIds) ? optionIds : [];
+        var mark = AttemptScorer.Mark(exam, question, chosenIds);
 
         return new ReviewQuestionDto(
             question.Id,
             question.Text,
             AttemptOrdering.Arrange(question.Options, o => o.Id, attempt.Id, attempt.Number, question.Id, exam.ShuffleOptions, o => o.IsPinned)
-                .Select(o => new ReviewOptionDto(o.Id, o.Text, o.IsCorrect, o.Id == chosenOptionId)).ToList(),
+                .Select(o => new ReviewOptionDto(o.Id, o.Text, o.IsCorrect, chosenIds.Contains(o.Id))).ToList(),
             mark.Verdict,
-            mark.Marks);
+            mark.Marks,
+            question.AllowsMultiple);
     }
 }

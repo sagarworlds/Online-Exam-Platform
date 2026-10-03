@@ -32,25 +32,41 @@
 </div>
 
 <fieldset class="field" formArrayName="options">
-  <legend>Options (pick the correct one)</legend>
+  <legend>Options ({{ form.controls.allowsMultiple.value ? 'tick every correct one' : 'pick the correct one' }})</legend>
+  <label class="inline-check">
+    <input
+      type="checkbox"
+      [checked]="form.controls.allowsMultiple.value"
+      [attr.disabled]="wordingOnly() ? '' : null"
+      (change)="setAllowsMultiple($any($event.target).checked)"
+    />
+    More than one answer can be correct
+  </label>
+  <p class="hint">
+    Candidates then choose a set of options and are marked right only when they choose exactly the correct ones, with none missing and none extra.
+  </p>
   <p class="hint">Tick "Keep in place" on an option such as "None of the above" so it stays where it is when options are shuffled.</p>
   @if (wordingOnly()) {
     <p class="hint question-lock-note" role="note">
-      Candidates have answered this question, so only its wording can change. The correct option, the list of options and
+      Candidates have answered this question, so only its wording can change. The correct option or options, whether several can be correct, the list of options and
       which options stay in place are locked, because their results were worked out against them. To change the answers, create a new question instead.
     </p>
   }
   @for (option of options.controls; track option; let i = $index) {
     <div class="option-row" [formGroupName]="i">
-      <input
-        type="radio"
-        name="correct"
-        [value]="i"
-        [checked]="form.controls.correctIndex.value === i"
-        [disabled]="wordingOnly()"
-        (change)="form.controls.correctIndex.setValue(i)"
-        [attr.aria-label]="'Option ' + (i + 1) + ' is correct'"
-      />
+      @if (form.controls.allowsMultiple.value) {
+        <input type="checkbox" formControlName="correct" [attr.disabled]="wordingOnly() ? '' : null" [attr.aria-label]="'Option ' + (i + 1) + ' is correct'" />
+      } @else {
+        <input
+          type="radio"
+          name="correct"
+          [value]="i"
+          [checked]="form.controls.correctIndex.value === i"
+          [disabled]="wordingOnly()"
+          (change)="form.controls.correctIndex.setValue(i)"
+          [attr.aria-label]="'Option ' + (i + 1) + ' is correct'"
+        />
+      }
       <input type="text" formControlName="text" [attr.aria-label]="'Option ' + (i + 1) + ' text'" />
       <label class="inline-check option-pin">
         <input type="checkbox" formControlName="pinned" [attr.disabled]="wordingOnly() ? '' : null" [attr.aria-label]="'Keep option ' + (i + 1) + ' in place when options are shuffled'" />

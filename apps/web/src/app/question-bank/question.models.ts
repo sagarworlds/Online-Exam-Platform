@@ -45,6 +45,8 @@ export interface QuestionDto {
   difficulty: QuestionDifficulty | null;
   /** Free-text topics in lower case, such as "fractions"; at most {@link QUESTION_LIMITS}.maxTopics. */
   topics: string[];
+  /** Whether more than one option may be correct; a candidate must then choose exactly the correct ones to be marked right. */
+  allowsMultiple: boolean;
 }
 
 /** The body of POST /v1/questions. The author is the caller, so it carries no user id. */
@@ -56,6 +58,8 @@ export interface CreateQuestionRequest {
   chapterId: string | null;
   difficulty: QuestionDifficulty | null;
   topics: string[];
+  /** True when more than one option is correct. */
+  allowsMultiple: boolean;
 }
 
 /** The body of PUT /v1/questions/{id}: the question's whole new content, not a patch. */
@@ -66,6 +70,8 @@ export interface UpdateQuestionRequest {
   /** Like everything else here these replace what was there, so an edit that omits them clears the labels. */
   difficulty: QuestionDifficulty | null;
   topics: string[];
+  /** Like the options, this is part of the answer key: it cannot change once candidates have answered. */
+  allowsMultiple: boolean;
 }
 
 /** The body of POST /v1/questions/placement: one question is a bulk of one. */

@@ -88,9 +88,17 @@ export interface AttemptQuestionDto {
   id: string;
   text: string;
   options: AttemptOptionDto[];
+  /** The option chosen; for a multiple-answer question, the first of those chosen. Null when unanswered. */
   selectedOptionId: string | null;
   /** A note to themselves only: it never affects the score. */
   markedForReview: boolean;
+  /**
+   * Whether more than one option may be correct, so the candidate chooses a set and is marked right only for exactly the correct
+   * ones. Absent in a response from before multiple-answer questions existed, which means false.
+   */
+  allowsMultiple?: boolean;
+  /** Every option chosen; empty when unanswered. Absent in an older response, where `selectedOptionId` is the whole answer. */
+  selectedOptionIds?: string[];
 }
 
 /** A section of the exam. */
@@ -147,6 +155,8 @@ export interface ReviewQuestionDto {
   verdict: AnswerVerdict;
   /** The marks this question earned; may be negative. */
   marks: number;
+  /** Whether the candidate had to choose exactly the correct options, of which there may be several. Absent means false. */
+  allowsMultiple?: boolean;
 }
 
 export interface ReviewSectionDto {

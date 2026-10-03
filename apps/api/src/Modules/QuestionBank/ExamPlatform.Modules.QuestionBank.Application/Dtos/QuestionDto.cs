@@ -13,6 +13,7 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Dtos;
 /// <param name="Usage">Whether exams contain the question and candidates have answered it.</param>
 /// <param name="Difficulty">"easy", "medium" or "hard", or null when the author has not said.</param>
 /// <param name="Topics">The question's topics, lower case.</param>
+/// <param name="AllowsMultiple">Whether more than one option may be correct.</param>
 public sealed record QuestionDto(
     Guid Id,
     string Text,
@@ -25,7 +26,8 @@ public sealed record QuestionDto(
     string? BookName = null,
     QuestionUsageDto? Usage = null,
     string? Difficulty = null,
-    IReadOnlyList<string>? Topics = null);
+    IReadOnlyList<string>? Topics = null,
+    bool AllowsMultiple = false);
 
 /// <summary>One option of a <see cref="QuestionDto"/>.</summary>
 /// <param name="Id">The option's id.</param>

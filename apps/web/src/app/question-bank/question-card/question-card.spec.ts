@@ -10,6 +10,7 @@ const question = (overrides: Partial<QuestionDto> = {}): QuestionDto => ({
   usage: { examCount: 0, examNames: [], answered: false },
   difficulty: null,
   topics: [],
+  allowsMultiple: false,
   options: [
     { id: 'o1', text: 'Paris', isCorrect: true, isPinned: false },
     { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },
@@ -76,6 +77,12 @@ describe('QuestionCard', () => {
     show();
 
     expect(root.querySelector('.question-card__labels')).toBeNull();
+  });
+
+  it('says when a question takes several answers', () => {
+    show(question({ allowsMultiple: true }));
+
+    expect(root.querySelector('.question-card__labels')?.textContent).toContain('Several answers');
   });
 
   it('shows the difficulty and each topic as badges', () => {

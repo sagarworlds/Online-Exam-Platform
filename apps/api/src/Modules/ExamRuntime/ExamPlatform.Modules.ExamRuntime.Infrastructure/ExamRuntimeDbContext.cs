@@ -53,6 +53,10 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
         {
             b.ToTable("AttemptAnswers");
             b.HasKey(x => x.Id);
+            // A Postgres uuid[]: the chosen options travel with the answer, so reading an attempt is still one row per answer.
+            b.PrimitiveCollection(x => x.SelectedOptionIds).HasColumnType("uuid[]");
+            // The first chosen option, derived for readers that only know single answers.
+            b.Ignore(x => x.SelectedOptionId);
 
             // At most one answer per question: saving again changes the row rather than adding another.
             b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();

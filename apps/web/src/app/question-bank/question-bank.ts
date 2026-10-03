@@ -6,7 +6,7 @@ import { extractErrorMessage } from '../shared/problem-details';
 import { BookChapterPicker, isCompletePlacement, NO_PLACEMENT, Placement } from './book-chapter-picker/book-chapter-picker';
 import { QuestionApiService } from './question-api.service';
 import { QuestionCard } from './question-card/question-card';
-import { createQuestionForm, newOption, toLabels, toNewOptions } from './question-form';
+import { createQuestionForm, newOption, toAllowsMultiple, toLabels, toNewOptions } from './question-form';
 import { QuestionFields } from './question-fields/question-fields';
 import {
   CreateQuestionRequest,
@@ -138,6 +138,7 @@ export class QuestionBank {
       chapterId: this.placement().chapterId || null,
       options: toNewOptions(this.form),
       ...toLabels(this.form),
+      allowsMultiple: toAllowsMultiple(this.form),
     };
 
     this.saving.set(true);
@@ -315,7 +316,7 @@ export class QuestionBank {
   }
 
   private resetForm(): void {
-    this.form.reset({ text: '', correctIndex: -1, difficulty: '', topics: '' });
+    this.form.reset({ text: '', allowsMultiple: false, correctIndex: -1, difficulty: '', topics: '' });
     this.form.controls.options.clear();
     this.form.controls.options.push(newOption(this.formBuilder));
     this.form.controls.options.push(newOption(this.formBuilder));

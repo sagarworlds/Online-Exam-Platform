@@ -15,6 +15,7 @@ const question = (overrides: Partial<QuestionDto> = {}): QuestionDto => ({
   usage: { examCount: 0, examNames: [], answered: false },
   difficulty: null,
   topics: [],
+  allowsMultiple: false,
   options: [
     { id: 'o1', text: 'Paris', isCorrect: true, isPinned: false },
     { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },
@@ -87,6 +88,7 @@ describe('QuestionEdit', () => {
       text: '<p>Capital of France?</p>',
       difficulty: null,
       topics: [],
+      allowsMultiple: false,
       options: [
         { id: 'o1', text: 'Paris, France', isCorrect: true, isPinned: false },
         { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },
@@ -182,6 +184,32 @@ describe('QuestionEdit', () => {
     submit();
 
     expect(httpMock.expectOne(isPut).request.body).toMatchObject({ difficulty: 'hard', topics: ['percentages'] });
+  });
+
+  it('opens a multiple-answer question with its ticks, and sends every tick back as correct', () => {
+    open(question({
+      allowsMultiple: true,
+      options: [
+        { id: 'o1', text: 'Paris', isCorrect: true, isPinned: false },
+        { id: 'o2', text: 'Lyon', isCorrect: true, isPinned: false },
+        { id: 'o3', text: 'Rome', isCorrect: false, isPinned: false },
+      ],
+    }));
+    const ticks = Array.from(root.querySelectorAll<HTMLInputElement>('.option-row input[type="checkbox"][aria-label$="is correct"]'));
+    expect(ticks.map((t) => t.checked)).toEqual([true, true, false]);
+
+    submit();
+
+    const body = httpMock.expectOne(isPut).request.body;
+    expect(body.allowsMultiple).toBe(true);
+    expect(body.options.map((o: { isCorrect: boolean }) => o.isCorrect)).toEqual([true, true, false]);
+  });
+
+  it('locks the several-answers choice once candidates have answered', () => {
+    open(question({ allowsMultiple: true, usage: { examCount: 1, examNames: ['Maths mock'], answered: true } }));
+
+    const box = root.querySelector('fieldset input[type="checkbox"]') as HTMLInputElement;
+    expect(box.disabled).toBe(true);
   });
 
   it('still lets the labels be changed once candidates have answered', () => {

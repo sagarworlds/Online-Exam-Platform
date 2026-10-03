@@ -24,5 +24,6 @@ internal static class QuestionMapping
             filedUnder?.BookName,
             usage ?? QuestionUsageDto.Unused,
             QuestionDifficultyText.Format(question.Difficulty),
-            question.Topics);
+            question.Topics,
+            question.AllowsMultiple);
 }

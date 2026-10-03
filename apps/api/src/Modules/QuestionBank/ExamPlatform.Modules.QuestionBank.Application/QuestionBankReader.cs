@@ -23,7 +23,8 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
                 q.Text,
                 q.Options.OrderBy(o => o.Order).Select(o => new QuestionOptionSnapshot(o.Id, o.Text, o.IsCorrect, o.IsPinned)).ToList(),
                 q.ChapterId,
-                q.ChapterId is { } chapterId && chapters.TryGetValue(chapterId, out var filedUnder) ? filedUnder.BookId : null))
+                q.ChapterId is { } chapterId && chapters.TryGetValue(chapterId, out var filedUnder) ? filedUnder.BookId : null,
+                q.AllowsMultiple))
             .ToList();
     }
 

@@ -17,6 +17,19 @@ internal static class Fixtures
             new QuestionOptionSnapshot(Guid.NewGuid(), "22", IsCorrect: false),
         ]);
 
+    /// <summary>A multiple-answer question: the first two options are both correct, the last two are not.</summary>
+    public static QuestionSnapshot MultiQuestion(string text = "Which are prime?") =>
+        new(Guid.NewGuid(), text,
+        [
+            new QuestionOptionSnapshot(Guid.NewGuid(), "2", IsCorrect: true),
+            new QuestionOptionSnapshot(Guid.NewGuid(), "3", IsCorrect: true),
+            new QuestionOptionSnapshot(Guid.NewGuid(), "4", IsCorrect: false),
+            new QuestionOptionSnapshot(Guid.NewGuid(), "6", IsCorrect: false),
+        ], AllowsMultiple: true);
+
+    /// <summary>Every correct option of the question, for a multiple-answer one.</summary>
+    public static Guid[] CorrectSet(this QuestionSnapshot question) => question.Options.Where(o => o.IsCorrect).Select(o => o.Id).ToArray();
+
     public static Guid Correct(this QuestionSnapshot question) => question.Options.Single(o => o.IsCorrect).Id;
 
     public static Guid Wrong(this QuestionSnapshot question) => question.Options.First(o => !o.IsCorrect).Id;

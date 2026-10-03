@@ -51,7 +51,7 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock)
     {
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
         var questions = (await questionBank.GetAsync(questionIds, cancellationToken)).ToDictionary(q => q.Id);
-        var chosen = attempt.Answers.ToDictionary(a => a.QuestionId, a => a.SelectedOptionId);
+        var chosen = attempt.Answers.ToDictionary(a => a.QuestionId, a => a.SelectedOptionIds);
         var marked = attempt.Marks.Select(m => m.QuestionId).ToHashSet();
 
         return exam.Sections
@@ -69,8 +69,10 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock)
                         question.Text,
                         AttemptOrdering.Arrange(question.Options, o => o.Id, attempt.Id, attempt.Number, question.Id, exam.ShuffleOptions, o => o.IsPinned)
                             .Select(o => new AttemptOptionDto(o.Id, o.Text)).ToList(),
-                        chosen.TryGetValue(id, out var optionId) ? optionId : null,
-                        marked.Contains(id));
+                        chosen.TryGetValue(id, out var optionIds) ? optionIds[0] : null,
+                        marked.Contains(id),
+                        question.AllowsMultiple,
+                        chosen.TryGetValue(id, out var allIds) ? allIds : []);
                 }).ToList()))
             .ToList();
     }

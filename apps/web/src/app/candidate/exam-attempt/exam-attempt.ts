@@ -40,6 +40,11 @@ function loadZoomLevel(): number {
 }
 
 /** The palette's wording for a question, for a screen reader; sighted candidates get the same from the colours and the legend. */
+/** The options chosen for a question, whichever shape the response came in. */
+export function chosenOptionIds(question: AttemptQuestionDto): string[] {
+  return question.selectedOptionIds ?? (question.selectedOptionId ? [question.selectedOptionId] : []);
+}
+
 function paletteStatus(answered: boolean, marked: boolean, seen: boolean): string {
   if (answered && marked) return 'answered and marked for review';
   if (marked) return 'marked for review';
@@ -77,7 +82,7 @@ export class ExamAttempt {
   protected readonly canZoomIn = computed(() => this.zoom() < ZOOM_LEVELS[ZOOM_LEVELS.length - 1]);
 
   protected readonly questions = computed(() => this.attempt()?.sections.flatMap((s) => s.questions) ?? []);
-  protected readonly answeredCount = computed(() => this.questions().filter((q) => q.selectedOptionId !== null).length);
+  protected readonly answeredCount = computed(() => this.questions().filter((q) => chosenOptionIds(q).length > 0).length);
   protected readonly markedCount = computed(() => this.questions().filter((q) => q.markedForReview).length);
   protected readonly isOpen = computed(() => this.attempt()?.status === 'InProgress');
 
@@ -156,7 +161,7 @@ export class ExamAttempt {
     const active = this.activeRange();
     return (this.attempt()?.sections ?? []).map((section) => {
       const items = section.questions.map((question, i) => {
-        const answered = question.selectedOptionId !== null;
+        const answered = chosenOptionIds(question).length > 0;
         const marked = question.markedForReview;
         const seen = !answered && !marked && visited.has(question.id);
         return {
@@ -357,12 +362,21 @@ export class ExamAttempt {
   /** Records a choice. It shows at once and is saved in the background; if the save fails the previous choice comes back. */
   protected choose(question: AttemptQuestionDto, optionId: string): void {
     const attempt = this.attempt();
-    if (attempt === null || !this.isOpen() || question.selectedOptionId === optionId) {
+    if (attempt === null || !this.isOpen()) {
       return;
     }
 
-    const previous = question.selectedOptionId;
-    this.setSelection(question.id, optionId);
+    const previous = chosenOptionIds(question);
+    if (question.allowsMultiple) {
+      this.toggleOption(attempt.id, question, optionId, previous);
+      return;
+    }
+
+    if (previous.length === 1 && previous[0] === optionId) {
+      return;
+    }
+
+    this.setSelection(question.id, [optionId]);
     this.errorMessage.set(null);
 
     this.api.saveAnswer(attempt.id, question.id, optionId).subscribe({
@@ -373,15 +387,43 @@ export class ExamAttempt {
     });
   }
 
+  /** Whether the question has any answer to clear. */
+  protected isAnswered(question: AttemptQuestionDto): boolean {
+    return chosenOptionIds(question).length > 0;
+  }
+
+  /** Whether the option is one of those chosen for the question; what a radio or a checkbox shows as ticked. */
+  protected isChosen(question: AttemptQuestionDto, optionId: string): boolean {
+    return chosenOptionIds(question).includes(optionId);
+  }
+
+  /**
+   * Ticks or unticks one option of a multiple-answer question and saves the whole set, since the set is the answer. Unticking the
+   * last one takes the answer back, which is the same as clearing it: a question is either answered with something or not at all.
+   */
+  private toggleOption(attemptId: string, question: AttemptQuestionDto, optionId: string, previous: string[]): void {
+    const next = previous.includes(optionId) ? previous.filter((id) => id !== optionId) : [...previous, optionId];
+    this.setSelection(question.id, next);
+    this.errorMessage.set(null);
+
+    const save = next.length === 0 ? this.api.clearAnswer(attemptId, question.id) : this.api.saveAnswers(attemptId, question.id, next);
+    save.subscribe({
+      error: (error: unknown) => {
+        this.setSelection(question.id, previous);
+        this.explainFailure(error, 'Your answer could not be saved. Please try again.');
+      },
+    });
+  }
+
   /** Takes back the question's answer. It shows at once and is saved in the background; if the save fails the answer comes back. */
   protected clearResponse(question: AttemptQuestionDto): void {
     const attempt = this.attempt();
-    if (attempt === null || !this.isOpen() || question.selectedOptionId === null) {
+    const previous = chosenOptionIds(question);
+    if (attempt === null || !this.isOpen() || previous.length === 0) {
       return;
     }
 
-    const previous = question.selectedOptionId;
-    this.setSelection(question.id, null);
+    this.setSelection(question.id, []);
     this.errorMessage.set(null);
 
     this.api.clearAnswer(attempt.id, question.id).subscribe({
@@ -510,8 +552,8 @@ export class ExamAttempt {
     });
   }
 
-  private setSelection(questionId: string, optionId: string | null): void {
-    this.changeQuestion(questionId, { selectedOptionId: optionId });
+  private setSelection(questionId: string, optionIds: string[]): void {
+    this.changeQuestion(questionId, { selectedOptionId: optionIds[0] ?? null, selectedOptionIds: optionIds });
   }
 
   private setMarked(questionId: string, marked: boolean): void {

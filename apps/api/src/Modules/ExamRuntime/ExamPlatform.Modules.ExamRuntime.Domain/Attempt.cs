@@ -54,7 +54,7 @@ public sealed class Attempt : AggregateRoot
     /// </summary>
     public int ActiveSectionOrder { get; private set; } = 1;
 
-    /// <summary>The answers saved so far, at most one per question.</summary>
+    /// <summary>The answers saved so far, at most one per question (an answer to a multiple-answer question holds several options).</summary>
     public IReadOnlyList<AttemptAnswer> Answers => _answers.AsReadOnly();
 
     /// <summary>The questions the candidate has marked for review, at most one mark per question. Marks never affect the score.</summary>
@@ -98,7 +98,7 @@ public sealed class Attempt : AggregateRoot
     public bool IsExpired(DateTime nowUtc) => nowUtc >= DeadlineUtc;
 
     /// <summary>
-    /// Saves the option a candidate chose for a question, replacing an earlier choice for the same question.
+    /// Saves the option a candidate chose for a single-answer question, replacing an earlier choice for the same question.
     /// The caller has already checked that the question belongs to the exam and the option to the question.
     /// </summary>
     /// <param name="questionId">The question answered.</param>
@@ -106,15 +106,33 @@ public sealed class Attempt : AggregateRoot
     /// <param name="nowUtc">The current instant.</param>
     /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
     /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
-    public void RecordAnswer(Guid questionId, Guid selectedOptionId, DateTime nowUtc)
+    public void RecordAnswer(Guid questionId, Guid selectedOptionId, DateTime nowUtc) =>
+        RecordAnswer(questionId, [selectedOptionId], nowUtc);
+
+    /// <summary>
+    /// Saves the options a candidate chose for a question, replacing an earlier choice for the same question. The set is the answer:
+    /// saving again with different options replaces them all. The caller has already checked that the question belongs to the exam,
+    /// that every option belongs to the question, and that a single-answer question got exactly one.
+    /// </summary>
+    /// <param name="questionId">The question answered.</param>
+    /// <param name="selectedOptionIds">The options chosen; repeats are ignored, and at least one is needed (to take an answer back, clear it).</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="InvalidAttemptError">No option was given.</exception>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
+    /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
+    public void RecordAnswer(Guid questionId, IReadOnlyCollection<Guid> selectedOptionIds, DateTime nowUtc)
     {
         EnsureOpen(nowUtc);
 
+        var chosen = selectedOptionIds.Distinct().ToList();
+        if (chosen.Count == 0)
+            throw new InvalidAttemptError("An answer needs at least one option; to take an answer back, clear it.");
+
         var existing = _answers.FirstOrDefault(a => a.QuestionId == questionId);
         if (existing is null)
-            _answers.Add(new AttemptAnswer(Id, questionId, selectedOptionId, nowUtc));
+            _answers.Add(new AttemptAnswer(Id, questionId, chosen, nowUtc));
         else
-            existing.Change(selectedOptionId, nowUtc);
+            existing.Change(chosen, nowUtc);
     }
 
     /// <summary>

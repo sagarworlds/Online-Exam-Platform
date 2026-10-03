@@ -105,7 +105,7 @@ public class AttemptScorerTests
 
         Assert.Equal(new QuestionMark(AnswerVerdict.Correct, 4m), AttemptScorer.Mark(exam, question, question.Correct()));
         Assert.Equal(new QuestionMark(AnswerVerdict.Wrong, -1m), AttemptScorer.Mark(exam, question, question.Wrong()));
-        Assert.Equal(new QuestionMark(AnswerVerdict.Unanswered, 0.5m), AttemptScorer.Mark(exam, question, null));
+        Assert.Equal(new QuestionMark(AnswerVerdict.Unanswered, 0.5m), AttemptScorer.Mark(exam, question, (Guid?)null));
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public class AttemptScorerTests
         var byQuestion =
             AttemptScorer.Mark(exam, right, right.Correct()).Marks
             + AttemptScorer.Mark(exam, wrong, wrong.Wrong()).Marks
-            + AttemptScorer.Mark(exam, skipped, null).Marks;
+            + AttemptScorer.Mark(exam, skipped, (Guid?)null).Marks;
 
         Assert.Equal(2.75m, score.Score);
         Assert.Equal(score.Score, byQuestion);

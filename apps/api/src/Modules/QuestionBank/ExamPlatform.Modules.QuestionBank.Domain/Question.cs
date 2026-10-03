@@ -17,8 +17,8 @@ public sealed record NewQuestionOption(string? Text, bool IsCorrect, bool IsPinn
 public sealed record QuestionOptionEdit(Guid? Id, string? Text, bool IsCorrect, bool IsPinned = false);
 
 /// <summary>
-/// A multiple-choice question with exactly one correct option (FR-5). The first cut of the bank is
-/// deliberately this one type: single answer, with formatted text. The rules that make a question gradable live
+/// A multiple-choice question (FR-5): by default exactly one correct option, or, when <see cref="AllowsMultiple"/> is set,
+/// one or more, all of which a candidate must choose to be marked right. The rules that make a question gradable live
 /// here, so no caller can store one that could never be marked.
 /// </summary>
 public sealed class Question : AggregateRoot
@@ -83,6 +83,12 @@ public sealed class Question : AggregateRoot
     /// <summary>The longest topic, after trimming.</summary>
     public const int MaxTopicLength = 40;
 
+    /// <summary>
+    /// Whether more than one option may be correct, so a candidate chooses a set of options and is marked right only when the set
+    /// is exactly the correct ones. False for the single-answer question every question was before this existed.
+    /// </summary>
+    public bool AllowsMultiple { get; private set; }
+
     /// <summary>How hard the author judges the question to be, or null when they have not said.</summary>
     public QuestionDifficulty? Difficulty { get; private set; }
 
@@ -120,6 +126,7 @@ public sealed class Question : AggregateRoot
     /// </param>
     /// <param name="difficulty">How hard the question is, or null for unsaid.</param>
     /// <param name="topics">The question's topics; see <see cref="Classify"/>.</param>
+    /// <param name="allowsMultiple">Whether more than one option may be correct.</param>
     /// <exception cref="InvalidQuestionError">
     /// The text is blank or larger than <see cref="MaxHtmlLength"/>, the number of options is outside <see cref="MinOptions"/> to
     /// <see cref="MaxOptions"/>, an option is blank or too long, the options do not have exactly one correct answer, or the topics
@@ -127,12 +134,12 @@ public sealed class Question : AggregateRoot
     /// </exception>
     public static Question Create(
         string? text, IReadOnlyList<NewQuestionOption>? options, Guid createdBy, DateTime nowUtc, Guid? chapterId = null,
-        QuestionDifficulty? difficulty = null, IReadOnlyList<string?>? topics = null)
+        QuestionDifficulty? difficulty = null, IReadOnlyList<string?>? topics = null, bool allowsMultiple = false)
     {
         var trimmedText = RequireText(text);
-        RequireOptionShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0);
+        RequireOptionShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0, allowsMultiple);
 
-        var question = new Question(Guid.NewGuid(), trimmedText, chapterId, createdBy, nowUtc);
+        var question = new Question(Guid.NewGuid(), trimmedText, chapterId, createdBy, nowUtc) { AllowsMultiple = allowsMultiple };
         question.Classify(difficulty, topics);
         foreach (var option in options!)
         {
@@ -161,10 +168,10 @@ public sealed class Question : AggregateRoot
     /// <exception cref="QuestionLockedError">
     /// The question has been answered and the edit changes which option is correct, or adds, removes or reorders options.
     /// </exception>
-    public void Revise(string? text, IReadOnlyList<QuestionOptionEdit>? options, bool answered)
+    public void Revise(string? text, IReadOnlyList<QuestionOptionEdit>? options, bool answered, bool allowsMultiple = false)
     {
         var trimmedText = RequireText(text);
-        RequireOptionShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0);
+        RequireOptionShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0, allowsMultiple);
 
         var edits = options!;
         var optionTexts = edits.Select(o => RequireOptionText(o?.Text)).ToList();
@@ -177,9 +184,10 @@ public sealed class Question : AggregateRoot
             throw new InvalidQuestionError("An option appears more than once.");
 
         if (answered)
-            EnsureOnlyWordingChanges(edits);
+            EnsureOnlyWordingChanges(edits, allowsMultiple);
 
         Text = trimmedText;
+        AllowsMultiple = allowsMultiple;
 
         var revised = new List<QuestionOption>(edits.Count);
         for (var i = 0; i < edits.Count; i++)
@@ -252,11 +260,12 @@ public sealed class Question : AggregateRoot
     // Once candidates have answered, the key and the list of options are part of their results. Wording is the one thing
     // that can still be corrected without touching any of that: the same options, in the same order, with the same one correct and
     // the same ones pinned (a pin decides where an option lands in each candidate's shuffled order, which a review must reproduce).
-    private void EnsureOnlyWordingChanges(IReadOnlyList<QuestionOptionEdit> edits)
+    private void EnsureOnlyWordingChanges(IReadOnlyList<QuestionOptionEdit> edits, bool allowsMultiple)
     {
         var current = _options.OrderBy(o => o.Order).ToList();
 
-        var unchanged = edits.Count == current.Count
+        // Whether the question takes one answer or several is part of how stored answers were marked, like which option is correct.
+        var unchanged = allowsMultiple == AllowsMultiple && edits.Count == current.Count
             && current.Select((option, i) => edits[i].Id == option.Id && edits[i].IsCorrect == option.IsCorrect && edits[i].IsPinned == option.IsPinned).All(same => same);
 
         if (!unchanged)
@@ -274,12 +283,21 @@ public sealed class Question : AggregateRoot
         return trimmed;
     }
 
-    private static void RequireOptionShape(int? optionCount, int correctCount)
+    private static void RequireOptionShape(int? optionCount, int correctCount, bool allowsMultiple)
     {
         if (optionCount is null || optionCount < MinOptions || optionCount > MaxOptions)
             throw new InvalidQuestionError($"A question needs between {MinOptions} and {MaxOptions} options.");
-        if (correctCount != 1)
+
+        if (allowsMultiple)
+        {
+            // Every option correct would be a question nobody can get wrong, so at least one must be left incorrect.
+            if (correctCount < 1 || correctCount >= optionCount)
+                throw new InvalidQuestionError("A multiple-answer question needs at least one correct option and at least one incorrect option.");
+        }
+        else if (correctCount != 1)
+        {
             throw new InvalidQuestionError("Exactly one option must be marked correct.");
+        }
     }
 
     private static string RequireOptionText(string? text)

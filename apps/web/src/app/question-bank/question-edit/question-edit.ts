@@ -4,7 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { extractErrorMessage, extractProblemCode } from '../../shared/problem-details';
 import { QuestionApiService } from '../question-api.service';
 import { QuestionFields } from '../question-fields/question-fields';
-import { createQuestionForm, fillQuestionForm, toEditedOptions, toLabels } from '../question-form';
+import { createQuestionForm, fillQuestionForm, toAllowsMultiple, toEditedOptions, toLabels } from '../question-form';
 import { QuestionDto } from '../question.models';
 
 /**
@@ -57,7 +57,7 @@ export class QuestionEdit {
     this.saved.set(false);
     this.errorMessage.set(null);
 
-    this.api.update(question.id, { text: this.form.getRawValue().text, options: toEditedOptions(this.form), ...toLabels(this.form) }).subscribe({
+    this.api.update(question.id, { text: this.form.getRawValue().text, options: toEditedOptions(this.form), ...toLabels(this.form), allowsMultiple: toAllowsMultiple(this.form) }).subscribe({
       next: (updated) => {
         this.saving.set(false);
         this.saved.set(true);

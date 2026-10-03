@@ -38,6 +38,11 @@ export class CandidateApiService {
     return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { optionId });
   }
 
+  /** Saves the set of options chosen for a multiple-answer question, replacing any earlier choice. At least one is needed; to take an answer back, clear it. */
+  saveAnswers(attemptId: string, questionId: string, optionIds: string[]): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { optionIds });
+  }
+
   /** Takes back the option chosen for one question, so it counts as unanswered again. Safe to repeat. */
   clearAnswer(attemptId: string, questionId: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`);

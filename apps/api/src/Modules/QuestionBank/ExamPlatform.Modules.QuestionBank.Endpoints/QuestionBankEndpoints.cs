@@ -81,14 +81,14 @@ public static class QuestionBankEndpoints
         Guid questionId, EditQuestionRequest request, EditQuestionHandler handler, CancellationToken ct)
     {
         var options = request.Options?.Select(o => new QuestionOptionEdit(o?.Id, o?.Text, o?.IsCorrect ?? false, o?.IsPinned ?? false)).ToList();
-        return Results.Ok(await handler.HandleAsync(new EditQuestionCommand(questionId, request.Text, options, request.Difficulty, request.Topics), ct));
+        return Results.Ok(await handler.HandleAsync(new EditQuestionCommand(questionId, request.Text, options, request.Difficulty, request.Topics, request.AllowsMultiple), ct));
     }
 
     private static async Task<IResult> CreateQuestion(
         CreateQuestionRequest request, ClaimsPrincipal user, CreateQuestionHandler handler, CancellationToken ct)
     {
         var options = request.Options?.Select(o => new NewQuestionOption(o?.Text, o?.IsCorrect ?? false, o?.IsPinned ?? false)).ToList();
-        var result = await handler.HandleAsync(new CreateQuestionCommand(request.Text, options, user.GetUserId(), request.ChapterId, request.Difficulty, request.Topics), ct);
+        var result = await handler.HandleAsync(new CreateQuestionCommand(request.Text, options, user.GetUserId(), request.ChapterId, request.Difficulty, request.Topics, request.AllowsMultiple), ct);
         return Results.Created($"/v1/questions/{result.Id}", result);
     }
 
@@ -110,9 +110,10 @@ public static class QuestionBankEndpoints
 /// <param name="ChapterId">The chapter to file the question under; omit or send null to leave it unfiled.</param>
 /// <param name="Difficulty">"easy", "medium" or "hard"; omit or send null for unsaid.</param>
 /// <param name="Topics">Up to five short topics such as "fractions"; omit for none.</param>
+/// <param name="AllowsMultiple">True when more than one option is correct and a candidate must choose all of them; omitted means a single correct option.</param>
 public sealed record CreateQuestionRequest(
     string? Text, IReadOnlyList<CreateQuestionOptionRequest?>? Options, Guid? ChapterId = null,
-    string? Difficulty = null, IReadOnlyList<string?>? Topics = null);
+    string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false);
 
 /// <summary>Request body for filing questions under a chapter.</summary>
 /// <param name="QuestionIds">The questions to file, at least one.</param>
@@ -124,8 +125,10 @@ public sealed record FileQuestionsRequest(IReadOnlyList<Guid>? QuestionIds, Guid
 /// <param name="Options">All the options after the edit, in display order; an option the question already has is named by its id.</param>
 /// <param name="Difficulty">"easy", "medium" or "hard"; omitting it clears the difficulty, as the body is the whole new content.</param>
 /// <param name="Topics">The topics after the edit; omitting them clears the topics. Allowed even once candidates have answered.</param>
+/// <param name="AllowsMultiple">Whether more than one option is correct; omitting it means a single correct option. Locked once candidates have answered.</param>
 public sealed record EditQuestionRequest(
-    string? Text, IReadOnlyList<EditQuestionOptionRequest?>? Options, string? Difficulty = null, IReadOnlyList<string?>? Topics = null);
+    string? Text, IReadOnlyList<EditQuestionOptionRequest?>? Options, string? Difficulty = null, IReadOnlyList<string?>? Topics = null,
+    bool AllowsMultiple = false);
 
 /// <summary>One option in an <see cref="EditQuestionRequest"/>.</summary>
 /// <param name="Id">The id of the existing option being edited; omit it for a new option.</param>

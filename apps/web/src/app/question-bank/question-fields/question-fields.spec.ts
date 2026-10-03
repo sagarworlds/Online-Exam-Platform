@@ -21,6 +21,7 @@ const QUESTION: QuestionDto = {
   usage: { examCount: 0, examNames: [], answered: false },
   difficulty: null,
   topics: [],
+  allowsMultiple: false,
   options: [
     { id: 'o1', text: 'Paris', isCorrect: true, isPinned: false },
     { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },
@@ -55,7 +56,7 @@ describe('QuestionFields', () => {
     inputs[1].value = 'None of the above';
     inputs[1].dispatchEvent(new Event('input'));
 
-    const pins = root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    const pins = root.querySelectorAll<HTMLInputElement>('.option-pin input[type="checkbox"]');
     expect(pins).toHaveLength(2);
     pins[1].click();
 
@@ -141,6 +142,73 @@ describe('QuestionFields', () => {
       expect(button('Add option').disabled).toBe(false);
     });
   });
+
+  describe('more than one correct answer', () => {
+    const multipleBox = () => root.querySelector('fieldset input[type="checkbox"]') as HTMLInputElement;
+    const ticks = () => Array.from(root.querySelectorAll<HTMLInputElement>('.option-row input[type="checkbox"][aria-label$="is correct"]'));
+    const fill = (...values: string[]) => {
+      const inputs = root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]');
+      values.forEach((value, i) => {
+        inputs[i].value = value;
+        inputs[i].dispatchEvent(new Event('input'));
+      });
+      fixture.detectChanges();
+    };
+    const switchOn = () => {
+      multipleBox().checked = true;
+      multipleBox().dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    };
+
+    it('offers a tick for each option instead of a radio once several answers are allowed', () => {
+      expect(root.querySelectorAll('input[type="radio"]')).toHaveLength(2);
+
+      switchOn();
+
+      expect(root.querySelectorAll('input[type="radio"]')).toHaveLength(0);
+      expect(ticks()).toHaveLength(2);
+      expect(root.textContent).toContain('tick every correct one');
+    });
+
+    it('keeps the author’s choice when switching: the radio becomes a tick, and the first tick becomes the radio', () => {
+      (root.querySelectorAll('input[type="radio"]')[1] as HTMLInputElement).dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      switchOn();
+      expect(ticks().map((t) => t.checked)).toEqual([false, true]);
+
+      ticks()[0].click();
+      fixture.detectChanges();
+      multipleBox().checked = false;
+      multipleBox().dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.form.controls.correctIndex.value).toBe(0);
+    });
+
+    it('sends every ticked option as correct', () => {
+      fill('2', '3');
+      switchOn();
+      ticks().forEach((t) => t.click());
+      fixture.detectChanges();
+
+      expect(toNewOptions(fixture.componentInstance.form).slice(0, 2).map((o) => o.isCorrect)).toEqual([true, true]);
+    });
+
+    it('needs at least one tick, and not every option ticked', () => {
+      fill('2', '3');
+      switchOn();
+      expect(fixture.componentInstance.form.errors).toEqual({ badCorrectSet: true });
+
+      ticks()[0].click();
+      fixture.detectChanges();
+      expect(fixture.componentInstance.form.errors).toBeNull();
+
+      ticks()[1].click();
+      fixture.detectChanges();
+      expect(fixture.componentInstance.form.errors).toEqual({ badCorrectSet: true });
+    });
+  });
 });
 
 describe('question form helpers', () => {
@@ -168,4 +236,5 @@ describe('question form helpers', () => {
     expect(toEditedOptions(form)[3]).toEqual({ id: null, text: 'Madrid', isCorrect: false, isPinned: false });
     expect(toNewOptions(form)[0]).toEqual({ text: 'Paris', isCorrect: true, isPinned: false });
   });
+
 });
