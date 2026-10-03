@@ -74,6 +74,13 @@
   font-weight: 600;
 }
 
+/* Under a multiple-answer question's text: how to answer it, or how it was marked. */
+.question__hint {
+  margin: -0.5rem 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 .question__text {
   margin-bottom: 1rem;
   font-size: 1.15rem;

@@ -22,7 +22,9 @@ public sealed record ReviewOptionDto(Guid Id, string Text, bool IsCorrect, bool 
 /// <param name="Options">The options, in display order.</param>
 /// <param name="Verdict">Whether the answer was correct, wrong, or missing.</param>
 /// <param name="Marks">The marks this question earned, which may be negative.</param>
-public sealed record ReviewQuestionDto(Guid Id, string Text, IReadOnlyList<ReviewOptionDto> Options, AnswerVerdict Verdict, decimal Marks);
+/// <param name="AllowsMultiple">Whether more than one option may be correct, so the candidate had to choose exactly the correct ones.</param>
+public sealed record ReviewQuestionDto(
+    Guid Id, string Text, IReadOnlyList<ReviewOptionDto> Options, AnswerVerdict Verdict, decimal Marks, bool AllowsMultiple = false);
 
 /// <summary>A section of the exam in a review.</summary>
 /// <param name="Id">The section's id.</param>

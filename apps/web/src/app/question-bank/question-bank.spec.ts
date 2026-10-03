@@ -18,7 +18,7 @@ const book = (id: string, name: string, chapters: ReturnType<typeof chapter>[], 
 const UNUSED: QuestionUsageDto = { examCount: 0, examNames: [], answered: false };
 const listedQuestion = (id: string, text: string, usage: QuestionUsageDto = UNUSED) => ({
   id, text, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: null, chapterTitle: null, bookId: null, bookName: null, usage,
-  difficulty: null, topics: [],
+  difficulty: null, topics: [], allowsMultiple: false,
   options: [{ id: `${id}-a`, text: 'A', isCorrect: true, isPinned: false }, { id: `${id}-b`, text: 'B', isCorrect: false, isPinned: false }],
 });
 const MATHS = book('b1', 'Maths Grade 10', [chapter('c1', 1, 'Algebra'), chapter('c2', 2, 'Geometry'), chapter('c3', 3, 'Old chapter', true)]);
@@ -79,6 +79,7 @@ describe('QuestionBank', () => {
         usage: UNUSED,
         difficulty: null,
         topics: [],
+        allowsMultiple: false,
       },
     ]);
     fixture.detectChanges();
@@ -127,7 +128,7 @@ describe('QuestionBank', () => {
     httpMock.expectOne(isList).flush([
       {
         id: 'q1', text: 'Solve x', options: [{ id: 'o1', text: '1', isCorrect: true, isPinned: false }, { id: 'o2', text: '2', isCorrect: false, isPinned: false }],
-        createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths Grade 10', usage: UNUSED, difficulty: null, topics: [],
+        createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths Grade 10', usage: UNUSED, difficulty: null, topics: [], allowsMultiple: false,
       },
     ]);
     fixture.detectChanges();
@@ -152,6 +153,7 @@ describe('QuestionBank', () => {
         usage: UNUSED,
         difficulty: null,
         topics: [],
+        allowsMultiple: false,
       },
     ]);
     fixture.detectChanges();
@@ -195,6 +197,7 @@ describe('QuestionBank', () => {
       chapterId: null,
       difficulty: null,
       topics: [],
+      allowsMultiple: false,
       options: [
         { text: 'Rome', isCorrect: false, isPinned: false },
         { text: 'Paris', isCorrect: true, isPinned: false },

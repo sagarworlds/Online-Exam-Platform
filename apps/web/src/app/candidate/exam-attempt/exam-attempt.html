@@ -36,12 +36,15 @@
               <fieldset class="question" [attr.aria-labelledby]="'question-text-' + question.id">
                 <!-- The text is the API's sanitized HTML, rendered through Angular's own sanitizer as a second layer. -->
                 <div class="question__text rich-text" [id]="'question-text-' + question.id" [innerHTML]="question.text"></div>
+                @if (question.allowsMultiple) {
+                  <p class="question__hint">Choose all the answers that apply.</p>
+                }
                 @for (option of question.options; track option.id; let i = $index) {
                   <label class="option-choice">
                     <input
-                      type="radio"
+                      [type]="question.allowsMultiple ? 'checkbox' : 'radio'"
                       [name]="'q-' + question.id"
-                      [checked]="question.selectedOptionId === option.id"
+                      [checked]="isChosen(question, option.id)"
                       (change)="choose(question, option.id)"
                     />
                     <span class="option-choice__marker" aria-hidden="true">{{ optionLetter(i) }}</span>
@@ -52,7 +55,7 @@
 
               <div class="actions exam-tools">
                 <button type="button" [attr.aria-pressed]="question.markedForReview" (click)="toggleMark(question)">Mark for review</button>
-                <button type="button" [disabled]="question.selectedOptionId === null" (click)="clearResponse(question)">Clear response</button>
+                <button type="button" [disabled]="!isAnswered(question)" (click)="clearResponse(question)">Clear response</button>
               </div>
             </div>
 

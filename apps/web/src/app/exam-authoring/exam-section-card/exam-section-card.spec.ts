@@ -21,6 +21,7 @@ const bankQuestion = (id: string, text: string): QuestionDto => ({
   usage: { examCount: 0, examNames: [], answered: false },
   difficulty: null,
   topics: [],
+  allowsMultiple: false,
   options: [{ id: `${id}-a`, text: 'A', isCorrect: true, isPinned: false }, { id: `${id}-b`, text: 'B', isCorrect: false, isPinned: false }],
 });
 

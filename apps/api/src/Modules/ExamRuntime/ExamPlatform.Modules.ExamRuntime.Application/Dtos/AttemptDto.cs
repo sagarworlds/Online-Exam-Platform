@@ -11,14 +11,18 @@ public sealed record AttemptOptionDto(Guid Id, string Text);
 /// <param name="Id">The question's id.</param>
 /// <param name="Text">The question text, as sanitized HTML; render it with an HTML sanitizer in place, never as trusted markup.</param>
 /// <param name="Options">The options, in display order.</param>
-/// <param name="SelectedOptionId">The option the candidate chose, or null when unanswered.</param>
+/// <param name="SelectedOptionId">The option the candidate chose, or null when unanswered; for a multiple-answer question, the first of those chosen.</param>
 /// <param name="MarkedForReview">Whether the candidate has marked the question to come back to. It has no effect on the score.</param>
+/// <param name="AllowsMultiple">Whether more than one option may be correct, so the candidate chooses a set and is marked right only for exactly the correct ones.</param>
+/// <param name="SelectedOptionIds">Every option the candidate chose; empty when unanswered.</param>
 public sealed record AttemptQuestionDto(
     Guid Id,
     string Text,
     IReadOnlyList<AttemptOptionDto> Options,
     Guid? SelectedOptionId,
-    bool MarkedForReview = false);
+    bool MarkedForReview = false,
+    bool AllowsMultiple = false,
+    IReadOnlyList<Guid>? SelectedOptionIds = null);
 
 /// <summary>A section of the exam as a candidate sees it.</summary>
 /// <param name="Id">The section's id.</param>

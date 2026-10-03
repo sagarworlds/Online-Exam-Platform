@@ -40,6 +40,22 @@ export class QuestionFields {
     return this.form.controls.options;
   }
 
+  /**
+   * Switches between one correct answer and several, keeping the author's work: the single choice becomes a tick, and the first
+   * tick becomes the single choice (a question that had several loses the others, which the author sees at once).
+   */
+  protected setAllowsMultiple(multiple: boolean): void {
+    const { correctIndex, options } = this.form.getRawValue();
+    if (multiple) {
+      this.options.controls.forEach((option, index) => option.controls.correct.setValue(index === correctIndex));
+    } else {
+      this.form.controls.correctIndex.setValue(options.findIndex((option) => option.correct));
+      this.options.controls.forEach((option) => option.controls.correct.setValue(false));
+    }
+
+    this.form.controls.allowsMultiple.setValue(multiple);
+  }
+
   protected addOption(): void {
     if (this.options.length < QUESTION_LIMITS.maxOptions) {
       this.options.push(newOption(this.formBuilder));

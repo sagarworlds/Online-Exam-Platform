@@ -26,14 +26,31 @@ public static class AttemptScorer
     /// <param name="question">The question from the question bank, answer key included.</param>
     /// <param name="chosenOptionId">The option the candidate chose, or null if they chose none.</param>
     /// <exception cref="ExamContentUnavailableError">The chosen option is not one of the question's options.</exception>
-    public static QuestionMark Mark(ExamSnapshot exam, QuestionSnapshot question, Guid? chosenOptionId)
+    public static QuestionMark Mark(ExamSnapshot exam, QuestionSnapshot question, Guid? chosenOptionId) =>
+        Mark(exam, question, chosenOptionId is { } id ? new[] { id } : Array.Empty<Guid>());
+
+    /// <summary>
+    /// Marks one question against the set of options chosen. All or nothing: the answer is right only when the options chosen are
+    /// exactly the question's correct options (for a single-answer question, the one correct option). Choosing some of them, or one
+    /// too many, is wrong, because partly right is still not what the question asks for. Choosing nothing is unanswered.
+    /// </summary>
+    /// <param name="exam">The exam, which holds the marking scheme.</param>
+    /// <param name="question">The question from the question bank, answer key included.</param>
+    /// <param name="chosenOptionIds">The options the candidate chose; empty when they chose none.</param>
+    /// <exception cref="ExamContentUnavailableError">A chosen option is not one of the question's options.</exception>
+    public static QuestionMark Mark(ExamSnapshot exam, QuestionSnapshot question, IReadOnlyCollection<Guid> chosenOptionIds)
     {
-        if (chosenOptionId is not { } optionId)
+        if (chosenOptionIds.Count == 0)
             return new QuestionMark(AnswerVerdict.Unanswered, exam.UnattemptedMarks);
 
-        var option = question.Options.FirstOrDefault(o => o.Id == optionId)
-            ?? throw new ExamContentUnavailableError();
-        return option.IsCorrect
+        var chosen = chosenOptionIds.ToHashSet();
+        var known = question.Options.Select(o => o.Id).ToHashSet();
+        // A saved answer naming an option the question no longer has cannot be marked either way; failing loudly beats guessing.
+        if (!chosen.IsSubsetOf(known))
+            throw new ExamContentUnavailableError();
+
+        var correct = question.Options.Where(o => o.IsCorrect).Select(o => o.Id).ToHashSet();
+        return chosen.SetEquals(correct)
             ? new QuestionMark(AnswerVerdict.Correct, exam.CorrectMarks)
             : new QuestionMark(AnswerVerdict.Wrong, exam.IncorrectMarks);
     }
@@ -49,7 +66,7 @@ public static class AttemptScorer
         IReadOnlyDictionary<Guid, QuestionSnapshot> questions,
         IReadOnlyCollection<AttemptAnswer> answers)
     {
-        var chosen = answers.ToDictionary(a => a.QuestionId, a => a.SelectedOptionId);
+        var chosen = answers.ToDictionary(a => a.QuestionId, a => (IReadOnlyCollection<Guid>)a.SelectedOptionIds);
         decimal score = 0;
         decimal max = 0;
 
@@ -61,7 +78,7 @@ public static class AttemptScorer
                 throw new ExamContentUnavailableError();
 
             max += exam.CorrectMarks;
-            score += Mark(exam, question, chosen.TryGetValue(questionId, out var optionId) ? optionId : null).Marks;
+            score += Mark(exam, question, chosen.TryGetValue(questionId, out var optionIds) ? optionIds : []).Marks;
         }
 
         return new AttemptScore(score, max);

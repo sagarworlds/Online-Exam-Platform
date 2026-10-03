@@ -11,9 +11,10 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 /// <param name="Options">All the options after the edit, in display order; options that already exist are named by id.</param>
 /// <param name="Difficulty">"easy", "medium" or "hard", or null for unsaid. Like the rest it replaces what was there.</param>
 /// <param name="Topics">The question's topics after the edit, or null for none.</param>
+/// <param name="AllowsMultiple">Whether more than one option may be correct after the edit; like the answer key it cannot change once candidates have answered.</param>
 public sealed record EditQuestionCommand(
     Guid QuestionId, string? Text, IReadOnlyList<QuestionOptionEdit>? Options,
-    string? Difficulty = null, IReadOnlyList<string?>? Topics = null);
+    string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false);
 
 /// <summary>Handles <see cref="EditQuestionCommand"/>.</summary>
 public sealed class EditQuestionHandler(
@@ -38,7 +39,7 @@ public sealed class EditQuestionHandler(
 
         // Asked after loading and just before changing, so the lock is decided on the freshest answer there is.
         var usage = await usageReader.ReadOneAsync(question.Id, cancellationToken);
-        question.Revise(cleaned.Html, command.Options, usage.Answered);
+        question.Revise(cleaned.Html, command.Options, usage.Answered, command.AllowsMultiple);
         question.IndexText(cleaned.PlainText);
         // Labels never reach a candidate, so they are not covered by the lock Revise applies to an answered question.
         question.Classify(QuestionDifficultyText.Parse(command.Difficulty), command.Topics);

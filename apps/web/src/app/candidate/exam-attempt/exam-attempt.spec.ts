@@ -202,6 +202,104 @@ describe('ExamAttempt', () => {
     expect(textOf(fixture)).toContain('could not be saved');
   });
 
+  describe('a question with several correct answers', () => {
+    const multi = (selected: string[] = []) =>
+      attempt({
+        sections: [
+          {
+            id: 's1',
+            name: 'Section A',
+            questions: [
+              {
+                id: 'q1',
+                text: 'Which are prime?',
+                options: [
+                  { id: 'o1', text: '2' },
+                  { id: 'o2', text: '3' },
+                  { id: 'o3', text: '4' },
+                ],
+                selectedOptionId: selected[0] ?? null,
+                selectedOptionIds: selected,
+                allowsMultiple: true,
+                markedForReview: false,
+              },
+            ],
+          },
+        ],
+      });
+    const boxes = (fixture: ComponentFixture<ExamAttempt>) =>
+      Array.from(root(fixture).querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+
+    it('offers a checkbox for each option, says to choose all that apply, and shows what was saved', async () => {
+      const fixture = await open(multi(['o1', 'o2']));
+
+      expect(radios(fixture)).toHaveLength(0);
+      expect(boxes(fixture).map((b) => b.checked)).toEqual([true, true, false]);
+      expect(textOf(fixture)).toContain('Choose all the answers that apply.');
+      expect(textOf(fixture)).toContain('1 of 1 answered');
+    });
+
+    it('saves the whole set each time an option is ticked', async () => {
+      const fixture = await open(multi(['o1']));
+
+      boxes(fixture)[1].click();
+      fixture.detectChanges();
+      const save = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q1'));
+
+      expect(save.request.method).toBe('PUT');
+      expect(save.request.body).toEqual({ optionIds: ['o1', 'o2'] });
+      save.flush(null);
+      expect(boxes(fixture).map((b) => b.checked)).toEqual([true, true, false]);
+    });
+
+    it('saves the set without an option that was unticked', async () => {
+      const fixture = await open(multi(['o1', 'o2']));
+
+      boxes(fixture)[0].click();
+      fixture.detectChanges();
+
+      const save = httpMock.expectOne((r) => r.url.endsWith('/answers/q1'));
+      expect(save.request.body).toEqual({ optionIds: ['o2'] });
+      save.flush(null);
+    });
+
+    it('takes the answer back when the last option is unticked, which is the same as clearing it', async () => {
+      const fixture = await open(multi(['o1']));
+
+      boxes(fixture)[0].click();
+      fixture.detectChanges();
+
+      const call = httpMock.expectOne((r) => r.url.endsWith('/answers/q1'));
+      expect(call.request.method).toBe('DELETE');
+      call.flush(null, { status: 204, statusText: 'No Content' });
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('0 of 1 answered');
+    });
+
+    it('puts the previous set back and says so when a save fails', async () => {
+      const fixture = await open(multi(['o1']));
+
+      boxes(fixture)[2].click();
+      fixture.detectChanges();
+      expect(boxes(fixture).map((b) => b.checked)).toEqual([true, false, true]);
+      httpMock.expectOne((r) => r.url.endsWith('/answers/q1')).flush(null, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(boxes(fixture).map((b) => b.checked)).toEqual([true, false, false]);
+      expect(textOf(fixture)).toContain('could not be saved');
+    });
+
+    it('clears every chosen option with Clear response', async () => {
+      const fixture = await open(multi(['o1', 'o2']));
+
+      (buttonLabelled(fixture, 'Clear response') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(boxes(fixture).every((b) => !b.checked)).toBe(true);
+      httpMock.expectOne((r) => r.url.endsWith('/answers/q1') && r.method === 'DELETE').flush(null, { status: 204, statusText: 'No Content' });
+    });
+  });
+
   describe('clearing a response', () => {
     const clearButton = (fixture: ComponentFixture<ExamAttempt>) => buttonLabelled(fixture, 'Clear response') as HTMLButtonElement;
 

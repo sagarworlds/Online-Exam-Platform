@@ -12,8 +12,11 @@
       <span class="visually-hidden">Select this question</span>
     </label>
   </div>
-  @if (question().difficulty || question().topics.length > 0) {
+  @if (question().allowsMultiple || question().difficulty || question().topics.length > 0) {
     <p class="question-card__labels">
+      @if (question().allowsMultiple) {
+        <span class="badge">Several answers</span>
+      }
       @if (question().difficulty; as difficulty) {
         <span class="badge badge--difficulty-{{ difficulty }}">{{ difficulty }}</span>
       }

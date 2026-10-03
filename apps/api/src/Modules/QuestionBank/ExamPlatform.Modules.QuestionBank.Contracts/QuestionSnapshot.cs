@@ -6,12 +6,14 @@ namespace ExamPlatform.Modules.QuestionBank.Contracts;
 /// <param name="Options">The answer options, in display order.</param>
 /// <param name="ChapterId">The chapter the question is filed under, or null when it is not filed.</param>
 /// <param name="BookId">The book that chapter belongs to, or null when the question is not filed.</param>
+/// <param name="AllowsMultiple">Whether more than one option may be correct, so a candidate chooses a set and must choose exactly the correct ones.</param>
 public sealed record QuestionSnapshot(
     Guid Id,
     string Text,
     IReadOnlyList<QuestionOptionSnapshot> Options,
     Guid? ChapterId = null,
-    Guid? BookId = null);
+    Guid? BookId = null,
+    bool AllowsMultiple = false);
 
 /// <summary>One answer option of a <see cref="QuestionSnapshot"/>.</summary>
 /// <param name="Id">The option's id.</param>
