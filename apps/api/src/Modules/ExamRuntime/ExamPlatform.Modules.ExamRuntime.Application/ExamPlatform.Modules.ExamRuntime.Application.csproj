@@ -4,6 +4,7 @@
     <ProjectReference Include="..\ExamPlatform.Modules.ExamRuntime.Domain\ExamPlatform.Modules.ExamRuntime.Domain.csproj" />
     <ProjectReference Include="..\..\ExamAuthoring\ExamPlatform.Modules.ExamAuthoring.Contracts\ExamPlatform.Modules.ExamAuthoring.Contracts.csproj" />
     <ProjectReference Include="..\..\Invite\ExamPlatform.Modules.Invite.Contracts\ExamPlatform.Modules.Invite.Contracts.csproj" />
+    <ProjectReference Include="..\..\Identity\ExamPlatform.Modules.Identity.Contracts\ExamPlatform.Modules.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\QuestionBank\ExamPlatform.Modules.QuestionBank.Contracts\ExamPlatform.Modules.QuestionBank.Contracts.csproj" />
   </ItemGroup>
 </Project>

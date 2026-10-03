@@ -20,6 +20,12 @@ public interface IUserRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<User?> GetByPhoneAsync(string phoneNumber, CancellationToken cancellationToken);
 
+    /// <summary>Lists the e-mail addresses of the active users who hold a permission through any of their roles.</summary>
+    /// <param name="permissionCode">The permission code, such as <c>exam.manage</c>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Each address once, in a stable order; users who are not active or have no e-mail address are left out.</returns>
+    Task<IReadOnlyList<string>> ListActiveEmailsWithPermissionAsync(string permissionCode, CancellationToken cancellationToken);
+
     /// <summary>Begins tracking a new user for insertion on the next unit-of-work commit.</summary>
     /// <param name="user">The user to add.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

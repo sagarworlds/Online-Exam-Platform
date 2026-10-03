@@ -27,6 +27,17 @@ public sealed class UserRepository(IdentityDbContext context) : IUserRepository
         Loaded().FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber, cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> ListActiveEmailsWithPermissionAsync(string permissionCode, CancellationToken cancellationToken) =>
+        await context.Users.AsNoTracking()
+            .Where(u => u.Status == UserStatus.Active
+                && u.Email != null
+                && u.Roles.Any(r => r.Permissions.Any(p => p.Code == permissionCode)))
+            .Select(u => u.Email!)
+            .Distinct()
+            .OrderBy(email => email)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task AddAsync(User user, CancellationToken cancellationToken) =>
         await context.Users.AddAsync(user, cancellationToken);
 }

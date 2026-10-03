@@ -6,6 +6,7 @@ using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
+using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Invite.Contracts;
 using NSubstitute;
 
@@ -106,6 +107,7 @@ public class AttemptRequestHandlerTests
     private readonly IAttemptRequestRepository _requests = Substitute.For<IAttemptRequestRepository>();
     private readonly IExamRuntimeUnitOfWork _unitOfWork = Substitute.For<IExamRuntimeUnitOfWork>();
     private readonly IAttemptRequestNotifier _notifier = Substitute.For<IAttemptRequestNotifier>();
+    private readonly IStaffDirectory _staff = Substitute.For<IStaffDirectory>();
 
     private ExamSnapshot _exam;
     private readonly List<Attempt> _theirs = [];
@@ -125,9 +127,12 @@ public class AttemptRequestHandlerTests
         _grants.When(g => g.Add(Arg.Any<ExtraAttemptGrant>())).Do(_ => _granted++);
         _requests.HasPendingAsync(_exam.Id, _candidate, Arg.Any<CancellationToken>()).Returns(_ => _pending);
         _notifier.SendDecisionAsync(Arg.Any<AttemptRequestDecisionEmail>(), Arg.Any<CancellationToken>()).Returns(true);
+        _notifier.SendNewRequestAsync(Arg.Any<NewAttemptRequestEmail>(), Arg.Any<CancellationToken>()).Returns(true);
+        _staff.GetEmailsWithPermissionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<string>>(["admin1@example.com", "admin2@example.com"]));
     }
 
-    private RequestAttemptHandler Request => new(_catalog, _enrollments, _attempts, _grants, _requests, _unitOfWork, _clock);
+    private RequestAttemptHandler Request => new(_catalog, _enrollments, _attempts, _grants, _requests, _unitOfWork, _staff, _roster, _notifier, _clock);
     private AttemptRequestDtoFactory Dtos => new(_catalog, _roster);
     private ApproveAttemptRequestHandler Approve =>
         new(_requests, new GrantExtraAttemptHandler(_catalog, _roster, _attempts, _grants, _unitOfWork, _clock), Dtos, _notifier);
@@ -216,6 +221,70 @@ public class AttemptRequestHandlerTests
         Made();
 
         await Assert.ThrowsAsync<AttemptOverLimitError>(() => Request.HandleAsync(_exam.Id, _candidate, null, CancellationToken.None));
+    }
+
+    // ---- telling the people who can answer --------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Request_TellsEveryoneWhoCanManageExams_WhoAskedAndWhy()
+    {
+        Made();
+
+        await Request.HandleAsync(_exam.Id, _candidate, "Power cut", CancellationToken.None);
+
+        await _staff.Received(1).GetEmailsWithPermissionAsync("exam.manage", Arg.Any<CancellationToken>());
+        foreach (var manager in new[] { "admin1@example.com", "admin2@example.com" })
+        {
+            await _notifier.Received(1).SendNewRequestAsync(
+                Arg.Is<NewAttemptRequestEmail>(e => e.To == manager && e.ExamName == "Physics" && e.CandidateEmail == "student@example.com" && e.Message == "Power cut"),
+                Arg.Any<CancellationToken>());
+        }
+    }
+
+    [Fact]
+    public async Task Request_WithNoOneToTell_StillRecordsTheRequest()
+    {
+        Made();
+        _staff.GetEmailsWithPermissionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<string>>([]));
+
+        var dto = await Request.HandleAsync(_exam.Id, _candidate, null, CancellationToken.None);
+
+        Assert.Equal(AttemptRequestStatus.Pending, dto.Status);
+        _requests.Received(1).Add(Arg.Any<AttemptRequest>());
+        await _notifier.DidNotReceive().SendNewRequestAsync(Arg.Any<NewAttemptRequestEmail>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Request_WhenTheEmailsCannotBeSent_IsStillRecordedAndAnswered()
+    {
+        Made();
+        _notifier.SendNewRequestAsync(Arg.Any<NewAttemptRequestEmail>(), Arg.Any<CancellationToken>()).Returns(false);
+
+        var dto = await Request.HandleAsync(_exam.Id, _candidate, null, CancellationToken.None);
+
+        Assert.Equal(AttemptRequestStatus.Pending, dto.Status);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Request_ThatIsRefused_TellsNobody()
+    {
+        // Still has the attempt they hold, so there is nothing to ask for yet.
+        await Assert.ThrowsAsync<AttemptNotNeededError>(() => Request.HandleAsync(_exam.Id, _candidate, null, CancellationToken.None));
+
+        await _staff.DidNotReceive().GetEmailsWithPermissionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _notifier.DidNotReceive().SendNewRequestAsync(Arg.Any<NewAttemptRequestEmail>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Request_ByACandidateWhoCannotBeFoundOnTheRoster_StillTellsThemAsAnUnnamedCandidate()
+    {
+        Made();
+        _roster.GetEnrolledCandidatesAsync(_exam.Id, Arg.Any<CancellationToken>()).Returns([]);
+
+        await Request.HandleAsync(_exam.Id, _candidate, null, CancellationToken.None);
+
+        await _notifier.Received(2).SendNewRequestAsync(Arg.Is<NewAttemptRequestEmail>(e => e.CandidateEmail == null), Arg.Any<CancellationToken>());
     }
 
     // ---- answering -------------------------------------------------------------------------------------------------

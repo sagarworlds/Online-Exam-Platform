@@ -58,4 +58,40 @@ public sealed class SmtpAttemptRequestNotifierTests
 
         Assert.Equal(delivered, await Notifier.SendDecisionAsync(Approved, CancellationToken.None));
     }
+
+    [Fact]
+    public async Task ANewRequest_GoesToTheStaffMember_NamingTheCandidateTheExamAndTheReason()
+    {
+        var sent = await Notifier.SendNewRequestAsync(
+            new NewAttemptRequestEmail("admin@example.com", "Maths Final", "student@example.com", "Power cut"), CancellationToken.None);
+
+        Assert.True(sent);
+        var mail = Assert.Single(_sender.Sent);
+        Assert.Equal("admin@example.com", mail.To);
+        Assert.Equal("Request for another attempt at Maths Final", mail.Subject);
+        Assert.Contains("student@example.com", mail.Body);
+        Assert.Contains("Maths Final", mail.Body);
+        Assert.Contains("Power cut", mail.Body);
+        Assert.Contains("Attempt requests", mail.Body);
+    }
+
+    [Fact]
+    public async Task ANewRequestWithNoReasonOrKnownCandidate_SaysSoRatherThanLeavingAGap()
+    {
+        await Notifier.SendNewRequestAsync(new NewAttemptRequestEmail("admin@example.com", "Maths Final", null, null), CancellationToken.None);
+
+        var mail = Assert.Single(_sender.Sent);
+        Assert.StartsWith("A candidate has asked", mail.Body);
+        Assert.Contains("They gave no reason.", mail.Body);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ANewRequestReportsWhatTheMailSenderReported(bool delivered)
+    {
+        _sender.Delivers = delivered;
+
+        Assert.Equal(delivered, await Notifier.SendNewRequestAsync(new NewAttemptRequestEmail("admin@example.com", "Maths Final", null, null), CancellationToken.None));
+    }
 }
