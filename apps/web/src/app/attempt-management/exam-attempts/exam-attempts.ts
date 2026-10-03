@@ -3,7 +3,8 @@ import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AttemptAdminApiService } from '../attempt-admin-api.service';
-import { ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
+import { AttemptPaperDto, ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
+import { PlainTextPipe } from '../../shared/rich-text/plain-text.pipe';
 
 /** The longest reason the API accepts. */
 const MAX_REASON_LENGTH = 500;
@@ -15,7 +16,7 @@ const MAX_REASON_LENGTH = 500;
  */
 @Component({
   selector: 'app-exam-attempts',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, PlainTextPipe],
   templateUrl: './exam-attempts.html',
 })
 export class ExamAttempts {
@@ -33,6 +34,10 @@ export class ExamAttempts {
   protected readonly grantingFor = signal<string | null>(null);
   protected readonly reason = signal('');
 
+  /** The attempt whose paper is open, and what it holds once loaded; one at a time keeps the page short. */
+  protected readonly paperFor = signal<string | null>(null);
+  protected readonly paper = signal<AttemptPaperDto | null>(null);
+
   constructor() {
     this.api.getExamAttempts(this.examId).subscribe({
       next: (data) => {
@@ -42,6 +47,30 @@ export class ExamAttempts {
       error: (error: unknown) => {
         this.loading.set(false);
         this.errorMessage.set(extractErrorMessage(error));
+      },
+    });
+  }
+
+  protected togglePaper(attemptId: string): void {
+    if (this.paperFor() === attemptId) {
+      this.paperFor.set(null);
+      this.paper.set(null);
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.paperFor.set(attemptId);
+    this.paper.set(null);
+    this.api.getAttemptPaper(this.examId, attemptId).subscribe({
+      next: (paper) => {
+        // A reply for a paper staff has since closed, or replaced by another attempt's, is ignored.
+        if (this.paperFor() === attemptId) {
+          this.paper.set(paper);
+        }
+      },
+      error: (error: unknown) => {
+        this.paperFor.set(null);
+        this.errorMessage.set(extractErrorMessage(error, 'The paper could not be loaded. Please try again.'));
       },
     });
   }

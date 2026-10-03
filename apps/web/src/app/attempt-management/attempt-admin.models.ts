@@ -27,6 +27,27 @@ export interface ExamAttemptsDto {
   candidates: ExamCandidateDto[];
 }
 
+/** One question on a candidate's paper; `drawn` means a draw rule picked it for this candidate. `text` is sanitized HTML. */
+export interface AttemptPaperQuestionDto {
+  id: string;
+  text: string | null;
+  drawn: boolean;
+}
+
+export interface AttemptPaperSectionDto {
+  id: string;
+  name: string;
+  questions: AttemptPaperQuestionDto[];
+}
+
+/** The questions one attempt consisted of. */
+export interface AttemptPaperDto {
+  attemptId: string;
+  number: number;
+  hasDrawnQuestions: boolean;
+  sections: AttemptPaperSectionDto[];
+}
+
 /** The statuses the request queue can be filtered to, as the API spells them in the query. */
 export type AttemptRequestFilterStatus = 'pending' | 'approved' | 'declined';
 
