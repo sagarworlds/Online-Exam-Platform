@@ -106,6 +106,14 @@
       }
     </div>
 
+    <app-exam-attempt-limit
+      [attempts]="e.config.maxAttempts"
+      [editable]="canChangeRelease()"
+      [busy]="busy()"
+      [releaseMode]="e.config.resultReleaseMode"
+      (changed)="saveAttemptLimit($event)"
+    />
+
     <h2>Sections and questions</h2>
     @for (section of e.sections ?? []; track section.id) {
       <app-exam-section-card

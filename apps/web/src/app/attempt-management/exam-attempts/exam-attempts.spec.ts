@@ -30,7 +30,13 @@ describe('ExamAttempts', () => {
     ...overrides,
   });
 
-  const exam = (candidates: ExamCandidateDto[], windowClosed = false): ExamAttemptsDto => ({ examId: 'exam-1', examName: 'Maths Final', windowClosed, candidates });
+  const exam = (candidates: ExamCandidateDto[], windowClosed = false, attemptsPerCandidate = 1): ExamAttemptsDto => ({
+    examId: 'exam-1',
+    examName: 'Maths Final',
+    windowClosed,
+    attemptsPerCandidate,
+    candidates,
+  });
 
   const root = (fixture: ComponentFixture<ExamAttempts>) => fixture.nativeElement as HTMLElement;
   // As a person reads it: runs of whitespace in the template collapse to one space.
@@ -97,6 +103,29 @@ describe('ExamAttempts', () => {
     const [button] = buttonLabelled(fixture, 'Give another attempt');
     expect(button.disabled).toBe(true);
     expect(textOf(fixture)).toContain('Still has an attempt left to use.');
+  });
+
+  it("says how many attempts the exam gives every candidate, instead of always one", () => {
+    expect(textOf(open(exam([candidate()], false, 1)))).toContain('Every candidate has one attempt;');
+    httpMock.verify();
+    TestBed.resetTestingModule();
+  });
+
+  it('names the exam\'s limit when it is more than one', () => {
+    const fixture = open(exam([candidate({ attemptsAllowed: 3, attemptsUsed: 1 })], false, 3));
+
+    expect(textOf(fixture)).toContain('Every candidate has 3 attempts;');
+    expect(textOf(fixture)).toContain('1 of 3 attempts used');
+  });
+
+  it('points to the exam\'s limit, not another grant, for a candidate over a lowered limit', () => {
+    const fixture = open(
+      exam([candidate({ attemptsAllowed: 1, attemptsUsed: 2, canGrant: false, attempts: [attempt(1, 'Submitted', 4), attempt(2, 'Submitted', 5)] })], false, 1),
+    );
+
+    expect(buttonLabelled(fixture, 'Give another attempt')[0].disabled).toBe(true);
+    expect(textOf(fixture)).toContain('Has made more attempts than the exam now allows');
+    expect(textOf(fixture)).toContain("Raise the exam's attempts allowed");
   });
 
   it('turns it off for everyone once the exam can no longer be started, and says so', () => {

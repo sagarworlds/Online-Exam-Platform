@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
+  AttemptLimitRequest,
   CreateExamRequest,
   EditSectionRequest,
   ExamDto,
@@ -45,6 +46,11 @@ export class ExamApiService {
   /** Chooses when candidates may see which of their answers were right. Allowed after publishing too. */
   setResultRelease(examId: string, request: ResultReleaseRequest): Observable<ExamDto> {
     return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/result-release`, request);
+  }
+
+  /** Sets how many attempts every enrolled candidate has. Allowed after publishing too: lowering it never takes an attempt back. */
+  setAttemptLimit(examId: string, request: AttemptLimitRequest): Observable<ExamDto> {
+    return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/attempt-limit`, request);
   }
 
   /** Shows candidates which answers were right, for an exam set to manual release. Safe to repeat. */

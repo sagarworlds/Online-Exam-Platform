@@ -15,8 +15,9 @@
       <h1>Candidates and attempts</h1>
     </div>
     <p class="hint">
-      {{ d.examName }}. Everyone has one attempt. If a candidate asks for another (a power cut, a dropped connection), you can give
-      them one once they have used the attempt they have. Each attempt is scored and reviewed on its own.
+      {{ d.examName }}. Every candidate has {{ d.attemptsPerCandidate === 1 ? 'one attempt' : d.attemptsPerCandidate + ' attempts' }}; you can
+      change that on the exam's page. If a candidate asks for another (a power cut, a dropped connection), you can give them one
+      once they have used the attempts they have. Each attempt is scored and reviewed on its own.
     </p>
     @if (d.windowClosed) {
       <p class="hint">The exam can no longer be started, so another attempt cannot be given now.</p>
