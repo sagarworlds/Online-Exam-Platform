@@ -28,7 +28,7 @@ public sealed class QuestionTagsFlowTests(ApiFactory factory) : IClassFixture<Ap
     public async Task ACreatedQuestion_ComesBackWithItsLabelsCleaned()
     {
         using var admin = await factory.AdminClientAsync();
-        var topic = $"Fractions-{Guid.NewGuid():N}";
+        var topic = $"Fractions-{Guid.NewGuid().ToString("N")[..8]}";
 
         var id = await CreateAsync(admin, "Half of ten?", "Hard", $"  {topic} ", topic.ToUpperInvariant());
 
@@ -53,7 +53,7 @@ public sealed class QuestionTagsFlowTests(ApiFactory factory) : IClassFixture<Ap
     public async Task TheListCanBeNarrowedByDifficultyAndByTopic()
     {
         using var admin = await factory.AdminClientAsync();
-        var topic = $"t{Guid.NewGuid():N}";
+        var topic = $"t{Guid.NewGuid().ToString("N")[..8]}";
         var easy = await CreateAsync(admin, "Easy one", "easy", topic);
         var hard = await CreateAsync(admin, "Hard one", "hard", topic, "other");
         var elsewhere = await CreateAsync(admin, "Elsewhere", "hard", "other");
@@ -74,7 +74,7 @@ public sealed class QuestionTagsFlowTests(ApiFactory factory) : IClassFixture<Ap
     public async Task TheTopicsInUse_AreListedOnceEach()
     {
         using var admin = await factory.AdminClientAsync();
-        var topic = $"listed-{Guid.NewGuid():N}";
+        var topic = $"listed-{Guid.NewGuid().ToString("N")[..8]}";
         await CreateAsync(admin, "One", null, topic);
         await CreateAsync(admin, "Two", null, topic);
 
