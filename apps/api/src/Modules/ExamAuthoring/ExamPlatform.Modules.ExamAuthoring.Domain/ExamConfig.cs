@@ -22,5 +22,6 @@ public record ExamConfig(
     /// </summary>
     public const int MostAttempts = 10;
 
-    public ExamConfig() : this(null, true, true, false, false, true, FewestAttempts, 0, ResultReleaseMode.Instant, null, new MarkingScheme()) { }
+    /// <summary>A new exam shuffles nothing on the first attempt: the author turns shuffling on, or later attempts shuffle anyway.</summary>
+    public ExamConfig() : this(null, false, false, false, false, true, FewestAttempts, 0, ResultReleaseMode.Instant, null, new MarkingScheme()) { }
 }
