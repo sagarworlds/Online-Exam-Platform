@@ -18,6 +18,21 @@ public sealed class SmtpAttemptRequestNotifier(IMailSender mailSender) : IAttemp
                 BodyFor(email)),
             cancellationToken);
 
+    /// <inheritdoc />
+    public Task<bool> SendNewRequestAsync(NewAttemptRequestEmail email, CancellationToken cancellationToken)
+    {
+        var who = string.IsNullOrWhiteSpace(email.CandidateEmail) ? "A candidate" : email.CandidateEmail;
+        var reason = string.IsNullOrWhiteSpace(email.Message) ? "They gave no reason." : $"What they said: {email.Message}";
+
+        return mailSender.SendAsync(
+            new OutgoingMail(
+                email.To,
+                $"Request for another attempt at {email.ExamName}",
+                $"{who} has asked for another attempt at \"{email.ExamName}\".\r\n\r\n{reason}\r\n\r\n" +
+                "Sign in and open Attempt requests to give it or decline it."),
+            cancellationToken);
+    }
+
     // Plain text, and no link: the candidate signs in as usual and finds the answer on "My exams".
     private static string BodyFor(AttemptRequestDecisionEmail email)
     {

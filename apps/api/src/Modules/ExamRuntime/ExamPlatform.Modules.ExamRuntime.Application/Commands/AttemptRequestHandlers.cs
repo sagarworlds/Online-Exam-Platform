@@ -3,6 +3,7 @@ using ExamPlatform.Modules.ExamRuntime.Application.Dtos;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
+using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Invite.Contracts;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Domain.Exceptions;
@@ -17,9 +18,15 @@ public sealed class RequestAttemptHandler(
     IExtraAttemptGrantRepository grants,
     IAttemptRequestRepository requests,
     IExamRuntimeUnitOfWork unitOfWork,
+    IStaffDirectory staff,
+    IExamRoster roster,
+    IAttemptRequestNotifier notifier,
     Clock clock)
 {
-    /// <summary>Records the request, to be decided by an administrator.</summary>
+    /// <summary>The permission whose holders are told of a new request: the one that lets them answer it.</summary>
+    public const string RecipientPermission = "exam.manage";
+
+    /// <summary>Records the request, to be decided by an administrator, and tells everyone who can answer it.</summary>
     /// <param name="examId">The exam.</param>
     /// <param name="candidateId">The signed-in candidate, taken from their token.</param>
     /// <param name="message">Why they want another attempt; optional, at most 500 characters.</param>
@@ -61,7 +68,25 @@ public sealed class RequestAttemptHandler(
         // The store allows one pending request per candidate per exam, so two taps at once cannot queue two.
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
+        await TellManagersAsync(exam.Name, examId, candidateId, request.Message, cancellationToken);
+
         return AttemptRequestDtoFactory.ForCandidate(request);
+    }
+
+    // After the request is saved, and never able to undo it: a mail outage, or nobody holding the permission, leaves the request waiting
+    // in the queue exactly as before. The mail sender logs a message it could not send; nothing here reports it to the candidate, who
+    // did what was asked and cannot act on a staff-side delivery problem.
+    private async Task TellManagersAsync(string examName, Guid examId, Guid candidateId, string? message, CancellationToken cancellationToken)
+    {
+        var managers = await staff.GetEmailsWithPermissionAsync(RecipientPermission, cancellationToken);
+        if (managers.Count == 0)
+            return;
+
+        var candidateEmail = (await roster.GetEnrolledCandidatesAsync(examId, cancellationToken))
+            .FirstOrDefault(c => c.UserId == candidateId)?.Email;
+
+        foreach (var manager in managers)
+            await notifier.SendNewRequestAsync(new NewAttemptRequestEmail(manager, examName, candidateEmail, message), cancellationToken);
     }
 }
 

@@ -4,6 +4,7 @@ using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Application.Queries;
 using ExamPlatform.Modules.Identity.Application.Sessions;
+using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Identity.Endpoints.Authentication;
 using ExamPlatform.Modules.Identity.Endpoints.Authorization;
 using ExamPlatform.Modules.Identity.Endpoints.OtpDelivery;
@@ -43,6 +44,7 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<IOtpChallengeRepository, OtpChallengeRepository>();
         services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
         services.AddScoped<ISessionLookup, SessionLookup>();
+        services.AddScoped<IStaffDirectory, StaffDirectory>();
         services.AddScoped<IIdentityUnitOfWork, IdentityUnitOfWork>();
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
