@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
   MarkingSchemeRequest,
+  ShuffleRequest,
   AttemptLimitRequest,
   CreateExamRequest,
   EditSectionRequest,
@@ -52,6 +53,11 @@ export class ExamApiService {
   /** Sets the marks for correct, incorrect and unattempted questions. Draft exams only: later scoring must not change. */
   setMarkingScheme(examId: string, request: MarkingSchemeRequest): Observable<ExamDto> {
     return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/marking-scheme`, request);
+  }
+
+  /** Chooses whether questions and options are shown shuffled. Draft exams only: the order an attempt shows depends on it. */
+  setShuffle(examId: string, request: ShuffleRequest): Observable<ExamDto> {
+    return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/shuffle`, request);
   }
 
   /** Sets how many attempts every enrolled candidate has. Allowed after publishing too: lowering it never takes an attempt back. */

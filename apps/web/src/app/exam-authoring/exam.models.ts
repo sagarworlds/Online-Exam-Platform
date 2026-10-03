@@ -34,6 +34,12 @@ export interface ResultReleaseRequest {
   releaseTime?: string | null;
 }
 
+/** The body of PUT /v1/exams/{id}/shuffle; draft exams only. Both choices are always sent. */
+export interface ShuffleRequest {
+  shuffleQuestions: boolean;
+  shuffleOptions: boolean;
+}
+
 /** The body of PUT /v1/exams/{id}/marking-scheme; draft exams only. A correct answer earns more than 0, the others 0 or less. */
 export type MarkingSchemeRequest = MarkingSchemeDto;
 

@@ -1,0 +1,29 @@
+<div class="card">
+  <h2>Shuffling</h2>
+  @if (editable()) {
+    <form (submit)="$event.preventDefault(); save()" aria-label="Shuffling">
+      <label class="inline-check">
+        <input type="checkbox" [checked]="questionsTicked()" (change)="toggleQuestions($any($event.target).checked)" />
+        Shuffle the questions within each section
+      </label>
+      <label class="inline-check">
+        <input type="checkbox" [checked]="optionsTicked()" (change)="toggleOptions($any($event.target).checked)" />
+        Shuffle the options of each question
+      </label>
+      <p class="hint">
+        Each candidate sees their own order, and the same order every time they reload. Without this, only a candidate's second and
+        later attempts are shuffled. Sections keep their order.
+      </p>
+      @if (dirty()) {
+        <div class="actions">
+          <button type="submit" class="primary" [disabled]="busy()">Save</button>
+          <button type="button" (click)="discard()" [disabled]="busy()">Cancel</button>
+        </div>
+      }
+    </form>
+  } @else {
+    <p>Questions: {{ shuffleQuestions() ? 'shuffled' : 'in the written order' }}</p>
+    <p>Options: {{ shuffleOptions() ? 'shuffled' : 'in the written order' }}</p>
+    <p class="hint">This is fixed once an exam is published, so every candidate's order stays the same when they reload or review.</p>
+  }
+</div>

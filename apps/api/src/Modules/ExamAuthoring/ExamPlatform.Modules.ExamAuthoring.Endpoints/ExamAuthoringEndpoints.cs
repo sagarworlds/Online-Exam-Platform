@@ -82,6 +82,16 @@ public static class ExamAuthoringEndpoints
             .WithName("SetExamMarkingScheme")
             .WithDescription("Set the marks for a correct, an incorrect and an unattempted question on a draft exam");
 
+        exams.MapPut("/{examId:guid}/shuffle", SetShuffle)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("SetExamShuffle")
+            .WithDescription("Choose whether the exam's questions and options are shown shuffled; draft exams only");
+
         exams.MapPut("/{examId:guid}/attempt-limit", SetAttemptLimit)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status400BadRequest)
@@ -209,6 +219,10 @@ public static class ExamAuthoringEndpoints
         Guid examId, MarkingSchemeRequest request, SetMarkingSchemeHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetMarkingSchemeCommand(examId, request.CorrectMarks, request.IncorrectMarks, request.UnattemptedMarks), ct));
 
+    private static async Task<IResult> SetShuffle(
+        Guid examId, ShuffleRequest request, SetShuffleHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new SetShuffleCommand(examId, request.ShuffleQuestions, request.ShuffleOptions), ct));
+
     private static async Task<IResult> SetAttemptLimit(
         Guid examId, AttemptLimitRequest request, SetMaxAttemptsHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetMaxAttemptsCommand(examId, request.MaxAttempts), ct));
@@ -303,6 +317,11 @@ public record ResultReleaseRequest(ResultReleaseMode? Mode, DateTime? ReleaseTim
 /// <param name="IncorrectMarks">Marks for an incorrect answer; 0 or negative.</param>
 /// <param name="UnattemptedMarks">Marks for an unanswered question; 0 or negative.</param>
 public record MarkingSchemeRequest(decimal? CorrectMarks, decimal? IncorrectMarks, decimal? UnattemptedMarks);
+
+/// <summary>Request body for choosing whether an exam's questions and options are shuffled.</summary>
+/// <param name="ShuffleQuestions">Whether the questions within each section are shuffled.</param>
+/// <param name="ShuffleOptions">Whether the options of each question are shuffled.</param>
+public record ShuffleRequest(bool? ShuffleQuestions, bool? ShuffleOptions);
 
 /// <summary>Request body for setting how many attempts every enrolled candidate has at an exam.</summary>
 /// <param name="MaxAttempts">The attempts each candidate has, from 1 to 10; administrators can still give one candidate more.</param>

@@ -106,6 +106,14 @@
       }
     </div>
 
+    <app-exam-shuffle
+      [shuffleQuestions]="e.config.shuffleQuestions"
+      [shuffleOptions]="e.config.shuffleOptions"
+      [editable]="isDraft()"
+      [busy]="busy()"
+      (changed)="saveShuffle($event)"
+    />
+
     <app-exam-marking-scheme
       [scheme]="e.config.markingScheme"
       [editable]="isDraft()"

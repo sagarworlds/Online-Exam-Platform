@@ -53,6 +53,7 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
         services.AddScoped<SetResultReleaseHandler>();
         services.AddScoped<SetMarkingSchemeHandler>();
         services.AddScoped<SetMaxAttemptsHandler>();
+        services.AddScoped<SetShuffleHandler>();
         services.AddScoped<ReleaseResultsHandler>();
     }
 

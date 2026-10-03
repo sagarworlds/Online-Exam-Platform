@@ -21,6 +21,8 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// <param name="MaxAttempts">
 /// How many attempts every enrolled candidate has before an administrator gives anyone an extra one; 1 unless the author chose more.
 /// </param>
+/// <param name="ShuffleQuestions">Whether the author asked for the questions within each section to be shuffled on every attempt, the first included.</param>
+/// <param name="ShuffleOptions">Whether the author asked for the options of each question to be shuffled on every attempt, the first included.</param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -37,7 +39,9 @@ public sealed record ExamSnapshot(
     ExamResultReleaseMode ResultRelease = ExamResultReleaseMode.Instant,
     DateTime? ResultReleaseTimeUtc = null,
     bool SectionLockEnabled = false,
-    int MaxAttempts = 1);
+    int MaxAttempts = 1,
+    bool ShuffleQuestions = false,
+    bool ShuffleOptions = false);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>

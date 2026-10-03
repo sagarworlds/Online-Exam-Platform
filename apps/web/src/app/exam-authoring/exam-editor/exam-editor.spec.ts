@@ -530,6 +530,68 @@ describe('ExamEditor', () => {
     });
   });
 
+  describe('shuffling', () => {
+    const isShuffle = (r: { method: string; url: string }) => r.method === 'PUT' && r.url.endsWith('/v1/exams/exam-1/shuffle');
+    const card = (root: HTMLElement) => root.querySelector('app-exam-shuffle') as HTMLElement;
+    const boxes = (root: HTMLElement) => Array.from(card(root).querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+    const withShuffle = (shuffleQuestions: boolean, shuffleOptions: boolean) =>
+      examBody({
+        config: {
+          totalTimeSeconds: null,
+          shuffleQuestions,
+          shuffleOptions,
+          maxAttempts: 1,
+          resultReleaseMode: 'Instant',
+          resultReleaseTime: null,
+          markingScheme: { correctMarks: 1, incorrectMarks: 0, unattemptedMarks: 0 },
+        },
+      });
+
+    it('shows the two choices of a draft, and no Save until one is changed', () => {
+      const { root } = open(withShuffle(true, false));
+
+      expect(boxes(root).map((b) => b.checked)).toEqual([true, false]);
+      expect(button(card(root), 'Save')).toBeUndefined();
+    });
+
+    it('sends both choices, then shows what the server stored', () => {
+      const { fixture, root } = open(withShuffle(false, false));
+
+      boxes(root)[1].click();
+      fixture.detectChanges();
+      button(card(root), 'Save').click();
+
+      const put = httpMock.expectOne(isShuffle);
+      expect(put.request.body).toEqual({ shuffleQuestions: false, shuffleOptions: true });
+      const stored = withShuffle(false, true);
+      put.flush(stored);
+      httpMock.expectOne(isExam).flush(stored);
+      fixture.detectChanges();
+
+      expect(boxes(root).map((b) => b.checked)).toEqual([false, true]);
+      expect(button(card(root), 'Save')).toBeUndefined();
+    });
+
+    it('drops an unsaved change on Cancel', () => {
+      const { fixture, root } = open(withShuffle(false, false));
+
+      boxes(root)[0].click();
+      fixture.detectChanges();
+      button(card(root), 'Cancel').click();
+      fixture.detectChanges();
+
+      expect(boxes(root).map((b) => b.checked)).toEqual([false, false]);
+    });
+
+    it.each(['Published', 'Archived'])('cannot be changed once the exam is %s', (status) => {
+      const { root } = open({ ...withShuffle(true, false), status });
+
+      expect(boxes(root)).toHaveLength(0);
+      expect(card(root).textContent).toContain('Questions: shuffled');
+      expect(card(root).textContent).toContain('fixed once an exam is published');
+    });
+  });
+
   describe('attempts allowed', () => {
     const isLimit = (r: { method: string; url: string }) => r.method === 'PUT' && r.url.endsWith('/v1/exams/exam-1/attempt-limit');
     const withLimit = (maxAttempts: number, release = 'Instant') =>

@@ -341,6 +341,26 @@ public class Exam : AggregateRoot
     }
 
     /// <summary>
+    /// Chooses whether candidates see this exam's questions and options in a shuffled order. Only a draft may change it: the
+    /// order an attempt shows is worked out from these settings every time it is read, so changing them later would move the
+    /// questions under candidates already sitting, or already reviewing, the exam.
+    /// </summary>
+    /// <param name="shuffleQuestions">Whether the questions within each section are shuffled, on every attempt.</param>
+    /// <param name="shuffleOptions">Whether the options of each question are shuffled, on every attempt.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    public void SetShuffle(bool shuffleQuestions, bool shuffleOptions, DateTime nowUtc)
+    {
+        EnsureNotArchived();
+        EnsureDraft();
+
+        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
+        Config = Config with { ShuffleQuestions = shuffleQuestions, ShuffleOptions = shuffleOptions, MarkingScheme = Config.MarkingScheme with { } };
+        UpdatedAt = nowUtc;
+    }
+
+    /// <summary>
     /// Sets how many attempts every enrolled candidate has before an administrator gives them any extra. Like the answer
     /// review this may change after publishing, because it changes nothing that is asked or scored: lowering it never takes
     /// back an attempt already started, it only stops further ones, and raising it opens more at once.

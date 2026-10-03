@@ -293,6 +293,30 @@ public sealed class SetMarkingSchemeHandler(IExamRepository repository, IExamAut
     }
 }
 
+/// <summary>Handles <see cref="SetShuffleCommand"/>.</summary>
+public sealed class SetShuffleHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
+{
+    /// <summary>Sets whether the exam's questions and options are shuffled. Draft exams only.</summary>
+    /// <param name="command">The new settings.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="InvalidExamConfigError">One of the two settings was not sent.</exception>
+    public async Task<ExamDto> HandleAsync(SetShuffleCommand command, CancellationToken cancellationToken)
+    {
+        // A body missing a flag binds it to null; that is a 400 about the missing value, not a silent "off".
+        if (command is not { ShuffleQuestions: { } questions, ShuffleOptions: { } options })
+            throw new InvalidExamConfigError("Send whether to shuffle the questions and whether to shuffle the options.");
+
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.SetShuffle(questions, options, clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await dtos.ToDtoAsync(exam, cancellationToken);
+    }
+}
+
 /// <summary>Handles <see cref="SetMaxAttemptsCommand"/>.</summary>
 public sealed class SetMaxAttemptsHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
 {

@@ -66,6 +66,12 @@ public sealed record SetResultReleaseCommand(Guid ExamId, ResultReleaseMode? Mod
 /// <param name="UnattemptedMarks">Marks for an unanswered question (zero or negative), or null if not sent.</param>
 public sealed record SetMarkingSchemeCommand(Guid ExamId, decimal? CorrectMarks, decimal? IncorrectMarks, decimal? UnattemptedMarks);
 
+/// <summary>Chooses whether an exam's questions and options are shown shuffled.</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="ShuffleQuestions">Whether questions are shuffled within each section, or null if the caller did not send it.</param>
+/// <param name="ShuffleOptions">Whether the options of each question are shuffled, or null if the caller did not send it.</param>
+public sealed record SetShuffleCommand(Guid ExamId, bool? ShuffleQuestions, bool? ShuffleOptions);
+
 /// <summary>Sets how many attempts every enrolled candidate has at an exam.</summary>
 /// <param name="ExamId">The exam.</param>
 /// <param name="MaxAttempts">The attempts each candidate has, or null if the caller did not send it.</param>
