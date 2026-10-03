@@ -321,6 +321,26 @@ public class Exam : AggregateRoot
     }
 
     /// <summary>
+    /// Replaces the marking scheme. Only a draft may change it: once candidates can sit the exam, new marks would make
+    /// attempts scored earlier disagree with attempts scored later.
+    /// </summary>
+    /// <param name="scheme">The marks for correct, incorrect and unattempted questions.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="InvalidExamConfigError">The scheme is out of range.</exception>
+    public void SetMarkingScheme(MarkingScheme scheme, DateTime nowUtc)
+    {
+        EnsureNotArchived();
+        EnsureDraft();
+        scheme.EnsureValid();
+
+        // A fresh copy, for the reason given in Schedule.
+        Config = Config with { MarkingScheme = scheme with { } };
+        UpdatedAt = nowUtc;
+    }
+
+    /// <summary>
     /// Releases the answers of a manual-release exam now: the release time is set to the current instant, so the one rule
     /// "released when the mode is Instant or the release time has arrived" covers every mode. Calling it again keeps the first time.
     /// </summary>

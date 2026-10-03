@@ -34,6 +34,9 @@ export interface ResultReleaseRequest {
   releaseTime?: string | null;
 }
 
+/** The body of PUT /v1/exams/{id}/marking-scheme; draft exams only. A correct answer earns more than 0, the others 0 or less. */
+export type MarkingSchemeRequest = MarkingSchemeDto;
+
 /** A question as it sits in an exam; `text` comes from the question bank and is null if the bank lost it. */
 export interface ExamQuestionDto {
   id: string;

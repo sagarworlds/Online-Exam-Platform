@@ -9,7 +9,8 @@ import { QuestionApiService } from '../../question-bank/question-api.service';
 import { QuestionDto } from '../../question-bank/question.models';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { ExamApiService } from '../exam-api.service';
-import { ExamDto, ExamScopeDto, UpdateExamDetailsRequest } from '../exam.models';
+import { ExamDto, ExamScopeDto, MarkingSchemeDto, UpdateExamDetailsRequest } from '../exam.models';
+import { ExamMarkingScheme } from '../exam-marking-scheme/exam-marking-scheme';
 import { ExamDetailsForm } from '../exam-details-form/exam-details-form';
 import { NO_SCOPE, ScopeSelection, describeScope, isScopeComplete, selectionOf, toScopeRequest } from '../exam-scope-fields/exam-scope';
 import { ExamScopeFields } from '../exam-scope-fields/exam-scope-fields';
@@ -36,7 +37,7 @@ function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): bool
  */
 @Component({
   selector: 'app-exam-editor',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamSectionCard],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamSectionCard],
   templateUrl: './exam-editor.html',
 })
 export class ExamEditor {
@@ -159,6 +160,13 @@ export class ExamEditor {
     }
 
     this.run(this.examApi.setResultRelease(this.examId, toReleaseRequest(this.releaseDraft())), () => this.changingRelease.set(false));
+  }
+
+  /** Sets the marks per answer. Draft exams only, so every attempt at a published exam is scored the same way. */
+  protected saveMarkingScheme(scheme: MarkingSchemeDto): void {
+    if (!this.busy() && this.isDraft()) {
+      this.run(this.examApi.setMarkingScheme(this.examId, scheme));
+    }
   }
 
   protected releaseNow(): void {

@@ -475,6 +475,59 @@ describe('ExamEditor', () => {
       expect(root.textContent).not.toContain('Set schedule');
     });
   });
+  describe('marking scheme', () => {
+    const isMarks = (r: { method: string; url: string }) => r.method === 'PUT' && r.url.endsWith('/v1/exams/exam-1/marking-scheme');
+    const card = (root: HTMLElement) => root.querySelector('app-exam-marking-scheme') as HTMLElement;
+    const edit = (root: HTMLElement) => card(root).querySelector('button[aria-label="Edit marking scheme"]') as HTMLButtonElement;
+    const withMarks = (correctMarks: number, incorrectMarks: number) =>
+      examBody({
+        config: {
+          totalTimeSeconds: null,
+          maxAttempts: 1,
+          resultReleaseMode: 'Instant',
+          resultReleaseTime: null,
+          markingScheme: { correctMarks, incorrectMarks, unattemptedMarks: 0 },
+        },
+      });
+
+    it('shows the marks of a draft and lets the author edit them', () => {
+      const { root } = open(withMarks(4, -1));
+
+      expect(card(root).textContent).toContain('Correct answer: 4');
+      expect(card(root).textContent).toContain('Incorrect answer: -1');
+      expect(edit(root)).not.toBeNull();
+    });
+
+    it('sends the new marks, then shows what the server stored', () => {
+      const { fixture, root } = open(withMarks(1, 0));
+      edit(root).click();
+      fixture.detectChanges();
+
+      const correct = root.querySelector('#marks-correct') as HTMLInputElement;
+      correct.value = '4';
+      correct.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      button(card(root), 'Save').click();
+
+      const put = httpMock.expectOne(isMarks);
+      expect(put.request.body).toEqual({ correctMarks: 4, incorrectMarks: 0, unattemptedMarks: 0 });
+      const stored = withMarks(4, 0);
+      put.flush(stored);
+      httpMock.expectOne(isExam).flush(stored);
+      fixture.detectChanges();
+
+      expect(card(root).textContent).toContain('Correct answer: 4');
+      expect(root.querySelector('#marks-correct')).toBeNull();
+    });
+
+    it.each(['Published', 'Archived'])('cannot be changed once the exam is %s', (status) => {
+      const { root } = open({ ...withMarks(1, 0), status });
+
+      expect(edit(root)).toBeNull();
+      expect(card(root).textContent).toContain('fixed once an exam is published');
+    });
+  });
+
   describe('putting a draft right', () => {
     const withQuestions = () =>
       examBody({

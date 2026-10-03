@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
+  MarkingSchemeRequest,
   CreateExamRequest,
   EditSectionRequest,
   ExamDto,
@@ -45,6 +46,11 @@ export class ExamApiService {
   /** Chooses when candidates may see which of their answers were right. Allowed after publishing too. */
   setResultRelease(examId: string, request: ResultReleaseRequest): Observable<ExamDto> {
     return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/result-release`, request);
+  }
+
+  /** Sets the marks for correct, incorrect and unattempted questions. Draft exams only: later scoring must not change. */
+  setMarkingScheme(examId: string, request: MarkingSchemeRequest): Observable<ExamDto> {
+    return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/marking-scheme`, request);
   }
 
   /** Shows candidates which answers were right, for an exam set to manual release. Safe to repeat. */
