@@ -106,6 +106,13 @@
       }
     </div>
 
+    <app-exam-marking-scheme
+      [scheme]="e.config.markingScheme"
+      [editable]="isDraft()"
+      [busy]="busy()"
+      (changed)="saveMarkingScheme($event)"
+    />
+
     <h2>Sections and questions</h2>
     @for (section of e.sections ?? []; track section.id) {
       <app-exam-section-card

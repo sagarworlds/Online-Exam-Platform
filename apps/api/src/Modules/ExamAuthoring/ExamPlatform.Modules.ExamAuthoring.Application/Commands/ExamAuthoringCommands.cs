@@ -58,3 +58,10 @@ public sealed record RemoveExamQuestionCommand(Guid ExamId, Guid SectionId, Guid
 /// <param name="Mode">Instant, Scheduled or Manual, or null if the caller did not send it.</param>
 /// <param name="ReleaseTimeUtc">From when the answers are visible; required for Scheduled.</param>
 public sealed record SetResultReleaseCommand(Guid ExamId, ResultReleaseMode? Mode, DateTime? ReleaseTimeUtc);
+
+/// <summary>Sets the marks a correct, an incorrect and an unattempted question earn.</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="CorrectMarks">Marks for a correct answer, or null if the caller did not send it.</param>
+/// <param name="IncorrectMarks">Marks for an incorrect answer (zero or negative), or null if not sent.</param>
+/// <param name="UnattemptedMarks">Marks for an unanswered question (zero or negative), or null if not sent.</param>
+public sealed record SetMarkingSchemeCommand(Guid ExamId, decimal? CorrectMarks, decimal? IncorrectMarks, decimal? UnattemptedMarks);

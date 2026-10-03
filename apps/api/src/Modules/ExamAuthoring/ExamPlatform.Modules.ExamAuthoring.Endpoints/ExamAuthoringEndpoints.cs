@@ -72,6 +72,16 @@ public static class ExamAuthoringEndpoints
             .WithName("SetExamScope")
             .WithDescription("Limit the exam's questions to a book or chosen chapters, or lift the limit");
 
+        exams.MapPut("/{examId:guid}/marking-scheme", SetMarkingScheme)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("SetExamMarkingScheme")
+            .WithDescription("Set the marks for a correct, an incorrect and an unattempted question on a draft exam");
+
         exams.MapPut("/{examId:guid}/result-release", SetResultRelease)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -186,6 +196,10 @@ public static class ExamAuthoringEndpoints
         Guid examId, ExamScopeRequest request, SetExamScopeHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetExamScopeCommand(examId, request.ToInput()), ct));
 
+    private static async Task<IResult> SetMarkingScheme(
+        Guid examId, MarkingSchemeRequest request, SetMarkingSchemeHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new SetMarkingSchemeCommand(examId, request.CorrectMarks, request.IncorrectMarks, request.UnattemptedMarks), ct));
+
     private static async Task<IResult> SetResultRelease(
         Guid examId, ResultReleaseRequest request, SetResultReleaseHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetResultReleaseCommand(examId, request.Mode, request.ReleaseTime), ct));
@@ -270,6 +284,12 @@ public record ScheduleExamRequest(
 /// <param name="Mode">Instant (right after submitting), Scheduled (from <paramref name="ReleaseTime"/>) or Manual (when released by an administrator).</param>
 /// <param name="ReleaseTime">From when the answers are visible; required for Scheduled, ignored otherwise.</param>
 public record ResultReleaseRequest(ResultReleaseMode? Mode, DateTime? ReleaseTime);
+
+/// <summary>Request body for setting an exam's marking scheme.</summary>
+/// <param name="CorrectMarks">Marks for a correct answer; more than 0.</param>
+/// <param name="IncorrectMarks">Marks for an incorrect answer; 0 or negative.</param>
+/// <param name="UnattemptedMarks">Marks for an unanswered question; 0 or negative.</param>
+public record MarkingSchemeRequest(decimal? CorrectMarks, decimal? IncorrectMarks, decimal? UnattemptedMarks);
 
 /// <summary>Request body for changing an exam's name and description.</summary>
 /// <param name="Name">The exam's new name.</param>

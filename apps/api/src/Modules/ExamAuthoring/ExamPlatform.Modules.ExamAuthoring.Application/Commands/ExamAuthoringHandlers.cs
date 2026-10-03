@@ -269,6 +269,30 @@ public sealed class SetResultReleaseHandler(IExamRepository repository, IExamAut
     }
 }
 
+/// <summary>Handles <see cref="SetMarkingSchemeCommand"/>.</summary>
+public sealed class SetMarkingSchemeHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
+{
+    /// <summary>Sets the marking scheme of a draft exam.</summary>
+    /// <param name="command">The new marks.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="InvalidExamConfigError">A mark was not sent or is out of range.</exception>
+    public async Task<ExamDto> HandleAsync(SetMarkingSchemeCommand command, CancellationToken cancellationToken)
+    {
+        // A body missing a mark binds it to null; that is a 400 about the missing value, not a crash.
+        if (command is not { CorrectMarks: { } correct, IncorrectMarks: { } incorrect, UnattemptedMarks: { } unattempted })
+            throw new InvalidExamConfigError("Send the marks for a correct answer, an incorrect answer and an unattempted question.");
+
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.SetMarkingScheme(new MarkingScheme(correct, incorrect, unattempted), clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await dtos.ToDtoAsync(exam, cancellationToken);
+    }
+}
+
 /// <summary>Handles releasing the answers of a manual-release exam.</summary>
 public sealed class ReleaseResultsHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
 {
