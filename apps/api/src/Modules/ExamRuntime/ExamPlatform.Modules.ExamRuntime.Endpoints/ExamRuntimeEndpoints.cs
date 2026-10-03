@@ -3,6 +3,7 @@ using ExamPlatform.Modules.ExamRuntime.Application.Commands;
 using ExamPlatform.Modules.ExamRuntime.Application.Dtos;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
 using ExamPlatform.Modules.ExamRuntime.Domain;
+using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
 using ExamPlatform.SharedKernel.Application.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -186,9 +187,20 @@ public static class ExamRuntimeEndpoints
         return Results.Created($"/v1/me/exams", created);
     }
 
-    // The framework binds the status by name, ignoring case, and answers 400 itself for one that is not a status.
-    private static async Task<IResult> ListAttemptRequests(AttemptRequestStatus? status, ListAttemptRequestsHandler handler, CancellationToken ct) =>
-        Results.Ok(await handler.HandleAsync(status, ct));
+    private static async Task<IResult> ListAttemptRequests(string? status, ListAttemptRequestsHandler handler, CancellationToken ct)
+    {
+        // Parsed here, ignoring case, because the framework's own enum binding is case-sensitive; a status that is not one of ours
+        // is a mistake to report, not a reason to quietly show the waiting ones.
+        AttemptRequestStatus? parsed = null;
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<AttemptRequestStatus>(status.Trim(), ignoreCase: true, out var value) || !Enum.IsDefined(value))
+                throw new InvalidAttemptError("The status must be pending, approved or declined.");
+            parsed = value;
+        }
+
+        return Results.Ok(await handler.HandleAsync(parsed, ct));
+    }
 
     private static async Task<IResult> ApproveAttemptRequest(Guid requestId, ClaimsPrincipal user, ApproveAttemptRequestHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(requestId, user.GetUserId(), ct));
