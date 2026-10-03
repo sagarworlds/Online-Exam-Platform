@@ -22,7 +22,7 @@ public sealed class StartAttemptHandler(
 {
     /// <summary>
     /// Starts the attempt. Calling it again while an attempt is open is how a candidate resumes: it returns that attempt with its
-    /// original deadline. Once every attempt they are allowed has been used (one, plus any an administrator granted) it returns
+    /// original deadline. Once every attempt they are allowed has been used (the exam's limit, plus any an administrator granted) it returns
     /// their latest attempt, so the call stays safe to repeat and never creates one nobody allowed.
     /// </summary>
     /// <param name="examId">The exam to take.</param>
@@ -52,7 +52,7 @@ public sealed class StartAttemptHandler(
         }
 
         var granted = await grants.CountAsync(examId, candidateId, cancellationToken);
-        if (!AttemptAllowance.CanStartAnother(theirs.Count, granted))
+        if (!AttemptAllowance.CanStartAnother(exam.MaxAttempts, theirs.Count, granted))
             return await views.BuildAsync(latest!, exam, cancellationToken);
 
         var attempt = Begin(exam, candidateId, theirs.Count + 1);

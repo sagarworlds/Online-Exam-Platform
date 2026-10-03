@@ -17,6 +17,9 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// <param name="ResultReleaseTimeUtc">
 /// From when the answers are visible, for Scheduled, and for Manual once an administrator has released them; null otherwise.
 /// </param>
+/// <param name="MaxAttempts">
+/// How many attempts every enrolled candidate has before an administrator gives anyone an extra one; 1 unless the author chose more.
+/// </param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -31,7 +34,8 @@ public sealed record ExamSnapshot(
     decimal UnattemptedMarks,
     IReadOnlyList<ExamSectionSnapshot> Sections,
     ExamResultReleaseMode ResultRelease = ExamResultReleaseMode.Instant,
-    DateTime? ResultReleaseTimeUtc = null);
+    DateTime? ResultReleaseTimeUtc = null,
+    int MaxAttempts = 1);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>

@@ -100,6 +100,24 @@ public class AttemptLimitTests
         Assert.Equal(1, exam.Config.MaxAttempts);
     }
 
+    // ---- what other modules read ------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(4)]
+    public async Task TheExamCatalog_ReportsTheLimit_ToOtherModules(int attempts)
+    {
+        var exam = PublishedExam();
+        exam.SetMaxAttempts(attempts, Now);
+        var catalogRepository = Substitute.For<IExamRepository>();
+        catalogRepository.ListByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns([exam]);
+
+        var snapshot = await new ExamCatalog(catalogRepository).FindAsync(exam.Id, CancellationToken.None);
+
+        // The runtime decides who may start another attempt from this one number; it must be the author's, not a default.
+        Assert.Equal(attempts, snapshot!.MaxAttempts);
+    }
+
     // ---- the handler ------------------------------------------------------------------------------
 
     private readonly IExamRepository repository = Substitute.For<IExamRepository>();

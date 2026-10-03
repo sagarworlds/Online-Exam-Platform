@@ -98,4 +98,141 @@ public sealed class AttemptLimitFlowTests(ApiFactory factory) : IClassFixture<Ap
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal(1, await LimitOfAsync(admin, examId));
     }
+
+    // ---- what the runtime then allows -------------------------------------------------------------
+
+    private static async Task<JsonElement> StartAsync(HttpClient candidate, Guid examId)
+    {
+        var response = await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return await JsonAsync(response);
+    }
+
+    /// <summary>Starts (or resumes) an attempt and submits it straight away, returning the submitted attempt.</summary>
+    private static async Task<JsonElement> SitAsync(HttpClient candidate, Guid examId)
+    {
+        var attempt = await StartAsync(candidate, examId);
+        return await JsonAsync((await candidate.PostAsync($"/v1/me/attempts/{attempt.GetProperty("id").GetGuid()}/submit", content: null)).EnsureSuccessStatusCode());
+    }
+
+    private static Task<HttpResponseMessage> SetLimitAsync(HttpClient admin, Guid examId, int attempts) =>
+        admin.PutAsJsonAsync($"/v1/exams/{examId}/attempt-limit", new { maxAttempts = attempts });
+
+    private static Task<HttpResponseMessage> GrantAsync(HttpClient admin, Guid examId, Guid candidateId) =>
+        admin.PostAsJsonAsync($"/v1/exams/{examId}/candidates/{candidateId}/extra-attempts", new { reason = "Power cut" });
+
+    private static async Task<JsonElement> MyExamAsync(HttpClient candidate, Guid examId) =>
+        (await candidate.GetFromJsonAsync<JsonElement>("/v1/me/exams")).EnumerateArray().Single(e => e.GetProperty("examId").GetGuid() == examId);
+
+    private static async Task<JsonElement> StaffViewAsync(HttpClient admin, Guid examId) =>
+        await admin.GetFromJsonAsync<JsonElement>($"/v1/exams/{examId}/attempts");
+
+    [Fact]
+    public async Task WithALimitOfTwo_ACandidateSitsTwiceWithNoGrant_AndAThirdStartOnlyShowsTheSecond()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var examId = await PublishedExamAsync(admin);
+        (await SetLimitAsync(admin, examId, 2)).EnsureSuccessStatusCode();
+        var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _c = candidate;
+
+        var first = await SitAsync(candidate, examId);
+        var second = await StartAsync(candidate, examId);
+
+        Assert.Equal(1, first.GetProperty("number").GetInt32());
+        Assert.Equal(2, second.GetProperty("number").GetInt32());
+        Assert.Equal("InProgress", second.GetProperty("status").GetString());
+        Assert.NotEqual(first.GetProperty("id").GetGuid(), second.GetProperty("id").GetGuid());
+
+        (await candidate.PostAsync($"/v1/me/attempts/{second.GetProperty("id").GetGuid()}/submit", content: null)).EnsureSuccessStatusCode();
+        var third = await StartAsync(candidate, examId);
+
+        // Both are used: the call stays safe to repeat and creates nothing nobody allowed.
+        Assert.Equal(second.GetProperty("id").GetGuid(), third.GetProperty("id").GetGuid());
+        Assert.Equal("Submitted", third.GetProperty("status").GetString());
+        var mine = await MyExamAsync(candidate, examId);
+        Assert.Equal((2, 2, false), (mine.GetProperty("attemptsAllowed").GetInt32(), mine.GetProperty("attemptsUsed").GetInt32(), mine.GetProperty("canStartAttempt").GetBoolean()));
+    }
+
+    [Fact]
+    public async Task AnExamNobodyChangedTheLimitOf_StillGivesOneAttempt()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var examId = await PublishedExamAsync(admin);
+        var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _c = candidate;
+        var first = await SitAsync(candidate, examId);
+
+        var again = await StartAsync(candidate, examId);
+
+        Assert.Equal(first.GetProperty("id").GetGuid(), again.GetProperty("id").GetGuid());
+        Assert.Equal(1, (await MyExamAsync(candidate, examId)).GetProperty("attemptsAllowed").GetInt32());
+    }
+
+    [Fact]
+    public async Task RaisingTheLimitLater_OpensAnotherAttemptAtOnce()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var examId = await PublishedExamAsync(admin);
+        var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _c = candidate;
+        await SitAsync(candidate, examId);
+        Assert.False((await MyExamAsync(candidate, examId)).GetProperty("canStartAttempt").GetBoolean());
+
+        (await SetLimitAsync(admin, examId, 2)).EnsureSuccessStatusCode();
+
+        Assert.True((await MyExamAsync(candidate, examId)).GetProperty("canStartAttempt").GetBoolean());
+        Assert.Equal(2, (await StartAsync(candidate, examId)).GetProperty("number").GetInt32());
+    }
+
+    [Fact]
+    public async Task AnAdministratorGrant_StillAddsOneOnTopOfTheLimit_AndTheStaffViewReportsBoth()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var examId = await PublishedExamAsync(admin);
+        (await SetLimitAsync(admin, examId, 2)).EnsureSuccessStatusCode();
+        var (candidate, user) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _c = candidate;
+        await SitAsync(candidate, examId);
+
+        // One attempt of the limit is still unused, so a grant is refused as before.
+        await AssertProblemAsync(await GrantAsync(admin, examId, user.UserId), HttpStatusCode.Conflict, "attempt_available");
+
+        await SitAsync(candidate, examId);
+        var granted = await GrantAsync(admin, examId, user.UserId);
+
+        Assert.Equal(HttpStatusCode.Created, granted.StatusCode);
+        var view = await StaffViewAsync(admin, examId);
+        Assert.Equal(2, view.GetProperty("attemptsPerCandidate").GetInt32());
+        var row = view.GetProperty("candidates").EnumerateArray().Single(c => c.GetProperty("candidateId").GetGuid() == user.UserId);
+        Assert.Equal((3, 2), (row.GetProperty("attemptsAllowed").GetInt32(), row.GetProperty("attemptsUsed").GetInt32()));
+        Assert.Equal(3, (await StartAsync(candidate, examId)).GetProperty("number").GetInt32());
+    }
+
+    [Fact]
+    public async Task LoweringTheLimitBelowWhatWasMade_TakesNothingBack_AllowsNoMore_AndRefusesAUselessGrant()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var examId = await PublishedExamAsync(admin);
+        (await SetLimitAsync(admin, examId, 3)).EnsureSuccessStatusCode();
+        var (candidate, user) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _c = candidate;
+        var first = await SitAsync(candidate, examId);
+        var second = await SitAsync(candidate, examId);
+
+        (await SetLimitAsync(admin, examId, 1)).EnsureSuccessStatusCode();
+
+        var mine = await MyExamAsync(candidate, examId);
+        Assert.Equal((1, 2, false), (mine.GetProperty("attemptsAllowed").GetInt32(), mine.GetProperty("attemptsUsed").GetInt32(), mine.GetProperty("canStartAttempt").GetBoolean()));
+        Assert.Equal([first.GetProperty("id").GetGuid(), second.GetProperty("id").GetGuid()], mine.GetProperty("attempts").EnumerateArray().Select(a => a.GetProperty("id").GetGuid()));
+        Assert.Equal(second.GetProperty("id").GetGuid(), (await StartAsync(candidate, examId)).GetProperty("id").GetGuid());
+
+        // A grant would still leave them over the limit, so it is refused with the way out rather than recorded for nothing.
+        await AssertProblemAsync(await GrantAsync(admin, examId, user.UserId), HttpStatusCode.Conflict, "attempt_over_limit");
+        var staff = (await StaffViewAsync(admin, examId)).GetProperty("candidates").EnumerateArray().Single(c => c.GetProperty("candidateId").GetGuid() == user.UserId);
+        Assert.False(staff.GetProperty("canGrant").GetBoolean());
+
+        (await SetLimitAsync(admin, examId, 3)).EnsureSuccessStatusCode();
+        Assert.Equal(3, (await StartAsync(candidate, examId)).GetProperty("number").GetInt32());
+    }
 }

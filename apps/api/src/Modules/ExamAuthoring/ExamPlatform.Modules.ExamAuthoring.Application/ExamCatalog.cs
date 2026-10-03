@@ -46,7 +46,8 @@ public sealed class ExamCatalog(IExamRepository repository) : IExamCatalog
                     s.Questions.OrderBy(q => q.Order).Select(q => q.QuestionVersionId).ToList()))
                 .ToList(),
             ToContract(exam.Config.ResultReleaseMode),
-            exam.Config.ResultReleaseTime);
+            exam.Config.ResultReleaseTime,
+            exam.Config.MaxAttempts);
 
     // Spelled out rather than cast, so a mode added to one enum and forgotten in the other fails loudly here
     // instead of quietly meaning something else to the other module.

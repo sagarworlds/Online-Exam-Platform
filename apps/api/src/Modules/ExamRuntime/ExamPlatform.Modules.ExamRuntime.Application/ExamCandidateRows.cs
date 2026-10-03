@@ -26,9 +26,9 @@ public static class ExamCandidateRows
         return new ExamCandidateDto(
             candidate.UserId,
             candidate.Email,
-            AttemptAllowance.Allowed(grants),
+            AttemptAllowance.Allowed(exam.MaxAttempts, grants),
             ordered.Count,
-            AttemptAllowance.CanGrant(ordered.Count, grants) && !IsWindowClosed(exam, nowUtc),
+            AttemptAllowance.CanGrant(exam.MaxAttempts, ordered.Count, grants) && !IsWindowClosed(exam, nowUtc),
             ordered.Select(Summary).ToList());
     }
 
