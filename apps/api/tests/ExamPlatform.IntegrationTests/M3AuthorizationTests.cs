@@ -40,6 +40,8 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             new { scheduledStartTime = DateTime.UtcNow.AddDays(1), scheduledEndTime = DateTime.UtcNow.AddDays(2) }),
         new("PUT", "/v1/exams/{examId:guid}/scope", RbacCatalog.PermissionCodes.ExamManage,
             new { type = "Independent" }),
+        new("PUT", "/v1/exams/{examId:guid}/attempt-limit", RbacCatalog.PermissionCodes.ExamManage,
+            new { maxAttempts = 2 }),
         new("PUT", "/v1/exams/{examId:guid}/result-release", RbacCatalog.PermissionCodes.ExamManage,
             new { mode = "Instant" }),
         new("POST", "/v1/exams/{examId:guid}/results/release", RbacCatalog.PermissionCodes.ExamManage, null),

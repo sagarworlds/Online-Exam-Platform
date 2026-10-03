@@ -58,3 +58,8 @@ public sealed record RemoveExamQuestionCommand(Guid ExamId, Guid SectionId, Guid
 /// <param name="Mode">Instant, Scheduled or Manual, or null if the caller did not send it.</param>
 /// <param name="ReleaseTimeUtc">From when the answers are visible; required for Scheduled.</param>
 public sealed record SetResultReleaseCommand(Guid ExamId, ResultReleaseMode? Mode, DateTime? ReleaseTimeUtc);
+
+/// <summary>Sets how many attempts every enrolled candidate has at an exam.</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="MaxAttempts">The attempts each candidate has, or null if the caller did not send it.</param>
+public sealed record SetMaxAttemptsCommand(Guid ExamId, int? MaxAttempts);
