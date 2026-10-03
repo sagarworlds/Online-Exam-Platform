@@ -39,6 +39,6 @@ public sealed class ListExamAttemptsHandler(
                 nowUtc))
             .ToList();
 
-        return new ExamAttemptsDto(exam.Id, exam.Name, ExamCandidateRows.IsWindowClosed(exam, nowUtc), rows);
+        return new ExamAttemptsDto(exam.Id, exam.Name, ExamCandidateRows.IsWindowClosed(exam, nowUtc), exam.MaxAttempts, rows);
     }
 }

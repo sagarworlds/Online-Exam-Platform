@@ -341,6 +341,47 @@ public class Exam : AggregateRoot
     }
 
     /// <summary>
+    /// Chooses whether candidates see this exam's questions and options in a shuffled order. Only a draft may change it: the
+    /// order an attempt shows is worked out from these settings every time it is read, so changing them later would move the
+    /// questions under candidates already sitting, or already reviewing, the exam.
+    /// </summary>
+    /// <param name="shuffleQuestions">Whether the questions within each section are shuffled, on every attempt.</param>
+    /// <param name="shuffleOptions">Whether the options of each question are shuffled, on every attempt.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    public void SetShuffle(bool shuffleQuestions, bool shuffleOptions, DateTime nowUtc)
+    {
+        EnsureNotArchived();
+        EnsureDraft();
+
+        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
+        Config = Config with { ShuffleQuestions = shuffleQuestions, ShuffleOptions = shuffleOptions, MarkingScheme = Config.MarkingScheme with { } };
+        UpdatedAt = nowUtc;
+    }
+
+    /// <summary>
+    /// Sets how many attempts every enrolled candidate has before an administrator gives them any extra. Like the answer
+    /// review this may change after publishing, because it changes nothing that is asked or scored: lowering it never takes
+    /// back an attempt already started, it only stops further ones, and raising it opens more at once.
+    /// </summary>
+    /// <param name="attempts">The attempts each candidate has, from <see cref="ExamConfig.FewestAttempts"/> to <see cref="ExamConfig.MostAttempts"/>.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The number is outside the allowed range.</exception>
+    public void SetMaxAttempts(int attempts, DateTime nowUtc)
+    {
+        EnsureNotArchived();
+
+        if (attempts is < ExamConfig.FewestAttempts or > ExamConfig.MostAttempts)
+            throw new InvalidExamConfigError($"Choose a number of attempts from {ExamConfig.FewestAttempts} to {ExamConfig.MostAttempts}.");
+
+        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
+        Config = Config with { MaxAttempts = attempts, MarkingScheme = Config.MarkingScheme with { } };
+        UpdatedAt = nowUtc;
+    }
+
+    /// <summary>
     /// Releases the answers of a manual-release exam now: the release time is set to the current instant, so the one rule
     /// "released when the mode is Instant or the release time has arrived" covers every mode. Calling it again keeps the first time.
     /// </summary>

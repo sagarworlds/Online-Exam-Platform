@@ -31,6 +31,7 @@ function examBody(overrides: Record<string, unknown> = {}) {
     status: 'Draft',
     config: {
       totalTimeSeconds: null,
+      maxAttempts: 1,
       resultReleaseMode: 'Instant',
       resultReleaseTime: null,
       markingScheme: { correctMarks: 1, incorrectMarks: 0, unattemptedMarks: 0 },
@@ -349,6 +350,7 @@ describe('ExamEditor', () => {
   describe('answer review', () => {
     const config = (overrides: Record<string, unknown>) => ({
       totalTimeSeconds: null,
+      maxAttempts: 1,
       resultReleaseMode: 'Instant',
       resultReleaseTime: null,
       markingScheme: { correctMarks: 1, incorrectMarks: 0, unattemptedMarks: 0 },
@@ -525,6 +527,163 @@ describe('ExamEditor', () => {
 
       expect(edit(root)).toBeNull();
       expect(card(root).textContent).toContain('fixed once an exam is published');
+    });
+  });
+
+  describe('shuffling', () => {
+    const isShuffle = (r: { method: string; url: string }) => r.method === 'PUT' && r.url.endsWith('/v1/exams/exam-1/shuffle');
+    const card = (root: HTMLElement) => root.querySelector('app-exam-shuffle') as HTMLElement;
+    const boxes = (root: HTMLElement) => Array.from(card(root).querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+    const withShuffle = (shuffleQuestions: boolean, shuffleOptions: boolean) =>
+      examBody({
+        config: {
+          totalTimeSeconds: null,
+          shuffleQuestions,
+          shuffleOptions,
+          maxAttempts: 1,
+          resultReleaseMode: 'Instant',
+          resultReleaseTime: null,
+          markingScheme: { correctMarks: 1, incorrectMarks: 0, unattemptedMarks: 0 },
+        },
+      });
+
+    it('shows the two choices of a draft, and no Save until one is changed', () => {
+      const { root } = open(withShuffle(true, false));
+
+      expect(boxes(root).map((b) => b.checked)).toEqual([true, false]);
+      expect(button(card(root), 'Save')).toBeUndefined();
+    });
+
+    it('sends both choices, then shows what the server stored', () => {
+      const { fixture, root } = open(withShuffle(false, false));
+
+      boxes(root)[1].click();
+      fixture.detectChanges();
+      button(card(root), 'Save').click();
+
+      const put = httpMock.expectOne(isShuffle);
+      expect(put.request.body).toEqual({ shuffleQuestions: false, shuffleOptions: true });
+      const stored = withShuffle(false, true);
+      put.flush(stored);
+      httpMock.expectOne(isExam).flush(stored);
+      fixture.detectChanges();
+
+      expect(boxes(root).map((b) => b.checked)).toEqual([false, true]);
+      expect(button(card(root), 'Save')).toBeUndefined();
+    });
+
+    it('drops an unsaved change on Cancel', () => {
+      const { fixture, root } = open(withShuffle(false, false));
+
+      boxes(root)[0].click();
+      fixture.detectChanges();
+      button(card(root), 'Cancel').click();
+      fixture.detectChanges();
+
+      expect(boxes(root).map((b) => b.checked)).toEqual([false, false]);
+    });
+
+    it.each(['Published', 'Archived'])('cannot be changed once the exam is %s', (status) => {
+      const { root } = open({ ...withShuffle(true, false), status });
+
+      expect(boxes(root)).toHaveLength(0);
+      expect(card(root).textContent).toContain('Questions: shuffled');
+      expect(card(root).textContent).toContain('fixed once an exam is published');
+    });
+  });
+
+  describe('attempts allowed', () => {
+    const isLimit = (r: { method: string; url: string }) => r.method === 'PUT' && r.url.endsWith('/v1/exams/exam-1/attempt-limit');
+    const withLimit = (maxAttempts: number, release = 'Instant') =>
+      examBody({
+        config: {
+          totalTimeSeconds: null,
+          maxAttempts,
+          resultReleaseMode: release,
+          resultReleaseTime: null,
+          markingScheme: { correctMarks: 1, incorrectMarks: 0, unattemptedMarks: 0 },
+        },
+      });
+    const card = (root: HTMLElement) => root.querySelector('app-exam-attempt-limit') as HTMLElement;
+    const field = (root: HTMLElement) => root.querySelector('#attempt-limit') as HTMLInputElement;
+
+    function openForm(exam = withLimit(1)) {
+      const opened = open(exam);
+      (card(opened.root).querySelector('button[aria-label="Edit attempts allowed"]') as HTMLButtonElement).click();
+      opened.fixture.detectChanges();
+      return opened;
+    }
+
+    function type(fixture: { detectChanges(): void }, root: HTMLElement, value: string) {
+      field(root).value = value;
+      field(root).dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    }
+
+    it('says how many attempts every candidate has, which is one unless the author chose more', () => {
+      expect(card(open(withLimit(1)).root).textContent).toContain('Every candidate can sit this exam once.');
+    });
+
+    it('sends the new number, then shows what the server stored', () => {
+      const { fixture, root } = openForm();
+      expect(field(root).value).toBe('1');
+
+      type(fixture, root, '3');
+      button(card(root), 'Save').click();
+
+      const put = httpMock.expectOne(isLimit);
+      expect(put.request.body).toEqual({ maxAttempts: 3 });
+      const stored = withLimit(3);
+      put.flush(stored);
+      httpMock.expectOne(isExam).flush(stored);
+      fixture.detectChanges();
+
+      expect(card(root).textContent).toContain('Every candidate can sit this exam 3 times.');
+      expect(field(root)).toBeNull();
+    });
+
+    it('can be changed after the exam is published, because it changes nothing that is asked or scored', () => {
+      const published = { ...withLimit(1), status: 'Published' };
+
+      const { fixture, root } = openForm(published);
+      type(fixture, root, '2');
+      button(card(root), 'Save').click();
+
+      expect(httpMock.expectOne(isLimit).request.body).toEqual({ maxAttempts: 2 });
+    });
+
+    it('cannot be changed once the exam is archived', () => {
+      const { root } = open({ ...withLimit(1), status: 'Archived' });
+
+      expect(card(root).querySelector('button')).toBeNull();
+    });
+
+    it('shows the reason and keeps the form open when the server refuses the number', () => {
+      const { fixture, root } = openForm();
+      type(fixture, root, '4');
+      button(card(root), 'Save').click();
+
+      httpMock
+        .expectOne(isLimit)
+        .flush({ title: 'exam_archived', detail: 'This exam is archived.' }, { status: 409, statusText: 'Conflict' });
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('This exam is archived.');
+      expect(field(root).value).toBe('4');
+    });
+
+    it('warns, next to the answer review, when more than one attempt is combined with answers shown right away', () => {
+      const { root } = open(withLimit(2, 'Instant'));
+
+      expect(card(root).textContent).toContain('candidates see the correct answers before their next attempt');
+    });
+
+    it('does not warn when the answers are held back', () => {
+      expect(card(open(withLimit(2, 'Manual')).root).textContent).not.toContain('correct answers before');
+    });
+
+    it('does not warn for a single attempt', () => {
+      expect(card(open(withLimit(1, 'Instant')).root).textContent).not.toContain('correct answers before');
     });
   });
 

@@ -40,7 +40,7 @@ public class ExamTests
         Assert.Equal(lateEntry, exam.LateEntryDeadline);
         Assert.Equal("Asia/Kolkata", exam.TimeZone);
         Assert.Equal(5400, exam.Config.TotalTimeSeconds);
-        Assert.True(exam.Config.ShuffleQuestions);
+        Assert.False(exam.Config.ShuffleQuestions);
         Assert.Equal(1m, exam.Config.MarkingScheme.CorrectMarks);
     }
 

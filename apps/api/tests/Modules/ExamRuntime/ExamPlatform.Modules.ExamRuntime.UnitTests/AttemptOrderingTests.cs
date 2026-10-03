@@ -110,6 +110,42 @@ public class AttemptOrderingTests
         Assert.True(AttemptOrdering.IsShuffled(2));
         Assert.True(AttemptOrdering.IsShuffled(7));
     }
+
+    [Fact]
+    public void TheFirstAttempt_IsShuffledWhenTheAuthorAsks()
+    {
+        Assert.True(AttemptOrdering.IsShuffled(1, authorShuffles: true));
+        Assert.False(AttemptOrdering.IsShuffled(1, authorShuffles: false));
+    }
+
+    [Fact]
+    public void WhenTheAuthorAsks_TheFirstAttemptIsShuffled_AndDiffersFromTheAuthoredOrder()
+    {
+        var authored = Ids(8);
+
+        var arranged = AttemptOrdering.Arrange(authored, id => id, Id(0xa1), 1, Id(0xb1), authorShuffles: true);
+
+        Assert.NotEqual(authored, arranged);
+        Assert.Equal(authored.OrderBy(id => id), arranged.OrderBy(id => id));
+    }
+
+    [Fact]
+    public void WhenTheAuthorAsks_TheOrderIsTheSameEveryTimeTheAttemptIsRead()
+    {
+        var authored = Ids(8);
+
+        Assert.Equal(
+            AttemptOrdering.Arrange(authored, id => id, Id(0xa1), 1, Id(0xb1), authorShuffles: true),
+            AttemptOrdering.Arrange(authored, id => id, Id(0xa1), 1, Id(0xb1), authorShuffles: true));
+    }
+
+    [Fact]
+    public void WhenTheAuthorDoesNotAsk_TheFirstAttemptKeepsTheAuthoredOrder()
+    {
+        var authored = Ids(8);
+
+        Assert.Same(authored, AttemptOrdering.Arrange(authored, id => id, Id(0xa1), 1, Id(0xb1), authorShuffles: false));
+    }
 }
 
 /// <summary>What a candidate is shown, and what their review shows, once an attempt is a repeat.</summary>

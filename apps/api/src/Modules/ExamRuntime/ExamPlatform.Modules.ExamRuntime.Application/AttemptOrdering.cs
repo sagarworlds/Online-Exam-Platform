@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 namespace ExamPlatform.Modules.ExamRuntime.Application;
 
 /// <summary>
-/// The order a candidate sees questions and options in. The first attempt shows them as the author wrote them; every later
+/// The order a candidate sees questions and options in. The first attempt shows them as the author wrote them unless the author turned shuffling on; every later
 /// attempt shows them shuffled, so someone sitting the exam again cannot lean on where an answer used to be. The same rule
 /// is used for what the candidate sits and for the review of it, so "question 3" means the same thing in both.
 /// </summary>
@@ -19,9 +19,10 @@ public static class AttemptOrdering
     /// <summary>How many times a shuffle that came out as the authored order is tried again before the order is simply reversed.</summary>
     private const int MaxRetries = 8;
 
-    /// <summary>Whether an attempt shows things in a shuffled order: every attempt after the first.</summary>
+    /// <summary>Whether an attempt shows things in a shuffled order: every attempt after the first, and the first too when the author asked.</summary>
     /// <param name="attemptNumber">Which attempt this is for the candidate at the exam, from 1.</param>
-    public static bool IsShuffled(int attemptNumber) => attemptNumber >= 2;
+    /// <param name="authorShuffles">Whether the exam's author turned shuffling on for this kind of item.</param>
+    public static bool IsShuffled(int attemptNumber, bool authorShuffles = false) => authorShuffles || attemptNumber >= 2;
 
     /// <summary>Puts items in the order the attempt shows them.</summary>
     /// <typeparam name="T">What is being ordered: a question id, or an option.</typeparam>
@@ -30,10 +31,11 @@ public static class AttemptOrdering
     /// <param name="attemptId">The attempt, which makes the shuffle different for each attempt.</param>
     /// <param name="attemptNumber">Which attempt this is for the candidate at the exam, from 1; the first is not shuffled.</param>
     /// <param name="scopeId">What the items belong to (a section's id for its questions, a question's id for its options), so each list is shuffled independently.</param>
-    /// <returns>The authored list itself for the first attempt or fewer than two items; otherwise a shuffled copy that differs from it.</returns>
-    public static IReadOnlyList<T> Arrange<T>(IReadOnlyList<T> authored, Func<T, Guid> idOf, Guid attemptId, int attemptNumber, Guid scopeId)
+    /// <param name="authorShuffles">Whether the exam's author turned shuffling on for this kind of item, which shuffles the first attempt as well.</param>
+    /// <returns>The authored list itself for an unshuffled attempt or fewer than two items; otherwise a shuffled copy that differs from it.</returns>
+    public static IReadOnlyList<T> Arrange<T>(IReadOnlyList<T> authored, Func<T, Guid> idOf, Guid attemptId, int attemptNumber, Guid scopeId, bool authorShuffles = false)
     {
-        if (!IsShuffled(attemptNumber) || authored.Count < 2)
+        if (!IsShuffled(attemptNumber, authorShuffles) || authored.Count < 2)
             return authored;
 
         var authoredIds = authored.Select(idOf).ToList();

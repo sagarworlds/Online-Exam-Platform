@@ -106,11 +106,27 @@
       }
     </div>
 
+    <app-exam-shuffle
+      [shuffleQuestions]="e.config.shuffleQuestions"
+      [shuffleOptions]="e.config.shuffleOptions"
+      [editable]="isDraft()"
+      [busy]="busy()"
+      (changed)="saveShuffle($event)"
+    />
+
     <app-exam-marking-scheme
       [scheme]="e.config.markingScheme"
       [editable]="isDraft()"
       [busy]="busy()"
       (changed)="saveMarkingScheme($event)"
+    />
+
+    <app-exam-attempt-limit
+      [attempts]="e.config.maxAttempts"
+      [editable]="canChangeRelease()"
+      [busy]="busy()"
+      [releaseMode]="e.config.resultReleaseMode"
+      (changed)="saveAttemptLimit($event)"
     />
 
     <h2>Sections and questions</h2>

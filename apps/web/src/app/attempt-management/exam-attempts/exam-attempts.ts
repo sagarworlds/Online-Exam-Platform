@@ -88,6 +88,10 @@ export class ExamAttempts {
     if (this.data()?.windowClosed) {
       return 'The exam can no longer be started.';
     }
+    if (candidate.attemptsUsed > candidate.attemptsAllowed) {
+      // Only a lowered limit gets here: one more would still leave them over it, so the way out is the exam's limit.
+      return "Has made more attempts than the exam now allows. Raise the exam's attempts allowed to let them sit it again.";
+    }
     return candidate.attemptsUsed < candidate.attemptsAllowed ? 'Still has an attempt left to use.' : null;
   }
 

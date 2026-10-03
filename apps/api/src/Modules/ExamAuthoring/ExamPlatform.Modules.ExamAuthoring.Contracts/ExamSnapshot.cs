@@ -18,6 +18,11 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// From when the answers are visible, for Scheduled, and for Manual once an administrator has released them; null otherwise.
 /// </param>
 /// <param name="SectionLockEnabled">Whether a candidate who leaves a section may not come back to it (FR-12 "section lock").</param>
+/// <param name="MaxAttempts">
+/// How many attempts every enrolled candidate has before an administrator gives anyone an extra one; 1 unless the author chose more.
+/// </param>
+/// <param name="ShuffleQuestions">Whether the author asked for the questions within each section to be shuffled on every attempt, the first included.</param>
+/// <param name="ShuffleOptions">Whether the author asked for the options of each question to be shuffled on every attempt, the first included.</param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -33,7 +38,10 @@ public sealed record ExamSnapshot(
     IReadOnlyList<ExamSectionSnapshot> Sections,
     ExamResultReleaseMode ResultRelease = ExamResultReleaseMode.Instant,
     DateTime? ResultReleaseTimeUtc = null,
-    bool SectionLockEnabled = false);
+    bool SectionLockEnabled = false,
+    int MaxAttempts = 1,
+    bool ShuffleQuestions = false,
+    bool ShuffleOptions = false);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>

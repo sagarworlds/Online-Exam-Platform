@@ -486,6 +486,17 @@ button.primary:hover:not(:disabled),
   font-size: 0.9rem;
 }
 
+/* A heads-up the author should read before saving, set apart from the hints around it; the words carry the meaning, not the colour. */
+.warning-note {
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: var(--warning-soft);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
 /* A section card's own actions sit under its questions, apart from the Add question row. */
 .section-card__actions {
   margin-top: 0.75rem;

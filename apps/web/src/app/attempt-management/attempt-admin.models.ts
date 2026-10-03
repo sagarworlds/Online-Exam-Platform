@@ -4,10 +4,13 @@ import { AttemptSummaryDto } from '../candidate/candidate.models';
 export interface ExamCandidateDto {
   candidateId: string;
   email: string;
-  /** How many attempts they may make in all: one, plus each extra attempt given. */
+  /** How many attempts they may make in all: the exam's limit per candidate, plus each extra attempt given. */
   attemptsAllowed: number;
   attemptsUsed: number;
-  /** Whether another extra attempt may be given now: they have used every attempt they hold, and the exam can still be started. */
+  /**
+   * Whether another extra attempt may be given now: they have used exactly the attempts they hold (not more, which only a lowered
+   * limit allows), and the exam can still be started.
+   */
   canGrant: boolean;
   /** Oldest first. */
   attempts: AttemptSummaryDto[];
@@ -19,5 +22,7 @@ export interface ExamAttemptsDto {
   examName: string;
   /** Whether nobody can start an attempt any more, so no extra attempt can be given. */
   windowClosed: boolean;
+  /** How many attempts every candidate has before any extra is given, as the exam's author set it. */
+  attemptsPerCandidate: number;
   candidates: ExamCandidateDto[];
 }
