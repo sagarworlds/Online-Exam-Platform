@@ -49,8 +49,27 @@ describe('MyExams', () => {
     // The window is open and nothing has been started, which is what the default exam is.
     canStartAttempt: true,
     attempts: [],
+    canRequestAttempt: false,
+    attemptRequest: null,
     ...overrides,
   });
+
+  const request = (overrides: Record<string, unknown> = {}) => ({
+    id: 'r1', status: 'Pending', message: null, requestedAtUtc: '2026-10-05T05:00:00Z', decidedAtUtc: null, decisionNote: null, ...overrides,
+  });
+
+  const isMyExams = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/me/exams');
+
+  function openWith(exams: ReturnType<typeof exam>[]) {
+    const fixture = TestBed.createComponent(MyExams);
+    fixture.detectChanges();
+    httpMock.expectOne(isMyExams).flush(exams);
+    fixture.detectChanges();
+    return { fixture, root: fixture.nativeElement as HTMLElement };
+  }
+
+  const buttonIn = (root: HTMLElement, label: string) =>
+    Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === label) as HTMLButtonElement | undefined;
 
   it('lists the exams with their state, size and duration', () => {
     const fixture = TestBed.createComponent(MyExams);
@@ -238,6 +257,92 @@ describe('MyExams', () => {
       httpMock.expectOne((r) => r.url.endsWith('/v1/me/exams/e1/attempts') && r.method === 'POST').flush({ id: 'attempt-2' });
 
       expect(navigate).toHaveBeenCalledWith(['/attempt', 'attempt-2']);
+    });
+  });
+
+  describe('asking for another attempt', () => {
+    const used = { canStartAttempt: false, canRequestAttempt: true, attemptsUsed: 1, attempts: [attempt(1, 'Submitted', 4)] };
+
+    it('offers the request only when the API says one may be made', () => {
+      const { root } = openWith([exam({ ...used }), exam({ examId: 'e2', name: 'Physics', canStartAttempt: false })]);
+
+      expect(root.querySelectorAll('.card').length).toBe(2);
+      expect(Array.from(root.querySelectorAll('button')).filter((b) => b.textContent?.trim() === 'Ask for another attempt').length).toBe(1);
+    });
+
+    it('sends the message, then reads the exams again to show the request waiting', () => {
+      const { fixture, root } = openWith([exam({ ...used })]);
+      buttonIn(root, 'Ask for another attempt')!.click();
+      fixture.detectChanges();
+      const box = root.querySelector('textarea') as HTMLTextAreaElement;
+      box.value = '  Power cut  ';
+      box.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      buttonIn(root, 'Send request')!.click();
+
+      const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/me/exams/e1/attempt-requests'));
+      expect(post.request.body).toEqual({ message: 'Power cut' });
+      post.flush(request({ message: 'Power cut' }), { status: 201, statusText: 'Created' });
+      httpMock.expectOne(isMyExams).flush([exam({ ...used, canRequestAttempt: false, attemptRequest: request({ message: 'Power cut' }) })]);
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('waiting for an administrator');
+      expect(buttonIn(root, 'Ask for another attempt')).toBeUndefined();
+    });
+
+    it('sends no message when none was typed', () => {
+      const { fixture, root } = openWith([exam({ ...used })]);
+      buttonIn(root, 'Ask for another attempt')!.click();
+      fixture.detectChanges();
+
+      buttonIn(root, 'Send request')!.click();
+
+      const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/attempt-requests'));
+      expect(post.request.body).toEqual({ message: null });
+      post.flush(request(), { status: 201, statusText: 'Created' });
+      httpMock.expectOne(isMyExams).flush([exam({ ...used })]);
+    });
+
+    it('shows the API’s reason and keeps the form open when the request is refused', () => {
+      const { fixture, root } = openWith([exam({ ...used })]);
+      buttonIn(root, 'Ask for another attempt')!.click();
+      fixture.detectChanges();
+
+      buttonIn(root, 'Send request')!.click();
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.endsWith('/attempt-requests'))
+        .flush({ title: 'attempt_request_pending', detail: 'You already have a request for this exam waiting for an administrator.' }, { status: 409, statusText: 'Conflict' });
+      fixture.detectChanges();
+
+      expect(root.querySelector('[role="alert"]')?.textContent).toContain('already have a request');
+      expect(root.querySelector('textarea')).not.toBeNull();
+    });
+
+    it('closes the form again on Cancel without sending anything', () => {
+      const { fixture, root } = openWith([exam({ ...used })]);
+      buttonIn(root, 'Ask for another attempt')!.click();
+      fixture.detectChanges();
+
+      buttonIn(root, 'Cancel')!.click();
+      fixture.detectChanges();
+
+      expect(root.querySelector('textarea')).toBeNull();
+      httpMock.expectNone((r) => r.method === 'POST');
+    });
+
+    it('says a request was declined, with the reason, and lets the candidate ask again', () => {
+      const { root } = openWith([exam({ ...used, attemptRequest: request({ status: 'Declined', decisionNote: 'Speak to your teacher' }) })]);
+
+      expect(root.textContent).toContain('was declined: Speak to your teacher');
+      expect(buttonIn(root, 'Ask for another attempt')).toBeDefined();
+    });
+
+    it('does not mention a declined request once another attempt can be started', () => {
+      const { root } = openWith([exam({ attemptsAllowed: 2, attemptsUsed: 1, attempts: [attempt(1, 'Submitted', 4)], attemptRequest: request({ status: 'Approved' }) })]);
+
+      expect(root.textContent).not.toContain('declined');
+      expect(buttonIn(root, 'Start attempt 2')).toBeDefined();
     });
   });
 });

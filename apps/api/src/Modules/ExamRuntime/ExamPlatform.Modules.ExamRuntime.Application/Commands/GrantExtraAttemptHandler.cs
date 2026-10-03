@@ -24,6 +24,10 @@ public sealed class GrantExtraAttemptHandler(
     /// <param name="grantedByUserId">The signed-in staff user, taken from their token and never from the request.</param>
     /// <param name="reason">Why, in their words; optional.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="fulfilling">
+    /// The candidate's request this grant answers, if any. It is marked approved in the same save as the grant, so a request is
+    /// never approved without its attempt, nor an attempt granted for a request still shown as waiting.
+    /// </param>
     /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
     /// <exception cref="CandidateNotEnrolledError">The person never accepted an invitation to the exam.</exception>
     /// <exception cref="ExamClosedError">Nobody can start the exam any more, so an attempt granted now could never be used.</exception>
@@ -32,7 +36,7 @@ public sealed class GrantExtraAttemptHandler(
     /// <exception cref="InvalidAttemptError">The reason is too long.</exception>
     /// <exception cref="ConcurrencyConflictError">Another administrator granted an attempt to the same candidate at the same moment.</exception>
     public async Task<ExamCandidateDto> HandleAsync(
-        Guid examId, Guid candidateId, Guid grantedByUserId, string? reason, CancellationToken cancellationToken)
+        Guid examId, Guid candidateId, Guid grantedByUserId, string? reason, CancellationToken cancellationToken, AttemptRequest? fulfilling = null)
     {
         var exam = await catalog.FindAsync(examId, cancellationToken) ?? throw new ExamNotFoundError();
 
@@ -53,6 +57,7 @@ public sealed class GrantExtraAttemptHandler(
 
         // Numbered one after the last, and unique in the store, so two administrators acting at once cannot both succeed.
         grants.Add(ExtraAttemptGrant.Create(examId, candidateId, granted + 1, grantedByUserId, nowUtc, reason));
+        fulfilling?.Approve(grantedByUserId, nowUtc);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return ExamCandidateRows.For(exam, candidate, theirs, granted + 1, nowUtc);

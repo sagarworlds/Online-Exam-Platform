@@ -52,6 +52,8 @@ public sealed record AttemptSummaryDto(
 /// <param name="AttemptsUsed">How many they have started.</param>
 /// <param name="CanStartAttempt">Whether they may start a new attempt now: the window is open, none is in progress, and one is left.</param>
 /// <param name="Attempts">Every attempt they have made, oldest first.</param>
+/// <param name="CanRequestAttempt">Whether they may ask for another attempt now: the window is open, they have used every attempt they hold, none is in progress and no earlier request is waiting.</param>
+/// <param name="AttemptRequest">The latest request they made for another attempt at this exam, if any.</param>
 public sealed record MyExamDto(
     Guid ExamId,
     string Name,
@@ -69,4 +71,6 @@ public sealed record MyExamDto(
     int AttemptsAllowed,
     int AttemptsUsed,
     bool CanStartAttempt,
-    IReadOnlyList<AttemptSummaryDto> Attempts);
+    IReadOnlyList<AttemptSummaryDto> Attempts,
+    bool CanRequestAttempt = false,
+    MyAttemptRequestDto? AttemptRequest = null);

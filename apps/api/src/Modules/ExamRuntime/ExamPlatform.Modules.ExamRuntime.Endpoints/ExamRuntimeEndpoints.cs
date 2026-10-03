@@ -2,6 +2,7 @@ using System.Security.Claims;
 using ExamPlatform.Modules.ExamRuntime.Application.Commands;
 using ExamPlatform.Modules.ExamRuntime.Application.Dtos;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
+using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.SharedKernel.Application.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -16,6 +17,14 @@ public sealed record SaveAnswerRequest(Guid OptionId);
 /// <summary>Body of <c>POST /v1/exams/{examId}/candidates/{candidateId}/extra-attempts</c>.</summary>
 /// <param name="Reason">Why the candidate is being given another attempt; optional, at most 500 characters.</param>
 public sealed record GrantExtraAttemptRequest(string? Reason);
+
+/// <summary>Body of <c>POST /v1/me/exams/{examId}/attempt-requests</c>.</summary>
+/// <param name="Message">Why the candidate wants another attempt; optional, at most 500 characters.</param>
+public sealed record RequestAttemptRequest(string? Message);
+
+/// <summary>Body of <c>POST /v1/attempt-requests/{requestId}/decline</c>.</summary>
+/// <param name="Note">A reason the candidate will see; optional, at most 500 characters.</param>
+public sealed record DeclineAttemptRequestRequest(string? Note);
 
 /// <summary>Maps the ExamRuntime module's HTTP endpoints: the candidate's own (FR-16 to FR-21) and the staff's view of attempts.</summary>
 public static class ExamRuntimeEndpoints
@@ -42,6 +51,15 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status409Conflict)
             .WithName("StartAttempt")
             .WithDescription("Start the signed-in candidate's attempt at an exam, or resume the one they already have");
+
+        me.MapPost("/exams/{examId:guid}/attempt-requests", RequestAttempt)
+            .Produces<MyAttemptRequestDto>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("RequestAttempt")
+            .WithDescription("Ask an administrator for one more attempt at an exam, once every attempt held has been used");
 
         me.MapGet("/attempts/{attemptId:guid}", GetAttempt)
             .Produces<AttemptDto>()
@@ -128,7 +146,56 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status409Conflict)
             .WithName("GrantExtraAttempt")
             .WithDescription("Give one enrolled candidate one more attempt at an exam, once they have used the ones they hold");
+
+        var requests = endpoints.MapGroup("/v1/attempt-requests").WithTags("ExamRuntime").RequireAuthorization();
+
+        requests.MapGet("/", ListAttemptRequests)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<IReadOnlyList<AttemptRequestDto>>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ListAttemptRequests")
+            .WithDescription("List candidates' requests for another attempt, waiting ones unless a status is given, oldest first");
+
+        requests.MapPost("/{requestId:guid}/approve", ApproveAttemptRequest)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AttemptRequestDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("ApproveAttemptRequest")
+            .WithDescription("Give the candidate the attempt they asked for");
+
+        requests.MapPost("/{requestId:guid}/decline", DeclineAttemptRequest)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AttemptRequestDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("DeclineAttemptRequest")
+            .WithDescription("Turn a request down, optionally saying why");
     }
+
+    private static async Task<IResult> RequestAttempt(
+        Guid examId, RequestAttemptRequest? request, ClaimsPrincipal user, RequestAttemptHandler handler, CancellationToken ct)
+    {
+        var created = await handler.HandleAsync(examId, user.GetUserId(), request?.Message, ct);
+        return Results.Created($"/v1/me/exams", created);
+    }
+
+    // The framework binds the status by name, ignoring case, and answers 400 itself for one that is not a status.
+    private static async Task<IResult> ListAttemptRequests(AttemptRequestStatus? status, ListAttemptRequestsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(status, ct));
+
+    private static async Task<IResult> ApproveAttemptRequest(Guid requestId, ClaimsPrincipal user, ApproveAttemptRequestHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(requestId, user.GetUserId(), ct));
+
+    private static async Task<IResult> DeclineAttemptRequest(
+        Guid requestId, DeclineAttemptRequestRequest? request, ClaimsPrincipal user, DeclineAttemptRequestHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(requestId, user.GetUserId(), request?.Note, ct));
 
     private static async Task<IResult> ListExamAttempts(Guid examId, ListExamAttemptsHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(examId, ct));

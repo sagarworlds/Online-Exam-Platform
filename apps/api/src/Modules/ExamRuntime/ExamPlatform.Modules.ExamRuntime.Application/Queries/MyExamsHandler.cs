@@ -13,6 +13,7 @@ public sealed class MyExamsHandler(
     IExamCatalog catalog,
     IAttemptRepository attempts,
     IExtraAttemptGrantRepository grants,
+    IAttemptRequestRepository requests,
     Clock clock)
 {
     /// <summary>Returns the exams the user accepted an invitation to, soonest first, each with every attempt they have made at it.</summary>
@@ -26,6 +27,7 @@ public sealed class MyExamsHandler(
             .GroupBy(a => a.ExamId)
             .ToDictionary(group => group.Key, group => group.OrderBy(a => a.Number).ToList());
         var grantCounts = await grants.CountsForCandidateAsync(userId, cancellationToken);
+        var latestRequests = await requests.LatestForCandidateAsync(userId, cancellationToken);
         var nowUtc = clock.UtcNow;
 
         return exams
@@ -36,6 +38,7 @@ public sealed class MyExamsHandler(
                 var latest = made.Count > 0 ? made[^1] : null;
                 var granted = grantCounts.GetValueOrDefault(e.Id);
                 var state = StateOf(e, nowUtc);
+                var request = latestRequests.GetValueOrDefault(e.Id);
 
                 return new MyExamDto(
                     e.Id,
@@ -55,7 +58,13 @@ public sealed class MyExamsHandler(
                     made.Count,
                     // The window is open, nothing is in progress (that one is resumed, not followed by another), and one is left.
                     state == MyExamState.Open && latest is not { Status: AttemptStatus.InProgress } && AttemptAllowance.CanStartAnother(e.MaxAttempts, made.Count, granted),
-                    made.Select(ExamCandidateRows.Summary).ToList());
+                    made.Select(ExamCandidateRows.Summary).ToList(),
+                    // The same moment an administrator could grant one, and not while a request of theirs already waits for an answer.
+                    state == MyExamState.Open
+                        && latest is not { Status: AttemptStatus.InProgress }
+                        && AttemptAllowance.CanGrant(e.MaxAttempts, made.Count, granted)
+                        && request is not { Status: AttemptRequestStatus.Pending },
+                    request is null ? null : AttemptRequestDtoFactory.ForCandidate(request));
             })
             .ToList();
     }

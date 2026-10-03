@@ -19,6 +19,23 @@ export interface AttemptSummaryDto {
   maxScore: number | null;
 }
 
+/** Where a request for another attempt stands. */
+export type AttemptRequestStatus = 'Pending' | 'Approved' | 'Declined';
+
+/** The candidate's own request for another attempt at an exam. */
+export interface MyAttemptRequestDto {
+  id: string;
+  status: AttemptRequestStatus;
+  message: string | null;
+  requestedAtUtc: string;
+  decidedAtUtc: string | null;
+  /** What the administrator said when declining, if anything. */
+  decisionNote: string | null;
+}
+
+/** The longest message or note the API accepts on a request. */
+export const MAX_ATTEMPT_REQUEST_TEXT = 500;
+
 /** An exam the candidate is enrolled in, as listed on their exams page. All instants are UTC. */
 export interface MyExamDto {
   examId: string;
@@ -43,6 +60,10 @@ export interface MyExamDto {
   canStartAttempt: boolean;
   /** Every attempt they have made, oldest first. */
   attempts: AttemptSummaryDto[];
+  /** Whether they may ask for another attempt now: they have used every attempt they hold, none is open, and no request is waiting. */
+  canRequestAttempt: boolean;
+  /** Their latest request for another attempt at this exam, if they ever made one. */
+  attemptRequest: MyAttemptRequestDto | null;
 }
 
 /** When candidates may see which of their answers were right, as the exam's author chose it. */

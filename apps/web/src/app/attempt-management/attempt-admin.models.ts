@@ -1,4 +1,4 @@
-import { AttemptSummaryDto } from '../candidate/candidate.models';
+import { AttemptRequestStatus, AttemptSummaryDto } from '../candidate/candidate.models';
 
 /** One enrolled candidate of an exam, with their attempts and whether another can be given, as staff see them. */
 export interface ExamCandidateDto {
@@ -25,4 +25,23 @@ export interface ExamAttemptsDto {
   /** How many attempts every candidate has before any extra is given, as the exam's author set it. */
   attemptsPerCandidate: number;
   candidates: ExamCandidateDto[];
+}
+
+/** The statuses the request queue can be filtered to, as the API spells them in the query. */
+export type AttemptRequestFilterStatus = 'pending' | 'approved' | 'declined';
+
+/** A candidate's request for another attempt as staff see it in the queue. */
+export interface AttemptRequestRow {
+  id: string;
+  examId: string;
+  /** Null when the exam can no longer be read. */
+  examName: string | null;
+  candidateId: string;
+  /** The address the candidate was invited at; null when they are no longer enrolled. */
+  candidateEmail: string | null;
+  message: string | null;
+  requestedAtUtc: string;
+  status: AttemptRequestStatus;
+  decidedAtUtc: string | null;
+  decisionNote: string | null;
 }

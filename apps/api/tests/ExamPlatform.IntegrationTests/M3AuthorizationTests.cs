@@ -59,6 +59,9 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("DELETE", "/v1/exams/{examId:guid}/sections/{sectionId:guid}/questions/{questionId:guid}", RbacCatalog.PermissionCodes.ExamManage, null),
         new("POST", "/v1/exams/{examId:guid}/publish", RbacCatalog.PermissionCodes.ExamPublish, null),
         new("GET", "/v1/exams/{examId:guid}/attempts", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("GET", "/v1/attempt-requests", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("POST", "/v1/attempt-requests/{requestId:guid}/approve", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("POST", "/v1/attempt-requests/{requestId:guid}/decline", RbacCatalog.PermissionCodes.ExamManage, new { note = "No" }),
         new("POST", "/v1/exams/{examId:guid}/candidates/{candidateId:guid}/extra-attempts", RbacCatalog.PermissionCodes.ExamManage,
             new { reason = "Authorization test" }),
 
@@ -111,7 +114,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
     // verifying their own link cannot be a staff action; the guardian model behind it is redesigned later.
     private static readonly string[] SelfServiceRoutes = ["POST /v1/guardians/links/verify", "POST /v1/invites/accept"];
 
-    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/questions", "/v1/books"];
+    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/questions", "/v1/books", "/v1/attempt-requests"];
 
     public static TheoryData<string> StaffRouteKeys => [.. StaffRoutes.Select(r => r.Key)];
 
