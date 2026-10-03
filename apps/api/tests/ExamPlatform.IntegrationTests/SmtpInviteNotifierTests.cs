@@ -122,6 +122,11 @@ public sealed class SmtpInviteNotifierTests
             {
                 // Disposed while waiting for a client: nothing more to serve.
             }
+            catch (InvalidOperationException)
+            {
+                // Disposed before the loop reached its first accept, so the listener was already stopped: also nothing to serve.
+                // A test that never connects (a notifier with no mail server configured) finishes fast enough to hit this.
+            }
         }
 
         private async Task ServeAsync(TcpClient client)
