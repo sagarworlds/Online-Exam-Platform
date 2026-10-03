@@ -84,10 +84,10 @@ describe('AttemptRequests', () => {
 
     press('Give another attempt', 0);
     const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/attempt-requests/amy/approve'));
-    post.flush(row('amy', { status: 'Approved' }));
+    post.flush(row('amy', { status: 'Approved', candidateNotified: true }));
     fixture.detectChanges();
 
-    expect(root.textContent).toContain('Gave amy@example.com another attempt.');
+    expect(root.textContent).toContain('Gave amy@example.com another attempt. They were e-mailed.');
     expect(root.textContent).not.toContain('amy@example.com asked');
     expect(buttons('Give another attempt').length).toBe(1);
   });
@@ -117,10 +117,11 @@ describe('AttemptRequests', () => {
 
     const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/amy/decline'));
     expect(post.request.body).toEqual({ note: 'Speak to your teacher' });
-    post.flush(row('amy', { status: 'Declined' }));
+    post.flush(row('amy', { status: 'Declined', candidateNotified: false }));
     fixture.detectChanges();
 
     expect(root.textContent).toContain('Declined the request from amy@example.com.');
+    expect(root.textContent).toContain('They could not be e-mailed, so let them know yourself.');
     expect(root.textContent).toContain('No candidates are waiting');
   });
 

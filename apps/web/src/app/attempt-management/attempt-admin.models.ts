@@ -44,4 +44,9 @@ export interface AttemptRequestRow {
   status: AttemptRequestStatus;
   decidedAtUtc: string | null;
   decisionNote: string | null;
+  /**
+   * Whether the candidate was e-mailed the answer. Present only on the response to approving or declining; false means no mail
+   * server is set up, it refused the message, or the candidate is no longer enrolled, so the administrator should tell them.
+   */
+  candidateNotified?: boolean | null;
 }

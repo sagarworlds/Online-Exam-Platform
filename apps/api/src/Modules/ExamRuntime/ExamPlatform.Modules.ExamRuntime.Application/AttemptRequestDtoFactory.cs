@@ -29,6 +29,25 @@ public sealed class AttemptRequestDtoFactory(IExamCatalog catalog, IExamRoster r
             .ToList();
     }
 
+    /// <summary>
+    /// Tells the candidate how their request was answered, after the answer is saved. Nothing here can undo that answer: a missing
+    /// address or a mail failure comes back as <see langword="false"/> for the administrator to act on.
+    /// </summary>
+    /// <param name="decided">The request as just decided.</param>
+    /// <param name="notifier">What sends the e-mail.</param>
+    /// <param name="approved">Whether it was approved (otherwise declined).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Whether an e-mail was handed to a mail server.</returns>
+    public async Task<bool> NotifyAsync(AttemptRequestDto decided, IAttemptRequestNotifier notifier, bool approved, CancellationToken cancellationToken)
+    {
+        // No address means the candidate is no longer enrolled: there is nobody to write to.
+        if (decided.CandidateEmail is not { } address)
+            return false;
+
+        return await notifier.SendDecisionAsync(
+            new AttemptRequestDecisionEmail(address, decided.ExamName ?? "the exam", approved, decided.DecisionNote), cancellationToken);
+    }
+
     /// <summary>The candidate's own view of a request.</summary>
     /// <param name="request">The request.</param>
     public static MyAttemptRequestDto ForCandidate(AttemptRequest request) =>

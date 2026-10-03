@@ -72,6 +72,8 @@ public sealed class AttemptRequestFlowTests(ApiFactory factory) : IClassFixture<
         var approved = await JsonAsync((await admin.PostAsync($"/v1/attempt-requests/{queued.GetProperty("id").GetGuid()}/approve", content: null)).EnsureSuccessStatusCode());
 
         Assert.Equal("Approved", approved.GetProperty("status").GetString());
+        // The test host has no mail server, so nothing was sent, and the administrator is told so rather than left to assume.
+        Assert.False(approved.GetProperty("candidateNotified").GetBoolean());
         Assert.Null(await QueuedAsync(admin, examId));
         var after = await MyExamAsync(candidate, examId);
         Assert.Equal(2, after.GetProperty("attemptsAllowed").GetInt32());
@@ -92,6 +94,7 @@ public sealed class AttemptRequestFlowTests(ApiFactory factory) : IClassFixture<
         var declined = await JsonAsync((await admin.PostAsJsonAsync($"/v1/attempt-requests/{id}/decline", new { note = "Speak to your teacher" })).EnsureSuccessStatusCode());
 
         Assert.Equal("Declined", declined.GetProperty("status").GetString());
+        Assert.False(declined.GetProperty("candidateNotified").GetBoolean());
         var mine = await MyExamAsync(candidate, examId);
         Assert.Equal("Speak to your teacher", mine.GetProperty("attemptRequest").GetProperty("decisionNote").GetString());
         Assert.False(mine.GetProperty("canStartAttempt").GetBoolean());
