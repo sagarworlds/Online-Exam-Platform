@@ -74,3 +74,6 @@ export interface QuestionFilter {
 
 /** The API's limits on one question, mirrored here so the form can refuse early. */
 export const QUESTION_LIMITS = { minOptions: 2, maxOptions: 6 } as const;
+
+/** How many questions one listing returns at most, as the API sets it. A full page means there may be more to load. */
+export const QUESTION_LIST_PAGE_SIZE = 200;

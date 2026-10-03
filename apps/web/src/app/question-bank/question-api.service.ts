@@ -17,12 +17,14 @@ export class QuestionApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiBaseUrl}/v1/questions`;
 
-  list(filter: QuestionFilter = {}): Observable<QuestionDto[]> {
+  /** One page of the newest questions. `skip` leaves out that many of the newest, to reach a later page. */
+  list(filter: QuestionFilter = {}, skip = 0): Observable<QuestionDto[]> {
     // Only what is set goes on the URL, so an unfiltered list is the plain /v1/questions it always was.
     const params: Record<string, string | boolean> = {};
     if (filter.bookId) params['bookId'] = filter.bookId;
     if (filter.chapterId) params['chapterId'] = filter.chapterId;
     if (filter.unfiled) params['unfiled'] = true;
+    if (skip > 0) params['skip'] = String(skip);
     return this.http.get<QuestionDto[]>(this.baseUrl, { params });
   }
 

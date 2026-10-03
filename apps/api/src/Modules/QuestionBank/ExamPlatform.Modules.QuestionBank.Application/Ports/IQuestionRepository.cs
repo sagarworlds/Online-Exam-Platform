@@ -37,9 +37,10 @@ public interface IQuestionRepository
 
     /// <summary>Lists the most recently created questions that match the filter, newest first.</summary>
     /// <param name="filter">Which questions to include.</param>
+    /// <param name="skip">How many of the newest to leave out, to reach a later page; 0 for the first.</param>
     /// <param name="take">How many to return at most.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<IReadOnlyList<Question>> ListNewestAsync(QuestionFilter filter, int take, CancellationToken cancellationToken);
+    Task<IReadOnlyList<Question>> ListNewestAsync(QuestionFilter filter, int skip, int take, CancellationToken cancellationToken);
 
     /// <summary>Counts the questions filed under each chapter.</summary>
     /// <param name="chapterIds">The chapters to count for.</param>

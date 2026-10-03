@@ -68,6 +68,33 @@ public sealed class QuestionBankFlowTests(ApiFactory factory) : IClassFixture<Ap
     }
 
     [Fact]
+    public async Task List_SkipLeavesOutThatManyOfTheNewest_SoALaterPageContinuesTheSameOrder()
+    {
+        using var client = await ClientForAsync(RbacCatalog.RoleNames.ExamAdmin);
+        for (var i = 0; i < 3; i++)
+            Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync("/v1/questions", ValidQuestion)).StatusCode);
+
+        var firstPage = await IdsAsync(client, "/v1/questions");
+        var afterTwo = await IdsAsync(client, "/v1/questions?skip=2");
+
+        Assert.True(firstPage.Count >= 3);
+        // Whatever else the shared database holds, the later page is the first one shifted by the two left out.
+        Assert.Equal(firstPage.Skip(2).Take(firstPage.Count - 2), afterTwo.Take(firstPage.Count - 2));
+    }
+
+    [Fact]
+    public async Task List_ANegativeSkipIsTreatedAsTheStart()
+    {
+        using var client = await ClientForAsync(RbacCatalog.RoleNames.ExamAdmin);
+        await client.PostAsJsonAsync("/v1/questions", ValidQuestion);
+
+        Assert.Equal(await IdsAsync(client, "/v1/questions"), await IdsAsync(client, "/v1/questions?skip=-5"));
+    }
+
+    private static async Task<List<Guid>> IdsAsync(HttpClient client, string url) =>
+        (await client.GetFromJsonAsync<JsonElement>(url)).EnumerateArray().Select(q => q.GetProperty("id").GetGuid()).ToList();
+
+    [Fact]
     public async Task OtherModules_ReadTheQuestionThroughTheContract_InOptionOrderWithTheKey()
     {
         using var client = await ClientForAsync(RbacCatalog.RoleNames.ExamAdmin);

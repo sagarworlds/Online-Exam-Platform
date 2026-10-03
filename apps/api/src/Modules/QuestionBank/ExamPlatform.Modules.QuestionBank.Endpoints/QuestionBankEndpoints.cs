@@ -32,7 +32,7 @@ public static class QuestionBankEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("ListQuestions")
-            .WithDescription("List the newest questions, optionally only those under a book or chapter, or only unfiled ones");
+            .WithDescription("List the newest questions, 200 at a time (skip leaves out that many of the newest), optionally only those under a book or chapter, or only unfiled ones");
 
         questions.MapGet("/{questionId:guid}", GetQuestion)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -86,8 +86,8 @@ public static class QuestionBankEndpoints
     }
 
     private static async Task<IResult> ListQuestions(
-        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, CancellationToken ct) =>
-        Results.Ok(await handler.HandleAsync(new QuestionFilter(bookId, chapterId, unfiled ?? false), ct));
+        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, int? skip, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new QuestionFilter(bookId, chapterId, unfiled ?? false), ct, skip ?? 0));
 
     private static async Task<IResult> GetQuestion(Guid questionId, GetQuestionHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(questionId, ct));
