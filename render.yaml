@@ -1,10 +1,12 @@
 # Render Blueprint: the .NET API and the Angular site. The database is a free Neon Postgres, outside Render.
+# Both services deploy from the SP/feature/render-deployment branch, which is kept apart from main.
 # See docs/deploy-render.md for the one-time steps (loading existing data, secrets marked sync: false).
 services:
   - type: web
     name: exam-platform-api
     runtime: docker
     plan: free
+    branch: SP/feature/render-deployment
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: ./apps/api
     healthCheckPath: /v1/health
@@ -48,6 +50,7 @@ services:
   - type: web
     name: exam-platform-web
     runtime: static
+    branch: SP/feature/render-deployment
     buildCommand: >-
       cd apps/web && npm ci &&
       sed -i "s|apiBaseUrl: '/api'|apiBaseUrl: '${API_BASE_URL}'|" src/environments/environment.ts &&
