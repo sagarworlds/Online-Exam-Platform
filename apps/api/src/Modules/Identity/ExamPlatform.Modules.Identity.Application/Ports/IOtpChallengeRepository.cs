@@ -24,6 +24,17 @@ public interface IOtpChallengeRepository
     Task<IReadOnlyList<OtpChallenge>> GetOutstandingAsync(
         string destination, OtpPurpose purpose, DateTime nowUtc, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Lists the challenges whose code staff may still read: one is kept, not yet consumed,
+    /// superseded, expired or locked out. Newest first.
+    /// </summary>
+    /// <param name="destinationContains">Only destinations containing this text (case-insensitive), or null for all.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <param name="take">The most challenges to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<OtpChallenge>> ListRevealableAsync(
+        string? destinationContains, DateTime nowUtc, int take, CancellationToken cancellationToken);
+
     /// <summary>Begins tracking a new challenge for insertion on the next unit-of-work commit.</summary>
     /// <param name="challenge">The challenge to add.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

@@ -104,6 +104,11 @@ export const routes: Routes = [
     loadComponent: () => import('./exam-authoring/exam-editor/exam-editor').then((m) => m.ExamEditor),
   },
   {
+    path: 'admin/otp-codes',
+    canActivate: [permissionGuard(Permission.OtpRead)],
+    loadComponent: () => import('./admin/otp-codes/otp-codes').then((m) => m.OtpCodes),
+  },
+  {
     path: 'admin/attempt-requests',
     canActivate: [permissionGuard(Permission.ExamManage)],
     loadComponent: () => import('./attempt-management/attempt-requests/attempt-requests').then((m) => m.AttemptRequests),

@@ -108,6 +108,17 @@ public static class IdentityEndpoints
             })
             .WithTags("Identity")
             .RequireAuthorization("permission:identity.role.assign");
+
+        // Reveals live candidate codes, so it has its own permission, held by SuperAdmin only, and
+        // every call is audited by the handler.
+        endpoints.MapGet("/v1/admin/otp-codes", async (
+                string? destination, HttpContext http, ListOutstandingOtpsHandler handler, CancellationToken ct) =>
+            {
+                var query = new ListOutstandingOtpsQuery(destination, http.User.GetUserId(), http.User.GetPrimaryRole());
+                return Results.Ok(await handler.HandleAsync(query, ct));
+            })
+            .WithTags("Identity")
+            .RequireAuthorization("permission:identity.otp.read");
     }
 
     private static string? DeviceFingerprint(HttpContext http) =>

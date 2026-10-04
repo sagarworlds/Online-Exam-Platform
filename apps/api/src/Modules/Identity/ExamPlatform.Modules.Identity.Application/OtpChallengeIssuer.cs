@@ -48,7 +48,8 @@ public sealed class OtpChallengeIssuer(
         var code = codeGenerator.GenerateCode();
         var codeHash = codeGenerator.Hash(code);
 
-        var challenge = OtpChallenge.Issue(userId, channel, destination, codeHash, purpose, nowUtc, Validity);
+        var challenge = OtpChallenge.Issue(
+            userId, channel, destination, codeHash, purpose, nowUtc, Validity, revealableCode: code);
         await challengeRepository.AddAsync(challenge, cancellationToken);
 
         await otpSender.SendAsync(channel, destination, code, cancellationToken);

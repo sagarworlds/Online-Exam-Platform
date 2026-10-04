@@ -596,3 +596,11 @@ button.primary:hover:not(:disabled),
 .field-row > .field {
   flex: 1 1 14rem;
 }
+
+/* A one-time code an administrator reads out: large, spaced and monospaced so digits are not misread over a call. */
+.otp-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.75rem;
+  letter-spacing: 0.25em;
+  margin: 0.25rem 0 0;
+}
