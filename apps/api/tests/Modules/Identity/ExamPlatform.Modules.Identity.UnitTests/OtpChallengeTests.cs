@@ -18,6 +18,58 @@ public class OtpChallengeTests
             validity: TimeSpan.FromMinutes(10),
             maxAttempts: maxAttempts);
 
+    private static OtpChallenge CreateChallengeKeepingCode(OtpPurpose purpose) =>
+        OtpChallenge.Issue(
+            Guid.NewGuid(), OtpChannel.Email, "candidate@example.com", "correct-hash", purpose,
+            IssuedAt, TimeSpan.FromMinutes(10), revealableCode: "123456");
+
+    [Theory]
+    [InlineData(OtpPurpose.Login)]
+    [InlineData(OtpPurpose.Registration)]
+    public void Issue_KeepsTheCode_ForCandidatePurposes(OtpPurpose purpose)
+    {
+        Assert.Equal("123456", CreateChallengeKeepingCode(purpose).RevealableCode);
+    }
+
+    [Theory]
+    [InlineData(OtpPurpose.TwoFactorStep)]
+    [InlineData(OtpPurpose.PasswordReset)]
+    public void Issue_NeverKeepsTheCode_ForStaffSecondFactorOrPasswordReset(OtpPurpose purpose)
+    {
+        // Even when a caller passes the code, so no future flow can store a readable second factor by mistake.
+        Assert.Null(CreateChallengeKeepingCode(purpose).RevealableCode);
+    }
+
+    [Fact]
+    public void Verify_WithTheRightCode_ForgetsTheStoredCode()
+    {
+        var challenge = CreateChallengeKeepingCode(OtpPurpose.Login);
+
+        challenge.Verify("correct-hash", IssuedAt.AddMinutes(1));
+
+        Assert.Null(challenge.RevealableCode);
+    }
+
+    [Fact]
+    public void Verify_WithTheWrongCode_KeepsTheStoredCode()
+    {
+        var challenge = CreateChallengeKeepingCode(OtpPurpose.Login);
+
+        challenge.Verify("wrong-hash", IssuedAt.AddMinutes(1));
+
+        Assert.Equal("123456", challenge.RevealableCode);
+    }
+
+    [Fact]
+    public void Supersede_ForgetsTheStoredCode()
+    {
+        var challenge = CreateChallengeKeepingCode(OtpPurpose.Login);
+
+        challenge.Supersede(IssuedAt.AddMinutes(1));
+
+        Assert.Null(challenge.RevealableCode);
+    }
+
     [Fact]
     public void Verify_AfterExpiry_ReturnsExpired()
     {

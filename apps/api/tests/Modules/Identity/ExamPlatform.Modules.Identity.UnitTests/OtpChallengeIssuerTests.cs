@@ -48,6 +48,34 @@ public class OtpChallengeIssuerTests
     }
 
     [Fact]
+    public async Task IssueAsync_KeepsThePlaintextCode_OnlyForCandidatePurposes()
+    {
+        var stored = new List<OtpChallenge>();
+        _challengeRepository
+            .When(r => r.AddAsync(Arg.Any<OtpChallenge>(), Arg.Any<CancellationToken>()))
+            .Do(call => stored.Add(call.Arg<OtpChallenge>()));
+
+        await _issuer.IssueAsync(Guid.NewGuid(), OtpChannel.Email, Destination, OtpPurpose.Login, CancellationToken.None);
+        await _issuer.IssueAsync(Guid.NewGuid(), OtpChannel.Email, Destination, OtpPurpose.TwoFactorStep, CancellationToken.None);
+
+        Assert.Equal("123456", stored.Single(c => c.Purpose == OtpPurpose.Login).RevealableCode);
+        Assert.Null(stored.Single(c => c.Purpose == OtpPurpose.TwoFactorStep).RevealableCode);
+    }
+
+    [Fact]
+    public async Task IssueDecoyAsync_NeverKeepsAReadableCode()
+    {
+        OtpChallenge? stored = null;
+        _challengeRepository
+            .When(r => r.AddAsync(Arg.Any<OtpChallenge>(), Arg.Any<CancellationToken>()))
+            .Do(call => stored = call.Arg<OtpChallenge>());
+
+        await _issuer.IssueDecoyAsync(OtpChannel.Email, Destination, OtpPurpose.Login, CancellationToken.None);
+
+        Assert.Null(stored!.RevealableCode);
+    }
+
+    [Fact]
     public async Task IssueDecoyAsync_PersistsUnmatchableChallengeAndSendsNothing()
     {
         _codeGenerator.Hash(Arg.Any<string>()).Returns(call => "hashed-" + call.Arg<string>());

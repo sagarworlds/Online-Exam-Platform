@@ -68,6 +68,7 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<UpdateProfileHandler>();
         services.AddScoped<GetProfileHandler>();
         services.AddScoped<ListRolesHandler>();
+        services.AddScoped<ListOutstandingOtpsHandler>();
 
         // Development-only first administrator (see IdentityBootstrapOptions). Bound in every
         // environment so MigrateAndSeedAsync can tell that it was asked for and refuse it

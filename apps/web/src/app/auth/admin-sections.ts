@@ -6,6 +6,7 @@ export const Permission = {
   BatchManage: 'batch.manage',
   InviteManage: 'invite.manage',
   GuardianLinkManage: 'guardian.link.manage',
+  OtpRead: 'identity.otp.read',
 } as const;
 
 /** One area of the admin section: where it lives and which permission opens it. */
@@ -28,4 +29,5 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { label: 'Invites', description: 'Invite candidates to an exam by email.', path: '/invites', permission: Permission.InviteManage },
   { label: 'Batches', description: 'Group candidates into batches.', path: '/batches', permission: Permission.BatchManage },
   { label: 'Guardians', description: 'Link a guardian to a candidate.', path: '/guardian/link-candidate', permission: Permission.GuardianLinkManage },
+  { label: 'Candidate codes', description: 'Read the sign-in code a candidate is waiting for.', path: '/admin/otp-codes', permission: Permission.OtpRead },
 ];

@@ -62,6 +62,7 @@ public class RbacCatalogTests
             RbacCatalog.PermissionCodes.AuditRead,
             RbacCatalog.PermissionCodes.ConsentManage,
             RbacCatalog.PermissionCodes.RoleAssign,
+            RbacCatalog.PermissionCodes.OtpRead,
         ];
 
         var holders = RbacCatalog.Roles

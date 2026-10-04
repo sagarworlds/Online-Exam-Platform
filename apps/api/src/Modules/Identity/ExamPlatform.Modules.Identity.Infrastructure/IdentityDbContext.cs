@@ -15,6 +15,9 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     /// <summary>Name of the shadow property that maps a concurrency-checked entity's Postgres <c>xmin</c> row version.</summary>
     internal const string RowVersionPropertyName = "RowVersion";
 
+    // Codes are six digits today; the headroom lets the length change without a migration.
+    private const int RevealableCodeMaxLength = 12;
+
     /// <summary>Registered accounts.</summary>
     public DbSet<User> Users => Set<User>();
 
@@ -89,6 +92,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             b.HasKey(c => c.Id);
             b.Property(c => c.Destination).IsRequired().HasMaxLength(OtpChallenge.MaxDestinationLength);
             b.Property(c => c.CodeHash).IsRequired();
+            b.Property(c => c.RevealableCode).HasMaxLength(RevealableCodeMaxLength);
             b.Property(c => c.Channel).HasConversion<string>().HasMaxLength(20);
             b.Property(c => c.Purpose).HasConversion<string>().HasMaxLength(30);
             b.Ignore(c => c.DomainEvents);

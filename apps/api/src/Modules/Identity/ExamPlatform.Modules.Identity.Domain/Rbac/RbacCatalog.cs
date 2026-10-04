@@ -58,6 +58,9 @@ public static class RbacCatalog
         /// <summary>Create invites, generate and revoke their codes (FR-50a).</summary>
         public const string InviteManage = "invite.manage";
 
+        /// <summary>Read the unspent sign-in and registration codes of candidates, to help one who never received theirs.</summary>
+        public const string OtpRead = "identity.otp.read";
+
         /// <summary>Link guardians to candidates and revoke those links (FR-45).</summary>
         public const string GuardianLinkManage = "guardian.link.manage";
     }
@@ -104,6 +107,7 @@ public static class RbacCatalog
         new(PermissionCodes.BatchRead, "View batches and their rosters"),
         new(PermissionCodes.InviteManage, "Create invites and manage their codes"),
         new(PermissionCodes.GuardianLinkManage, "Link guardians to candidates and revoke those links"),
+        new(PermissionCodes.OtpRead, "Read candidates' unspent sign-in and registration codes"),
     ];
 
     /// <summary>
