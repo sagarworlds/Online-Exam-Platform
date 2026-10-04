@@ -97,6 +97,30 @@ public sealed class DrawRuleFlowTests(ApiFactory factory) : IClassFixture<ApiFac
     }
 
     [Fact]
+    public async Task Staff_CanSeeThePaperDrawnForAnAttempt_AndACandidateCannot()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var topic = UniqueTopic();
+        for (var i = 0; i < 4; i++)
+            await TaggedQuestionAsync(admin, $"Pool {i}", topic);
+        var examId = await DraftWithRuleAsync(admin, topic, 2);
+        (await admin.PostAsync($"/v1/exams/{examId}/publish", content: null)).EnsureSuccessStatusCode();
+        var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _c = candidate;
+        var started = await JsonAsync((await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null)).EnsureSuccessStatusCode());
+        var attemptId = started.GetProperty("id").GetGuid();
+
+        var response = await admin.GetAsync($"/v1/exams/{examId}/attempts/{attemptId}/paper");
+
+        var paper = await JsonAsync(response.EnsureSuccessStatusCode());
+        Assert.True(paper.GetProperty("hasDrawnQuestions").GetBoolean());
+        var questions = paper.GetProperty("sections")[0].GetProperty("questions").EnumerateArray().ToList();
+        Assert.Equal(3, questions.Count);
+        Assert.Equal(2, questions.Count(q => q.GetProperty("drawn").GetBoolean()));
+        Assert.Equal(HttpStatusCode.Forbidden, (await candidate.GetAsync($"/v1/exams/{examId}/attempts/{attemptId}/paper")).StatusCode);
+    }
+
+    [Fact]
     public async Task ARule_CanBeRemovedWhileDraft_ButNotOncePublished()
     {
         using var admin = await factory.AdminClientAsync();

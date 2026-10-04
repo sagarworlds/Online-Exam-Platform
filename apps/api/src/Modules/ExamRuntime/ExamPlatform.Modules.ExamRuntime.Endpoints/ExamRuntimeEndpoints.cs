@@ -139,6 +139,15 @@ public static class ExamRuntimeEndpoints
             .WithName("ListExamAttempts")
             .WithDescription("List an exam's enrolled candidates with their attempts and whether another can be granted");
 
+        exams.MapGet("/{examId:guid}/attempts/{attemptId:guid}/paper", GetAttemptPaper)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AttemptPaperDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("GetAttemptPaper")
+            .WithDescription("Show the questions one attempt consisted of, marking those drawn for the candidate");
+
         exams.MapPost("/{examId:guid}/candidates/{candidateId:guid}/extra-attempts", GrantExtraAttempt)
             .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
             .Produces<ExamCandidateDto>(StatusCodes.Status201Created)
@@ -209,6 +218,9 @@ public static class ExamRuntimeEndpoints
     private static async Task<IResult> DeclineAttemptRequest(
         Guid requestId, DeclineAttemptRequestRequest? request, ClaimsPrincipal user, DeclineAttemptRequestHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(requestId, user.GetUserId(), request?.Note, ct));
+
+    private static async Task<IResult> GetAttemptPaper(Guid examId, Guid attemptId, GetAttemptPaperHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, attemptId, ct));
 
     private static async Task<IResult> ListExamAttempts(Guid examId, ListExamAttemptsHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(examId, ct));

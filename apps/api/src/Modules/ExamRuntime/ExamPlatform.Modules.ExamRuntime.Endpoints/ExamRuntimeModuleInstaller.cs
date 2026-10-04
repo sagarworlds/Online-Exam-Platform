@@ -58,6 +58,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<SubmitAttemptHandler>();
         services.AddScoped<GrantExtraAttemptHandler>();
         services.AddScoped<ListExamAttemptsHandler>();
+        services.AddScoped<GetAttemptPaperHandler>();
         services.AddScoped<RequestAttemptHandler>();
         services.AddScoped<ListAttemptRequestsHandler>();
         services.AddScoped<ApproveAttemptRequestHandler>();

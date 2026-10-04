@@ -72,6 +72,48 @@ describe('ExamAttempts', () => {
 
   afterEach(() => httpMock.verify());
 
+  it('shows the paper of an attempt on request, marking the questions drawn for the candidate', () => {
+    const fixture = open(exam([candidate()]));
+
+    buttonLabelled(fixture, 'Show paper')[0].click();
+    const request = httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts/a1/paper'));
+    request.flush({
+      attemptId: 'a1',
+      number: 1,
+      hasDrawnQuestions: true,
+      sections: [
+        {
+          id: 's1',
+          name: 'Algebra',
+          questions: [
+            { id: 'q1', text: '<p>Fixed question</p>', drawn: false },
+            { id: 'q2', text: '<p>Drawn question</p>', drawn: true },
+          ],
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    const text = textOf(fixture);
+    expect(text).toContain('Fixed question');
+    expect(text).toContain('Drawn question drawn');
+    expect(text).toContain("other candidates' papers may differ");
+    expect(buttonLabelled(fixture, 'Hide paper').length).toBe(1);
+  });
+
+  it('says so when the paper cannot be loaded', () => {
+    const fixture = open(exam([candidate()]));
+
+    buttonLabelled(fixture, 'Show paper')[0].click();
+    httpMock
+      .expectOne((r) => r.url.endsWith('/v1/exams/exam-1/attempts/a1/paper'))
+      .flush({ title: 'attempt_not_found', detail: 'No attempt matches the given id.' }, { status: 404, statusText: 'Not Found' });
+    fixture.detectChanges();
+
+    expect(root(fixture).querySelector('[role="alert"]')).not.toBeNull();
+    expect(buttonLabelled(fixture, 'Show paper').length).toBe(1);
+  });
+
   it('lists each candidate with how many attempts they have used and what each scored', () => {
     const fixture = open(
       exam([

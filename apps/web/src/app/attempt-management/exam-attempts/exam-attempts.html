@@ -47,7 +47,34 @@
                   }
                   <span class="hint">, started {{ attempt.startedAtUtc | date: 'medium' }}</span>
                 </span>
+                <button type="button" class="btn--small" (click)="togglePaper(attempt.id)" [attr.aria-expanded]="paperFor() === attempt.id">
+                  {{ paperFor() === attempt.id ? 'Hide paper' : 'Show paper' }}
+                </button>
               </li>
+              @if (paperFor() === attempt.id) {
+                <li class="attempt-paper">
+                  @if (paper(); as p) {
+                    @if (p.hasDrawnQuestions) {
+                      <p class="hint">Some questions were drawn for this candidate, so other candidates' papers may differ.</p>
+                    }
+                    @for (section of p.sections; track section.id) {
+                      <h4>{{ section.name }}</h4>
+                      <ol>
+                        @for (question of section.questions; track question.id) {
+                          <li>
+                            {{ question.text ? (question.text | plainText: 160) : '(question no longer in the bank)' }}
+                            @if (question.drawn) {
+                              <span class="badge badge--inactive">drawn</span>
+                            }
+                          </li>
+                        }
+                      </ol>
+                    }
+                  } @else {
+                    <p>Loading…</p>
+                  }
+                </li>
+              }
             }
           </ul>
         }
