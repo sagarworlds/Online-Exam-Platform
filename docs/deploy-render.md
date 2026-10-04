@@ -1,40 +1,64 @@
-# Deploy to Render
+# Deploy to Render with a Neon database
 
-Everything runs on Render: the Postgres database, the .NET API (a Docker web service) and the Angular site (a static site). `render.yaml` at the repository root describes all three.
+The .NET API (a Docker web service) and the Angular site (a static site) run on Render; the Postgres database is a free Neon project. `render.yaml` at the repository root describes the two Render services.
+
+Neon is used instead of Render's own free Postgres because Render deletes that database after 30 days. SQLite is not an option: the data layer relies on Postgres features (schemas per module, `xmin` concurrency tokens, `ILIKE`) and its migrations are Postgres-only.
 
 ## Free-plan limits to know about
 
-- A free web service sleeps after about 15 minutes without traffic; the first request afterwards takes up to a minute.
-- A free Render Postgres database is deleted 30 days after it is created. Upgrade it before then, or point `ConnectionStrings__Postgres` at another Postgres host.
+- A free Render web service sleeps after about 15 minutes without traffic; the first request afterwards takes up to a minute.
+- A free Neon database stops its compute after 5 minutes idle and wakes on the next query (about a second). It holds 0.5 GB.
 - The API can only e-mail one-time codes (`Identity__OtpDelivery__Provider=Smtp`). SMS is not supported yet, so use the e-mail channel, and give the API a mail server (a free Brevo or Gmail SMTP account works).
 
-## 1. Create the services
+## 1. Create the Neon database
 
-1. In Render choose **New > Blueprint**, pick this repository and apply `render.yaml`.
-2. When asked for the values marked `sync: false`, leave them empty for now; step 3 fills them in.
+1. At neon.tech create a project (Postgres 16 or newer) and a database, for example `examplatform`.
+2. On the project's **Connect** panel turn **Connection pooling off** and copy the connection details: host, database, role and password. A direct connection is needed for restoring data and migrations.
+
+Your Npgsql connection string is:
+
+```
+Host=<host>;Port=5432;Database=<database>;Username=<role>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true
+```
+
+The equivalent URL for `pg_restore` is `postgresql://<role>:<password>@<host>/<database>?sslmode=require`.
 
 ## 2. Load your existing data
 
-Run on your machine while the Docker database is up (names from `docker-compose.yml`):
+Run these in PowerShell, from any folder. First find the container name:
 
-```bash
-docker compose exec -T postgres pg_dump -U examplatform -d examplatform \
-  --no-owner --no-privileges -Fc > examplatform.dump
-
-pg_restore --no-owner --no-privileges --dbname "<External Database URL from Render>" examplatform.dump
+```powershell
+docker ps --format "{{.Names}}  {{.Image}}"
 ```
 
-The dump holds real candidate data and password hashes. Keep it out of git and delete it afterwards.
+Use the name of the `postgres:16` row as `<name>`. Dump inside the container (PowerShell's `>` would corrupt a binary dump), then restore from the same container, which has `pg_restore` 16:
 
-The dump includes every module's migration history, so the API applies only the migrations your database does not have yet when it starts.
+```powershell
+docker exec <name> pg_dump -U examplatform -d examplatform --no-owner --no-privileges -Fc -f /tmp/examplatform.dump
+docker exec <name> pg_restore --no-owner --no-privileges --dbname "<the Neon URL>" /tmp/examplatform.dump
+```
 
-## 3. Fill in the API settings
+Keep a local copy as a backup with `docker cp <name>:/tmp/examplatform.dump $HOME\examplatform.dump`. The file holds real candidate data and password hashes, so keep it out of git and delete it when you no longer need it.
 
-On the `exam-platform-api` service, **Environment**:
+Check the copy by comparing row counts in both databases:
+
+```powershell
+docker exec <name> psql -U examplatform -d examplatform -c "select count(*) from identity.\"Users\";"
+docker exec <name> psql "<the Neon URL>" -c "select count(*) from identity.\"Users\";"
+```
+
+Your local database is not changed by any of this. Do not delete the Docker volume `pgdata` (`docker compose down -v`) until you are sure the copy is complete.
+
+The dump includes every module's migration history, so the API applies only the migrations your database does not have yet when it starts. Restore before the API's first start; if it already started against the empty database, add `--clean --if-exists` to `pg_restore`.
+
+## 3. Create the Render services
+
+1. In Render choose **New > Blueprint**, pick this repository and apply `render.yaml`.
+2. On the `exam-platform-api` service, **Environment**, fill in the values marked `sync: false`:
 
 | Key | Value |
 |---|---|
-| `ConnectionStrings__Postgres` | `Host=<host>;Port=5432;Database=<db>;Username=<user>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true`, from the database's **Connections** page. Npgsql needs this form, not the `postgres://` URL. |
+| `ConnectionStrings__Postgres` | The Npgsql string from step 1. |
 | `Cors__AllowedOrigins__0` | The site's address, e.g. `https://exam-platform-web.onrender.com` (no trailing slash). |
 | `Smtp__Host`, `Smtp__User`, `Smtp__Password`, `Smtp__From` | Your mail server. `Smtp__Port` (587) and `Smtp__EnableSsl` are already set. |
 | `Invite__LinkBaseUrl` | The site's address, so invitation links open the site. |

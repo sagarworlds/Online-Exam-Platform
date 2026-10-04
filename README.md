@@ -481,7 +481,7 @@ dotnet ef migrations add AddNewTable \
   --output-dir Migrations
 ```
 
-A step-by-step guide for hosting everything on Render's free plan, including moving an existing local database, is in [docs/deploy-render.md](docs/deploy-render.md).
+A step-by-step guide for hosting the API and site on Render's free plan, with a Neon database, including moving an existing local database, is in [docs/deploy-render.md](docs/deploy-render.md).
 
 #### Migrate and Seed a Deployed Environment
 
