@@ -30,12 +30,18 @@ internal sealed class OtpDeliveryOptionsValidator(IHostEnvironment environment) 
     /// <inheritdoc />
     public ValidateOptionsResult Validate(string? name, OtpDeliveryOptions options)
     {
+        if (options.Provider == OtpDeliveryOptions.Smtp)
+        {
+            return ValidateOptionsResult.Success;
+        }
+
         if (options.Provider != OtpDeliveryOptions.DevelopmentLog)
         {
             return ValidateOptionsResult.Fail(
                 $"No real IOtpSender adapter is configured ({OtpDeliveryOptions.SectionName}:Provider is "
-                + $"'{options.Provider}'); real email/SMS delivery arrives with the Notifications module (FR-39). "
-                + $"Only '{OtpDeliveryOptions.DevelopmentLog}' exists today, and only for the Development environment.");
+                + $"'{options.Provider}'); SMS delivery arrives with the Notifications module (FR-39). "
+                + $"Only '{OtpDeliveryOptions.Smtp}' (e-mail) works outside Development, and "
+                + $"'{OtpDeliveryOptions.DevelopmentLog}' only inside it.");
         }
 
         if (!environment.IsDevelopment())

@@ -1,0 +1,69 @@
+# Render Blueprint: the Postgres database, the .NET API and the Angular site, all on Render.
+# See docs/deploy-render.md for the one-time steps (loading existing data, secrets marked sync: false).
+databases:
+  - name: exam-platform-db
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: exam-platform-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    healthCheckPath: /v1/health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      # Npgsql connection string (not Render's postgres:// URL); see docs/deploy-render.md.
+      - key: ConnectionStrings__Postgres
+        sync: false
+      - key: Jwt__SigningKey
+        generateValue: true
+      # The site's address, so the browser may call the API.
+      - key: Cors__AllowedOrigins__0
+        sync: false
+      # Codes are e-mailed; the Smtp__* settings below say through which server.
+      - key: Identity__OtpDelivery__Provider
+        value: Smtp
+      - key: Smtp__Host
+        sync: false
+      - key: Smtp__Port
+        value: "587"
+      - key: Smtp__EnableSsl
+        value: "true"
+      - key: Smtp__User
+        sync: false
+      - key: Smtp__Password
+        sync: false
+      - key: Smtp__From
+        sync: false
+      - key: Invite__LinkBaseUrl
+        sync: false
+      # Free web services have no pre-deploy command, so the single instance migrates and seeds itself on start.
+      - key: Database__MigrateAndSeedOnStartup
+        value: "true"
+      # Render's proxy sits in a private range; trusting it is what gives each caller their own rate-limit bucket.
+      - key: ForwardedHeaders__KnownNetworks__0
+        value: 10.0.0.0/8
+      - key: ForwardedHeaders__KnownNetworks__1
+        value: 172.16.0.0/12
+
+  - type: web
+    name: exam-platform-web
+    runtime: static
+    buildCommand: >-
+      cd apps/web && npm ci &&
+      sed -i "s|apiBaseUrl: '/api'|apiBaseUrl: '${API_BASE_URL}'|" src/environments/environment.ts &&
+      npm run build
+    staticPublishPath: apps/web/dist/web/browser
+    envVars:
+      # Where the browser finds the API; change it if Render gave the API service a different address.
+      - key: API_BASE_URL
+        value: https://exam-platform-api.onrender.com
+    routes:
+      # A deep link such as /exams/123 is an Angular route, not a file.
+      - type: rewrite
+        source: /*
+        destination: /index.html
