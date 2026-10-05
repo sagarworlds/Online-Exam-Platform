@@ -50,6 +50,9 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
 
             b.HasMany(a => a.Paper).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(a => a.Paper).HasField("_paper").UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            b.HasMany(a => a.Revisions).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
+            b.Navigation(a => a.Revisions).HasField("_revisions").UsePropertyAccessMode(PropertyAccessMode.Field);
         });
 
         modelBuilder.Entity<AttemptQuestion>(b =>
@@ -89,6 +92,20 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             // At most one mark per question: marking twice at once cannot leave two rows, and the loser is a harmless conflict.
             // The index also serves loading an attempt's marks.
             b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
+        });
+
+        modelBuilder.Entity<AttemptResultRevision>(b =>
+        {
+            b.ToTable("AttemptResultRevisions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.PreviousScore).HasPrecision(10, 3);
+            b.Property(x => x.PreviousMaxScore).HasPrecision(10, 3);
+            b.Property(x => x.NewScore).HasPrecision(10, 3);
+            b.Property(x => x.NewMaxScore).HasPrecision(10, 3);
+            b.Property(x => x.Reason).IsRequired().HasMaxLength(500);
+
+            // An attempt's revisions are read together with the attempt, oldest first.
+            b.HasIndex(x => x.AttemptId);
         });
 
         modelBuilder.Entity<AttemptRequest>(b =>

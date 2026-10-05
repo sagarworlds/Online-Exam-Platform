@@ -38,6 +38,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<IAttemptRequestNotifier, SmtpAttemptRequestNotifier>();
         services.AddScoped<IExamRuntimeUnitOfWork, ExamRuntimeUnitOfWork>();
         services.AddScoped<IQuestionUsageSource, AnsweredQuestionUsageSource>();
+        services.AddScoped<IAttemptRescorer, AttemptRescorer>();
 
         services.AddScoped<AttemptCloser>();
         services.AddScoped<AttemptViewBuilder>();

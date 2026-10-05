@@ -18,6 +18,7 @@ public sealed class Attempt : AggregateRoot
     private readonly List<AttemptAnswer> _answers = [];
     private readonly List<AttemptMark> _marks = [];
     private readonly List<AttemptQuestion> _paper = [];
+    private readonly List<AttemptResultRevision> _revisions = [];
 
     /// <summary>The exam being taken.</summary>
     public Guid ExamId { get; private set; }
@@ -66,6 +67,12 @@ public sealed class Attempt : AggregateRoot
     /// fixed list is the paper.
     /// </summary>
     public IReadOnlyList<AttemptQuestion> Paper => _paper.AsReadOnly();
+
+    /// <summary>
+    /// How this attempt's score has changed since it was first submitted (FR-31), oldest first; empty for a result that
+    /// has never been revised. See <see cref="ReviseScore"/>.
+    /// </summary>
+    public IReadOnlyList<AttemptResultRevision> Revisions => _revisions.AsReadOnly();
 
     // For EF Core.
     private Attempt() : base(Guid.Empty)
@@ -244,6 +251,31 @@ public sealed class Attempt : AggregateRoot
         Score = score;
         MaxScore = maxScore;
         Status = AttemptStatus.Submitted;
+    }
+
+    /// <summary>
+    /// Recomputes this submitted attempt's score, most often because staff corrected a question's answer key (FR-31).
+    /// Records the change as a <see cref="AttemptResultRevision"/> so the candidate can see their result moved and why,
+    /// rather than it silently becoming a different number than the one they already saw.
+    /// </summary>
+    /// <param name="newScore">The marks scored, recomputed under the corrected answer key.</param>
+    /// <param name="newMaxScore">The marks available, recomputed the same way.</param>
+    /// <param name="reason">Why the score changed, shown to the candidate.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns><see langword="true"/> when the score actually changed; <see langword="false"/> when it did not (a no-op, not an error).</returns>
+    /// <exception cref="AttemptNotSubmittedError">The attempt has not been submitted yet, so it has no score to revise.</exception>
+    public bool ReviseScore(decimal newScore, decimal newMaxScore, string reason, DateTime nowUtc)
+    {
+        if (Status != AttemptStatus.Submitted)
+            throw new AttemptNotSubmittedError();
+
+        if (Score == newScore && MaxScore == newMaxScore)
+            return false;
+
+        _revisions.Add(new AttemptResultRevision(Id, Score!.Value, MaxScore!.Value, newScore, newMaxScore, reason, nowUtc));
+        Score = newScore;
+        MaxScore = newMaxScore;
+        return true;
     }
 
     /// <summary>The one rule every change to an open attempt shares: it must still be open, and its time must not have run out.</summary>

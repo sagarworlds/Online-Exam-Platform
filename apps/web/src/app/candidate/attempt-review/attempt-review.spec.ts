@@ -189,6 +189,36 @@ describe('AttemptReview', () => {
     expect(w.__reviewRan).toBeUndefined();
   });
 
+  it('shows no revision notice when the score has never been revised', async () => {
+    const fixture = await open(review());
+
+    expect(root(fixture).querySelector('.warning-note')).toBeNull();
+  });
+
+  it('shows when and why the score changed, once the answer key has been corrected', async () => {
+    const fixture = await open(
+      review({
+        score: 4,
+        revisions: [
+          {
+            previousScore: 2.75,
+            previousMaxScore: 12,
+            newScore: 4,
+            newMaxScore: 12,
+            reason: 'Paris is the capital of France, not Rome',
+            revisedAtUtc: '2026-10-06T10:00:00Z',
+          },
+        ],
+      }),
+    );
+
+    const text = textOf(fixture);
+    expect(text).toContain('Your score changed');
+    expect(text).toContain('Paris is the capital of France, not Rome');
+    expect(text).toContain('2.75');
+    expect(text).toContain('4');
+  });
+
   it('shows the reason when the answers have not been released yet, and no answer key', async () => {
     const fixture = await open({
       status: 409,

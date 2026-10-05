@@ -26,6 +26,16 @@ public sealed record ReviewOptionDto(Guid Id, string Text, bool IsCorrect, bool 
 public sealed record ReviewQuestionDto(
     Guid Id, string Text, IReadOnlyList<ReviewOptionDto> Options, AnswerVerdict Verdict, decimal Marks, bool AllowsMultiple = false);
 
+/// <summary>One change to an attempt's score after it was first submitted (FR-31), most often an answer-key correction.</summary>
+/// <param name="PreviousScore">The score before this revision.</param>
+/// <param name="PreviousMaxScore">The marks available before this revision.</param>
+/// <param name="NewScore">The score after this revision.</param>
+/// <param name="NewMaxScore">The marks available after this revision.</param>
+/// <param name="Reason">Why the score changed.</param>
+/// <param name="RevisedAtUtc">When it changed.</param>
+public sealed record ScoreRevisionDto(
+    decimal PreviousScore, decimal PreviousMaxScore, decimal NewScore, decimal NewMaxScore, string Reason, DateTime RevisedAtUtc);
+
 /// <summary>A section of the exam in a review.</summary>
 /// <param name="Id">The section's id.</param>
 /// <param name="Name">The section's name.</param>
@@ -49,6 +59,10 @@ public sealed record ReviewSectionDto(Guid Id, string Name, IReadOnlyList<Review
 /// <param name="UnansweredCount">How many were left unanswered.</param>
 /// <param name="Sections">The questions, section by section.</param>
 /// <param name="PartialCount">How many multiple-answer questions were answered partly right and earned part of the marks.</param>
+/// <param name="Revisions">
+/// How the score has changed since this attempt was first submitted, oldest first; empty for a result that has never
+/// been revised. See <see cref="ScoreRevisionDto"/>.
+/// </param>
 public sealed record AttemptReviewDto(
     Guid AttemptId,
     Guid ExamId,
@@ -62,4 +76,5 @@ public sealed record AttemptReviewDto(
     int WrongCount,
     int UnansweredCount,
     IReadOnlyList<ReviewSectionDto> Sections,
-    int PartialCount = 0);
+    int PartialCount = 0,
+    IReadOnlyList<ScoreRevisionDto>? Revisions = null);

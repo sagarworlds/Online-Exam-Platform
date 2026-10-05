@@ -58,7 +58,10 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
             marked.Count(q => q.Verdict == AnswerVerdict.Wrong),
             marked.Count(q => q.Verdict == AnswerVerdict.Unanswered),
             sections,
-            marked.Count(q => q.Verdict == AnswerVerdict.Partial));
+            marked.Count(q => q.Verdict == AnswerVerdict.Partial),
+            attempt.Revisions
+                .Select(r => new ScoreRevisionDto(r.PreviousScore, r.PreviousMaxScore, r.NewScore, r.NewMaxScore, r.Reason, r.RevisedAtUtc))
+                .ToList());
     }
 
     private static ReviewQuestionDto ReviewQuestion(

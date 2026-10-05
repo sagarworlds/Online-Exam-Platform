@@ -307,4 +307,63 @@ public class AttemptTests
         done.Submit(Start.AddMinutes(1), 0, 1);
         Assert.Throws<AttemptNotInProgressError>(() => done.MoveToSection(2, Start.AddMinutes(2)));
     }
+
+    [Fact]
+    public void ReviseScore_BeforeTheAttemptIsSubmitted_IsRefused()
+    {
+        var attempt = Open();
+
+        Assert.Throws<AttemptNotSubmittedError>(() => attempt.ReviseScore(5, 10, "Answer key corrected", Start.AddMinutes(1)));
+    }
+
+    [Fact]
+    public void ReviseScore_WithTheSameScoreAndMaxScore_ChangesNothing_AndReportsNoChange()
+    {
+        var attempt = Open();
+        attempt.Submit(Start.AddMinutes(1), 3, 5);
+
+        var changed = attempt.ReviseScore(3, 5, "Answer key corrected", Start.AddMinutes(2));
+
+        Assert.False(changed);
+        Assert.Equal(3, attempt.Score);
+        Assert.Equal(5, attempt.MaxScore);
+        Assert.Empty(attempt.Revisions);
+    }
+
+    [Fact]
+    public void ReviseScore_WithADifferentScore_UpdatesIt_AndRecordsWhatChanged()
+    {
+        var attempt = Open();
+        attempt.Submit(Start.AddMinutes(1), 3, 5);
+
+        var changed = attempt.ReviseScore(4, 5, "Q2's answer key was corrected", Start.AddMinutes(2));
+
+        Assert.True(changed);
+        Assert.Equal(4, attempt.Score);
+        Assert.Equal(5, attempt.MaxScore);
+        var revision = Assert.Single(attempt.Revisions);
+        Assert.Equal(3, revision.PreviousScore);
+        Assert.Equal(5, revision.PreviousMaxScore);
+        Assert.Equal(4, revision.NewScore);
+        Assert.Equal(5, revision.NewMaxScore);
+        Assert.Equal("Q2's answer key was corrected", revision.Reason);
+        Assert.Equal(Start.AddMinutes(2), revision.RevisedAtUtc);
+    }
+
+    [Fact]
+    public void ReviseScore_CalledAgain_AppendsASecondRevision_RatherThanReplacingTheFirst()
+    {
+        var attempt = Open();
+        attempt.Submit(Start.AddMinutes(1), 3, 5);
+        attempt.ReviseScore(4, 5, "First correction", Start.AddMinutes(2));
+
+        attempt.ReviseScore(2, 5, "Second correction", Start.AddMinutes(3));
+
+        Assert.Equal(2, attempt.Score);
+        Assert.Equal(2, attempt.Revisions.Count);
+        Assert.Equal("First correction", attempt.Revisions[0].Reason);
+        Assert.Equal("Second correction", attempt.Revisions[1].Reason);
+        // The second revision's "before" is the first revision's "after", so the chain reads continuously.
+        Assert.Equal(4, attempt.Revisions[1].PreviousScore);
+    }
 }

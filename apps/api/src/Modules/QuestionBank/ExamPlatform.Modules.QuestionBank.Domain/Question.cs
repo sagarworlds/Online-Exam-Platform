@@ -104,6 +104,13 @@ public sealed class Question : AggregateRoot
     /// <summary>When the question was created.</summary>
     public DateTime CreatedAtUtc { get; private set; }
 
+    /// <summary>
+    /// When staff last corrected which options are right after candidates had already answered the question
+    /// (<see cref="CorrectAnswerKey"/>), or null if that has never happened. Kept for display, not for marking:
+    /// a correction is a deliberate exception to the usual "answered means locked" rule, so it is traceable.
+    /// </summary>
+    public DateTime? AnswerKeyCorrectedAtUtc { get; private set; }
+
     // For EF Core.
     private Question() : base(Guid.Empty) => Text = null!;
 
@@ -207,6 +214,40 @@ public sealed class Question : AggregateRoot
 
         _options.Clear();
         _options.AddRange(revised);
+    }
+
+    /// <summary>
+    /// Corrects which options are right, overriding the lock <see cref="Revise"/> enforces once candidates have answered
+    /// (FR-31): an answer-key dispute means the key itself was wrong, which "only wording can change" cannot fix. Unlike
+    /// <see cref="Revise"/>, this never touches text, options, their order, or which are pinned — only which are correct —
+    /// so nothing about how a candidate's shuffled paper looked, or what they could have chosen, is rewritten after the
+    /// fact; only the verdict on what they did choose.
+    /// </summary>
+    /// <param name="correctOptionIds">The options that are actually correct, replacing the current answer key.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns><see langword="true"/> when the key actually changed; <see langword="false"/> when it already matched (a no-op, not an error).</returns>
+    /// <exception cref="InvalidQuestionError">
+    /// An id does not belong to this question's options, or the count of correct options breaks <see cref="Create"/>'s shape rule
+    /// (exactly one unless <see cref="AllowsMultiple"/>, otherwise at least one and not all of them).
+    /// </exception>
+    public bool CorrectAnswerKey(IReadOnlyCollection<Guid> correctOptionIds, DateTime nowUtc)
+    {
+        var distinct = (correctOptionIds ?? []).Distinct().ToHashSet();
+        var known = _options.Select(o => o.Id).ToHashSet();
+        if (!distinct.IsSubsetOf(known))
+            throw new InvalidQuestionError("A correct option must belong to this question.");
+
+        RequireOptionShape(_options.Count, distinct.Count, AllowsMultiple);
+
+        var current = _options.Where(o => o.IsCorrect).Select(o => o.Id).ToHashSet();
+        if (current.SetEquals(distinct))
+            return false;
+
+        foreach (var option in _options)
+            option.SetCorrect(distinct.Contains(option.Id));
+
+        AnswerKeyCorrectedAtUtc = nowUtc;
+        return true;
     }
 
     /// <summary>Records the readable text of the question for searching.</summary>
