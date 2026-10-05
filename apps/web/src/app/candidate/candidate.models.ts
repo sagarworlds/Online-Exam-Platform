@@ -165,6 +165,16 @@ export interface ReviewSectionDto {
   questions: ReviewQuestionDto[];
 }
 
+/** One change to this attempt's score since it was first submitted, most often an answer-key correction. */
+export interface ScoreRevisionDto {
+  previousScore: number;
+  previousMaxScore: number;
+  newScore: number;
+  newMaxScore: number;
+  reason: string;
+  revisedAtUtc: string;
+}
+
 /** A submitted attempt with its answer key; only ever sent once the attempt is over and the answers are released. */
 export interface AttemptReviewDto {
   attemptId: string;
@@ -182,4 +192,6 @@ export interface AttemptReviewDto {
   /** Multiple-answer questions answered partly right, for an exam with partial credit. Absent means none. */
   partialCount?: number;
   sections: ReviewSectionDto[];
+  /** How the score has changed since this attempt was first submitted, oldest first. Absent or empty means never revised. */
+  revisions?: ScoreRevisionDto[];
 }

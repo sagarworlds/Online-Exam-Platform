@@ -37,4 +37,14 @@ public interface IAttemptRepository
     /// <param name="candidateId">The candidate.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Attempt>> ListForCandidateAsync(Guid candidateId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Loads every submitted attempt that included a question, whether the candidate answered it or it was only on
+    /// their drawn paper, tracked with their answers and paper so each can be rescored. For
+    /// <see cref="ExamPlatform.Modules.QuestionBank.Contracts.IAttemptRescorer"/>: an open attempt is excluded,
+    /// since it has no score yet to revise.
+    /// </summary>
+    /// <param name="questionId">The question.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Attempt>> ListSubmittedByQuestionIdAsync(Guid questionId, CancellationToken cancellationToken);
 }

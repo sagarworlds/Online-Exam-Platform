@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\..\..\src\Modules\QuestionBank\ExamPlatform.Modules.QuestionBank.Contracts\ExamPlatform.Modules.QuestionBank.Contracts.csproj" />
     <ProjectReference Include="..\..\..\..\src\Modules\QuestionBank\ExamPlatform.Modules.QuestionBank.Infrastructure\ExamPlatform.Modules.QuestionBank.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\..\src\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Modules\Admin\ExamPlatform.Modules.Admin.Contracts\ExamPlatform.Modules.Admin.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

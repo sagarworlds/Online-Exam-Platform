@@ -41,6 +41,7 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
 
         services.AddScoped<CreateQuestionHandler>();
         services.AddScoped<EditQuestionHandler>();
+        services.AddScoped<CorrectAnswerKeyHandler>();
         services.AddScoped<DeleteQuestionHandler>();
         services.AddScoped<FileQuestionsHandler>();
         services.AddScoped<ListQuestionsHandler>();

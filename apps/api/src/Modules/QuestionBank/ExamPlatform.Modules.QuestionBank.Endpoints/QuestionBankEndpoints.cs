@@ -60,6 +60,12 @@ public static class QuestionBankEndpoints
             .WithName("DeleteQuestion")
             .WithDescription("Delete a question; refused while an exam holds it or candidates have answered it");
 
+        questions.MapPost("/{questionId:guid}/correct-answer-key", CorrectAnswerKey)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("CorrectAnswerKey")
+            .WithDescription("Correct which options are right, even after candidates have answered; rescores every attempt it affects");
+
         // A collection action, not /{questionId}/chapter, so filing one question and filing a hundred are the same call.
         questions.MapPost("/placement", FileQuestions)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -102,6 +108,14 @@ public static class QuestionBankEndpoints
 
     private static async Task<IResult> GetQuestion(Guid questionId, GetQuestionHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(questionId, ct));
+
+    private static async Task<IResult> CorrectAnswerKey(
+        Guid questionId, CorrectAnswerKeyRequest request, ClaimsPrincipal user, CorrectAnswerKeyHandler handler, CancellationToken ct)
+    {
+        var command = new CorrectAnswerKeyCommand(
+            questionId, request.CorrectOptionIds ?? [], request.Reason ?? string.Empty, user.GetUserId(), user.GetPrimaryRole());
+        return Results.Ok(await handler.HandleAsync(command, ct));
+    }
 }
 
 /// <summary>Request body for creating a question. The author is the caller, so it is not part of the body.</summary>
@@ -142,3 +156,8 @@ public sealed record EditQuestionOptionRequest(Guid? Id, string? Text, bool IsCo
 /// <param name="IsCorrect">Whether this is the right answer.</param>
 /// <param name="IsPinned">Whether the option keeps its place when options are shuffled; omitted means not pinned.</param>
 public sealed record CreateQuestionOptionRequest(string? Text, bool IsCorrect, bool IsPinned = false);
+
+/// <summary>Request body for correcting a question's answer key.</summary>
+/// <param name="CorrectOptionIds">The ids of the options that are actually correct, replacing the current key.</param>
+/// <param name="Reason">Why the key is being corrected; shown to a candidate whose score moves because of it.</param>
+public sealed record CorrectAnswerKeyRequest(IReadOnlyCollection<Guid>? CorrectOptionIds, string? Reason);

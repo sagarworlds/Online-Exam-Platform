@@ -46,4 +46,25 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
     /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListForCandidateAsync(Guid candidateId, CancellationToken cancellationToken) =>
         await context.Attempts.AsNoTracking().Where(a => a.CandidateId == candidateId).ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Attempt>> ListSubmittedByQuestionIdAsync(Guid questionId, CancellationToken cancellationToken)
+    {
+        // Attempts that answered the question, union attempts that only drew it onto their paper (unanswered but
+        // still "included"): both indexed on QuestionId already, for the same reason the question bank's own
+        // "has anyone answered this" check is cheap.
+        var attemptIds = await context.Set<AttemptAnswer>().AsNoTracking()
+            .Where(a => a.QuestionId == questionId)
+            .Select(a => a.AttemptId)
+            .Union(context.Set<AttemptQuestion>().AsNoTracking().Where(q => q.QuestionId == questionId).Select(q => q.AttemptId))
+            .ToListAsync(cancellationToken);
+
+        if (attemptIds.Count == 0)
+            return [];
+
+        return await context.Attempts.AsSplitQuery()
+            .Include(a => a.Answers).Include(a => a.Marks).Include(a => a.Paper)
+            .Where(a => attemptIds.Contains(a.Id) && a.Status == AttemptStatus.Submitted)
+            .ToListAsync(cancellationToken);
+    }
 }

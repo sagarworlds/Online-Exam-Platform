@@ -43,4 +43,7 @@ public sealed class QuestionOption : Entity
         Order = order;
         IsPinned = isPinned;
     }
+
+    /// <summary>Changes only whether this option is correct, for <see cref="Question.CorrectAnswerKey"/>. Text, order and pin are untouched.</summary>
+    internal void SetCorrect(bool isCorrect) => IsCorrect = isCorrect;
 }

@@ -1,4 +1,4 @@
-import { DOCUMENT } from '@angular/common';
+import { DOCUMENT, DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
@@ -17,7 +17,7 @@ interface NumberedQuestion extends ReviewQuestionDto {
  */
 @Component({
   selector: 'app-attempt-review',
-  imports: [RouterLink],
+  imports: [RouterLink, DatePipe],
   templateUrl: './attempt-review.html',
 })
 export class AttemptReview {
