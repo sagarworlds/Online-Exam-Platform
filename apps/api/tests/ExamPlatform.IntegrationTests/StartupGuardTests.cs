@@ -148,9 +148,23 @@ public sealed class StartupGuardTests
         Assert.Contains($"Identity:RateLimits:{policy}", failure.Message);
     }
 
+    /// <summary>How many times to try again when the framework loses the startup failure (see <see cref="AssertStartupFails{TOptions}"/>).</summary>
+    private const int StartupFailureAttempts = 5;
+
     private static OptionsValidationException AssertStartupFails<TOptions>(ProductionHostFactory factory)
     {
-        var failure = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+        // WebApplicationFactory runs the host's entry point on another thread and, when startup throws, races to report it:
+        // sometimes the caller sees the real OptionsValidationException, and sometimes only an ObjectDisposedException from the
+        // already-disposed service provider, with the real one lost. Under a loaded CI machine the second happens now and then.
+        // That outcome says nothing about the code under test, so it alone is retried; any other failure is judged at once.
+        Exception failure;
+        var attempt = 0;
+        do
+        {
+            attempt++;
+            failure = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+        }
+        while (attempt < StartupFailureAttempts && IsLostStartupFailure(failure));
 
         // The host may surface the validation failure directly or wrapped (e.g. in an
         // AggregateException), so look for it anywhere in the exception chain.
@@ -158,6 +172,12 @@ public sealed class StartupGuardTests
         Assert.True(validationFailure is not null, $"Expected an OptionsValidationException, got: {failure}");
         Assert.Equal(typeof(TOptions), validationFailure.OptionsType);
         return validationFailure;
+    }
+
+    private static bool IsLostStartupFailure(Exception failure)
+    {
+        var chain = SelfAndInnerExceptions(failure).ToList();
+        return chain.OfType<ObjectDisposedException>().Any() && !chain.OfType<OptionsValidationException>().Any();
     }
 
     private static IEnumerable<Exception> SelfAndInnerExceptions(Exception exception)
