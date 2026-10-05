@@ -28,10 +28,21 @@ var builder = WebApplication.CreateBuilder(args);
 // the same singleton Clock/dispatcher instead of each registering its own.
 builder.Services.AddSharedKernel();
 
-// One mail server for everything the platform sends (invitations, answers to attempt requests), read from the "Smtp" section.
-// With no Smtp:Host nothing is sent, and each caller says so to the person who needs to pass the message on by hand.
-builder.Services.AddOptions<SmtpOptions>().Bind(builder.Configuration.GetSection(SmtpOptions.SectionName));
-builder.Services.AddSmtpMailer();
+// One mail sender for everything the platform sends (invitations, OTP codes, answers to attempt requests). Mail:Provider
+// picks the transport: Smtp (the default, unchanged behaviour) or BrevoApi, which sends over HTTPS for a host (e.g.
+// Render's free plan) that blocks outbound SMTP ports. With neither configured nothing is sent, and each caller says
+// so to the person who needs to pass the message on by hand.
+var mailProvider = builder.Configuration.GetSection(MailOptions.SectionName).Get<MailOptions>()?.Provider ?? MailOptions.Smtp;
+if (mailProvider == MailOptions.BrevoApi)
+{
+    builder.Services.AddOptions<BrevoOptions>().Bind(builder.Configuration.GetSection(BrevoOptions.SectionName));
+    builder.Services.AddBrevoApiMailer();
+}
+else
+{
+    builder.Services.AddOptions<SmtpOptions>().Bind(builder.Configuration.GetSection(SmtpOptions.SectionName));
+    builder.Services.AddSmtpMailer();
+}
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

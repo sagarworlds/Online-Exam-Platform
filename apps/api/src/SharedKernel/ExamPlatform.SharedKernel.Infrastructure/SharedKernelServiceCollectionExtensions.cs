@@ -33,4 +33,19 @@ public static class SharedKernelServiceCollectionExtensions
         services.TryAddScoped<IMailSender, SmtpMailSender>();
         return services;
     }
+
+    /// <summary>
+    /// Registers the <see cref="IMailSender"/> that sends through Brevo's HTTPS API, for a host that blocks outbound
+    /// SMTP. The caller binds <see cref="BrevoOptions"/> to the <c>Brevo</c> configuration section, which needs the
+    /// configuration system this assembly does not reference.
+    /// </summary>
+    /// <param name="services">The application's service collection.</param>
+    public static IServiceCollection AddBrevoApiMailer(this IServiceCollection services)
+    {
+        // A single shared HttpClient, not IHttpClientFactory: this call is infrequent (one OTP or notification at a
+        // time), so pooled handler rotation and the extra package it needs would add nothing here.
+        services.TryAddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(15) });
+        services.TryAddScoped<IMailSender, BrevoApiMailSender>();
+        return services;
+    }
 }

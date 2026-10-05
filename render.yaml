@@ -21,20 +21,15 @@ services:
       # The site's address, so the browser may call the API.
       - key: Cors__AllowedOrigins__0
         sync: false
-      # Codes are e-mailed; the Smtp__* settings below say through which server.
+      # Codes are e-mailed. Render's free plan blocks outbound SMTP, so mail goes out over
+      # HTTPS through Brevo's API (Mail:Provider=BrevoApi) instead of Smtp:*; see docs/deploy-render.md.
       - key: Identity__OtpDelivery__Provider
         value: Smtp
-      - key: Smtp__Host
+      - key: Mail__Provider
+        value: BrevoApi
+      - key: Brevo__ApiKey
         sync: false
-      - key: Smtp__Port
-        value: "587"
-      - key: Smtp__EnableSsl
-        value: "true"
-      - key: Smtp__User
-        sync: false
-      - key: Smtp__Password
-        sync: false
-      - key: Smtp__From
+      - key: Brevo__SenderEmail
         sync: false
       - key: Invite__LinkBaseUrl
         sync: false
