@@ -8,7 +8,7 @@
 | API (.NET) | Render web service (Docker) | Free |
 | Database (Postgres) | Neon | Free |
 
-**About this branch.** Everything Render needs lives on the branch `SP/feature/render-deployment` and Render deploys from that branch (`branch:` is set in `render.yaml`). It is kept separate from `main` on purpose: do not merge it, and keep it up to date with `main` only when you want new features deployed.
+Both services deploy from `main` (`branch: main` in `render.yaml`): merging a pull request redeploys them automatically.
 
 **Free-plan limits**
 
@@ -113,8 +113,7 @@ On `exam-platform-api` > **Environment**, fill in every value marked `sync: fals
 
 ## Updating later
 
-- Push to `SP/feature/render-deployment`: Render redeploys both services.
-- To bring in new features from `main`, merge `main` into this branch (never the other way round), wait for the checks to pass, then push.
+- Merging a pull request into `main` redeploys both services automatically.
 - Database changes are applied by the API on start. The data is not lost.
 
 ## Keeping keys out of GitHub
