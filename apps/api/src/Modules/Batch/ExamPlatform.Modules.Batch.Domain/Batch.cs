@@ -77,8 +77,10 @@ public class Batch : AggregateRoot
         if (_members.Count(m => !m.IsDeleted) >= MaxMembers)
             throw new InvalidBatchConfigError("Batch has reached maximum member capacity.");
 
-        _members.Add(new BatchMember(Id, normalizedEmail, normalizedPhone, nowUtc));
+        var member = new BatchMember(Id, normalizedEmail, normalizedPhone, nowUtc);
+        _members.Add(member);
         UpdatedAt = nowUtc;
+        AddDomainEvent(new BatchMemberAddedEvent(Id, member.Id));
     }
 
     /// <summary>Takes a member out of the batch.</summary>
@@ -90,6 +92,7 @@ public class Batch : AggregateRoot
         var member = GetMember(memberId) ?? throw new BatchMemberNotFoundError(memberId);
         member.SoftDelete(nowUtc);
         UpdatedAt = nowUtc;
+        AddDomainEvent(new BatchMemberRemovedEvent(Id, memberId));
     }
 
     public BatchMember? GetMember(Guid memberId) =>

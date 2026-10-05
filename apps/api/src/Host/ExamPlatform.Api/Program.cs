@@ -28,6 +28,10 @@ var builder = WebApplication.CreateBuilder(args);
 // the same singleton Clock/dispatcher instead of each registering its own.
 builder.Services.AddSharedKernel();
 
+// Who is acting in the current request, so code that reacts to a domain event can name the actor in the audit trail.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IRequestContext, HttpRequestContext>();
+
 // One mail sender for everything the platform sends (invitations, OTP codes, answers to attempt requests). Mail:Provider
 // picks the transport: Smtp (the default, unchanged behaviour) or BrevoApi, which sends over HTTPS for a host (e.g.
 // Render's free plan) that blocks outbound SMTP ports. With neither configured nothing is sent, and each caller says

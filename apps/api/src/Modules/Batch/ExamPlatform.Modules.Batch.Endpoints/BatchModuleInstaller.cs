@@ -34,6 +34,7 @@ public sealed class BatchModuleInstaller : IModuleInstaller
         services.AddScoped<AddBatchMemberHandler>();
         services.AddScoped<ActivateBatchHandler>();
         services.AddScoped<CloseBatchHandler>();
+        services.AddDomainEventHandlers(typeof(BatchAuditTrail).Assembly);
     }
 
     /// <inheritdoc />

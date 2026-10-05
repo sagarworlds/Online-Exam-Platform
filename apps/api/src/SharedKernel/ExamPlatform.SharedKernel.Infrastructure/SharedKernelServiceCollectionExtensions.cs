@@ -24,6 +24,25 @@ public static class SharedKernelServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Registers every <see cref="IDomainEventHandler{TEvent}"/> in an assembly, once per event type it handles, so a
+    /// module adds a reaction by writing the class and nothing else (Open/Closed).
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="assembly">The assembly to scan, normally the module's Application assembly.</param>
+    public static IServiceCollection AddDomainEventHandlers(this IServiceCollection services, System.Reflection.Assembly assembly)
+    {
+        foreach (var type in assembly.GetTypes().Where(t => t is { IsClass: true, IsAbstract: false }))
+        {
+            foreach (var handled in type.GetInterfaces().Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDomainEventHandler<>)))
+            {
+                services.AddScoped(handled, type);
+            }
+        }
+
+        return services;
+    }
+
+    /// <summary>
     /// Registers the <see cref="IMailSender"/> every module's notifier uses. The caller binds <see cref="SmtpOptions"/> to the
     /// <c>Smtp</c> configuration section, which needs the configuration system this assembly does not reference.
     /// </summary>
