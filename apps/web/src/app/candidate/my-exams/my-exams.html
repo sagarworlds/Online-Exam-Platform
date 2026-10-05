@@ -90,7 +90,7 @@
         }
         @if (exam.canStartAttempt) {
           <div class="actions">
-            <button type="button" class="primary" [disabled]="startingExamId() !== null" (click)="start(exam)">{{ startLabel(exam) }}</button>
+            <a class="btn btn--primary" [routerLink]="['/my-exams', exam.examId, 'start']">{{ startLabel(exam) }}</a>
           </div>
         }
       </div>

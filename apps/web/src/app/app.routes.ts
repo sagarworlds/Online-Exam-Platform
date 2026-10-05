@@ -59,6 +59,11 @@ export const routes: Routes = [
     loadComponent: () => import('./candidate/my-exams/my-exams').then((m) => m.MyExams),
   },
   {
+    path: 'my-exams/:examId/start',
+    canActivate: [authGuard],
+    loadComponent: () => import('./candidate/exam-instructions/exam-instructions').then((m) => m.ExamInstructions),
+  },
+  {
     path: 'attempt/:attemptId',
     canActivate: [authGuard],
     loadComponent: () => import('./candidate/exam-attempt/exam-attempt').then((m) => m.ExamAttempt),

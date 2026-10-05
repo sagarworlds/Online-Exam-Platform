@@ -23,9 +23,12 @@ export class CandidateApiService {
     return this.http.get<MyExamDto[]>(`${this.baseUrl}/exams`);
   }
 
-  /** Starts the candidate's attempt at an exam, or returns the one they already have (resume). */
-  startAttempt(examId: string): Observable<AttemptDto> {
-    return this.http.post<AttemptDto>(`${this.baseUrl}/exams/${examId}/attempts`, null);
+  /**
+   * Starts the candidate's attempt at an exam, or returns the one they already have (resume). A new attempt is refused unless the
+   * candidate acknowledged the instructions, which the instructions page asks for; resuming needs no acknowledgment.
+   */
+  startAttempt(examId: string, instructionsAcknowledged = false): Observable<AttemptDto> {
+    return this.http.post<AttemptDto>(`${this.baseUrl}/exams/${examId}/attempts`, { instructionsAcknowledged });
   }
 
   /** Asks an administrator for one more attempt at an exam; they decide, and the answer shows on the exams page. */

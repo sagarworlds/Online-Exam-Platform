@@ -1,8 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
-import { vi } from 'vitest';
+import { provideRouter } from '@angular/router';
 import { AttemptSummaryDto } from '../candidate.models';
 import { MyExams } from './my-exams';
 
@@ -51,6 +50,7 @@ describe('MyExams', () => {
     attempts: [],
     canRequestAttempt: false,
     attemptRequest: null,
+    rules: null,
     ...overrides,
   });
 
@@ -108,39 +108,22 @@ describe('MyExams', () => {
     ]);
     fixture.detectChanges();
 
-    const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
-    expect(buttons.length).toBe(1);
-    expect(buttons[0].textContent).toContain('Start exam');
+    const starts = (fixture.nativeElement as HTMLElement).querySelectorAll('a.btn--primary');
+    expect(starts.length).toBe(1);
+    expect(starts[0].textContent).toContain('Start exam');
   });
 
-  it('starts the attempt and opens it when Start is pressed', () => {
-    const fixture = TestBed.createComponent(MyExams);
-    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
-    fixture.detectChanges();
-    httpMock.expectOne((r) => r.url.endsWith('/v1/me/exams')).flush([exam({})]);
-    fixture.detectChanges();
-
-    (fixture.nativeElement as HTMLElement).querySelector('button')?.click();
-    const start = httpMock.expectOne((r) => r.url.endsWith('/v1/me/exams/e1/attempts'));
-    expect(start.request.method).toBe('POST');
-    start.flush({ id: 'attempt-9' });
-
-    expect(navigate).toHaveBeenCalledWith(['/attempt', 'attempt-9']);
-  });
-
-  it('shows the error when the exam cannot be started', () => {
+  it('sends the candidate to the instructions page, not straight into the exam, when Start is pressed', () => {
     const fixture = TestBed.createComponent(MyExams);
     fixture.detectChanges();
     httpMock.expectOne((r) => r.url.endsWith('/v1/me/exams')).flush([exam({})]);
     fixture.detectChanges();
 
-    (fixture.nativeElement as HTMLElement).querySelector('button')?.click();
-    httpMock
-      .expectOne((r) => r.url.endsWith('/v1/me/exams/e1/attempts'))
-      .flush({ title: 'exam_closed', detail: 'This exam is closed; it can no longer be started.' }, { status: 409, statusText: 'Conflict' });
-    fixture.detectChanges();
+    const start = (fixture.nativeElement as HTMLElement).querySelector('a.btn--primary') as HTMLAnchorElement;
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('This exam is closed');
+    expect(start.getAttribute('href')).toBe('/my-exams/e1/start');
+    // Nothing is started from this page: the attempt begins on the instructions page, after the acknowledgment.
+    httpMock.expectNone((r) => r.url.endsWith('/attempts'));
   });
 
   it('offers to resume an attempt in progress', () => {
@@ -229,9 +212,9 @@ describe('MyExams', () => {
         twoAttempts({ attemptsAllowed: 2, attemptsUsed: 1, canStartAttempt: true, attempts: [attempt(1, 'Submitted', 11)], attemptId: 'a1', score: 11 }),
       ]);
 
-      const buttons = root.querySelectorAll('button');
-      expect(buttons.length).toBe(1);
-      expect(buttons[0].textContent).toContain('Start attempt 2');
+      const starts = root.querySelectorAll('a.btn--primary');
+      expect(starts.length).toBe(1);
+      expect(starts[0].textContent).toContain('Start attempt 2');
     });
 
     it('offers a resume, not a new attempt, while one is open', () => {
@@ -239,24 +222,15 @@ describe('MyExams', () => {
         twoAttempts({ attemptStatus: 'InProgress', score: null, attemptsUsed: 2, canStartAttempt: false, attempts: [attempt(1, 'Submitted', 11), attempt(2, 'InProgress')] }),
       ]);
 
-      expect(root.querySelector('button')).toBeNull();
+      expect(root.querySelector('a[href$="/start"]')).toBeNull();
       expect(rows(root)[1].textContent).toContain('In progress');
       expect(rows(root)[1].querySelector('a')?.textContent).toContain('Resume exam');
     });
 
-    it('starts the next attempt and opens it', () => {
-      const fixture = TestBed.createComponent(MyExams);
-      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
-      fixture.detectChanges();
-      httpMock
-        .expectOne((r) => r.url.endsWith('/v1/me/exams'))
-        .flush([twoAttempts({ attemptsUsed: 1, canStartAttempt: true, attempts: [attempt(1, 'Submitted', 11)] })]);
-      fixture.detectChanges();
+    it('sends the candidate through the instructions page to start the next attempt', () => {
+      const { root } = open([twoAttempts({ attemptsUsed: 1, canStartAttempt: true, attempts: [attempt(1, 'Submitted', 11)] })]);
 
-      (fixture.nativeElement as HTMLElement).querySelector('button')?.click();
-      httpMock.expectOne((r) => r.url.endsWith('/v1/me/exams/e1/attempts') && r.method === 'POST').flush({ id: 'attempt-2' });
-
-      expect(navigate).toHaveBeenCalledWith(['/attempt', 'attempt-2']);
+      expect(root.querySelector('a[href$="/start"]')?.getAttribute('href')).toBe('/my-exams/e1/start');
     });
   });
 
@@ -342,7 +316,7 @@ describe('MyExams', () => {
       const { root } = openWith([exam({ attemptsAllowed: 2, attemptsUsed: 1, attempts: [attempt(1, 'Submitted', 4)], attemptRequest: request({ status: 'Approved' }) })]);
 
       expect(root.textContent).not.toContain('declined');
-      expect(buttonIn(root, 'Start attempt 2')).toBeDefined();
+      expect(root.textContent).toContain('Start attempt 2');
     });
   });
 });
