@@ -1,0 +1,95 @@
+:host {
+  display: contents;
+}
+
+/* The track: invisible until there is something to wait for. */
+.api-activity__bar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 1000;
+  height: 3px;
+  overflow: hidden;
+  background: var(--primary-soft);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 250ms ease;
+}
+
+.api-activity__bar--on {
+  opacity: 1;
+}
+
+/* A soft segment drifting across, slow enough to read as calm rather than urgent. */
+.api-activity__bar::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: 999px;
+  background: var(--primary);
+  opacity: 0.8;
+  transform: translateX(-100%);
+  animation: api-activity-drift 1.8s ease-in-out infinite;
+}
+
+@keyframes api-activity-drift {
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.api-activity__note {
+  position: fixed;
+  /* Clear of the API health pill that sits in the bottom corner, even on a narrow screen. */
+  inset: auto 0 3.25rem 0;
+  z-index: 1000;
+  margin: 0 auto;
+  width: fit-content;
+  max-width: min(32rem, calc(100vw - 2rem));
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 400ms ease, visibility 400ms;
+}
+
+.api-activity__note--on {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Spoken but not seen. */
+.api-activity__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* No movement at all for people who ask for it: a still, softer bar says the same thing. */
+@media (prefers-reduced-motion: reduce) {
+  .api-activity__bar {
+    transition: none;
+  }
+
+  .api-activity__bar::after {
+    width: 100%;
+    opacity: 0.45;
+    transform: none;
+    animation: none;
+    border-radius: 0;
+  }
+
+  .api-activity__note {
+    transition: none;
+  }
+}
