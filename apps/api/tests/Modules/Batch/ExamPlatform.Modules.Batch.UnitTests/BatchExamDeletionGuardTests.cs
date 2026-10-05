@@ -14,7 +14,7 @@ public class BatchExamDeletionGuardTests
     public async Task WhenABatchIsAssignedToTheExam_ItObjects()
     {
         repository.ListByExamAsync(examId, Arg.Any<CancellationToken>())
-            .Returns([new BatchAggregate(examId, "Batch A", null, 30, Guid.NewGuid())]);
+            .Returns([new BatchAggregate(examId, "Batch A", null, 30, Guid.NewGuid(), DateTime.UtcNow)]);
 
         var objections = await new BatchExamDeletionGuard(repository).FindObjectionsAsync(examId, CancellationToken.None);
 
