@@ -114,6 +114,7 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
             sp.GetRequiredService<IOptions<OtpDeliveryOptions>>().Value.Provider switch
             {
                 OtpDeliveryOptions.DevelopmentLog => ActivatorUtilities.CreateInstance<LoggingOtpSender>(sp),
+                OtpDeliveryOptions.Smtp => ActivatorUtilities.CreateInstance<SmtpOtpSender>(sp),
 
                 // Unreachable once the host has started: OtpDeliveryOptionsValidator refuses
                 // any other provider at startup.

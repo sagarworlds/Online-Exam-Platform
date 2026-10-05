@@ -101,6 +101,17 @@ public sealed class StartupGuardTests
     }
 
     [Fact]
+    public async Task NonDevelopment_WithSmtpSender_Boots()
+    {
+        using var factory = new ProductionHostFactory(OtpDeliveryOptions.Smtp);
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task NonDevelopment_WithValidatorOverriddenAndSenderReplaced_Boots()
     {
         // The recipe documented on OtpDeliveryOptionsValidator for tests that need a
