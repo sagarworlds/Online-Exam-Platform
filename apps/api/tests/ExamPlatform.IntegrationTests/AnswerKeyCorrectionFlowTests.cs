@@ -24,7 +24,7 @@ public sealed class AnswerKeyCorrectionFlowTests(ApiFactory factory) : IClassFix
         var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
         using var _c = candidate;
 
-        var attemptId = (await JsonAsync((await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null)).EnsureSuccessStatusCode())).GetProperty("id").GetGuid();
+        var attemptId = (await JsonAsync((await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true })).EnsureSuccessStatusCode())).GetProperty("id").GetGuid();
         var attempt = await candidate.GetFromJsonAsync<JsonElement>($"/v1/me/attempts/{attemptId}");
         var question = attempt.GetProperty("sections")[0].GetProperty("questions")[0];
         var paris = question.GetProperty("options").EnumerateArray().Single(o => o.GetProperty("text").GetString() == "Paris").GetProperty("id").GetGuid();
@@ -57,7 +57,7 @@ public sealed class AnswerKeyCorrectionFlowTests(ApiFactory factory) : IClassFix
         var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
         using var _c = candidate;
 
-        var attemptId = (await JsonAsync((await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null)).EnsureSuccessStatusCode())).GetProperty("id").GetGuid();
+        var attemptId = (await JsonAsync((await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true })).EnsureSuccessStatusCode())).GetProperty("id").GetGuid();
         var attempt = await candidate.GetFromJsonAsync<JsonElement>($"/v1/me/attempts/{attemptId}");
         var question = attempt.GetProperty("sections")[0].GetProperty("questions")[0];
         var four = question.GetProperty("options").EnumerateArray().Single(o => o.GetProperty("text").GetString() == "4").GetProperty("id").GetGuid();

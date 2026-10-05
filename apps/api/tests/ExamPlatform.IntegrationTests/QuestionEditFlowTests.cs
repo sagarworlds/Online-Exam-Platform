@@ -135,7 +135,7 @@ public sealed class QuestionEditFlowTests(ApiFactory factory) : IClassFixture<Ap
         var examId = await CreateExamAsync(admin, "Answered exam", [question], TimeSpan.FromMinutes(-5));
         var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
 
-        var sitting = await JsonAsync((await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null)).EnsureSuccessStatusCode());
+        var sitting = await JsonAsync((await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true })).EnsureSuccessStatusCode());
         var shown = sitting.GetProperty("sections")[0].GetProperty("questions")[0];
         var right = shown.GetProperty("options").EnumerateArray().Single(o => o.GetProperty("text").GetString() == "Right").GetProperty("id").GetGuid();
         (await candidate.PutAsJsonAsync($"/v1/me/attempts/{sitting.GetProperty("id").GetGuid()}/answers/{shown.GetProperty("id").GetGuid()}", new { optionId = right })).EnsureSuccessStatusCode();

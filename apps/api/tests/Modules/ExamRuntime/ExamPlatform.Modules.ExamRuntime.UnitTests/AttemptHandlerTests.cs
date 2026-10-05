@@ -68,7 +68,7 @@ public class AttemptHandlerTests
     [Fact]
     public async Task Start_CreatesAnAttemptWithTheServerDeadline_AndShowsTheQuestionsWithoutTheAnswerKey()
     {
-        var dto = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var dto = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
 
         Assert.Equal(AttemptStatus.InProgress, dto.Status);
         Assert.Equal(Fixtures.Now.AddSeconds(1800), dto.DeadlineUtc);
@@ -81,13 +81,54 @@ public class AttemptHandlerTests
     }
 
     [Fact]
+    public async Task Start_WithoutAcknowledgingTheInstructions_IsRefused_AndNothingIsCreated()
+    {
+        await Assert.ThrowsAsync<InstructionsNotAcknowledgedError>(() => Start.HandleAsync(_exam.Id, _candidate, false, CancellationToken.None));
+
+        _attempts.DidNotReceive().Add(Arg.Any<Attempt>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Start_RecordsWhenTheInstructionsWereAcknowledged()
+    {
+        await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
+
+        _attempts.Received(1).Add(Arg.Is<Attempt>(a => a.InstructionsAcknowledgedAtUtc == Fixtures.Now));
+    }
+
+    [Fact]
+    public async Task Start_ResumingAnOpenAttempt_NeedsNoAcknowledgment()
+    {
+        var existing = OpenAttempt(startedAt: Fixtures.Now.AddMinutes(-5), deadline: Fixtures.Now.AddMinutes(25));
+
+        var dto = await Start.HandleAsync(_exam.Id, _candidate, false, CancellationToken.None);
+
+        Assert.Equal(existing.Id, dto.Id);
+        _attempts.DidNotReceive().Add(Arg.Any<Attempt>());
+    }
+
+    [Fact]
+    public async Task Start_WhenNoAttemptIsLeft_ReturnsTheLatestWithoutAskingForAnAcknowledgment()
+    {
+        var done = OpenAttempt(startedAt: Fixtures.Now.AddMinutes(-40), deadline: Fixtures.Now.AddMinutes(-10));
+        done.RecordAnswer(_q1.Id, _q1.Correct(), Fixtures.Now.AddMinutes(-39));
+        done.Submit(Fixtures.Now.AddMinutes(-10), 1, 2);
+
+        var dto = await Start.HandleAsync(_exam.Id, _candidate, false, CancellationToken.None);
+
+        Assert.Equal(done.Id, dto.Id);
+        _attempts.DidNotReceive().Add(Arg.Any<Attempt>());
+    }
+
+    [Fact]
     public async Task Start_ThatWouldRunPastTheEndOfTheWindow_IsCutOffAtTheEnd()
     {
         var exam = Fixtures.Exam([_q1], end: Fixtures.Now.AddMinutes(10), durationSeconds: 3600);
         _catalog.FindAsync(exam.Id, Arg.Any<CancellationToken>()).Returns(exam);
         _enrollments.IsEnrolledAsync(_candidate, exam.Id, Arg.Any<CancellationToken>()).Returns(true);
 
-        var dto = await Start.HandleAsync(exam.Id, _candidate, CancellationToken.None);
+        var dto = await Start.HandleAsync(exam.Id, _candidate, true, CancellationToken.None);
 
         Assert.Equal(Fixtures.Now.AddMinutes(10), dto.DeadlineUtc);
     }
@@ -98,7 +139,7 @@ public class AttemptHandlerTests
         var existing = OpenAttempt(startedAt: Fixtures.Now.AddMinutes(-5), deadline: Fixtures.Now.AddMinutes(25));
         existing.RecordAnswer(_q1.Id, _q1.Correct(), Fixtures.Now.AddMinutes(-4));
 
-        var dto = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var dto = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
 
         Assert.Equal(existing.Id, dto.Id);
         Assert.Equal(Fixtures.Now.AddMinutes(25), dto.DeadlineUtc);
@@ -112,7 +153,7 @@ public class AttemptHandlerTests
         var existing = OpenAttempt(startedAt: Fixtures.Now.AddMinutes(-40), deadline: Fixtures.Now.AddMinutes(-10));
         existing.RecordAnswer(_q1.Id, _q1.Correct(), Fixtures.Now.AddMinutes(-39));
 
-        var dto = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var dto = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
 
         Assert.Equal(AttemptStatus.Submitted, dto.Status);
         Assert.True(dto.AutoSubmitted);
@@ -126,7 +167,7 @@ public class AttemptHandlerTests
     {
         _enrollments.IsEnrolledAsync(_candidate, _exam.Id, Arg.Any<CancellationToken>()).Returns(false);
 
-        var error = await Assert.ThrowsAsync<ExamNotAvailableError>(() => Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<ExamNotAvailableError>(() => Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None));
 
         Assert.Equal(404, error.HttpStatusCode);
         _attempts.DidNotReceive().Add(Arg.Any<Attempt>());
@@ -135,7 +176,7 @@ public class AttemptHandlerTests
     [Fact]
     public async Task Start_ForAnUnknownExam_ReportsTheSameAnswerAsNotEnrolled()
     {
-        await Assert.ThrowsAsync<ExamNotAvailableError>(() => Start.HandleAsync(Guid.NewGuid(), _candidate, CancellationToken.None));
+        await Assert.ThrowsAsync<ExamNotAvailableError>(() => Start.HandleAsync(Guid.NewGuid(), _candidate, true, CancellationToken.None));
     }
 
     [Fact]
@@ -145,7 +186,7 @@ public class AttemptHandlerTests
         _catalog.FindAsync(draft.Id, Arg.Any<CancellationToken>()).Returns(draft);
         _enrollments.IsEnrolledAsync(_candidate, draft.Id, Arg.Any<CancellationToken>()).Returns(true);
 
-        await Assert.ThrowsAsync<ExamNotAvailableError>(() => Start.HandleAsync(draft.Id, _candidate, CancellationToken.None));
+        await Assert.ThrowsAsync<ExamNotAvailableError>(() => Start.HandleAsync(draft.Id, _candidate, true, CancellationToken.None));
     }
 
     [Fact]
@@ -153,7 +194,7 @@ public class AttemptHandlerTests
     {
         _clock.UtcNow = _exam.StartUtc.AddMinutes(-1);
 
-        var error = await Assert.ThrowsAsync<ExamNotOpenError>(() => Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<ExamNotOpenError>(() => Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None));
 
         Assert.Equal("exam_not_open", error.ErrorCode);
     }
@@ -163,7 +204,7 @@ public class AttemptHandlerTests
     {
         _clock.UtcNow = _exam.EndUtc.AddMinutes(1);
 
-        var error = await Assert.ThrowsAsync<ExamClosedError>(() => Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<ExamClosedError>(() => Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None));
 
         Assert.Equal("exam_closed", error.ErrorCode);
     }
@@ -175,7 +216,7 @@ public class AttemptHandlerTests
         _catalog.FindAsync(exam.Id, Arg.Any<CancellationToken>()).Returns(exam);
         _enrollments.IsEnrolledAsync(_candidate, exam.Id, Arg.Any<CancellationToken>()).Returns(true);
 
-        await Assert.ThrowsAsync<ExamClosedError>(() => Start.HandleAsync(exam.Id, _candidate, CancellationToken.None));
+        await Assert.ThrowsAsync<ExamClosedError>(() => Start.HandleAsync(exam.Id, _candidate, true, CancellationToken.None));
     }
 
     [Fact]
@@ -183,7 +224,7 @@ public class AttemptHandlerTests
     {
         _clock.UtcNow = _exam.EndUtc;
 
-        await Assert.ThrowsAsync<ExamClosedError>(() => Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None));
+        await Assert.ThrowsAsync<ExamClosedError>(() => Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None));
     }
 
     // ---- get ---------------------------------------------------------------------------------------------------

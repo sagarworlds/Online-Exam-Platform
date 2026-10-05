@@ -176,7 +176,7 @@ public class ExtraAttemptHandlerTests
     {
         var first = Made();
 
-        var dto = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var dto = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
 
         Assert.Equal(first.Id, dto.Id);
         Assert.Equal(AttemptStatus.Submitted, dto.Status);
@@ -189,7 +189,7 @@ public class ExtraAttemptHandlerTests
         Made();
         _granted = 1;
 
-        var dto = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var dto = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
 
         Assert.Equal(AttemptStatus.InProgress, dto.Status);
         Assert.Equal(2, dto.Number);
@@ -206,7 +206,7 @@ public class ExtraAttemptHandlerTests
         var second = Made(open: true, startedAt: Fixtures.Now.AddMinutes(-5));
         _granted = 1;
 
-        var dto = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var dto = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
 
         Assert.Equal(second.Id, dto.Id);
         Assert.Equal(AttemptStatus.InProgress, dto.Status);
@@ -220,14 +220,14 @@ public class ExtraAttemptHandlerTests
         var second = Made();
         _granted = 1;
 
-        var dto = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var dto = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
 
         Assert.Equal(second.Id, dto.Id);
         Assert.Equal(2, dto.Number);
         _attempts.DidNotReceive().Add(Arg.Any<Attempt>());
 
         _granted = 2;
-        var third = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var third = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
         Assert.Equal(3, third.Number);
     }
 
@@ -237,7 +237,7 @@ public class ExtraAttemptHandlerTests
         var first = Made(open: true, startedAt: Fixtures.Now.AddMinutes(-40), deadline: Fixtures.Now.AddMinutes(-10));
         _granted = 1; // granted while the first was still open
 
-        var dto = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var dto = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
 
         Assert.Equal(first.Id, dto.Id);
         Assert.Equal(AttemptStatus.Submitted, dto.Status);
@@ -252,7 +252,7 @@ public class ExtraAttemptHandlerTests
         _granted = 1;
         _clock.UtcNow = _exam.EndUtc.AddMinutes(1);
 
-        await Assert.ThrowsAsync<ExamClosedError>(() => Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None));
+        await Assert.ThrowsAsync<ExamClosedError>(() => Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None));
 
         _attempts.DidNotReceive().Add(Arg.Any<Attempt>());
     }
@@ -268,7 +268,7 @@ public class ExtraAttemptHandlerTests
         _attempts.ListForCandidateAtExamAsync(exam.Id, _candidate, Arg.Any<CancellationToken>()).Returns([first]);
         _grants.CountAsync(exam.Id, _candidate, Arg.Any<CancellationToken>()).Returns(1);
 
-        await Assert.ThrowsAsync<ExamClosedError>(() => Start.HandleAsync(exam.Id, _candidate, CancellationToken.None));
+        await Assert.ThrowsAsync<ExamClosedError>(() => Start.HandleAsync(exam.Id, _candidate, true, CancellationToken.None));
     }
 
     // ---- granting --------------------------------------------------------------------------------------------------
@@ -373,7 +373,7 @@ public class ExtraAttemptHandlerTests
         for (var i = 0; i < made; i++)
             Made();
 
-        var dto = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var dto = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
 
         if (beginsAnother)
         {
@@ -398,7 +398,7 @@ public class ExtraAttemptHandlerTests
         Made();
         _granted = 1;
 
-        var dto = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var dto = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
 
         Assert.Equal(3, dto.Number);
         _attempts.Received(1).Add(Arg.Is<Attempt>(a => a.Number == 3));
@@ -412,14 +412,14 @@ public class ExtraAttemptHandlerTests
         Made();
         UseLimit(1); // the author lowers it after two attempts were made
 
-        var submitted = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var submitted = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
 
         Assert.Equal(2, submitted.Number);
         Assert.Equal(AttemptStatus.Submitted, submitted.Status);
         _attempts.DidNotReceive().Add(Arg.Any<Attempt>());
 
         var open = Made(open: true, startedAt: Fixtures.Now.AddMinutes(-5));
-        var resumed = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var resumed = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
         Assert.Equal(open.Id, resumed.Id);
         Assert.Equal(AttemptStatus.InProgress, resumed.Status);
     }
@@ -429,9 +429,9 @@ public class ExtraAttemptHandlerTests
     {
         Made();
 
-        var before = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var before = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
         UseLimit(2);
-        var after = await Start.HandleAsync(_exam.Id, _candidate, CancellationToken.None);
+        var after = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
 
         Assert.Equal(1, before.Number);
         Assert.Equal(2, after.Number);

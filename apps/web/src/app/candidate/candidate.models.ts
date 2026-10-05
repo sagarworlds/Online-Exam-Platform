@@ -36,6 +36,21 @@ export interface MyAttemptRequestDto {
 /** The longest message or note the API accepts on a request. */
 export const MAX_ATTEMPT_REQUEST_TEXT = 500;
 
+/** The rules of an exam a candidate is told before starting it (FR-17). */
+export interface ExamRulesDto {
+  /** Marks for a correct answer. */
+  correctMarks: number;
+  /** Marks for a wrong answer; negative when wrong answers cost marks. */
+  incorrectMarks: number;
+  /** Marks for a question left unanswered. */
+  unattemptedMarks: number;
+  /** Whether a multiple-answer question can earn part of its marks. */
+  partialCredit: boolean;
+  /** Whether leaving a section is final. */
+  sectionLock: boolean;
+  sectionCount: number;
+}
+
 /** An exam the candidate is enrolled in, as listed on their exams page. All instants are UTC. */
 export interface MyExamDto {
   examId: string;
@@ -64,6 +79,8 @@ export interface MyExamDto {
   canRequestAttempt: boolean;
   /** Their latest request for another attempt at this exam, if they ever made one. */
   attemptRequest: MyAttemptRequestDto | null;
+  /** The marking and navigation rules the instructions page states; null from an older API. */
+  rules: ExamRulesDto | null;
 }
 
 /** When candidates may see which of their answers were right, as the exam's author chose it. */

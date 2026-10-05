@@ -1,12 +1,15 @@
 import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
 import { bestAttemptId } from '../best-attempt';
 import { MAX_ATTEMPT_REQUEST_TEXT, MyExamDto } from '../candidate.models';
 
-/** The candidate's page: the exams they have accepted an invitation to, and whether each can be started now (FR-16). */
+/**
+ * The candidate's page: the exams they have accepted an invitation to, and whether each can be started now (FR-16). Starting leads to
+ * the instructions and system check page (FR-17); the attempt itself begins there, once the candidate has acknowledged the instructions.
+ */
 @Component({
   selector: 'app-my-exams',
   imports: [DatePipe, RouterLink],
@@ -14,13 +17,10 @@ import { MAX_ATTEMPT_REQUEST_TEXT, MyExamDto } from '../candidate.models';
 })
 export class MyExams {
   private readonly api = inject(CandidateApiService);
-  private readonly router = inject(Router);
 
   protected readonly exams = signal<MyExamDto[]>([]);
   protected readonly loading = signal(true);
   protected readonly errorMessage = signal<string | null>(null);
-  /** The exam whose attempt is being created, so its button is disabled against a double click. */
-  protected readonly startingExamId = signal<string | null>(null);
   protected readonly bestAttemptId = bestAttemptId;
 
   /** The exam whose "ask for another attempt" form is open; one at a time. */
@@ -88,26 +88,6 @@ export class MyExams {
     this.api.listMyExams().subscribe({
       next: (exams) => this.exams.set(exams),
       error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
-    });
-  }
-
-  /** Starts the attempt (the clock starts here, on the server) and opens it. */
-  protected start(exam: MyExamDto): void {
-    if (this.startingExamId() !== null) {
-      return;
-    }
-
-    this.startingExamId.set(exam.examId);
-    this.errorMessage.set(null);
-    this.api.startAttempt(exam.examId).subscribe({
-      next: (attempt) => {
-        this.startingExamId.set(null);
-        void this.router.navigate(['/attempt', attempt.id]);
-      },
-      error: (error: unknown) => {
-        this.startingExamId.set(null);
-        this.errorMessage.set(extractErrorMessage(error));
-      },
     });
   }
 }

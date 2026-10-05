@@ -35,6 +35,12 @@ public sealed class Attempt : AggregateRoot
     /// <summary>When the attempt must end, however the candidate's own clock reads.</summary>
     public DateTime DeadlineUtc { get; private set; }
 
+    /// <summary>
+    /// When the candidate confirmed they had read the exam's instructions (FR-17), as the attempt began. Null for an attempt that began
+    /// before instructions were acknowledged; kept so a dispute can show the candidate was told the rules.
+    /// </summary>
+    public DateTime? InstructionsAcknowledgedAtUtc { get; private set; }
+
     /// <summary>Whether the attempt is still open.</summary>
     public AttemptStatus Status { get; private set; }
 
@@ -105,6 +111,17 @@ public sealed class Attempt : AggregateRoot
             throw new InvalidAttemptError("An attempt must end after it starts.");
 
         return new Attempt(Guid.NewGuid(), examId, candidateId, number, startedAtUtc, deadlineUtc);
+    }
+
+    /// <summary>Records that the candidate acknowledged the instructions as they started. Done once, when the attempt is created.</summary>
+    /// <param name="acknowledgedAtUtc">The current instant.</param>
+    /// <exception cref="InvalidAttemptError">The attempt already records an acknowledgment.</exception>
+    public void AcknowledgeInstructions(DateTime acknowledgedAtUtc)
+    {
+        if (InstructionsAcknowledgedAtUtc is not null)
+            throw new InvalidAttemptError("The instructions were already acknowledged for this attempt.");
+
+        InstructionsAcknowledgedAtUtc = acknowledgedAtUtc;
     }
 
     /// <summary>Fixes the questions this attempt consists of. Done once, as the attempt starts.</summary>

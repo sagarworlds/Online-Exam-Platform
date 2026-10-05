@@ -51,7 +51,7 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
     private static async Task<JsonElement> StartAsync(HttpClient candidate, Guid examId)
     {
-        var response = await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null);
+        var response = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
@@ -130,7 +130,7 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         using var _ = admin;
         using var __ = candidate;
 
-        var started = await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null);
+        var started = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true });
         var raw = await started.Content.ReadAsStringAsync();
 
         Assert.DoesNotContain("isCorrect", raw, StringComparison.OrdinalIgnoreCase);
@@ -368,7 +368,7 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var (stranger, _) = await factory.CandidateClientAsync(UniqueEmail());
         using var _s = stranger;
 
-        var response = await stranger.PostAsync($"/v1/me/exams/{examId}/attempts", content: null);
+        var response = await stranger.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true });
 
         await AssertProblemAsync(response, HttpStatusCode.NotFound, "exam_not_available");
     }
@@ -401,7 +401,7 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         using var _a = admin;
         using var _c = candidate;
 
-        var response = await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null);
+        var response = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true });
 
         await AssertProblemAsync(response, HttpStatusCode.Conflict, "exam_not_open");
     }
@@ -414,7 +414,7 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         using var _a = admin;
         using var _c = candidate;
 
-        var response = await admin.PostAsync($"/v1/me/exams/{examId}/attempts", content: null);
+        var response = await admin.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true });
 
         await AssertProblemAsync(response, HttpStatusCode.NotFound, "exam_not_available");
     }

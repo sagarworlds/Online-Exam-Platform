@@ -33,7 +33,7 @@ public sealed class AnswerReviewFlowTests(ApiFactory factory) : IClassFixture<Ap
     }
 
     private static async Task<Guid> StartAsync(HttpClient candidate, Guid examId) =>
-        (await JsonAsync((await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null)).EnsureSuccessStatusCode())).GetProperty("id").GetGuid();
+        (await JsonAsync((await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true })).EnsureSuccessStatusCode())).GetProperty("id").GetGuid();
 
     /// <summary>Answers Q1 rightly and Q2 wrongly, leaves Q3 alone, and submits.</summary>
     private static async Task<JsonElement> SitAsync(HttpClient candidate, Guid examId)

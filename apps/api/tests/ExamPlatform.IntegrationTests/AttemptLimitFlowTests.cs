@@ -103,7 +103,7 @@ public sealed class AttemptLimitFlowTests(ApiFactory factory) : IClassFixture<Ap
 
     private static async Task<JsonElement> StartAsync(HttpClient candidate, Guid examId)
     {
-        var response = await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null);
+        var response = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return await JsonAsync(response);
     }
