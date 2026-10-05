@@ -4,8 +4,8 @@ import { AdminSection } from '../../auth/admin-sections';
 import { AdminSidebar } from './admin-sidebar';
 
 const sections: AdminSection[] = [
-  { label: 'Questions', description: 'Write questions.', path: '/admin/questions', permission: 'question.manage' },
-  { label: 'Invites', description: 'Invite candidates.', path: '/invites', permission: 'invite.manage' },
+  { label: 'Questions', description: 'Write questions.', path: '/admin/questions', permission: 'question.manage', icon: 'question' },
+  { label: 'Invites', description: 'Invite candidates.', path: '/invites', permission: 'invite.manage', icon: 'invite' },
 ];
 
 describe('AdminSidebar', () => {

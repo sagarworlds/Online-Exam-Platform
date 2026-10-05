@@ -1,19 +1,20 @@
 import { Component, input, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AdminSection } from '../../auth/admin-sections';
+import { AdminIcon } from '../admin-icon/admin-icon';
 
 const COLLAPSED_STORAGE_KEY = 'exam-platform.admin-sidebar-collapsed';
 
 /**
  * The admin area's persistent left-hand navigation: one link per admin section the caller passes in
  * (already filtered to what the signed-in user's permissions open — this component only renders them).
- * Collapsing swaps each link's label for its initial letter to save width, but never removes the link
- * itself or its accessible name, so every section stays one click away either way (FR: a collapsed menu
- * keeps the same functionality as expanded).
+ * Collapsing swaps each link's label for its icon to save width, but never removes the link itself or
+ * its accessible name, so every section stays one click away either way (FR: a collapsed menu keeps the
+ * same functionality as expanded).
  */
 @Component({
   selector: 'app-admin-sidebar',
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, AdminIcon],
   templateUrl: './admin-sidebar.html',
   styleUrl: './admin-sidebar.css',
 })

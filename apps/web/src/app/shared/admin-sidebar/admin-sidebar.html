@@ -17,7 +17,7 @@
       [title]="section.label"
       [attr.aria-label]="section.label"
     >
-      <span class="admin-sidebar__icon" aria-hidden="true">{{ section.label.charAt(0) }}</span>
+      <app-admin-icon [name]="section.icon" class="admin-sidebar__icon" />
       <span class="admin-sidebar__label">{{ section.label }}</span>
     </a>
   }
