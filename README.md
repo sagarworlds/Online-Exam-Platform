@@ -320,6 +320,21 @@ Pressing **Start exam** on `/my-exams` opens `/my-exams/{examId}/start` first (F
 | Not built | Camera and microphone checks: they are only asked for when an exam's proctoring profile needs them (FR-46), and there are no profiles yet. Instruction text the exam's author writes, and per-institute templates (FR-41), are not offered; the instructions are generated. |
 | Migration | `AttemptInstructionsAcknowledged` adds one nullable column to `examRuntime.Attempts`. |
 
+#### Copy, paste, right-click and print protection
+
+While an exam is open, the exam page turns off the ordinary ways of carrying a question out of it (FR-23).
+
+| What | Rule |
+|------|------|
+| What is turned off | Copy, cut and paste (the keyboard chords, including Ctrl or Cmd with C, X, V, and Ctrl+Insert, Shift+Insert, Shift+Delete, and the menu entries), the right-click menu, and dragging content off the page. A candidate who tries sees one calm line ("Copying is turned off during this exam."), announced politely to screen readers, which goes away after a few seconds. |
+| Printing | Ctrl or Cmd with P is refused. A browser's own Print menu cannot be cancelled by a page, so while the exam is open the page's print stylesheet makes a printout blank except for a sentence saying printing is turned off. |
+| What is left alone | Selecting text, so screen readers and magnifiers keep working; Ctrl+A and Ctrl+F; the exam shortcuts (N, P, M, C); the browser's inspector. Candidates are told the rule on the exam page and in the instructions before they start. |
+| It is a deterrent | It stops the ordinary routes. It cannot stop a photograph of the screen, a second device, or a browser set up to ignore a page, which is what proctoring (M6) is for. |
+| Per exam | `ContentProtection` is on for a new exam and for every existing one. An author with `exam.manage` can turn it off, for example for practice and chapter tests, with `PUT /v1/exams/{examId}/content-protection` (`{ "contentProtection": false }`; a body without the flag is a `400`), from the exam editor's **Copying and printing** card. Like the attempt limit it can change after publishing, since it changes nothing that is asked or scored; an attempt in progress picks the change up when its page is next loaded. The exam's config and the candidate's attempt both report it (`contentProtection`). |
+| Only while the exam is open | The guard is on only while an attempt is in progress, and is released the moment it is submitted or the page is left, so a candidate can copy and print their own result and review. |
+| Not built | A proctoring profile that bundles this with fullscreen and tab-switch rules (requirements section 8, FR-46): when those exist, this setting becomes the profile's `blockClipboard`. Logging refused attempts (FR-26). |
+| Migration | `ExamContentProtection` adds `Config_ContentProtection` to `examAuthoring.Exams`, defaulting to true for existing exams. |
+
 #### Sitting an exam: clearing a response and marking for review
 
 Two controls under each question on the exam page (`/attempt/:id`), as on a printed paper: **Clear response** takes the chosen option back, and **Mark for review** is a note to come back to the question. Both show at once and are saved in the background; if a save fails the page puts things back as they were and says so.
