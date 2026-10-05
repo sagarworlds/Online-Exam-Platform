@@ -11,7 +11,8 @@ public record ExamConfig(
     int MaxRetakes,
     ResultReleaseMode ResultReleaseMode,
     DateTime? ResultReleaseTime,
-    MarkingScheme MarkingScheme)
+    MarkingScheme MarkingScheme,
+    bool ContentProtection)
 {
     /// <summary>The fewest attempts an exam can allow: every candidate can sit it once.</summary>
     public const int FewestAttempts = 1;
@@ -22,6 +23,9 @@ public record ExamConfig(
     /// </summary>
     public const int MostAttempts = 10;
 
+    // ContentProtection: whether the exam page turns off copying, pasting, right-click and printing while a candidate sits the exam
+    // (FR-23). On for a new exam, so protection is what a candidate gets unless an author deliberately lifts it, for example for practice.
+
     /// <summary>A new exam shuffles nothing on the first attempt: the author turns shuffling on, or later attempts shuffle anyway.</summary>
-    public ExamConfig() : this(null, false, false, false, false, true, FewestAttempts, 0, ResultReleaseMode.Instant, null, new MarkingScheme()) { }
+    public ExamConfig() : this(null, false, false, false, false, true, FewestAttempts, 0, ResultReleaseMode.Instant, null, new MarkingScheme(), true) { }
 }

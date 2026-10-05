@@ -38,5 +38,6 @@ public record ExamConfigDto(
     int MaxRetakes,
     ResultReleaseMode ResultReleaseMode,
     DateTime? ResultReleaseTime,
-    MarkingScheme MarkingScheme
+    MarkingScheme MarkingScheme,
+    bool ContentProtection = true
 );

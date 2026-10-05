@@ -448,6 +448,29 @@ public sealed class SetMaxAttemptsHandler(IExamRepository repository, IExamAutho
     }
 }
 
+/// <summary>Handles <see cref="SetContentProtectionCommand"/>.</summary>
+public sealed class SetContentProtectionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
+{
+    /// <summary>Turns the exam page's copy, paste, right-click and print protection on or off.</summary>
+    /// <param name="command">The new setting.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The setting was not sent.</exception>
+    public async Task<ExamDto> HandleAsync(SetContentProtectionCommand command, CancellationToken cancellationToken)
+    {
+        // A body without the flag binds it to null; that is a 400 about the missing value, not a silent "off".
+        if (command.ContentProtection is null)
+            throw new InvalidExamConfigError("Send whether content protection is on.");
+
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.SetContentProtection(command.ContentProtection.Value, clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await dtos.ToDtoAsync(exam, cancellationToken);
+    }
+}
+
 /// <summary>Handles releasing the answers of a manual-release exam.</summary>
 public sealed class ReleaseResultsHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
 {

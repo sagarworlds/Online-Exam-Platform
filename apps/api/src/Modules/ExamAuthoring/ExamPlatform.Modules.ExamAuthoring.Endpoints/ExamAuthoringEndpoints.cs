@@ -101,6 +101,15 @@ public static class ExamAuthoringEndpoints
             .WithName("SetExamAttemptLimit")
             .WithDescription("Set how many attempts every enrolled candidate has at the exam, before any extra attempt is given");
 
+        exams.MapPut("/{examId:guid}/content-protection", SetContentProtection)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("SetExamContentProtection")
+            .WithDescription("Choose whether the exam page turns off copying, pasting, right-click and printing while candidates sit the exam");
+
         exams.MapPut("/{examId:guid}/result-release", SetResultRelease)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -249,6 +258,10 @@ public static class ExamAuthoringEndpoints
         Guid examId, AttemptLimitRequest request, SetMaxAttemptsHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetMaxAttemptsCommand(examId, request.MaxAttempts), ct));
 
+    private static async Task<IResult> SetContentProtection(
+        Guid examId, ContentProtectionRequest request, SetContentProtectionHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new SetContentProtectionCommand(examId, request.ContentProtection), ct));
+
     private static async Task<IResult> SetResultRelease(
         Guid examId, ResultReleaseRequest request, SetResultReleaseHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetResultReleaseCommand(examId, request.Mode, request.ReleaseTime), ct));
@@ -377,6 +390,10 @@ public record ShuffleRequest(bool? ShuffleQuestions, bool? ShuffleOptions);
 /// <summary>Request body for setting how many attempts every enrolled candidate has at an exam.</summary>
 /// <param name="MaxAttempts">The attempts each candidate has, from 1 to 10; administrators can still give one candidate more.</param>
 public record AttemptLimitRequest(int? MaxAttempts);
+
+/// <summary>Request body for choosing whether the exam page turns off copying, pasting, right-click and printing.</summary>
+/// <param name="ContentProtection">Whether the protection is on.</param>
+public record ContentProtectionRequest(bool? ContentProtection);
 
 /// <summary>Request body for changing an exam's name and description.</summary>
 /// <param name="Name">The exam's new name.</param>

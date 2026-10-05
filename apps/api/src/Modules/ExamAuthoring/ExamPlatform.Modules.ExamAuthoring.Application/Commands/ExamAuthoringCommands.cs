@@ -106,3 +106,8 @@ public sealed record SetShuffleCommand(Guid ExamId, bool? ShuffleQuestions, bool
 /// <param name="ExamId">The exam.</param>
 /// <param name="MaxAttempts">The attempts each candidate has, or null if the caller did not send it.</param>
 public sealed record SetMaxAttemptsCommand(Guid ExamId, int? MaxAttempts);
+
+/// <summary>Chooses whether the exam page turns off copying, pasting, right-click and printing while the exam is sat (FR-23).</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="ContentProtection">Whether the protection is on, or null if the caller did not send it.</param>
+public sealed record SetContentProtectionCommand(Guid ExamId, bool? ContentProtection);
