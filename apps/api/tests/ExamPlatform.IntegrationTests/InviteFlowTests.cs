@@ -144,6 +144,27 @@ public sealed class InviteFlowTests(ApiFactory factory) : IClassFixture<ApiFacto
     }
 
     [Fact]
+    public async Task Accept_TheSameCodeTwiceAtOnce_LetsExactlyOneThrough()
+    {
+        var (admin, examId) = await AdminWithPublishedExamAsync();
+        var email = UniqueEmail();
+        var code = CodeFromLink((await InviteAsync(admin, examId, email)).GetProperty("inviteLink").GetString()!);
+        var (candidate, _) = await factory.CandidateClientAsync(email);
+
+        var responses = await Task.WhenAll(
+            candidate.PostAsJsonAsync("/v1/invites/accept", new { code }),
+            candidate.PostAsJsonAsync("/v1/invites/accept", new { code }));
+
+        // Both can read the invite as pending; the row version makes the second save lose with a typed
+        // 409 (or, when it reads after the first has committed, the ordinary "code already used" 400).
+        Assert.Equal(1, responses.Count(r => r.StatusCode == HttpStatusCode.OK));
+        var loser = responses.Single(r => r.StatusCode != HttpStatusCode.OK);
+        Assert.True(
+            loser.StatusCode is HttpStatusCode.Conflict or HttpStatusCode.BadRequest,
+            $"The losing accept answered {(int)loser.StatusCode}.");
+    }
+
+    [Fact]
     public async Task Accept_TheSameCodeTwice_RefusesTheSecond()
     {
         var (admin, examId) = await AdminWithPublishedExamAsync();

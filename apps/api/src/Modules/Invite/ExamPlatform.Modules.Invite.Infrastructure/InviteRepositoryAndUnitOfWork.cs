@@ -2,6 +2,7 @@ using ExamPlatform.Modules.Invite.Application;
 using ExamPlatform.Modules.Invite.Application.Ports;
 using ExamPlatform.Modules.Invite.Domain;
 using ExamPlatform.Modules.Invite.Domain.Exceptions;
+using ExamPlatform.SharedKernel.Domain.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using InviteAggregate = ExamPlatform.Modules.Invite.Domain.Invite;
 
@@ -61,6 +62,17 @@ public sealed class EFInviteRepository(InviteDbContext context) : IInviteReposit
 public sealed class InviteUnitOfWork(InviteDbContext context) : IInviteUnitOfWork
 {
     /// <inheritdoc />
-    public Task<int> SaveChangesAsync(CancellationToken cancellationToken) =>
-        context.SaveChangesAsync(cancellationToken);
+    /// <exception cref="ConcurrencyConflictError">Another request changed the same invite first, for example accepted the same code.</exception>
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // The loser of a race for a single-use code is told so (409), instead of both requests succeeding.
+            throw new ConcurrencyConflictError(ex);
+        }
+    }
 }
