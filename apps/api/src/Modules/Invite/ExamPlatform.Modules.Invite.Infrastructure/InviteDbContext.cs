@@ -8,6 +8,9 @@ namespace ExamPlatform.Modules.Invite.Infrastructure;
 /// <summary>The Invite module's persistence context, scoped to the <c>invite</c> Postgres schema.</summary>
 public class InviteDbContext(DbContextOptions<InviteDbContext> options) : DbContext(options)
 {
+    /// <summary>Name of the shadow property that maps an invite's Postgres <c>xmin</c> row version.</summary>
+    public const string RowVersionPropertyName = "Version";
+
     /// <summary>The stored invites.</summary>
     public DbSet<InviteAggregate> Invites => Set<InviteAggregate>();
 
@@ -27,6 +30,10 @@ public class InviteDbContext(DbContextOptions<InviteDbContext> options) : DbCont
             i.Property(x => x.Status).HasConversion<string>();
             i.Property(x => x.IsDeleted);
 
+            // Optimistic concurrency on xmin: two parallel accepts of one invite cannot both succeed, so a
+            // single-use code stays single-use. Every accept, decline, revoke and new code updates this row.
+            i.Property<uint>(RowVersionPropertyName).IsRowVersion();
+
             // "Which exams has this user accepted an invite to" is asked for every candidate screen.
             i.HasIndex(x => new { x.AcceptedByUserId, x.ExamId });
 
@@ -34,6 +41,7 @@ public class InviteDbContext(DbContextOptions<InviteDbContext> options) : DbCont
                 .WithOne()
                 .HasForeignKey("InviteId")
                 .OnDelete(DeleteBehavior.Cascade);
+            i.Navigation(x => x.Codes).HasField("_codes").UsePropertyAccessMode(PropertyAccessMode.Field);
 
             i.HasQueryFilter(x => !x.IsDeleted);
             i.ToTable("Invites", "invite");

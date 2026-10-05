@@ -12,7 +12,7 @@ public sealed class SearchAuditLogsHandler(IAuditLogRepository repository)
     public async Task<IReadOnlyList<AuditLogEntryDto>> HandleAsync(SearchAuditLogsQuery query, CancellationToken cancellationToken)
     {
         var entries = await repository.SearchAsync(
-            query.EntityType, query.ActorUserId, query.Page, query.PageSize, cancellationToken);
+            query.EntityType, query.ActorUserId, query.Paging.Page, query.Paging.PageSize, cancellationToken);
 
         return entries
             .Select(e => new AuditLogEntryDto(e.Id, e.OccurredAtUtc, e.ActorUserId, e.ActorRole, e.Action, e.EntityType, e.EntityId, e.Metadata))

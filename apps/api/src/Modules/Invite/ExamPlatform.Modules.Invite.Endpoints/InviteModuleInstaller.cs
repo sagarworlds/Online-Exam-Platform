@@ -46,6 +46,7 @@ public sealed class InviteModuleInstaller : IModuleInstaller
         services.AddScoped<AcceptInviteHandler>();
         services.AddScoped<DeclineInviteHandler>();
         services.AddScoped<RevokeInviteHandler>();
+        services.AddDomainEventHandlers(typeof(InviteAuditTrail).Assembly);
     }
 
     /// <inheritdoc />

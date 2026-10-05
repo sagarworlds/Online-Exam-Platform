@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using GuardianAggregate = ExamPlatform.Modules.Guardian.Domain.Guardian;
 using ExamPlatform.Modules.Guardian.Domain;
+using ExamPlatform.SharedKernel.Infrastructure;
 
 namespace ExamPlatform.Modules.Guardian.Infrastructure;
 
@@ -26,6 +27,7 @@ public class GuardianDbContext(DbContextOptions<GuardianDbContext> options) : Db
                 .WithOne()
                 .HasForeignKey("GuardianId")
                 .OnDelete(DeleteBehavior.Cascade);
+            g.Navigation(x => x.CandidateLinks).HasField("_candidateLinks").UsePropertyAccessMode(PropertyAccessMode.Field);
 
             g.HasQueryFilter(x => !x.IsDeleted);
             g.ToTable("Guardians", "guardian");
@@ -45,5 +47,8 @@ public class GuardianDbContext(DbContextOptions<GuardianDbContext> options) : Db
             l.HasQueryFilter(x => !x.IsDeleted);
             l.ToTable("GuardianLinks", "guardian");
         });
+
+        modelBuilder.ApplyUtcDateTimeConversion();
+        modelBuilder.ApplyClientGeneratedGuidKeys();
     }
 }

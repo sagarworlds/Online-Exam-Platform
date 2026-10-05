@@ -2,6 +2,7 @@ using ExamPlatform.Modules.Batch.Application;
 using ExamPlatform.Modules.Batch.Application.Commands;
 using ExamPlatform.Modules.Batch.Application.Ports;
 using ExamPlatform.Modules.Batch.Domain;
+using ExamPlatform.Modules.Batch.Domain.Exceptions;
 using NSubstitute;
 using BatchAggregate = ExamPlatform.Modules.Batch.Domain.Batch;
 
@@ -14,7 +15,7 @@ public class CreateBatchHandlerTests
     {
         var repository = Substitute.For<IBatchRepository>();
         var unitOfWork = Substitute.For<IBatchUnitOfWork>();
-        var handler = new CreateBatchHandler(repository, unitOfWork);
+        var handler = new CreateBatchHandler(repository, unitOfWork, new FakeClock(new DateTime(2026, 10, 5, 9, 0, 0, DateTimeKind.Utc)));
 
         var examId = Guid.NewGuid();
         var createdBy = Guid.NewGuid();
@@ -41,11 +42,12 @@ public class CreateBatchHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WithZeroMaxMembers_ThrowsException()
+    public async Task HandleAsync_WithZeroMaxMembers_ThrowsInvalidBatchConfigError()
     {
         var handler = new CreateBatchHandler(
             Substitute.For<IBatchRepository>(),
-            Substitute.For<IBatchUnitOfWork>());
+            Substitute.For<IBatchUnitOfWork>(),
+            new FakeClock(DateTime.UtcNow));
 
         var command = new CreateBatchCommand(
             Guid.NewGuid(),
@@ -54,6 +56,6 @@ public class CreateBatchHandlerTests
             0,
             Guid.NewGuid());
 
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(command, CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidBatchConfigError>(() => handler.HandleAsync(command, CancellationToken.None));
     }
 }

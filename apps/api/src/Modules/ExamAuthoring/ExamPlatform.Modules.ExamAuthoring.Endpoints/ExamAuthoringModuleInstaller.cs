@@ -39,6 +39,7 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
         services.AddScoped<ExamDtoFactory>();
 
         services.AddScoped<CreateExamHandler>();
+        services.AddDomainEventHandlers(typeof(ExamAuditTrail).Assembly);
         services.AddScoped<ListExamsHandler>();
         services.AddScoped<GetExamHandler>();
         services.AddScoped<ScheduleExamHandler>();

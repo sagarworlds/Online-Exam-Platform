@@ -49,29 +49,12 @@ public class RosterValidator
         return new ValidationResult(errors.Count == 0, errors);
     }
 
-    private static bool IsValidEmail(string? email)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-            return false;
+    // One definition of a valid contact, shared with Batch.AddMember, so an imported roster cannot
+    // hold an address the batch would refuse.
+    private static bool IsValidEmail(string? email) => MemberContact.TryNormalizeEmail(email, out _);
 
-        try
-        {
-            var addr = new System.Net.Mail.MailAddress(email);
-            return addr.Address == email;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool IsValidPhone(string? phone)
-    {
-        if (string.IsNullOrWhiteSpace(phone))
-            return true;
-
-        return System.Text.RegularExpressions.Regex.IsMatch(phone, @"^\+?[1-9]\d{1,14}$");
-    }
+    private static bool IsValidPhone(string? phone) =>
+        string.IsNullOrWhiteSpace(phone) || MemberContact.TryNormalizePhone(phone, out _);
 
     public record RosterEntry(string Email, string? Phone = null);
 }

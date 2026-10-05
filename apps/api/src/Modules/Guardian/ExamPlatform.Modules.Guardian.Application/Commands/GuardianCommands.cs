@@ -18,10 +18,6 @@ public sealed record LinkCandidateCommand(
     Guid CandidateId,
     string CandidateEmail);
 
-/// <summary>Verifies and confirms a guardian link.</summary>
-/// <param name="VerificationToken">The verification token issued when the link was requested.</param>
-public sealed record VerifyGuardianLinkCommand(string VerificationToken);
-
 /// <summary>Revokes a guardian link to a candidate.</summary>
 /// <param name="GuardianId">The guardian whose link is revoked.</param>
 /// <param name="CandidateId">The candidate the link points to.</param>

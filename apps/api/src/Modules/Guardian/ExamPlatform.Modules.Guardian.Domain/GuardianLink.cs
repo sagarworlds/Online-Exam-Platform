@@ -1,3 +1,5 @@
+using ExamPlatform.Modules.Guardian.Domain.Exceptions;
+
 namespace ExamPlatform.Modules.Guardian.Domain;
 
 /// Represents the verified link between a guardian and a minor candidate.
@@ -31,7 +33,7 @@ public class GuardianLink
     public void Verify()
     {
         if (Status != GuardianLinkStatus.Pending)
-            throw new InvalidOperationException("Only pending links can be verified.");
+            throw new GuardianLinkNotPendingError();
 
         Status = GuardianLinkStatus.Verified;
         VerifiedAt = DateTime.UtcNow;
@@ -41,7 +43,7 @@ public class GuardianLink
     public void Revoke()
     {
         if (Status == GuardianLinkStatus.Revoked)
-            throw new InvalidOperationException("Link is already revoked.");
+            throw new GuardianLinkAlreadyRevokedError();
 
         Status = GuardianLinkStatus.Revoked;
         RevokedAt = DateTime.UtcNow;

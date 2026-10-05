@@ -1,6 +1,6 @@
-using System.ComponentModel.DataAnnotations;
 using ExamPlatform.Modules.Guardian.Application.Dtos;
 using ExamPlatform.Modules.Guardian.Application.Ports;
+using ExamPlatform.Modules.Guardian.Domain.Exceptions;
 using GuardianAggregate = ExamPlatform.Modules.Guardian.Domain.Guardian;
 
 namespace ExamPlatform.Modules.Guardian.Application.Commands;
@@ -12,16 +12,9 @@ public sealed class CreateGuardianHandler(IGuardianRepository repository, IGuard
     /// <param name="command">The guardian to register.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The registered guardian.</returns>
-    /// <exception cref="ArgumentException">The e-mail address is invalid or the full name is blank.</exception>
+    /// <exception cref="InvalidGuardianDetailsError">The e-mail address is invalid or the full name is blank.</exception>
     public async Task<GuardianDto> HandleAsync(CreateGuardianCommand command, CancellationToken cancellationToken)
     {
-        var emailValidator = new EmailAddressAttribute();
-        if (!emailValidator.IsValid(command.Email))
-            throw new ArgumentException("Email must be a valid email address", nameof(command.Email));
-
-        if (string.IsNullOrWhiteSpace(command.FullName))
-            throw new ArgumentException("FullName cannot be empty or whitespace", nameof(command.FullName));
-
         var guardian = new GuardianAggregate(command.Email, command.FullName, command.Phone);
         repository.Add(guardian);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -39,9 +32,12 @@ public sealed class LinkCandidateHandler(IGuardianRepository repository, IGuardi
     /// <param name="command">The guardian and the candidate to link.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The pending link.</returns>
+    /// <exception cref="GuardianNotFoundError">No guardian has that id.</exception>
+    /// <exception cref="GuardianAlreadyLinkedError">The guardian already has a link to the candidate.</exception>
     public async Task<GuardianLinkDto> HandleAsync(LinkCandidateCommand command, CancellationToken cancellationToken)
     {
-        var guardian = await repository.GetByIdOrThrowAsync(command.GuardianId, cancellationToken);
+        var guardian = await repository.GetByIdAsync(command.GuardianId, cancellationToken)
+            ?? throw new GuardianNotFoundError(command.GuardianId);
         var verificationToken = Guid.NewGuid().ToString("N");
         var link = guardian.LinkCandidate(command.CandidateId, command.CandidateEmail, verificationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -58,36 +54,21 @@ public sealed class LinkCandidateHandler(IGuardianRepository repository, IGuardi
     }
 }
 
-/// <summary>Handles <see cref="VerifyGuardianLinkCommand"/>: link verification is not implemented yet.</summary>
-public sealed class VerifyGuardianLinkHandler(IGuardianRepository repository, IGuardianUnitOfWork unitOfWork)
-{
-    /// <summary>Verifies a guardian link by its token.</summary>
-    /// <param name="command">The verification token.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <exception cref="NotImplementedException">Always; link verification needs a dedicated link repository.</exception>
-    public Task HandleAsync(VerifyGuardianLinkCommand command, CancellationToken cancellationToken)
-    {
-        // Matching a token means searching the links of every guardian. That needs a dedicated
-        // link repository, which the current model does not have.
-        throw new NotImplementedException("Guardian link verification requires a dedicated link repository");
-    }
-}
-
 /// <summary>Handles <see cref="RevokeGuardianLinkCommand"/>: revokes a guardian link to a candidate.</summary>
 public sealed class RevokeGuardianLinkHandler(IGuardianRepository repository, IGuardianUnitOfWork unitOfWork)
 {
-    /// <summary>Revokes the link when it exists and persists the change.</summary>
+    /// <summary>Revokes the link and persists the change.</summary>
     /// <param name="command">The guardian and the candidate whose link is revoked.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="GuardianNotFoundError">No guardian has that id.</exception>
+    /// <exception cref="GuardianLinkNotFoundError">The guardian has no link to the candidate.</exception>
+    /// <exception cref="GuardianLinkAlreadyRevokedError">The link was already revoked.</exception>
     public async Task HandleAsync(RevokeGuardianLinkCommand command, CancellationToken cancellationToken)
     {
-        var guardian = await repository.GetByIdOrThrowAsync(command.GuardianId, cancellationToken);
-        var link = guardian.GetCandidateLink(command.CandidateId);
-        if (link != null)
-        {
-            link.Revoke();
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-        }
+        var guardian = await repository.GetByIdAsync(command.GuardianId, cancellationToken)
+            ?? throw new GuardianNotFoundError(command.GuardianId);
+        guardian.RevokeCandidateLink(command.CandidateId);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
 
@@ -97,9 +78,12 @@ public sealed class UnlinkCandidateHandler(IGuardianRepository repository, IGuar
     /// <summary>Unlinks the candidate and persists the change.</summary>
     /// <param name="command">The guardian and the candidate to unlink.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="GuardianNotFoundError">No guardian has that id.</exception>
+    /// <exception cref="GuardianLinkNotFoundError">The guardian has no link to the candidate.</exception>
     public async Task HandleAsync(UnlinkCandidateCommand command, CancellationToken cancellationToken)
     {
-        var guardian = await repository.GetByIdOrThrowAsync(command.GuardianId, cancellationToken);
+        var guardian = await repository.GetByIdAsync(command.GuardianId, cancellationToken)
+            ?? throw new GuardianNotFoundError(command.GuardianId);
         guardian.UnlinkCandidate(command.CandidateId);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }

@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.Admin.Application.Queries;
+using ExamPlatform.SharedKernel.Application;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -16,7 +17,7 @@ public static class AdminEndpoints
                 string? entityType, Guid? actorUserId, int? page, int? pageSize,
                 SearchAuditLogsHandler handler, CancellationToken ct) =>
             {
-                var query = new SearchAuditLogsQuery(entityType, actorUserId, page ?? 1, pageSize ?? 50);
+                var query = new SearchAuditLogsQuery(entityType, actorUserId, PageRequest.Create(page, pageSize));
                 var results = await handler.HandleAsync(query, ct);
                 return Results.Ok(results);
             })

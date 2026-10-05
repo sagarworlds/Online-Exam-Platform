@@ -2,53 +2,53 @@ namespace ExamPlatform.Modules.Batch.Domain;
 
 public class BatchMember
 {
-    public Guid Id { get; set; }
-    public Guid BatchId { get; set; }
-    public Guid? CandidateId { get; set; }
-    public string Email { get; set; } = null!;
-    public string? Phone { get; set; }
-    public MemberRegistrationStatus Status { get; set; } = MemberRegistrationStatus.Invited;
-    public DateTime? InviteSentAt { get; set; }
-    public DateTime? RegistrationCompletedAt { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
-    public bool IsDeleted { get; set; }
+    public Guid Id { get; private set; }
+    public Guid BatchId { get; private set; }
+    public Guid? CandidateId { get; private set; }
+    public string Email { get; private set; } = null!;
+    public string? Phone { get; private set; }
+    public MemberRegistrationStatus Status { get; private set; } = MemberRegistrationStatus.Invited;
+    public DateTime? InviteSentAt { get; private set; }
+    public DateTime? RegistrationCompletedAt { get; private set; }
+    public DateTime CreatedAt { get; private set; }
+    public DateTime UpdatedAt { get; private set; }
+    public bool IsDeleted { get; private set; }
 
     private BatchMember() { }
 
-    public BatchMember(Guid batchId, string email, string? phone = null)
+    internal BatchMember(Guid batchId, string email, string? phone, DateTime nowUtc)
     {
         Id = Guid.NewGuid();
         BatchId = batchId;
         Email = email;
         Phone = phone;
-        CreatedAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+        CreatedAt = nowUtc;
+        UpdatedAt = nowUtc;
     }
 
-    public void MarkInviteSent()
+    public void MarkInviteSent(DateTime nowUtc)
     {
-        InviteSentAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+        InviteSentAt = nowUtc;
+        UpdatedAt = nowUtc;
     }
 
-    public void MarkRegistrationCompleted(Guid candidateId)
+    public void MarkRegistrationCompleted(Guid candidateId, DateTime nowUtc)
     {
         CandidateId = candidateId;
         Status = MemberRegistrationStatus.Registered;
-        RegistrationCompletedAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+        RegistrationCompletedAt = nowUtc;
+        UpdatedAt = nowUtc;
     }
 
-    public void Withdraw()
+    public void Withdraw(DateTime nowUtc)
     {
         Status = MemberRegistrationStatus.Withdrawn;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = nowUtc;
     }
 
-    public void SoftDelete()
+    public void SoftDelete(DateTime nowUtc)
     {
         IsDeleted = true;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = nowUtc;
     }
 }

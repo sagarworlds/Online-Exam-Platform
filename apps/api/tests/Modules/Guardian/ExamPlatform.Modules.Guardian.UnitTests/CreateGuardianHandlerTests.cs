@@ -2,6 +2,7 @@ using ExamPlatform.Modules.Guardian.Application;
 using ExamPlatform.Modules.Guardian.Application.Commands;
 using ExamPlatform.Modules.Guardian.Application.Ports;
 using ExamPlatform.Modules.Guardian.Domain;
+using ExamPlatform.Modules.Guardian.Domain.Exceptions;
 using NSubstitute;
 using GuardianAggregate = ExamPlatform.Modules.Guardian.Domain.Guardian;
 
@@ -36,7 +37,7 @@ public class CreateGuardianHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WithInvalidEmail_ThrowsException()
+    public async Task HandleAsync_WithInvalidEmail_ThrowsInvalidGuardianDetailsError()
     {
         var handler = new CreateGuardianHandler(
             Substitute.For<IGuardianRepository>(),
@@ -44,13 +45,13 @@ public class CreateGuardianHandlerTests
 
         var command = new CreateGuardianCommand("invalid-email", "John Guardian", null);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(command, CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidGuardianDetailsError>(() => handler.HandleAsync(command, CancellationToken.None));
     }
 
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public async Task HandleAsync_WithEmptyFullName_ThrowsException(string fullName)
+    public async Task HandleAsync_WithEmptyFullName_ThrowsInvalidGuardianDetailsError(string fullName)
     {
         var handler = new CreateGuardianHandler(
             Substitute.For<IGuardianRepository>(),
@@ -58,6 +59,6 @@ public class CreateGuardianHandlerTests
 
         var command = new CreateGuardianCommand("guardian@example.com", fullName, null);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(command, CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidGuardianDetailsError>(() => handler.HandleAsync(command, CancellationToken.None));
     }
 }

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
-import { GuardianDto, CreateGuardianRequest, GuardianLinkDto, LinkCandidateRequest, VerifyGuardianLinkRequest } from './guardian.models';
+import { GuardianDto, CreateGuardianRequest, GuardianLinkDto, LinkCandidateRequest } from './guardian.models';
 
 @Injectable({ providedIn: 'root' })
 export class GuardianApiService {
@@ -18,10 +18,6 @@ export class GuardianApiService {
 
   linkCandidate(guardianId: string, request: LinkCandidateRequest) {
     return this.http.post<GuardianLinkDto>(`${this.apiUrl}/${guardianId}/links`, request);
-  }
-
-  verifyLink(request: VerifyGuardianLinkRequest) {
-    return this.http.post<void>(`${this.apiUrl}/links/verify`, request);
   }
 
   revokeLink(guardianId: string, candidateId: string) {
