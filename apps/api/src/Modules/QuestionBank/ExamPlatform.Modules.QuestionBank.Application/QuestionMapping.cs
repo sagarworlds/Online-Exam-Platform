@@ -26,4 +26,13 @@ internal static class QuestionMapping
             QuestionDifficultyText.Format(question.Difficulty),
             question.Topics,
             question.AllowsMultiple);
+
+    /// <summary>Maps a version and its options, in their display order at the time.</summary>
+    public static QuestionVersionDto ToDto(this QuestionVersion version) =>
+        new(
+            version.VersionNumber,
+            version.Text,
+            version.Options.OrderBy(o => o.Order).Select(o => new QuestionOptionDto(o.OptionId, o.Text, o.IsCorrect, o.IsPinned)).ToList(),
+            version.AllowsMultiple,
+            version.CreatedAtUtc);
 }

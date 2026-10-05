@@ -40,11 +40,11 @@ public class QuestionReviseTests
         var pin = Unchanged(question);
         pin[2] = pin[2] with { IsPinned = true };
 
-        question.Revise("Capital of France?", pin, answered: false);
+        question.Revise("Capital of France?", pin, answered: false, nowUtc: Now);
 
         Assert.True(question.Options.Single(o => o.Id == oslo).IsPinned);
 
-        question.Revise("Capital of France?", Unchanged(question), answered: false);
+        question.Revise("Capital of France?", Unchanged(question), answered: false, nowUtc: Now);
 
         Assert.False(question.Options.Single(o => o.Id == oslo).IsPinned);
     }
@@ -56,7 +56,7 @@ public class QuestionReviseTests
         var pin = Unchanged(question);
         pin[2] = pin[2] with { IsPinned = true };
 
-        Assert.Throws<QuestionLockedError>(() => question.Revise("Capital of France?", pin, answered: true));
+        Assert.Throws<QuestionLockedError>(() => question.Revise("Capital of France?", pin, answered: true, nowUtc: Now));
         Assert.All(question.Options, o => Assert.False(o.IsPinned));
     }
 
@@ -67,7 +67,7 @@ public class QuestionReviseTests
     {
         var question = Capitals();
 
-        question.Revise("  Capital of Spain?  ", Unchanged(question), answered: false);
+        question.Revise("  Capital of Spain?  ", Unchanged(question), answered: false, nowUtc: Now);
 
         Assert.Equal("Capital of Spain?", question.Text);
     }
@@ -81,7 +81,7 @@ public class QuestionReviseTests
         edits[0] = edits[0] with { Text = " Paris, France " };
         edits.Reverse();
 
-        question.Revise("Capital of France?", edits, answered: false);
+        question.Revise("Capital of France?", edits, answered: false, nowUtc: Now);
 
         Assert.Equal(["Oslo", "Rome", "Paris, France"], question.Options.Select(o => o.Text));
         Assert.Equal([1, 2, 3], question.Options.Select(o => o.Order));
@@ -97,7 +97,7 @@ public class QuestionReviseTests
         edits.RemoveAt(1);
         edits.Add(new QuestionOptionEdit(null, "Madrid", false));
 
-        question.Revise("Capital of France?", edits, answered: false);
+        question.Revise("Capital of France?", edits, answered: false, nowUtc: Now);
 
         Assert.Equal(["Paris", "Oslo", "Madrid"], question.Options.Select(o => o.Text));
         Assert.DoesNotContain(question.Options, o => o.Id == rome);
@@ -113,7 +113,7 @@ public class QuestionReviseTests
         edits[0] = edits[0] with { IsCorrect = false };
         edits[1] = edits[1] with { IsCorrect = true };
 
-        question.Revise("Capital of France?", edits, answered: false);
+        question.Revise("Capital of France?", edits, answered: false, nowUtc: Now);
 
         Assert.Equal("Rome", question.Options.Single(o => o.IsCorrect).Text);
     }
@@ -124,7 +124,7 @@ public class QuestionReviseTests
         var question = Capitals();
         var chapter = question.ChapterId;
 
-        question.Revise("Capital of France?", Unchanged(question), answered: false);
+        question.Revise("Capital of France?", Unchanged(question), answered: false, nowUtc: Now);
 
         Assert.Equal(chapter, question.ChapterId);
     }
@@ -139,7 +139,7 @@ public class QuestionReviseTests
     {
         var question = Capitals();
 
-        var error = Assert.Throws<InvalidQuestionError>(() => question.Revise(text, Unchanged(question), answered: false));
+        var error = Assert.Throws<InvalidQuestionError>(() => question.Revise(text, Unchanged(question), answered: false, nowUtc: Now));
 
         Assert.Equal("The question text is required.", error.Message);
     }
@@ -149,10 +149,10 @@ public class QuestionReviseTests
     {
         var question = Capitals();
 
-        Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", Unchanged(question).Take(1).ToList(), answered: false));
-        Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", null, answered: false));
+        Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", Unchanged(question).Take(1).ToList(), answered: false, nowUtc: Now));
+        Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", null, answered: false, nowUtc: Now));
         var seven = Enumerable.Range(1, 7).Select(i => new QuestionOptionEdit(null, $"Option {i}", i == 1)).ToList();
-        Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", seven, answered: false));
+        Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", seven, answered: false, nowUtc: Now));
     }
 
     [Fact]
@@ -162,8 +162,8 @@ public class QuestionReviseTests
         var none = Unchanged(question).Select(o => o with { IsCorrect = false }).ToList();
         var two = Unchanged(question).Select(o => o with { IsCorrect = o.Text != "Oslo" }).ToList();
 
-        Assert.Equal("Exactly one option must be marked correct.", Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", none, answered: false)).Message);
-        Assert.Equal("Exactly one option must be marked correct.", Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", two, answered: false)).Message);
+        Assert.Equal("Exactly one option must be marked correct.", Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", none, answered: false, nowUtc: Now)).Message);
+        Assert.Equal("Exactly one option must be marked correct.", Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", two, answered: false, nowUtc: Now)).Message);
     }
 
     [Fact]
@@ -175,8 +175,8 @@ public class QuestionReviseTests
         var tooLong = Unchanged(question);
         tooLong[2] = tooLong[2] with { Text = new string('x', Question.MaxOptionTextLength + 1) };
 
-        Assert.Equal("Every option needs text.", Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", blank, answered: false)).Message);
-        Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", tooLong, answered: false));
+        Assert.Equal("Every option needs text.", Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", blank, answered: false, nowUtc: Now)).Message);
+        Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", tooLong, answered: false, nowUtc: Now));
     }
 
     [Fact]
@@ -187,7 +187,7 @@ public class QuestionReviseTests
         var edits = Unchanged(question);
         edits[1] = edits[1] with { Id = other.Options[1].Id };
 
-        var error = Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", edits, answered: false));
+        var error = Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", edits, answered: false, nowUtc: Now));
 
         Assert.Equal("An option does not belong to this question.", error.Message);
     }
@@ -199,7 +199,7 @@ public class QuestionReviseTests
         var edits = Unchanged(question);
         edits[1] = edits[1] with { Id = edits[0].Id };
 
-        Assert.Equal("An option appears more than once.", Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", edits, answered: false)).Message);
+        Assert.Equal("An option appears more than once.", Assert.Throws<InvalidQuestionError>(() => question.Revise("Q?", edits, answered: false, nowUtc: Now)).Message);
     }
 
     [Fact]
@@ -210,7 +210,7 @@ public class QuestionReviseTests
         var edits = Unchanged(question);
         edits[2] = edits[2] with { Text = "" };
 
-        Assert.Throws<InvalidQuestionError>(() => question.Revise("Changed text", edits, answered: false));
+        Assert.Throws<InvalidQuestionError>(() => question.Revise("Changed text", edits, answered: false, nowUtc: Now));
 
         Assert.Equal("Capital of France?", question.Text);
         Assert.Equal(before, question.Options.Select(o => (o.Id, o.Text, o.IsCorrect, o.Order)));
@@ -225,7 +225,7 @@ public class QuestionReviseTests
         var ids = question.Options.Select(o => o.Id).ToList();
         var edits = Unchanged(question).Select(o => o with { Text = o.Text + "." }).ToList();
 
-        question.Revise("Capital of France ?", edits, answered: true);
+        question.Revise("Capital of France ?", edits, answered: true, nowUtc: Now);
 
         Assert.Equal("Capital of France ?", question.Text);
         Assert.Equal(["Paris.", "Rome.", "Oslo."], question.Options.Select(o => o.Text));
@@ -241,7 +241,7 @@ public class QuestionReviseTests
         edits[0] = edits[0] with { IsCorrect = false };
         edits[1] = edits[1] with { IsCorrect = true };
 
-        Assert.Throws<QuestionLockedError>(() => question.Revise("Capital of France?", edits, answered: true));
+        Assert.Throws<QuestionLockedError>(() => question.Revise("Capital of France?", edits, answered: true, nowUtc: Now));
     }
 
     [Fact]
@@ -257,10 +257,10 @@ public class QuestionReviseTests
         var replaced = Unchanged(question);
         replaced[1] = new QuestionOptionEdit(null, "Madrid", false); // a different option in the old one's place
 
-        Assert.Throws<QuestionLockedError>(() => question.Revise("Capital of France?", added, answered: true));
-        Assert.Throws<QuestionLockedError>(() => question.Revise("Capital of France?", removed, answered: true));
-        Assert.Throws<QuestionLockedError>(() => question.Revise("Capital of France?", reordered, answered: true));
-        Assert.Throws<QuestionLockedError>(() => question.Revise("Capital of France?", replaced, answered: true));
+        Assert.Throws<QuestionLockedError>(() => question.Revise("Capital of France?", added, answered: true, nowUtc: Now));
+        Assert.Throws<QuestionLockedError>(() => question.Revise("Capital of France?", removed, answered: true, nowUtc: Now));
+        Assert.Throws<QuestionLockedError>(() => question.Revise("Capital of France?", reordered, answered: true, nowUtc: Now));
+        Assert.Throws<QuestionLockedError>(() => question.Revise("Capital of France?", replaced, answered: true, nowUtc: Now));
     }
 
     [Fact]
@@ -272,7 +272,7 @@ public class QuestionReviseTests
         edits[1] = edits[1] with { IsCorrect = true };
         edits[0] = edits[0] with { IsCorrect = false };
 
-        Assert.Throws<QuestionLockedError>(() => question.Revise("New wording", edits, answered: true));
+        Assert.Throws<QuestionLockedError>(() => question.Revise("New wording", edits, answered: true, nowUtc: Now));
 
         Assert.Equal("Capital of France?", question.Text);
         Assert.Equal("Paris", question.Options[0].Text);

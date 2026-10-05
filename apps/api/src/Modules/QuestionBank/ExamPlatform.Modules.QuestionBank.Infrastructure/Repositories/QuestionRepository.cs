@@ -14,9 +14,11 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
     /// <inheritdoc />
     public void Remove(Question question) => context.Questions.Remove(question);
 
+    // Versions included here (and only here): this is the load used to revise a question or correct its key, both of
+    // which append a new one, and EF only tracks a child collection's inserts when the collection is loaded.
     /// <inheritdoc />
     public Task<Question?> GetByIdAsync(Guid questionId, CancellationToken cancellationToken) =>
-        context.Questions.Include(q => q.Options).FirstOrDefaultAsync(q => q.Id == questionId, cancellationToken);
+        context.Questions.Include(q => q.Options).Include(q => q.Versions).FirstOrDefaultAsync(q => q.Id == questionId, cancellationToken);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Question>> GetManyAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken) =>

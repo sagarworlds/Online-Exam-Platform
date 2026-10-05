@@ -2,6 +2,7 @@ using ExamPlatform.Modules.QuestionBank.Application.Dtos;
 using ExamPlatform.Modules.QuestionBank.Application.Ports;
 using ExamPlatform.Modules.QuestionBank.Domain;
 using ExamPlatform.Modules.QuestionBank.Domain.Exceptions;
+using ExamPlatform.SharedKernel.Application;
 
 namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 
@@ -22,7 +23,8 @@ public sealed class EditQuestionHandler(
     IQuestionBankUnitOfWork unitOfWork,
     IRichTextSanitizer sanitizer,
     QuestionUsageReader usageReader,
-    QuestionDtoFactory dtos)
+    QuestionDtoFactory dtos,
+    Clock clock)
 {
     /// <summary>Sanitizes the text, checks the question against its rules and the lock for answered questions, and stores it.</summary>
     /// <param name="command">The edit to make.</param>
@@ -39,7 +41,7 @@ public sealed class EditQuestionHandler(
 
         // Asked after loading and just before changing, so the lock is decided on the freshest answer there is.
         var usage = await usageReader.ReadOneAsync(question.Id, cancellationToken);
-        question.Revise(cleaned.Html, command.Options, usage.Answered, command.AllowsMultiple);
+        question.Revise(cleaned.Html, command.Options, usage.Answered, command.AllowsMultiple, clock.UtcNow);
         question.IndexText(cleaned.PlainText);
         // Labels never reach a candidate, so they are not covered by the lock Revise applies to an answered question.
         question.Classify(QuestionDifficultyText.Parse(command.Difficulty), command.Topics);

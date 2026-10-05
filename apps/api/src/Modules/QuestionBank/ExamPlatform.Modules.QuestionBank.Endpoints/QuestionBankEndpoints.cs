@@ -66,6 +66,12 @@ public static class QuestionBankEndpoints
             .WithName("CorrectAnswerKey")
             .WithDescription("Correct which options are right, even after candidates have answered; rescores every attempt it affects");
 
+        questions.MapGet("/{questionId:guid}/history", GetQuestionHistory)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("GetQuestionHistory")
+            .WithDescription("List every version a question has had, oldest first");
+
         // A collection action, not /{questionId}/chapter, so filing one question and filing a hundred are the same call.
         questions.MapPost("/placement", FileQuestions)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -128,6 +134,9 @@ public static class QuestionBankEndpoints
             questionId, request.CorrectOptionIds ?? [], request.Reason ?? string.Empty, user.GetUserId(), user.GetPrimaryRole());
         return Results.Ok(await handler.HandleAsync(command, ct));
     }
+
+    private static async Task<IResult> GetQuestionHistory(Guid questionId, GetQuestionHistoryHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(questionId, ct));
 
     private static async Task<IResult> ImportQuestions(
         ImportQuestionsRequest request, ClaimsPrincipal user, ImportQuestionsHandler handler, CancellationToken ct) =>
