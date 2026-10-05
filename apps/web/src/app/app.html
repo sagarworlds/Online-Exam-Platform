@@ -31,16 +31,22 @@
   </main>
 </div>
 
+<!-- A dot, not a sentence: green or red at a glance, with the words in the hover tooltip and as the accessible name. -->
 <footer class="health-widget">
   @switch (health().state) {
     @case ('checking') {
-      <span class="status status--checking">Checking API…</span>
+      <span class="health-dot health-dot--checking" role="img" title="Checking API…" aria-label="Checking API…"></span>
     }
     @case ('healthy') {
-      <span class="status status--healthy">API is healthy.</span>
+      <span class="health-dot health-dot--healthy" role="img" title="API is healthy." aria-label="API is healthy."></span>
     }
     @case ('unhealthy') {
-      <span class="status status--unhealthy">API is unreachable: {{ health().reason }}</span>
+      <span
+        class="health-dot health-dot--unhealthy"
+        role="img"
+        [title]="'API is unreachable: ' + health().reason"
+        [attr.aria-label]="'API is unreachable: ' + health().reason"
+      ></span>
     }
   }
 </footer>
