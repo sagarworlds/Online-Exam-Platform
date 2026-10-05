@@ -93,7 +93,7 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
         // A QuestionVersion is append-only (never updated after insert), so this comparer only needs to satisfy EF's
         // change-tracking snapshot requirement, not support mutation.
         var versionOptionsComparer = new ValueComparer<IReadOnlyList<QuestionVersionOption>>(
-            (a, b) => (a ?? []).SequenceEqual(b ?? []),
+            (a, b) => (a ?? new List<QuestionVersionOption>()).SequenceEqual(b ?? new List<QuestionVersionOption>()),
             options => options.Aggregate(0, (hash, o) => HashCode.Combine(hash, o)),
             options => options.ToList());
 
