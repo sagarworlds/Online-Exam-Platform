@@ -8,12 +8,33 @@
   <form class="card" [formGroup]="form" (ngSubmit)="submit()">
     <div class="field">
       <label for="register-display-name">Display name</label>
-      <input id="register-display-name" type="text" formControlName="displayName" />
+      <input
+        id="register-display-name"
+        type="text"
+        formControlName="displayName"
+        autocomplete="name"
+        [attr.aria-invalid]="displayNameError() ? 'true' : null"
+        [attr.aria-describedby]="displayNameError() ? 'register-display-name-error' : null"
+      />
+      @if (displayNameError(); as message) {
+        <p id="register-display-name-error" class="field-error">{{ message }}</p>
+      }
     </div>
 
     <div class="field">
       <label for="register-dob">Date of birth</label>
-      <input id="register-dob" type="date" formControlName="dateOfBirth" />
+      <input
+        id="register-dob"
+        type="date"
+        formControlName="dateOfBirth"
+        autocomplete="bday"
+        [max]="maxDateOfBirth"
+        [attr.aria-invalid]="dateOfBirthError() ? 'true' : null"
+        [attr.aria-describedby]="dateOfBirthError() ? 'register-dob-error' : null"
+      />
+      @if (dateOfBirthError(); as message) {
+        <p id="register-dob-error" class="field-error">{{ message }}</p>
+      }
     </div>
 
     <div class="field">

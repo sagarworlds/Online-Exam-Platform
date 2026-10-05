@@ -12,6 +12,11 @@ namespace ExamPlatform.Api;
 /// <c>default-src 'none'</c> policy would blank out. It only exists in Development, so the
 /// middleware is told whether it is mapped and exempts that path from the
 /// <c>Content-Security-Policy</c> only; the other headers still apply to it.
+/// <para>
+/// <c>UseHsts</c> must run ahead of this middleware: it writes <c>Strict-Transport-Security</c>
+/// straight to the response, where the exception handler would clear it from every error it
+/// handles, so this middleware keeps what it wrote and puts it back when the response starts.
+/// </para>
 /// </remarks>
 /// <param name="next">The next middleware in the pipeline.</param>
 /// <param name="apiReferenceEnabled">Whether the API reference UI is mapped in this environment.</param>
@@ -30,11 +35,21 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next, bool apiRefe
     /// <param name="context">The current request.</param>
     public Task InvokeAsync(HttpContext context)
     {
+        // Whatever UseHsts wrote, if anything: it is absent over plain HTTP, for excluded hosts
+        // and in Development.
+        var strictTransportSecurity = context.Response.Headers.StrictTransportSecurity;
+
         // OnStarting, not a direct write: the exception handler clears the response headers
-        // before it writes an error, which would otherwise drop these from every 500.
+        // before it writes an error, which would otherwise drop these from every 500 and every
+        // typed error.
         context.Response.OnStarting(() =>
         {
             var headers = context.Response.Headers;
+            if (strictTransportSecurity.Count > 0)
+            {
+                headers.StrictTransportSecurity = strictTransportSecurity;
+            }
+
             headers.XContentTypeOptions = "nosniff";
             headers.XFrameOptions = "DENY";
             headers["Referrer-Policy"] = "no-referrer";

@@ -1,6 +1,10 @@
 <div class="page">
   <h1>Log in</h1>
 
+  @if (sessionEndedMessage) {
+    <p class="info-message" role="status">{{ sessionEndedMessage }}</p>
+  }
+
   <div class="mode-toggle">
     <button type="button" [class.active]="mode() === 'password'" (click)="setMode('password')">Password</button>
     <button type="button" [class.active]="mode() === 'otp'" (click)="setMode('otp')">One-time code</button>
@@ -26,7 +30,16 @@
     <form class="card" [formGroup]="otpForm" (ngSubmit)="submitOtpRequest()">
       <div class="field">
         <label for="login-otp-destination">Email or phone number</label>
-        <input id="login-otp-destination" type="text" formControlName="destination" autocomplete="username" />
+        <input
+          id="login-otp-destination"
+          type="text"
+          formControlName="destination"
+          autocomplete="username"
+          aria-describedby="login-otp-staff-hint"
+        />
+        <p id="login-otp-staff-hint" class="field-hint">
+          Staff and admin accounts sign in with a password and a one-time code.
+        </p>
       </div>
       <button type="submit" class="primary" [disabled]="otpForm.invalid || submitting()">Send code</button>
     </form>

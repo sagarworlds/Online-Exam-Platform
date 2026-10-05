@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -5,6 +6,8 @@ import { extractErrorMessage } from '../../shared/problem-details';
 import { AuthApiService } from '../auth-api.service';
 import { AuthSessionService } from '../auth-session.service';
 import { landingRoute } from '../landing-route';
+import { VerifyOtpNavigationState } from '../auth.models';
+import { maskContact } from '../contact-mask';
 
 @Component({
   selector: 'app-verify-otp',
@@ -17,10 +20,14 @@ export class VerifyOtp {
   private readonly authSession = inject(AuthSessionService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly location = inject(Location);
 
   private readonly queryParams = this.route.snapshot.queryParamMap;
   protected readonly challengeId = this.queryParams.get('challengeId');
-  protected readonly destination = this.queryParams.get('destination');
+  protected readonly isRegistration = this.queryParams.get('purpose') === 'Registration';
+
+  /** Where the code went, masked; null when no navigation state carried it (e.g. a hard reload). */
+  protected readonly maskedDestination = this.readMaskedDestination();
 
   protected readonly submitting = signal(false);
   protected readonly errorMessage = signal<string | null>(
@@ -56,5 +63,19 @@ export class VerifyOtp {
         this.errorMessage.set(extractErrorMessage(error));
       },
     });
+  }
+
+  /**
+   * Reads {@link VerifyOtpNavigationState}. The router's current navigation holds
+   * it while this component is created as part of that navigation; afterwards
+   * the router has copied it to history.state, which Location.getState() reads.
+   */
+  private readMaskedDestination(): string | null {
+    const state = (this.router.currentNavigation()?.extras.state ?? this.location.getState()) as
+      | Partial<VerifyOtpNavigationState>
+      | null
+      | undefined;
+    const destination = state?.destination;
+    return typeof destination === 'string' && destination.trim().length > 0 ? maskContact(destination) : null;
   }
 }

@@ -98,6 +98,27 @@ public sealed class AuthRateLimitTests(LowAuthRateLimitApiFactory factory) : ICl
     }
 
     [Fact]
+    public async Task PasswordLogin_AddressesInOneIPv6Slash64_ShareOneBudget()
+    {
+        using var client = factory.CreateClient();
+
+        // Every address in 2001:db8:a:b::/64 belongs to one subscriber, who can rotate through
+        // all of them: keyed by the full address, each would get a fresh quota (NFR-5).
+        var statuses = new List<HttpStatusCode>();
+        for (var i = 1; i <= LowAuthRateLimitApiFactory.PermitLimit; i++)
+        {
+            statuses.Add(await PostLoginFromAsync(client, $"2001:db8:a:b::{i}"));
+        }
+
+        var rotatedAddress = await PostLoginFromAsync(client, "2001:db8:a:b:ffff:ffff:ffff:ffff");
+        var otherNetwork = await PostLoginFromAsync(client, "2001:db8:a:c::1");
+
+        Assert.All(statuses, status => Assert.Equal(HttpStatusCode.Unauthorized, status));
+        Assert.Equal(HttpStatusCode.TooManyRequests, rotatedAddress);
+        Assert.Equal(HttpStatusCode.Unauthorized, otherNetwork);
+    }
+
+    [Fact]
     public async Task PasswordReset_RequestAndRedeem_ShareOneBudget()
     {
         using var client = factory.CreateClient();
@@ -124,5 +145,17 @@ public sealed class AuthRateLimitTests(LowAuthRateLimitApiFactory factory) : ICl
             var response = await client.GetAsync("/v1/health");
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
+    }
+
+    private static async Task<HttpStatusCode> PostLoginFromAsync(HttpClient client, string remoteAddress)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/auth/login")
+        {
+            Content = JsonContent.Create(new { email = "nobody@tests.local", password = "not-the-password" }),
+        };
+        request.Headers.Add(TestRemoteIpStartupFilter.HeaderName, remoteAddress);
+
+        using var response = await client.SendAsync(request);
+        return response.StatusCode;
     }
 }

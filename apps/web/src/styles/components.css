@@ -93,6 +93,12 @@
   box-shadow: var(--focus-ring);
 }
 
+.field-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
 .field-error {
   color: var(--danger);
   font-size: 0.85rem;
@@ -197,6 +203,15 @@ button.primary:hover:not(:disabled),
   color: var(--success);
   background: var(--success-soft);
   border-color: var(--success);
+}
+
+.info-message {
+  color: var(--primary);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 1rem;
 }
 
 .empty-state {

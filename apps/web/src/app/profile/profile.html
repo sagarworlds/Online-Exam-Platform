@@ -22,7 +22,17 @@
       <form class="card" [formGroup]="form" (ngSubmit)="submit()">
         <div class="field">
           <label for="profile-display-name">Display name</label>
-          <input id="profile-display-name" type="text" formControlName="displayName" />
+          <input
+            id="profile-display-name"
+            type="text"
+            formControlName="displayName"
+            autocomplete="name"
+            [attr.aria-invalid]="displayNameError() ? 'true' : null"
+            [attr.aria-describedby]="displayNameError() ? 'profile-display-name-error' : null"
+          />
+          @if (displayNameError(); as message) {
+            <p id="profile-display-name-error" class="field-error">{{ message }}</p>
+          }
         </div>
         <button type="submit" class="primary" [disabled]="form.invalid || saving()">Save</button>
       </form>

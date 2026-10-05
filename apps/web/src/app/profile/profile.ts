@@ -2,6 +2,13 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthApiService } from '../auth/auth-api.service';
 import { UserProfileDto } from '../auth/auth.models';
+import {
+  MAX_DISPLAY_NAME_LENGTH,
+  displayNameErrorMessage,
+  maxTrimmedLengthValidator,
+  notBlankValidator,
+  visibleErrorMessage,
+} from '../auth/validators';
 import { extractErrorMessage } from '../shared/problem-details';
 
 @Component({
@@ -20,7 +27,7 @@ export class Profile {
   protected readonly profile = signal<UserProfileDto | null>(null);
 
   protected readonly form = this.formBuilder.nonNullable.group({
-    displayName: ['', Validators.required],
+    displayName: ['', [Validators.required, notBlankValidator, maxTrimmedLengthValidator(MAX_DISPLAY_NAME_LENGTH)]],
   });
 
   constructor() {
@@ -37,6 +44,11 @@ export class Profile {
     });
   }
 
+  /** Inline message for the display name field, once the user has interacted with it. */
+  protected displayNameError(): string | null {
+    return visibleErrorMessage(this.form.controls.displayName, displayNameErrorMessage);
+  }
+
   protected submit(): void {
     if (this.form.invalid || this.saving()) {
       return;
@@ -45,7 +57,8 @@ export class Profile {
     this.saving.set(true);
     this.saved.set(false);
     this.errorMessage.set(null);
-    const { displayName } = this.form.getRawValue();
+    // The API stores the trimmed name; send it trimmed so the local copy below matches.
+    const displayName = this.form.getRawValue().displayName.trim();
 
     this.authApi.updateProfile({ displayName }).subscribe({
       next: () => {
