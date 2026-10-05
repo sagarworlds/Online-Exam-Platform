@@ -17,6 +17,11 @@ public sealed class EFExamRepository(ExamAuthoringDbContext context) : IExamRepo
     /// <inheritdoc />
     public async Task<Exam?> GetByIdAsync(Guid examId, CancellationToken cancellationToken = default) =>
         await context.Exams
+            // Two sibling collections off Sections (Questions and DrawRules): a single SQL query would
+            // join both and return the cartesian product of a section's questions and its draw rules.
+            // A split query issues one SQL statement per collection instead (EF Core's own advice for
+            // this shape), so row counts grow with each collection's size, not their product.
+            .AsSplitQuery()
             .Include(e => e.Sections).ThenInclude(s => s.Questions)
             .Include(e => e.Sections).ThenInclude(s => s.DrawRules)
             .FirstOrDefaultAsync(e => e.Id == examId, cancellationToken);
@@ -32,6 +37,9 @@ public sealed class EFExamRepository(ExamAuthoringDbContext context) : IExamRepo
     /// <inheritdoc />
     public async Task<IReadOnlyList<Exam>> ListByIdsAsync(IReadOnlyCollection<Guid> examIds, CancellationToken cancellationToken = default) =>
         await context.Exams.AsNoTracking()
+            // Same split as GetByIdAsync, and more worth it here: this can load several exams at once,
+            // so an unsplit query's cartesian product compounds across every exam, not just one.
+            .AsSplitQuery()
             .Include(e => e.Sections).ThenInclude(s => s.Questions)
             .Include(e => e.Sections).ThenInclude(s => s.DrawRules)
             .Where(e => examIds.Contains(e.Id))
