@@ -49,16 +49,19 @@
   font-weight: 600;
 }
 
-/* Separates the candidate's links from the admin areas their permissions open. */
-.nav .divider {
-  align-self: stretch;
-  width: 1px;
-  margin: 0.25rem 0.35rem;
-  background: var(--border);
-}
-
 .nav nav button {
   margin-inline-start: 0.5rem;
+}
+
+/* Holds the admin sidebar (when the signed-in user has an admin area open) beside the routed page. */
+.shell {
+  display: flex;
+  align-items: flex-start;
+}
+
+.shell__content {
+  flex: 1;
+  min-width: 0;
 }
 
 .health-widget {
@@ -94,11 +97,11 @@
   color: var(--danger);
 }
 
-/* On a phone the nav wraps onto several rows, where a divider line would dangle, and the fixed
-   health pill would sit on top of page content, so it joins the page flow instead. */
+/* On a phone the fixed health pill would sit on top of page content, so it joins the page flow instead,
+   and the sidebar stacks above the routed page (see admin-sidebar.css) rather than sitting beside it. */
 @media (max-width: 40rem) {
-  .nav .divider {
-    display: none;
+  .shell {
+    flex-direction: column;
   }
 
   .health-widget {

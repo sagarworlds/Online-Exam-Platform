@@ -56,33 +56,42 @@ describe('App', () => {
         buildFakeJwt({ sub: 'user-1', exp: Math.floor(Date.now() / 1000) + 3600, perm: permissions }),
       );
 
-    function navLinks(): string[] {
+    function topNavLinks(): string[] {
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
       httpMock.expectOne(() => true).flush('Healthy');
-      const nav = (fixture.nativeElement as HTMLElement).querySelector('nav') as HTMLElement;
+      const nav = (fixture.nativeElement as HTMLElement).querySelector('header.nav nav') as HTMLElement;
       return Array.from(nav.querySelectorAll('a')).map((a) => a.textContent?.trim() ?? '');
     }
 
-    it('shows a candidate their exams and no admin links', () => {
+    function render(): HTMLElement {
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      httpMock.expectOne(() => true).flush('Healthy');
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('shows a candidate their exams, no admin sidebar', () => {
       signIn([]);
 
-      const links = navLinks();
+      const links = topNavLinks();
 
       expect(links).toContain('My exams');
       expect(links).toContain('Redeem invite');
-      expect(links).not.toContain('Questions');
-      expect(links).not.toContain('Invites');
+      expect(render().querySelector('.admin-sidebar')).toBeNull();
     });
 
-    it('shows an administrator the admin areas their permissions open', () => {
+    it('shows an administrator a sidebar with the admin areas their permissions open', () => {
       signIn(['question.manage', 'exam.read', 'invite.manage']);
 
-      const links = navLinks();
+      const compiled = render();
 
-      expect(links).toEqual(expect.arrayContaining(['Questions', 'Exams', 'Invites']));
-      expect(links).not.toContain('Batches');
-      expect(links).not.toContain('Guardians');
+      const sidebarLinks = Array.from(compiled.querySelectorAll('.admin-sidebar a')).map((a) => a.getAttribute('aria-label'));
+      expect(sidebarLinks).toEqual(expect.arrayContaining(['Questions', 'Exams', 'Invites']));
+      expect(sidebarLinks).not.toContain('Batches');
+      expect(sidebarLinks).not.toContain('Guardians');
+      // The top nav keeps only the links every signed-in user gets, admin or not.
+      expect(topNavLinks()).not.toContain('Questions');
     });
   });
 });
