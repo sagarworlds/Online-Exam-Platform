@@ -28,15 +28,44 @@ describe('App', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('shows a healthy status once the API responds', async () => {
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    httpMock.expectOne(() => true).flush('Healthy');
-    await fixture.whenStable();
-    fixture.detectChanges();
+  describe('API status dot', () => {
+    function dot(fixture: { nativeElement: unknown }): HTMLElement {
+      return (fixture.nativeElement as HTMLElement).querySelector('.health-dot') as HTMLElement;
+    }
 
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('API is healthy.');
+    it('is a neutral dot while the API is being checked', () => {
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+
+      expect(dot(fixture).classList).toContain('health-dot--checking');
+      expect(dot(fixture).title).toBe('Checking API…');
+      httpMock.expectOne(() => true).flush('Healthy');
+    });
+
+    it('is a green dot, with the words on hover, once the API responds', async () => {
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      httpMock.expectOne(() => true).flush('Healthy');
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(dot(fixture).classList).toContain('health-dot--healthy');
+      expect(dot(fixture).title).toBe('API is healthy.');
+      expect(dot(fixture).getAttribute('aria-label')).toBe('API is healthy.');
+      expect((fixture.nativeElement as HTMLElement).querySelector('.health-widget')?.textContent?.trim()).toBe('');
+    });
+
+    it('is a red dot, with the reason on hover, when the API cannot be reached', async () => {
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      httpMock.expectOne(() => true).error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(dot(fixture).classList).toContain('health-dot--unhealthy');
+      expect(dot(fixture).title).toMatch(/^API is unreachable: .+/);
+      expect(dot(fixture).getAttribute('aria-label')).toBe(dot(fixture).title);
+    });
   });
 
   it('shows login/register links when signed out', () => {

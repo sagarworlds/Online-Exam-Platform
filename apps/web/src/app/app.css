@@ -71,30 +71,28 @@
   font-size: 0.8rem;
 }
 
-.status {
-  display: inline-block;
-  padding: 0.3rem 0.7rem;
-  border-radius: 999px;
-  border: 1px solid;
-  font-weight: 600;
+/* The dot is small, but its hover and touch target is larger (the padding), so it is easy to point at. */
+.health-dot {
+  display: block;
+  box-sizing: content-box;
+  width: 0.65rem;
+  height: 0.65rem;
+  padding: 0.35rem;
+  border-radius: 50%;
+  background-clip: content-box;
+  cursor: help;
 }
 
-.status--checking {
-  background: var(--surface-muted);
-  border-color: var(--border-strong);
-  color: var(--text-muted);
+.health-dot--checking {
+  background-color: var(--border-strong);
 }
 
-.status--healthy {
-  background: var(--success-soft);
-  border-color: var(--success);
-  color: var(--success);
+.health-dot--healthy {
+  background-color: var(--success);
 }
 
-.status--unhealthy {
-  background: var(--danger-soft);
-  border-color: var(--danger);
-  color: var(--danger);
+.health-dot--unhealthy {
+  background-color: var(--danger);
 }
 
 /* On a phone the fixed health pill would sit on top of page content, so it joins the page flow instead,
@@ -107,6 +105,7 @@
   .health-widget {
     position: static;
     padding: 0 1rem 1rem;
-    text-align: center;
+    display: flex;
+    justify-content: center;
   }
 }
