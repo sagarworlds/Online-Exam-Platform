@@ -29,6 +29,8 @@ export interface ExamConfigDto {
   /** From when the answers are visible: set for Scheduled, and for Manual once released; null otherwise. UTC. */
   resultReleaseTime: string | null;
   markingScheme: MarkingSchemeDto;
+  /** Whether the exam page turns off copying, pasting, right-click and printing while the exam is sat (FR-23). Absent from an older API: on. */
+  contentProtection?: boolean;
 }
 
 /** The body of PUT /v1/exams/{id}/result-release. */
@@ -46,6 +48,11 @@ export interface ShuffleRequest {
 
 /** The body of PUT /v1/exams/{id}/marking-scheme; draft exams only. A correct answer earns more than 0, the others 0 or less. */
 export type MarkingSchemeRequest = MarkingSchemeDto;
+
+/** The body of PUT /v1/exams/{id}/content-protection: whether the exam page turns off copying, pasting, right-click and printing. */
+export interface ContentProtectionRequest {
+  contentProtection: boolean;
+}
 
 /** The body of PUT /v1/exams/{id}/attempt-limit: how many attempts every enrolled candidate has, from 1 to 10. */
 export interface AttemptLimitRequest {

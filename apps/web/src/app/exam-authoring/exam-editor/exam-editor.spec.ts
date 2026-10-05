@@ -923,4 +923,61 @@ describe('ExamEditor', () => {
       });
     });
   });
+
+  describe('copying and printing (FR-23)', () => {
+    const isProtection = (r: { method: string; url: string }) => r.method === 'PUT' && r.url.endsWith('/v1/exams/exam-1/content-protection');
+    const withProtection = (contentProtection: boolean | undefined, status = 'Draft') =>
+      examBody({
+        status,
+        config: {
+          totalTimeSeconds: null,
+          contentProtection,
+          resultReleaseMode: 'Instant',
+          resultReleaseTime: null,
+          markingScheme: { correctMarks: 1, incorrectMarks: 0, unattemptedMarks: 0 },
+        },
+      });
+    const card = (root: HTMLElement) => root.querySelector('app-exam-content-protection') as HTMLElement;
+    const box = (root: HTMLElement) => card(root).querySelector('input[type="checkbox"]') as HTMLInputElement;
+
+    it('shows protection as on, which is the default, and also when an older API does not say', () => {
+      expect(box(open(withProtection(true)).root).checked).toBe(true);
+      expect(box(open(withProtection(undefined)).root).checked).toBe(true);
+      expect(box(open(withProtection(false)).root).checked).toBe(false);
+    });
+
+    it('sends the new choice, then shows what the server stored', () => {
+      const { fixture, root } = open(withProtection(true));
+
+      box(root).click();
+      fixture.detectChanges();
+      button(card(root), 'Save').click();
+
+      const put = httpMock.expectOne(isProtection);
+      expect(put.request.body).toEqual({ contentProtection: false });
+      const stored = withProtection(false);
+      put.flush(stored);
+      httpMock.expectOne(isExam).flush(stored);
+      fixture.detectChanges();
+
+      expect(box(root).checked).toBe(false);
+    });
+
+    it('can be changed after the exam is published, because it changes nothing that is asked or scored', () => {
+      const { fixture, root } = open(withProtection(true, 'Published'));
+
+      box(root).click();
+      fixture.detectChanges();
+      button(card(root), 'Save').click();
+
+      expect(httpMock.expectOne(isProtection).request.body).toEqual({ contentProtection: false });
+    });
+
+    it('cannot be changed once the exam is archived', () => {
+      const { root } = open(withProtection(true, 'Archived'));
+
+      expect(box(root)).toBeNull();
+      expect(card(root).textContent).toContain('turned off during the exam');
+    });
+  });
 });

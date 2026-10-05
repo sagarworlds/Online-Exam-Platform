@@ -112,6 +112,14 @@ describe('instructionLines', () => {
     expect(lines.at(-1)).toBe('You have 3 attempts at this exam in all, and have used 1. This starts attempt 2.');
   });
 
+  it('tells the candidate up front that copying, pasting, right-click and printing are off, unless the author lifted that', () => {
+    const told = 'Copying, pasting, right-click and printing are turned off during the exam. You can still select text.';
+
+    expect(instructionLines(exam())).toContain(told);
+    expect(instructionLines(exam({ rules: { ...RULES, contentProtection: true } }))).toContain(told);
+    expect(instructionLines(exam({ rules: { ...RULES, contentProtection: false } }))).not.toContain(told);
+  });
+
   it('still gives the general rules when the API sent no exam rules', () => {
     const lines = instructionLines(exam({ rules: null }));
 

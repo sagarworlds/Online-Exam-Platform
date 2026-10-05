@@ -129,6 +129,13 @@
       (changed)="saveAttemptLimit($event)"
     />
 
+    <app-exam-content-protection
+      [enabled]="e.config.contentProtection !== false"
+      [editable]="canChangeRelease()"
+      [busy]="busy()"
+      (changed)="saveContentProtection($event)"
+    />
+
     <h2>Sections and questions</h2>
     @for (section of e.sections ?? []; track section.id) {
       <app-exam-section-card

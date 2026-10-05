@@ -9,8 +9,9 @@ import { QuestionApiService } from '../../question-bank/question-api.service';
 import { QuestionDto } from '../../question-bank/question.models';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { ExamApiService } from '../exam-api.service';
-import { DrawQuestionsRequest, ExamDto, ExamScopeDto, MarkingSchemeDto, ShuffleRequest, UpdateExamDetailsRequest } from '../exam.models';
+import { ContentProtectionRequest, DrawQuestionsRequest, ExamDto, ExamScopeDto, MarkingSchemeDto, ShuffleRequest, UpdateExamDetailsRequest } from '../exam.models';
 import { ExamMarkingScheme } from '../exam-marking-scheme/exam-marking-scheme';
+import { ExamContentProtection } from '../exam-content-protection/exam-content-protection';
 import { ExamShuffle } from '../exam-shuffle/exam-shuffle';
 import { ExamAttemptLimit } from '../exam-attempt-limit/exam-attempt-limit';
 import { ExamDetailsForm } from '../exam-details-form/exam-details-form';
@@ -40,7 +41,7 @@ function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): bool
  */
 @Component({
   selector: 'app-exam-editor',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamSectionCard],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamSectionCard],
   templateUrl: './exam-editor.html',
 })
 export class ExamEditor {
@@ -195,6 +196,13 @@ export class ExamEditor {
   protected saveAttemptLimit(maxAttempts: number): void {
     if (!this.busy()) {
       this.run(this.examApi.setAttemptLimit(this.examId, { maxAttempts }));
+    }
+  }
+
+  /** Turns the exam page's copy, paste, right-click and print protection on or off. Allowed on a published exam too. */
+  protected saveContentProtection(request: ContentProtectionRequest): void {
+    if (!this.busy()) {
+      this.run(this.examApi.setContentProtection(this.examId, request));
     }
   }
 

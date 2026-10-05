@@ -3,6 +3,31 @@
  * one question at a time with large answer choices, and a palette of numbered buttons showing what is answered.
  */
 
+/* What was just turned off (FR-23): a quiet line, with its space always reserved so the page does not jump when it appears. */
+.exam-protection-notice {
+  min-height: 1.4em;
+  margin: 0 0 0.5rem;
+  color: var(--primary);
+  font-size: 0.9rem;
+}
+
+/*
+ * A browser's own Print menu cannot be cancelled from the page, so while the exam is protected the printout is blank
+ * except for a sentence saying why. The body class is set by the exam page's content guard and removed when it leaves.
+ */
+@media print {
+  body.exam-protected > * {
+    display: none !important;
+  }
+
+  body.exam-protected::before {
+    content: 'Printing is turned off during this exam.';
+    display: block;
+    padding: 2rem;
+    font: 1.1rem system-ui, sans-serif;
+  }
+}
+
 .exam-bar {
   position: sticky;
   top: 0;

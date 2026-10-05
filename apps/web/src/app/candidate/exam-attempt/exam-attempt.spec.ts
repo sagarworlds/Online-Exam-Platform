@@ -888,4 +888,103 @@ describe('ExamAttempt', () => {
       expect(localStorage.getItem('exam.highContrast')).toBe('on');
     });
   });
+
+  describe('copy, paste, right-click and print protection (FR-23)', () => {
+    /** Fires an event at the page and reports whether it was let through. */
+    function fire(type: string): boolean {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      document.body.dispatchEvent(event);
+      return !event.defaultPrevented;
+    }
+
+    const notice = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector('.exam-protection-notice')?.textContent?.trim();
+
+    it('turns off copying, pasting and the right-click menu while the exam is open, and says so up front', async () => {
+      const fixture = await open(attempt());
+
+      expect(fire('copy')).toBe(false);
+      expect(fire('paste')).toBe(false);
+      expect(fire('contextmenu')).toBe(false);
+      expect(textOf(fixture)).toContain('Copying, pasting, right-click and printing are turned off during this exam.');
+      expect(document.body.classList).toContain('exam-protected');
+    });
+
+    it('says what was just refused, politely, and lets the sentence go after a few seconds', async () => {
+      const fixture = await open(attempt());
+      const live = root(fixture).querySelector('.exam-protection-notice') as HTMLElement;
+      expect(live.getAttribute('role')).toBe('status');
+      expect(live.getAttribute('aria-live')).toBe('polite');
+
+      fire('copy');
+      fixture.detectChanges();
+      expect(notice(fixture)).toBe('Copying is turned off during this exam.');
+
+      vi.advanceTimersByTime(4000);
+      fixture.detectChanges();
+      expect(notice(fixture)).toBe('');
+    });
+
+    it('refuses the keyboard chords but leaves the exam shortcuts and the answer choices alone', async () => {
+      const fixture = await open(attempt());
+
+      const chord = new KeyboardEvent('keydown', { key: 'c', ctrlKey: true, bubbles: true, cancelable: true });
+      document.body.dispatchEvent(chord);
+      expect(chord.defaultPrevented).toBe(true);
+
+      const next = new KeyboardEvent('keydown', { key: 'n', bubbles: true, cancelable: true });
+      document.body.dispatchEvent(next);
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('Question 2 of 2');
+      expect(radios(fixture).length).toBeGreaterThan(0);
+    });
+
+    it('does nothing when the author has lifted the protection', async () => {
+      const fixture = await open(attempt({ contentProtection: false }));
+
+      expect(fire('copy')).toBe(true);
+      expect(fire('contextmenu')).toBe(true);
+      expect(textOf(fixture)).not.toContain('turned off during this exam');
+      expect(document.body.classList).not.toContain('exam-protected');
+    });
+
+    it('is on when an older API does not say, since protection is the default', async () => {
+      const older = attempt();
+      delete older.contentProtection;
+      await open(older);
+
+      expect(fire('copy')).toBe(false);
+    });
+
+    it('leaves the candidate free to copy and print their own result once the exam is over', async () => {
+      const fixture = await open(attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [] }));
+
+      expect(fire('copy')).toBe(true);
+      expect(fire('contextmenu')).toBe(true);
+      expect(textOf(fixture)).not.toContain('turned off during this exam');
+    });
+
+    it('lets go when the exam is submitted, without a reload', async () => {
+      const fixture = await open(attempt());
+      expect(fire('copy')).toBe(false);
+
+      (fixture.componentInstance as unknown as { attempt: { set(value: AttemptDto): void } }).attempt.set(
+        attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [] }),
+      );
+      fixture.detectChanges();
+
+      expect(fire('copy')).toBe(true);
+      expect(document.body.classList).not.toContain('exam-protected');
+    });
+
+    it('hands everything back when the page is left', async () => {
+      const fixture = await open(attempt());
+      expect(fire('copy')).toBe(false);
+
+      fixture.destroy();
+
+      expect(fire('copy')).toBe(true);
+      expect(fire('contextmenu')).toBe(true);
+      expect(document.body.classList).not.toContain('exam-protected');
+    });
+  });
 });

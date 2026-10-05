@@ -1,15 +1,19 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DOCUMENT, DatePipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
 import { AttemptDto, AttemptQuestionDto } from '../candidate.models';
+import { BLOCKED_MESSAGES, BlockedAction, ContentGuard } from './content-guard';
 import { shortcutFor } from './exam-shortcuts';
 import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-store';
 
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
+
+/** How long the "that is turned off" sentence stays on screen. Long enough to read once, short enough not to nag. */
+const NOTICE_MS = 4000;
 
 /** The text sizes a candidate can pick, as a share of normal. Capped at 150% so the question and palette still fit side by side. */
 const ZOOM_LEVELS = [1, 1.15, 1.3, 1.5] as const;
@@ -85,6 +89,19 @@ export class ExamAttempt {
   protected readonly answeredCount = computed(() => this.questions().filter((q) => chosenOptionIds(q).length > 0).length);
   protected readonly markedCount = computed(() => this.questions().filter((q) => q.markedForReview).length);
   protected readonly isOpen = computed(() => this.attempt()?.status === 'InProgress');
+
+  /**
+   * Whether copying, pasting, right-click and printing are turned off right now (FR-23): only while the exam is open, and
+   * unless the author lifted it. The result and the review are the candidate's own, so they are free to copy and print.
+   */
+  protected readonly protectContent = computed(() => this.isOpen() && this.attempt()?.contentProtection !== false);
+
+  /** The sentence saying what was just refused, or null. It clears itself, so the page does not fill up with warnings. */
+  protected readonly protectionNotice = signal<string | null>(null);
+
+  private noticeTimer: ReturnType<typeof setTimeout> | undefined;
+
+  private readonly guard = new ContentGuard(inject(DOCUMENT), (action) => this.showNotice(action));
 
   /**
    * The questions the candidate has had on screen, so the palette can tell "not visited" from "not answered". It is
@@ -202,7 +219,13 @@ export class ExamAttempt {
   private timer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => this.stopTimer());
+    inject(DestroyRef).onDestroy(() => {
+      this.stopTimer();
+      // Leaving the exam page must hand the clipboard, the menu and printing back, whatever the page was doing.
+      this.guard.stop();
+      clearTimeout(this.noticeTimer);
+    });
+    effect(() => (this.protectContent() ? this.guard.start() : this.guard.stop()));
 
     if (this.attemptId === null) {
       this.loading.set(false);
@@ -214,6 +237,13 @@ export class ExamAttempt {
       next: (attempt) => this.show(attempt),
       error: (error: unknown) => this.fail(error),
     });
+  }
+
+  /** Says, briefly and calmly, what was just turned off. */
+  private showNotice(action: BlockedAction): void {
+    this.protectionNotice.set(BLOCKED_MESSAGES[action]);
+    clearTimeout(this.noticeTimer);
+    this.noticeTimer = setTimeout(() => this.protectionNotice.set(null), NOTICE_MS);
   }
 
   /** The time left as m:ss (or h:mm:ss), for the countdown. */
