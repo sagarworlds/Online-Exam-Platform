@@ -81,6 +81,9 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             new { correctOptionIds = Array.Empty<Guid>(), reason = "Authorization test" }),
         new("POST", "/v1/questions/placement", RbacCatalog.PermissionCodes.QuestionManage,
             new { questionIds = new[] { Guid.NewGuid() }, chapterId = Guid.NewGuid() }),
+        new("POST", "/v1/questions/import", RbacCatalog.PermissionCodes.QuestionManage,
+            new { csv = "Text,Option1,Correct1,Option2,Correct2,Option3,Correct3,Option4,Correct4,Option5,Correct5,Option6,Correct6,AllowsMultiple,Difficulty,Topics\r\n" }),
+        new("GET", "/v1/questions/export", RbacCatalog.PermissionCodes.QuestionManage, null),
 
         new("POST", "/v1/books", RbacCatalog.PermissionCodes.QuestionManage, new { name = "Authorization Test Book" }),
         new("GET", "/v1/books", RbacCatalog.PermissionCodes.QuestionManage, null),
