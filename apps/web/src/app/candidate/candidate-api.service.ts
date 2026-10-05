@@ -1,7 +1,8 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { SILENT_ACTIVITY } from '../shared/api-activity/api-activity.interceptor';
 import { AttemptDto, AttemptReviewDto, MyAttemptRequestDto, MyExamDto } from './candidate.models';
 
 /** Thin HTTP wrapper over the ExamRuntime module's candidate-facing /v1/me endpoints. */
@@ -9,6 +10,14 @@ import { AttemptDto, AttemptReviewDto, MyAttemptRequestDto, MyExamDto } from './
 export class CandidateApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiBaseUrl}/v1/me`;
+
+  /**
+   * For a change that already shows on screen and is saved in the background (an exam answer, a review mark).
+   * Such a call stays out of the waiting indicator, which would otherwise flash on every click mid-exam.
+   */
+  private static background(): { context: HttpContext } {
+    return { context: new HttpContext().set(SILENT_ACTIVITY, true) };
+  }
 
   listMyExams(): Observable<MyExamDto[]> {
     return this.http.get<MyExamDto[]>(`${this.baseUrl}/exams`);
@@ -35,27 +44,27 @@ export class CandidateApiService {
 
   /** Saves (or changes) the option chosen for one question of an open attempt. */
   saveAnswer(attemptId: string, questionId: string, optionId: string): Observable<void> {
-    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { optionId });
+    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { optionId }, CandidateApiService.background());
   }
 
   /** Saves the set of options chosen for a multiple-answer question, replacing any earlier choice. At least one is needed; to take an answer back, clear it. */
   saveAnswers(attemptId: string, questionId: string, optionIds: string[]): Observable<void> {
-    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { optionIds });
+    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { optionIds }, CandidateApiService.background());
   }
 
   /** Takes back the option chosen for one question, so it counts as unanswered again. Safe to repeat. */
   clearAnswer(attemptId: string, questionId: string): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`);
+    return this.http.delete<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, CandidateApiService.background());
   }
 
   /** Marks one question of an open attempt for review. Safe to repeat. */
   markForReview(attemptId: string, questionId: string): Observable<void> {
-    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/marks/${questionId}`, null);
+    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/marks/${questionId}`, null, CandidateApiService.background());
   }
 
   /** Takes the review mark off one question. Safe to repeat. */
   unmarkForReview(attemptId: string, questionId: string): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/attempts/${attemptId}/marks/${questionId}`);
+    return this.http.delete<void>(`${this.baseUrl}/attempts/${attemptId}/marks/${questionId}`, CandidateApiService.background());
   }
 
   /** Moves on to a later section of an exam that locks sections; the section left cannot be returned to. */
