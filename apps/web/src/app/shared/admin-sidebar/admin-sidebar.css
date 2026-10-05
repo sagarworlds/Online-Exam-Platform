@@ -58,20 +58,18 @@
   font-weight: 600;
 }
 
-/* The link's accessible name (aria-label/title) carries the full section name either way; this is
-   only the visible glyph standing in for the label while collapsed. */
+/* The link's accessible name (aria-label/title) carries the full section name either way; this icon is
+   only a visual cue, and the one thing still shown once collapsed. */
 .admin-sidebar__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.6rem;
-  height: 1.6rem;
+  width: 1.75rem;
+  height: 1.75rem;
   flex-shrink: 0;
   border-radius: var(--radius-sm);
   background: var(--primary-soft);
   color: var(--primary);
-  font-weight: 700;
-  font-size: 0.85rem;
 }
 
 .admin-sidebar--collapsed .admin-sidebar__label {
