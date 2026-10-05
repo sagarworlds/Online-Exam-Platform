@@ -52,9 +52,12 @@ services:
       npm run build
     staticPublishPath: apps/web/dist/web/browser
     envVars:
-      # Where the browser finds the API; change it if Render gave the API service a different address.
+      # Where the browser finds the API. Render appends a random suffix to a service's name
+      # when the plain one is taken (e.g. exam-platform-api-es17.onrender.com rather than
+      # exam-platform-api.onrender.com), so this is never assumed: read the API service's
+      # actual URL from its page and set it here. See docs/deploy-render.md step 5.
       - key: API_BASE_URL
-        value: https://exam-platform-api.onrender.com
+        sync: false
     routes:
       # A deep link such as /exams/123 is an Angular route, not a file.
       - type: rewrite
