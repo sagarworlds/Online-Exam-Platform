@@ -120,7 +120,8 @@ describe('QuestionBank', () => {
 
       expect(items(fixture)).toBe(204);
       expect(loadMore(fixture)).toBeUndefined();
-    });
+      // Renders two pages of cards (over 400 components) in jsdom: quick alone, but it passes 5 s when the whole suite runs in parallel.
+    }, 30_000);
   });
 
   it('shows which book and chapter a question is filed under', () => {
