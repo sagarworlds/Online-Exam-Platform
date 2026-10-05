@@ -120,9 +120,9 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("DELETE", "/v1/guardians/{guardianId}/candidates/{candidateId}", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
     ];
 
-    // Routes under the module prefixes that deliberately ask for a signed-in caller only. The guardian
-    // verifying their own link cannot be a staff action; the guardian model behind it is redesigned later.
-    private static readonly string[] SelfServiceRoutes = ["POST /v1/guardians/links/verify", "POST /v1/invites/accept"];
+    // Routes under the module prefixes that deliberately ask for a signed-in caller only: redeeming an invite
+    // is the invitee's own action, so it cannot demand a staff permission.
+    private static readonly string[] SelfServiceRoutes = ["POST /v1/invites/accept"];
 
     private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/questions", "/v1/books", "/v1/attempt-requests"];
 
@@ -207,14 +207,16 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
     }
 
     [Fact]
-    public async Task GuardianVerifyLink_IsSelfService_AndNotRejectedForLackingAStaffPermission()
+    public async Task GuardianVerifyLink_IsNoLongerMapped()
     {
+        // The route only ever threw NotImplementedException (a 500); it is gone until guardian verification is built.
         using var client = AuthorizedClient(await factory.SignInAsAsync(RbacCatalog.RoleNames.Guardian));
 
         var response = await client.PostAsJsonAsync("/v1/guardians/links/verify", new { verificationToken = "token" });
 
-        Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.True(
+            response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed,
+            $"Expected the verify route to be gone, got {(int)response.StatusCode}.");
     }
 
     // ---- named scenarios the access matrix exists for ---------------------------------------------

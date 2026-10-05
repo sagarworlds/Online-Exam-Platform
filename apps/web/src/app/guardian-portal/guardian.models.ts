@@ -29,7 +29,3 @@ export interface LinkCandidateRequest {
   candidateId: string;
   candidateEmail: string;
 }
-
-export interface VerifyGuardianLinkRequest {
-  verificationToken: string;
-}

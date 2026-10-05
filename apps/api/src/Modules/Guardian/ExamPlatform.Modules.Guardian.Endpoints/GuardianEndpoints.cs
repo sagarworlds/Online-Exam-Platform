@@ -34,13 +34,6 @@ public static class GuardianEndpoints
             .WithName("LinkCandidate")
             .WithDescription("Link a guardian to a candidate");
 
-        // The one self-service route: it is the guardian confirming their own link, so it cannot demand a
-        // staff permission and stays authenticated-only. It is not implemented yet, and the guardian
-        // account model it needs is redesigned in a later change.
-        guardians.MapPost("/links/verify", VerifyGuardianLink)
-            .WithName("VerifyGuardianLink")
-            .WithDescription("Verify and confirm a guardian link");
-
         guardians.MapDelete("/{guardianId}/links/{candidateId}", RevokeGuardianLink)
             .RequireAuthorization(GuardianPermissions.LinkManage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -85,16 +78,6 @@ public static class GuardianEndpoints
         return Results.Created($"/v1/guardians/{guardianId}/links", result);
     }
 
-    private static async Task<IResult> VerifyGuardianLink(
-        VerifyGuardianLinkRequest request,
-        VerifyGuardianLinkHandler handler,
-        CancellationToken ct)
-    {
-        var command = new VerifyGuardianLinkCommand(request.VerificationToken);
-        await handler.HandleAsync(command, ct);
-        return Results.NoContent();
-    }
-
     private static async Task<IResult> RevokeGuardianLink(
         Guid guardianId,
         Guid candidateId,
@@ -128,7 +111,3 @@ public record CreateGuardianRequest(
 public record LinkCandidateRequest(
     Guid CandidateId,
     string CandidateEmail);
-
-/// <summary>Request DTO for verifying a guardian link.</summary>
-public record VerifyGuardianLinkRequest(
-    string VerificationToken);
