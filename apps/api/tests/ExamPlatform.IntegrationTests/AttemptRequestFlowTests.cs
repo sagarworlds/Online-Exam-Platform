@@ -31,7 +31,7 @@ public sealed class AttemptRequestFlowTests(ApiFactory factory) : IClassFixture<
     /// <summary>Starts the attempt, answers nothing, and submits it, so the candidate has used the attempt they hold.</summary>
     private static async Task UseTheAttemptAsync(HttpClient candidate, Guid examId)
     {
-        var attempt = await JsonAsync((await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null)).EnsureSuccessStatusCode());
+        var attempt = await JsonAsync((await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true })).EnsureSuccessStatusCode());
         (await candidate.PostAsync($"/v1/me/attempts/{attempt.GetProperty("id").GetGuid()}/submit", content: null)).EnsureSuccessStatusCode();
     }
 

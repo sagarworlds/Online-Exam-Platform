@@ -11,6 +11,10 @@ using Microsoft.AspNetCore.Routing;
 
 namespace ExamPlatform.Modules.ExamRuntime.Endpoints;
 
+/// <summary>Body of <c>POST /v1/me/exams/{examId}/attempts</c>; the body may be left out when resuming.</summary>
+/// <param name="InstructionsAcknowledged">Whether the candidate confirmed they read the instructions. A new attempt is refused without it.</param>
+public sealed record StartAttemptRequest(bool InstructionsAcknowledged = false);
+
 /// <summary>Body of <c>PUT /v1/me/attempts/{attemptId}/answers/{questionId}</c>.</summary>
 /// <param name="OptionId">The option the candidate chose, for a question that takes one answer.</param>
 /// <param name="OptionIds">The options the candidate chose, for a multiple-answer question; when given, it is used instead of <paramref name="OptionId"/>.</param>
@@ -235,8 +239,10 @@ public static class ExamRuntimeEndpoints
     private static async Task<IResult> ListMyExams(ClaimsPrincipal user, MyExamsHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(user.GetUserId(), ct));
 
-    private static async Task<IResult> StartAttempt(Guid examId, ClaimsPrincipal user, StartAttemptHandler handler, CancellationToken ct) =>
-        Results.Ok(await handler.HandleAsync(examId, user.GetUserId(), ct));
+    private static async Task<IResult> StartAttempt(
+        Guid examId, StartAttemptRequest? request, ClaimsPrincipal user, StartAttemptHandler handler, CancellationToken ct) =>
+        // No body means "not acknowledged": resuming needs none, but a new attempt is then refused.
+        Results.Ok(await handler.HandleAsync(examId, user.GetUserId(), request?.InstructionsAcknowledged ?? false, ct));
 
     private static async Task<IResult> GetAttempt(Guid attemptId, ClaimsPrincipal user, GetAttemptHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct));

@@ -46,7 +46,7 @@ public sealed class MultipleAnswerFlowTests(ApiFactory factory) : IClassFixture<
     }
 
     private static async Task<JsonElement> StartAsync(HttpClient candidate, Guid examId) =>
-        await JsonAsync((await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null)).EnsureSuccessStatusCode());
+        await JsonAsync((await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true })).EnsureSuccessStatusCode());
 
     private static Guid OptionId(JsonElement question, string text) =>
         question.GetProperty("options").EnumerateArray().Single(o => o.GetProperty("text").GetString() == text).GetProperty("id").GetGuid();

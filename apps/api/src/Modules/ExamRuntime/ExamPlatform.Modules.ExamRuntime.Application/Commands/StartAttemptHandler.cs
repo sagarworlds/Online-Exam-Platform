@@ -28,13 +28,18 @@ public sealed class StartAttemptHandler(
     /// </summary>
     /// <param name="examId">The exam to take.</param>
     /// <param name="candidateId">The signed-in candidate.</param>
+    /// <param name="instructionsAcknowledged">
+    /// Whether the candidate confirmed they read the instructions. Only a new attempt needs it: resuming one already begun, or being told
+    /// there is none left, does not.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="InstructionsNotAcknowledgedError">A new attempt would begin but the instructions were not acknowledged.</exception>
     /// <exception cref="ExamNotAvailableError">The exam does not exist, is not published, or the candidate is not enrolled in it.</exception>
     /// <exception cref="ExamNotOpenError">The window has not opened yet.</exception>
     /// <exception cref="ExamClosedError">The window, or the late-entry cutoff, has passed.</exception>
     /// <exception cref="PaperCannotBeDrawnError">A draw rule of the exam finds fewer questions than it needs.</exception>
     /// <exception cref="ConcurrencyConflictError">Another request started the same attempt at the same moment.</exception>
-    public async Task<AttemptDto> HandleAsync(Guid examId, Guid candidateId, CancellationToken cancellationToken)
+    public async Task<AttemptDto> HandleAsync(Guid examId, Guid candidateId, bool instructionsAcknowledged, CancellationToken cancellationToken)
     {
         var exam = await catalog.FindAsync(examId, cancellationToken);
 
@@ -58,7 +63,14 @@ public sealed class StartAttemptHandler(
         if (!AttemptAllowance.CanStartAnother(exam.MaxAttempts, theirs.Count, granted))
             return await views.BuildAsync(latest!, exam.For(latest!), cancellationToken);
 
+        // Checked here, after the cases that need no new attempt, so resuming and "nothing left" stay safe to repeat. The server
+        // enforces it, not just the page, because the acknowledgment is the point of FR-17 and a client can be bypassed.
+        if (!instructionsAcknowledged)
+            throw new InstructionsNotAcknowledgedError();
+
         var attempt = Begin(exam, candidateId, theirs.Count + 1);
+        // The acknowledgment is the start: one instant, so the record cannot disagree with the attempt's own clock.
+        attempt.AcknowledgeInstructions(attempt.StartedAtUtc);
         if (PaperDrawer.Draws(exam))
             attempt.SetPaper(await paperDrawer.DrawAsync(exam, cancellationToken));
 

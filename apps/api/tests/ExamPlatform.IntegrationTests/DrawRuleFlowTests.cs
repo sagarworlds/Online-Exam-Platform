@@ -35,7 +35,7 @@ public sealed class DrawRuleFlowTests(ApiFactory factory) : IClassFixture<ApiFac
 
     private static async Task<List<Guid>> PaperOfAsync(HttpClient candidate, Guid examId)
     {
-        var response = await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null);
+        var response = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true });
         var attempt = await JsonAsync(response.EnsureSuccessStatusCode());
         return attempt.GetProperty("sections").EnumerateArray()
             .SelectMany(s => s.GetProperty("questions").EnumerateArray())
@@ -90,7 +90,7 @@ public sealed class DrawRuleFlowTests(ApiFactory factory) : IClassFixture<ApiFac
         using var _c = candidate;
         (await admin.DeleteAsync($"/v1/questions/{doomed}")).EnsureSuccessStatusCode();
 
-        var response = await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null);
+        var response = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true });
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Equal("paper_cannot_be_drawn", (await JsonAsync(response)).GetProperty("title").GetString());
@@ -107,7 +107,7 @@ public sealed class DrawRuleFlowTests(ApiFactory factory) : IClassFixture<ApiFac
         (await admin.PostAsync($"/v1/exams/{examId}/publish", content: null)).EnsureSuccessStatusCode();
         var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
         using var _c = candidate;
-        var started = await JsonAsync((await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null)).EnsureSuccessStatusCode());
+        var started = await JsonAsync((await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true })).EnsureSuccessStatusCode());
         var attemptId = started.GetProperty("id").GetGuid();
 
         var response = await admin.GetAsync($"/v1/exams/{examId}/attempts/{attemptId}/paper");

@@ -58,7 +58,7 @@ public sealed class QuestionUsageFlowTests(ApiFactory factory) : IClassFixture<A
         var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
         using var _c = candidate;
 
-        var attempt = await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null);
+        var attempt = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true });
         var sitting = await attempt.Content.ReadFromJsonAsync<JsonElement>();
         Assert.False((await UsageOfAsync(admin, question)).GetProperty("answered").GetBoolean()); // started, nothing saved yet
 
@@ -79,7 +79,7 @@ public sealed class QuestionUsageFlowTests(ApiFactory factory) : IClassFixture<A
         var examId = await CreateExamAsync(admin, "Sat and cleared", [question], TimeSpan.FromMinutes(-5));
         var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
         using var _c = candidate;
-        var sitting = await (await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null)).Content.ReadFromJsonAsync<JsonElement>();
+        var sitting = await (await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true })).Content.ReadFromJsonAsync<JsonElement>();
         var attemptId = sitting.GetProperty("id").GetGuid();
         var shown = sitting.GetProperty("sections")[0].GetProperty("questions")[0];
         var questionId = shown.GetProperty("id").GetGuid();

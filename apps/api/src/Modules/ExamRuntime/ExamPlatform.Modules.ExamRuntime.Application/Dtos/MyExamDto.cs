@@ -34,6 +34,21 @@ public sealed record AttemptSummaryDto(
     decimal? Score,
     decimal? MaxScore);
 
+/// <summary>The rules of an exam that a candidate is told before starting it (FR-17); what the instructions page shows.</summary>
+/// <param name="CorrectMarks">Marks for a correct answer.</param>
+/// <param name="IncorrectMarks">Marks for a wrong answer; negative when wrong answers cost marks.</param>
+/// <param name="UnattemptedMarks">Marks for a question left unanswered.</param>
+/// <param name="PartialCredit">Whether a multiple-answer question can earn part of its marks.</param>
+/// <param name="SectionLock">Whether leaving a section is final, so a candidate cannot go back to it.</param>
+/// <param name="SectionCount">How many sections the exam has.</param>
+public sealed record ExamRulesDto(
+    decimal CorrectMarks,
+    decimal IncorrectMarks,
+    decimal UnattemptedMarks,
+    bool PartialCredit,
+    bool SectionLock,
+    int SectionCount);
+
 /// <summary>An exam a candidate is enrolled in, as shown on their exams page.</summary>
 /// <param name="ExamId">The exam's id.</param>
 /// <param name="Name">The exam's name.</param>
@@ -54,6 +69,7 @@ public sealed record AttemptSummaryDto(
 /// <param name="Attempts">Every attempt they have made, oldest first.</param>
 /// <param name="CanRequestAttempt">Whether they may ask for another attempt now: the window is open, they have used every attempt they hold, none is in progress and no earlier request is waiting.</param>
 /// <param name="AttemptRequest">The latest request they made for another attempt at this exam, if any.</param>
+/// <param name="Rules">The exam's marking and navigation rules, for the instructions page.</param>
 public sealed record MyExamDto(
     Guid ExamId,
     string Name,
@@ -73,4 +89,5 @@ public sealed record MyExamDto(
     bool CanStartAttempt,
     IReadOnlyList<AttemptSummaryDto> Attempts,
     bool CanRequestAttempt = false,
-    MyAttemptRequestDto? AttemptRequest = null);
+    MyAttemptRequestDto? AttemptRequest = null,
+    ExamRulesDto? Rules = null);

@@ -31,7 +31,7 @@ public sealed class ExtraAttemptFlowTests(ApiFactory factory) : IClassFixture<Ap
 
     private static async Task<JsonElement> StartAsync(HttpClient candidate, Guid examId)
     {
-        var response = await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null);
+        var response = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return await JsonAsync(response);
     }
@@ -219,7 +219,7 @@ public sealed class ExtraAttemptFlowTests(ApiFactory factory) : IClassFixture<Ap
         await SitAsync(candidate, examId, "Right");
         (await GrantAsync(admin, examId, candidateId)).EnsureSuccessStatusCode();
 
-        var results = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null)));
+        var results = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true })));
 
         // One creates attempt 2. The other either arrives after it and resumes it, or loses the race and is told so.
         Assert.All(results, r => Assert.True(r.StatusCode is HttpStatusCode.OK or HttpStatusCode.Conflict, r.StatusCode.ToString()));

@@ -74,7 +74,7 @@ public sealed class QuestionDeleteFlowTests(ApiFactory factory) : IClassFixture<
         var examId = await CreateExamAsync(admin, "Sat exam", [id], TimeSpan.FromMinutes(-5));
         var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
         using var _c = candidate;
-        var sitting = await JsonAsync((await candidate.PostAsync($"/v1/me/exams/{examId}/attempts", content: null)).EnsureSuccessStatusCode());
+        var sitting = await JsonAsync((await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true })).EnsureSuccessStatusCode());
         var shown = sitting.GetProperty("sections")[0].GetProperty("questions")[0];
         var option = shown.GetProperty("options")[0].GetProperty("id").GetGuid();
         var attemptId = sitting.GetProperty("id").GetGuid();

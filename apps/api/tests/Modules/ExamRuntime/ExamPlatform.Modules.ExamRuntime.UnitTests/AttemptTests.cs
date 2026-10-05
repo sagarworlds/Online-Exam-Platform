@@ -27,6 +27,18 @@ public class AttemptTests
         Assert.Null(attempt.SubmittedAtUtc);
     }
 
+    [Fact]
+    public void AcknowledgeInstructions_RecordsWhen_AndOnlyOnce()
+    {
+        var attempt = Open();
+        Assert.Null(attempt.InstructionsAcknowledgedAtUtc);
+
+        attempt.AcknowledgeInstructions(Start);
+
+        Assert.Equal(Start, attempt.InstructionsAcknowledgedAtUtc);
+        Assert.Throws<InvalidAttemptError>(() => attempt.AcknowledgeInstructions(Start.AddMinutes(1)));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-5)]
