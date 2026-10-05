@@ -70,15 +70,10 @@ export class Register {
         next: ({ otpChallengeId }) => {
           const state: VerifyOtpNavigationState = { destination };
           this.router.navigate(['/verify-otp'], {
-<<<<<<< HEAD
-            queryParams: { challengeId: otpChallengeId, purpose: 'Registration', destination, ...this.returnUrlParam() },
-          }),
-=======
-            queryParams: { challengeId: otpChallengeId, purpose: 'Registration' },
+            queryParams: { challengeId: otpChallengeId, purpose: 'Registration', ...this.returnUrlParam() },
             state,
           });
         },
->>>>>>> 3f1e9b1 (fix(web): guide staff to password + 2FA, enforce password length, keep contact details out of URLs (FR-3, NFR-6))
         // Rules only the server can check (contact_channel_mismatch, a duplicate
         // account, ...) and any drift from the client-side checks come back as a
         // ProblemDetails whose detail is already actionable.

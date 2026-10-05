@@ -73,7 +73,6 @@ describe('Login', () => {
     it('goes back to the page the user was heading to, whoever they are', async () => {
       expect(await signIn(tokenWith([]), { returnUrl: '/invite?code=ABCD2345' })).toBe('/invite?code=ABCD2345');
     });
-    });
   });
 
   it('tells staff that the one-time-code form is not for them', () => {

@@ -5,12 +5,9 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AuthApiService } from '../auth-api.service';
 import { AuthSessionService } from '../auth-session.service';
-<<<<<<< HEAD
 import { landingRoute } from '../landing-route';
-=======
 import { VerifyOtpNavigationState } from '../auth.models';
 import { maskContact } from '../contact-mask';
->>>>>>> 3f1e9b1 (fix(web): guide staff to password + 2FA, enforce password length, keep contact details out of URLs (FR-3, NFR-6))
 
 @Component({
   selector: 'app-verify-otp',
