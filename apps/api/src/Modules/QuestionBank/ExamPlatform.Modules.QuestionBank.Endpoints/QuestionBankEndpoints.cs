@@ -72,6 +72,18 @@ public static class QuestionBankEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("FileQuestions")
             .WithDescription("File one or more questions under a chapter, all or none");
+
+        questions.MapPost("/import", ImportQuestions)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ImportQuestions")
+            .WithDescription("Create questions from a CSV file; a bad row is reported and skipped, not the whole import");
+
+        questions.MapGet("/export", ExportQuestions)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ExportQuestions")
+            .WithDescription("Download questions matching the same filters as the list, as a CSV file ImportQuestions can read back");
     }
 
     private static async Task<IResult> FileQuestions(FileQuestionsRequest request, FileQuestionsHandler handler, CancellationToken ct) =>
@@ -115,6 +127,18 @@ public static class QuestionBankEndpoints
         var command = new CorrectAnswerKeyCommand(
             questionId, request.CorrectOptionIds ?? [], request.Reason ?? string.Empty, user.GetUserId(), user.GetPrimaryRole());
         return Results.Ok(await handler.HandleAsync(command, ct));
+    }
+
+    private static async Task<IResult> ImportQuestions(
+        ImportQuestionsRequest request, ClaimsPrincipal user, ImportQuestionsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new ImportQuestionsCommand(request.Csv ?? string.Empty, user.GetUserId()), ct));
+
+    private static async Task<IResult> ExportQuestions(
+        ExportQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, CancellationToken ct)
+    {
+        var filter = new QuestionFilter(bookId, chapterId, unfiled ?? false, QuestionDifficultyText.Parse(difficulty), Question.NormalizeTopic(topic), q);
+        var csv = await handler.HandleAsync(filter, ct);
+        return Results.File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "questions.csv");
     }
 }
 
@@ -161,3 +185,7 @@ public sealed record CreateQuestionOptionRequest(string? Text, bool IsCorrect, b
 /// <param name="CorrectOptionIds">The ids of the options that are actually correct, replacing the current key.</param>
 /// <param name="Reason">Why the key is being corrected; shown to a candidate whose score moves because of it.</param>
 public sealed record CorrectAnswerKeyRequest(IReadOnlyCollection<Guid>? CorrectOptionIds, string? Reason);
+
+/// <summary>Request body for importing questions from a CSV file.</summary>
+/// <param name="Csv">The file's contents, header row included.</param>
+public sealed record ImportQuestionsRequest(string? Csv);

@@ -212,6 +212,18 @@ A question's answer key is otherwise locked once candidates have answered it (on
 
 A rescored attempt's new score replaces its old one, but the change is kept as a revision (previous score, new score, the reason, when), not applied silently: the candidate's answer review lists every revision the attempt has had. The correction is written to the admin audit log (`QuestionBank.AnswerKeyCorrected`) with the reason and how many attempts it rescored, not the attempts themselves. There is no staff page for this yet (API only); raising a dispute is likewise not built — a candidate who thinks a key is wrong still has to tell staff out of band.
 
+#### Bulk import/export (FR-6)
+
+A staff member holding `question.manage` can create questions from a CSV file, or download questions as one, from `/v1/questions`. The two share one column shape, so a bank's own export is always a file it can re-import unchanged: `Text,Option1,Correct1,...,Option6,Correct6,AllowsMultiple,Difficulty,Topics` (up to six options as fixed column pairs; an unused pair is left blank, so a two-option question's later columns are simply empty; `Topics` is `;`-joined since `,` is the column delimiter). Chapter placement is not part of the file — it stays the separate `POST /v1/questions/placement` bulk action, so a row never has to resolve a chapter by name across books.
+
+| What | Rule |
+|------|------|
+| Importing | `POST /v1/questions/import` with `{ "csv": "..." }`. Every row is checked under the exact rules the single-question form enforces (text required and sanitized, 2–6 options, exactly one correct unless `AllowsMultiple`), and a bad row is reported and skipped rather than failing the whole file: the response is `{ "created": [{ "row", "id" }], "rejected": [{ "row", "errors" }] }`, row numbers counting the header as line 1. One save covers every row that validated, so a later row's rejection can never undo an earlier row's creation. At most 1000 data rows per call; a larger file is refused outright with `400 bulk_import_too_large` before any row is read. |
+| Exporting | `GET /v1/questions/export`, with the same filters as `GET /v1/questions` (`bookId`, `chapterId`, `unfiled`, `difficulty`, `topic`, `q`). Returns the matching questions as a CSV file (`questions.csv`), newest first, up to 5000 rows; a larger bank needs a narrower filter to export it in parts. |
+| Permissions | Both routes need `question.manage`, the same as every other question-authoring action. |
+
+There is no staff page for this yet (API only, so a file is imported or exported with a raw request for now), and CSV is the only format supported — no Excel or JSON.
+
 #### Extra attempts
 
 Every candidate has **one attempt** at an exam unless its author allows more (see [Attempts allowed](#attempts-allowed) below). When a candidate asks for another (a power cut, a dropped connection), an administrator gives them one on **Candidates and attempts** (`/exams/:id/attempts`, linked from a published exam; needs `exam.manage`). The candidate then sees "Start attempt 2" on My exams, and each attempt is numbered, scored and reviewed on its own. My exams lists every attempt and marks the highest-scoring submitted one as **Best** once there are two to compare (the earlier one on a tie); nothing is stored as the exam's official score.
