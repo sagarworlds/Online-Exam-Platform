@@ -10,14 +10,15 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
     /// <inheritdoc />
     public void Add(Attempt attempt) => context.Attempts.Add(attempt);
 
-    // Tracked, with answers, marks and the drawn paper loaded, on purpose: the aggregate's rules read them, and handlers rely on
-    // change tracking to INSERT, UPDATE or DELETE them; an explicit DbSet.Update would flag every answer Modified.
+    // Tracked, with answers, marks, the drawn paper and any score revisions loaded, on purpose: the aggregate's rules read
+    // them, the review shows the revisions, and handlers rely on change tracking to INSERT, UPDATE or DELETE them; an
+    // explicit DbSet.Update would flag every answer Modified.
     /// <inheritdoc />
     public Task<Attempt?> GetByIdAsync(Guid attemptId, CancellationToken cancellationToken) =>
-        // Three sibling collections (Answers, Marks, Paper): split so EF Core issues one query per
-        // collection instead of joining all three and returning their cartesian product.
+        // Four sibling collections (Answers, Marks, Paper, Revisions): split so EF Core issues one query per
+        // collection instead of joining all four and returning their cartesian product.
         context.Attempts.AsSplitQuery()
-            .Include(a => a.Answers).Include(a => a.Marks).Include(a => a.Paper)
+            .Include(a => a.Answers).Include(a => a.Marks).Include(a => a.Paper).Include(a => a.Revisions)
             .FirstOrDefaultAsync(a => a.Id == attemptId, cancellationToken);
 
     /// <inheritdoc />
@@ -63,7 +64,7 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
             return [];
 
         return await context.Attempts.AsSplitQuery()
-            .Include(a => a.Answers).Include(a => a.Marks).Include(a => a.Paper)
+            .Include(a => a.Answers).Include(a => a.Marks).Include(a => a.Paper).Include(a => a.Revisions)
             .Where(a => attemptIds.Contains(a.Id) && a.Status == AttemptStatus.Submitted)
             .ToListAsync(cancellationToken);
     }
