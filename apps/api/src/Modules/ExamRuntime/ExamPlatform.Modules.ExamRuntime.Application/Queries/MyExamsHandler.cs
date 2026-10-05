@@ -65,7 +65,7 @@ public sealed class MyExamsHandler(
                         && AttemptAllowance.CanGrant(e.MaxAttempts, made.Count, granted)
                         && request is not { Status: AttemptRequestStatus.Pending },
                     request is null ? null : AttemptRequestDtoFactory.ForCandidate(request),
-                    new ExamRulesDto(e.CorrectMarks, e.IncorrectMarks, e.UnattemptedMarks, e.PartialCredit, e.SectionLockEnabled, e.Sections.Count));
+                    new ExamRulesDto(e.CorrectMarks, e.IncorrectMarks, e.UnattemptedMarks, e.PartialCredit, e.SectionLockEnabled, e.Sections.Count, e.ContentProtection));
             })
             .ToList();
     }

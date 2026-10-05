@@ -41,13 +41,15 @@ public sealed record AttemptSummaryDto(
 /// <param name="PartialCredit">Whether a multiple-answer question can earn part of its marks.</param>
 /// <param name="SectionLock">Whether leaving a section is final, so a candidate cannot go back to it.</param>
 /// <param name="SectionCount">How many sections the exam has.</param>
+/// <param name="ContentProtection">Whether the exam page turns off copying, pasting, right-click and printing (FR-23).</param>
 public sealed record ExamRulesDto(
     decimal CorrectMarks,
     decimal IncorrectMarks,
     decimal UnattemptedMarks,
     bool PartialCredit,
     bool SectionLock,
-    int SectionCount);
+    int SectionCount,
+    bool ContentProtection = true);
 
 /// <summary>An exam a candidate is enrolled in, as shown on their exams page.</summary>
 /// <param name="ExamId">The exam's id.</param>

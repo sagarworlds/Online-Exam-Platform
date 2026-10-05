@@ -92,5 +92,6 @@ public sealed class InstructionsAcknowledgmentFlowTests(ApiFactory factory) : IC
         Assert.False(rules.GetProperty("sectionLock").GetBoolean());
         Assert.False(rules.GetProperty("partialCredit").GetBoolean());
         Assert.Equal(1, rules.GetProperty("sectionCount").GetInt32());
+        Assert.True(rules.GetProperty("contentProtection").GetBoolean());
     }
 }
