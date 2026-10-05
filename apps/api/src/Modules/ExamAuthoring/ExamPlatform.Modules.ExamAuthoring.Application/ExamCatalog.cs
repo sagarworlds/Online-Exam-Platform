@@ -56,7 +56,8 @@ public sealed class ExamCatalog(IExamRepository repository) : IExamCatalog
             exam.Config.MaxAttempts,
             exam.Config.ShuffleQuestions,
             exam.Config.ShuffleOptions,
-            exam.Config.MarkingScheme.PartialCredit);
+            exam.Config.MarkingScheme.PartialCredit,
+            exam.Config.ContentProtection);
 
     // Spelled out rather than cast, so a mode added to one enum and forgotten in the other fails loudly here
     // instead of quietly meaning something else to the other module.

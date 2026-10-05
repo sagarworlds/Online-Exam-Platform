@@ -67,6 +67,11 @@ export function instructionLines(exam: MyExamDto): string[] {
     );
   }
 
+  // Told up front, so a refusal during the exam is never a surprise. On unless the author lifted it (older APIs do not say).
+  if (exam.rules !== null && exam.rules.contentProtection !== false) {
+    lines.push('Copying, pasting, right-click and printing are turned off during the exam. You can still select text.');
+  }
+
   lines.push('Stay on this device and browser. Signing in somewhere else ends this session.');
   lines.push('You can submit before time runs out. Once you submit, your answers cannot be changed.');
 

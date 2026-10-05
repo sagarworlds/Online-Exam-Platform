@@ -27,6 +27,11 @@
         <button type="button" [disabled]="!canZoomIn()" (click)="zoomIn()" aria-label="Larger text">A+</button>
       </div>
       <p class="hint exam-shortcuts">Keyboard: N next, P previous, M mark for review, C clear response.</p>
+      @if (protectContent()) {
+        <p class="hint exam-protection">Copying, pasting, right-click and printing are turned off during this exam.</p>
+      }
+      <!-- Always present, so what was just refused is announced politely instead of interrupting. -->
+      <p class="exam-protection-notice" role="status" aria-live="polite">{{ protectionNotice() }}</p>
 
       <div class="exam-layout">
         <section aria-label="Question">

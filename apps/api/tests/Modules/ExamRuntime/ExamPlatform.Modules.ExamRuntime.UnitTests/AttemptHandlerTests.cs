@@ -81,6 +81,18 @@ public class AttemptHandlerTests
     }
 
     [Fact]
+    public async Task TheAttempt_SaysContentProtectionIsOn_UnlessTheAuthorLiftedIt()
+    {
+        Assert.True((await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None)).ContentProtection);
+
+        var lifted = Fixtures.Exam([_q1]) with { ContentProtection = false };
+        _catalog.FindAsync(lifted.Id, Arg.Any<CancellationToken>()).Returns(lifted);
+        _enrollments.IsEnrolledAsync(_candidate, lifted.Id, Arg.Any<CancellationToken>()).Returns(true);
+
+        Assert.False((await Start.HandleAsync(lifted.Id, _candidate, true, CancellationToken.None)).ContentProtection);
+    }
+
+    [Fact]
     public async Task Start_WithoutAcknowledgingTheInstructions_IsRefused_AndNothingIsCreated()
     {
         await Assert.ThrowsAsync<InstructionsNotAcknowledgedError>(() => Start.HandleAsync(_exam.Id, _candidate, false, CancellationToken.None));

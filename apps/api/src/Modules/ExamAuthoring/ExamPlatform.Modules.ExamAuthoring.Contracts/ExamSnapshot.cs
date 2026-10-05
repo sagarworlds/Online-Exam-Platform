@@ -27,6 +27,9 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// Whether a multiple-answer question that is partly right earns a share of the correct-answer marks: the correct options chosen,
 /// less the wrong ones, over the correct options there are. Otherwise only the exact set earns marks.
 /// </param>
+/// <param name="ContentProtection">
+/// Whether the exam page turns off copying, pasting, right-click and printing while the exam is sat (FR-23). On unless the author lifted it.
+/// </param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -46,7 +49,8 @@ public sealed record ExamSnapshot(
     int MaxAttempts = 1,
     bool ShuffleQuestions = false,
     bool ShuffleOptions = false,
-    bool PartialCredit = false);
+    bool PartialCredit = false,
+    bool ContentProtection = true);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>

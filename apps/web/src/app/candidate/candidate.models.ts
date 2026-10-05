@@ -49,6 +49,8 @@ export interface ExamRulesDto {
   /** Whether leaving a section is final. */
   sectionLock: boolean;
   sectionCount: number;
+  /** Whether the exam page turns off copying, pasting, right-click and printing (FR-23). Absent from an older API: on. */
+  contentProtection?: boolean;
 }
 
 /** An exam the candidate is enrolled in, as listed on their exams page. All instants are UTC. */
@@ -151,6 +153,11 @@ export interface AttemptDto {
   sectionLockEnabled?: boolean;
   /** The section the candidate is in, while the attempt is open and sections are locked. */
   activeSectionId?: string | null;
+  /**
+   * Whether the exam page turns off copying, pasting, right-click and printing while the attempt is open (FR-23). Absent from an
+   * older API, which is read as on, since protection is the default.
+   */
+  contentProtection?: boolean;
 }
 
 /** How one question was marked. */

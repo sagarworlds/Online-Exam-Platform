@@ -6,6 +6,7 @@ import {
   MarkingSchemeRequest,
   ShuffleRequest,
   AttemptLimitRequest,
+  ContentProtectionRequest,
   CreateExamRequest,
   DrawQuestionsRequest,
   DrawRuleDto,
@@ -65,6 +66,11 @@ export class ExamApiService {
   /** Sets how many attempts every enrolled candidate has. Allowed after publishing too: lowering it never takes an attempt back. */
   setAttemptLimit(examId: string, request: AttemptLimitRequest): Observable<ExamDto> {
     return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/attempt-limit`, request);
+  }
+
+  /** Turns the exam page's copy, paste, right-click and print protection on or off. Allowed after publishing too: it changes nothing asked or scored. */
+  setContentProtection(examId: string, request: ContentProtectionRequest): Observable<ExamDto> {
+    return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/content-protection`, request);
   }
 
   /** Shows candidates which answers were right, for an exam set to manual release. Safe to repeat. */

@@ -432,6 +432,23 @@ public class Exam : AggregateRoot
     }
 
     /// <summary>
+    /// Chooses whether the exam page turns off copying, pasting, right-click and printing while the exam is sat (FR-23). It may change
+    /// after publishing, like the attempt limit, because it changes nothing that is asked or scored: it only decides what the page
+    /// allows, and an attempt in progress picks the new choice up the next time it is loaded.
+    /// </summary>
+    /// <param name="enabled">Whether the protection is on.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    public void SetContentProtection(bool enabled, DateTime nowUtc)
+    {
+        EnsureNotArchived();
+
+        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
+        Config = Config with { ContentProtection = enabled, MarkingScheme = Config.MarkingScheme with { } };
+        UpdatedAt = nowUtc;
+    }
+
+    /// <summary>
     /// Releases the answers of a manual-release exam now: the release time is set to the current instant, so the one rule
     /// "released when the mode is Instant or the release time has arrived" covers every mode. Calling it again keeps the first time.
     /// </summary>
