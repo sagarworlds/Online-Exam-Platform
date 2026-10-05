@@ -19,7 +19,8 @@ public sealed record QuestionOptionEdit(Guid? Id, string? Text, bool IsCorrect, 
 /// <summary>
 /// A multiple-choice question (FR-5): by default exactly one correct option, or, when <see cref="AllowsMultiple"/> is set,
 /// one or more, all of which a candidate must choose to be marked right. The rules that make a question gradable live
-/// here, so no caller can store one that could never be marked.
+/// here, so no caller can store one that could never be marked. Every accepted change to that gradable content takes a
+/// new <see cref="QuestionVersion"/> (FR-7); see <see cref="Versions"/>.
 /// </summary>
 public sealed class Question : AggregateRoot
 {
@@ -54,6 +55,7 @@ public sealed class Question : AggregateRoot
     public const int MaxOptions = 6;
 
     private readonly List<QuestionOption> _options = [];
+    private readonly List<QuestionVersion> _versions = [];
 
     /// <summary>
     /// The question text shown to the candidate, as sanitized HTML. Only a sanitizer-cleaned value may be stored here:
@@ -70,6 +72,15 @@ public sealed class Question : AggregateRoot
 
     /// <summary>The answer options, in display order.</summary>
     public IReadOnlyList<QuestionOption> Options => _options.AsReadOnly();
+
+    /// <summary>
+    /// Every version this question has had (FR-7), oldest first. Not necessarily loaded: a caller that only needs the
+    /// question as it is now may load it without this history.
+    /// </summary>
+    public IReadOnlyList<QuestionVersion> Versions => _versions.AsReadOnly();
+
+    /// <summary>The number of the version currently in force; 1 for a question that has never been revised.</summary>
+    public int CurrentVersionNumber => _versions.Count == 0 ? 1 : _versions[^1].VersionNumber;
 
     /// <summary>
     /// The chapter the question is filed under, or null when it is not filed anywhere. The chapter knows its book.
@@ -154,6 +165,7 @@ public sealed class Question : AggregateRoot
             question._options.Add(new QuestionOption(question.Id, optionText, option!.IsCorrect, question._options.Count + 1, option.IsPinned));
         }
 
+        question.Snapshot(nowUtc);
         return question;
     }
 
@@ -171,11 +183,16 @@ public sealed class Question : AggregateRoot
     /// Whether any candidate has answered the question. The aggregate cannot know this (attempts belong to another module),
     /// so the caller says; when true, only the wording of the text and of each option may change.
     /// </param>
+    /// <param name="allowsMultiple">Whether more than one option may be correct after the edit.</param>
+    /// <param name="nowUtc">
+    /// The current instant, recorded on the version this edit takes (FR-7). Defaults to <see cref="DateTime.UtcNow"/> so
+    /// a caller that does not care about versioning's timestamp need not supply one.
+    /// </param>
     /// <exception cref="InvalidQuestionError">The edit breaks a rule of <see cref="Create"/>, or names an option this question does not have.</exception>
     /// <exception cref="QuestionLockedError">
     /// The question has been answered and the edit changes which option is correct, or adds, removes or reorders options.
     /// </exception>
-    public void Revise(string? text, IReadOnlyList<QuestionOptionEdit>? options, bool answered, bool allowsMultiple = false)
+    public void Revise(string? text, IReadOnlyList<QuestionOptionEdit>? options, bool answered, bool allowsMultiple = false, DateTime? nowUtc = null)
     {
         var trimmedText = RequireText(text);
         RequireOptionShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0, allowsMultiple);
@@ -214,6 +231,7 @@ public sealed class Question : AggregateRoot
 
         _options.Clear();
         _options.AddRange(revised);
+        Snapshot(nowUtc ?? DateTime.UtcNow);
     }
 
     /// <summary>
@@ -247,6 +265,7 @@ public sealed class Question : AggregateRoot
             option.SetCorrect(distinct.Contains(option.Id));
 
         AnswerKeyCorrectedAtUtc = nowUtc;
+        Snapshot(nowUtc);
         return true;
     }
 
@@ -296,6 +315,16 @@ public sealed class Question : AggregateRoot
 
         ChapterId = chapterId;
         return true;
+    }
+
+    // Classifying (labels) and filing (where the question sits) never reach a candidate or affect marking, so they do not
+    // take a new version; only a change that could change what a candidate saw or how they were marked does.
+    private void Snapshot(DateTime nowUtc)
+    {
+        var options = _options.OrderBy(o => o.Order)
+            .Select(o => new QuestionVersionOption(o.Id, o.Text, o.IsCorrect, o.Order, o.IsPinned))
+            .ToList();
+        _versions.Add(new QuestionVersion(Id, _versions.Count + 1, Text, AllowsMultiple, options, nowUtc));
     }
 
     // Once candidates have answered, the key and the list of options are part of their results. Wording is the one thing

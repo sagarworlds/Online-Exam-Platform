@@ -87,7 +87,7 @@ public class QuestionClassifyTests
         question.Classify(QuestionDifficulty.Easy, ["capitals"]);
         var unchanged = question.Options.Select(o => new QuestionOptionEdit(o.Id, o.Text, o.IsCorrect)).ToList();
 
-        question.Revise("Capital of France, please?", unchanged, answered: true);
+        question.Revise("Capital of France, please?", unchanged, answered: true, nowUtc: Now);
         Assert.Equal(QuestionDifficulty.Easy, question.Difficulty);
 
         question.Classify(QuestionDifficulty.Hard, ["capitals", "europe"]);

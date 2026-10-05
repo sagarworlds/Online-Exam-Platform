@@ -70,10 +70,10 @@ public class MultipleAnswerQuestionTests
         var question = Question.Create("Q?", [new("A", true), new("B", false), new("C", false)], Guid.NewGuid(), Now);
         var edits = question.Options.Select(o => new QuestionOptionEdit(o.Id, o.Text, o.Text != "C")).ToList();
 
-        question.Revise("Q?", edits, answered: false, allowsMultiple: true);
+        question.Revise("Q?", edits, answered: false, allowsMultiple: true, nowUtc: Now);
         Assert.True(question.AllowsMultiple);
 
-        question.Revise("Q?", Unchanged(question).Select((e, i) => e with { IsCorrect = i == 0 }).ToList(), answered: false, allowsMultiple: false);
+        question.Revise("Q?", Unchanged(question).Select((e, i) => e with { IsCorrect = i == 0 }).ToList(), answered: false, allowsMultiple: false, nowUtc: Now);
         Assert.False(question.AllowsMultiple);
     }
 
@@ -82,7 +82,7 @@ public class MultipleAnswerQuestionTests
     {
         var question = Primes();
 
-        question.Revise("Which are prime numbers?", Unchanged(question), answered: true, allowsMultiple: true);
+        question.Revise("Which are prime numbers?", Unchanged(question), answered: true, allowsMultiple: true, nowUtc: Now);
 
         Assert.Equal("Which are prime numbers?", question.Text);
         Assert.True(question.AllowsMultiple);
@@ -93,7 +93,7 @@ public class MultipleAnswerQuestionTests
     {
         var question = Question.Create("Q?", [new("A", true), new("B", false), new("C", false)], Guid.NewGuid(), Now);
 
-        Assert.Throws<QuestionLockedError>(() => question.Revise("Q?", Unchanged(question), answered: true, allowsMultiple: true));
+        Assert.Throws<QuestionLockedError>(() => question.Revise("Q?", Unchanged(question), answered: true, allowsMultiple: true, nowUtc: Now));
 
         Assert.False(question.AllowsMultiple);
     }
@@ -104,6 +104,6 @@ public class MultipleAnswerQuestionTests
         var question = Primes();
         var flipped = Unchanged(question).Select((e, i) => e with { IsCorrect = i != 1 }).ToList();
 
-        Assert.Throws<QuestionLockedError>(() => question.Revise("Q?", flipped, answered: true, allowsMultiple: true));
+        Assert.Throws<QuestionLockedError>(() => question.Revise("Q?", flipped, answered: true, allowsMultiple: true, nowUtc: Now));
     }
 }

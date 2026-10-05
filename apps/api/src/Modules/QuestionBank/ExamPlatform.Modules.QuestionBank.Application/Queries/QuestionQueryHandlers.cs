@@ -48,3 +48,18 @@ public sealed class GetQuestionHandler(IQuestionRepository repository, QuestionU
         return await dtos.CreateAsync(question, await usageReader.ReadOneAsync(questionId, cancellationToken), cancellationToken);
     }
 }
+
+/// <summary>Reads a question's version history (FR-7).</summary>
+public sealed class GetQuestionHistoryHandler(IQuestionRepository repository)
+{
+    /// <summary>Returns every version the question has had, oldest first.</summary>
+    /// <param name="questionId">The question's id.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="QuestionNotFoundError">No question has that id.</exception>
+    public async Task<IReadOnlyList<QuestionVersionDto>> HandleAsync(Guid questionId, CancellationToken cancellationToken)
+    {
+        var question = await repository.GetByIdAsync(questionId, cancellationToken) ?? throw new QuestionNotFoundError();
+
+        return question.Versions.OrderBy(v => v.VersionNumber).Select(v => v.ToDto()).ToList();
+    }
+}

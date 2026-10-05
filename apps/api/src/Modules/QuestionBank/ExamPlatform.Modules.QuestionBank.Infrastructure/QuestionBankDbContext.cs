@@ -1,6 +1,9 @@
+using System.Text.Json;
 using ExamPlatform.Modules.QuestionBank.Domain;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace ExamPlatform.Modules.QuestionBank.Infrastructure;
 
@@ -15,6 +18,9 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
 
     /// <summary>The stored chapters, owned by their books.</summary>
     public DbSet<Chapter> Chapters => Set<Chapter>();
+
+    /// <summary>Every version any question has had (FR-7).</summary>
+    public DbSet<QuestionVersion> QuestionVersions => Set<QuestionVersion>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -43,6 +49,9 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
 
             b.HasMany(q => q.Options).WithOne().HasForeignKey(o => o.QuestionId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(q => q.Options).HasField("_options").UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            b.HasMany(q => q.Versions).WithOne().HasForeignKey(v => v.QuestionId).OnDelete(DeleteBehavior.Cascade);
+            b.Navigation(q => q.Versions).HasField("_versions").UsePropertyAccessMode(PropertyAccessMode.Field);
         });
 
         modelBuilder.Entity<Book>(b =>
@@ -75,6 +84,27 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
             b.ToTable("QuestionOptions");
             b.HasKey(o => o.Id);
             b.Property(o => o.Text).IsRequired().HasMaxLength(Question.MaxOptionTextLength);
+        });
+
+        var versionOptionsConverter = new ValueConverter<IReadOnlyList<QuestionVersionOption>, string>(
+            options => JsonSerializer.Serialize(options, (JsonSerializerOptions?)null),
+            json => JsonSerializer.Deserialize<List<QuestionVersionOption>>(json, (JsonSerializerOptions?)null) ?? new());
+
+        // A QuestionVersion is append-only (never updated after insert), so this comparer only needs to satisfy EF's
+        // change-tracking snapshot requirement, not support mutation.
+        var versionOptionsComparer = new ValueComparer<IReadOnlyList<QuestionVersionOption>>(
+            (a, b) => (a ?? new List<QuestionVersionOption>()).SequenceEqual(b ?? new List<QuestionVersionOption>()),
+            options => options.Aggregate(0, (hash, o) => HashCode.Combine(hash, o)),
+            options => options.ToList());
+
+        modelBuilder.Entity<QuestionVersion>(b =>
+        {
+            b.ToTable("QuestionVersions");
+            b.HasKey(v => v.Id);
+            b.Property(v => v.Text).IsRequired().HasColumnType("text");
+            b.Property(v => v.Options).HasConversion(versionOptionsConverter, versionOptionsComparer).HasColumnType("jsonb");
+            // A question's versions are always listed in order, and never looked up any other way.
+            b.HasIndex(v => new { v.QuestionId, v.VersionNumber }).IsUnique();
         });
 
         modelBuilder.ApplyUtcDateTimeConversion();

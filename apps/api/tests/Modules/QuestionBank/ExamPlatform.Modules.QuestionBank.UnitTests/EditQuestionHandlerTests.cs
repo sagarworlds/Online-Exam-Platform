@@ -6,6 +6,7 @@ using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.Modules.QuestionBank.Domain;
 using ExamPlatform.Modules.QuestionBank.Domain.Exceptions;
 using ExamPlatform.Modules.QuestionBank.Infrastructure;
+using ExamPlatform.SharedKernel.Application;
 using NSubstitute;
 
 namespace ExamPlatform.Modules.QuestionBank.UnitTests;
@@ -24,7 +25,9 @@ public class EditQuestionHandlerTests
     {
         // The real sanitizer, not a stub: the rules are about what survives the cleaning.
         var usage = new QuestionUsageReader([usageSource]);
-        handler = new EditQuestionHandler(repository, unitOfWork, new RichTextSanitizer(), usage, new QuestionDtoFactory(books));
+        var clock = Substitute.For<Clock>();
+        clock.UtcNow.Returns(Now);
+        handler = new EditQuestionHandler(repository, unitOfWork, new RichTextSanitizer(), usage, new QuestionDtoFactory(books), clock);
         usageSource.FindAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns([]);
     }
 
