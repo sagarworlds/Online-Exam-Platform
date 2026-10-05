@@ -10,13 +10,6 @@
     @if (authSession.isAuthenticated()) {
       <a routerLink="/my-exams" routerLinkActive="active">My exams</a>
       <a routerLink="/invite" routerLinkActive="active">Redeem invite</a>
-      @if (adminSections().length > 0) {
-        <span class="divider" aria-hidden="true"></span>
-        @for (section of adminSections(); track section.path) {
-          <a [routerLink]="section.path" routerLinkActive="active">{{ section.label }}</a>
-        }
-        <span class="divider" aria-hidden="true"></span>
-      }
       <a routerLink="/profile" routerLinkActive="active">Profile</a>
       <a routerLink="/consent" routerLinkActive="active">Consent</a>
       <button type="button" (click)="logout()">Log out</button>
@@ -27,7 +20,14 @@
   </nav>
 </header>
 
-<router-outlet />
+<div class="shell">
+  @if (adminSections().length > 0) {
+    <app-admin-sidebar [sections]="adminSections()" />
+  }
+  <main class="shell__content">
+    <router-outlet />
+  </main>
+</div>
 
 <footer class="health-widget">
   @switch (health().state) {

@@ -4,10 +4,11 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { ADMIN_SECTIONS } from './auth/admin-sections';
 import { AuthSessionService } from './auth/auth-session.service';
 import { HealthService } from './health/health.service';
+import { AdminSidebar } from './shared/admin-sidebar/admin-sidebar';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, AdminSidebar],
   styleUrl: './app.css',
   templateUrl: './app.html',
 })

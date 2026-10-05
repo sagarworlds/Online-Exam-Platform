@@ -1,0 +1,24 @@
+<nav class="admin-sidebar" [class.admin-sidebar--collapsed]="collapsed()" [attr.aria-label]="'Admin areas'">
+  <button
+    type="button"
+    class="admin-sidebar__toggle"
+    (click)="toggle()"
+    [attr.aria-expanded]="!collapsed()"
+    [attr.aria-label]="collapsed() ? 'Expand admin menu' : 'Collapse admin menu'"
+  >
+    <span aria-hidden="true">{{ collapsed() ? '»' : '«' }}</span>
+  </button>
+
+  @for (section of sections(); track section.path) {
+    <a
+      [routerLink]="section.path"
+      routerLinkActive="active"
+      class="admin-sidebar__link"
+      [title]="section.label"
+      [attr.aria-label]="section.label"
+    >
+      <span class="admin-sidebar__icon" aria-hidden="true">{{ section.label.charAt(0) }}</span>
+      <span class="admin-sidebar__label">{{ section.label }}</span>
+    </a>
+  }
+</nav>
