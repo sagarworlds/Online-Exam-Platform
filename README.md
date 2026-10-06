@@ -163,7 +163,7 @@ Configuration: `Smtp:Host`, `Smtp:Port`, `Smtp:EnableSsl`, `Smtp:User`, `Smtp:Pa
 
 #### Question formatting
 
-The question text is HTML from a rich-text editor: bold, italic, underline, subscript, superscript, bulleted and numbered lists, and pictures. The editor is only a convenience. **The API sanitizes every question's text before storing it** (it is shown to every candidate, so stored markup must never be able to run script), and the browser sanitizes it again where it is shown.
+The question text is HTML from a rich-text editor: bold, italic, underline, subscript, superscript, bulleted and numbered lists, inline code and code blocks, formulas, and pictures. The editor is only a convenience. **The API sanitizes every question's text before storing it** (it is shown to every candidate, so stored markup must never be able to run script), and the browser sanitizes it again where it is shown.
 
 | What | Rule |
 |------|------|
@@ -171,6 +171,8 @@ The question text is HTML from a rich-text editor: bold, italic, underline, subs
 | Readable text | At most 4000 characters, not counting markup. A question needs some text or a picture. |
 | Pictures | At most 5 per question. Each must be a PNG, JPEG, GIF or WebP embedded in the question, at most 512 KB decoded. The editor shrinks a picture to 800 px and 300 KB before embedding it (a GIF is kept as it is or refused). Links to other sites and SVG are refused with a message, never silently dropped. |
 | Stored size | At most about 1.5 million characters of HTML per question. |
+| Formulas | An author writes LaTeX between dollar signs, `$x^{2}$` inline or `$$rac{1}{2}$$` as its own line, or presses **Σ** in the toolbar to insert an example to change. The text is stored exactly as typed (the sanitizer has nothing to do with it, it is plain text) and typeset by KaTeX where the question is shown: while sitting the exam, in the answer review and in the question bank. KaTeX runs with `trust` off, so a formula cannot add a link or script, and one it cannot parse is shown as typed. Text inside a code block is never typeset, and a dollar amount such as `$5` is not mistaken for a formula. Answer options are plain text and are not typeset. |
+| Code | **{ }** makes a code block (`pre` and `code`), **&lt;/&gt;** inline code; both are kept by the sanitizer and shown in a fixed-width face. |
 
 Questions written before this change were plain text; the `RichQuestionText` migration converts them to escaped HTML so they look the same. Because pictures live inside the question, every response that carries the question carries them too (the admin question list returns up to 200 questions); if that becomes heavy, the upgrade path is an image upload endpoint with cacheable URLs.
 

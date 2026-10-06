@@ -17,6 +17,9 @@ interface ToolbarAction {
   readonly run: (chain: ChainedCommands) => ChainedCommands;
 }
 
+/** What the formula button inserts: a worked example to overwrite, since the author sees the typeset result only when the question is shown. */
+export const FORMULA_TEMPLATE = '$x^{2}$';
+
 const ACTIONS: readonly ToolbarAction[] = [
   { name: 'bold', label: 'Bold', glyph: 'B', run: (chain) => chain.toggleBold() },
   { name: 'italic', label: 'Italic', glyph: 'I', run: (chain) => chain.toggleItalic() },
@@ -25,6 +28,10 @@ const ACTIONS: readonly ToolbarAction[] = [
   { name: 'superscript', label: 'Superscript', glyph: 'x²', run: (chain) => chain.toggleSuperscript() },
   { name: 'bulletList', label: 'Bulleted list', glyph: '• List', run: (chain) => chain.toggleBulletList() },
   { name: 'orderedList', label: 'Numbered list', glyph: '1. List', run: (chain) => chain.toggleOrderedList() },
+  { name: 'code', label: 'Inline code', glyph: '</>', run: (chain) => chain.toggleCode() },
+  { name: 'codeBlock', label: 'Code block', glyph: '{ }', run: (chain) => chain.toggleCodeBlock() },
+  // A formula is plain text between dollar signs, typeset where the question is shown (see math-typesetter.ts).
+  { name: 'formula', label: 'Insert formula (LaTeX)', glyph: 'Σ', run: (chain) => chain.insertContent(FORMULA_TEMPLATE) },
 ];
 
 /** The editor keeps an empty paragraph after a list or picture so there is always somewhere to keep typing; it is not worth storing. */

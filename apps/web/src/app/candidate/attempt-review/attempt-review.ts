@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
 import { AnswerVerdict, AttemptReviewDto, ReviewQuestionDto } from '../candidate.models';
+import { MathDirective } from '../../shared/rich-text/math.directive';
 
 /** A question with its place in the exam, so the page can number it across sections. */
 interface NumberedQuestion extends ReviewQuestionDto {
@@ -17,7 +18,7 @@ interface NumberedQuestion extends ReviewQuestionDto {
  */
 @Component({
   selector: 'app-attempt-review',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, MathDirective],
   templateUrl: './attempt-review.html',
 })
 export class AttemptReview {

@@ -78,7 +78,7 @@
             </span>
           </div>
           <!-- The text is the API's sanitized HTML, rendered through Angular's own sanitizer as a second layer. -->
-          <div class="question__text rich-text" [innerHTML]="question.text"></div>
+          <div class="question__text rich-text" [appMath]="question.text"></div>
           @if (question.allowsMultiple) {
             <p class="question__hint">Several answers were correct; the question is right only when exactly those are chosen.</p>
           }

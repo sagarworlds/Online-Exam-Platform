@@ -58,9 +58,27 @@ describe('RichTextEditor', () => {
 
     // The formatting buttons are toggles and report whether they apply; the image button is an action, not a toggle.
     const toggles = Array.from(root.querySelectorAll('[role="toolbar"] button[aria-pressed]'));
-    expect(toggles.map((b) => b.getAttribute('aria-label'))).toEqual(['Bold', 'Italic', 'Underline', 'Subscript', 'Superscript', 'Bulleted list', 'Numbered list']);
+    expect(toggles.map((b) => b.getAttribute('aria-label'))).toEqual(['Bold', 'Italic', 'Underline', 'Subscript', 'Superscript', 'Bulleted list', 'Numbered list', 'Inline code', 'Code block', 'Insert formula (LaTeX)']);
     expect(toggles.every((b) => b.getAttribute('aria-pressed') === 'false')).toBe(true);
     expect(button(root, 'Insert image').hasAttribute('aria-pressed')).toBe(false);
+  });
+
+  it('makes a code block, which the API keeps as pre and code', async () => {
+    const { host, root, fixture, editor } = await open('<p>x</p>');
+
+    button(root, 'Code block').click();
+    fixture.detectChanges();
+
+    expect(host.control.value).toBe('<pre><code>x</code></pre>');
+    expect(editor.isActive('codeBlock')).toBe(true);
+  });
+
+  it('inserts a formula as plain text between dollar signs for the author to change', async () => {
+    const { host, root } = await open('<p>Solve </p>');
+
+    button(root, 'Insert formula (LaTeX)').click();
+
+    expect(host.control.value).toContain('$x^{2}$');
   });
 
   it('shows the value the form already holds', async () => {

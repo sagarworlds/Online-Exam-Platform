@@ -9,6 +9,7 @@ import { BLOCKED_MESSAGES, BlockedAction, ContentGuard } from './content-guard';
 import { shortcutFor } from './exam-shortcuts';
 import { FocusMonitor } from './focus-monitor';
 import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-store';
+import { MathDirective } from '../../shared/rich-text/math.directive';
 
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
@@ -93,7 +94,7 @@ function paletteStatus(answered: boolean, marked: boolean, seen: boolean): strin
  */
 @Component({
   selector: 'app-exam-attempt',
-  imports: [RouterLink, DatePipe, DecimalPipe],
+  imports: [RouterLink, DatePipe, DecimalPipe, MathDirective],
   templateUrl: './exam-attempt.html',
 })
 export class ExamAttempt {

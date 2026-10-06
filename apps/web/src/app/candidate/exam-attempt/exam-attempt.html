@@ -77,7 +77,7 @@
               <p class="question__meta">{{ currentSectionName() }} · Question {{ position() + 1 }} of {{ questions().length }}</p>
               <fieldset class="question" [attr.aria-labelledby]="'question-text-' + question.id">
                 <!-- The text is the API's sanitized HTML, rendered through Angular's own sanitizer as a second layer. -->
-                <div class="question__text rich-text" [id]="'question-text-' + question.id" [innerHTML]="question.text"></div>
+                <div class="question__text rich-text" [id]="'question-text-' + question.id" [appMath]="question.text"></div>
                 @if (question.allowsMultiple) {
                   <p class="question__hint">Choose all the answers that apply.</p>
                 }
