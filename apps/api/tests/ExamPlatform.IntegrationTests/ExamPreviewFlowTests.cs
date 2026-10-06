@@ -24,7 +24,7 @@ public sealed class ExamPreviewFlowTests(ApiFactory factory) : IClassFixture<Api
         Assert.Equal("Preview Exam", preview.GetProperty("examName").GetString());
         Assert.Equal("InProgress", preview.GetProperty("status").GetString());
         var shown = Assert.Single(preview.GetProperty("sections")[0].GetProperty("questions").EnumerateArray());
-        Assert.Equal("<p>What is 2 + 2?</p>", shown.GetProperty("text").GetString()?.Replace("\n", ""), ignoreCase: true);
+        Assert.Equal("What is 2 + 2?", shown.GetProperty("text").GetString());
         Assert.Equal(2, shown.GetProperty("options").GetArrayLength());
         Assert.DoesNotContain("isCorrect", preview.GetRawText(), StringComparison.OrdinalIgnoreCase);
     }
