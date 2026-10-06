@@ -54,6 +54,11 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             b.HasMany(a => a.FocusViolations).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(a => a.FocusViolations).HasField("_focusViolations").UsePropertyAccessMode(PropertyAccessMode.Field);
 
+            b.HasMany(a => a.ClientSightings).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
+            b.Navigation(a => a.ClientSightings).HasField("_clientSightings").UsePropertyAccessMode(PropertyAccessMode.Field);
+            b.Ignore(a => a.DeviceCount);
+            b.Ignore(a => a.ClientChanges);
+
             b.HasMany(a => a.Warnings).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(a => a.Warnings).HasField("_warnings").UsePropertyAccessMode(PropertyAccessMode.Field);
 
@@ -103,6 +108,18 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             // At most one mark per question: marking twice at once cannot leave two rows, and the loser is a harmless conflict.
             // The index also serves loading an attempt's marks.
             b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
+        });
+
+        modelBuilder.Entity<AttemptClientSighting>(b =>
+        {
+            b.ToTable("AttemptClientSightings");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.IpAddress).HasMaxLength(ExamPlatform.SharedKernel.Application.ClientInfo.MaxIpLength);
+            b.Property(x => x.DeviceFingerprint).HasMaxLength(ExamPlatform.SharedKernel.Application.ClientInfo.MaxFingerprintLength);
+            b.Property(x => x.Reason).HasConversion<string>().HasMaxLength(20);
+
+            // An attempt's sightings are read together with the attempt, oldest first.
+            b.HasIndex(x => new { x.AttemptId, x.SeenAtUtc });
         });
 
         modelBuilder.Entity<AttemptWarning>(b =>

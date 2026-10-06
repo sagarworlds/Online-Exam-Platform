@@ -22,6 +22,7 @@ public sealed class Attempt : AggregateRoot
     private readonly List<AttemptResultRevision> _revisions = [];
     private readonly List<AttemptFocusViolation> _focusViolations = [];
     private readonly List<AttemptWarning> _warnings = [];
+    private readonly List<AttemptClientSighting> _clientSightings = [];
 
     /// <summary>The exam being taken.</summary>
     public Guid ExamId { get; private set; }
@@ -121,6 +122,18 @@ public sealed class Attempt : AggregateRoot
     /// <see cref="RecordFocusViolation"/>.
     /// </summary>
     public IReadOnlyList<AttemptFocusViolation> FocusViolations => _focusViolations.AsReadOnly();
+
+    /// <summary>
+    /// Where this attempt was sat from, oldest first (FR-26): the first row is where it began, and each later one is a change of address
+    /// or device. See <see cref="NoteClient"/>.
+    /// </summary>
+    public IReadOnlyList<AttemptClientSighting> ClientSightings => _clientSightings.AsReadOnly();
+
+    /// <summary>How many different device signatures this attempt was seen on; more than one means the account was used from another device.</summary>
+    public int DeviceCount => _clientSightings.Select(s => s.DeviceFingerprint).Where(f => f is not null).Distinct().Count();
+
+    /// <summary>How many times the attempt was seen from a different address or device than before (FR-26).</summary>
+    public int ClientChanges => _clientSightings.Count(s => s.Reason == ClientSightingReason.Changed);
 
     /// <summary>The warnings administrators sent during this attempt, oldest first (FR-29).</summary>
     public IReadOnlyList<AttemptWarning> Warnings => _warnings.AsReadOnly();
@@ -293,6 +306,35 @@ public sealed class Attempt : AggregateRoot
             throw new SectionLockedError();
 
         ActiveSectionOrder = sectionOrder;
+    }
+
+    /// <summary>
+    /// Notes where the candidate is sitting the attempt from (FR-26). The first call records the start. Later ones record something only
+    /// when the address or device signature differs from the last one recorded, so the rows are a history of changes, and a candidate
+    /// who stays put adds nothing. Does nothing once the attempt is over: a result opened later from another place is not a change.
+    /// </summary>
+    /// <param name="ipAddress">The candidate's address as the server sees it; null if unknown.</param>
+    /// <param name="deviceFingerprint">The device signature the page sent; null if none.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns>Whether anything was recorded, so the caller knows there is something to save.</returns>
+    public bool NoteClient(string? ipAddress, string? deviceFingerprint, DateTime nowUtc)
+    {
+        if (Status != AttemptStatus.InProgress)
+            return false;
+
+        var last = _clientSightings.OrderBy(s => s.SeenAtUtc).LastOrDefault();
+        if (last is null)
+        {
+            _clientSightings.Add(new AttemptClientSighting(Id, ipAddress, deviceFingerprint, nowUtc, ClientSightingReason.Started));
+            return true;
+        }
+
+        if (last.IpAddress == ipAddress && last.DeviceFingerprint == deviceFingerprint)
+            return false;
+
+        _clientSightings.Add(new AttemptClientSighting(Id, ipAddress, deviceFingerprint, nowUtc, ClientSightingReason.Changed));
+        AddDomainEvent(new AttemptClientChangedEvent(Id, ExamId, CandidateId, last.IpAddress, last.DeviceFingerprint, ipAddress, deviceFingerprint));
+        return true;
     }
 
     /// <summary>Sends the candidate a warning while they sit the exam (FR-29). A paused attempt can be warned too.</summary>

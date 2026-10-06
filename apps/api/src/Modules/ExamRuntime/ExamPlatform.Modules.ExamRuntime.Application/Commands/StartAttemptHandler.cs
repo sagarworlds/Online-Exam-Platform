@@ -19,7 +19,8 @@ public sealed class StartAttemptHandler(
     AttemptAccess access,
     AttemptViewBuilder views,
     PaperDrawer paperDrawer,
-    Clock clock)
+    Clock clock,
+    IClientInfo clientInfo)
 {
     /// <summary>
     /// Starts the attempt. Calling it again while an attempt is open is how a candidate resumes: it returns that attempt with its
@@ -56,6 +57,11 @@ public sealed class StartAttemptHandler(
         {
             var theirExam = exam.For(latest);
             await access.CloseIfExpiredAsync(latest, theirExam, cancellationToken);
+
+            // Resuming from another address or device is exactly what multi-login detection looks for (FR-26): note it, and keep it.
+            if (latest.NoteClient(clientInfo.IpAddress, clientInfo.DeviceFingerprint, clock.UtcNow))
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+
             return await views.BuildAsync(latest, theirExam, cancellationToken);
         }
 
@@ -71,6 +77,8 @@ public sealed class StartAttemptHandler(
         var attempt = Begin(exam, candidateId, theirs.Count + 1);
         // The acknowledgment is the start: one instant, so the record cannot disagree with the attempt's own clock.
         attempt.AcknowledgeInstructions(attempt.StartedAtUtc);
+        // Where the candidate began, the first of the attempt's sightings (FR-26).
+        attempt.NoteClient(clientInfo.IpAddress, clientInfo.DeviceFingerprint, attempt.StartedAtUtc);
         if (PaperDrawer.Draws(exam))
             attempt.SetPaper(await paperDrawer.DrawAsync(exam, cancellationToken));
 

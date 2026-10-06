@@ -17,6 +17,7 @@ public class AttemptHandlerTests
 {
     private readonly Guid _candidate = Guid.NewGuid();
     private readonly FakeClock _clock = new(Fixtures.Now);
+    private readonly FakeClientInfo _client = new();
     private readonly IExamCatalog _catalog = Substitute.For<IExamCatalog>();
     private readonly IEnrollments _enrollments = Substitute.For<IEnrollments>();
     private readonly IQuestionBank _bank = Substitute.For<IQuestionBank>();
@@ -46,13 +47,13 @@ public class AttemptHandlerTests
     private AttemptViewBuilder Views => new(_bank, _clock);
     private AttemptCloser Closer => new(_bank, _unitOfWork, _clock);
     private AttemptAccess Access => new(_attempts, _catalog, Closer, _clock);
-    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _clock);
+    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _clock, _client);
     private SaveAnswerHandler Save => new(Access, _bank, _unitOfWork, _clock);
     private ClearAnswerHandler Clear => new(Access, _unitOfWork, _clock);
     private MarkQuestionHandler Mark => new(Access, _unitOfWork, _clock);
     private MoveToSectionHandler MoveSection => new(Access, _unitOfWork, _clock);
     private SubmitAttemptHandler Submit => new(Access, Closer, Views);
-    private GetAttemptHandler Get => new(Access, Views);
+    private GetAttemptHandler Get => new(Access, Views, _client, _unitOfWork, _clock);
 
     private Attempt OpenAttempt(DateTime? startedAt = null, DateTime? deadline = null)
     {

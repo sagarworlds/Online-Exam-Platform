@@ -115,6 +115,7 @@ public class ExtraAttemptHandlerTests
     private readonly Guid _candidate = Guid.NewGuid();
     private readonly Guid _admin = Guid.NewGuid();
     private readonly FakeClock _clock = new(Fixtures.Now);
+    private readonly FakeClientInfo _client = new();
     private readonly IExamCatalog _catalog = Substitute.For<IExamCatalog>();
     private readonly IEnrollments _enrollments = Substitute.For<IEnrollments>();
     private readonly IExamRoster _roster = Substitute.For<IExamRoster>();
@@ -147,7 +148,7 @@ public class ExtraAttemptHandlerTests
 
     private AttemptViewBuilder Views => new(_bank, _clock);
     private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock);
-    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _clock);
+    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _clock, _client);
     private GrantExtraAttemptHandler Grant => new(_catalog, _roster, _attempts, _grants, _unitOfWork, _clock);
 
     /// <summary>An attempt the candidate has already made: submitted unless <paramref name="open"/>.</summary>

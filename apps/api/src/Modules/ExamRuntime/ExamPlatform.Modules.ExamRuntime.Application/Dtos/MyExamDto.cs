@@ -26,6 +26,8 @@ public enum MyExamState
 /// <param name="MaxScore">The marks available, once submitted.</param>
 /// <param name="FocusViolations">How many times the candidate left the exam page (FR-22); only filled for staff.</param>
 /// <param name="Warnings">How many warnings administrators sent during the attempt (FR-29); only filled for staff.</param>
+/// <param name="ClientChanges">Staff only: how many times the attempt was seen from a different address or device than before (FR-26).</param>
+/// <param name="Devices">Staff only: how many different device signatures the attempt was seen on; more than one means the account was used from another device.</param>
 /// <param name="Paused">Whether an administrator has paused the attempt (FR-29).</param>
 /// <param name="TerminatedByAdmin">Whether an administrator ended the attempt early (FR-29).</param>
 /// <param name="TerminationReason">Why an administrator ended it.</param>
@@ -42,6 +44,8 @@ public sealed record AttemptSummaryDto(
     decimal? MaxScore,
     int? FocusViolations = null,
     int? Warnings = null,
+    int? ClientChanges = null,
+    int? Devices = null,
     bool Paused = false,
     bool TerminatedByAdmin = false,
     string? TerminationReason = null,
