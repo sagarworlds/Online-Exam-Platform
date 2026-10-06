@@ -350,6 +350,27 @@ While an exam that watches for it is open, the page reports each time the candid
 | Not built | A proctoring profile that bundles this with copy protection and consent text (FR-46); admin warnings, pausing and invalidating an attempt (FR-29); the risk score (FR-27); and showing reviewers the list of departures (the rows are stored for it). |
 | Migrations | `ExamFocusViolationLimit` adds `Config_FocusViolationLimit` to `examAuthoring.Exams` (default 0). `AttemptFocusViolations` adds `examRuntime.AttemptFocusViolations` and `Attempts.EndedByViolations` (default false). |
 
+#### Admin actions on an attempt: warn, pause, resume, terminate, invalidate
+
+While a candidate sits an exam, and just after, staff with `exam.manage` can act on their attempt (FR-29). Every action is audited (FR-40), and the buttons are on the exam's **Candidates and attempts** page, next to each attempt.
+
+| Action | Route (`POST /v1/exams/{examId}/attempts/{attemptId}/...`) | What it does |
+|--------|------------------------------------------------------------|--------------|
+| Warn | `warn` `{ "message": "..." }` | Sends the candidate a message, 1 to 500 characters. Their exam page shows it as an alert within about ten seconds and keeps showing it until they press OK (a dismissed warning is remembered in that browser tab, per attempt). Kept as rows in `examRuntime.AttemptWarnings` with who sent it and when. A paused attempt can still be warned. |
+| Pause | `pause` | The candidate cannot answer, clear, mark, move section or submit (`409 attempt_paused`), the page hides the questions behind "Your exam is paused", and the clock stops: a paused attempt cannot run out. Departures from the page are not counted while it is paused. |
+| Resume | `resume` | Moves the deadline later by the time spent paused, so the candidate has exactly the time they had left. The server's deadline stays the only clock. `409 attempt_not_paused` if it is not paused. |
+| Terminate | `terminate` `{ "reason": "..." }` | Ends the attempt now, scored with the answers saved so far (works on a paused attempt). It is `autoSubmitted` and records who ended it and why (`TerminatedByUserId`, `TerminationReason`); the candidate's result says an organiser ended it, with the reason. A reason of 1 to 500 characters is required, and without one nothing changes (`400`). |
+| Invalidate | `invalidate` `{ "reason": "..." }` | For a finished attempt (`409 attempt_not_submitted` while open; `409 attempt_already_invalidated` the second time). The result no longer counts: the candidate's attempt, list and exam row show **no score**, the page says the result was invalidated and why, and the answer review is refused (`409 attempt_invalidated`). Staff still see the score, kept for the record. A reason is required. An administrator can still give the candidate another attempt in the usual way. |
+
+Each route names the exam as well as the attempt, so an attempt of another exam answers `404`, and each acts on an attempt only after closing it if its time had run out. Staff see, per attempt, whether it is paused, ended by an organiser or invalidated, and how many times the candidate left the page (FR-22) and how many warnings they were sent.
+
+| What | Rule |
+|------|------|
+| How the page hears | While an attempt is open the exam page asks `GET /v1/me/attempts/{attemptId}/status` every ten seconds, with no waiting indicator. It is a small heartbeat (state, pause time, deadline, server time, warnings, no questions). A failed check is ignored and the next one tries again. If the attempt is no longer open the page loads the result. A save that is refused because the attempt was paused or ended also brings the page up to date. |
+| Audit | `ExamRuntime.AttemptWarned`, `AttemptPaused`, `AttemptResumed`, `AttemptTerminated` and `AttemptInvalidated`, written from the events the attempt raises, with the administrator from the request and the exam and candidate ids, plus the message or reason, in the metadata. |
+| Not built | Reopening an attempt that was ended or invalidated, an admin view of the stored departures (the rows exist), live monitoring of attempts in progress, and sending a warning to every candidate of an exam at once. |
+| Migration | `AttemptAdminActions` adds `PausedAtUtc`, `TerminatedByUserId`, `TerminationReason`, `InvalidatedAtUtc`, `InvalidatedByUserId` and `InvalidationReason` to `examRuntime.Attempts`, and the `AttemptWarnings` table. |
+
 #### Sitting an exam: clearing a response and marking for review
 
 Two controls under each question on the exam page (`/attempt/:id`), as on a printed paper: **Clear response** takes the chosen option back, and **Mark for review** is a note to come back to the question. Both show at once and are saved in the background; if a save fails the page puts things back as they were and says so.
