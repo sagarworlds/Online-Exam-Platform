@@ -1,7 +1,7 @@
 import { DOCUMENT, DatePipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, HostListener, computed, effect, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
 import { AttemptDto, AttemptQuestionDto, AttemptStatusDto, AttemptWarningDto, FocusViolationKind } from '../candidate.models';
@@ -98,7 +98,20 @@ function paletteStatus(answered: boolean, marked: boolean, seen: boolean): strin
 })
 export class ExamAttempt {
   private readonly api = inject(CandidateApiService);
-  private readonly attemptId = inject(ActivatedRoute).snapshot.paramMap.get('attemptId');
+  private readonly route = inject(ActivatedRoute).snapshot;
+  private readonly router = inject(Router);
+
+  /**
+   * Whether a staff member is previewing the exam (FR-15) rather than a candidate sitting it. The page is the same, but nothing is
+   * saved (the preview API drops it), the exam's proctoring is not applied to them, and ending it goes back to the exam.
+   */
+  protected readonly preview = this.route.data?.['preview'] === true;
+
+  /** The id the preview's back link points to: the exam's, which is the id in the address. */
+  protected readonly examIdForLinks = this.route.paramMap.get('id') ?? '';
+
+  // On the preview route the id in the address is the exam's; the preview API reads it as such.
+  private readonly attemptId = this.route.paramMap.get(this.preview ? 'id' : 'attemptId');
 
   protected readonly attempt = signal<AttemptDto | null>(null);
   protected readonly loading = signal(true);
@@ -133,7 +146,7 @@ export class ExamAttempt {
    * Whether copying, pasting, right-click and printing are turned off right now (FR-23): only while the exam is open, and
    * unless the author lifted it. The result and the review are the candidate's own, so they are free to copy and print.
    */
-  protected readonly protectContent = computed(() => this.isOpen() && this.attempt()?.contentProtection !== false);
+  protected readonly protectContent = computed(() => !this.preview && this.isOpen() && this.attempt()?.contentProtection !== false);
 
   /** The sentence saying what was just refused, or null. It clears itself, so the page does not fill up with warnings. */
   protected readonly protectionNotice = signal<string | null>(null);
@@ -148,7 +161,7 @@ export class ExamAttempt {
    */
   protected readonly focusLimit = computed(() => (this.isOpen() ? (this.attempt()?.focusViolationLimit ?? 0) : 0));
   // Not while an administrator has paused the attempt: the candidate was told to wait, so stepping away is not a departure.
-  protected readonly watchFocus = computed(() => this.focusLimit() > 0 && !this.paused());
+  protected readonly watchFocus = computed(() => !this.preview && this.focusLimit() > 0 && !this.paused());
 
   /** How many times the candidate has left so far, as the server last said. */
   protected readonly focusViolations = signal(0);
@@ -623,6 +636,12 @@ export class ExamAttempt {
       return;
     }
 
+    // Ending a preview scores nothing and stores nothing; it goes back to the exam being edited.
+    if (this.preview) {
+      void this.router.navigate(['/exams', this.examIdForLinks]);
+      return;
+    }
+
     this.submitting.set(true);
     this.errorMessage.set(null);
     this.api.submitAttempt(attempt.id).subscribe({
@@ -649,7 +668,10 @@ export class ExamAttempt {
       this.clockOffsetMs = Date.parse(attempt.serverTimeUtc) - Date.now();
       this.tick();
       this.timer = setInterval(() => this.tick(), TICK_MS);
-      this.heartbeat = setInterval(() => this.checkStatus(), HEARTBEAT_MS);
+      // A preview has no attempt on the server to pause, warn or end.
+      if (!this.preview) {
+        this.heartbeat = setInterval(() => this.checkStatus(), HEARTBEAT_MS);
+      }
     }
   }
 
@@ -723,7 +745,8 @@ export class ExamAttempt {
     const remainingMs = Date.parse(attempt.deadlineUtc) - now;
     this.remainingSeconds.set(Math.max(0, Math.ceil(remainingMs / 1000)));
 
-    if (remainingMs <= 0 && pausedAt === null) {
+    // A preview that runs out of time just shows zero: there is no attempt for the server to close, and reloading would redraw the paper.
+    if (remainingMs <= 0 && pausedAt === null && !this.preview) {
       // Out of time: the server closes the attempt when it is next read, and tells us the result.
       this.stopTimer();
       this.reload();

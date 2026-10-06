@@ -3,6 +3,8 @@ import { Permission } from './auth/admin-sections';
 import { authGuard } from './auth/auth.guard';
 import { landingGuard } from './auth/landing-route';
 import { permissionGuard } from './auth/permission.guard';
+import { CandidateApiService } from './candidate/candidate-api.service';
+import { PreviewCandidateApiService } from './candidate/exam-attempt/preview-candidate-api.service';
 
 export const routes: Routes = [
   // The root sends each visitor home: to /login when signed out, to their exams or the admin area when signed in.
@@ -117,6 +119,14 @@ export const routes: Routes = [
     path: 'admin/attempt-requests',
     canActivate: [permissionGuard(Permission.ExamManage)],
     loadComponent: () => import('./attempt-management/attempt-requests/attempt-requests').then((m) => m.AttemptRequests),
+  },
+  {
+    // Staff see an exam as a candidate would (FR-15). The same page runs on the preview API, which saves nothing.
+    path: 'exams/:id/preview',
+    canActivate: [permissionGuard(Permission.ExamManage)],
+    data: { preview: true },
+    providers: [{ provide: CandidateApiService, useClass: PreviewCandidateApiService }],
+    loadComponent: () => import('./candidate/exam-attempt/exam-attempt').then((m) => m.ExamAttempt),
   },
   {
     path: 'exams/:id/attempts',

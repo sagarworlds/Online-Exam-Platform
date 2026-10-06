@@ -1037,4 +1037,14 @@ describe('ExamEditor', () => {
       expect(card(root).textContent).toContain('the attempt ends after 3 times');
     });
   });
+
+  describe('preview as a candidate (FR-15)', () => {
+    it.each(['Draft', 'Published', 'Archived'])('links to the preview of a %s exam', (status) => {
+      const { root } = open(examBody({ status }));
+
+      const link = Array.from(root.querySelectorAll('a')).find((a) => a.textContent?.includes('Preview as a candidate'));
+
+      expect(link?.getAttribute('href')).toBe('/exams/exam-1/preview');
+    });
+  });
 });
