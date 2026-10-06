@@ -1,6 +1,7 @@
 using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Queries;
 using ExamPlatform.Modules.Identity.Endpoints.RateLimiting;
+using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Application.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -121,8 +122,9 @@ public static class IdentityEndpoints
             .RequireAuthorization("permission:identity.otp.read");
     }
 
+    // Cleaned the same way for every flow, so a login cannot store more than an attempt would (FR-26).
     private static string? DeviceFingerprint(HttpContext http) =>
-        http.Request.Headers.TryGetValue("X-Device-Fingerprint", out var value) ? value.ToString() : null;
+        http.Request.Headers.TryGetValue(ClientInfo.FingerprintHeader, out var value) ? ClientInfo.CleanFingerprint(value.ToString()) : null;
 
-    private static string? ClientIp(HttpContext http) => http.Connection.RemoteIpAddress?.ToString();
+    private static string? ClientIp(HttpContext http) => ClientInfo.CleanIp(http.Connection.RemoteIpAddress?.ToString());
 }

@@ -31,6 +31,7 @@ builder.Services.AddSharedKernel();
 // Who is acting in the current request, so code that reacts to a domain event can name the actor in the audit trail.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IRequestContext, HttpRequestContext>();
+builder.Services.AddScoped<IClientInfo, HttpClientInfo>();
 
 // One mail sender for everything the platform sends (invitations, OTP codes, answers to attempt requests). Mail:Provider
 // picks the transport: Smtp (the default, unchanged behaviour) or BrevoApi, which sends over HTTPS for a host (e.g.

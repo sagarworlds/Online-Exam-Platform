@@ -259,7 +259,9 @@ public sealed class User : AggregateRoot
         if (existingActive is not null)
         {
             existingActive.Revoke(nowUtc, SessionRevocationReason.SupersededByNewLogin);
-            AddDomainEvent(new SessionSupersededEvent(Id, existingActive.Id, newSession.Id, nowUtc));
+            AddDomainEvent(new SessionSupersededEvent(
+                Id, existingActive.Id, newSession.Id, nowUtc,
+                existingActive.IpAddress, existingActive.DeviceFingerprint, newSession.IpAddress, newSession.DeviceFingerprint));
         }
 
         return newSession;
