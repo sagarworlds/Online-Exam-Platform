@@ -41,7 +41,8 @@ internal static class ExamMapping
                 exam.Scope.Type,
                 exam.Scope.BookId,
                 BookName: null,
-                exam.Scope.ChapterIds.Select(id => new ExamScopeChapterDto(id, Title: null)).ToList()));
+                exam.Scope.ChapterIds.Select(id => new ExamScopeChapterDto(id, Title: null)).ToList()),
+            Proctoring: ProctoringMapping.For(exam.Config));
 
     /// <summary>Maps an exam together with its sections and questions.</summary>
     /// <param name="exam">The exam to map.</param>

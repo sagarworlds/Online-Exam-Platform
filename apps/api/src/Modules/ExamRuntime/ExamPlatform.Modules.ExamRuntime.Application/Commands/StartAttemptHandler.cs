@@ -76,7 +76,8 @@ public sealed class StartAttemptHandler(
 
         var attempt = Begin(exam, candidateId, theirs.Count + 1);
         // The acknowledgment is the start: one instant, so the record cannot disagree with the attempt's own clock.
-        attempt.AcknowledgeInstructions(attempt.StartedAtUtc);
+        // What the candidate was told about proctoring is kept as shown, so the record says what they acknowledged (FR-46).
+        attempt.AcknowledgeInstructions(attempt.StartedAtUtc, exam.ProctoringNotice is { Count: > 0 } notice ? string.Join("\n", notice) : null);
         // Where the candidate began, the first of the attempt's sightings (FR-26).
         attempt.NoteClient(clientInfo.IpAddress, clientInfo.DeviceFingerprint, attempt.StartedAtUtc);
         if (PaperDrawer.Draws(exam))

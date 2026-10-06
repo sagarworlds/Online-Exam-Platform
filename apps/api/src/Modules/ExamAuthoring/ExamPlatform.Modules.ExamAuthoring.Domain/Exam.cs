@@ -470,6 +470,34 @@ public class Exam : AggregateRoot
     }
 
     /// <summary>
+    /// Applies a proctoring profile (FR-46): sets the copy block and the violation limit together, to what the profile says. The settings
+    /// stay editable one by one afterwards, in which case the exam reports its profile as custom. Like those settings it may change after
+    /// publishing, because it changes nothing that is asked or scored.
+    /// </summary>
+    /// <param name="profileId">The profile's id, ignoring case.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">There is no such profile, or it cannot be chosen yet.</exception>
+    public void SetProctoringProfile(string? profileId, DateTime nowUtc)
+    {
+        EnsureNotArchived();
+
+        var profile = ProctoringProfiles.Find(profileId)
+            ?? throw new InvalidExamConfigError("There is no such proctoring profile.");
+        if (!profile.Available)
+            throw new InvalidExamConfigError(profile.UnavailableReason ?? "This proctoring profile cannot be chosen yet.");
+
+        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
+        Config = Config with
+        {
+            ContentProtection = profile.ContentProtection,
+            FocusViolationLimit = profile.FocusViolationLimit,
+            MarkingScheme = Config.MarkingScheme with { },
+        };
+        UpdatedAt = nowUtc;
+    }
+
+    /// <summary>
     /// Releases the answers of a manual-release exam now: the release time is set to the current instant, so the one rule
     /// "released when the mode is Instant or the release time has arrived" covers every mode. Calling it again keeps the first time.
     /// </summary>

@@ -94,6 +94,26 @@ public class AttemptHandlerTests
     }
 
     [Fact]
+    public async Task Start_KeepsTheProctoringNoticeTheCandidateAcknowledged_AsItWasShown()
+    {
+        var exam = Fixtures.Exam([_q1]) with { ProctoringNotice = ["Your IP address is recorded.", "No camera is used."] };
+        _catalog.FindAsync(exam.Id, Arg.Any<CancellationToken>()).Returns(exam);
+        _enrollments.IsEnrolledAsync(_candidate, exam.Id, Arg.Any<CancellationToken>()).Returns(true);
+
+        await Start.HandleAsync(exam.Id, _candidate, true, CancellationToken.None);
+
+        _attempts.Received(1).Add(Arg.Is<Attempt>(a => a.AcknowledgedNotice == "Your IP address is recorded.\nNo camera is used."));
+    }
+
+    [Fact]
+    public async Task Start_ForAnExamWithNoNotice_KeepsNone()
+    {
+        await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
+
+        _attempts.Received(1).Add(Arg.Is<Attempt>(a => a.AcknowledgedNotice == null));
+    }
+
+    [Fact]
     public async Task Start_WithoutAcknowledgingTheInstructions_IsRefused_AndNothingIsCreated()
     {
         await Assert.ThrowsAsync<InstructionsNotAcknowledgedError>(() => Start.HandleAsync(_exam.Id, _candidate, false, CancellationToken.None));

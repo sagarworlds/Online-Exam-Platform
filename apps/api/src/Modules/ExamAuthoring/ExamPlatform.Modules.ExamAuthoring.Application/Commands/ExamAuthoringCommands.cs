@@ -112,6 +112,11 @@ public sealed record SetMaxAttemptsCommand(Guid ExamId, int? MaxAttempts);
 /// <param name="ContentProtection">Whether the protection is on, or null if the caller did not send it.</param>
 public sealed record SetContentProtectionCommand(Guid ExamId, bool? ContentProtection);
 
+/// <summary>Applies a proctoring profile, which sets the copy block and the violation limit together (FR-46).</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="Profile">The profile's id, or null if the caller did not send it.</param>
+public sealed record SetProctoringProfileCommand(Guid ExamId, string? Profile);
+
 /// <summary>Chooses how many times a candidate may leave the exam page before the attempt is ended (FR-22).</summary>
 /// <param name="ExamId">The exam.</param>
 /// <param name="FocusViolationLimit">The violations allowed, from 0 (not watched) to 20, or null if the caller did not send it.</param>

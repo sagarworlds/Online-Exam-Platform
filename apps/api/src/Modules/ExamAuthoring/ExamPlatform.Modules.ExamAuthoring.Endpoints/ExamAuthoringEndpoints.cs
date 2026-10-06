@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using ExamPlatform.Modules.ExamAuthoring.Application.Commands;
+using ExamPlatform.Modules.ExamAuthoring.Application.Dtos;
 using ExamPlatform.Modules.ExamAuthoring.Application.Queries;
 using ExamPlatform.Modules.ExamAuthoring.Domain;
 using ExamPlatform.SharedKernel.Application.Security;
@@ -18,6 +19,16 @@ public static class ExamAuthoringEndpoints
     {
         // The group only demands a signed-in caller. Being signed in says nothing about being allowed to
         // author exams (a candidate is signed in too), so every route also names the permission it needs (FR-2, NFR-5).
+        // The profiles an author can choose between (FR-46): fixed by the platform, so it needs only the permission to read exams.
+        endpoints.MapGet("/v1/proctoring-profiles", (ListProctoringProfilesHandler handler) => Results.Ok(handler.Handle()))
+            .WithTags("ExamAuthoring")
+            .RequireAuthorization(ExamAuthoringPermissions.Read)
+            .Produces<IReadOnlyList<ProctoringProfileDto>>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ListProctoringProfiles")
+            .WithDescription("List the proctoring profiles an author can choose, with what each does and what candidates would be told");
+
         var exams = endpoints.MapGroup("/v1/exams")
             .WithTags("ExamAuthoring")
             .RequireAuthorization();
@@ -109,6 +120,15 @@ public static class ExamAuthoringEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .WithName("SetExamContentProtection")
             .WithDescription("Choose whether the exam page turns off copying, pasting, right-click and printing while candidates sit the exam");
+
+        exams.MapPut("/{examId:guid}/proctoring-profile", SetProctoringProfile)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("SetExamProctoringProfile")
+            .WithDescription("Apply a proctoring profile, which sets the copy block and the violation limit together");
 
         exams.MapPut("/{examId:guid}/focus-violation-limit", SetFocusViolationLimit)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
@@ -271,6 +291,10 @@ public static class ExamAuthoringEndpoints
         Guid examId, ContentProtectionRequest request, SetContentProtectionHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetContentProtectionCommand(examId, request.ContentProtection), ct));
 
+    private static async Task<IResult> SetProctoringProfile(
+        Guid examId, ProctoringProfileRequest request, SetProctoringProfileHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new SetProctoringProfileCommand(examId, request.Profile), ct));
+
     private static async Task<IResult> SetFocusViolationLimit(
         Guid examId, FocusViolationLimitRequest request, SetFocusViolationLimitHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetFocusViolationLimitCommand(examId, request.FocusViolationLimit), ct));
@@ -411,6 +435,10 @@ public record ContentProtectionRequest(bool? ContentProtection);
 /// <summary>Request body for setting how many times a candidate may leave the exam page before the attempt is ended.</summary>
 /// <param name="FocusViolationLimit">The violations allowed, from 0 (the exam does not watch) to 20.</param>
 public record FocusViolationLimitRequest(int? FocusViolationLimit);
+
+/// <summary>Request body for applying a proctoring profile.</summary>
+/// <param name="Profile">The profile's id, for example <c>BROWSER_LOCK</c>; see <c>GET /v1/proctoring-profiles</c>.</param>
+public record ProctoringProfileRequest(string? Profile);
 
 /// <summary>Request body for changing an exam's name and description.</summary>
 /// <param name="Name">The exam's new name.</param>

@@ -34,6 +34,10 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// How many times a candidate may leave the exam page (switch tab or window, leave full screen) before the server ends the attempt
 /// (FR-22). 0 means the exam does not watch for it.
 /// </param>
+/// <param name="ProctoringNotice">
+/// What a candidate is told before they start about what is turned off, recorded and watched (FR-46), written from the exam's proctoring
+/// settings so it is always what is collected. The instructions page shows it, and the attempt keeps the text the candidate acknowledged.
+/// </param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -55,7 +59,8 @@ public sealed record ExamSnapshot(
     bool ShuffleOptions = false,
     bool PartialCredit = false,
     bool ContentProtection = true,
-    int FocusViolationLimit = 0);
+    int FocusViolationLimit = 0,
+    IReadOnlyList<string>? ProctoringNotice = null);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>
