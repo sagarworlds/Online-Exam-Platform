@@ -398,6 +398,21 @@ The platform records the IP address and a device signature of each sign-in and o
 | Not built | Blocking a second device outright during an exam, a retention period for the stored addresses (FR-47), and a per-exam setting to turn the logging off. |
 | Migration | `AttemptClientSightings` adds the `examRuntime.AttemptClientSightings` table. |
 
+#### Proctoring profiles and the notice candidates are shown
+
+An exam's proctoring settings (copy block, FR-23; page-leaving limit, FR-22) can be applied together as a named profile, and the notice a candidate reads before starting is written from those settings, so it always matches what is collected (FR-46, requirements section 8).
+
+| What | Rule |
+|------|------|
+| Profiles | `OFF` (nothing turned off or watched: practice and chapter tests) and `BROWSER_LOCK` (copy block on, and the attempt ends after 5 departures from the page: the default for minors). `BROWSER_CAMERA` and `FULL` are listed by `GET /v1/proctoring-profiles` (`exam.read`) but are not available: the webcam snapshots (FR-24) and screen capture (FR-25) they promise are not built, and offering them would make the notice claim something untrue. Choosing one is a `400` that says so. |
+| Applying one | `PUT /v1/exams/{examId}/proctoring-profile` (`exam.manage`, `{ "profile": "BROWSER_LOCK" }`, ignoring case) sets both settings together, from the exam editor's **Proctoring** card. A missing, unknown or unavailable profile is a `400` and nothing changes; an archived exam refuses it. Like the settings it sets, it may change after publishing. |
+| Custom | The profile is worked out from the settings, not stored, so the two cannot disagree. The two cards below stay for fine-tuning; once the settings match no preset, the exam reports `CUSTOM`. A new exam, with the copy block on and no limit, is custom. |
+| The notice | `ProctoringNotice` writes it from the settings: that the IP address and device signature are recorded (always, FR-26); that copying, pasting, right-click and printing are turned off (when the copy block is on); the departure limit and that reaching it submits the exam (when watched); and that no camera, microphone or screen recording is used. The exam's DTO (`proctoring.notice`) and the instruction rules of the candidate's exam list (`rules.proctoringNotice`) carry it, and the instructions page shows exactly that text, wording nothing about proctoring itself. When a collection is added later, its sentence is added in this one place and every exam says so. |
+| What was acknowledged | The attempt keeps the notice the candidate acknowledged as they started (`Attempt.AcknowledgedNotice`), exactly as shown, so a dispute can show what they were told, even if the exam's settings or the wording change afterwards. An attempt that began before this was kept has none. |
+| Runtime | The runtime never reads a profile's name: it reads the two settings a profile sets, so adding a profile changes the catalogue and nothing that runs an exam. |
+| Not built | Camera and screen profiles (FR-24, FR-25); resolving a policy per candidate from their age and accommodations (there is no accommodations module yet, FR-49); guardian consent for minors (the guardian flow, FR-43 to FR-45); a required full-screen setting. |
+| Migration | `AttemptAcknowledgedNotice` adds `AcknowledgedNotice` to `examRuntime.Attempts`. |
+
 #### Sitting an exam: clearing a response and marking for review
 
 Two controls under each question on the exam page (`/attempt/:id`), as on a printed paper: **Clear response** takes the chosen option back, and **Mark for review** is a note to come back to the question. Both show at once and are saved in the background; if a save fails the page puts things back as they were and says so.

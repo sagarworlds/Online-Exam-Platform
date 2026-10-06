@@ -67,6 +67,8 @@ export interface ExamRulesDto {
   contentProtection?: boolean;
   /** How many times a candidate may leave the exam page before the attempt is ended (FR-22); 0 or absent when the exam does not watch. */
   focusViolationLimit?: number;
+  /** What the candidate is told about what is turned off, recorded and watched, written by the server from the exam's proctoring settings (FR-46). */
+  proctoringNotice?: string[];
 }
 
 /** An exam the candidate is enrolled in, as listed on their exams page. All instants are UTC. */

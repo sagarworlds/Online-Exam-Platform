@@ -62,6 +62,8 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
         services.AddScoped<SetMaxAttemptsHandler>();
         services.AddScoped<SetContentProtectionHandler>();
         services.AddScoped<SetFocusViolationLimitHandler>();
+        services.AddScoped<SetProctoringProfileHandler>();
+        services.AddSingleton<ListProctoringProfilesHandler>();
         services.AddScoped<SetShuffleHandler>();
         services.AddScoped<ReleaseResultsHandler>();
     }

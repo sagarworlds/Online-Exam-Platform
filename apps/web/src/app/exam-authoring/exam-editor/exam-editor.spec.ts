@@ -1047,4 +1047,57 @@ describe('ExamEditor', () => {
       expect(link?.getAttribute('href')).toBe('/exams/exam-1/preview');
     });
   });
+
+  describe('proctoring profile (FR-46)', () => {
+    const isApply = (r: { method: string; url: string }) => r.method === 'PUT' && r.url.endsWith('/v1/exams/exam-1/proctoring-profile');
+    const isList = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/proctoring-profiles');
+    const withProctoring = (status = 'Draft') =>
+      examBody({
+        status,
+        proctoring: { profile: 'CUSTOM', profileName: 'Custom', notice: ['Your IP address is recorded.', 'No camera is used.'] },
+      });
+    const card = (root: HTMLElement) => root.querySelector('app-exam-proctoring-profile') as HTMLElement;
+
+    it('shows the exam\'s profile and the notice candidates are told, without fetching the profile list', () => {
+      const { root } = open(withProctoring());
+
+      expect(card(root).textContent).toContain('Custom');
+      expect(card(root).textContent).toContain('Your IP address is recorded.');
+    });
+
+    it('applies the chosen profile, then shows the exam as the server stored it', () => {
+      const { fixture, root } = open(withProctoring());
+
+      button(card(root), 'Choose a profile').click();
+      httpMock.expectOne(isList).flush([
+        { id: 'BROWSER_LOCK', name: 'Browser lock', description: 'x', available: true, unavailableReason: null, contentProtection: true, focusViolationLimit: 5, notice: ['n'] },
+      ]);
+      fixture.detectChanges();
+      (card(root).querySelector('input[type="radio"]') as HTMLInputElement).click();
+      fixture.detectChanges();
+      button(card(root), 'Apply profile').click();
+
+      const put = httpMock.expectOne(isApply);
+      expect(put.request.body).toEqual({ profile: 'BROWSER_LOCK' });
+      const stored = examBody({ proctoring: { profile: 'BROWSER_LOCK', profileName: 'Browser lock', notice: ['Copying is turned off.'] } });
+      put.flush(stored);
+      httpMock.expectOne(isExam).flush(stored);
+      fixture.detectChanges();
+
+      expect(card(root).textContent).toContain('Browser lock');
+      expect(card(root).textContent).toContain('Copying is turned off.');
+    });
+
+    it('can be changed after the exam is published', () => {
+      const { root } = open(withProctoring('Published'));
+
+      expect(button(card(root), 'Choose a profile')).toBeDefined();
+    });
+
+    it('cannot be changed once the exam is archived', () => {
+      const { root } = open(withProctoring('Archived'));
+
+      expect(button(card(root), 'Choose a profile')).toBeUndefined();
+    });
+  });
 });

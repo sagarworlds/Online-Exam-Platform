@@ -13,6 +13,7 @@ import { ContentProtectionRequest, DrawQuestionsRequest, ExamDto, ExamScopeDto, 
 import { ExamMarkingScheme } from '../exam-marking-scheme/exam-marking-scheme';
 import { ExamContentProtection } from '../exam-content-protection/exam-content-protection';
 import { ExamFocusViolationLimit } from '../exam-focus-violation-limit/exam-focus-violation-limit';
+import { ExamProctoringProfile } from '../exam-proctoring-profile/exam-proctoring-profile';
 import { ExamShuffle } from '../exam-shuffle/exam-shuffle';
 import { ExamAttemptLimit } from '../exam-attempt-limit/exam-attempt-limit';
 import { ExamDetailsForm } from '../exam-details-form/exam-details-form';
@@ -42,7 +43,7 @@ function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): bool
  */
 @Component({
   selector: 'app-exam-editor',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamSectionCard],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamProctoringProfile, ExamSectionCard],
   templateUrl: './exam-editor.html',
 })
 export class ExamEditor {
@@ -204,6 +205,13 @@ export class ExamEditor {
   protected saveContentProtection(request: ContentProtectionRequest): void {
     if (!this.busy()) {
       this.run(this.examApi.setContentProtection(this.examId, request));
+    }
+  }
+
+  /** Applies a proctoring profile, which sets the copy block and the page-leaving limit together. Allowed on a published exam too. */
+  protected saveProctoringProfile(profile: string): void {
+    if (!this.busy()) {
+      this.run(this.examApi.setProctoringProfile(this.examId, { profile }));
     }
   }
 

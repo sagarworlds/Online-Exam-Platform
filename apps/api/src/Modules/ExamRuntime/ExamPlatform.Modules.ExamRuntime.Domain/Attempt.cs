@@ -45,6 +45,16 @@ public sealed class Attempt : AggregateRoot
     /// </summary>
     public DateTime? InstructionsAcknowledgedAtUtc { get; private set; }
 
+    /// <summary>
+    /// The notice about what is turned off, recorded and watched (FR-46) that the candidate acknowledged as they started, exactly as it was
+    /// shown. Kept so a dispute can show what they were told, even after the exam's settings or the wording later change. Null for an
+    /// attempt that began before the notice was kept.
+    /// </summary>
+    public string? AcknowledgedNotice { get; private set; }
+
+    /// <summary>The longest notice kept; far longer than any the platform writes.</summary>
+    public const int MaxNoticeLength = 2000;
+
     /// <summary>Whether the attempt is still open.</summary>
     public AttemptStatus Status { get; private set; }
 
@@ -173,13 +183,15 @@ public sealed class Attempt : AggregateRoot
 
     /// <summary>Records that the candidate acknowledged the instructions as they started. Done once, when the attempt is created.</summary>
     /// <param name="acknowledgedAtUtc">The current instant.</param>
+    /// <param name="notice">The notice shown to the candidate, kept as acknowledged (FR-46); null when there was none.</param>
     /// <exception cref="InvalidAttemptError">The attempt already records an acknowledgment.</exception>
-    public void AcknowledgeInstructions(DateTime acknowledgedAtUtc)
+    public void AcknowledgeInstructions(DateTime acknowledgedAtUtc, string? notice = null)
     {
         if (InstructionsAcknowledgedAtUtc is not null)
             throw new InvalidAttemptError("The instructions were already acknowledged for this attempt.");
 
         InstructionsAcknowledgedAtUtc = acknowledgedAtUtc;
+        AcknowledgedNotice = string.IsNullOrWhiteSpace(notice) ? null : notice.Length > MaxNoticeLength ? notice[..MaxNoticeLength] : notice;
     }
 
     /// <summary>Fixes the questions this attempt consists of. Done once, as the attempt starts.</summary>

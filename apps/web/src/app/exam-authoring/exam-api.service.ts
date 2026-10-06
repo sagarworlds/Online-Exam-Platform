@@ -7,6 +7,8 @@ import {
   ShuffleRequest,
   AttemptLimitRequest,
   ContentProtectionRequest,
+  ProctoringProfileDto,
+  ProctoringProfileRequest,
   FocusViolationLimitRequest,
   CreateExamRequest,
   DrawQuestionsRequest,
@@ -72,6 +74,16 @@ export class ExamApiService {
   /** Turns the exam page's copy, paste, right-click and print protection on or off. Allowed after publishing too: it changes nothing asked or scored. */
   setContentProtection(examId: string, request: ContentProtectionRequest): Observable<ExamDto> {
     return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/content-protection`, request);
+  }
+
+  /** The proctoring profiles an author can choose, with what each does and what candidates would be told (FR-46). */
+  listProctoringProfiles(): Observable<ProctoringProfileDto[]> {
+    return this.http.get<ProctoringProfileDto[]>(`${environment.apiBaseUrl}/v1/proctoring-profiles`);
+  }
+
+  /** Applies a proctoring profile, which sets the copy block and the page-leaving limit together. Allowed after publishing too. */
+  setProctoringProfile(examId: string, request: ProctoringProfileRequest): Observable<ExamDto> {
+    return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/proctoring-profile`, request);
   }
 
   /** Sets how many times a candidate may leave the exam page before the attempt is ended; 0 turns the watch off. Allowed after publishing too. */

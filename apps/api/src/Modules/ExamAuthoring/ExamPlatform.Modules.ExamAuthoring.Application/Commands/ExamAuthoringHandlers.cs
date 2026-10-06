@@ -471,6 +471,29 @@ public sealed class SetContentProtectionHandler(IExamRepository repository, IExa
     }
 }
 
+/// <summary>Handles <see cref="SetProctoringProfileCommand"/>.</summary>
+public sealed class SetProctoringProfileHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
+{
+    /// <summary>Applies the profile to the exam.</summary>
+    /// <param name="command">The profile to apply.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The profile was not sent, does not exist, or cannot be chosen yet.</exception>
+    public async Task<ExamDto> HandleAsync(SetProctoringProfileCommand command, CancellationToken cancellationToken)
+    {
+        // A body without the id binds it to null; that is a 400 about the missing value, not a silent "off".
+        if (string.IsNullOrWhiteSpace(command.Profile))
+            throw new InvalidExamConfigError("Send the id of the proctoring profile.");
+
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.SetProctoringProfile(command.Profile, clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await dtos.ToDtoAsync(exam, cancellationToken);
+    }
+}
+
 /// <summary>Handles <see cref="SetFocusViolationLimitCommand"/>.</summary>
 public sealed class SetFocusViolationLimitHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
 {

@@ -63,6 +63,7 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             b.Navigation(a => a.Warnings).HasField("_warnings").UsePropertyAccessMode(PropertyAccessMode.Field);
 
             b.Property(a => a.TerminationReason).HasMaxLength(Attempt.MaxReasonLength);
+            b.Property(a => a.AcknowledgedNotice).HasMaxLength(Attempt.MaxNoticeLength);
             b.Property(a => a.InvalidationReason).HasMaxLength(Attempt.MaxReasonLength);
             b.Ignore(a => a.IsInvalidated);
             b.Ignore(a => a.IsTerminated);

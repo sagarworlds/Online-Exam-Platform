@@ -48,6 +48,9 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             new { maxAttempts = 2 }),
         new("PUT", "/v1/exams/{examId:guid}/content-protection", RbacCatalog.PermissionCodes.ExamManage,
             new { contentProtection = false }),
+        new("PUT", "/v1/exams/{examId:guid}/proctoring-profile", RbacCatalog.PermissionCodes.ExamManage,
+            new { profile = "OFF" }),
+        new("GET", "/v1/proctoring-profiles", RbacCatalog.PermissionCodes.ExamRead, null),
         new("PUT", "/v1/exams/{examId:guid}/focus-violation-limit", RbacCatalog.PermissionCodes.ExamManage,
             new { focusViolationLimit = 3 }),
         new("PUT", "/v1/exams/{examId:guid}/result-release", RbacCatalog.PermissionCodes.ExamManage,
@@ -135,7 +138,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
     // is the invitee's own action, so it cannot demand a staff permission.
     private static readonly string[] SelfServiceRoutes = ["POST /v1/invites/accept"];
 
-    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/questions", "/v1/books", "/v1/attempt-requests"];
+    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/questions", "/v1/books", "/v1/attempt-requests", "/v1/proctoring-profiles"];
 
     public static TheoryData<string> StaffRouteKeys => [.. StaffRoutes.Select(r => r.Key)];
 
