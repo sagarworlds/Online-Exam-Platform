@@ -40,6 +40,17 @@ export interface AttemptPaperSectionDto {
   questions: AttemptPaperQuestionDto[];
 }
 
+/** Where an attempt was sat from at a moment (FR-26): staff only. */
+export interface AttemptClientDto {
+  /** The candidate's IP address as the server saw it; null when it could not be read. */
+  ipAddress: string | null;
+  /** The device signature the web app sent: a hash, to compare rather than read; null when none was sent. */
+  deviceFingerprint: string | null;
+  seenAtUtc: string;
+  /** Where the attempt began, or a change from where it was. */
+  reason: 'Started' | 'Changed';
+}
+
 /** The questions one attempt consisted of. */
 export interface AttemptPaperDto {
   attemptId: string;

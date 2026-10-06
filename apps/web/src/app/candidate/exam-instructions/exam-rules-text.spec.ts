@@ -129,6 +129,13 @@ describe('instructionLines', () => {
     expect(lines(undefined)).not.toContain('Stay on the exam page');
   });
 
+  it('tells every candidate that their address and device are recorded, whatever the exam does', () => {
+    const told = 'Your IP address and a signature of your device and browser are recorded while you sit the exam, and kept with your attempt for the organisers.';
+
+    expect(instructionLines(exam())).toContain(told);
+    expect(instructionLines(exam({ rules: null }))).toContain(told);
+  });
+
   it('still gives the general rules when the API sent no exam rules', () => {
     const lines = instructionLines(exam({ rules: null }));
 
