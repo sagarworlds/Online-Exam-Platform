@@ -39,5 +39,6 @@ public record ExamConfigDto(
     ResultReleaseMode ResultReleaseMode,
     DateTime? ResultReleaseTime,
     MarkingScheme MarkingScheme,
-    bool ContentProtection = true
+    bool ContentProtection = true,
+    int FocusViolationLimit = 0
 );

@@ -30,6 +30,10 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// <param name="ContentProtection">
 /// Whether the exam page turns off copying, pasting, right-click and printing while the exam is sat (FR-23). On unless the author lifted it.
 /// </param>
+/// <param name="FocusViolationLimit">
+/// How many times a candidate may leave the exam page (switch tab or window, leave full screen) before the server ends the attempt
+/// (FR-22). 0 means the exam does not watch for it.
+/// </param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -50,7 +54,8 @@ public sealed record ExamSnapshot(
     bool ShuffleQuestions = false,
     bool ShuffleOptions = false,
     bool PartialCredit = false,
-    bool ContentProtection = true);
+    bool ContentProtection = true,
+    int FocusViolationLimit = 0);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>

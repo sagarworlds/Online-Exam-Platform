@@ -471,6 +471,29 @@ public sealed class SetContentProtectionHandler(IExamRepository repository, IExa
     }
 }
 
+/// <summary>Handles <see cref="SetFocusViolationLimitCommand"/>.</summary>
+public sealed class SetFocusViolationLimitHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
+{
+    /// <summary>Sets how many times a candidate may leave the exam page before the attempt is ended.</summary>
+    /// <param name="command">The new limit.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The limit was not sent, or is outside the allowed range.</exception>
+    public async Task<ExamDto> HandleAsync(SetFocusViolationLimitCommand command, CancellationToken cancellationToken)
+    {
+        // A body without the number binds it to null; that is a 400 about the missing value, not a silent "not watched".
+        if (command.FocusViolationLimit is null)
+            throw new InvalidExamConfigError("Send the violation limit; 0 turns the watch off.");
+
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.SetFocusViolationLimit(command.FocusViolationLimit.Value, clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await dtos.ToDtoAsync(exam, cancellationToken);
+    }
+}
+
 /// <summary>Handles releasing the answers of a manual-release exam.</summary>
 public sealed class ReleaseResultsHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
 {
