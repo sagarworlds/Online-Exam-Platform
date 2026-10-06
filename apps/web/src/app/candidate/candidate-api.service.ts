@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { SILENT_ACTIVITY } from '../shared/api-activity/api-activity.interceptor';
-import { AttemptDto, AttemptReviewDto, FocusViolationKind, FocusViolationResultDto, MyAttemptRequestDto, MyExamDto } from './candidate.models';
+import { AttemptDto, AttemptReviewDto, AttemptStatusDto, FocusViolationKind, FocusViolationResultDto, MyAttemptRequestDto, MyExamDto } from './candidate.models';
 
 /** Thin HTTP wrapper over the ExamRuntime module's candidate-facing /v1/me endpoints. */
 @Injectable({ providedIn: 'root' })
@@ -73,6 +73,14 @@ export class CandidateApiService {
   /** Moves on to a later section of an exam that locks sections; the section left cannot be returned to. */
   moveToSection(attemptId: string, sectionId: string): Observable<void> {
     return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/section/${sectionId}`, null);
+  }
+
+  /**
+   * The exam page's heartbeat (FR-29): whether the attempt is still open or paused, its deadline as it stands now, and any warnings
+   * administrators sent. Silent, because it runs every few seconds and a waiting indicator each time would be noise.
+   */
+  getAttemptStatus(attemptId: string): Observable<AttemptStatusDto> {
+    return this.http.get<AttemptStatusDto>(`${this.baseUrl}/attempts/${attemptId}/status`, CandidateApiService.background());
   }
 
   /**

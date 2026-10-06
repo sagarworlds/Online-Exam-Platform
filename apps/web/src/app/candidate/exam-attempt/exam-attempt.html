@@ -45,9 +45,24 @@
           <button type="button" (click)="dismissFocusWarning()">OK</button>
         </p>
       }
+      @for (warning of unreadWarnings(); track warning.id) {
+        <p class="exam-focus-warning" role="alert">
+          <strong>Message from the exam organiser:</strong> {{ warning.message }}
+          <button type="button" (click)="dismissWarning(warning)">OK</button>
+        </p>
+      }
       <!-- Always present, so what was just refused is announced politely instead of interrupting. -->
       <p class="exam-protection-notice" role="status" aria-live="polite">{{ protectionNotice() }}</p>
 
+      @if (paused()) {
+        <div class="card exam-paused" role="status">
+          <h2>Your exam is paused</h2>
+          <p>
+            An organiser has paused your exam. Please wait; your answers are saved and your time is stopped. The exam comes back on its
+            own when it is resumed, and you will have the time you had left.
+          </p>
+        </div>
+      } @else {
       <div class="exam-layout">
         <section aria-label="Question">
           @if (currentQuestion(); as question) {
@@ -168,17 +183,28 @@
           }
         </aside>
       </div>
+      }
     } @else {
       <div class="card result">
         <p class="exam-bar__label">Result@if (current.number && current.number > 1) { · Attempt {{ current.number }} }</p>
         <h1>{{ current.examName }}</h1>
-        <p class="score">{{ current.score }} / {{ current.maxScore }}</p>
-        @if (current.endedByViolations) {
+        @if (current.invalidated) {
+          <p class="error-message" role="alert">
+            This result was invalidated by an organiser, so it has no score. Reason: {{ current.invalidationReason }}
+          </p>
+        } @else {
+          <p class="score">{{ current.score }} / {{ current.maxScore }}</p>
+        }
+        @if (current.terminatedByAdmin) {
+          <p class="hint">An organiser ended this exam. It was submitted with the answers you had saved. Reason: {{ current.terminationReason }}</p>
+        } @else if (current.endedByViolations) {
           <p class="hint">You left the exam page too many times, so the exam was submitted automatically with the answers you had saved.</p>
         } @else if (current.autoSubmitted) {
           <p class="hint">Time ran out, so the exam was submitted automatically with the answers you had saved.</p>
         }
-        @if (current.review?.available) {
+        @if (current.invalidated) {
+          <!-- No answer review for a result that no longer counts. -->
+        } @else if (current.review?.available) {
           <p class="hint">Your answers have been marked. See which were right and which were not.</p>
         } @else if (current.review) {
           <p class="hint">
@@ -190,7 +216,7 @@
           </p>
         }
         <div class="actions">
-          @if (current.review?.available) {
+          @if (current.review?.available && !current.invalidated) {
             <a [routerLink]="['/attempt', current.id, 'review']" class="btn btn--primary">Review answers</a>
             <a routerLink="/my-exams" class="btn">Back to my exams</a>
           } @else {

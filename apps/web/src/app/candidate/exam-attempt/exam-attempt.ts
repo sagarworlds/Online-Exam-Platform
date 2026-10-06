@@ -4,7 +4,7 @@ import { Component, DestroyRef, HostListener, computed, effect, inject, signal }
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
-import { AttemptDto, AttemptQuestionDto, FocusViolationKind } from '../candidate.models';
+import { AttemptDto, AttemptQuestionDto, AttemptStatusDto, AttemptWarningDto, FocusViolationKind } from '../candidate.models';
 import { BLOCKED_MESSAGES, BlockedAction, ContentGuard } from './content-guard';
 import { shortcutFor } from './exam-shortcuts';
 import { FocusMonitor } from './focus-monitor';
@@ -12,6 +12,25 @@ import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-
 
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
+
+/** How often the page asks the server whether an administrator has paused, warned or ended the attempt. Frequent enough to feel prompt, rare enough to cost little. */
+const HEARTBEAT_MS = 10_000;
+
+/** Where the warnings a candidate has dismissed are remembered, per attempt, so a reload does not show them again. Browser-only. */
+const dismissedWarningsKey = (attemptId: string) => `exam.dismissedWarnings.${attemptId}`;
+
+/** Reads the dismissed warning ids, treating a blocked store as none. */
+function loadDismissedWarnings(attemptId: string | null): Set<string> {
+  if (attemptId === null) {
+    return new Set();
+  }
+  try {
+    const parsed: unknown = JSON.parse(sessionStorage.getItem(dismissedWarningsKey(attemptId)) ?? '[]');
+    return new Set(Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
 
 /** How long the "that is turned off" sentence stays on screen. Long enough to read once, short enough not to nag. */
 const NOTICE_MS = 4000;
@@ -100,6 +119,16 @@ export class ExamAttempt {
   protected readonly markedCount = computed(() => this.questions().filter((q) => q.markedForReview).length);
   protected readonly isOpen = computed(() => this.attempt()?.status === 'InProgress');
 
+  /** Whether an administrator has paused the attempt (FR-29): the questions are hidden and the clock is stopped until it is resumed. */
+  protected readonly paused = computed(() => this.isOpen() && (this.attempt()?.pausedAtUtc ?? null) !== null);
+
+  private readonly dismissedWarnings = signal(loadDismissedWarnings(this.attemptId));
+
+  /** The warnings administrators sent that the candidate has not dismissed yet, oldest first. */
+  protected readonly unreadWarnings = computed<AttemptWarningDto[]>(() =>
+    this.isOpen() ? (this.attempt()?.warnings ?? []).filter((w) => !this.dismissedWarnings().has(w.id)) : [],
+  );
+
   /**
    * Whether copying, pasting, right-click and printing are turned off right now (FR-23): only while the exam is open, and
    * unless the author lifted it. The result and the review are the candidate's own, so they are free to copy and print.
@@ -118,7 +147,8 @@ export class ExamAttempt {
    * not watch. The server holds the count and ends the attempt; the page only reports and shows what it is told.
    */
   protected readonly focusLimit = computed(() => (this.isOpen() ? (this.attempt()?.focusViolationLimit ?? 0) : 0));
-  protected readonly watchFocus = computed(() => this.focusLimit() > 0);
+  // Not while an administrator has paused the attempt: the candidate was told to wait, so stepping away is not a departure.
+  protected readonly watchFocus = computed(() => this.focusLimit() > 0 && !this.paused());
 
   /** How many times the candidate has left so far, as the server last said. */
   protected readonly focusViolations = signal(0);
@@ -248,6 +278,7 @@ export class ExamAttempt {
   /** Server clock minus the candidate's clock at the moment the attempt was fetched, so the countdown tracks the server. */
   private clockOffsetMs = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
+  private heartbeat: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
@@ -281,6 +312,18 @@ export class ExamAttempt {
   /** Asks for full screen; must come from the candidate's own click. */
   protected goFullscreen(): void {
     void this.focus.enterFullscreen();
+  }
+
+  protected dismissWarning(warning: AttemptWarningDto): void {
+    const dismissed = new Set(this.dismissedWarnings()).add(warning.id);
+    this.dismissedWarnings.set(dismissed);
+    if (this.attemptId !== null) {
+      try {
+        sessionStorage.setItem(dismissedWarningsKey(this.attemptId), JSON.stringify([...dismissed]));
+      } catch {
+        // A blocked store only means a reload shows the warning once more.
+      }
+    }
   }
 
   protected dismissFocusWarning(): void {
@@ -606,7 +649,39 @@ export class ExamAttempt {
       this.clockOffsetMs = Date.parse(attempt.serverTimeUtc) - Date.now();
       this.tick();
       this.timer = setInterval(() => this.tick(), TICK_MS);
+      this.heartbeat = setInterval(() => this.checkStatus(), HEARTBEAT_MS);
     }
+  }
+
+  /**
+   * Asks the server how the attempt stands, so an administrator's pause, resume, warning or termination reaches the candidate within
+   * seconds. The server's answer replaces what the page holds: the deadline moves after a pause is resumed, and anything that is no
+   * longer open reloads as the result. A failed check is ignored; the next one tries again.
+   */
+  private checkStatus(): void {
+    if (this.attemptId === null || !this.isOpen()) {
+      return;
+    }
+
+    this.api.getAttemptStatus(this.attemptId).subscribe({
+      next: (status) => this.applyStatus(status),
+      error: () => undefined,
+    });
+  }
+
+  private applyStatus(status: AttemptStatusDto): void {
+    if (status.status !== 'InProgress') {
+      this.reload();
+      return;
+    }
+
+    this.clockOffsetMs = Date.parse(status.serverTimeUtc) - Date.now();
+    this.attempt.update((attempt) =>
+      attempt === null
+        ? null
+        : { ...attempt, pausedAtUtc: status.pausedAtUtc, deadlineUtc: status.deadlineUtc, warnings: status.warnings, serverTimeUtc: status.serverTimeUtc },
+    );
+    this.tick();
   }
 
   /** Notes that the question on screen has been seen. */
@@ -642,10 +717,13 @@ export class ExamAttempt {
       return;
     }
 
-    const remainingMs = Date.parse(attempt.deadlineUtc) - (Date.now() + this.clockOffsetMs);
+    // While paused the clock is stopped at the moment of the pause, so what is left stays what it was.
+    const pausedAt = attempt.pausedAtUtc ?? null;
+    const now = pausedAt === null ? Date.now() + this.clockOffsetMs : Date.parse(pausedAt);
+    const remainingMs = Date.parse(attempt.deadlineUtc) - now;
     this.remainingSeconds.set(Math.max(0, Math.ceil(remainingMs / 1000)));
 
-    if (remainingMs <= 0) {
+    if (remainingMs <= 0 && pausedAt === null) {
       // Out of time: the server closes the attempt when it is next read, and tells us the result.
       this.stopTimer();
       this.reload();
@@ -692,6 +770,10 @@ export class ExamAttempt {
   }
 
   private stopTimer(): void {
+    if (this.heartbeat !== null) {
+      clearInterval(this.heartbeat);
+      this.heartbeat = null;
+    }
     if (this.timer !== null) {
       clearInterval(this.timer);
       this.timer = null;
