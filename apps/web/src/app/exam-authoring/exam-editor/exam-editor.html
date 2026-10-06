@@ -16,6 +16,7 @@
       @if (canChangeDetails() && !changingDetails()) {
         <button type="button" (click)="startChangingDetails()" [disabled]="busy()">Edit details</button>
       }
+      <a [routerLink]="['/exams', e.id, 'preview']" class="btn">Preview as a candidate</a>
     </div>
     @if (changingDetails()) {
       <app-exam-details-form [name]="e.name" [description]="e.description" [busy]="busy()" (saved)="saveDetails($event)" (cancelled)="cancelChangingDetails()" />

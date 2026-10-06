@@ -9,6 +9,13 @@
 
   @if (attempt(); as current) {
     @if (current.status === 'InProgress') {
+      @if (preview) {
+        <p class="info-message preview-banner" role="note">
+          <strong>Preview.</strong> This is how candidates see the exam. Nothing you choose is saved or scored, and the exam's copy and
+          page-leaving rules are not applied to you. Submitting ends the preview.
+          <a [routerLink]="['/exams', examIdForLinks]">Back to the exam</a>
+        </p>
+      }
       <header class="exam-bar card">
         <div>
           <p class="exam-bar__label">Exam@if (current.number && current.number > 1) { · Attempt {{ current.number }} }</p>

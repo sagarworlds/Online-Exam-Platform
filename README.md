@@ -371,6 +371,18 @@ Each route names the exam as well as the attempt, so an attempt of another exam 
 | Not built | Reopening an attempt that was ended or invalidated, an admin view of the stored departures (the rows exist), live monitoring of attempts in progress, and sending a warning to every candidate of an exam at once. |
 | Migration | `AttemptAdminActions` adds `PausedAtUtc`, `TerminatedByUserId`, `TerminationReason`, `InvalidatedAtUtc`, `InvalidatedByUserId` and `InvalidationReason` to `examRuntime.Attempts`, and the `AttemptWarnings` table. |
 
+#### Previewing an exam as a candidate
+
+Staff with `exam.manage` can see an exam exactly as a candidate would, in any state (draft, published or archived), from the **Preview as a candidate** button at the top of the exam's page (FR-15).
+
+| What | Rule |
+|------|------|
+| The same page | The preview opens `/exams/{examId}/preview`, which runs the candidate's own exam page, so what is shown is what a candidate gets: the questions with the exam's shuffling, the palette, the countdown (the exam's duration, or 24 hours for an untimed exam), sections and section lock. A banner says it is a preview. |
+| Where the questions come from | `GET /v1/exams/{examId}/preview` (`exam.manage`), which answers with the same shape as a candidate's attempt, built by the same view builder, so it never carries the answer key. An exam with draw rules is drawn for the preview too, so an author learns now (`409 paper_cannot_be_drawn`) rather than on exam day that a rule cannot be filled. |
+| Nothing is stored | The attempt is built in memory and dropped. A preview creates no attempt, uses nobody's allowance, appears in no list and changes no score. On the page, every choice, mark and section change is accepted and dropped by a stand-in for the candidate API, so nothing is sent. |
+| What does not apply to a previewer | The exam's copy, paste and print block and its page-leaving limit (FR-22, FR-23) are not applied, so a reviewer can copy a question and step away without ending anything, and nothing asks the server to pause, warn or end the preview. When the countdown reaches zero it stays at zero. Submitting ends the preview and goes back to the exam. |
+| Not built | Showing the answer key or explanations in the preview, previewing as a particular candidate (their drawn paper, accommodations), and previewing the instructions page and system check. |
+
 #### Sitting an exam: clearing a response and marking for review
 
 Two controls under each question on the exam page (`/attempt/:id`), as on a printed paper: **Clear response** takes the chosen option back, and **Mark for review** is a note to come back to the question. Both show at once and are saved in the background; if a save fails the page puts things back as they were and says so.
