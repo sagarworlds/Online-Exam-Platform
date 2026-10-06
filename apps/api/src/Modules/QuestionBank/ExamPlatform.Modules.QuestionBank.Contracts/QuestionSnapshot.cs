@@ -7,6 +7,7 @@ namespace ExamPlatform.Modules.QuestionBank.Contracts;
 /// <param name="ChapterId">The chapter the question is filed under, or null when it is not filed.</param>
 /// <param name="BookId">The book that chapter belongs to, or null when the question is not filed.</param>
 /// <param name="AllowsMultiple">Whether more than one option may be correct, so a candidate chooses a set and must choose exactly the correct ones.</param>
+/// <param name="UnusableReason">Why the question cannot be added to an exam (it is retired, or exams need approved questions and it is not), or null when it can (FR-8).</param>
 /// <param name="VersionNumber">The version of the question this is the content of (FR-7): the current one from <see cref="IQuestionBank.GetAsync"/>, or the one asked for from <see cref="IQuestionBank.GetVersionsAsync"/>.</param>
 public sealed record QuestionSnapshot(
     Guid Id,
@@ -15,7 +16,8 @@ public sealed record QuestionSnapshot(
     Guid? ChapterId = null,
     Guid? BookId = null,
     bool AllowsMultiple = false,
-    int VersionNumber = 1);
+    int VersionNumber = 1,
+    string? UnusableReason = null);
 
 /// <summary>One question, and which version of it to read.</summary>
 /// <param name="QuestionId">The question's id.</param>

@@ -10,9 +10,10 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Ports;
 /// <param name="Topic">Only questions that carry this topic, already normalized (see <see cref="Question.NormalizeTopic"/>).</param>
 /// <param name="Search">Only questions whose text, or any option's text, contains this; case does not matter.</param>
 /// <param name="ChapterIds">Only questions filed under one of these chapters; null or empty sets no limit.</param>
+/// <param name="Statuses">Only questions in one of these review statuses (FR-8); null or empty sets no limit.</param>
 public sealed record QuestionFilter(
     Guid? BookId = null, Guid? ChapterId = null, bool UnfiledOnly = false, QuestionDifficulty? Difficulty = null, string? Topic = null,
-    string? Search = null, IReadOnlyList<Guid>? ChapterIds = null);
+    string? Search = null, IReadOnlyList<Guid>? ChapterIds = null, IReadOnlyList<QuestionStatus>? Statuses = null);
 
 /// <summary>Persistence port for <see cref="Question"/>.</summary>
 public interface IQuestionRepository
@@ -35,6 +36,15 @@ public interface IQuestionRepository
     /// <param name="questionIds">The ids to load; unknown ids are skipped.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Question>> GetManyAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken);
+
+    /// <summary>Starts tracking a line of a question's review thread; it is stored when the unit of work saves.</summary>
+    /// <param name="entry">The entry to add.</param>
+    void AddReviewEntry(QuestionReviewEntry entry);
+
+    /// <summary>A question's review thread, oldest first.</summary>
+    /// <param name="questionId">The question.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<QuestionReviewEntry>> ListReviewEntriesAsync(Guid questionId, CancellationToken cancellationToken);
 
     /// <summary>The number of the version in force for each question; a question with no stored version is on version 1.</summary>
     /// <param name="questionIds">The questions to look up.</param>

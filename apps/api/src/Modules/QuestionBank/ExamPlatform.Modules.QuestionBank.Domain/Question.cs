@@ -122,6 +122,13 @@ public sealed class Question : AggregateRoot
     /// </summary>
     public DateTime? AnswerKeyCorrectedAtUtc { get; private set; }
 
+    /// <summary>
+    /// Where the question is in the review workflow (FR-8). A new question is a draft. Changing an approved or in-review question's
+    /// content (<see cref="Revise"/>) returns it to a draft, so what a reviewer approved is always what is stored; an answer-key
+    /// correction does not, because it is staff correcting a mistake in something already in use.
+    /// </summary>
+    public QuestionStatus Status { get; private set; } = QuestionStatus.Draft;
+
     // For EF Core.
     private Question() : base(Guid.Empty) => Text = null!;
 
@@ -210,6 +217,7 @@ public sealed class Question : AggregateRoot
         if (answered)
             EnsureOnlyWordingChanges(edits, allowsMultiple);
 
+        var before = ContentFingerprint();
         Text = trimmedText;
         AllowsMultiple = allowsMultiple;
 
@@ -232,6 +240,120 @@ public sealed class Question : AggregateRoot
         _options.Clear();
         _options.AddRange(revised);
         Snapshot(nowUtc ?? DateTime.UtcNow);
+
+        // Saving without changing anything is not an edit, and must not undo an approval.
+        if (Status is QuestionStatus.InReview or QuestionStatus.Approved && ContentFingerprint() != before)
+            Status = QuestionStatus.Draft;
+    }
+
+    private string ContentFingerprint() =>
+        Text + "|" + AllowsMultiple + "|" + string.Join(";", _options.OrderBy(o => o.Order).Select(o => $"{o.Id}:{o.Text}:{o.IsCorrect}:{o.IsPinned}:{o.Order}"));
+
+    /// <summary>Puts a draft forward for review (FR-8).</summary>
+    /// <param name="byUserId">The author or other staff member putting it forward.</param>
+    /// <param name="byLabel">How to show who they are.</param>
+    /// <param name="comment">An optional note to the reviewer.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns>The entry for the review thread; the caller stores it.</returns>
+    /// <exception cref="InvalidQuestionStatusError">The question is not a draft.</exception>
+    /// <exception cref="InvalidQuestionError">The comment is too long.</exception>
+    public QuestionReviewEntry SubmitForReview(Guid byUserId, string? byLabel, string? comment, DateTime nowUtc)
+    {
+        Require(Status == QuestionStatus.Draft, "Only a draft can be put forward for review.");
+        return Move(QuestionStatus.InReview, QuestionReviewEntryKind.Submitted, byUserId, byLabel, OptionalComment(comment), nowUtc);
+    }
+
+    /// <summary>Approves a question that is in review (FR-8).</summary>
+    /// <param name="byUserId">The reviewer.</param>
+    /// <param name="byLabel">How to show who they are.</param>
+    /// <param name="comment">An optional note.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns>The entry for the review thread; the caller stores it.</returns>
+    /// <exception cref="InvalidQuestionStatusError">The question is not in review.</exception>
+    /// <exception cref="InvalidQuestionError">The comment is too long.</exception>
+    public QuestionReviewEntry Approve(Guid byUserId, string? byLabel, string? comment, DateTime nowUtc)
+    {
+        Require(Status == QuestionStatus.InReview, "Only a question that is in review can be approved.");
+        return Move(QuestionStatus.Approved, QuestionReviewEntryKind.Approved, byUserId, byLabel, OptionalComment(comment), nowUtc);
+    }
+
+    /// <summary>Sends a question in review back to its author as a draft, with the reason (FR-8).</summary>
+    /// <param name="byUserId">The reviewer.</param>
+    /// <param name="byLabel">How to show who they are.</param>
+    /// <param name="comment">What has to change; required, because the author needs to know.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns>The entry for the review thread; the caller stores it.</returns>
+    /// <exception cref="InvalidQuestionStatusError">The question is not in review.</exception>
+    /// <exception cref="InvalidQuestionError">There is no comment, or it is too long.</exception>
+    public QuestionReviewEntry RequestChanges(Guid byUserId, string? byLabel, string? comment, DateTime nowUtc)
+    {
+        Require(Status == QuestionStatus.InReview, "Only a question that is in review can be sent back.");
+        return Move(QuestionStatus.Draft, QuestionReviewEntryKind.ChangesRequested, byUserId, byLabel, RequiredComment(comment, "Say what has to change."), nowUtc);
+    }
+
+    /// <summary>Takes a question out of use (FR-8).</summary>
+    /// <param name="byUserId">Who is retiring it.</param>
+    /// <param name="byLabel">How to show who they are.</param>
+    /// <param name="comment">An optional reason.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns>The entry for the review thread; the caller stores it.</returns>
+    /// <exception cref="InvalidQuestionStatusError">The question is already retired.</exception>
+    /// <exception cref="InvalidQuestionError">The comment is too long.</exception>
+    public QuestionReviewEntry Retire(Guid byUserId, string? byLabel, string? comment, DateTime nowUtc)
+    {
+        Require(Status != QuestionStatus.Retired, "The question is already retired.");
+        return Move(QuestionStatus.Retired, QuestionReviewEntryKind.Retired, byUserId, byLabel, OptionalComment(comment), nowUtc);
+    }
+
+    /// <summary>Brings a retired question back as a draft, which has to be reviewed again (FR-8).</summary>
+    /// <param name="byUserId">Who is restoring it.</param>
+    /// <param name="byLabel">How to show who they are.</param>
+    /// <param name="comment">An optional note.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns>The entry for the review thread; the caller stores it.</returns>
+    /// <exception cref="InvalidQuestionStatusError">The question is not retired.</exception>
+    /// <exception cref="InvalidQuestionError">The comment is too long.</exception>
+    public QuestionReviewEntry Restore(Guid byUserId, string? byLabel, string? comment, DateTime nowUtc)
+    {
+        Require(Status == QuestionStatus.Retired, "Only a retired question can be restored.");
+        return Move(QuestionStatus.Draft, QuestionReviewEntryKind.Restored, byUserId, byLabel, OptionalComment(comment), nowUtc);
+    }
+
+    /// <summary>Adds a comment to the review thread, in any status (FR-8).</summary>
+    /// <param name="byUserId">Who is commenting.</param>
+    /// <param name="byLabel">How to show who they are.</param>
+    /// <param name="comment">The comment; required.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns>The entry for the review thread; the caller stores it.</returns>
+    /// <exception cref="InvalidQuestionError">There is no comment, or it is too long.</exception>
+    public QuestionReviewEntry Comment(Guid byUserId, string? byLabel, string? comment, DateTime nowUtc) =>
+        new(Id, QuestionReviewEntryKind.Commented, byUserId, byLabel, RequiredComment(comment, "Write a comment."), CurrentVersionNumber, Status, nowUtc);
+
+    private QuestionReviewEntry Move(
+        QuestionStatus to, QuestionReviewEntryKind kind, Guid byUserId, string? byLabel, string comment, DateTime nowUtc)
+    {
+        Status = to;
+        return new QuestionReviewEntry(Id, kind, byUserId, byLabel, comment, CurrentVersionNumber, to, nowUtc);
+    }
+
+    private static void Require(bool allowed, string message)
+    {
+        if (!allowed)
+            throw new InvalidQuestionStatusError(message);
+    }
+
+    private static string OptionalComment(string? comment)
+    {
+        var text = comment?.Trim() ?? string.Empty;
+        if (text.Length > QuestionReviewEntry.MaxCommentLength)
+            throw new InvalidQuestionError($"A comment can have at most {QuestionReviewEntry.MaxCommentLength} characters.");
+        return text;
+    }
+
+    private static string RequiredComment(string? comment, string whenMissing)
+    {
+        var text = OptionalComment(comment);
+        return text.Length == 0 ? throw new InvalidQuestionError(whenMissing) : text;
     }
 
     /// <summary>

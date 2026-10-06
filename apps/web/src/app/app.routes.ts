@@ -77,7 +77,7 @@ export const routes: Routes = [
   },
   {
     path: 'admin/questions',
-    canActivate: [permissionGuard(Permission.QuestionManage)],
+    canActivate: [permissionGuard(Permission.QuestionRead)],
     loadComponent: () => import('./question-bank/question-bank').then((m) => m.QuestionBank),
   },
   {

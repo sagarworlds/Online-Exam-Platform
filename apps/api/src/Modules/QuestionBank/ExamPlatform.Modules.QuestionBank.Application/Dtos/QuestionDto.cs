@@ -14,6 +14,7 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Dtos;
 /// <param name="Difficulty">"easy", "medium" or "hard", or null when the author has not said.</param>
 /// <param name="Topics">The question's topics, lower case.</param>
 /// <param name="AllowsMultiple">Whether more than one option may be correct.</param>
+/// <param name="Status">Where the question is in the review workflow (FR-8): "draft", "in_review", "approved" or "retired".</param>
 public sealed record QuestionDto(
     Guid Id,
     string Text,
@@ -27,7 +28,8 @@ public sealed record QuestionDto(
     QuestionUsageDto? Usage = null,
     string? Difficulty = null,
     IReadOnlyList<string>? Topics = null,
-    bool AllowsMultiple = false);
+    bool AllowsMultiple = false,
+    string Status = "draft");
 
 /// <summary>One option of a <see cref="QuestionDto"/>.</summary>
 /// <param name="Id">The option's id.</param>

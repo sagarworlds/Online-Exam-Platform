@@ -27,6 +27,16 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public void AddReviewEntry(QuestionReviewEntry entry) => context.QuestionReviewEntries.Add(entry);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<QuestionReviewEntry>> ListReviewEntriesAsync(Guid questionId, CancellationToken cancellationToken) =>
+        await context.QuestionReviewEntries.AsNoTracking()
+            .Where(e => e.QuestionId == questionId)
+            .OrderBy(e => e.CreatedAtUtc).ThenBy(e => e.Id)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyDictionary<Guid, int>> GetCurrentVersionNumbersAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken) =>
         await context.QuestionVersions.AsNoTracking()
             .Where(v => questionIds.Contains(v.QuestionId))
@@ -85,6 +95,8 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
             query = query.Where(q => context.Chapters.Any(c => c.Id == q.ChapterId && c.BookId == bookId));
         if (filter.Difficulty is { } difficulty)
             query = query.Where(q => q.Difficulty == difficulty);
+        if (filter.Statuses is { Count: > 0 } statuses)
+            query = query.Where(q => statuses.Contains(q.Status));
         if (filter.Topic is { Length: > 0 } topic)
             query = query.Where(q => q.Topics.Contains(topic));
         if (filter.Search?.Trim() is { Length: > 0 } search)

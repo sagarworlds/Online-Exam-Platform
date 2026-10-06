@@ -21,8 +21,13 @@ public static class BookEndpoints
             .RequireAuthorization(QuestionBankPermissions.Manage);
 
         books.MapPost("/", CreateBook).WithName("CreateBook").WithDescription("Create a book");
-        books.MapGet("/", ListBooks).WithName("ListBooks").WithDescription("List books with their chapters; archived ones only when asked for");
-        books.MapGet("/{bookId:guid}", GetBook).WithName("GetBook").WithDescription("Get one book with its chapters");
+        // Reading books needs only the read permission: a reviewer opens the question bank, which lists books to filter and show where a question is filed.
+        var readers = endpoints.MapGroup("/v1/books")
+            .WithTags("QuestionBank")
+            .RequireAuthorization(QuestionBankPermissions.Read);
+
+        readers.MapGet("/", ListBooks).WithName("ListBooks").WithDescription("List books with their chapters; archived ones only when asked for");
+        readers.MapGet("/{bookId:guid}", GetBook).WithName("GetBook").WithDescription("Get one book with its chapters");
         books.MapPut("/{bookId:guid}", UpdateBook).WithName("UpdateBook").WithDescription("Change a book's name, subject and description");
         books.MapPost("/{bookId:guid}/archive", ArchiveBook).WithName("ArchiveBook").WithDescription("Archive a book: kept, but closed to new chapters");
         books.MapPost("/{bookId:guid}/restore", RestoreBook).WithName("RestoreBook").WithDescription("Restore an archived book");

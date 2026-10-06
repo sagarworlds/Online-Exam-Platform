@@ -5,8 +5,10 @@ using ExamPlatform.Modules.QuestionBank.Domain;
 namespace ExamPlatform.Modules.QuestionBank.Application;
 
 /// <summary>The <see cref="IQuestionBank"/> other modules read the bank through.</summary>
-public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepository books) : IQuestionBank
+public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepository books, QuestionApprovalPolicy? approval = null) : IQuestionBank
 {
+    private readonly QuestionApprovalPolicy _approval = approval ?? new QuestionApprovalPolicy(RequireApproval: false);
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<QuestionSnapshot>> GetAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken)
     {
@@ -17,7 +19,7 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
         var current = await repository.GetCurrentVersionNumbersAsync(questionIds, cancellationToken);
         var chapters = await ChaptersOfAsync(questions, cancellationToken);
 
-        return questions.Select(q => Current(q, current, chapters)).ToList();
+        return questions.Select(q => Current(q, current, chapters, _approval)).ToList();
     }
 
     /// <inheritdoc />
@@ -46,7 +48,7 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
             // A version that was never stored (a question from before versions were kept) reads as it is now.
             return wanted is { } n && stored.TryGetValue((q.Id, n), out var version)
                 ? AsOf(q, version, chapters)
-                : Current(q, current, chapters);
+                : Current(q, current, chapters, _approval);
         }).ToList();
     }
 
@@ -57,7 +59,8 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
     private static Guid? BookOf(Question q, IReadOnlyDictionary<Guid, ChapterRef> chapters) =>
         q.ChapterId is { } chapterId && chapters.TryGetValue(chapterId, out var filedUnder) ? filedUnder.BookId : null;
 
-    private static QuestionSnapshot Current(Question q, IReadOnlyDictionary<Guid, int> current, IReadOnlyDictionary<Guid, ChapterRef> chapters) =>
+    private static QuestionSnapshot Current(
+        Question q, IReadOnlyDictionary<Guid, int> current, IReadOnlyDictionary<Guid, ChapterRef> chapters, QuestionApprovalPolicy approval) =>
         new(
             q.Id,
             q.Text,
@@ -65,7 +68,8 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
             q.ChapterId,
             BookOf(q, chapters),
             q.AllowsMultiple,
-            current.GetValueOrDefault(q.Id, 1));
+            current.GetValueOrDefault(q.Id, 1),
+            approval.UnusableReason(q.Status));
 
     private static QuestionSnapshot AsOf(Question q, QuestionVersion v, IReadOnlyDictionary<Guid, ChapterRef> chapters) =>
         new(
@@ -83,7 +87,7 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
         var filter = new QuestionFilter(
             criteria.BookId, criteria.ChapterId, UnfiledOnly: false,
             QuestionDifficultyText.Parse(criteria.Difficulty), Question.NormalizeTopic(criteria.Topic),
-            Search: null, criteria.ChapterIds);
+            Search: null, criteria.ChapterIds, _approval.UsableStatuses);
 
         var found = await repository.FindPlacementsAsync(filter, IQuestionBank.MaxFound, cancellationToken);
         var chapters = await books.GetChapterRefsAsync(

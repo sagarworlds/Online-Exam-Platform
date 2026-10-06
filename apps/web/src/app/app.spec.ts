@@ -113,7 +113,7 @@ describe('App', () => {
     });
 
     it('shows an administrator a sidebar with the admin areas their permissions open', () => {
-      signIn(['question.manage', 'exam.read', 'invite.manage']);
+      signIn(['question.manage', 'question.read', 'exam.read', 'invite.manage']);
 
       const compiled = render();
 

@@ -7,6 +7,9 @@ import {
   ExportedFile,
   ImportQuestionsResult,
   QuestionFileFormat,
+  ReviewEntry,
+  ReviewResult,
+  ReviewStep,
   FileQuestionsRequest,
   FileQuestionsResult,
   QuestionDto,
@@ -30,6 +33,7 @@ export class QuestionApiService {
     if (filter.difficulty) params['difficulty'] = filter.difficulty;
     if (filter.topic) params['topic'] = filter.topic;
     if (filter.search) params['q'] = filter.search;
+    if (filter.status) params['status'] = filter.status;
     if (skip > 0) params['skip'] = String(skip);
     return this.http.get<QuestionDto[]>(this.baseUrl, { params });
   }
@@ -78,6 +82,21 @@ export class QuestionApiService {
         skipped: Number(response.headers.get('X-Questions-Skipped') ?? 0),
       })),
     );
+  }
+
+  /** A question's review thread, oldest first. */
+  reviewLog(id: string): Observable<ReviewEntry[]> {
+    return this.http.get<ReviewEntry[]>(`${this.baseUrl}/${id}/review-log`);
+  }
+
+  /** Takes a review step (put forward, approve, send back, retire, restore); the comment is required to send a question back. */
+  reviewStep(id: string, step: ReviewStep, comment: string): Observable<ReviewResult> {
+    return this.http.post<ReviewResult>(`${this.baseUrl}/${id}/${step}`, { comment });
+  }
+
+  /** Adds a comment to a question's review thread. */
+  comment(id: string, comment: string): Observable<ReviewResult> {
+    return this.http.post<ReviewResult>(`${this.baseUrl}/${id}/comments`, { comment });
   }
 
   /** Files questions under a chapter, all of them or none. */

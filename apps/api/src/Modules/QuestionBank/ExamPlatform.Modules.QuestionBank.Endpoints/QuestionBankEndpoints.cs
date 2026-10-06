@@ -18,10 +18,18 @@ public static class QuestionBankEndpoints
     /// <param name="endpoints">The endpoint route builder to map onto.</param>
     public static void MapQuestionBankEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        // Every route returns the answer key, so every route needs the authoring permission, not just a signed-in caller.
+        // Every route returns the answer key, so every route needs a permission, not just a signed-in caller. Changing questions needs
+        // the authoring permission; reading them and commenting needs only the read permission, and approving or sending one back needs
+        // the review permission, so a reviewer can do their part without being able to edit what they review (FR-8).
         var questions = endpoints.MapGroup("/v1/questions")
             .WithTags("QuestionBank")
             .RequireAuthorization(QuestionBankPermissions.Manage);
+        var readers = endpoints.MapGroup("/v1/questions")
+            .WithTags("QuestionBank")
+            .RequireAuthorization(QuestionBankPermissions.Read);
+        var reviewers = endpoints.MapGroup("/v1/questions")
+            .WithTags("QuestionBank")
+            .RequireAuthorization(QuestionBankPermissions.Review);
 
         questions.MapPost("/", CreateQuestion)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -29,19 +37,19 @@ public static class QuestionBankEndpoints
             .WithName("CreateQuestion")
             .WithDescription("Create a multiple-choice question with one correct option");
 
-        questions.MapGet("/", ListQuestions)
+        readers.MapGet("/", ListQuestions)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("ListQuestions")
-            .WithDescription("List the newest questions, 200 at a time (skip leaves out that many of the newest), optionally only those under a book or chapter, only unfiled ones, of one difficulty, on one topic, or containing some text (q)");
+            .WithDescription("List the newest questions, 200 at a time (skip leaves out that many of the newest), optionally only those under a book or chapter, only unfiled ones, of one difficulty, on one topic, in one review status, or containing some text (q)");
 
-        questions.MapGet("/topics", ListTopics)
+        readers.MapGet("/topics", ListTopics)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("ListQuestionTopics")
             .WithDescription("List every topic in use, once each, alphabetically");
 
-        questions.MapGet("/{questionId:guid}", GetQuestion)
+        readers.MapGet("/{questionId:guid}", GetQuestion)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("GetQuestion")
@@ -66,11 +74,53 @@ public static class QuestionBankEndpoints
             .WithName("CorrectAnswerKey")
             .WithDescription("Correct which options are right, even after candidates have answered; rescores every attempt it affects");
 
-        questions.MapGet("/{questionId:guid}/history", GetQuestionHistory)
+        readers.MapGet("/{questionId:guid}/history", GetQuestionHistory)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("GetQuestionHistory")
             .WithDescription("List every version a question has had, oldest first");
+
+        readers.MapGet("/{questionId:guid}/review-log", GetReviewLog)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("GetQuestionReviewLog")
+            .WithDescription("A question's review thread, oldest first: comments and each step of the workflow");
+
+        readers.MapPost("/{questionId:guid}/comments", CommentOnQuestion)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("CommentOnQuestion")
+            .WithDescription("Add a comment to a question's review thread, in any status");
+
+        questions.MapPost("/{questionId:guid}/submit-for-review", SubmitForReview)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("SubmitQuestionForReview")
+            .WithDescription("Put a draft question forward for review");
+
+        reviewers.MapPost("/{questionId:guid}/approve", ApproveQuestion)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ApproveQuestion")
+            .WithDescription("Approve a question that is in review");
+
+        reviewers.MapPost("/{questionId:guid}/request-changes", RequestQuestionChanges)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("RequestQuestionChanges")
+            .WithDescription("Send a question in review back to its author as a draft, with what has to change");
+
+        questions.MapPost("/{questionId:guid}/retire", RetireQuestion)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("RetireQuestion")
+            .WithDescription("Take a question out of use: it can no longer be added to an exam or drawn into a paper");
+
+        questions.MapPost("/{questionId:guid}/restore", RestoreQuestion)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("RestoreQuestion")
+            .WithDescription("Bring a retired question back as a draft");
 
         // A collection action, not /{questionId}/chapter, so filing one question and filing a hundred are the same call.
         questions.MapPost("/placement", FileQuestions)
@@ -117,9 +167,41 @@ public static class QuestionBankEndpoints
     }
 
     private static async Task<IResult> ListQuestions(
-        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, int? skip, CancellationToken ct) =>
-        Results.Ok(await handler.HandleAsync(
-            new QuestionFilter(bookId, chapterId, unfiled ?? false, QuestionDifficultyText.Parse(difficulty), Question.NormalizeTopic(topic), q), ct, skip ?? 0));
+        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, int? skip, string? status, CancellationToken ct)
+    {
+        var statuses = QuestionStatusText.Parse(status) is { } one ? new[] { one } : null;
+        return Results.Ok(await handler.HandleAsync(
+            new QuestionFilter(bookId, chapterId, unfiled ?? false, QuestionDifficultyText.Parse(difficulty), Question.NormalizeTopic(topic), q, null, statuses), ct, skip ?? 0));
+    }
+
+    private static ReviewActor Actor(ClaimsPrincipal user) => new(user.GetUserId(), user.GetEmail());
+
+    private static async Task<IResult> GetReviewLog(Guid questionId, GetQuestionReviewLogHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(questionId, ct));
+
+    private static async Task<IResult> CommentOnQuestion(
+        Guid questionId, ReviewCommentRequest request, ClaimsPrincipal user, QuestionReviewHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.CommentAsync(questionId, Actor(user), request.Comment, ct));
+
+    private static async Task<IResult> SubmitForReview(
+        Guid questionId, ReviewCommentRequest? request, ClaimsPrincipal user, QuestionReviewHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.SubmitAsync(questionId, Actor(user), request?.Comment, ct));
+
+    private static async Task<IResult> ApproveQuestion(
+        Guid questionId, ReviewCommentRequest? request, ClaimsPrincipal user, QuestionReviewHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.ApproveAsync(questionId, Actor(user), request?.Comment, ct));
+
+    private static async Task<IResult> RequestQuestionChanges(
+        Guid questionId, ReviewCommentRequest? request, ClaimsPrincipal user, QuestionReviewHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.RequestChangesAsync(questionId, Actor(user), request?.Comment, ct));
+
+    private static async Task<IResult> RetireQuestion(
+        Guid questionId, ReviewCommentRequest? request, ClaimsPrincipal user, QuestionReviewHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.RetireAsync(questionId, Actor(user), request?.Comment, ct));
+
+    private static async Task<IResult> RestoreQuestion(
+        Guid questionId, ReviewCommentRequest? request, ClaimsPrincipal user, QuestionReviewHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.RestoreAsync(questionId, Actor(user), request?.Comment, ct));
 
     private static async Task<IResult> ListTopics(ListTopicsHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(ct));
@@ -197,6 +279,10 @@ public sealed record CreateQuestionOptionRequest(string? Text, bool IsCorrect, b
 /// <param name="CorrectOptionIds">The ids of the options that are actually correct, replacing the current key.</param>
 /// <param name="Reason">Why the key is being corrected; shown to a candidate whose score moves because of it.</param>
 public sealed record CorrectAnswerKeyRequest(IReadOnlyCollection<Guid>? CorrectOptionIds, string? Reason);
+
+/// <summary>Request body for a review step or comment (FR-8).</summary>
+/// <param name="Comment">The comment: required to send a question back or to comment, optional for the other steps.</param>
+public sealed record ReviewCommentRequest(string? Comment = null);
 
 /// <summary>Request body for importing questions from a file.</summary>
 /// <param name="Content">The file's contents: text for CSV and JSON, base64 for Excel. A table's header row is included.</param>

@@ -121,6 +121,7 @@ public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuth
     /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
     /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
     /// <exception cref="QuestionNotInBankError">The question bank has no such question.</exception>
+    /// <exception cref="QuestionNotUsableError">The bank will not let the question into an exam (it is retired, or not approved where approval is required).</exception>
     /// <exception cref="QuestionOutsideExamScopeError">The question is not in the exam's book or chapters.</exception>
     /// <exception cref="DuplicateQuestionError">The question is already in this exam.</exception>
     public async Task<ExamQuestionDto> HandleAsync(AddExamQuestionCommand command, CancellationToken cancellationToken)
@@ -129,6 +130,8 @@ public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuth
 
         var found = await questionBank.GetAsync([command.QuestionId], cancellationToken);
         var snapshot = found.FirstOrDefault() ?? throw new QuestionNotInBankError(command.QuestionId);
+        if (snapshot.UnusableReason is { } reason)
+            throw new QuestionNotUsableError(command.QuestionId, reason);
 
         var question = exam.AddQuestion(command.SectionId, command.QuestionId, new QuestionPlacement(snapshot.BookId, snapshot.ChapterId));
         await unitOfWork.SaveChangesAsync(cancellationToken);
