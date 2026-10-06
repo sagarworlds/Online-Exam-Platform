@@ -226,6 +226,17 @@ public static class ExamRuntimeEndpoints
             .WithName("InvalidateAttempt")
             .WithDescription("Invalidate a finished attempt's result so it no longer counts; the candidate is shown the reason instead of a score");
 
+        // Staff see the exam as a candidate would (FR-15). Read-only: nothing is stored, so it needs no attempt and uses nobody's allowance.
+        exams.MapGet("/{examId:guid}/preview", PreviewExam)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AttemptDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("PreviewExam")
+            .WithDescription("Show the exam as a candidate would see it, in any state; nothing is saved");
+
         exams.MapGet("/{examId:guid}/attempts/{attemptId:guid}/paper", GetAttemptPaper)
             .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
             .Produces<AttemptPaperDto>()
@@ -326,6 +337,9 @@ public static class ExamRuntimeEndpoints
 
     private static async Task<IResult> GetAttemptStatus(Guid attemptId, ClaimsPrincipal user, GetAttemptStatusHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct));
+
+    private static async Task<IResult> PreviewExam(Guid examId, ClaimsPrincipal user, PreviewExamHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, user.GetUserId(), ct));
 
     private static async Task<IResult> GetAttemptPaper(Guid examId, Guid attemptId, GetAttemptPaperHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(examId, attemptId, ct));
