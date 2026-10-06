@@ -11,6 +11,20 @@
   font-size: 0.9rem;
 }
 
+/* Leaving the exam page (FR-22): shown until dismissed, because the candidate has just come back and must see it. */
+.exam-focus-warning {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--warning, #b45309);
+  border-radius: 6px;
+  background: var(--warning-bg, #fffbeb);
+  color: var(--warning-text, #78350f);
+}
+
+.exam-focus-warning button {
+  margin-left: 0.5rem;
+}
+
 /*
  * A browser's own Print menu cannot be cancelled from the page, so while the exam is protected the printout is blank
  * except for a sentence saying why. The body class is set by the exam page's content guard and removed when it leaves.

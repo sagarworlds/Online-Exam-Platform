@@ -110,6 +110,15 @@ public static class ExamAuthoringEndpoints
             .WithName("SetExamContentProtection")
             .WithDescription("Choose whether the exam page turns off copying, pasting, right-click and printing while candidates sit the exam");
 
+        exams.MapPut("/{examId:guid}/focus-violation-limit", SetFocusViolationLimit)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("SetExamFocusViolationLimit")
+            .WithDescription("Set how many times a candidate may leave the exam page before the attempt is ended; 0 turns the watch off");
+
         exams.MapPut("/{examId:guid}/result-release", SetResultRelease)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -262,6 +271,10 @@ public static class ExamAuthoringEndpoints
         Guid examId, ContentProtectionRequest request, SetContentProtectionHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetContentProtectionCommand(examId, request.ContentProtection), ct));
 
+    private static async Task<IResult> SetFocusViolationLimit(
+        Guid examId, FocusViolationLimitRequest request, SetFocusViolationLimitHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new SetFocusViolationLimitCommand(examId, request.FocusViolationLimit), ct));
+
     private static async Task<IResult> SetResultRelease(
         Guid examId, ResultReleaseRequest request, SetResultReleaseHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetResultReleaseCommand(examId, request.Mode, request.ReleaseTime), ct));
@@ -394,6 +407,10 @@ public record AttemptLimitRequest(int? MaxAttempts);
 /// <summary>Request body for choosing whether the exam page turns off copying, pasting, right-click and printing.</summary>
 /// <param name="ContentProtection">Whether the protection is on.</param>
 public record ContentProtectionRequest(bool? ContentProtection);
+
+/// <summary>Request body for setting how many times a candidate may leave the exam page before the attempt is ended.</summary>
+/// <param name="FocusViolationLimit">The violations allowed, from 0 (the exam does not watch) to 20.</param>
+public record FocusViolationLimitRequest(int? FocusViolationLimit);
 
 /// <summary>Request body for changing an exam's name and description.</summary>
 /// <param name="Name">The exam's new name.</param>

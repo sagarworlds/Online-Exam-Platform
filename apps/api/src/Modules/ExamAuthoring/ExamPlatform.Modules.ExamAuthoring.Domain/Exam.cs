@@ -449,6 +449,27 @@ public class Exam : AggregateRoot
     }
 
     /// <summary>
+    /// Chooses how many times a candidate may leave the exam page before the attempt is ended (FR-22); 0 turns the watch off. Like
+    /// the attempt limit and content protection it may change after publishing, because it changes nothing that is asked or scored;
+    /// an attempt in progress picks the new limit up the next time it reports a violation or is loaded.
+    /// </summary>
+    /// <param name="limit">The violations allowed, from 0 (not watched) to <see cref="ExamConfig.MostViolations"/>.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The limit is outside the allowed range.</exception>
+    public void SetFocusViolationLimit(int limit, DateTime nowUtc)
+    {
+        EnsureNotArchived();
+
+        if (limit is < ExamConfig.NoViolationLimit or > ExamConfig.MostViolations)
+            throw new InvalidExamConfigError($"The violation limit is from {ExamConfig.NoViolationLimit} (not watched) to {ExamConfig.MostViolations}.");
+
+        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
+        Config = Config with { FocusViolationLimit = limit, MarkingScheme = Config.MarkingScheme with { } };
+        UpdatedAt = nowUtc;
+    }
+
+    /// <summary>
     /// Releases the answers of a manual-release exam now: the release time is set to the current instant, so the one rule
     /// "released when the mode is Instant or the release time has arrived" covers every mode. Calling it again keeps the first time.
     /// </summary>

@@ -51,6 +51,8 @@ export interface ExamRulesDto {
   sectionCount: number;
   /** Whether the exam page turns off copying, pasting, right-click and printing (FR-23). Absent from an older API: on. */
   contentProtection?: boolean;
+  /** How many times a candidate may leave the exam page before the attempt is ended (FR-22); 0 or absent when the exam does not watch. */
+  focusViolationLimit?: number;
 }
 
 /** An exam the candidate is enrolled in, as listed on their exams page. All instants are UTC. */
@@ -158,6 +160,25 @@ export interface AttemptDto {
    * older API, which is read as on, since protection is the default.
    */
   contentProtection?: boolean;
+  /** How many times the candidate may leave the exam page before the server ends the attempt (FR-22); 0 or absent when the exam does not watch. */
+  focusViolationLimit?: number;
+  /** How many times they have left it so far in this attempt. */
+  focusViolations?: number;
+  /** Whether the server ended the attempt because the limit was reached. */
+  endedByViolations?: boolean;
+}
+
+/** How a candidate left the exam page (FR-22); the names the API accepts. */
+export type FocusViolationKind = 'TabHidden' | 'WindowBlurred' | 'FullscreenExited';
+
+/** What the API answers after a departure is reported. */
+export interface FocusViolationResultDto {
+  /** How many times the candidate has now left the page in this attempt. */
+  violations: number;
+  /** How many times they may; 0 when the exam does not watch, in which case nothing was recorded. */
+  limit: number;
+  /** Whether this departure reached the limit, so the server has ended and scored the attempt. */
+  attemptEnded: boolean;
 }
 
 /** How one question was marked. */

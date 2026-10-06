@@ -19,13 +19,25 @@ public sealed class AttemptCloser(IQuestionBank questionBank, IExamRuntimeUnitOf
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
     /// <exception cref="ExamContentUnavailableError">The exam's questions cannot be read, so it cannot be marked.</exception>
-    public async Task CloseAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken)
+    public Task CloseAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken) =>
+        CloseAsync(attempt, exam, endedByViolations: false, cancellationToken);
+
+    /// <summary>Marks the attempt, ends it because the candidate left the exam page too often (FR-22), and saves it.</summary>
+    /// <param name="attempt">The open attempt to close.</param>
+    /// <param name="exam">The exam it is an attempt at.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
+    /// <exception cref="ExamContentUnavailableError">The exam's questions cannot be read, so it cannot be marked.</exception>
+    public Task CloseForViolationsAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken) =>
+        CloseAsync(attempt, exam, endedByViolations: true, cancellationToken);
+
+    private async Task CloseAsync(Attempt attempt, ExamSnapshot exam, bool endedByViolations, CancellationToken cancellationToken)
     {
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
         var questions = (await questionBank.GetAsync(questionIds, cancellationToken)).ToDictionary(q => q.Id);
 
         var result = AttemptScorer.Score(exam, questions, attempt.Answers.ToList());
-        attempt.Submit(clock.UtcNow, result.Score, result.MaxScore);
+        attempt.Submit(clock.UtcNow, result.Score, result.MaxScore, endedByViolations);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }

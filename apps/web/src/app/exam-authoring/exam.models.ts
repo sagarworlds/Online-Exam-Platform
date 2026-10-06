@@ -31,6 +31,8 @@ export interface ExamConfigDto {
   markingScheme: MarkingSchemeDto;
   /** Whether the exam page turns off copying, pasting, right-click and printing while the exam is sat (FR-23). Absent from an older API: on. */
   contentProtection?: boolean;
+  /** How many times a candidate may leave the exam page before the attempt is ended (FR-22); 0 or absent: the exam does not watch. */
+  focusViolationLimit?: number;
 }
 
 /** The body of PUT /v1/exams/{id}/result-release. */
@@ -52,6 +54,11 @@ export type MarkingSchemeRequest = MarkingSchemeDto;
 /** The body of PUT /v1/exams/{id}/content-protection: whether the exam page turns off copying, pasting, right-click and printing. */
 export interface ContentProtectionRequest {
   contentProtection: boolean;
+}
+
+/** The body of PUT /v1/exams/{id}/focus-violation-limit: how many times a candidate may leave the exam page before the attempt is ended, 0 to 20; 0 turns the watch off. */
+export interface FocusViolationLimitRequest {
+  focusViolationLimit: number;
 }
 
 /** The body of PUT /v1/exams/{id}/attempt-limit: how many attempts every enrolled candidate has, from 1 to 10. */

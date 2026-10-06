@@ -7,6 +7,7 @@ import {
   ShuffleRequest,
   AttemptLimitRequest,
   ContentProtectionRequest,
+  FocusViolationLimitRequest,
   CreateExamRequest,
   DrawQuestionsRequest,
   DrawRuleDto,
@@ -71,6 +72,11 @@ export class ExamApiService {
   /** Turns the exam page's copy, paste, right-click and print protection on or off. Allowed after publishing too: it changes nothing asked or scored. */
   setContentProtection(examId: string, request: ContentProtectionRequest): Observable<ExamDto> {
     return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/content-protection`, request);
+  }
+
+  /** Sets how many times a candidate may leave the exam page before the attempt is ended; 0 turns the watch off. Allowed after publishing too. */
+  setFocusViolationLimit(examId: string, request: FocusViolationLimitRequest): Observable<ExamDto> {
+    return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/focus-violation-limit`, request);
   }
 
   /** Shows candidates which answers were right, for an exam set to manual release. Safe to repeat. */

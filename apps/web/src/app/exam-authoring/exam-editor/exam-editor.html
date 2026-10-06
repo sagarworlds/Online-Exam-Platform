@@ -136,6 +136,13 @@
       (changed)="saveContentProtection($event)"
     />
 
+    <app-exam-focus-violation-limit
+      [limit]="e.config.focusViolationLimit ?? 0"
+      [editable]="canChangeRelease()"
+      [busy]="busy()"
+      (changed)="saveFocusViolationLimit($event)"
+    />
+
     <h2>Sections and questions</h2>
     @for (section of e.sections ?? []; track section.id) {
       <app-exam-section-card

@@ -72,6 +72,17 @@ export function instructionLines(exam: MyExamDto): string[] {
     lines.push('Copying, pasting, right-click and printing are turned off during the exam. You can still select text.');
   }
 
+  // The limit is the exam's, so the sentence names it; an exam that does not watch (older APIs do not say) says nothing.
+  const limit = exam.rules?.focusViolationLimit ?? 0;
+  if (limit > 0) {
+    lines.push(
+      'Stay on the exam page and in full screen. Switching to another tab or window, or leaving full screen, is recorded and you are warned each time. ' +
+        (limit === 1
+          ? 'The exam is submitted for you the first time you leave.'
+          : `If you leave ${limit} times, the exam is submitted for you with the answers saved so far.`),
+    );
+  }
+
   lines.push('Stay on this device and browser. Signing in somewhere else ends this session.');
   lines.push('You can submit before time runs out. Once you submit, your answers cannot be changed.');
 

@@ -19,6 +19,7 @@ public sealed class Attempt : AggregateRoot
     private readonly List<AttemptMark> _marks = [];
     private readonly List<AttemptQuestion> _paper = [];
     private readonly List<AttemptResultRevision> _revisions = [];
+    private readonly List<AttemptFocusViolation> _focusViolations = [];
 
     /// <summary>The exam being taken.</summary>
     public Guid ExamId { get; private set; }
@@ -50,6 +51,12 @@ public sealed class Attempt : AggregateRoot
     /// <summary>Whether the attempt ended because time ran out rather than because the candidate submitted it.</summary>
     public bool AutoSubmitted { get; private set; }
 
+    /// <summary>
+    /// Whether the attempt was ended by the server because the candidate left the exam page more often than the exam allows (FR-22),
+    /// rather than by the candidate or by time running out. Such an attempt is also <see cref="AutoSubmitted"/>.
+    /// </summary>
+    public bool EndedByViolations { get; private set; }
+
     /// <summary>The marks scored, once submitted.</summary>
     public decimal? Score { get; private set; }
 
@@ -79,6 +86,12 @@ public sealed class Attempt : AggregateRoot
     /// has never been revised. See <see cref="ReviseScore"/>.
     /// </summary>
     public IReadOnlyList<AttemptResultRevision> Revisions => _revisions.AsReadOnly();
+
+    /// <summary>
+    /// Every time the candidate left the exam page, oldest first (FR-22). Only filled when the exam watches for it; see
+    /// <see cref="RecordFocusViolation"/>.
+    /// </summary>
+    public IReadOnlyList<AttemptFocusViolation> FocusViolations => _focusViolations.AsReadOnly();
 
     // For EF Core.
     private Attempt() : base(Guid.Empty)
@@ -249,22 +262,42 @@ public sealed class Attempt : AggregateRoot
     }
 
     /// <summary>
+    /// Records that the candidate left the exam page (FR-22). The caller decides, from the exam's limit, whether this was the one that
+    /// ends the attempt; the attempt only keeps count.
+    /// </summary>
+    /// <param name="kind">How they left it.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns>How many times the candidate has now left the page during this attempt, this one included.</returns>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
+    /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
+    public int RecordFocusViolation(FocusViolationKind kind, DateTime nowUtc)
+    {
+        EnsureOpen(nowUtc);
+
+        _focusViolations.Add(new AttemptFocusViolation(Id, kind, nowUtc));
+        return _focusViolations.Count;
+    }
+
+    /// <summary>
     /// Ends the attempt with its score. Submitting an attempt whose time has run out is allowed (it is how an
     /// abandoned attempt gets closed) and is recorded as an automatic submission at the deadline.
     /// </summary>
     /// <param name="nowUtc">The current instant.</param>
     /// <param name="score">The marks scored; computed by the caller from the answer key.</param>
     /// <param name="maxScore">The marks available.</param>
+    /// <param name="endedByViolations">Whether the server is ending the attempt because the candidate left the exam page too often (FR-22).</param>
     /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
-    public void Submit(DateTime nowUtc, decimal score, decimal maxScore)
+    public void Submit(DateTime nowUtc, decimal score, decimal maxScore, bool endedByViolations = false)
     {
         if (Status != AttemptStatus.InProgress)
             throw new AttemptNotInProgressError();
 
-        AutoSubmitted = IsExpired(nowUtc);
+        // Ended by the server either way: time ran out, or the violation limit was reached.
+        AutoSubmitted = IsExpired(nowUtc) || endedByViolations;
+        EndedByViolations = endedByViolations;
         // Never later than the deadline: an attempt picked up and closed hours afterwards still records
         // that the candidate stopped when time ran out.
-        SubmittedAtUtc = AutoSubmitted ? DeadlineUtc : nowUtc;
+        SubmittedAtUtc = IsExpired(nowUtc) ? DeadlineUtc : nowUtc;
         Score = score;
         MaxScore = maxScore;
         Status = AttemptStatus.Submitted;
