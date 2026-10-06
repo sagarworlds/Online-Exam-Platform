@@ -36,6 +36,16 @@ public interface IQuestionRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Question>> GetManyAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken);
 
+    /// <summary>The number of the version in force for each question; a question with no stored version is on version 1.</summary>
+    /// <param name="questionIds">The questions to look up.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyDictionary<Guid, int>> GetCurrentVersionNumbersAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken);
+
+    /// <summary>The stored versions with the given question and number; one that was never stored is simply absent.</summary>
+    /// <param name="versions">The question and version number of each wanted version.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<QuestionVersion>> GetVersionsAsync(IReadOnlyCollection<(Guid QuestionId, int VersionNumber)> versions, CancellationToken cancellationToken);
+
     /// <summary>Loads several questions without their options, tracked so changes to them are saved.</summary>
     /// <param name="questionIds">The ids to load; unknown ids are skipped.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

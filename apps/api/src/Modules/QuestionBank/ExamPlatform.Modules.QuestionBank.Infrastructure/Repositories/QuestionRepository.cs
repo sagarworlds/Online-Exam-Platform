@@ -26,6 +26,27 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
             .Where(q => questionIds.Contains(q.Id))
             .ToListAsync(cancellationToken);
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, int>> GetCurrentVersionNumbersAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken) =>
+        await context.QuestionVersions.AsNoTracking()
+            .Where(v => questionIds.Contains(v.QuestionId))
+            .GroupBy(v => v.QuestionId)
+            .Select(g => new { QuestionId = g.Key, Number = g.Max(v => v.VersionNumber) })
+            .ToDictionaryAsync(x => x.QuestionId, x => x.Number, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<QuestionVersion>> GetVersionsAsync(IReadOnlyCollection<(Guid QuestionId, int VersionNumber)> versions, CancellationToken cancellationToken)
+    {
+        var ids = versions.Select(v => v.QuestionId).Distinct().ToList();
+        var numbers = versions.Select(v => v.VersionNumber).Distinct().ToList();
+        // The two filters over-select a little (a number wanted of one question matches another's); the exact pairs are kept in memory.
+        var found = await context.QuestionVersions.AsNoTracking()
+            .Where(v => ids.Contains(v.QuestionId) && numbers.Contains(v.VersionNumber))
+            .ToListAsync(cancellationToken);
+        var wanted = versions.ToHashSet();
+        return found.Where(v => wanted.Contains((v.QuestionId, v.VersionNumber))).ToList();
+    }
+
     // Without the options on purpose: filing changes only where a question sits, and a page of up to 200 questions does not
     // need every one of their options loaded to do that.
     /// <inheritdoc />

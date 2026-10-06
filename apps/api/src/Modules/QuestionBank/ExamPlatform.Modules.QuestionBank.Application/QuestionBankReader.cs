@@ -14,19 +14,68 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
             return [];
 
         var questions = await repository.GetManyAsync(questionIds, cancellationToken);
-        var chapters = await books.GetChapterRefsAsync(
+        var current = await repository.GetCurrentVersionNumbersAsync(questionIds, cancellationToken);
+        var chapters = await ChaptersOfAsync(questions, cancellationToken);
+
+        return questions.Select(q => Current(q, current, chapters)).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<QuestionSnapshot>> GetVersionsAsync(IReadOnlyCollection<QuestionVersionRef> versions, CancellationToken cancellationToken)
+    {
+        if (versions.Count == 0)
+            return [];
+
+        var ids = versions.Select(v => v.QuestionId).Distinct().ToList();
+        var questions = await repository.GetManyAsync(ids, cancellationToken);
+        var current = await repository.GetCurrentVersionNumbersAsync(ids, cancellationToken);
+        var chapters = await ChaptersOfAsync(questions, cancellationToken);
+
+        // Only the versions that are not the current one need reading: the current content is already in hand.
+        var older = versions
+            .Where(v => v.VersionNumber is { } n && n != current.GetValueOrDefault(v.QuestionId, 1))
+            .Select(v => (v.QuestionId, v.VersionNumber!.Value))
+            .Distinct().ToList();
+        var stored = older.Count == 0
+            ? new Dictionary<(Guid, int), QuestionVersion>()
+            : (await repository.GetVersionsAsync(older, cancellationToken)).ToDictionary(v => (v.QuestionId, v.VersionNumber));
+
+        return questions.Select(q =>
+        {
+            var wanted = versions.First(v => v.QuestionId == q.Id).VersionNumber;
+            // A version that was never stored (a question from before versions were kept) reads as it is now.
+            return wanted is { } n && stored.TryGetValue((q.Id, n), out var version)
+                ? AsOf(q, version, chapters)
+                : Current(q, current, chapters);
+        }).ToList();
+    }
+
+    private async Task<IReadOnlyDictionary<Guid, ChapterRef>> ChaptersOfAsync(IReadOnlyList<Question> questions, CancellationToken cancellationToken) =>
+        await books.GetChapterRefsAsync(
             questions.Where(q => q.ChapterId is not null).Select(q => q.ChapterId!.Value).Distinct().ToList(), cancellationToken);
 
-        return questions
-            .Select(q => new QuestionSnapshot(
-                q.Id,
-                q.Text,
-                q.Options.OrderBy(o => o.Order).Select(o => new QuestionOptionSnapshot(o.Id, o.Text, o.IsCorrect, o.IsPinned)).ToList(),
-                q.ChapterId,
-                q.ChapterId is { } chapterId && chapters.TryGetValue(chapterId, out var filedUnder) ? filedUnder.BookId : null,
-                q.AllowsMultiple))
-            .ToList();
-    }
+    private static Guid? BookOf(Question q, IReadOnlyDictionary<Guid, ChapterRef> chapters) =>
+        q.ChapterId is { } chapterId && chapters.TryGetValue(chapterId, out var filedUnder) ? filedUnder.BookId : null;
+
+    private static QuestionSnapshot Current(Question q, IReadOnlyDictionary<Guid, int> current, IReadOnlyDictionary<Guid, ChapterRef> chapters) =>
+        new(
+            q.Id,
+            q.Text,
+            q.Options.OrderBy(o => o.Order).Select(o => new QuestionOptionSnapshot(o.Id, o.Text, o.IsCorrect, o.IsPinned)).ToList(),
+            q.ChapterId,
+            BookOf(q, chapters),
+            q.AllowsMultiple,
+            current.GetValueOrDefault(q.Id, 1));
+
+    private static QuestionSnapshot AsOf(Question q, QuestionVersion v, IReadOnlyDictionary<Guid, ChapterRef> chapters) =>
+        new(
+            q.Id,
+            v.Text,
+            v.Options.OrderBy(o => o.Order).Select(o => new QuestionOptionSnapshot(o.OptionId, o.Text, o.IsCorrect, o.IsPinned)).ToList(),
+            q.ChapterId,
+            BookOf(q, chapters),
+            v.AllowsMultiple,
+            v.VersionNumber);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<FoundQuestion>> FindAsync(QuestionCriteria criteria, CancellationToken cancellationToken)

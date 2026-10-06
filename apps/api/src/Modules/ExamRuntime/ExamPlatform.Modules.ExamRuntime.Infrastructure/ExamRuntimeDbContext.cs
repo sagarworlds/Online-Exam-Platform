@@ -1,6 +1,9 @@
+using System.Text.Json;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace ExamPlatform.Modules.ExamRuntime.Infrastructure;
 
@@ -64,6 +67,19 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
 
             b.Property(a => a.TerminationReason).HasMaxLength(Attempt.MaxReasonLength);
             b.Property(a => a.AcknowledgedNotice).HasMaxLength(Attempt.MaxNoticeLength);
+
+            // A small JSON object, question id to version number: it is read and written with the attempt and never searched.
+            b.Property(a => a.QuestionVersions)
+                .HasColumnType("jsonb")
+                .HasDefaultValueSql("'{}'::jsonb")
+                .HasConversion(
+                    new ValueConverter<IReadOnlyDictionary<Guid, int>, string>(
+                        v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                        json => JsonSerializer.Deserialize<Dictionary<Guid, int>>(json, (JsonSerializerOptions?)null) ?? new Dictionary<Guid, int>()),
+                    new ValueComparer<IReadOnlyDictionary<Guid, int>>(
+                        (x, y) => x!.Count == y!.Count && !x.Except(y).Any(),
+                        v => v.Aggregate(0, (hash, p) => HashCode.Combine(hash, p.Key, p.Value)),
+                        v => new Dictionary<Guid, int>(v)));
             b.Property(a => a.InvalidationReason).HasMaxLength(Attempt.MaxReasonLength);
             b.Ignore(a => a.IsInvalidated);
             b.Ignore(a => a.IsTerminated);

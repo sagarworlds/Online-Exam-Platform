@@ -31,7 +31,7 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
             throw new ResultsNotReleasedError(availability.AvailableFromUtc);
 
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
-        var questions = (await questionBank.GetAsync(questionIds, cancellationToken)).ToDictionary(q => q.Id);
+        var questions = await questionBank.ReadAsync(attempt, questionIds, cancellationToken);
         var chosen = attempt.Answers.ToDictionary(a => a.QuestionId, a => (IReadOnlyCollection<Guid>)a.SelectedOptionIds);
 
         var sections = exam.Sections

@@ -50,7 +50,7 @@ public sealed class SaveAnswerHandler(
         if (chosen.Count == 0)
             throw new InvalidAnswerError();
 
-        var question = (await questionBank.GetAsync([questionId], cancellationToken)).FirstOrDefault()
+        var question = (await questionBank.ReadAsync(attempt, [questionId], cancellationToken)).GetValueOrDefault(questionId)
             ?? throw new ExamContentUnavailableError();
         var known = question.Options.Select(o => o.Id).ToHashSet();
         if (!chosen.All(known.Contains))

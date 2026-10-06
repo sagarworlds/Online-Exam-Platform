@@ -4,6 +4,7 @@ using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
 using ExamPlatform.Modules.Invite.Contracts;
+using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Domain.Exceptions;
 
@@ -19,6 +20,7 @@ public sealed class StartAttemptHandler(
     AttemptAccess access,
     AttemptViewBuilder views,
     PaperDrawer paperDrawer,
+    IQuestionBank questionBank,
     Clock clock,
     IClientInfo clientInfo)
 {
@@ -82,6 +84,10 @@ public sealed class StartAttemptHandler(
         attempt.NoteClient(clientInfo.IpAddress, clientInfo.DeviceFingerprint, attempt.StartedAtUtc);
         if (PaperDrawer.Draws(exam))
             attempt.SetPaper(await paperDrawer.DrawAsync(exam, cancellationToken));
+
+        // Which version of each question this attempt sits is fixed now, so editing a question later cannot change this attempt (FR-7).
+        var paperIds = exam.For(attempt).Sections.SelectMany(s => s.QuestionIds).Distinct().ToList();
+        attempt.PinQuestionVersions((await questionBank.GetAsync(paperIds, cancellationToken)).ToDictionary(q => q.Id, q => q.VersionNumber));
 
         attempts.Add(attempt);
         await unitOfWork.SaveChangesAsync(cancellationToken);
