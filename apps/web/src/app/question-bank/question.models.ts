@@ -103,6 +103,22 @@ export interface QuestionFilter {
   search?: string;
 }
 
+/** The file formats questions can be imported from and exported to. */
+export type QuestionFileFormat = 'csv' | 'xlsx' | 'json';
+
+/** What an import did: the rows it created and the rows it left out, each with the line it came from in the file. */
+export interface ImportQuestionsResult {
+  created: { row: number; id: string }[];
+  rejected: { row: number; errors: string[] }[];
+}
+
+/** A downloaded export, and how many matching questions did not fit the format and were left out. */
+export interface ExportedFile {
+  blob: Blob;
+  fileName: string;
+  skipped: number;
+}
+
 /** The API's limits on one question, mirrored here so the form can refuse early. */
 export const QUESTION_LIMITS = { minOptions: 2, maxOptions: 6, maxTopics: 5, maxTopicLength: 40 } as const;
 

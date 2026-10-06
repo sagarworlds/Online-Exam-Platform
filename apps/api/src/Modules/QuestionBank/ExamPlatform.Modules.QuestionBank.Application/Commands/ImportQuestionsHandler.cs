@@ -6,10 +6,11 @@ using ExamPlatform.SharedKernel.Application;
 
 namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 
-/// <summary>Imports questions from a CSV file (FR-6).</summary>
-/// <param name="Csv">The file's contents; its first row is the header and is not imported as a question.</param>
+/// <summary>Imports questions from a CSV, Excel or JSON file (FR-6).</summary>
+/// <param name="Content">The file's contents: text for CSV and JSON, base64 for Excel. A table's first row is the header and is not imported as a question.</param>
 /// <param name="CreatedBy">The authoring user, taken from the caller's token.</param>
-public sealed record ImportQuestionsCommand(string Csv, Guid CreatedBy);
+/// <param name="Format">How <paramref name="Content"/> is written; CSV unless said otherwise.</param>
+public sealed record ImportQuestionsCommand(string Content, Guid CreatedBy, QuestionFileFormat Format = QuestionFileFormat.Csv);
 
 /// <summary>
 /// Handles <see cref="ImportQuestionsCommand"/>. Every row is checked under the exact rules
@@ -29,22 +30,24 @@ public sealed class ImportQuestionsHandler(
     /// <param name="command">The file to import.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="BulkImportTooLargeError">The file has more than <see cref="MaxRows"/> data rows.</exception>
+    /// <exception cref="BulkImportUnreadableError">The file cannot be read as the format it was sent in.</exception>
     public async Task<ImportQuestionsResultDto> HandleAsync(ImportQuestionsCommand command, CancellationToken cancellationToken)
     {
-        var rows = Csv.Parse(command.Csv);
-        var dataRows = rows.Skip(1).ToList(); // Row 1 is the header; it names no question.
+        var dataRows = QuestionFiles.Read(command.Format, command.Content);
         if (dataRows.Count > MaxRows)
             throw new BulkImportTooLargeError(MaxRows);
 
         var created = new List<ImportedQuestionDto>();
         var rejected = new List<RejectedRowDto>();
 
-        for (var i = 0; i < dataRows.Count; i++)
+        foreach (var (line, fields, error) in dataRows)
         {
-            var line = i + 2; // +1 for the header, +1 because lines are counted from 1, not 0.
             try
             {
-                var (text, options, allowsMultiple, difficulty, topics) = QuestionCsvRow.Parse(dataRows[i]);
+                if (fields is null)
+                    throw new InvalidQuestionError(error ?? "The row could not be read.");
+
+                var (text, options, allowsMultiple, difficulty, topics) = QuestionCsvRow.Parse(fields);
                 var cleaned = QuestionText.Clean(sanitizer, text);
 
                 var question = Question.Create(

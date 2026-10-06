@@ -1,9 +1,12 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
   CreateQuestionRequest,
+  ExportedFile,
+  ImportQuestionsResult,
+  QuestionFileFormat,
   FileQuestionsRequest,
   FileQuestionsResult,
   QuestionDto,
@@ -52,6 +55,29 @@ export class QuestionApiService {
   /** Deletes a question that no exam holds; the API refuses one that is in use. */
   remove(id: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+
+  /** Creates the questions a file holds; `content` is text for CSV and JSON and base64 for Excel. Rows that fail are reported, not fatal. */
+  import(format: QuestionFileFormat, content: string): Observable<ImportQuestionsResult> {
+    return this.http.post<ImportQuestionsResult>(`${this.baseUrl}/import`, { format, content });
+  }
+
+  /** Downloads the questions the filter matches in a file format. */
+  export(filter: QuestionFilter, format: QuestionFileFormat): Observable<ExportedFile> {
+    const params: Record<string, string | boolean> = { format };
+    if (filter.bookId) params['bookId'] = filter.bookId;
+    if (filter.chapterId) params['chapterId'] = filter.chapterId;
+    if (filter.unfiled) params['unfiled'] = true;
+    if (filter.difficulty) params['difficulty'] = filter.difficulty;
+    if (filter.topic) params['topic'] = filter.topic;
+    if (filter.search) params['q'] = filter.search;
+    return this.http.get(`${this.baseUrl}/export`, { params, responseType: 'blob', observe: 'response' }).pipe(
+      map((response: HttpResponse<Blob>) => ({
+        blob: response.body as Blob,
+        fileName: `questions.${format}`,
+        skipped: Number(response.headers.get('X-Questions-Skipped') ?? 0),
+      })),
+    );
   }
 
   /** Files questions under a chapter, all of them or none. */

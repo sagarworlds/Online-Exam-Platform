@@ -1,0 +1,46 @@
+<section class="card" aria-label="Import and export questions">
+  <h2>Import and export</h2>
+  <p class="hint">
+    Import questions from a CSV, Excel or JSON file, or download the questions listed below. A downloaded file can be imported again
+    unchanged. Chapters are not part of the file: file imported questions afterwards.
+  </p>
+
+  @if (error()) {
+    <p class="error-message" role="alert">{{ error() }}</p>
+  }
+
+  <div class="actions">
+    <label for="export-format">Download as</label>
+    <select id="export-format" [value]="exportFormat()" (change)="onFormatChanged($any($event.target).value)">
+      @for (format of formats; track format.value) {
+        <option [value]="format.value">{{ format.label }}</option>
+      }
+    </select>
+    <button type="button" (click)="download()" [disabled]="busy()">Download questions</button>
+
+    <button type="button" (click)="picker.click()" [disabled]="busy()">Import from a file…</button>
+    <input #picker type="file" hidden accept=".csv,.xlsx,.json" aria-label="Question file" (change)="onFilePicked($event)" />
+  </div>
+
+  @if (exportNote()) {
+    <p class="hint" role="status">{{ exportNote() }}</p>
+  }
+
+  @if (result(); as report) {
+    <div role="status">
+      <p [class]="report.created.length > 0 ? 'success-message' : 'hint'">
+        {{ report.created.length }} question{{ report.created.length === 1 ? '' : 's' }} created{{
+          report.rejected.length > 0 ? ', ' + report.rejected.length + ' left out' : ''
+        }}.
+      </p>
+      @if (report.rejected.length > 0) {
+        <p>These rows were left out. Correct them and import a file holding only those rows, so the questions already created are not added twice.</p>
+        <ul class="import-report">
+          @for (row of report.rejected; track row.row) {
+            <li>Row {{ row.row }}: {{ row.errors.join(' ') }}</li>
+          }
+        </ul>
+      }
+    </div>
+  }
+</section>
