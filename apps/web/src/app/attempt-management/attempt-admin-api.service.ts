@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { AttemptSummaryDto } from '../candidate/candidate.models';
 import { AttemptPaperDto, AttemptRequestFilterStatus, AttemptRequestRow, ExamAttemptsDto, ExamCandidateDto } from './attempt-admin.models';
 
 /** Thin HTTP wrapper over the ExamRuntime module's staff routes: an exam's candidates and their attempts. */
@@ -33,6 +34,31 @@ export class AttemptAdminApiService {
   /** Turns the request down; the note, if any, is shown to the candidate. */
   declineAttemptRequest(requestId: string, note: string | null): Observable<AttemptRequestRow> {
     return this.http.post<AttemptRequestRow>(`${this.requestsUrl}/${requestId}/decline`, { note });
+  }
+
+  /** Sends the candidate a warning, which their exam page shows within seconds (FR-29). */
+  warnAttempt(examId: string, attemptId: string, message: string): Observable<AttemptSummaryDto> {
+    return this.http.post<AttemptSummaryDto>(`${this.examsUrl}/${examId}/attempts/${attemptId}/warn`, { message });
+  }
+
+  /** Pauses an attempt in progress: the candidate cannot answer and the clock stops (FR-29). */
+  pauseAttempt(examId: string, attemptId: string): Observable<AttemptSummaryDto> {
+    return this.http.post<AttemptSummaryDto>(`${this.examsUrl}/${examId}/attempts/${attemptId}/pause`, null);
+  }
+
+  /** Resumes a paused attempt; its deadline moves later by the time it was paused (FR-29). */
+  resumeAttempt(examId: string, attemptId: string): Observable<AttemptSummaryDto> {
+    return this.http.post<AttemptSummaryDto>(`${this.examsUrl}/${examId}/attempts/${attemptId}/resume`, null);
+  }
+
+  /** Ends an attempt early, scored with the answers saved so far; the candidate is shown the reason (FR-29). */
+  terminateAttempt(examId: string, attemptId: string, reason: string): Observable<AttemptSummaryDto> {
+    return this.http.post<AttemptSummaryDto>(`${this.examsUrl}/${examId}/attempts/${attemptId}/terminate`, { reason });
+  }
+
+  /** Invalidates a finished attempt's result so it no longer counts; the candidate is shown the reason instead of a score (FR-29). */
+  invalidateAttempt(examId: string, attemptId: string, reason: string): Observable<AttemptSummaryDto> {
+    return this.http.post<AttemptSummaryDto>(`${this.examsUrl}/${examId}/attempts/${attemptId}/invalidate`, { reason });
   }
 
   /** Gives one enrolled candidate one more attempt; answers with how they now stand. The giver is the signed-in user. */
