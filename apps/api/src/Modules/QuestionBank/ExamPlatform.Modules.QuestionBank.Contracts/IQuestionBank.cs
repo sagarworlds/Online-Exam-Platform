@@ -17,6 +17,15 @@ public interface IQuestionBank
     /// <returns>The questions found, in no particular order.</returns>
     Task<IReadOnlyList<QuestionSnapshot>> GetAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Reads questions as they were at a given version (FR-7), so an attempt keeps showing and marking the content it was sitting
+    /// however the question is edited afterwards.
+    /// </summary>
+    /// <param name="versions">Each question and the version wanted; a null version, or one that was never stored, reads the current content.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>One snapshot per question found, carrying the version it is the content of. Where it is filed is always where it is now.</returns>
+    Task<IReadOnlyList<QuestionSnapshot>> GetVersionsAsync(IReadOnlyCollection<QuestionVersionRef> versions, CancellationToken cancellationToken);
+
     /// <summary>Finds the questions that match the criteria, without their text or answer key.</summary>
     /// <param name="criteria">What the questions must match; nothing set matches every question.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

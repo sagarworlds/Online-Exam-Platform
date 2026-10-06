@@ -144,11 +144,15 @@ public class ExtraAttemptHandlerTests
         _bank.GetAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult<IReadOnlyList<QuestionSnapshot>>(
                 new[] { _q1, _q2 }.Where(q => call.Arg<IReadOnlyCollection<Guid>>().Contains(q.Id)).ToList()));
+        // Attempts now begin with their questions' versions, so they are read at them; the bank here only ever has the one version.
+        _bank.GetVersionsAsync(Arg.Any<IReadOnlyCollection<QuestionVersionRef>>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult<IReadOnlyList<QuestionSnapshot>>(
+                new[] { _q1, _q2 }.Where(q => call.Arg<IReadOnlyCollection<QuestionVersionRef>>().Any(r => r.QuestionId == q.Id)).ToList()));
     }
 
     private AttemptViewBuilder Views => new(_bank, _clock);
     private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock);
-    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _clock, _client);
+    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _bank, _clock, _client);
     private GrantExtraAttemptHandler Grant => new(_catalog, _roster, _attempts, _grants, _unitOfWork, _clock);
 
     /// <summary>An attempt the candidate has already made: submitted unless <paramref name="open"/>.</summary>

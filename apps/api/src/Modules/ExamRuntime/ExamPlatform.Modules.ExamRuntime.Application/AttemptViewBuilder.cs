@@ -61,7 +61,7 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock)
     private async Task<IReadOnlyList<AttemptSectionDto>> BuildSectionsAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken)
     {
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
-        var questions = (await questionBank.GetAsync(questionIds, cancellationToken)).ToDictionary(q => q.Id);
+        var questions = await questionBank.ReadAsync(attempt, questionIds, cancellationToken);
         var chosen = attempt.Answers.ToDictionary(a => a.QuestionId, a => a.SelectedOptionIds);
         var marked = attempt.Marks.Select(m => m.QuestionId).ToHashSet();
 

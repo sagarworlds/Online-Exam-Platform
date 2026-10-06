@@ -43,7 +43,7 @@ public sealed class AttemptCloser(IQuestionBank questionBank, IExamRuntimeUnitOf
     public async Task TerminateAsync(Attempt attempt, ExamSnapshot exam, Guid byUserId, string? reason, CancellationToken cancellationToken)
     {
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
-        var questions = (await questionBank.GetAsync(questionIds, cancellationToken)).ToDictionary(q => q.Id);
+        var questions = await questionBank.ReadAsync(attempt, questionIds, cancellationToken);
 
         var result = AttemptScorer.Score(exam, questions, attempt.Answers.ToList());
         attempt.Terminate(clock.UtcNow, result.Score, result.MaxScore, byUserId, reason);
@@ -54,7 +54,7 @@ public sealed class AttemptCloser(IQuestionBank questionBank, IExamRuntimeUnitOf
     private async Task CloseAsync(Attempt attempt, ExamSnapshot exam, bool endedByViolations, CancellationToken cancellationToken)
     {
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
-        var questions = (await questionBank.GetAsync(questionIds, cancellationToken)).ToDictionary(q => q.Id);
+        var questions = await questionBank.ReadAsync(attempt, questionIds, cancellationToken);
 
         var result = AttemptScorer.Score(exam, questions, attempt.Answers.ToList());
         attempt.Submit(clock.UtcNow, result.Score, result.MaxScore, endedByViolations);

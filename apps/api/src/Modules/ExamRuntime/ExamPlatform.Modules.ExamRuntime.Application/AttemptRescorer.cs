@@ -24,6 +24,7 @@ public sealed class AttemptRescorer(
 
         var nowUtc = clock.UtcNow;
         var changed = 0;
+        var repinned = false;
 
         // Grouped by exam, so an exam with many affected attempts reads its questions from the bank once, not once per attempt.
         foreach (var group in affected.GroupBy(a => a.ExamId))
@@ -32,20 +33,29 @@ public sealed class AttemptRescorer(
             if (exam is null)
                 continue; // The exam itself is gone; nothing left to rescore its attempts against.
 
-            var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
-            var questions = (await questionBank.GetAsync(questionIds, cancellationToken)).ToDictionary(q => q.Id);
+            // The corrected question as it is now: the version that holds the new key.
+            var corrected = (await questionBank.GetAsync([questionId], cancellationToken)).FirstOrDefault();
 
             foreach (var attempt in group)
             {
                 // The exam as this attempt actually sat it (its drawn paper, if it drew one), under the now-corrected key.
                 var examForAttempt = exam.For(attempt);
+                // Every other question stays at the version the attempt sat; only the corrected one moves to its new version (FR-7).
+                if (corrected is not null && attempt.QuestionVersions.Count > 0 && attempt.QuestionVersionOf(questionId) != corrected.VersionNumber)
+                {
+                    attempt.RepinQuestion(questionId, corrected.VersionNumber);
+                    repinned = true;
+                }
+                var questionIds = examForAttempt.Sections.SelectMany(s => s.QuestionIds).ToList();
+                var questions = await questionBank.ReadAsync(attempt, questionIds, cancellationToken);
                 var result = AttemptScorer.Score(examForAttempt, questions, attempt.Answers.ToList());
                 if (attempt.ReviseScore(result.Score, result.MaxScore, reason, nowUtc))
                     changed++;
             }
         }
 
-        if (changed > 0)
+        // Saved when a score moved, or when an attempt was only moved to the corrected version, which is part of what it shows.
+        if (changed > 0 || repinned)
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return changed;

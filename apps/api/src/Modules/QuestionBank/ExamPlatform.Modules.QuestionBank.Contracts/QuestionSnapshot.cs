@@ -7,13 +7,20 @@ namespace ExamPlatform.Modules.QuestionBank.Contracts;
 /// <param name="ChapterId">The chapter the question is filed under, or null when it is not filed.</param>
 /// <param name="BookId">The book that chapter belongs to, or null when the question is not filed.</param>
 /// <param name="AllowsMultiple">Whether more than one option may be correct, so a candidate chooses a set and must choose exactly the correct ones.</param>
+/// <param name="VersionNumber">The version of the question this is the content of (FR-7): the current one from <see cref="IQuestionBank.GetAsync"/>, or the one asked for from <see cref="IQuestionBank.GetVersionsAsync"/>.</param>
 public sealed record QuestionSnapshot(
     Guid Id,
     string Text,
     IReadOnlyList<QuestionOptionSnapshot> Options,
     Guid? ChapterId = null,
     Guid? BookId = null,
-    bool AllowsMultiple = false);
+    bool AllowsMultiple = false,
+    int VersionNumber = 1);
+
+/// <summary>One question, and which version of it to read.</summary>
+/// <param name="QuestionId">The question's id.</param>
+/// <param name="VersionNumber">The version wanted, or null for the current one (what an attempt made before versions were recorded reads).</param>
+public sealed record QuestionVersionRef(Guid QuestionId, int? VersionNumber);
 
 /// <summary>One answer option of a <see cref="QuestionSnapshot"/>.</summary>
 /// <param name="Id">The option's id.</param>

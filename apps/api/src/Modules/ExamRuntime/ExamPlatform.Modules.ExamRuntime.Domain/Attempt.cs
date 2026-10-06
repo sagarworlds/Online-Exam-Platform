@@ -122,6 +122,13 @@ public sealed class Attempt : AggregateRoot
     public IReadOnlyList<AttemptQuestion> Paper => _paper.AsReadOnly();
 
     /// <summary>
+    /// The version of each question this attempt was sitting (FR-7), by question id, recorded as it started. Reading the question at
+    /// that version, not its current content, is what keeps an edit made afterwards from changing what the candidate saw or how it
+    /// is marked. Empty for an attempt made before versions were recorded, which reads the questions as they are now.
+    /// </summary>
+    public IReadOnlyDictionary<Guid, int> QuestionVersions { get; private set; } = new Dictionary<Guid, int>();
+
+    /// <summary>
     /// How this attempt's score has changed since it was first submitted (FR-31), oldest first; empty for a result that
     /// has never been revised. See <see cref="ReviseScore"/>.
     /// </summary>
@@ -215,6 +222,30 @@ public sealed class Attempt : AggregateRoot
             _paper.Add(new AttemptQuestion(Id, sectionId, order, questionId));
         }
     }
+
+    /// <summary>Records which version of each question this attempt is sitting. Done once, as the attempt starts.</summary>
+    /// <param name="versions">The version number in force for each question of the attempt, by question id.</param>
+    /// <exception cref="InvalidAttemptError">The attempt already has its versions.</exception>
+    public void PinQuestionVersions(IReadOnlyDictionary<Guid, int> versions)
+    {
+        if (QuestionVersions.Count > 0)
+            throw new InvalidAttemptError("This attempt already has its question versions.");
+
+        QuestionVersions = new Dictionary<Guid, int>(versions);
+    }
+
+    /// <summary>
+    /// Moves one question to a newer version, because staff corrected its answer key and this attempt is being rescored under the
+    /// corrected key (FR-31). Nothing else about the attempt's questions changes.
+    /// </summary>
+    /// <param name="questionId">The question whose key was corrected.</param>
+    /// <param name="versionNumber">The version that holds the corrected key.</param>
+    public void RepinQuestion(Guid questionId, int versionNumber) =>
+        QuestionVersions = new Dictionary<Guid, int>(QuestionVersions) { [questionId] = versionNumber };
+
+    /// <summary>The version of a question this attempt is sitting, or null when none was recorded (read the current one).</summary>
+    /// <param name="questionId">The question.</param>
+    public int? QuestionVersionOf(Guid questionId) => QuestionVersions.TryGetValue(questionId, out var version) ? version : null;
 
     /// <summary>Whether time has run out at <paramref name="nowUtc"/>.</summary>
     /// <param name="nowUtc">The current instant.</param>

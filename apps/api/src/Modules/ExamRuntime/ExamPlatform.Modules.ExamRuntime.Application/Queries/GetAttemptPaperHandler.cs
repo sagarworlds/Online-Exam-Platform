@@ -27,7 +27,7 @@ public sealed class GetAttemptPaperHandler(IExamCatalog catalog, IAttemptReposit
         var paper = exam.For(attempt);
 
         var ids = paper.Sections.SelectMany(s => s.QuestionIds).ToList();
-        var texts = (await questionBank.GetAsync(ids, cancellationToken)).ToDictionary(q => q.Id, q => q.Text);
+        var texts = (await questionBank.ReadAsync(attempt, ids, cancellationToken)).ToDictionary(q => q.Key, q => q.Value.Text);
 
         var sections = paper.Sections
             .OrderBy(s => s.Order)
