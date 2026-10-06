@@ -14,7 +14,8 @@ public sealed class AttemptAuditTrail(IAuditLogger auditLogger, IRequestContext 
         IDomainEventHandler<AttemptPausedEvent>,
         IDomainEventHandler<AttemptResumedEvent>,
         IDomainEventHandler<AttemptTerminatedEvent>,
-        IDomainEventHandler<AttemptInvalidatedEvent>
+        IDomainEventHandler<AttemptInvalidatedEvent>,
+        IDomainEventHandler<AttemptClientChangedEvent>
 {
     /// <inheritdoc />
     public Task HandleAsync(AttemptWarnedEvent domainEvent, CancellationToken cancellationToken) =>
@@ -40,6 +41,24 @@ public sealed class AttemptAuditTrail(IAuditLogger auditLogger, IRequestContext 
     public Task HandleAsync(AttemptInvalidatedEvent domainEvent, CancellationToken cancellationToken) =>
         RecordAsync("ExamRuntime.AttemptInvalidated", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
             new Dictionary<string, string> { ["reason"] = domainEvent.Reason }, cancellationToken);
+
+    /// <inheritdoc />
+    public Task HandleAsync(AttemptClientChangedEvent domainEvent, CancellationToken cancellationToken)
+    {
+        // The address and device signature are the point of this entry (FR-26): where the attempt was, and where it is now.
+        var extra = new Dictionary<string, string>();
+        void Add(string key, string? value)
+        {
+            if (!string.IsNullOrEmpty(value))
+                extra[key] = value;
+        }
+
+        Add("previousIp", domainEvent.PreviousIpAddress);
+        Add("previousDevice", domainEvent.PreviousDeviceFingerprint);
+        Add("ip", domainEvent.IpAddress);
+        Add("device", domainEvent.DeviceFingerprint);
+        return RecordAsync("ExamRuntime.AttemptClientChanged", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId, extra, cancellationToken);
+    }
 
     private Task RecordAsync(
         string action, Guid attemptId, Guid examId, Guid candidateId, Dictionary<string, string>? extra, CancellationToken cancellationToken)

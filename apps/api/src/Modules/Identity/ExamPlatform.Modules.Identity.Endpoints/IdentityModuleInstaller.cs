@@ -38,6 +38,9 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
             .UseNpgsql(configuration.GetConnectionString("Postgres"))
             .AddInterceptors(sp.GetRequiredService<DomainEventsSaveChangesInterceptor>()));
 
+        // A second sign-in that ends an earlier session is audited from the event the user raises (FR-26).
+        services.AddDomainEventHandlers(typeof(IdentityAuditTrail).Assembly);
+
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IOtpChallengeRepository, OtpChallengeRepository>();

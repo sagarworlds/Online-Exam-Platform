@@ -20,6 +20,9 @@ export interface AttemptSummaryDto {
   /** Staff only: how many times the candidate left the exam page (FR-22) and how many warnings were sent (FR-29). */
   focusViolations?: number | null;
   warnings?: number | null;
+  /** Staff only (FR-26): how many times the attempt was seen from a different address or device than before, and on how many different devices. */
+  clientChanges?: number | null;
+  devices?: number | null;
   /** Whether an administrator has paused the attempt (FR-29). */
   paused?: boolean;
   /** Whether an administrator ended the attempt early, and why. */

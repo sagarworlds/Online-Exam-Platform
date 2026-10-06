@@ -383,6 +383,21 @@ Staff with `exam.manage` can see an exam exactly as a candidate would, in any st
 | What does not apply to a previewer | The exam's copy, paste and print block and its page-leaving limit (FR-22, FR-23) are not applied, so a reviewer can copy a question and step away without ending anything, and nothing asks the server to pause, warn or end the preview. When the countdown reaches zero it stays at zero. Submitting ends the preview and goes back to the exam. |
 | Not built | Showing the answer key or explanations in the preview, previewing as a particular candidate (their drawn paper, accommodations), and previewing the instructions page and system check. |
 
+#### Where an attempt is sat from: IP address, device signature and multi-login detection
+
+The platform records the IP address and a device signature of each sign-in and of each attempt, and notices when one account is used from two places (FR-26, building on FR-4's one active session).
+
+| What | Rule |
+|------|------|
+| The device signature | The web app sends `X-Device-Fingerprint` with every request to the platform's own API (and to nowhere else): 32 hex characters from a hash of the browser's identification string, language, screen size and colour depth, time zone and processor count. It is deliberately coarse: nothing is read from the person, no canvas or font probing, no storage that follows them between sites. Two devices of the same model and browser can share one, so a swap between them is not noticed. The server keeps only a signature of letters and digits up to 64 characters (`ClientInfo`); anything else is treated as none sent. The IP address is the one the server sees behind its trusted proxy. |
+| Told up front | The instructions page says, for every exam, that the IP address and device signature are recorded while the candidate sits it, and kept with the attempt for the organisers. Neither is ever shown to a candidate. |
+| Sign-ins | Each login already kept its address and signature on the session (FR-4 ends the earlier session when a second login starts). A second login that ends an active session is now audited as `Identity.SessionSuperseded` with the address and signature of both sessions, so staff can see an account used from two places. |
+| Attempts | The attempt's first sighting is where it began (`Started`). From then on, loading the exam page or the heartbeat (every ten seconds) from a different address or signature than the last records a `Changed` sighting, in `examRuntime.AttemptClientSightings`, and raises `ExamRuntime.AttemptClientChanged` in the audit trail with both. Staying put adds nothing, so the rows are a history of changes, not a log of requests, and a finished attempt is no longer watched. A second sign-in in the middle of an exam shows up this way within seconds, because the second device resumes the attempt. |
+| What staff see | On the Candidates and attempts page an attempt shows "Used on 2 devices" (more than one signature) or "Address changed n times", and **Sign-in details** lists each sighting: when, the IP address, a short form of the signature, and whether it was the start or a change. `GET /v1/exams/{examId}/attempts/{attemptId}/clients` (`exam.manage`) returns the same. |
+| Evidence, not a verdict | A phone moving between wifi and mobile data changes its address, and a browser update changes its signature. Nothing acts on a change: it is for a person to weigh, with the departures from the page (FR-22) and, later, the risk score (FR-27). |
+| Not built | Blocking a second device outright during an exam, a retention period for the stored addresses (FR-47), and a per-exam setting to turn the logging off. |
+| Migration | `AttemptClientSightings` adds the `examRuntime.AttemptClientSightings` table. |
+
 #### Sitting an exam: clearing a response and marking for review
 
 Two controls under each question on the exam page (`/attempt/:id`), as on a printed paper: **Clear response** takes the chosen option back, and **Mark for review** is a note to come back to the question. Both show at once and are saved in the background; if a save fails the page puts things back as they were and says so.

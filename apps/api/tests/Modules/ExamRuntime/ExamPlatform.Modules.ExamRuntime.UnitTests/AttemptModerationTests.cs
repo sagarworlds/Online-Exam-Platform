@@ -404,7 +404,7 @@ public class AttemptModerationTests
         attempt.Pause(Fixtures.Now.AddMinutes(2));
         var access = new AttemptAccess(_attempts, _catalog, Closer, _clock);
 
-        var status = await new GetAttemptStatusHandler(access, _clock).HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+        var status = await new GetAttemptStatusHandler(access, _clock, new FakeClientInfo(), _unitOfWork).HandleAsync(attempt.Id, _candidate, CancellationToken.None);
 
         Assert.Equal(AttemptStatus.InProgress, status.Status);
         Assert.Equal(Fixtures.Now.AddMinutes(2), status.PausedAtUtc);
@@ -420,7 +420,7 @@ public class AttemptModerationTests
         var access = new AttemptAccess(_attempts, _catalog, Closer, _clock);
 
         await Assert.ThrowsAsync<AttemptNotFoundError>(
-            () => new GetAttemptStatusHandler(access, _clock).HandleAsync(attempt.Id, Guid.NewGuid(), CancellationToken.None));
+            () => new GetAttemptStatusHandler(access, _clock, new FakeClientInfo(), _unitOfWork).HandleAsync(attempt.Id, Guid.NewGuid(), CancellationToken.None));
     }
 
     [Fact]

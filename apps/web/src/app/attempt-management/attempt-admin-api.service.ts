@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AttemptSummaryDto } from '../candidate/candidate.models';
-import { AttemptPaperDto, AttemptRequestFilterStatus, AttemptRequestRow, ExamAttemptsDto, ExamCandidateDto } from './attempt-admin.models';
+import { AttemptClientDto, AttemptPaperDto, AttemptRequestFilterStatus, AttemptRequestRow, ExamAttemptsDto, ExamCandidateDto } from './attempt-admin.models';
 
 /** Thin HTTP wrapper over the ExamRuntime module's staff routes: an exam's candidates and their attempts. */
 @Injectable({ providedIn: 'root' })
@@ -19,6 +19,11 @@ export class AttemptAdminApiService {
   /** The questions one attempt consisted of, with those drawn for the candidate marked. */
   getAttemptPaper(examId: string, attemptId: string): Observable<AttemptPaperDto> {
     return this.http.get<AttemptPaperDto>(`${this.examsUrl}/${examId}/attempts/${attemptId}/paper`);
+  }
+
+  /** Where an attempt was sat from: its starting address and device, and each change of either (FR-26). */
+  getAttemptClients(examId: string, attemptId: string): Observable<AttemptClientDto[]> {
+    return this.http.get<AttemptClientDto[]>(`${this.examsUrl}/${examId}/attempts/${attemptId}/clients`);
   }
 
   /** The candidates' requests for another attempt with the given status, oldest first (waiting ones by default). */

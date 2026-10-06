@@ -398,4 +398,60 @@ describe('ExamAttempts', () => {
       expect(buttonLabelled(fixture, 'Pause')).toHaveLength(1);
     });
   });
+
+  describe('where an attempt was sat from (FR-26)', () => {
+    const staff = (overrides: Partial<AttemptSummaryDto> = {}): AttemptSummaryDto => ({ ...attempt(1, 'InProgress'), ...overrides });
+    const withAttempt = (summary: AttemptSummaryDto) => candidate({ attempts: [summary] });
+
+    it('says when an attempt was used on more than one device, and when only the address changed', () => {
+      const devices = open(exam([withAttempt(staff({ clientChanges: 2, devices: 2 }))]));
+      expect(textOf(devices)).toContain('Used on 2 devices');
+      httpMock.verify();
+
+      const address = open(exam([withAttempt(staff({ clientChanges: 1, devices: 1 }))]));
+      expect(textOf(address)).toContain('Address changed 1 time');
+      expect(textOf(address)).not.toContain('Used on');
+    });
+
+    it('says nothing for an attempt that stayed in one place', () => {
+      const fixture = open(exam([withAttempt(staff({ clientChanges: 0, devices: 1 }))]));
+
+      expect(textOf(fixture)).not.toContain('Used on');
+      expect(textOf(fixture)).not.toContain('Address changed');
+    });
+
+    it('shows each place the attempt was seen, with a short device signature, and hides it again', () => {
+      const fixture = open(exam([withAttempt(staff({ clientChanges: 1, devices: 2 }))]));
+
+      buttonLabelled(fixture, 'Sign-in details')[0].click();
+      httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts/a1/clients')).flush([
+        { ipAddress: '203.0.113.10', deviceFingerprint: 'aaaaaaaa11111111', seenAtUtc: '2026-10-05T04:30:00Z', reason: 'Started' },
+        { ipAddress: null, deviceFingerprint: null, seenAtUtc: '2026-10-05T04:40:00Z', reason: 'Changed' },
+      ]);
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('203.0.113.10');
+      expect(textOf(fixture)).toContain('aaaaaaaa');
+      expect(textOf(fixture)).not.toContain('aaaaaaaa11111111');
+      expect(textOf(fixture)).toContain('Started here');
+      expect(textOf(fixture)).toContain('unknown');
+      expect(textOf(fixture)).toContain('not sent');
+      expect(textOf(fixture)).toContain('Changed');
+
+      buttonLabelled(fixture, 'Hide sign-in details')[0].click();
+      fixture.detectChanges();
+      expect(textOf(fixture)).not.toContain('203.0.113.10');
+    });
+
+    it('says why the details could not be shown', () => {
+      const fixture = open(exam([withAttempt(staff())]));
+
+      buttonLabelled(fixture, 'Sign-in details')[0].click();
+      httpMock.expectOne((r) => r.url.endsWith('/v1/exams/exam-1/attempts/a1/clients')).flush({ title: 'attempt_not_found', detail: 'No such attempt.' }, { status: 404, statusText: 'Not Found' });
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('No such attempt.');
+      expect(buttonLabelled(fixture, 'Sign-in details')).toHaveLength(1);
+    });
+  });
 });

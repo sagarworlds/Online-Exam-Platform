@@ -54,6 +54,11 @@
                   @if ((attempt.focusViolations ?? 0) > 0) {
                     <span class="badge badge--inactive">Left the page {{ attempt.focusViolations }} {{ attempt.focusViolations === 1 ? 'time' : 'times' }}</span>
                   }
+                  @if ((attempt.devices ?? 0) > 1) {
+                    <span class="badge badge--inactive">Used on {{ attempt.devices }} devices</span>
+                  } @else if ((attempt.clientChanges ?? 0) > 0) {
+                    <span class="badge badge--inactive">Address changed {{ attempt.clientChanges }} {{ attempt.clientChanges === 1 ? 'time' : 'times' }}</span>
+                  }
                   @if ((attempt.warnings ?? 0) > 0) {
                     <span class="badge badge--inactive">{{ attempt.warnings }} {{ attempt.warnings === 1 ? 'warning' : 'warnings' }}</span>
                   }
@@ -70,11 +75,41 @@
                   } @else if (!attempt.invalidated) {
                     <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'invalidate')" [disabled]="busy()">Invalidate result</button>
                   }
+                  <button type="button" class="btn--small" (click)="toggleClients(attempt.id)" [attr.aria-expanded]="clientsFor() === attempt.id">
+                    {{ clientsFor() === attempt.id ? 'Hide sign-in details' : 'Sign-in details' }}
+                  </button>
                   <button type="button" class="btn--small" (click)="togglePaper(attempt.id)" [attr.aria-expanded]="paperFor() === attempt.id">
                     {{ paperFor() === attempt.id ? 'Hide paper' : 'Show paper' }}
                   </button>
                 </span>
               </li>
+              @if (clientsFor() === attempt.id) {
+                <li class="attempt-paper">
+                  @if (clients(); as rows) {
+                    <p class="hint">
+                      Where this attempt was sat from, as the server saw it. A change is evidence to weigh, not proof: a phone moving between
+                      wifi and mobile data changes its address, and a browser update changes its signature.
+                    </p>
+                    <table class="data-table">
+                      <thead>
+                        <tr><th scope="col">When</th><th scope="col">IP address</th><th scope="col">Device</th><th scope="col"></th></tr>
+                      </thead>
+                      <tbody>
+                        @for (row of rows; track row.seenAtUtc) {
+                          <tr>
+                            <td>{{ row.seenAtUtc | date: 'medium' }}</td>
+                            <td>{{ row.ipAddress ?? 'unknown' }}</td>
+                            <td><code>{{ shortDevice(row.deviceFingerprint) }}</code></td>
+                            <td>{{ row.reason === 'Started' ? 'Started here' : 'Changed' }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  } @else {
+                    <p>Loading…</p>
+                  }
+                </li>
+              }
               @if (acting(); as a) {
                 @if (a.attemptId === attempt.id) {
                   <li class="attempt-paper">

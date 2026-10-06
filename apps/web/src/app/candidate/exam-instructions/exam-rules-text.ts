@@ -83,6 +83,9 @@ export function instructionLines(exam: MyExamDto): string[] {
     );
   }
 
+  // Always true, so always said: where the candidate sits the exam is recorded (FR-26).
+  lines.push('Your IP address and a signature of your device and browser are recorded while you sit the exam, and kept with your attempt for the organisers.');
+
   lines.push('Stay on this device and browser. Signing in somewhere else ends this session.');
   lines.push('You can submit before time runs out. Once you submit, your answers cannot be changed.');
 

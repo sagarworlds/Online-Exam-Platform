@@ -67,6 +67,8 @@ public static class ExamCandidateRows
             attempt.MaxScore,
             attempt.FocusViolations.Count,
             attempt.Warnings.Count,
+            attempt.ClientChanges,
+            attempt.DeviceCount,
             attempt.PausedAtUtc is not null,
             attempt.IsTerminated,
             attempt.TerminationReason,

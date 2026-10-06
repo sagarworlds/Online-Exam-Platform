@@ -5,7 +5,7 @@ import { Observable } from 'rxjs';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AttemptAdminApiService } from '../attempt-admin-api.service';
 import { AttemptSummaryDto } from '../../candidate/candidate.models';
-import { AttemptPaperDto, ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
+import { AttemptClientDto, AttemptPaperDto, ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
 import { PlainTextPipe } from '../../shared/rich-text/plain-text.pipe';
 
 /** The longest reason the API accepts. */
@@ -65,6 +65,10 @@ export class ExamAttempts {
   protected readonly paperFor = signal<string | null>(null);
   protected readonly paper = signal<AttemptPaperDto | null>(null);
 
+  /** The attempt whose sign-in details (where it was sat from, FR-26) are open, and what they hold once loaded. */
+  protected readonly clientsFor = signal<string | null>(null);
+  protected readonly clients = signal<AttemptClientDto[] | null>(null);
+
   /** The attempt a wording action (warn, end, invalidate) is open for; only one at a time, so a stray click cannot act on two. */
   protected readonly acting = signal<{ attemptId: string; kind: ActionKind } | null>(null);
   protected readonly actionText = signal('');
@@ -105,6 +109,35 @@ export class ExamAttempts {
         this.errorMessage.set(extractErrorMessage(error, 'The paper could not be loaded. Please try again.'));
       },
     });
+  }
+
+  protected toggleClients(attemptId: string): void {
+    if (this.clientsFor() === attemptId) {
+      this.clientsFor.set(null);
+      this.clients.set(null);
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.clientsFor.set(attemptId);
+    this.clients.set(null);
+    this.api.getAttemptClients(this.examId, attemptId).subscribe({
+      next: (rows) => {
+        // A reply for details staff has since closed, or replaced by another attempt's, is ignored.
+        if (this.clientsFor() === attemptId) {
+          this.clients.set(rows);
+        }
+      },
+      error: (error: unknown) => {
+        this.clientsFor.set(null);
+        this.errorMessage.set(extractErrorMessage(error, 'The sign-in details could not be loaded. Please try again.'));
+      },
+    });
+  }
+
+  /** The first characters of a device signature, enough to tell two apart on screen; the full value is a hash nobody reads. */
+  protected shortDevice(signature: string | null): string {
+    return signature === null ? 'not sent' : signature.slice(0, 8);
   }
 
   protected beginAction(attemptId: string, kind: ActionKind): void {

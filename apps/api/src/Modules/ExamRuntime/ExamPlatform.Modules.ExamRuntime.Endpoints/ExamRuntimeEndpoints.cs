@@ -237,6 +237,16 @@ public static class ExamRuntimeEndpoints
             .WithName("PreviewExam")
             .WithDescription("Show the exam as a candidate would see it, in any state; nothing is saved");
 
+        // Where an attempt was sat from (FR-26): the starting address and device, and each change. Staff only.
+        exams.MapGet("/{examId:guid}/attempts/{attemptId:guid}/clients", ListAttemptClients)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<IReadOnlyList<AttemptClientDto>>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("ListAttemptClients")
+            .WithDescription("Show where one attempt was sat from: its starting IP address and device signature, and each change of either");
+
         exams.MapGet("/{examId:guid}/attempts/{attemptId:guid}/paper", GetAttemptPaper)
             .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
             .Produces<AttemptPaperDto>()
@@ -340,6 +350,9 @@ public static class ExamRuntimeEndpoints
 
     private static async Task<IResult> PreviewExam(Guid examId, ClaimsPrincipal user, PreviewExamHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(examId, user.GetUserId(), ct));
+
+    private static async Task<IResult> ListAttemptClients(Guid examId, Guid attemptId, ListAttemptClientsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, attemptId, ct));
 
     private static async Task<IResult> GetAttemptPaper(Guid examId, Guid attemptId, GetAttemptPaperHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(examId, attemptId, ct));
