@@ -25,7 +25,19 @@ internal static class QuestionMapping
             usage ?? QuestionUsageDto.Unused,
             QuestionDifficultyText.Format(question.Difficulty),
             question.Topics,
-            question.AllowsMultiple);
+            question.AllowsMultiple,
+            QuestionStatusText.Format(question.Status));
+
+    /// <summary>Maps a line of a question's review thread.</summary>
+    public static QuestionReviewEntryDto ToDto(this QuestionReviewEntry entry) =>
+        new(
+            entry.Id,
+            QuestionStatusText.Format(entry.Kind),
+            entry.ByLabel,
+            entry.Comment,
+            entry.VersionNumber,
+            QuestionStatusText.Format(entry.StatusAfter),
+            entry.CreatedAtUtc);
 
     /// <summary>Maps a version and its options, in their display order at the time.</summary>
     public static QuestionVersionDto ToDto(this QuestionVersion version) =>

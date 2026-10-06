@@ -40,6 +40,12 @@ public static class RbacCatalog
         /// <summary>Create and read questions in the question bank, answer key included (FR-5).</summary>
         public const string QuestionManage = "question.manage";
 
+        /// <summary>Read questions, their history and review thread, and comment on them, without being able to change them (FR-8).</summary>
+        public const string QuestionRead = "question.read";
+
+        /// <summary>Approve a question in review or send it back to its author (FR-8).</summary>
+        public const string QuestionReview = "question.review";
+
         /// <summary>View exams and their questions and schedules, without being able to change them.</summary>
         public const string ExamRead = "exam.read";
 
@@ -100,6 +106,8 @@ public static class RbacCatalog
         new(PermissionCodes.ConsentManage, "Record and withdraw consent on behalf of a candidate"),
         new(PermissionCodes.RoleAssign, "Assign roles to users"),
         new(PermissionCodes.QuestionManage, "Create and read questions, answer key included"),
+        new(PermissionCodes.QuestionRead, "Read questions and their review thread, and comment on them"),
+        new(PermissionCodes.QuestionReview, "Approve questions in review or send them back"),
         new(PermissionCodes.ExamRead, "View exams, their questions and schedules"),
         new(PermissionCodes.ExamManage, "Create and edit exams"),
         new(PermissionCodes.ExamPublish, "Publish exams"),
@@ -124,6 +132,8 @@ public static class RbacCatalog
         new(RoleNames.ExamAdmin, RequiresTwoFactor: true,
         [
             PermissionCodes.QuestionManage,
+            PermissionCodes.QuestionRead,
+            PermissionCodes.QuestionReview,
             PermissionCodes.ExamRead,
             PermissionCodes.ExamManage,
             PermissionCodes.ExamPublish,
@@ -133,8 +143,8 @@ public static class RbacCatalog
             PermissionCodes.GuardianLinkManage,
         ]),
 
-        new(RoleNames.ContentAuthor, RequiresTwoFactor: true, [PermissionCodes.QuestionManage]),
-        new(RoleNames.Reviewer, RequiresTwoFactor: true, []),
+        new(RoleNames.ContentAuthor, RequiresTwoFactor: true, [PermissionCodes.QuestionManage, PermissionCodes.QuestionRead]),
+        new(RoleNames.Reviewer, RequiresTwoFactor: true, [PermissionCodes.QuestionRead, PermissionCodes.QuestionReview]),
         new(RoleNames.Proctor, RequiresTwoFactor: true, []),
 
         new(RoleNames.InstituteTeacher, RequiresTwoFactor: false,

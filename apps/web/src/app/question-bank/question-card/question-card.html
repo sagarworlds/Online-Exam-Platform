@@ -12,8 +12,11 @@
       <span class="visually-hidden">Select this question</span>
     </label>
   </div>
-  @if (question().allowsMultiple || question().difficulty || question().topics.length > 0) {
+  @if (question().allowsMultiple || question().difficulty || question().topics.length > 0 || question().status) {
     <p class="question-card__labels">
+      @if (question().status; as status) {
+        <span class="badge badge--status-{{ status }}">{{ statusLabels[status] }}</span>
+      }
       @if (question().allowsMultiple) {
         <span class="badge">Several answers</span>
       }
@@ -65,6 +68,14 @@
       />
       <button type="button" class="primary btn--small" (click)="fileHere()" [disabled]="!placement().chapterId || busy()">File question</button>
     </div>
+  }
+
+  @if (question().status) {
+    <app-question-review
+      [questionId]="question().id"
+      [status]="question().status!"
+      (statusChanged)="statusChanged.emit({ questionId: question().id, status: $event })"
+    />
   }
 
   <div class="actions question-card__actions">

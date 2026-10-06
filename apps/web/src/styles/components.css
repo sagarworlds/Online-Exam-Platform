@@ -239,6 +239,7 @@ button.primary:hover:not(:disabled),
 }
 
 .badge--active,
+.badge--status-approved,
 .status-Active,
 .status-Verified {
   background: var(--success-soft);
@@ -253,6 +254,7 @@ button.primary:hover:not(:disabled),
 }
 
 .badge--inactive,
+.badge--status-retired,
 .status-Closed,
 .status-Revoked {
   background: var(--surface-muted);
@@ -618,4 +620,18 @@ button.primary:hover:not(:disabled),
   font-size: 1.75rem;
   letter-spacing: 0.25em;
   margin: 0.25rem 0 0;
+}
+
+/* The review panel of a question (FR-8): a thread of comments and decisions under a button that opens it. */
+.question-review__panel {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.question-review__thread {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.25rem;
 }

@@ -30,6 +30,9 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         services.AddScoped<IQuestionRepository, QuestionRepository>();
         services.AddScoped<IBookRepository, BookRepository>();
         services.AddScoped<IQuestionBankUnitOfWork, QuestionBankUnitOfWork>();
+        // Whether an exam may only hold approved questions (FR-8). Off unless the deployment asks for it.
+        // Read when first needed, not now, so a host that adds its settings after registration (as the tests do) is honoured.
+        services.AddSingleton(sp => new QuestionApprovalPolicy(sp.GetRequiredService<IConfiguration>().GetValue<bool>("QuestionBank:RequireApproval")));
         services.AddScoped<IQuestionBank, QuestionBankReader>();
         services.AddScoped<IBookCatalog, BookCatalog>();
         // Combines the IQuestionUsageSource each module that uses questions registers for itself.
@@ -47,6 +50,8 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         services.AddScoped<ListQuestionsHandler>();
         services.AddScoped<GetQuestionHandler>();
         services.AddScoped<GetQuestionHistoryHandler>();
+        services.AddScoped<GetQuestionReviewLogHandler>();
+        services.AddScoped<QuestionReviewHandler>();
         services.AddScoped<ListTopicsHandler>();
         services.AddScoped<ImportQuestionsHandler>();
         services.AddScoped<ExportQuestionsHandler>();

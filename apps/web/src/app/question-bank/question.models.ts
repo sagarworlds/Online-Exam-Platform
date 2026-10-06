@@ -45,6 +45,8 @@ export interface QuestionDto {
   difficulty: QuestionDifficulty | null;
   /** Free-text topics in lower case, such as "fractions"; at most {@link QUESTION_LIMITS}.maxTopics. */
   topics: string[];
+  /** Where the question is in the review workflow (FR-8); absent from an API that predates it. */
+  status?: QuestionStatus;
   /** Whether more than one option may be correct; a candidate must then choose exactly the correct ones to be marked right. */
   allowsMultiple: boolean;
 }
@@ -101,7 +103,32 @@ export interface QuestionFilter {
   topic?: string;
   /** Combines with the others: only questions whose text, or an option's text, contains this; case does not matter. */
   search?: string;
+  /** Combines with the others: only questions in this review status. */
+  status?: QuestionStatus;
 }
+
+/** Where a question is in the review workflow (FR-8). */
+export type QuestionStatus = 'draft' | 'in_review' | 'approved' | 'retired';
+
+/** One line of a question's review thread: a comment, or a step of the workflow with the comment that came with it. */
+export interface ReviewEntry {
+  id: string;
+  kind: 'commented' | 'submitted' | 'approved' | 'changes_requested' | 'retired' | 'restored';
+  byLabel: string;
+  comment: string;
+  versionNumber: number;
+  statusAfter: QuestionStatus;
+  createdAtUtc: string;
+}
+
+/** What a review step did: the status afterwards, and the thread entry that records it. */
+export interface ReviewResult {
+  status: QuestionStatus;
+  entry: ReviewEntry;
+}
+
+/** A review step a question can take. */
+export type ReviewStep = 'submit-for-review' | 'approve' | 'request-changes' | 'retire' | 'restore';
 
 /** The file formats questions can be imported from and exported to. */
 export type QuestionFileFormat = 'csv' | 'xlsx' | 'json';

@@ -215,6 +215,31 @@ A question's answer key is otherwise locked once candidates have answered it (on
 
 A rescored attempt's new score replaces its old one, but the change is kept as a revision (previous score, new score, the reason, when), not applied silently: the candidate's answer review lists every revision the attempt has had. The correction is written to the admin audit log (`QuestionBank.AnswerKeyCorrected`) with the reason and how many attempts it rescored, not the attempts themselves. There is no staff page for this yet (API only); raising a dispute is likewise not built — a candidate who thinks a key is wrong still has to tell staff out of band.
 
+#### Review and approval of questions (FR-8)
+
+A question moves through `draft → in review → approved → retired`, with a thread of comments and decisions kept for each one (requirements, question metadata and FR-8). It is shown as a status badge on each question in the bank and as a **Review** button on the card that opens the thread and the steps the signed-in user may take.
+
+| Step | Route | Needs | Rule |
+|------|-------|-------|------|
+| New question | `POST /v1/questions`, or an import | `question.manage` | Starts as a **draft**. Questions that existed before this was built are migrated as **approved**, so nothing already in use changes. |
+| Put forward | `POST /v1/questions/{id}/submit-for-review` | `question.manage` | A draft becomes **in review**; the optional `comment` is a note to the reviewer. |
+| Approve | `POST /v1/questions/{id}/approve` | `question.review` | Only a question in review. The entry names the **version** that was approved (FR-7). |
+| Send back | `POST /v1/questions/{id}/request-changes` | `question.review` | Only a question in review; the `comment` is required, since the author needs to know what to change. It becomes a draft again. |
+| Retire | `POST /v1/questions/{id}/retire` | `question.manage` | From any status except retired. |
+| Restore | `POST /v1/questions/{id}/restore` | `question.manage` | Only a retired question; it comes back as a **draft** and has to be reviewed again. |
+| Comment | `POST /v1/questions/{id}/comments` | `question.read` | In any status; the `comment` is required, at most 2000 characters. |
+| Read the thread | `GET /v1/questions/{id}/review-log` | `question.read` | Oldest first: `kind` (commented, submitted, approved, changes_requested, retired, restored), who (`byLabel`, their email address from the token), the comment, the version, the status afterwards and when. Entries are only ever added. |
+
+An illegal step (approving a draft, putting a draft forward twice, restoring a question that is not retired) is `409 invalid_question_status` and changes nothing; a missing comment where one is required is `400`. The status and the entry that records it are saved together, so the two cannot disagree. `GET /v1/questions?status=in_review` (also `draft`, `approved`, `retired`) is the review queue; the bank page has a **Review status** filter for it.
+
+| What | Rule |
+|------|------|
+| Permissions | `question.read` is new: it opens the question list, a question, its history, its thread, comments and the book list, without being able to change anything. `question.review` is new too. The **Reviewer** role holds `question.read` and `question.review` and nothing that edits; **ContentAuthor** holds `question.manage` and `question.read`; **ExamAdmin** holds all of them; **SuperAdmin** holds everything. Whoever puts a question forward can approve it only if their role also holds `question.review`, which is what separates author from reviewer. |
+| Editing | Changing the text or options of a question that is in review or approved returns it to a **draft**, so what a reviewer approved is always what is stored. Saving it unchanged does not, and neither does classifying or filing it. An answer-key correction (FR-31) keeps an approved question approved, because it is staff correcting something already in use. |
+| In exams | A **retired** question cannot be added to an exam (`409 question_not_usable`) and is left out of draws; exams and attempts that already hold it still read it, so retiring never breaks an exam. By default drafts and questions in review may still be used, so a bank without reviewers is not locked out of building exams. A deployment that wants approval enforced sets `QuestionBank:RequireApproval` to `true`: then only **approved** questions can be added or drawn. The bank owns this rule and tells other modules the answer on the question it hands them, so exams never read a status. |
+| Not built | Notifying a reviewer that a question is waiting (FR-39), assigning a question to a particular reviewer, and bulk approval. Import and export do not carry the status: imported questions are drafts. |
+| Migration | `QuestionReviewWorkflow` adds `Status` to `questionBank.Questions` (existing rows `Approved`) and creates `questionBank.QuestionReviewEntries`. |
+
 #### Bulk import/export (FR-6)
 
 A staff member holding `question.manage` can create questions from a CSV, Excel or JSON file, or download questions as one, from the **Import and export** card on the question bank page (or `/v1/questions`). The CSV and Excel files share one column shape, so a bank's own export is always a file it can re-import unchanged: `Text,Option1,Correct1,...,Option6,Correct6,AllowsMultiple,Difficulty,Topics` (up to six options as fixed column pairs; an unused pair is left blank, so a two-option question's later columns are simply empty; `Topics` is `;`-joined since `,` is the column delimiter). Chapter placement is not part of the file — it stays the separate `POST /v1/questions/placement` bulk action, so a row never has to resolve a chapter by name across books.

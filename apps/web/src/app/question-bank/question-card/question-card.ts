@@ -2,7 +2,8 @@ import { Component, computed, effect, input, output, signal, untracked } from '@
 import { RouterLink } from '@angular/router';
 import { BookDto } from '../../book-management/book.models';
 import { BookChapterPicker, NO_PLACEMENT, Placement } from '../book-chapter-picker/book-chapter-picker';
-import { QuestionDto } from '../question.models';
+import { QuestionDto, QuestionStatus } from '../question.models';
+import { QuestionReview, STATUS_LABELS } from '../question-review/question-review';
 import { MathDirective } from '../../shared/rich-text/math.directive';
 
 /**
@@ -12,7 +13,7 @@ import { MathDirective } from '../../shared/rich-text/math.directive';
  */
 @Component({
   selector: 'app-question-card',
-  imports: [RouterLink, BookChapterPicker, MathDirective],
+  imports: [RouterLink, BookChapterPicker, MathDirective, QuestionReview],
   templateUrl: './question-card.html',
 })
 export class QuestionCard {
@@ -30,6 +31,11 @@ export class QuestionCard {
   readonly deleteConfirmed = output<string>();
   /** The author ticked or unticked the question. */
   readonly selectionChanged = output<boolean>();
+  /** The question's review status changed (FR-8); carries the new one. */
+  readonly statusChanged = output<{ questionId: string; status: QuestionStatus }>();
+  /** The question's review status, as a person reads it. */
+  protected readonly statusLabels = STATUS_LABELS;
+
   /** The author chose a chapter to file this question under. */
   readonly fileRequested = output<{ questionId: string; chapterId: string }>();
 

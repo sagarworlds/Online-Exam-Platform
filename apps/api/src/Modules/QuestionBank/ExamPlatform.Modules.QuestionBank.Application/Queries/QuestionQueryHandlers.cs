@@ -49,6 +49,22 @@ public sealed class GetQuestionHandler(IQuestionRepository repository, QuestionU
     }
 }
 
+/// <summary>Reads a question's review thread (FR-8).</summary>
+public sealed class GetQuestionReviewLogHandler(IQuestionRepository repository)
+{
+    /// <summary>Returns every comment and workflow step of the question, oldest first.</summary>
+    /// <param name="questionId">The question's id.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="QuestionNotFoundError">No question has that id.</exception>
+    public async Task<IReadOnlyList<QuestionReviewEntryDto>> HandleAsync(Guid questionId, CancellationToken cancellationToken)
+    {
+        // Not loaded with its versions: only whether it exists matters here.
+        _ = (await repository.GetManyAsync([questionId], cancellationToken)).FirstOrDefault() ?? throw new QuestionNotFoundError();
+
+        return (await repository.ListReviewEntriesAsync(questionId, cancellationToken)).Select(e => e.ToDto()).ToList();
+    }
+}
+
 /// <summary>Reads a question's version history (FR-7).</summary>
 public sealed class GetQuestionHistoryHandler(IQuestionRepository repository)
 {

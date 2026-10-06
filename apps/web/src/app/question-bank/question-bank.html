@@ -47,6 +47,13 @@
           <option [value]="level.value">{{ level.label }}</option>
         }
       </select>
+      <label class="visually-hidden" for="filter-status">Review status</label>
+      <select id="filter-status" [value]="filterStatus()" (change)="onFilterStatusChanged($any($event.target).value)">
+        <option value="">Any status</option>
+        @for (status of statuses; track status.value) {
+          <option [value]="status.value">{{ status.label }}</option>
+        }
+      </select>
       <label class="visually-hidden" for="filter-topic">Topic</label>
       <select id="filter-topic" [value]="filterTopic()" (change)="onFilterTopicChanged($any($event.target).value)">
         <option value="">Any topic</option>
@@ -106,6 +113,7 @@
         [busy]="busyId() === question.id"
         [error]="cardErrors()[question.id] ?? null"
         (selectionChanged)="toggleSelected(question.id, $event)"
+        (statusChanged)="onStatusChanged($event)"
         (fileRequested)="fileQuestion($event.questionId, $event.chapterId)"
         (deleteConfirmed)="deleteQuestion($event)"
       />

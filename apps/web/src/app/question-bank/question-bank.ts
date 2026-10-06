@@ -16,8 +16,10 @@ import {
   QuestionDifficulty,
   QuestionDto,
   QuestionFilter,
+  QuestionStatus,
 } from './question.models';
 import { QuestionTransfer } from './question-transfer/question-transfer';
+import { STATUS_LABELS } from './question-review/question-review';
 
 /** The value of the list filter's book select that means "questions not filed under any chapter". */
 export const UNFILED = 'unfiled';
@@ -78,6 +80,7 @@ export class QuestionBank {
   protected readonly filterTopic = signal('');
   /** The text the list is searched for; empty for no search. */
   protected readonly filterSearch = signal('');
+  protected readonly filterStatus = signal<QuestionStatus | ''>('');
   protected readonly difficulties = QUESTION_DIFFICULTIES;
   /** Every topic in use, for the topic filter and for the form's suggestions. */
   protected readonly topics = signal<string[]>([]);
@@ -103,6 +106,21 @@ export class QuestionBank {
   protected onFilterChapterChanged(value: string): void {
     this.filterChapter.set(value);
     this.refresh();
+  }
+
+  protected readonly statuses: readonly { value: QuestionStatus; label: string }[] = (Object.keys(STATUS_LABELS) as QuestionStatus[]).map((value) => ({
+    value,
+    label: STATUS_LABELS[value],
+  }));
+
+  protected onFilterStatusChanged(value: string): void {
+    this.filterStatus.set(value as QuestionStatus | '');
+    this.refresh();
+  }
+
+  /** A question's review status changed: show it on its card without reading the whole list again. */
+  protected onStatusChanged(change: { questionId: string; status: QuestionStatus }): void {
+    this.questions.update((list) => list.map((q) => (q.id === change.questionId ? { ...q, status: change.status } : q)));
   }
 
   protected onFilterDifficultyChanged(value: string): void {
@@ -266,7 +284,8 @@ export class QuestionBank {
     const difficulty = this.filterDifficulty();
     const topic = this.filterTopic();
     const search = this.filterSearch();
-    return { ...(difficulty ? { difficulty } : {}), ...(topic ? { topic } : {}), ...(search ? { search } : {}) };
+    const status = this.filterStatus();
+    return { ...(difficulty ? { difficulty } : {}), ...(topic ? { topic } : {}), ...(search ? { search } : {}), ...(status ? { status } : {}) };
   }
 
   /** What the export button downloads: the questions the list is showing. */

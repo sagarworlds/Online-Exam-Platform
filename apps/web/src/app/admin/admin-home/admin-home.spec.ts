@@ -18,7 +18,7 @@ function render(permissions: string[]): HTMLElement {
 
 describe('AdminHome', () => {
   it('offers every admin area to a user holding all the permissions', () => {
-    const text = render(['question.manage', 'exam.read', 'invite.manage', 'batch.manage', 'guardian.link.manage', 'identity.otp.read']).textContent;
+    const text = render(['question.manage', 'question.read', 'exam.read', 'invite.manage', 'batch.manage', 'guardian.link.manage', 'identity.otp.read']).textContent;
 
     for (const label of ['Questions', 'Books', 'Exams', 'Invites', 'Batches', 'Guardians', 'Candidate codes']) {
       expect(text).toContain(label);
@@ -26,7 +26,7 @@ describe('AdminHome', () => {
   });
 
   it('offers only the areas the permissions open', () => {
-    const page = render(['question.manage']);
+    const page = render(['question.read']);
 
     expect(page.textContent).toContain('Questions');
     expect(page.textContent).not.toContain('Invites');

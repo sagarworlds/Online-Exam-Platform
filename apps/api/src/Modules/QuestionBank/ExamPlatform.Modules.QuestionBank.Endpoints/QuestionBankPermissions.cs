@@ -9,4 +9,10 @@ internal static class QuestionBankPermissions
 {
     /// <summary>Create and read questions, answer key included (<c>question.manage</c>).</summary>
     public const string Manage = "permission:question.manage";
+
+    /// <summary>Read questions, their history and review thread, and comment on them (<c>question.read</c>), without being able to change them.</summary>
+    public const string Read = "permission:question.read";
+
+    /// <summary>Approve a question in review, or send it back to its author (<c>question.review</c>).</summary>
+    public const string Review = "permission:question.review";
 }

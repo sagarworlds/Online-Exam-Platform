@@ -21,6 +21,7 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
 
     /// <summary>Every version any question has had (FR-7).</summary>
     public DbSet<QuestionVersion> QuestionVersions => Set<QuestionVersion>();
+    public DbSet<QuestionReviewEntry> QuestionReviewEntries => Set<QuestionReviewEntry>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -37,6 +38,9 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
             b.Property(q => q.SearchText).IsRequired().HasColumnType("text");
             // Stored as its name rather than its number, so the column reads the same in a query and survives a reordered enum.
             b.Property(q => q.Difficulty).HasConversion<string>().HasMaxLength(10);
+            b.Property(q => q.Status).HasConversion<string>().HasMaxLength(10);
+            // The review queue is read by status.
+            b.HasIndex(q => q.Status);
             // A Postgres text[]; topics are filtered with "= ANY(...)" and listed with unnest, which a delimited string could not do.
             b.PrimitiveCollection(q => q.Topics).HasColumnType("text[]");
             b.Ignore(q => q.DomainEvents);
@@ -105,6 +109,19 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
             b.Property(v => v.Options).HasConversion(versionOptionsConverter, versionOptionsComparer).HasColumnType("jsonb");
             // A question's versions are always listed in order, and never looked up any other way.
             b.HasIndex(v => new { v.QuestionId, v.VersionNumber }).IsUnique();
+        });
+
+        modelBuilder.Entity<QuestionReviewEntry>(b =>
+        {
+            b.ToTable("QuestionReviewEntries");
+            b.HasKey(e => e.Id);
+            b.Property(e => e.Kind).HasConversion<string>().HasMaxLength(20);
+            b.Property(e => e.StatusAfter).HasConversion<string>().HasMaxLength(10);
+            b.Property(e => e.ByLabel).IsRequired().HasMaxLength(QuestionReviewEntry.MaxByLabelLength);
+            b.Property(e => e.Comment).IsRequired().HasMaxLength(QuestionReviewEntry.MaxCommentLength);
+            // A thread is read in order for one question, and goes with the question if it is deleted.
+            b.HasIndex(e => new { e.QuestionId, e.CreatedAtUtc });
+            b.HasOne<Question>().WithMany().HasForeignKey(e => e.QuestionId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.ApplyUtcDateTimeConversion();

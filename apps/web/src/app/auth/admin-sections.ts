@@ -3,6 +3,8 @@ import { AdminIconName } from '../shared/admin-icon/admin-icon';
 /** A permission code the API defines (see `RbacCatalog.PermissionCodes`); the UI mirrors only the ones it gates on. */
 export const Permission = {
   QuestionManage: 'question.manage',
+  QuestionRead: 'question.read',
+  QuestionReview: 'question.review',
   ExamRead: 'exam.read',
   ExamManage: 'exam.manage',
   BatchManage: 'batch.manage',
@@ -26,7 +28,7 @@ export interface AdminSection {
  * list, and each route's guard names the same permission, so the three cannot drift apart.
  */
 export const ADMIN_SECTIONS: readonly AdminSection[] = [
-  { label: 'Questions', description: 'Write questions and mark the correct answer.', path: '/admin/questions', permission: Permission.QuestionManage, icon: 'question' },
+  { label: 'Questions', description: 'Write questions, mark the correct answer and review them.', path: '/admin/questions', permission: Permission.QuestionRead, icon: 'question' },
   { label: 'Books', description: 'Organise questions into books and chapters.', path: '/admin/books', permission: Permission.QuestionManage, icon: 'book' },
   { label: 'Exams', description: 'Build an exam from questions, schedule it and publish it.', path: '/exams', permission: Permission.ExamRead, icon: 'exam' },
   { label: 'Attempt requests', description: 'Answer candidates who ask for another attempt.', path: '/admin/attempt-requests', permission: Permission.ExamManage, icon: 'attempt-request' },
