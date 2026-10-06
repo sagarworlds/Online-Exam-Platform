@@ -75,6 +75,7 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
 
                     b.Property<string>("QuestionVersions")
                         .ValueGeneratedOnAdd()
+                        .IsRequired()
                         .HasColumnType("jsonb")
                         .HasDefaultValueSql("'{}'::jsonb");
 
