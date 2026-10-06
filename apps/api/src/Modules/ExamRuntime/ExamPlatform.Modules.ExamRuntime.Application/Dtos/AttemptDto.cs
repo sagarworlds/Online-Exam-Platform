@@ -47,6 +47,9 @@ public sealed record AttemptSectionDto(Guid Id, string Name, IReadOnlyList<Attem
 /// <param name="Number">Which attempt this is for the candidate at the exam, from 1.</param>
 /// <param name="SectionLockEnabled">Whether sections are locked: once the candidate moves past one they cannot return to it.</param>
 /// <param name="ActiveSectionId">The section the candidate is in, while the attempt is open and sections are locked; otherwise null.</param>
+/// <param name="FocusViolationLimit">How many times the candidate may leave the exam page before the server ends the attempt (FR-22); 0 when the exam does not watch for it.</param>
+/// <param name="FocusViolations">How many times they have left it so far in this attempt.</param>
+/// <param name="EndedByViolations">Whether the server ended the attempt because the limit was reached.</param>
 /// <param name="ContentProtection">Whether the exam page turns off copying, pasting, right-click and printing while this attempt is open (FR-23).</param>
 public sealed record AttemptDto(
     Guid Id,
@@ -65,4 +68,7 @@ public sealed record AttemptDto(
     int Number = 1,
     bool SectionLockEnabled = false,
     Guid? ActiveSectionId = null,
-    bool ContentProtection = true);
+    bool ContentProtection = true,
+    int FocusViolationLimit = 0,
+    int FocusViolations = 0,
+    bool EndedByViolations = false);

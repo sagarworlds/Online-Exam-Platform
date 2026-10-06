@@ -55,6 +55,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<SaveAnswerHandler>();
         services.AddScoped<ClearAnswerHandler>();
         services.AddScoped<MarkQuestionHandler>();
+        services.AddScoped<RecordFocusViolationHandler>();
         services.AddScoped<MoveToSectionHandler>();
         services.AddScoped<SubmitAttemptHandler>();
         services.AddScoped<GrantExtraAttemptHandler>();

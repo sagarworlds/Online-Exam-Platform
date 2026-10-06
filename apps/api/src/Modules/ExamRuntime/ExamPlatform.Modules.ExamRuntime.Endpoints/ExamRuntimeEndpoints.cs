@@ -24,6 +24,10 @@ public sealed record SaveAnswerRequest(Guid? OptionId = null, IReadOnlyList<Guid
 /// <param name="Reason">Why the candidate is being given another attempt; optional, at most 500 characters.</param>
 public sealed record GrantExtraAttemptRequest(string? Reason);
 
+/// <summary>Body of <c>POST /v1/me/attempts/{attemptId}/focus-violations</c>.</summary>
+/// <param name="Kind">How the candidate left the page: <c>TabHidden</c>, <c>WindowBlurred</c> or <c>FullscreenExited</c>.</param>
+public sealed record FocusViolationRequest(string? Kind);
+
 /// <summary>Body of <c>POST /v1/me/exams/{examId}/attempt-requests</c>.</summary>
 /// <param name="Message">Why the candidate wants another attempt; optional, at most 500 characters.</param>
 public sealed record RequestAttemptRequest(string? Message);
@@ -122,6 +126,15 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status409Conflict)
             .WithName("MoveToSection")
             .WithDescription("Move to a later section of an open attempt; when the exam locks sections the earlier one cannot be returned to");
+
+        me.MapPost("/attempts/{attemptId:guid}/focus-violations", RecordFocusViolation)
+            .Produces<FocusViolationResultDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("RecordFocusViolation")
+            .WithDescription("Report that the candidate left the exam page; the server counts it and ends the attempt when the exam's limit is reached");
 
         me.MapPost("/attempts/{attemptId:guid}/submit", SubmitAttempt)
             .Produces<AttemptDto>()
@@ -287,6 +300,18 @@ public static class ExamRuntimeEndpoints
     {
         await handler.HandleAsync(attemptId, user.GetUserId(), sectionId, ct);
         return Results.NoContent();
+    }
+
+    private static async Task<IResult> RecordFocusViolation(
+        Guid attemptId, FocusViolationRequest request, ClaimsPrincipal user, RecordFocusViolationHandler handler, CancellationToken ct)
+    {
+        // Numbers parse as enum values too, and an undefined one would be stored as a kind nobody can read, so only the names count.
+        if (!Enum.TryParse<FocusViolationKind>(request.Kind, ignoreCase: true, out var kind)
+            || !Enum.IsDefined(kind)
+            || int.TryParse(request.Kind, out _))
+            throw new InvalidAttemptError("Say how the page was left: TabHidden, WindowBlurred or FullscreenExited.");
+
+        return Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), kind, ct));
     }
 
     private static async Task<IResult> SubmitAttempt(Guid attemptId, ClaimsPrincipal user, SubmitAttemptHandler handler, CancellationToken ct) =>

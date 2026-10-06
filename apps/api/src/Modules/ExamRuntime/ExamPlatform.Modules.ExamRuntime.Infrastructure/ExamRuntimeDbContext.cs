@@ -51,6 +51,9 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             b.HasMany(a => a.Paper).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(a => a.Paper).HasField("_paper").UsePropertyAccessMode(PropertyAccessMode.Field);
 
+            b.HasMany(a => a.FocusViolations).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
+            b.Navigation(a => a.FocusViolations).HasField("_focusViolations").UsePropertyAccessMode(PropertyAccessMode.Field);
+
             b.HasMany(a => a.Revisions).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(a => a.Revisions).HasField("_revisions").UsePropertyAccessMode(PropertyAccessMode.Field);
         });
@@ -92,6 +95,16 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             // At most one mark per question: marking twice at once cannot leave two rows, and the loser is a harmless conflict.
             // The index also serves loading an attempt's marks.
             b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
+        });
+
+        modelBuilder.Entity<AttemptFocusViolation>(b =>
+        {
+            b.ToTable("AttemptFocusViolations");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);
+
+            // An attempt's violations are read together with the attempt, oldest first, and counted against the exam's limit.
+            b.HasIndex(x => new { x.AttemptId, x.OccurredAtUtc });
         });
 
         modelBuilder.Entity<AttemptResultRevision>(b =>

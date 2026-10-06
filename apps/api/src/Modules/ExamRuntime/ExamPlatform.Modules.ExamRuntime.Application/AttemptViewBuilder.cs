@@ -45,7 +45,10 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock)
             exam.SectionLockEnabled && attempt.Status == AttemptStatus.InProgress
                 ? exam.Sections.FirstOrDefault(s => s.Order == attempt.ActiveSectionOrder)?.Id
                 : null,
-            exam.ContentProtection);
+            exam.ContentProtection,
+            exam.FocusViolationLimit,
+            attempt.FocusViolations.Count,
+            attempt.EndedByViolations);
     }
 
     private async Task<IReadOnlyList<AttemptSectionDto>> BuildSectionsAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken)
