@@ -29,6 +29,9 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
             .UseNpgsql(configuration.GetConnectionString("Postgres"))
             .AddInterceptors(sp.GetRequiredService<DomainEventsSaveChangesInterceptor>()));
 
+        // What administrators do to an attempt is audited from the events the attempt raises (FR-29, FR-40).
+        services.AddDomainEventHandlers(typeof(AttemptAuditTrail).Assembly);
+
         services.AddScoped<IAttemptRepository, AttemptRepository>();
         services.AddScoped<IExtraAttemptGrantRepository, ExtraAttemptGrantRepository>();
         services.AddScoped<IAttemptRequestRepository, AttemptRequestRepository>();
@@ -56,6 +59,13 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<ClearAnswerHandler>();
         services.AddScoped<MarkQuestionHandler>();
         services.AddScoped<RecordFocusViolationHandler>();
+        services.AddScoped<StaffAttemptAccess>();
+        services.AddScoped<WarnAttemptHandler>();
+        services.AddScoped<PauseAttemptHandler>();
+        services.AddScoped<ResumeAttemptHandler>();
+        services.AddScoped<TerminateAttemptHandler>();
+        services.AddScoped<InvalidateAttemptHandler>();
+        services.AddScoped<GetAttemptStatusHandler>();
         services.AddScoped<MoveToSectionHandler>();
         services.AddScoped<SubmitAttemptHandler>();
         services.AddScoped<GrantExtraAttemptHandler>();

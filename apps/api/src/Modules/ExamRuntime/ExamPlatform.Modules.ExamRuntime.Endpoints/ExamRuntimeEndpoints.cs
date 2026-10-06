@@ -28,6 +28,14 @@ public sealed record GrantExtraAttemptRequest(string? Reason);
 /// <param name="Kind">How the candidate left the page: <c>TabHidden</c>, <c>WindowBlurred</c> or <c>FullscreenExited</c>.</param>
 public sealed record FocusViolationRequest(string? Kind);
 
+/// <summary>Body of <c>POST /v1/exams/{examId}/attempts/{attemptId}/warn</c>.</summary>
+/// <param name="Message">What to tell the candidate, 1 to 500 characters.</param>
+public sealed record WarnAttemptRequest(string? Message);
+
+/// <summary>Body of <c>POST /v1/exams/{examId}/attempts/{attemptId}/terminate</c> and <c>/invalidate</c>.</summary>
+/// <param name="Reason">Why, 1 to 500 characters; the candidate is shown it.</param>
+public sealed record AttemptActionReasonRequest(string? Reason);
+
 /// <summary>Body of <c>POST /v1/me/exams/{examId}/attempt-requests</c>.</summary>
 /// <param name="Message">Why the candidate wants another attempt; optional, at most 500 characters.</param>
 public sealed record RequestAttemptRequest(string? Message);
@@ -77,6 +85,13 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .WithName("GetAttempt")
             .WithDescription("Read an attempt: its questions while open, its score once submitted");
+
+        me.MapGet("/attempts/{attemptId:guid}/status", GetAttemptStatus)
+            .Produces<AttemptStatusDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("GetAttemptStatus")
+            .WithDescription("The exam page's heartbeat: whether the attempt is open or paused, its deadline, and any warnings, without the questions");
 
         me.MapGet("/attempts/{attemptId:guid}/review", GetAttemptReview)
             .Produces<AttemptReviewDto>()
@@ -155,6 +170,61 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .WithName("ListExamAttempts")
             .WithDescription("List an exam's enrolled candidates with their attempts and whether another can be granted");
+
+        // What an administrator can do to an attempt in progress or just finished (FR-29). Each route names the exam as well as the
+        // attempt, so an attempt of another exam is a 404, and each is audited by the events the attempt raises.
+        exams.MapPost("/{examId:guid}/attempts/{attemptId:guid}/warn", WarnAttempt)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AttemptSummaryDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("WarnAttempt")
+            .WithDescription("Send the candidate a warning while they sit the exam; their page shows it within seconds");
+
+        exams.MapPost("/{examId:guid}/attempts/{attemptId:guid}/pause", PauseAttempt)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AttemptSummaryDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("PauseAttempt")
+            .WithDescription("Pause an attempt in progress: the candidate cannot answer and the clock stops");
+
+        exams.MapPost("/{examId:guid}/attempts/{attemptId:guid}/resume", ResumeAttempt)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AttemptSummaryDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("ResumeAttempt")
+            .WithDescription("Resume a paused attempt; its deadline moves later by the time it was paused");
+
+        exams.MapPost("/{examId:guid}/attempts/{attemptId:guid}/terminate", TerminateAttempt)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AttemptSummaryDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("TerminateAttempt")
+            .WithDescription("End an attempt early, scored with the answers saved so far; the candidate is shown the reason");
+
+        exams.MapPost("/{examId:guid}/attempts/{attemptId:guid}/invalidate", InvalidateAttempt)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AttemptSummaryDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("InvalidateAttempt")
+            .WithDescription("Invalidate a finished attempt's result so it no longer counts; the candidate is shown the reason instead of a score");
 
         exams.MapGet("/{examId:guid}/attempts/{attemptId:guid}/paper", GetAttemptPaper)
             .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
@@ -235,6 +305,27 @@ public static class ExamRuntimeEndpoints
     private static async Task<IResult> DeclineAttemptRequest(
         Guid requestId, DeclineAttemptRequestRequest? request, ClaimsPrincipal user, DeclineAttemptRequestHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(requestId, user.GetUserId(), request?.Note, ct));
+
+    private static async Task<IResult> WarnAttempt(
+        Guid examId, Guid attemptId, WarnAttemptRequest? request, ClaimsPrincipal user, WarnAttemptHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, attemptId, user.GetUserId(), request?.Message, ct));
+
+    private static async Task<IResult> PauseAttempt(Guid examId, Guid attemptId, PauseAttemptHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, attemptId, ct));
+
+    private static async Task<IResult> ResumeAttempt(Guid examId, Guid attemptId, ResumeAttemptHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, attemptId, ct));
+
+    private static async Task<IResult> TerminateAttempt(
+        Guid examId, Guid attemptId, AttemptActionReasonRequest? request, ClaimsPrincipal user, TerminateAttemptHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, attemptId, user.GetUserId(), request?.Reason, ct));
+
+    private static async Task<IResult> InvalidateAttempt(
+        Guid examId, Guid attemptId, AttemptActionReasonRequest? request, ClaimsPrincipal user, InvalidateAttemptHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, attemptId, user.GetUserId(), request?.Reason, ct));
+
+    private static async Task<IResult> GetAttemptStatus(Guid attemptId, ClaimsPrincipal user, GetAttemptStatusHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct));
 
     private static async Task<IResult> GetAttemptPaper(Guid examId, Guid attemptId, GetAttemptPaperHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(examId, attemptId, ct));

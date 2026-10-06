@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { afterEach, beforeEach, vi } from 'vitest';
-import { AttemptDto } from '../candidate.models';
+import { AttemptDto, AttemptStatusDto } from '../candidate.models';
 import { ExamAttempt } from './exam-attempt';
 
 describe('ExamAttempt', () => {
@@ -86,6 +86,8 @@ describe('ExamAttempt', () => {
   });
 
   afterEach(() => {
+    // Tests that move the clock a long way also run the page's heartbeat; what it asked is not what those tests are about.
+    httpMock.match((r) => r.method === 'GET' && r.url.endsWith('/status'));
     httpMock.verify();
     vi.useRealTimers();
   });
@@ -1143,5 +1145,171 @@ describe('ExamAttempt', () => {
 
         expect(request).toHaveBeenCalledTimes(1);
       }));
+  });
+
+  describe('organiser actions (FR-29)', () => {
+    const isStatus = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/me/attempts/a1/status');
+    const isAttempt = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/me/attempts/a1');
+    const status = (overrides: Partial<AttemptStatusDto> = {}): AttemptStatusDto => ({
+      status: 'InProgress',
+      pausedAtUtc: null,
+      deadlineUtc: '2026-10-05T05:00:00Z',
+      serverTimeUtc: new Date(Date.now()).toISOString(),
+      warnings: [],
+      ...overrides,
+    });
+    const beat = (fixture: ComponentFixture<ExamAttempt>, answer: AttemptStatusDto) => {
+      vi.advanceTimersByTime(10_000);
+      // The server's clock is read when it answers, so it is stamped after the time has moved.
+      httpMock.expectOne(isStatus).flush({ ...answer, serverTimeUtc: new Date(Date.now()).toISOString() });
+      fixture.detectChanges();
+    };
+    const warnings = (fixture: ComponentFixture<ExamAttempt>) => Array.from(root(fixture).querySelectorAll('.exam-focus-warning'));
+
+    beforeEach(() => sessionStorage.clear());
+
+    it('asks the server how the attempt stands every ten seconds, quietly', async () => {
+      const fixture = await open(attempt());
+
+      beat(fixture, status());
+      beat(fixture, status());
+
+      expect(textOf(fixture)).toContain('Question 1 of 2');
+    });
+
+    it('hides the questions and says so when an organiser pauses the attempt, and brings them back on resume with the new deadline', async () => {
+      const fixture = await open(attempt());
+
+      beat(fixture, status({ pausedAtUtc: new Date(Date.now()).toISOString() }));
+      expect(textOf(fixture)).toContain('Your exam is paused');
+      expect(textOf(fixture)).not.toContain('What is 2 + 2?');
+
+      beat(fixture, status({ deadlineUtc: '2026-10-05T05:10:00Z' }));
+      expect(textOf(fixture)).not.toContain('Your exam is paused');
+      expect(textOf(fixture)).toContain('What is 2 + 2?');
+      expect(root(fixture).querySelector('.countdown')?.textContent?.trim()).toBe('39:40');
+    });
+
+    it('stops the countdown while paused', async () => {
+      const fixture = await open(attempt());
+      beat(fixture, status({ pausedAtUtc: new Date(Date.now()).toISOString() }));
+      const frozen = root(fixture).querySelector('.countdown')?.textContent?.trim();
+
+      vi.advanceTimersByTime(5_000);
+      fixture.detectChanges();
+
+      expect(root(fixture).querySelector('.countdown')?.textContent?.trim()).toBe(frozen);
+      httpMock.expectNone(isAttempt);
+    });
+
+    it('does not count stepping away as a departure while paused', async () => {
+      const fixture = await open(attempt({ focusViolationLimit: 3 }));
+      beat(fixture, status({ pausedAtUtc: new Date(Date.now()).toISOString() }));
+
+      window.dispatchEvent(new Event('blur'));
+
+      httpMock.expectNone((r) => r.url.endsWith('/focus-violations'));
+    });
+
+    it('shows a warning an organiser sent as an alert, until the candidate dismisses it', async () => {
+      const fixture = await open(attempt());
+
+      beat(fixture, status({ warnings: [{ id: 'w1', message: 'Eyes on your own screen.', issuedAtUtc: '2026-10-05T04:40:00Z' }] }));
+
+      expect(warnings(fixture)).toHaveLength(1);
+      expect(warnings(fixture)[0].getAttribute('role')).toBe('alert');
+      expect(warnings(fixture)[0].textContent).toContain('Eyes on your own screen.');
+
+      (warnings(fixture)[0].querySelector('button') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(warnings(fixture)).toHaveLength(0);
+
+      // The same warning on the next heartbeat is not shown again.
+      beat(fixture, status({ warnings: [{ id: 'w1', message: 'Eyes on your own screen.', issuedAtUtc: '2026-10-05T04:40:00Z' }] }));
+      expect(warnings(fixture)).toHaveLength(0);
+    });
+
+    it('does not show a dismissed warning again after a reload, but shows one it has not seen', async () => {
+      sessionStorage.setItem('exam.dismissedWarnings.a1', JSON.stringify(['w1']));
+      const fixture = await open(
+        attempt({
+          warnings: [
+            { id: 'w1', message: 'Seen already.', issuedAtUtc: '2026-10-05T04:40:00Z' },
+            { id: 'w2', message: 'Not seen yet.', issuedAtUtc: '2026-10-05T04:41:00Z' },
+          ],
+        }),
+      );
+
+      expect(warnings(fixture)).toHaveLength(1);
+      expect(warnings(fixture)[0].textContent).toContain('Not seen yet.');
+    });
+
+    it('loads the result when an organiser ends the attempt, and says why', async () => {
+      const fixture = await open(attempt());
+
+      vi.advanceTimersByTime(10_000);
+      httpMock.expectOne(isStatus).flush(status({ status: 'Submitted' }));
+      httpMock.expectOne(isAttempt).flush(
+        attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [], autoSubmitted: true, terminatedByAdmin: true, terminationReason: 'Caught using a phone.' }),
+      );
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('1 / 2');
+      expect(textOf(fixture)).toContain('An organiser ended this exam.');
+      expect(textOf(fixture)).toContain('Caught using a phone.');
+      expect(textOf(fixture)).not.toContain('Time ran out');
+    });
+
+    it('shows an invalidated result with its reason instead of a score, and no review link', async () => {
+      const fixture = await open(
+        attempt({
+          status: 'Submitted',
+          score: null,
+          maxScore: null,
+          sections: [],
+          invalidated: true,
+          invalidationReason: 'Answers were shared.',
+          review: { available: true, availableFromUtc: null, mode: 'Instant' },
+        }),
+      );
+
+      expect(textOf(fixture)).toContain('This result was invalidated by an organiser, so it has no score. Reason: Answers were shared.');
+      expect(root(fixture).querySelector('.score')).toBeNull();
+      expect(textOf(fixture)).not.toContain('Review answers');
+      expect(textOf(fixture)).not.toContain('Your answers have been marked');
+    });
+
+    it('stops asking once the exam is submitted, and when the page is left', async () => {
+      const fixture = await open(attempt());
+      (fixture.componentInstance as unknown as { attempt: { set(value: AttemptDto): void } }).attempt.set(
+        attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [] }),
+      );
+      fixture.detectChanges();
+
+      vi.advanceTimersByTime(30_000);
+
+      httpMock.expectNone(isStatus);
+    });
+
+    it('stops asking when the page is left', async () => {
+      const fixture = await open(attempt());
+
+      fixture.destroy();
+      vi.advanceTimersByTime(30_000);
+
+      httpMock.expectNone(isStatus);
+    });
+
+    it('ignores a heartbeat that fails, and tries again at the next one', async () => {
+      const fixture = await open(attempt());
+
+      vi.advanceTimersByTime(10_000);
+      httpMock.expectOne(isStatus).error(new ProgressEvent('error'));
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('.error-message')).toBeNull();
+
+      beat(fixture, status({ pausedAtUtc: new Date(Date.now()).toISOString() }));
+      expect(textOf(fixture)).toContain('Your exam is paused');
+    });
   });
 });

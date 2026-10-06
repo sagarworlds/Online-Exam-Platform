@@ -54,6 +54,14 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             b.HasMany(a => a.FocusViolations).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(a => a.FocusViolations).HasField("_focusViolations").UsePropertyAccessMode(PropertyAccessMode.Field);
 
+            b.HasMany(a => a.Warnings).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
+            b.Navigation(a => a.Warnings).HasField("_warnings").UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            b.Property(a => a.TerminationReason).HasMaxLength(Attempt.MaxReasonLength);
+            b.Property(a => a.InvalidationReason).HasMaxLength(Attempt.MaxReasonLength);
+            b.Ignore(a => a.IsInvalidated);
+            b.Ignore(a => a.IsTerminated);
+
             b.HasMany(a => a.Revisions).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(a => a.Revisions).HasField("_revisions").UsePropertyAccessMode(PropertyAccessMode.Field);
         });
@@ -95,6 +103,16 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             // At most one mark per question: marking twice at once cannot leave two rows, and the loser is a harmless conflict.
             // The index also serves loading an attempt's marks.
             b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
+        });
+
+        modelBuilder.Entity<AttemptWarning>(b =>
+        {
+            b.ToTable("AttemptWarnings");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Message).IsRequired().HasMaxLength(AttemptWarning.MaxMessageLength);
+
+            // An attempt's warnings are read together with the attempt, oldest first.
+            b.HasIndex(x => new { x.AttemptId, x.IssuedAtUtc });
         });
 
         modelBuilder.Entity<AttemptFocusViolation>(b =>

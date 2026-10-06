@@ -41,16 +41,65 @@
                 <span class="attempt-row__label">
                   <strong>Attempt {{ attempt.number }}</strong> ·
                   @if (attempt.status === 'Submitted') {
-                    {{ attempt.score }} / {{ attempt.maxScore }}{{ attempt.autoSubmitted ? ' (time ran out)' : '' }}
+                    {{ attempt.score }} / {{ attempt.maxScore }}{{ attempt.terminatedByAdmin ? ' (ended by an administrator)' : attempt.autoSubmitted ? ' (ended automatically)' : '' }}
+                  } @else if (attempt.paused) {
+                    Paused
                   } @else {
                     In progress
                   }
                   <span class="hint">, started {{ attempt.startedAtUtc | date: 'medium' }}</span>
+                  @if (attempt.invalidated) {
+                    <span class="badge badge--inactive">Invalidated</span>
+                  }
+                  @if ((attempt.focusViolations ?? 0) > 0) {
+                    <span class="badge badge--inactive">Left the page {{ attempt.focusViolations }} {{ attempt.focusViolations === 1 ? 'time' : 'times' }}</span>
+                  }
+                  @if ((attempt.warnings ?? 0) > 0) {
+                    <span class="badge badge--inactive">{{ attempt.warnings }} {{ attempt.warnings === 1 ? 'warning' : 'warnings' }}</span>
+                  }
                 </span>
-                <button type="button" class="btn--small" (click)="togglePaper(attempt.id)" [attr.aria-expanded]="paperFor() === attempt.id">
-                  {{ paperFor() === attempt.id ? 'Hide paper' : 'Show paper' }}
-                </button>
+                <span class="attempt-row__actions">
+                  @if (attempt.status === 'InProgress') {
+                    <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'warn')" [disabled]="busy()">Warn</button>
+                    @if (attempt.paused) {
+                      <button type="button" class="btn--small" (click)="resume(candidate, attempt)" [disabled]="busy()">Resume</button>
+                    } @else {
+                      <button type="button" class="btn--small" (click)="pause(candidate, attempt)" [disabled]="busy()">Pause</button>
+                    }
+                    <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'terminate')" [disabled]="busy()">End attempt</button>
+                  } @else if (!attempt.invalidated) {
+                    <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'invalidate')" [disabled]="busy()">Invalidate result</button>
+                  }
+                  <button type="button" class="btn--small" (click)="togglePaper(attempt.id)" [attr.aria-expanded]="paperFor() === attempt.id">
+                    {{ paperFor() === attempt.id ? 'Hide paper' : 'Show paper' }}
+                  </button>
+                </span>
               </li>
+              @if (acting(); as a) {
+                @if (a.attemptId === attempt.id) {
+                  <li class="attempt-paper">
+                    <div class="field">
+                      <label [for]="'action-' + attempt.id">{{ actions[a.kind].label }}</label>
+                      <textarea
+                        [id]="'action-' + attempt.id"
+                        rows="2"
+                        [maxLength]="maxReasonLength"
+                        [value]="actionText()"
+                        (input)="setActionText($any($event.target).value)"
+                        [disabled]="busy()"
+                        [attr.aria-describedby]="'action-hint-' + attempt.id"
+                      ></textarea>
+                      <p [id]="'action-hint-' + attempt.id" class="hint">{{ actions[a.kind].hint }}</p>
+                    </div>
+                    <div class="actions">
+                      <button type="button" class="primary" (click)="confirmAction(candidate, attempt)" [disabled]="busy() || actionText().trim() === ''">
+                        {{ actions[a.kind].button }}
+                      </button>
+                      <button type="button" (click)="cancelAction()" [disabled]="busy()">Cancel</button>
+                    </div>
+                  </li>
+                }
+              }
               @if (paperFor() === attempt.id) {
                 <li class="attempt-paper">
                   @if (paper(); as p) {

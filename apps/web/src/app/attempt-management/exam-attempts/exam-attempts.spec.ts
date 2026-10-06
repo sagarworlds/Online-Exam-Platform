@@ -125,7 +125,7 @@ describe('ExamAttempts', () => {
     expect(textOf(fixture)).toContain('Maths Final');
     expect(textOf(fixture)).toContain('amy@example.com');
     expect(textOf(fixture)).toContain('2 of 2 attempts used');
-    expect(textOf(fixture)).toContain('Attempt 1 · 4 / 10 (time ran out)');
+    expect(textOf(fixture)).toContain('Attempt 1 · 4 / 10 (ended automatically)');
     expect(textOf(fixture)).toContain('Attempt 2 · In progress');
     expect(textOf(fixture)).toContain('bob@example.com');
     expect(textOf(fixture)).toContain('Has not started the exam yet.');
@@ -259,5 +259,143 @@ describe('ExamAttempts', () => {
 
     expect(buttonLabelled(fixture, 'Give another attempt')[0].disabled).toBe(true);
     httpMock.expectOne((r) => r.method === 'POST').flush(candidate({ attemptsAllowed: 2, canGrant: false }), { status: 201, statusText: 'Created' });
+  });
+
+  describe('organiser actions on an attempt (FR-29)', () => {
+    const isAction = (action: string) => (r: { method: string; url: string }) =>
+      r.method === 'POST' && r.url.endsWith(`/v1/exams/exam-1/attempts/a1/${action}`);
+    const staff = (overrides: Partial<AttemptSummaryDto> = {}): AttemptSummaryDto => ({ ...attempt(1, 'InProgress'), ...overrides });
+    const withAttempt = (summary: AttemptSummaryDto) => candidate({ attempts: [summary] });
+    const field = (fixture: ComponentFixture<ExamAttempts>) => root(fixture).querySelector('textarea') as HTMLTextAreaElement;
+    const type = (fixture: ComponentFixture<ExamAttempts>, text: string) => {
+      field(fixture).value = text;
+      field(fixture).dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    };
+
+    it('offers warn, pause and end for an attempt in progress, and invalidate only once it is finished', () => {
+      const open1 = open(exam([withAttempt(staff())]));
+      expect(buttonLabelled(open1, 'Warn')).toHaveLength(1);
+      expect(buttonLabelled(open1, 'Pause')).toHaveLength(1);
+      expect(buttonLabelled(open1, 'End attempt')).toHaveLength(1);
+      expect(buttonLabelled(open1, 'Invalidate result')).toHaveLength(0);
+      httpMock.verify();
+
+      const finished = open(exam([withAttempt(staff({ status: 'Submitted', score: 4, maxScore: 10 }))]));
+      expect(buttonLabelled(finished, 'Invalidate result')).toHaveLength(1);
+      expect(buttonLabelled(finished, 'Warn')).toHaveLength(0);
+      expect(buttonLabelled(finished, 'Pause')).toHaveLength(0);
+    });
+
+    it('shows Resume instead of Pause for a paused attempt, and says it is paused', () => {
+      const fixture = open(exam([withAttempt(staff({ paused: true }))]));
+
+      expect(buttonLabelled(fixture, 'Resume')).toHaveLength(1);
+      expect(buttonLabelled(fixture, 'Pause')).toHaveLength(0);
+      expect(textOf(fixture)).toContain('Paused');
+    });
+
+    it('shows how often the candidate left the page and how many warnings they were sent', () => {
+      const fixture = open(exam([withAttempt(staff({ focusViolations: 2, warnings: 1 }))]));
+
+      expect(textOf(fixture)).toContain('Left the page 2 times');
+      expect(textOf(fixture)).toContain('1 warning');
+    });
+
+    it('sends a warning with the typed words, then shows the updated row', () => {
+      const fixture = open(exam([withAttempt(staff())]));
+
+      buttonLabelled(fixture, 'Warn')[0].click();
+      fixture.detectChanges();
+      expect(buttonLabelled(fixture, 'Send warning')[0].disabled).toBe(true);
+      type(fixture, '  Eyes on your own screen.  ');
+      buttonLabelled(fixture, 'Send warning')[0].click();
+
+      const request = httpMock.expectOne(isAction('warn'));
+      expect(request.request.body).toEqual({ message: 'Eyes on your own screen.' });
+      request.flush(staff({ warnings: 1 }));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Warning sent to amy@example.com.');
+      expect(textOf(fixture)).toContain('1 warning');
+      expect(field(fixture)).toBeNull();
+    });
+
+    it('pauses and resumes without asking for words', () => {
+      const fixture = open(exam([withAttempt(staff())]));
+
+      buttonLabelled(fixture, 'Pause')[0].click();
+      httpMock.expectOne(isAction('pause')).flush(staff({ paused: true }));
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('Attempt 1 of amy@example.com is paused.');
+
+      buttonLabelled(fixture, 'Resume')[0].click();
+      httpMock.expectOne(isAction('resume')).flush(staff());
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('was resumed');
+      expect(buttonLabelled(fixture, 'Pause')).toHaveLength(1);
+    });
+
+    it('ends an attempt only with a reason, and shows it as ended by an organiser', () => {
+      const fixture = open(exam([withAttempt(staff())]));
+
+      buttonLabelled(fixture, 'End attempt')[0].click();
+      fixture.detectChanges();
+      expect(buttonLabelled(fixture, 'End attempt')).toHaveLength(2);
+      const confirm = buttonLabelled(fixture, 'End attempt')[1];
+      expect(confirm.disabled).toBe(true);
+      type(fixture, 'Caught using a phone.');
+      confirm.click();
+
+      const request = httpMock.expectOne(isAction('terminate'));
+      expect(request.request.body).toEqual({ reason: 'Caught using a phone.' });
+      request.flush(staff({ status: 'Submitted', score: 3, maxScore: 10, autoSubmitted: true, terminatedByAdmin: true, terminationReason: 'Caught using a phone.' }));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('3 / 10 (ended by an administrator)');
+      expect(buttonLabelled(fixture, 'Invalidate result')).toHaveLength(1);
+    });
+
+    it('invalidates a finished result with a reason, keeps showing the score to staff, and offers it only once', () => {
+      const fixture = open(exam([withAttempt(staff({ status: 'Submitted', score: 4, maxScore: 10 }))]));
+
+      buttonLabelled(fixture, 'Invalidate result')[0].click();
+      fixture.detectChanges();
+      type(fixture, 'Answers were shared.');
+      buttonLabelled(fixture, 'Invalidate result')[1].click();
+
+      const request = httpMock.expectOne(isAction('invalidate'));
+      expect(request.request.body).toEqual({ reason: 'Answers were shared.' });
+      request.flush(staff({ status: 'Submitted', score: 4, maxScore: 10, invalidated: true, invalidationReason: 'Answers were shared.' }));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('4 / 10');
+      expect(textOf(fixture)).toContain('Invalidated');
+      expect(buttonLabelled(fixture, 'Invalidate result')).toHaveLength(0);
+    });
+
+    it('sends nothing for blank words, and Cancel closes the form', () => {
+      const fixture = open(exam([withAttempt(staff())]));
+      buttonLabelled(fixture, 'Warn')[0].click();
+      fixture.detectChanges();
+      type(fixture, '   ');
+
+      buttonLabelled(fixture, 'Send warning')[0].click();
+      buttonLabelled(fixture, 'Cancel')[0].click();
+      fixture.detectChanges();
+
+      expect(field(fixture)).toBeNull();
+    });
+
+    it('says why an action failed and leaves the row as it was', () => {
+      const fixture = open(exam([withAttempt(staff())]));
+
+      buttonLabelled(fixture, 'Pause')[0].click();
+      httpMock.expectOne(isAction('pause')).flush({ title: 'attempt_not_in_progress', detail: 'This attempt has already been submitted.' }, { status: 409, statusText: 'Conflict' });
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('This attempt has already been submitted.');
+      expect(buttonLabelled(fixture, 'Pause')).toHaveLength(1);
+    });
   });
 });

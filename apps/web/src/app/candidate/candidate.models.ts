@@ -14,9 +14,20 @@ export interface AttemptSummaryDto {
   submittedAtUtc: string | null;
   /** Whether it ended because time ran out rather than because the candidate submitted it. */
   autoSubmitted: boolean;
-  /** The marks scored and available, once submitted. */
+  /** The marks scored and available, once submitted; null for the candidate once an administrator invalidated the result. */
   score: number | null;
   maxScore: number | null;
+  /** Staff only: how many times the candidate left the exam page (FR-22) and how many warnings were sent (FR-29). */
+  focusViolations?: number | null;
+  warnings?: number | null;
+  /** Whether an administrator has paused the attempt (FR-29). */
+  paused?: boolean;
+  /** Whether an administrator ended the attempt early, and why. */
+  terminatedByAdmin?: boolean;
+  terminationReason?: string | null;
+  /** Whether an administrator invalidated the result, and why. */
+  invalidated?: boolean;
+  invalidationReason?: string | null;
 }
 
 /** Where a request for another attempt stands. */
@@ -166,6 +177,33 @@ export interface AttemptDto {
   focusViolations?: number;
   /** Whether the server ended the attempt because the limit was reached. */
   endedByViolations?: boolean;
+  /** When an administrator paused the attempt (FR-29); null or absent while it runs. */
+  pausedAtUtc?: string | null;
+  /** Every warning administrators sent during the attempt, oldest first. */
+  warnings?: AttemptWarningDto[];
+  /** Whether an administrator ended the attempt early, and why. */
+  terminatedByAdmin?: boolean;
+  terminationReason?: string | null;
+  /** Whether an administrator invalidated the result: there is then no score or review, and this says why. */
+  invalidated?: boolean;
+  invalidationReason?: string | null;
+}
+
+/** A warning an administrator sent the candidate during the attempt (FR-29). */
+export interface AttemptWarningDto {
+  id: string;
+  message: string;
+  issuedAtUtc: string;
+}
+
+/** What the exam page asks for every few seconds while an attempt is open: its state, deadline and warnings, without the questions. */
+export interface AttemptStatusDto {
+  status: AttemptStatus;
+  pausedAtUtc: string | null;
+  /** When the server will close the attempt; later than before once a pause is resumed. */
+  deadlineUtc: string;
+  serverTimeUtc: string;
+  warnings: AttemptWarningDto[];
 }
 
 /** How a candidate left the exam page (FR-22); the names the API accepts. */

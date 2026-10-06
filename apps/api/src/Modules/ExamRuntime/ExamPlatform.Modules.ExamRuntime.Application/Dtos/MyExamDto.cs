@@ -24,6 +24,13 @@ public enum MyExamState
 /// <param name="AutoSubmitted">Whether it ended because time ran out.</param>
 /// <param name="Score">The marks scored, once submitted.</param>
 /// <param name="MaxScore">The marks available, once submitted.</param>
+/// <param name="FocusViolations">How many times the candidate left the exam page (FR-22); only filled for staff.</param>
+/// <param name="Warnings">How many warnings administrators sent during the attempt (FR-29); only filled for staff.</param>
+/// <param name="Paused">Whether an administrator has paused the attempt (FR-29).</param>
+/// <param name="TerminatedByAdmin">Whether an administrator ended the attempt early (FR-29).</param>
+/// <param name="TerminationReason">Why an administrator ended it.</param>
+/// <param name="Invalidated">Whether an administrator invalidated the result (FR-29), so it carries no score for the candidate.</param>
+/// <param name="InvalidationReason">Why the result was invalidated.</param>
 public sealed record AttemptSummaryDto(
     Guid Id,
     int Number,
@@ -32,7 +39,14 @@ public sealed record AttemptSummaryDto(
     DateTime? SubmittedAtUtc,
     bool AutoSubmitted,
     decimal? Score,
-    decimal? MaxScore);
+    decimal? MaxScore,
+    int? FocusViolations = null,
+    int? Warnings = null,
+    bool Paused = false,
+    bool TerminatedByAdmin = false,
+    string? TerminationReason = null,
+    bool Invalidated = false,
+    string? InvalidationReason = null);
 
 /// <summary>The rules of an exam that a candidate is told before starting it (FR-17); what the instructions page shows.</summary>
 /// <param name="CorrectMarks">Marks for a correct answer.</param>

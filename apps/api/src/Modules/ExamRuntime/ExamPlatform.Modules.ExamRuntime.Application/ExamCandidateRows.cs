@@ -29,11 +29,47 @@ public static class ExamCandidateRows
             AttemptAllowance.Allowed(exam.MaxAttempts, grants),
             ordered.Count,
             AttemptAllowance.CanGrant(exam.MaxAttempts, ordered.Count, grants) && !IsWindowClosed(exam, nowUtc),
-            ordered.Select(Summary).ToList());
+            ordered.Select(StaffSummary).ToList());
     }
 
-    /// <summary>Summarises one attempt for a list.</summary>
+    /// <summary>Summarises one attempt for the candidate's own list: an invalidated result shows no score (FR-29).</summary>
     /// <param name="attempt">The attempt.</param>
     public static AttemptSummaryDto Summary(Attempt attempt) =>
-        new(attempt.Id, attempt.Number, attempt.Status, attempt.StartedAtUtc, attempt.SubmittedAtUtc, attempt.AutoSubmitted, attempt.Score, attempt.MaxScore);
+        new(
+            attempt.Id,
+            attempt.Number,
+            attempt.Status,
+            attempt.StartedAtUtc,
+            attempt.SubmittedAtUtc,
+            attempt.AutoSubmitted,
+            attempt.IsInvalidated ? null : attempt.Score,
+            attempt.IsInvalidated ? null : attempt.MaxScore,
+            Paused: attempt.PausedAtUtc is not null,
+            TerminatedByAdmin: attempt.IsTerminated,
+            TerminationReason: attempt.TerminationReason,
+            Invalidated: attempt.IsInvalidated,
+            InvalidationReason: attempt.InvalidationReason);
+
+    /// <summary>
+    /// Summarises one attempt for staff: the score is shown even when the result was invalidated (it is kept for the record), and the
+    /// counts of departures from the exam page and of warnings are included.
+    /// </summary>
+    /// <param name="attempt">The attempt, loaded with its violations and warnings.</param>
+    public static AttemptSummaryDto StaffSummary(Attempt attempt) =>
+        new(
+            attempt.Id,
+            attempt.Number,
+            attempt.Status,
+            attempt.StartedAtUtc,
+            attempt.SubmittedAtUtc,
+            attempt.AutoSubmitted,
+            attempt.Score,
+            attempt.MaxScore,
+            attempt.FocusViolations.Count,
+            attempt.Warnings.Count,
+            attempt.PausedAtUtc is not null,
+            attempt.IsTerminated,
+            attempt.TerminationReason,
+            attempt.IsInvalidated,
+            attempt.InvalidationReason);
 }

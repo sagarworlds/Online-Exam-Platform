@@ -50,6 +50,12 @@ public sealed record AttemptSectionDto(Guid Id, string Name, IReadOnlyList<Attem
 /// <param name="FocusViolationLimit">How many times the candidate may leave the exam page before the server ends the attempt (FR-22); 0 when the exam does not watch for it.</param>
 /// <param name="FocusViolations">How many times they have left it so far in this attempt.</param>
 /// <param name="EndedByViolations">Whether the server ended the attempt because the limit was reached.</param>
+/// <param name="PausedAtUtc">When an administrator paused the attempt (FR-29), or null while it runs.</param>
+/// <param name="Warnings">Every warning administrators sent during the attempt.</param>
+/// <param name="TerminatedByAdmin">Whether an administrator ended the attempt early.</param>
+/// <param name="TerminationReason">Why an administrator ended it.</param>
+/// <param name="Invalidated">Whether an administrator invalidated the result, so there is no score or review to show.</param>
+/// <param name="InvalidationReason">Why the result was invalidated.</param>
 /// <param name="ContentProtection">Whether the exam page turns off copying, pasting, right-click and printing while this attempt is open (FR-23).</param>
 public sealed record AttemptDto(
     Guid Id,
@@ -71,4 +77,10 @@ public sealed record AttemptDto(
     bool ContentProtection = true,
     int FocusViolationLimit = 0,
     int FocusViolations = 0,
-    bool EndedByViolations = false);
+    bool EndedByViolations = false,
+    DateTime? PausedAtUtc = null,
+    IReadOnlyList<AttemptWarningDto>? Warnings = null,
+    bool TerminatedByAdmin = false,
+    string? TerminationReason = null,
+    bool Invalidated = false,
+    string? InvalidationReason = null);

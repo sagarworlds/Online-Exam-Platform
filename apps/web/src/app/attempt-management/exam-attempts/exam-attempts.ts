@@ -1,13 +1,40 @@
 import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Observable } from 'rxjs';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AttemptAdminApiService } from '../attempt-admin-api.service';
+import { AttemptSummaryDto } from '../../candidate/candidate.models';
 import { AttemptPaperDto, ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
 import { PlainTextPipe } from '../../shared/rich-text/plain-text.pipe';
 
 /** The longest reason the API accepts. */
 const MAX_REASON_LENGTH = 500;
+
+/** The actions that need words from the administrator: a warning's text, or the reason shown to the candidate. */
+type ActionKind = 'warn' | 'terminate' | 'invalidate';
+
+/** What each wording action asks, and what its button says. */
+const ACTIONS: Record<ActionKind, { label: string; hint: string; button: string; failure: string }> = {
+  warn: {
+    label: 'Warning to show the candidate',
+    hint: 'Shown on their exam page within a few seconds, and kept on record.',
+    button: 'Send warning',
+    failure: 'The warning could not be sent. Please try again.',
+  },
+  terminate: {
+    label: 'Why is this attempt being ended?',
+    hint: 'The candidate is shown this. The attempt is scored with the answers they had saved, and cannot be reopened.',
+    button: 'End attempt',
+    failure: 'The attempt could not be ended. Please try again.',
+  },
+  invalidate: {
+    label: 'Why is this result being invalidated?',
+    hint: 'The candidate is shown this instead of a score, and can no longer review their answers. The score stays on record for you.',
+    button: 'Invalidate result',
+    failure: 'The result could not be invalidated. Please try again.',
+  },
+};
 
 /**
  * Admin page for one exam's candidates: who has taken it, each attempt's result, and a way to give a candidate another attempt
@@ -37,6 +64,11 @@ export class ExamAttempts {
   /** The attempt whose paper is open, and what it holds once loaded; one at a time keeps the page short. */
   protected readonly paperFor = signal<string | null>(null);
   protected readonly paper = signal<AttemptPaperDto | null>(null);
+
+  /** The attempt a wording action (warn, end, invalidate) is open for; only one at a time, so a stray click cannot act on two. */
+  protected readonly acting = signal<{ attemptId: string; kind: ActionKind } | null>(null);
+  protected readonly actionText = signal('');
+  protected readonly actions = ACTIONS;
 
   constructor() {
     this.api.getExamAttempts(this.examId).subscribe({
@@ -71,6 +103,77 @@ export class ExamAttempts {
       error: (error: unknown) => {
         this.paperFor.set(null);
         this.errorMessage.set(extractErrorMessage(error, 'The paper could not be loaded. Please try again.'));
+      },
+    });
+  }
+
+  protected beginAction(attemptId: string, kind: ActionKind): void {
+    this.notice.set(null);
+    this.errorMessage.set(null);
+    this.actionText.set('');
+    this.acting.set({ attemptId, kind });
+  }
+
+  protected cancelAction(): void {
+    this.acting.set(null);
+  }
+
+  protected setActionText(value: string): void {
+    this.actionText.set(value);
+  }
+
+  /** Sends the open wording action. Nothing is sent without words: the API would refuse, and the candidate is shown them. */
+  protected confirmAction(candidate: ExamCandidateDto, attempt: AttemptSummaryDto): void {
+    const acting = this.acting();
+    const text = this.actionText().trim();
+    if (acting === null || acting.attemptId !== attempt.id || this.busy() || text === '') {
+      return;
+    }
+
+    const call =
+      acting.kind === 'warn'
+        ? this.api.warnAttempt(this.examId, attempt.id, text)
+        : acting.kind === 'terminate'
+          ? this.api.terminateAttempt(this.examId, attempt.id, text)
+          : this.api.invalidateAttempt(this.examId, attempt.id, text);
+    const done = {
+      warn: `Warning sent to ${candidate.email}.`,
+      terminate: `Attempt ${attempt.number} of ${candidate.email} was ended.`,
+      invalidate: `The result of attempt ${attempt.number} of ${candidate.email} was invalidated.`,
+    }[acting.kind];
+    this.run(call, done, ACTIONS[acting.kind].failure, () => this.acting.set(null));
+  }
+
+  protected pause(candidate: ExamCandidateDto, attempt: AttemptSummaryDto): void {
+    this.run(this.api.pauseAttempt(this.examId, attempt.id), `Attempt ${attempt.number} of ${candidate.email} is paused.`, 'The attempt could not be paused. Please try again.');
+  }
+
+  protected resume(candidate: ExamCandidateDto, attempt: AttemptSummaryDto): void {
+    this.run(this.api.resumeAttempt(this.examId, attempt.id), `Attempt ${attempt.number} of ${candidate.email} was resumed; it has the time it had left.`, 'The attempt could not be resumed. Please try again.');
+  }
+
+  /** Runs one action and replaces the attempt's row with what the API answers, which is the truth about it now. */
+  private run(call: Observable<AttemptSummaryDto>, done: string, failure: string, onDone: () => void = () => undefined): void {
+    if (this.busy()) {
+      return;
+    }
+
+    this.busy.set(true);
+    this.errorMessage.set(null);
+    call.subscribe({
+      next: (updated) => {
+        this.data.update((data) =>
+          data === null
+            ? data
+            : { ...data, candidates: data.candidates.map((c) => ({ ...c, attempts: c.attempts.map((a) => (a.id === updated.id ? updated : a)) })) },
+        );
+        this.notice.set(done);
+        onDone();
+        this.busy.set(false);
+      },
+      error: (error: unknown) => {
+        this.busy.set(false);
+        this.errorMessage.set(extractErrorMessage(error, failure));
       },
     });
   }
