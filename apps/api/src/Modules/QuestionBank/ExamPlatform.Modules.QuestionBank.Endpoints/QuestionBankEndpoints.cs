@@ -83,13 +83,13 @@ public static class QuestionBankEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("ImportQuestions")
-            .WithDescription("Create questions from a CSV file; a bad row is reported and skipped, not the whole import");
+            .WithDescription("Create questions from a CSV, Excel (base64) or JSON file; a bad row is reported and skipped, not the whole import");
 
         questions.MapGet("/export", ExportQuestions)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("ExportQuestions")
-            .WithDescription("Download questions matching the same filters as the list, as a CSV file ImportQuestions can read back");
+            .WithDescription("Download questions matching the same filters as the list, as a CSV, Excel or JSON file ImportQuestions can read back");
     }
 
     private static async Task<IResult> FileQuestions(FileQuestionsRequest request, FileQuestionsHandler handler, CancellationToken ct) =>
@@ -140,14 +140,17 @@ public static class QuestionBankEndpoints
 
     private static async Task<IResult> ImportQuestions(
         ImportQuestionsRequest request, ClaimsPrincipal user, ImportQuestionsHandler handler, CancellationToken ct) =>
-        Results.Ok(await handler.HandleAsync(new ImportQuestionsCommand(request.Csv ?? string.Empty, user.GetUserId()), ct));
+        Results.Ok(await handler.HandleAsync(
+            new ImportQuestionsCommand(request.Content ?? request.Csv ?? string.Empty, user.GetUserId(), QuestionFiles.ParseFormat(request.Format)), ct));
 
     private static async Task<IResult> ExportQuestions(
-        ExportQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, CancellationToken ct)
+        ExportQuestionsHandler handler, HttpContext http, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, string? format, CancellationToken ct)
     {
         var filter = new QuestionFilter(bookId, chapterId, unfiled ?? false, QuestionDifficultyText.Parse(difficulty), Question.NormalizeTopic(topic), q);
-        var csv = await handler.HandleAsync(filter, ct);
-        return Results.File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "questions.csv");
+        var file = await handler.ExportAsync(filter, QuestionFiles.ParseFormat(format), ct);
+        // A workbook cannot hold a question whose text is longer than a cell, so the caller is told how many were left out.
+        http.Response.Headers["X-Questions-Skipped"] = file.Skipped.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return Results.File(file.Bytes, file.ContentType, file.FileName);
     }
 }
 
@@ -195,6 +198,8 @@ public sealed record CreateQuestionOptionRequest(string? Text, bool IsCorrect, b
 /// <param name="Reason">Why the key is being corrected; shown to a candidate whose score moves because of it.</param>
 public sealed record CorrectAnswerKeyRequest(IReadOnlyCollection<Guid>? CorrectOptionIds, string? Reason);
 
-/// <summary>Request body for importing questions from a CSV file.</summary>
-/// <param name="Csv">The file's contents, header row included.</param>
-public sealed record ImportQuestionsRequest(string? Csv);
+/// <summary>Request body for importing questions from a file.</summary>
+/// <param name="Content">The file's contents: text for CSV and JSON, base64 for Excel. A table's header row is included.</param>
+/// <param name="Format">"csv" (the default), "xlsx" or "json".</param>
+/// <param name="Csv">The original name for <paramref name="Content"/> when the file is CSV; still accepted.</param>
+public sealed record ImportQuestionsRequest(string? Content = null, string? Format = null, string? Csv = null);

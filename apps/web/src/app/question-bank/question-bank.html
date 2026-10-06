@@ -18,6 +18,8 @@
     <button type="submit" class="primary" [disabled]="form.invalid || !placementComplete() || saving()">Save question</button>
   </form>
 
+  <app-question-transfer [filter]="exportFilter()" (imported)="onImported()" />
+
   <div class="page-header">
     <h2>Newest questions</h2>
     <div class="list-filter">

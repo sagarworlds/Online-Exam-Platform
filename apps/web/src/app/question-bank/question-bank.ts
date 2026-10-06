@@ -17,6 +17,7 @@ import {
   QuestionDto,
   QuestionFilter,
 } from './question.models';
+import { QuestionTransfer } from './question-transfer/question-transfer';
 
 /** The value of the list filter's book select that means "questions not filed under any chapter". */
 export const UNFILED = 'unfiled';
@@ -27,7 +28,7 @@ export const UNFILED = 'unfiled';
  */
 @Component({
   selector: 'app-question-bank',
-  imports: [ReactiveFormsModule, BookChapterPicker, QuestionCard, QuestionFields],
+  imports: [ReactiveFormsModule, BookChapterPicker, QuestionCard, QuestionFields, QuestionTransfer],
   templateUrl: './question-bank.html',
 })
 export class QuestionBank {
@@ -266,6 +267,15 @@ export class QuestionBank {
     const topic = this.filterTopic();
     const search = this.filterSearch();
     return { ...(difficulty ? { difficulty } : {}), ...(topic ? { topic } : {}), ...(search ? { search } : {}) };
+  }
+
+  /** What the export button downloads: the questions the list is showing. */
+  protected readonly exportFilter = computed(() => this.currentFilter());
+
+  /** An import created questions: show them, and offer their topics. */
+  protected onImported(): void {
+    this.refresh();
+    this.loadTopics();
   }
 
   private loadTopics(): void {

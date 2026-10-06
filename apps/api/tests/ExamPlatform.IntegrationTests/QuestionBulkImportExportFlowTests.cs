@@ -57,4 +57,79 @@ public sealed class QuestionBulkImportExportFlowTests(ApiFactory factory) : ICla
         var list = await admin.GetFromJsonAsync<JsonElement>($"/v1/questions?q={Uri.EscapeDataString("2 + 2")}");
         Assert.True(list.EnumerateArray().Count() >= 2);
     }
+
+    [Fact]
+    public async Task ImportingJson_CreatesTheGoodObjectsAndReportsTheBadOnesByPosition()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var json = """[{"text":"JSON capital of France?","options":[{"text":"Paris","isCorrect":true},{"text":"Rome"}],"difficulty":"easy","topics":["geography"]},{"text":"","options":[]}]""";
+
+        var response = await admin.PostAsJsonAsync("/v1/questions/import", new { format = "json", content = json });
+
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, result.GetProperty("created").GetArrayLength());
+        Assert.Equal(1, result.GetProperty("created")[0].GetProperty("row").GetInt32());
+        Assert.Equal(2, result.GetProperty("rejected")[0].GetProperty("row").GetInt32());
+    }
+
+    [Theory]
+    [InlineData("json")]
+    [InlineData("xlsx")]
+    [InlineData("csv")]
+    public async Task ExportingInAFormat_ThenImportingThatFile_CreatesTheQuestionsAgain(string format)
+    {
+        using var admin = await factory.AdminClientAsync();
+        var marker = $"Round trip {format} {Guid.NewGuid():N}";
+        await CreateQuestionAsync(admin, marker, "4", "5");
+
+        var export = await admin.GetAsync($"/v1/questions/export?format={format}&q={Uri.EscapeDataString(marker)}");
+
+        export.EnsureSuccessStatusCode();
+        Assert.Equal($"questions.{format}", export.Content.Headers.ContentDisposition?.FileName?.Trim('"'));
+        Assert.Equal("0", export.Headers.GetValues("X-Questions-Skipped").Single());
+        var bytes = await export.Content.ReadAsByteArrayAsync();
+        var content = format == "xlsx" ? Convert.ToBase64String(bytes) : System.Text.Encoding.UTF8.GetString(bytes);
+
+        var import = await admin.PostAsJsonAsync("/v1/questions/import", new { format, content });
+
+        import.EnsureSuccessStatusCode();
+        var result = await import.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, result.GetProperty("created").GetArrayLength());
+        Assert.Equal(0, result.GetProperty("rejected").GetArrayLength());
+    }
+
+    [Theory]
+    [InlineData("json", "{ broken")]
+    [InlineData("xlsx", "bm90IGEgd29ya2Jvb2s=")]
+    public async Task AFileThatCannotBeReadAtAll_Is400_WithItsOwnErrorCode(string format, string content)
+    {
+        using var admin = await factory.AdminClientAsync();
+
+        var response = await admin.PostAsJsonAsync("/v1/questions/import", new { format, content });
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("bulk_import_unreadable", (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task AnUnknownFormat_Is400_ForBothDirections()
+    {
+        using var admin = await factory.AdminClientAsync();
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/v1/questions/import", new { format = "pdf", content = "x" })).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await admin.GetAsync("/v1/questions/export?format=pdf")).StatusCode);
+    }
+
+    [Fact]
+    public async Task TheOriginalCsvRequestShape_StillWorks()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var csv = Header + "\r\nStill works?,Yes,true,No,false,,,,,,,,,false,,\r\n";
+
+        var response = await admin.PostAsJsonAsync("/v1/questions/import", new { csv });
+
+        response.EnsureSuccessStatusCode();
+        Assert.Equal(1, (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("created").GetArrayLength());
+    }
 }
