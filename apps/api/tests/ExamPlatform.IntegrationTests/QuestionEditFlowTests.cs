@@ -75,8 +75,6 @@ public sealed class QuestionEditFlowTests(ApiFactory factory) : IClassFixture<Ap
         using var admin = await factory.AdminClientAsync();
         var id = await CreateQuestionAsync(admin, "Original", "A", "B");
         var options = (await GetAsync(admin, id)).GetProperty("options").EnumerateArray().ToList();
-        var originalText = (await GetAsync(admin, id)).GetProperty("text").GetString();
-        var originalRightOption = options[0].GetProperty("text").GetString();
 
         await AssertProblemAsync(await EditAsync(admin, id, "Changed", Keep(options[0]), Keep(options[1], text: "")), HttpStatusCode.BadRequest, "invalid_question");
         await AssertProblemAsync(await EditAsync(admin, id, "Changed", Keep(options[0], isCorrect: true), Keep(options[1], isCorrect: true)), HttpStatusCode.BadRequest, "invalid_question");
@@ -174,6 +172,8 @@ public sealed class QuestionEditFlowTests(ApiFactory factory) : IClassFixture<Ap
         using var _a = admin;
         using var _c = candidate;
         var options = (await GetAsync(admin, id)).GetProperty("options").EnumerateArray().ToList();
+        var originalText = (await GetAsync(admin, id)).GetProperty("text").GetString();
+        var originalRightOption = options[0].GetProperty("text").GetString();
 
         var edited = await JsonAsync((await EditAsync(admin, id, "Capital of France?", Keep(options[0], text: "Right (Paris)"), Keep(options[1], text: "Wrong (Rome)"))).EnsureSuccessStatusCode());
 
