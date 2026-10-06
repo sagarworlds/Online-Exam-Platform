@@ -980,4 +980,61 @@ describe('ExamEditor', () => {
       expect(card(root).textContent).toContain('turned off during the exam');
     });
   });
+
+  describe('leaving the exam page (FR-22)', () => {
+    const isLimit = (r: { method: string; url: string }) => r.method === 'PUT' && r.url.endsWith('/v1/exams/exam-1/focus-violation-limit');
+    const withLimit = (focusViolationLimit: number | undefined, status = 'Draft') =>
+      examBody({
+        status,
+        config: {
+          totalTimeSeconds: null,
+          focusViolationLimit,
+          resultReleaseMode: 'Instant',
+          resultReleaseTime: null,
+          markingScheme: { correctMarks: 1, incorrectMarks: 0, unattemptedMarks: 0 },
+        },
+      });
+    const card = (root: HTMLElement) => root.querySelector('app-exam-focus-violation-limit') as HTMLElement;
+    const box = (root: HTMLElement) => card(root)?.querySelector('input[type="checkbox"]') as HTMLInputElement;
+
+    it('shows the watch as off, which is the default, and also when an older API does not say', () => {
+      expect(box(open(withLimit(0)).root).checked).toBe(false);
+      expect(box(open(withLimit(undefined)).root).checked).toBe(false);
+      expect(box(open(withLimit(3)).root).checked).toBe(true);
+    });
+
+    it('sends the new limit, then shows what the server stored', () => {
+      const { fixture, root } = open(withLimit(0));
+
+      box(root).click();
+      fixture.detectChanges();
+      button(card(root), 'Save').click();
+
+      const put = httpMock.expectOne(isLimit);
+      expect(put.request.body).toEqual({ focusViolationLimit: 3 });
+      const stored = withLimit(3);
+      put.flush(stored);
+      httpMock.expectOne(isExam).flush(stored);
+      fixture.detectChanges();
+
+      expect(box(root).checked).toBe(true);
+    });
+
+    it('can be changed after the exam is published, because it changes nothing that is asked or scored', () => {
+      const { fixture, root } = open(withLimit(0, 'Published'));
+
+      box(root).click();
+      fixture.detectChanges();
+      button(card(root), 'Save').click();
+
+      expect(httpMock.expectOne(isLimit).request.body).toEqual({ focusViolationLimit: 3 });
+    });
+
+    it('cannot be changed once the exam is archived', () => {
+      const { root } = open(withLimit(3, 'Archived'));
+
+      expect(box(root)).toBeNull();
+      expect(card(root).textContent).toContain('the attempt ends after 3 times');
+    });
+  });
 });

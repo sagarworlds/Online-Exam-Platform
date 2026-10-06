@@ -1,0 +1,48 @@
+<div class="card">
+  <h2>Leaving the exam page</h2>
+  @if (editable()) {
+    <form (submit)="save($event)" aria-label="Leaving the exam page">
+      <label class="inline-check">
+        <input type="checkbox" [checked]="watching()" (change)="toggle($any($event.target).checked)" />
+        Warn candidates when they switch tab, switch window or leave full screen, and end the attempt after too many
+      </label>
+      @if (watching()) {
+        <div class="field">
+          <label for="focus-violation-limit">Times a candidate may leave before the attempt ends</label>
+          <input
+            id="focus-violation-limit"
+            type="number"
+            inputmode="numeric"
+            step="1"
+            [attr.min]="fewest"
+            [attr.max]="most"
+            [value]="numberText()"
+            (input)="typeNumber($any($event.target).value)"
+            [attr.aria-invalid]="parsed() === null"
+            aria-describedby="focus-violation-limit-hint"
+          />
+          <p id="focus-violation-limit-hint" class="hint">
+            From {{ fewest }} to {{ most }}. Each time, the candidate is warned how many they have used. Leaving that many times
+            makes the server submit the attempt with the answers saved so far, and an administrator can then give them another attempt.
+          </p>
+        </div>
+      }
+      <p class="hint">
+        Off by default. Candidates are told before they start. The page counts what the browser reports; a browser set up to hide it
+        cannot be detected, and a candidate who loses their connection is not counted while offline. Treat it as a deterrent and a
+        record, not proof. You can change it after publishing.
+      </p>
+      @if (dirty()) {
+        <div class="actions">
+          <button type="submit" class="primary" [disabled]="busy() || parsed() === null">Save</button>
+          <button type="button" (click)="discard()" [disabled]="busy()">Cancel</button>
+        </div>
+      }
+    </form>
+  } @else {
+    <p>
+      Leaving the exam page:
+      {{ limit() > 0 ? 'the attempt ends after ' + limit() + (limit() === 1 ? ' time' : ' times') : 'not watched' }}
+    </p>
+  }
+</div>
