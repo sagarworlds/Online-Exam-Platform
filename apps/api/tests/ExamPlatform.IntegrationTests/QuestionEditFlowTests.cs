@@ -75,6 +75,8 @@ public sealed class QuestionEditFlowTests(ApiFactory factory) : IClassFixture<Ap
         using var admin = await factory.AdminClientAsync();
         var id = await CreateQuestionAsync(admin, "Original", "A", "B");
         var options = (await GetAsync(admin, id)).GetProperty("options").EnumerateArray().ToList();
+        var originalText = (await GetAsync(admin, id)).GetProperty("text").GetString();
+        var originalRightOption = options[0].GetProperty("text").GetString();
 
         await AssertProblemAsync(await EditAsync(admin, id, "Changed", Keep(options[0]), Keep(options[1], text: "")), HttpStatusCode.BadRequest, "invalid_question");
         await AssertProblemAsync(await EditAsync(admin, id, "Changed", Keep(options[0], isCorrect: true), Keep(options[1], isCorrect: true)), HttpStatusCode.BadRequest, "invalid_question");
@@ -166,7 +168,7 @@ public sealed class QuestionEditFlowTests(ApiFactory factory) : IClassFixture<Ap
     }
 
     [Fact]
-    public async Task OnceAnswered_TheWordingCanStillBeCorrected_AndTheStoredScoreStillMatchesTheReview()
+    public async Task OnceAnswered_TheWordingCanStillBeCorrected_ButTheFinishedAttemptKeepsWhatItWasShown()
     {
         var (admin, candidate, id, submitted) = await AnsweredAsync();
         using var _a = admin;
@@ -178,14 +180,15 @@ public sealed class QuestionEditFlowTests(ApiFactory factory) : IClassFixture<Ap
         Assert.Equal("Capital of France?", edited.GetProperty("text").GetString());
         Assert.True(edited.GetProperty("usage").GetProperty("answered").GetBoolean());
 
-        // The candidate's review shows the corrected wording, but their mark and their right answer are exactly as they were.
+        // The correction is a new version (FR-7), so it reaches attempts that begin after it: the review of an attempt already made shows
+        // exactly what that candidate was shown, with their mark and their right answer as they were.
         var review = await JsonAsync((await candidate.GetAsync($"/v1/me/attempts/{submitted.GetProperty("id").GetGuid()}/review")).EnsureSuccessStatusCode());
         Assert.Equal(submitted.GetProperty("score").GetDecimal(), review.GetProperty("score").GetDecimal());
         var reviewed = review.GetProperty("sections")[0].GetProperty("questions")[0];
-        Assert.Equal("Capital of France?", reviewed.GetProperty("text").GetString());
+        Assert.Equal(originalText, reviewed.GetProperty("text").GetString());
         Assert.Equal("Correct", reviewed.GetProperty("verdict").GetString());
         var chosen = reviewed.GetProperty("options").EnumerateArray().Single(o => o.GetProperty("wasChosen").GetBoolean());
-        Assert.Equal("Right (Paris)", chosen.GetProperty("text").GetString());
+        Assert.Equal(originalRightOption, chosen.GetProperty("text").GetString());
         Assert.True(chosen.GetProperty("isCorrect").GetBoolean());
     }
 }
