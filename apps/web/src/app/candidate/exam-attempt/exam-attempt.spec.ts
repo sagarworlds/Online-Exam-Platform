@@ -987,4 +987,161 @@ describe('ExamAttempt', () => {
       expect(document.body.classList).not.toContain('exam-protected');
     });
   });
+
+  describe('leaving the exam page (FR-22)', () => {
+    const isReport = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/me/attempts/a1/focus-violations');
+    const warning = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector('.exam-focus-warning');
+    const leave = () => window.dispatchEvent(new Event('blur'));
+    const comeBack = () => window.dispatchEvent(new Event('focus'));
+    const withFullscreen = async (run: () => Promise<void>) => {
+      Object.defineProperty(document, 'fullscreenEnabled', { configurable: true, value: true });
+      try {
+        await run();
+      } finally {
+        delete (document as unknown as Record<string, unknown>)['fullscreenEnabled'];
+      }
+    };
+
+    it('says up front that leaving is recorded, with the count so far and the limit', async () => {
+      const fixture = await open(attempt({ focusViolationLimit: 3, focusViolations: 1 }));
+
+      expect(textOf(fixture)).toContain('you have left 1 of 3 times allowed');
+    });
+
+    it('says nothing, and reports nothing, when the exam does not watch', async () => {
+      const fixture = await open(attempt());
+
+      leave();
+      fixture.detectChanges();
+
+      httpMock.expectNone(isReport);
+      expect(textOf(fixture)).not.toContain('Leaving it, or leaving full screen');
+    });
+
+    it('reports a departure to the server, then warns with how many are left, until dismissed', async () => {
+      const fixture = await open(attempt({ focusViolationLimit: 3 }));
+
+      leave();
+      const report = httpMock.expectOne(isReport);
+      expect(report.request.body).toEqual({ kind: 'WindowBlurred' });
+      report.flush({ violations: 1, limit: 3, attemptEnded: false });
+      fixture.detectChanges();
+
+      expect(warning(fixture)?.getAttribute('role')).toBe('alert');
+      expect(warning(fixture)?.textContent).toContain('You left the exam page (1 of 3 allowed). If you leave 2 more times, the exam will be submitted.');
+      expect(textOf(fixture)).toContain('you have left 1 of 3 times allowed');
+
+      (warning(fixture)?.querySelector('button') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(warning(fixture)).toBeNull();
+    });
+
+    it('says "once more" on the last warning', async () => {
+      const fixture = await open(attempt({ focusViolationLimit: 3, focusViolations: 1 }));
+
+      leave();
+      httpMock.expectOne(isReport).flush({ violations: 2, limit: 3, attemptEnded: false });
+      fixture.detectChanges();
+
+      expect(warning(fixture)?.textContent).toContain('If you leave once more, the exam will be submitted.');
+    });
+
+    it('counts the next trip away only after the candidate is back', async () => {
+      await open(attempt({ focusViolationLimit: 5 }));
+
+      leave();
+      leave();
+      httpMock.expectOne(isReport).flush({ violations: 1, limit: 5, attemptEnded: false });
+      comeBack();
+      leave();
+
+      httpMock.expectOne(isReport).flush({ violations: 2, limit: 5, attemptEnded: false });
+    });
+
+    it('shows the result when the departure reached the limit and the server ended the attempt', async () => {
+      const fixture = await open(attempt({ focusViolationLimit: 2, focusViolations: 1 }));
+
+      leave();
+      httpMock.expectOne(isReport).flush({ violations: 2, limit: 2, attemptEnded: true });
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET').flush(
+        attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [], autoSubmitted: true, endedByViolations: true, focusViolationLimit: 2, focusViolations: 2 }),
+      );
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('1 / 2');
+      expect(textOf(fixture)).toContain('You left the exam page too many times, so the exam was submitted automatically');
+      expect(textOf(fixture)).not.toContain('Time ran out');
+      expect(warning(fixture)).toBeNull();
+    });
+
+    it('reloads the attempt when the server says it is already over', async () => {
+      const fixture = await open(attempt({ focusViolationLimit: 3 }));
+
+      leave();
+      httpMock.expectOne(isReport).flush({ title: 'attempt_not_in_progress' }, { status: 409, statusText: 'Conflict' });
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET').flush(
+        attempt({ status: 'Submitted', score: 0, maxScore: 2, sections: [], autoSubmitted: true }),
+      );
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Time ran out');
+    });
+
+    it('drops a report that could not be sent, without an error on the page', async () => {
+      const fixture = await open(attempt({ focusViolationLimit: 3 }));
+
+      leave();
+      httpMock.expectOne(isReport).error(new ProgressEvent('error'));
+      fixture.detectChanges();
+
+      expect(root(fixture).querySelector('.error-message')).toBeNull();
+      expect(warning(fixture)).toBeNull();
+    });
+
+    it('stops watching once the exam is submitted', async () => {
+      const fixture = await open(attempt({ focusViolationLimit: 3 }));
+      (fixture.componentInstance as unknown as { attempt: { set(value: AttemptDto): void } }).attempt.set(
+        attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [], focusViolationLimit: 3 }),
+      );
+      fixture.detectChanges();
+
+      leave();
+
+      httpMock.expectNone(isReport);
+    });
+
+    it('stops watching when the page is left', async () => {
+      const fixture = await open(attempt({ focusViolationLimit: 3 }));
+
+      fixture.destroy();
+      leave();
+
+      httpMock.expectNone(isReport);
+    });
+
+    it('offers full screen while the exam watches and the browser allows it', () =>
+      withFullscreen(async () => {
+        const fixture = await open(attempt({ focusViolationLimit: 3 }));
+
+        expect(buttonLabelled(fixture, 'Enter full screen')).toBeDefined();
+      }));
+
+    it('does not offer full screen when the exam does not watch', () =>
+      withFullscreen(async () => {
+        const fixture = await open(attempt());
+
+        expect(buttonLabelled(fixture, 'Enter full screen')).toBeUndefined();
+      }));
+
+    it('asks the browser for full screen when the candidate presses the button', () =>
+      withFullscreen(async () => {
+        const request = vi.fn().mockResolvedValue(undefined);
+        document.documentElement.requestFullscreen = request;
+        const fixture = await open(attempt({ focusViolationLimit: 3 }));
+
+        (buttonLabelled(fixture, 'Enter full screen') as HTMLButtonElement).click();
+
+        expect(request).toHaveBeenCalledTimes(1);
+      }));
+  });
 });

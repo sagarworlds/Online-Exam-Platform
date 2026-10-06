@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { SILENT_ACTIVITY } from '../shared/api-activity/api-activity.interceptor';
-import { AttemptDto, AttemptReviewDto, MyAttemptRequestDto, MyExamDto } from './candidate.models';
+import { AttemptDto, AttemptReviewDto, FocusViolationKind, FocusViolationResultDto, MyAttemptRequestDto, MyExamDto } from './candidate.models';
 
 /** Thin HTTP wrapper over the ExamRuntime module's candidate-facing /v1/me endpoints. */
 @Injectable({ providedIn: 'root' })
@@ -73,6 +73,15 @@ export class CandidateApiService {
   /** Moves on to a later section of an exam that locks sections; the section left cannot be returned to. */
   moveToSection(attemptId: string, sectionId: string): Observable<void> {
     return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/section/${sectionId}`, null);
+  }
+
+  /**
+   * Tells the server the candidate left the exam page (FR-22). Silent, like an answer: the page already shows the warning, and a
+   * waiting indicator coming up as the candidate returns would only be noise. The reply says how many they have used and whether
+   * the attempt has ended.
+   */
+  reportFocusViolation(attemptId: string, kind: FocusViolationKind): Observable<FocusViolationResultDto> {
+    return this.http.post<FocusViolationResultDto>(`${this.baseUrl}/attempts/${attemptId}/focus-violations`, { kind }, CandidateApiService.background());
   }
 
   /** Ends the attempt and returns it with its score. Safe to repeat. */

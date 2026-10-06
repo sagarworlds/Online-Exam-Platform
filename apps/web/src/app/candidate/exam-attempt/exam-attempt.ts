@@ -4,9 +4,10 @@ import { Component, DestroyRef, HostListener, computed, effect, inject, signal }
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
-import { AttemptDto, AttemptQuestionDto } from '../candidate.models';
+import { AttemptDto, AttemptQuestionDto, FocusViolationKind } from '../candidate.models';
 import { BLOCKED_MESSAGES, BlockedAction, ContentGuard } from './content-guard';
 import { shortcutFor } from './exam-shortcuts';
+import { FocusMonitor } from './focus-monitor';
 import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-store';
 
 /** How often the countdown is redrawn. */
@@ -14,6 +15,15 @@ const TICK_MS = 1000;
 
 /** How long the "that is turned off" sentence stays on screen. Long enough to read once, short enough not to nag. */
 const NOTICE_MS = 4000;
+
+/** What a candidate is told right after leaving the exam page: how many times so far, and what the next ones will cost. */
+function warningFor(violations: number, limit: number): string {
+  const left = limit - violations;
+  return (
+    `You left the exam page (${violations} of ${limit} allowed). ` +
+    (left === 1 ? 'If you leave once more, the exam will be submitted.' : `If you leave ${left} more times, the exam will be submitted.`)
+  );
+}
 
 /** The text sizes a candidate can pick, as a share of normal. Capped at 150% so the question and palette still fit side by side. */
 const ZOOM_LEVELS = [1, 1.15, 1.3, 1.5] as const;
@@ -102,6 +112,27 @@ export class ExamAttempt {
   private noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
   private readonly guard = new ContentGuard(inject(DOCUMENT), (action) => this.showNotice(action));
+
+  /**
+   * How many times the candidate may leave the exam page right now (FR-22): only while the exam is open, and 0 when the exam does
+   * not watch. The server holds the count and ends the attempt; the page only reports and shows what it is told.
+   */
+  protected readonly focusLimit = computed(() => (this.isOpen() ? (this.attempt()?.focusViolationLimit ?? 0) : 0));
+  protected readonly watchFocus = computed(() => this.focusLimit() > 0);
+
+  /** How many times the candidate has left so far, as the server last said. */
+  protected readonly focusViolations = signal(0);
+
+  /** What the candidate was just told about leaving, until they dismiss it. Shown as an alert: they have just come back and need to see it. */
+  protected readonly focusWarning = signal<string | null>(null);
+
+  /** Whether the page is full screen right now, so the offer to enter it shows only when it helps. */
+  protected readonly inFullscreen = signal(false);
+
+  private readonly focus = new FocusMonitor(inject(DOCUMENT), (kind) => this.reportDeparture(kind));
+
+  /** Whether to offer full screen: the exam watches, the browser allows it, and the candidate is not in it. */
+  protected readonly canOfferFullscreen = computed(() => this.watchFocus() && this.focus.canEnterFullscreen && !this.inFullscreen());
 
   /**
    * The questions the candidate has had on screen, so the palette can tell "not visited" from "not answered". It is
@@ -223,9 +254,12 @@ export class ExamAttempt {
       this.stopTimer();
       // Leaving the exam page must hand the clipboard, the menu and printing back, whatever the page was doing.
       this.guard.stop();
+      // And stop counting departures: leaving this page is not leaving the exam once it is over.
+      this.focus.stop();
       clearTimeout(this.noticeTimer);
     });
     effect(() => (this.protectContent() ? this.guard.start() : this.guard.stop()));
+    effect(() => (this.watchFocus() ? this.focus.start() : this.focus.stop()));
 
     if (this.attemptId === null) {
       this.loading.set(false);
@@ -236,6 +270,52 @@ export class ExamAttempt {
     this.api.getAttempt(this.attemptId).subscribe({
       next: (attempt) => this.show(attempt),
       error: (error: unknown) => this.fail(error),
+    });
+  }
+
+  @HostListener('document:fullscreenchange')
+  protected onFullscreenChange(): void {
+    this.inFullscreen.set(this.focus.isFullscreen);
+  }
+
+  /** Asks for full screen; must come from the candidate's own click. */
+  protected goFullscreen(): void {
+    void this.focus.enterFullscreen();
+  }
+
+  protected dismissFocusWarning(): void {
+    this.focusWarning.set(null);
+  }
+
+  /**
+   * Tells the server the candidate left the page and shows what it answers. The count is the server's, so a candidate cannot reset
+   * it by reloading; if the server ended the attempt the page reloads it and shows the result. A report that fails for any other
+   * reason (offline) is dropped: the page cannot count what the server did not hear, and nagging about it helps no one.
+   */
+  private reportDeparture(kind: FocusViolationKind): void {
+    const attempt = this.attempt();
+    if (attempt === null || !this.isOpen() || this.submitting()) {
+      return;
+    }
+
+    this.api.reportFocusViolation(attempt.id, kind).subscribe({
+      next: (result) => {
+        if (result.attemptEnded) {
+          this.focusWarning.set(null);
+          this.reload();
+          return;
+        }
+        if (result.limit > 0) {
+          this.focusViolations.set(result.violations);
+          this.focusWarning.set(warningFor(result.violations, result.limit));
+        }
+      },
+      error: (error: unknown) => {
+        // 409: the attempt ended under the candidate (time ran out); the saved state is the truth now.
+        if (error instanceof HttpErrorResponse && error.status === 409) {
+          this.reload();
+        }
+      },
     });
   }
 
@@ -518,6 +598,7 @@ export class ExamAttempt {
   private show(attempt: AttemptDto): void {
     this.loading.set(false);
     this.attempt.set(attempt);
+    this.focusViolations.set(attempt.focusViolations ?? 0);
     this.stopTimer();
 
     if (attempt.status === 'InProgress') {

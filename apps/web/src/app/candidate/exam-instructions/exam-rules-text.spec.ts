@@ -120,6 +120,15 @@ describe('instructionLines', () => {
     expect(instructionLines(exam({ rules: { ...RULES, contentProtection: false } }))).not.toContain(told);
   });
 
+  it('tells the candidate up front that leaving the exam page is recorded, naming the limit', () => {
+    const lines = (limit?: number) => instructionLines(exam({ rules: { ...RULES, focusViolationLimit: limit } })).join(' ');
+
+    expect(lines(3)).toContain('If you leave 3 times, the exam is submitted for you with the answers saved so far.');
+    expect(lines(1)).toContain('The exam is submitted for you the first time you leave.');
+    expect(lines(0)).not.toContain('Stay on the exam page');
+    expect(lines(undefined)).not.toContain('Stay on the exam page');
+  });
+
   it('still gives the general rules when the API sent no exam rules', () => {
     const lines = instructionLines(exam({ rules: null }));
 

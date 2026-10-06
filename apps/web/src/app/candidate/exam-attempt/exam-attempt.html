@@ -30,6 +30,21 @@
       @if (protectContent()) {
         <p class="hint exam-protection">Copying, pasting, right-click and printing are turned off during this exam.</p>
       }
+      @if (watchFocus()) {
+        <p class="hint exam-focus">
+          Stay on this page. Leaving it, or leaving full screen, is recorded: you have left {{ focusViolations() }} of {{ focusLimit() }} times
+          allowed, and the exam is submitted when you reach {{ focusLimit() }}.
+          @if (canOfferFullscreen()) {
+            <button type="button" (click)="goFullscreen()">Enter full screen</button>
+          }
+        </p>
+      }
+      @if (focusWarning(); as warning) {
+        <p class="exam-focus-warning" role="alert">
+          {{ warning }}
+          <button type="button" (click)="dismissFocusWarning()">OK</button>
+        </p>
+      }
       <!-- Always present, so what was just refused is announced politely instead of interrupting. -->
       <p class="exam-protection-notice" role="status" aria-live="polite">{{ protectionNotice() }}</p>
 
@@ -158,7 +173,9 @@
         <p class="exam-bar__label">Result@if (current.number && current.number > 1) { · Attempt {{ current.number }} }</p>
         <h1>{{ current.examName }}</h1>
         <p class="score">{{ current.score }} / {{ current.maxScore }}</p>
-        @if (current.autoSubmitted) {
+        @if (current.endedByViolations) {
+          <p class="hint">You left the exam page too many times, so the exam was submitted automatically with the answers you had saved.</p>
+        } @else if (current.autoSubmitted) {
           <p class="hint">Time ran out, so the exam was submitted automatically with the answers you had saved.</p>
         }
         @if (current.review?.available) {
