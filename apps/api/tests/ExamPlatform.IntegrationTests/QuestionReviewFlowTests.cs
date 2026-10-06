@@ -228,7 +228,8 @@ public sealed class QuestionReviewFlowTests(ApiFactory factory) : IClassFixture<
         var refused = await admin.PostAsJsonAsync($"/v1/exams/{examId}/sections/{sectionId}/questions", new { questionId = draft });
 
         Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
-        Assert.Equal("question_not_usable", (await JsonAsync(refused)).GetProperty("title").GetString());
-        Assert.Contains("approved", (await JsonAsync(refused)).GetProperty("detail").GetString());
+        var problem = await JsonAsync(refused);
+        Assert.Equal("question_not_usable", problem.GetProperty("title").GetString());
+        Assert.Contains("approved", problem.GetProperty("detail").GetString());
     }
 }
