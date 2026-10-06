@@ -65,6 +65,17 @@ public class RichTextSanitizerTests
     }
 
     [Fact]
+    public void Sanitize_KeepsFormulasWrittenBetweenDollarSigns_AndCodeBlocks()
+    {
+        // Formulas (FR-5) are plain text that the browser typesets, so the server has nothing to widen for them.
+        var result = sanitizer.Sanitize("<p>Solve $x^{2} &lt; 4$ and $$\\frac{1}{2}$$</p><pre><code>echo $HOME</code></pre>");
+
+        Assert.Contains("$x^{2} &lt; 4$", result.Html);
+        Assert.Contains("$$\\frac{1}{2}$$", result.Html);
+        Assert.Contains("<pre><code>echo $HOME</code></pre>", result.Html);
+    }
+
+    [Fact]
     public void Sanitize_KeepsAnEmbeddedPictureAndItsDescription()
     {
         var result = sanitizer.Sanitize($"<p>Look: <img src=\"{TinyPng}\" alt=\"a dot\"></p>");

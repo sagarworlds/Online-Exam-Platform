@@ -25,7 +25,7 @@
       }
     </p>
   }
-  <div class="rich-text question-card__text" [innerHTML]="question().text"></div>
+  <div class="rich-text question-card__text" [appMath]="question().text"></div>
   <ol>
     @for (option of question().options; track option.id) {
       <li [class.correct-option]="option.isCorrect">

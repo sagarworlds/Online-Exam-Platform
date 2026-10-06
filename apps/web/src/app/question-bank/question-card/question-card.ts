@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { BookDto } from '../../book-management/book.models';
 import { BookChapterPicker, NO_PLACEMENT, Placement } from '../book-chapter-picker/book-chapter-picker';
 import { QuestionDto } from '../question.models';
+import { MathDirective } from '../../shared/rich-text/math.directive';
 
 /**
  * One question in the question bank list (FR-5): where it is filed, its text and options with the correct one marked,
@@ -11,7 +12,7 @@ import { QuestionDto } from '../question.models';
  */
 @Component({
   selector: 'app-question-card',
-  imports: [RouterLink, BookChapterPicker],
+  imports: [RouterLink, BookChapterPicker, MathDirective],
   templateUrl: './question-card.html',
 })
 export class QuestionCard {
