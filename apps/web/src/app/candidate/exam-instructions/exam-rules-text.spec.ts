@@ -112,28 +112,25 @@ describe('instructionLines', () => {
     expect(lines.at(-1)).toBe('You have 3 attempts at this exam in all, and have used 1. This starts attempt 2.');
   });
 
-  it('tells the candidate up front that copying, pasting, right-click and printing are off, unless the author lifted that', () => {
-    const told = 'Copying, pasting, right-click and printing are turned off during the exam. You can still select text.';
+  it('shows the proctoring notice the server wrote, in its own words, after the rules', () => {
+    const notice = ['Your IP address is recorded.', 'Copying is turned off.', 'No camera is used.'];
 
-    expect(instructionLines(exam())).toContain(told);
-    expect(instructionLines(exam({ rules: { ...RULES, contentProtection: true } }))).toContain(told);
-    expect(instructionLines(exam({ rules: { ...RULES, contentProtection: false } }))).not.toContain(told);
+    const lines = instructionLines(exam({ rules: { ...RULES, proctoringNotice: notice } }));
+
+    expect(lines).toEqual(expect.arrayContaining(notice));
+    expect(lines.indexOf('Your IP address is recorded.')).toBeGreaterThan(lines.findIndex((l) => l.includes('earns')));
+    expect(lines.indexOf('No camera is used.')).toBe(lines.indexOf('Your IP address is recorded.') + 2);
   });
 
-  it('tells the candidate up front that leaving the exam page is recorded, naming the limit', () => {
-    const lines = (limit?: number) => instructionLines(exam({ rules: { ...RULES, focusViolationLimit: limit } })).join(' ');
+  it('words nothing about proctoring itself, so the notice cannot disagree with what is collected', () => {
+    const lines = instructionLines(exam({ rules: { ...RULES, contentProtection: true, focusViolationLimit: 3 } }));
 
-    expect(lines(3)).toContain('If you leave 3 times, the exam is submitted for you with the answers saved so far.');
-    expect(lines(1)).toContain('The exam is submitted for you the first time you leave.');
-    expect(lines(0)).not.toContain('Stay on the exam page');
-    expect(lines(undefined)).not.toContain('Stay on the exam page');
+    expect(lines.some((l) => /copying|IP address|full screen/i.test(l))).toBe(false);
   });
 
-  it('tells every candidate that their address and device are recorded, whatever the exam does', () => {
-    const told = 'Your IP address and a signature of your device and browser are recorded while you sit the exam, and kept with your attempt for the organisers.';
-
-    expect(instructionLines(exam())).toContain(told);
-    expect(instructionLines(exam({ rules: null }))).toContain(told);
+  it('shows no proctoring lines when the API sent none', () => {
+    expect(instructionLines(exam({ rules: { ...RULES } })).some((l) => /recorded|camera/i.test(l))).toBe(false);
+    expect(instructionLines(exam({ rules: null })).some((l) => /recorded|camera/i.test(l))).toBe(false);
   });
 
   it('still gives the general rules when the API sent no exam rules', () => {

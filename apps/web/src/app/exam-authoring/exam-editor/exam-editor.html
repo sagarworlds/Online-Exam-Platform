@@ -130,6 +130,13 @@
       (changed)="saveAttemptLimit($event)"
     />
 
+    <app-exam-proctoring-profile
+      [proctoring]="e.proctoring"
+      [editable]="canChangeRelease()"
+      [busy]="busy()"
+      (applied)="saveProctoringProfile($event)"
+    />
+
     <app-exam-content-protection
       [enabled]="e.config.contentProtection !== false"
       [editable]="canChangeRelease()"

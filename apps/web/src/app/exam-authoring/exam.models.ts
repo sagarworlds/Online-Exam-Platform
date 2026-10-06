@@ -153,6 +153,33 @@ export interface ExamDto {
   sections: ExamSectionDto[] | null;
   /** What the exam's questions may be drawn from. */
   scope: ExamScopeDto;
+  /** Which proctoring profile the exam's settings amount to, and the notice candidates are shown (FR-46). Absent from an older API. */
+  proctoring?: ProctoringDto;
+}
+
+/** An exam's proctoring: the profile its settings match (or CUSTOM), and the notice written from them. */
+export interface ProctoringDto {
+  profile: string;
+  profileName: string;
+  notice: string[];
+}
+
+/** A proctoring profile an author can choose (FR-46). One that promises something not built yet is listed but not available. */
+export interface ProctoringProfileDto {
+  id: string;
+  name: string;
+  description: string;
+  available: boolean;
+  unavailableReason: string | null;
+  contentProtection: boolean;
+  focusViolationLimit: number;
+  /** What candidates would be told under it. */
+  notice: string[];
+}
+
+/** The body of PUT /v1/exams/{id}/proctoring-profile: the id of the profile to apply, for example BROWSER_LOCK. */
+export interface ProctoringProfileRequest {
+  profile: string;
 }
 
 export interface CreateExamRequest {

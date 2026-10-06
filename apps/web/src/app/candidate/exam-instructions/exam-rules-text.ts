@@ -67,24 +67,9 @@ export function instructionLines(exam: MyExamDto): string[] {
     );
   }
 
-  // Told up front, so a refusal during the exam is never a surprise. On unless the author lifted it (older APIs do not say).
-  if (exam.rules !== null && exam.rules.contentProtection !== false) {
-    lines.push('Copying, pasting, right-click and printing are turned off during the exam. You can still select text.');
-  }
-
-  // The limit is the exam's, so the sentence names it; an exam that does not watch (older APIs do not say) says nothing.
-  const limit = exam.rules?.focusViolationLimit ?? 0;
-  if (limit > 0) {
-    lines.push(
-      'Stay on the exam page and in full screen. Switching to another tab or window, or leaving full screen, is recorded and you are warned each time. ' +
-        (limit === 1
-          ? 'The exam is submitted for you the first time you leave.'
-          : `If you leave ${limit} times, the exam is submitted for you with the answers saved so far.`),
-    );
-  }
-
-  // Always true, so always said: where the candidate sits the exam is recorded (FR-26).
-  lines.push('Your IP address and a signature of your device and browser are recorded while you sit the exam, and kept with your attempt for the organisers.');
+  // What is turned off, recorded and watched is worded by the server from the exam's own settings (FR-46), so the candidate is told
+  // exactly what is collected and the wording cannot drift from it. An older API that sends none says nothing here.
+  lines.push(...(exam.rules?.proctoringNotice ?? []));
 
   lines.push('Stay on this device and browser. Signing in somewhere else ends this session.');
   lines.push('You can submit before time runs out. Once you submit, your answers cannot be changed.');
