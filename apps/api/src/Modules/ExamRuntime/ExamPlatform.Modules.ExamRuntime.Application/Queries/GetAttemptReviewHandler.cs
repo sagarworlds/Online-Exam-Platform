@@ -12,11 +12,17 @@ public sealed class GetAttemptReviewHandler(AttemptAccess access, AttemptReviewB
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="AttemptNotFoundError">No such attempt, or it is someone else's.</exception>
     /// <exception cref="AttemptNotSubmittedError">The attempt is still open.</exception>
+    /// <exception cref="AttemptInvalidatedError">An administrator invalidated the result.</exception>
     /// <exception cref="ResultsNotReleasedError">The exam's author has not released the answers yet.</exception>
     public async Task<AttemptReviewDto> HandleAsync(Guid attemptId, Guid candidateId, CancellationToken cancellationToken)
     {
         // Ownership first: someone else's attempt answers exactly like a missing one, before anything about it is revealed.
         var (attempt, exam) = await access.LoadOwnedAsync(attemptId, candidateId, cancellationToken);
+
+        // An invalidated result no longer counts, so it has no answer review either (FR-29).
+        if (attempt.IsInvalidated)
+            throw new AttemptInvalidatedError();
+
         return await review.BuildAsync(attempt, exam, cancellationToken);
     }
 }

@@ -1,3 +1,4 @@
+using ExamPlatform.Modules.ExamRuntime.Domain.Events;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
 using ExamPlatform.SharedKernel.Domain;
 
@@ -20,6 +21,7 @@ public sealed class Attempt : AggregateRoot
     private readonly List<AttemptQuestion> _paper = [];
     private readonly List<AttemptResultRevision> _revisions = [];
     private readonly List<AttemptFocusViolation> _focusViolations = [];
+    private readonly List<AttemptWarning> _warnings = [];
 
     /// <summary>The exam being taken.</summary>
     public Guid ExamId { get; private set; }
@@ -57,6 +59,33 @@ public sealed class Attempt : AggregateRoot
     /// </summary>
     public bool EndedByViolations { get; private set; }
 
+    /// <summary>
+    /// When an administrator paused the attempt (FR-29), or null while it runs. A paused attempt cannot be answered, its deadline does
+    /// not pass, and <see cref="Resume"/> moves the deadline later by the time it was paused.
+    /// </summary>
+    public DateTime? PausedAtUtc { get; private set; }
+
+    /// <summary>The administrator who ended the attempt early (FR-29), or null when nobody did.</summary>
+    public Guid? TerminatedByUserId { get; private set; }
+
+    /// <summary>Why the administrator ended it, shown to the candidate; null unless <see cref="TerminatedByUserId"/> is set.</summary>
+    public string? TerminationReason { get; private set; }
+
+    /// <summary>When an administrator invalidated the result (FR-29), or null while it stands.</summary>
+    public DateTime? InvalidatedAtUtc { get; private set; }
+
+    /// <summary>The administrator who invalidated it.</summary>
+    public Guid? InvalidatedByUserId { get; private set; }
+
+    /// <summary>Why the result was invalidated, shown to the candidate.</summary>
+    public string? InvalidationReason { get; private set; }
+
+    /// <summary>Whether an administrator invalidated the result, so it carries no score or review for the candidate and must not be counted.</summary>
+    public bool IsInvalidated => InvalidatedAtUtc is not null;
+
+    /// <summary>Whether an administrator ended the attempt early.</summary>
+    public bool IsTerminated => TerminatedByUserId is not null;
+
     /// <summary>The marks scored, once submitted.</summary>
     public decimal? Score { get; private set; }
 
@@ -92,6 +121,9 @@ public sealed class Attempt : AggregateRoot
     /// <see cref="RecordFocusViolation"/>.
     /// </summary>
     public IReadOnlyList<AttemptFocusViolation> FocusViolations => _focusViolations.AsReadOnly();
+
+    /// <summary>The warnings administrators sent during this attempt, oldest first (FR-29).</summary>
+    public IReadOnlyList<AttemptWarning> Warnings => _warnings.AsReadOnly();
 
     // For EF Core.
     private Attempt() : base(Guid.Empty)
@@ -161,7 +193,9 @@ public sealed class Attempt : AggregateRoot
 
     /// <summary>Whether time has run out at <paramref name="nowUtc"/>.</summary>
     /// <param name="nowUtc">The current instant.</param>
-    public bool IsExpired(DateTime nowUtc) => nowUtc >= DeadlineUtc;
+    public bool IsExpired(DateTime nowUtc) =>
+        // A paused attempt's clock is stopped, so it cannot run out until it is resumed (FR-29).
+        PausedAtUtc is null && nowUtc >= DeadlineUtc;
 
     /// <summary>
     /// Saves the option a candidate chose for a single-answer question, replacing an earlier choice for the same question.
@@ -261,6 +295,119 @@ public sealed class Attempt : AggregateRoot
         ActiveSectionOrder = sectionOrder;
     }
 
+    /// <summary>Sends the candidate a warning while they sit the exam (FR-29). A paused attempt can be warned too.</summary>
+    /// <param name="message">What to tell them, 1 to <see cref="AttemptWarning.MaxMessageLength"/> characters.</param>
+    /// <param name="byUserId">The administrator, from their token.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="InvalidAttemptError">The message is empty or too long.</exception>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already over.</exception>
+    public void Warn(string? message, Guid byUserId, DateTime nowUtc)
+    {
+        EnsureInProgress();
+        var text = message?.Trim();
+        if (string.IsNullOrEmpty(text) || text.Length > AttemptWarning.MaxMessageLength)
+            throw new InvalidAttemptError($"A warning is from 1 to {AttemptWarning.MaxMessageLength} characters.");
+
+        _warnings.Add(new AttemptWarning(Id, text, byUserId, nowUtc));
+        AddDomainEvent(new AttemptWarnedEvent(Id, ExamId, CandidateId, text));
+    }
+
+    /// <summary>Pauses the attempt (FR-29): the candidate cannot answer, and the deadline stops moving towards them.</summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already over.</exception>
+    /// <exception cref="AttemptAlreadyPausedError">The attempt is already paused.</exception>
+    /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
+    public void Pause(DateTime nowUtc)
+    {
+        EnsureInProgress();
+        if (PausedAtUtc is not null)
+            throw new AttemptAlreadyPausedError();
+        if (IsExpired(nowUtc))
+            throw new AttemptTimeExpiredError();
+
+        PausedAtUtc = nowUtc;
+        AddDomainEvent(new AttemptPausedEvent(Id, ExamId, CandidateId));
+    }
+
+    /// <summary>
+    /// Resumes a paused attempt, and moves its deadline later by the time it was paused so the candidate gets back exactly the time
+    /// they had (FR-29). The server's deadline is the only clock, so nothing on the candidate's side needs to change.
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already over.</exception>
+    /// <exception cref="AttemptNotPausedError">The attempt is not paused.</exception>
+    public void Resume(DateTime nowUtc)
+    {
+        EnsureInProgress();
+        if (PausedAtUtc is null)
+            throw new AttemptNotPausedError();
+
+        var paused = nowUtc - PausedAtUtc.Value;
+        DeadlineUtc += paused;
+        PausedAtUtc = null;
+        AddDomainEvent(new AttemptResumedEvent(Id, ExamId, CandidateId, (int)paused.TotalSeconds));
+    }
+
+    /// <summary>
+    /// Ends the attempt early on an administrator's decision, scored with the answers saved so far (FR-29). Unlike a submit it works on
+    /// a paused attempt. The reason is kept and shown to the candidate.
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <param name="score">The marks scored; computed by the caller from the answer key.</param>
+    /// <param name="maxScore">The marks available.</param>
+    /// <param name="byUserId">The administrator, from their token.</param>
+    /// <param name="reason">Why, 1 to <see cref="MaxReasonLength"/> characters.</param>
+    /// <exception cref="InvalidAttemptError">The reason is empty or too long.</exception>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
+    public void Terminate(DateTime nowUtc, decimal score, decimal maxScore, Guid byUserId, string? reason)
+    {
+        var text = CleanReason(reason);
+        if (Status != AttemptStatus.InProgress)
+            throw new AttemptNotInProgressError();
+
+        PausedAtUtc = null;
+        TerminatedByUserId = byUserId;
+        TerminationReason = text;
+        Close(nowUtc, score, maxScore, endedByViolations: false, endedByAdmin: true);
+        AddDomainEvent(new AttemptTerminatedEvent(Id, ExamId, CandidateId, text));
+    }
+
+    /// <summary>
+    /// Invalidates a submitted attempt's result (FR-29), for example after proof of cheating: it no longer counts, and the candidate is
+    /// told why instead of being shown a score. The score is kept for the record.
+    /// </summary>
+    /// <param name="byUserId">The administrator, from their token.</param>
+    /// <param name="reason">Why, 1 to <see cref="MaxReasonLength"/> characters.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="InvalidAttemptError">The reason is empty or too long.</exception>
+    /// <exception cref="AttemptNotSubmittedError">The attempt is still open: end it first.</exception>
+    /// <exception cref="AttemptAlreadyInvalidatedError">The result was already invalidated.</exception>
+    public void Invalidate(Guid byUserId, string? reason, DateTime nowUtc)
+    {
+        var text = CleanReason(reason);
+        if (Status != AttemptStatus.Submitted)
+            throw new AttemptNotSubmittedError();
+        if (IsInvalidated)
+            throw new AttemptAlreadyInvalidatedError();
+
+        InvalidatedAtUtc = nowUtc;
+        InvalidatedByUserId = byUserId;
+        InvalidationReason = text;
+        AddDomainEvent(new AttemptInvalidatedEvent(Id, ExamId, CandidateId, text));
+    }
+
+    /// <summary>The longest reason an administrator can give for ending or invalidating an attempt.</summary>
+    public const int MaxReasonLength = 500;
+
+    private static string CleanReason(string? reason)
+    {
+        var text = reason?.Trim();
+        if (string.IsNullOrEmpty(text) || text.Length > MaxReasonLength)
+            throw new InvalidAttemptError($"Give a reason of 1 to {MaxReasonLength} characters; the candidate is shown it.");
+
+        return text;
+    }
+
     /// <summary>
     /// Records that the candidate left the exam page (FR-22). The caller decides, from the exam's limit, whether this was the one that
     /// ends the attempt; the attempt only keeps count.
@@ -292,8 +439,17 @@ public sealed class Attempt : AggregateRoot
         if (Status != AttemptStatus.InProgress)
             throw new AttemptNotInProgressError();
 
+        // A paused attempt is the administrator's to end or resume; the candidate cannot slip out of it by submitting.
+        if (PausedAtUtc is not null)
+            throw new AttemptPausedError();
+
+        Close(nowUtc, score, maxScore, endedByViolations, endedByAdmin: false);
+    }
+
+    private void Close(DateTime nowUtc, decimal score, decimal maxScore, bool endedByViolations, bool endedByAdmin)
+    {
         // Ended by the server either way: time ran out, or the violation limit was reached.
-        AutoSubmitted = IsExpired(nowUtc) || endedByViolations;
+        AutoSubmitted = IsExpired(nowUtc) || endedByViolations || endedByAdmin;
         EndedByViolations = endedByViolations;
         // Never later than the deadline: an attempt picked up and closed hours afterwards still records
         // that the candidate stopped when time ran out.
@@ -328,11 +484,19 @@ public sealed class Attempt : AggregateRoot
         return true;
     }
 
-    /// <summary>The one rule every change to an open attempt shares: it must still be open, and its time must not have run out.</summary>
+    private void EnsureInProgress()
+    {
+        if (Status != AttemptStatus.InProgress)
+            throw new AttemptNotInProgressError();
+    }
+
+    /// <summary>The one rule every change to an open attempt shares: it must still be open, not paused, and its time must not have run out.</summary>
     private void EnsureOpen(DateTime nowUtc)
     {
         if (Status != AttemptStatus.InProgress)
             throw new AttemptNotInProgressError();
+        if (PausedAtUtc is not null)
+            throw new AttemptPausedError();
         if (IsExpired(nowUtc))
             throw new AttemptTimeExpiredError();
     }

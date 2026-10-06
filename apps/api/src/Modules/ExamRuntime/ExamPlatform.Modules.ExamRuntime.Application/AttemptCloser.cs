@@ -31,6 +31,26 @@ public sealed class AttemptCloser(IQuestionBank questionBank, IExamRuntimeUnitOf
     public Task CloseForViolationsAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken) =>
         CloseAsync(attempt, exam, endedByViolations: true, cancellationToken);
 
+    /// <summary>Marks the attempt, ends it on an administrator's decision (FR-29), and saves it.</summary>
+    /// <param name="attempt">The open attempt to end.</param>
+    /// <param name="exam">The exam it is an attempt at.</param>
+    /// <param name="byUserId">The administrator, from their token.</param>
+    /// <param name="reason">Why; the candidate is shown it.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="InvalidAttemptError">The reason is empty or too long.</exception>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
+    /// <exception cref="ExamContentUnavailableError">The exam's questions cannot be read, so it cannot be marked.</exception>
+    public async Task TerminateAsync(Attempt attempt, ExamSnapshot exam, Guid byUserId, string? reason, CancellationToken cancellationToken)
+    {
+        var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
+        var questions = (await questionBank.GetAsync(questionIds, cancellationToken)).ToDictionary(q => q.Id);
+
+        var result = AttemptScorer.Score(exam, questions, attempt.Answers.ToList());
+        attempt.Terminate(clock.UtcNow, result.Score, result.MaxScore, byUserId, reason);
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
     private async Task CloseAsync(Attempt attempt, ExamSnapshot exam, bool endedByViolations, CancellationToken cancellationToken)
     {
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();

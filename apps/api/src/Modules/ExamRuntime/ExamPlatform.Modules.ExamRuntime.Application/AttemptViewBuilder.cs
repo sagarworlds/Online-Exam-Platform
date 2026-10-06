@@ -34,12 +34,13 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock)
             attempt.DeadlineUtc,
             attempt.SubmittedAtUtc,
             attempt.AutoSubmitted,
-            attempt.Score,
-            attempt.MaxScore,
+            // An invalidated result no longer counts, so the candidate is told why instead of being shown the score.
+            attempt.IsInvalidated ? null : attempt.Score,
+            attempt.IsInvalidated ? null : attempt.MaxScore,
             clock.UtcNow,
             sections,
             // Only a finished attempt has anything to review, so an open one reports none.
-            attempt.Status == AttemptStatus.Submitted ? ResultRelease.AvailabilityOf(exam, clock.UtcNow) : null,
+            attempt.Status == AttemptStatus.Submitted && !attempt.IsInvalidated ? ResultRelease.AvailabilityOf(exam, clock.UtcNow) : null,
             attempt.Number,
             exam.SectionLockEnabled,
             exam.SectionLockEnabled && attempt.Status == AttemptStatus.InProgress
@@ -48,7 +49,13 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock)
             exam.ContentProtection,
             exam.FocusViolationLimit,
             attempt.FocusViolations.Count,
-            attempt.EndedByViolations);
+            attempt.EndedByViolations,
+            attempt.PausedAtUtc,
+            attempt.Warnings.OrderBy(w => w.IssuedAtUtc).Select(w => new AttemptWarningDto(w.Id, w.Message, w.IssuedAtUtc)).ToList(),
+            attempt.IsTerminated,
+            attempt.TerminationReason,
+            attempt.IsInvalidated,
+            attempt.InvalidationReason);
     }
 
     private async Task<IReadOnlyList<AttemptSectionDto>> BuildSectionsAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken)

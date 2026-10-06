@@ -52,8 +52,8 @@ public sealed class MyExamsHandler(
                     state,
                     latest?.Id,
                     latest?.Status,
-                    latest?.Score,
-                    latest?.MaxScore,
+                    latest is { IsInvalidated: true } ? null : latest?.Score,
+                    latest is { IsInvalidated: true } ? null : latest?.MaxScore,
                     AttemptAllowance.Allowed(e.MaxAttempts, granted),
                     made.Count,
                     // The window is open, nothing is in progress (that one is resumed, not followed by another), and one is left.
