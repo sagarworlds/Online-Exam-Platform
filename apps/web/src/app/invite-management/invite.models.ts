@@ -20,6 +20,8 @@ export interface InviteDto {
   emailSent: boolean;
   whatsAppSent: boolean;
   inviteLink: string | null;
+  /** The code the link carries; given back together with it, when nothing was delivered. */
+  inviteCode: string | null;
 }
 
 export interface InviteCodeDto {
@@ -28,6 +30,8 @@ export interface InviteCodeDto {
   expiresAt: string;
   usedAt: string | null;
   revokedAt: string | null;
+  /** The same code as the link the invitation e-mail carries; set when a code is generated, to hand over as a link. */
+  link: string | null;
 }
 
 /** The inviter is the caller, so the body carries no user id. */

@@ -6,24 +6,42 @@
   }
 
   @if (created(); as invite) {
-    @if (invite.emailSent) {
-      <p class="success-message">
-        Invitation e-mailed to {{ invite.email }}.
-        @if (invite.whatsAppSent) {
-          The exam code was also sent to their phone on WhatsApp.
+    @if (invite.emailSent || invite.whatsAppSent) {
+      @if (invite.emailSent) {
+        <p class="success-message">
+          Invitation e-mailed to {{ invite.email }}.
+          @if (invite.whatsAppSent) {
+            The exam code was also sent to their phone on WhatsApp.
+          }
+        </p>
+      } @else {
+        <p class="success-message">
+          Invitation created for {{ invite.email }}. No e-mail could be sent, but the exam code and link were sent to their phone on
+          WhatsApp.
+        </p>
+      }
+
+      <div class="card">
+        <p>To hand the code over yourself as well, by phone or in a chat:</p>
+        <button type="button" (click)="copyCode(invite)" [disabled]="generating()">Copy an invite code to hand over</button>
+        <p class="hint">Makes another single-use code. The one already sent keeps working until one of them is used.</p>
+        @if (handover(); as code) {
+          <app-invite-handover
+            [code]="code.code"
+            [link]="code.link"
+            [email]="invite.email"
+            [expiresAt]="code.expiresAt"
+            [autoCopy]="true"
+          />
         }
-      </p>
-    } @else if (invite.whatsAppSent) {
-      <p class="success-message">
-        Invitation created for {{ invite.email }}. No e-mail could be sent, but the exam code and link were sent to their phone on
-        WhatsApp.
-      </p>
+      </div>
     } @else {
       <div class="card">
         <p class="success-message">Invitation created for {{ invite.email }}, but no e-mail could be sent.</p>
-        <p>Send this link to the candidate yourself:</p>
-        <p><code class="invite-link">{{ invite.inviteLink }}</code></p>
-        <p class="hint">The link works once, for the account that holds {{ invite.email }}.</p>
+        <p>Send the link or the code to the candidate yourself:</p>
+        @if (invite.inviteCode; as inviteCode) {
+          <app-invite-handover [code]="inviteCode" [link]="invite.inviteLink" [email]="invite.email" />
+        }
       </div>
     }
   }

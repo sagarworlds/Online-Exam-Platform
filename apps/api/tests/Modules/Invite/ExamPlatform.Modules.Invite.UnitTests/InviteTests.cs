@@ -236,4 +236,95 @@ public class InviteTests
 
         Assert.Throws<InvalidInviteCodeError>(() => invite.Accept(code.Code, UserId, Email, Now));
     }
+
+    // ---- another code, to hand over by hand -------------------------------------------------------
+
+    [Fact]
+    public void AddCode_ToAPendingInvite_MakesACodeThatWorks_AndRaisesAnEventThatNamesItByIdOnly()
+    {
+        var invite = NewInvite();
+        invite.ClearDomainEvents();
+
+        var code = invite.AddCode(24, Now);
+
+        Assert.Contains(code, invite.Codes);
+        Assert.Equal(Now.AddHours(24), code.ExpiresAt);
+        var raised = Assert.IsType<InviteCodeGeneratedEvent>(Assert.Single(invite.DomainEvents));
+        Assert.Equal(invite.Id, raised.InviteId);
+        Assert.Equal(invite.ExamId, raised.ExamId);
+        Assert.Equal(code.Id, raised.CodeId);
+
+        // The event travels to the audit trail, so it must not carry the credential.
+        Assert.DoesNotContain(code.Code, raised.ToString(), StringComparison.Ordinal);
+
+        invite.Accept(code.Code, UserId, Email, Now);
+        Assert.Equal(InviteStatus.Accepted, invite.Status);
+    }
+
+    [Fact]
+    public void TheFirstCode_MadeWithTheInvite_IsNotAnnouncedAsHandedOver()
+    {
+        var invite = NewInvite();
+
+        invite.GenerateCode(72, Now);
+
+        Assert.DoesNotContain(invite.DomainEvents, e => e is InviteCodeGeneratedEvent);
+    }
+
+    [Fact]
+    public void AddCode_EachTime_MakesADifferentCode_AndEveryOneWorksUntilTheInviteIsAccepted()
+    {
+        var invite = NewInvite();
+
+        var codes = Enumerable.Range(0, 5).Select(_ => invite.AddCode(72, Now)).ToList();
+
+        Assert.Equal(5, codes.Select(c => c.Code).Distinct().Count());
+        Assert.All(codes, c => Assert.True(c.IsValid(Now)));
+        Assert.Equal(5, invite.DomainEvents.OfType<InviteCodeGeneratedEvent>().Count());
+    }
+
+    [Theory]
+    [InlineData(InviteStatus.Accepted)]
+    [InlineData(InviteStatus.Declined)]
+    [InlineData(InviteStatus.Revoked)]
+    public void AddCode_ToAnInviteNoLongerPending_ThrowsStateError_AndAddsNothing(InviteStatus status)
+    {
+        var invite = NewInvite();
+        var first = invite.GenerateCode(72, Now);
+        switch (status)
+        {
+            case InviteStatus.Accepted:
+                invite.Accept(first.Code, UserId, Email, Now);
+                break;
+            case InviteStatus.Declined:
+                invite.Decline(Now);
+                break;
+            default:
+                invite.Revoke(Now);
+                break;
+        }
+
+        invite.ClearDomainEvents();
+
+        var error = Assert.Throws<InviteStateError>(() => invite.AddCode(72, Now));
+
+        Assert.Equal(409, error.HttpStatusCode);
+        Assert.Single(invite.Codes);
+        Assert.Empty(invite.DomainEvents);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(InviteAggregate.MaxCodeExpiryHours + 1)]
+    public void AddCode_WithALifetimeOutOfRange_ThrowsExpiryError_EvenForAnInviteNoLongerPending(int hours)
+    {
+        var invite = NewInvite();
+        invite.Revoke(Now);
+
+        // A bad lifetime is wrong whatever state the invite is in, so it is reported as that.
+        var error = Assert.Throws<InvalidInviteExpiryError>(() => invite.AddCode(hours, Now));
+
+        Assert.Equal(400, error.HttpStatusCode);
+    }
 }

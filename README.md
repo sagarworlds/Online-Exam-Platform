@@ -155,7 +155,7 @@ Online-Exam-Platform/
 2. **Questions** (`/admin/questions`): single-answer multiple choice, 2 to 6 options, exactly one correct. The question text is written in a rich-text editor (see [Question formatting](#question-formatting)); options are plain text. A question can be edited, deleted or filed under a book and chapter later (see [Editing, deleting and filing questions](#editing-deleting-and-filing-questions)).
 3. **Books** (`/admin/books`, optional): a book has chapters; questions can be filed under a chapter and exams can be limited to a book or some of its chapters (see [Books, chapters and exam scope](#books-chapters-and-exam-scope)).
 4. **Exams** (`/exams`): create an exam, add sections and questions, set the schedule (window, minutes per attempt, optional latest start), choose when candidates may see which answers were right (see [Answer review](#answer-review)), publish. A draft can be put right on the way (see [Putting a draft exam right](#putting-a-draft-exam-right)).
-5. **Invites** (`/invites/create`): pick a published exam and a candidate's e-mail address. The invitation is e-mailed when `Smtp:Host` is configured; if the address belongs to an account with a phone number and the host sends invitations on WhatsApp, the exam code goes to that phone too (see [Invitations on WhatsApp](#invitations-on-whatsapp)); when neither could be sent the page shows the link to pass on by hand.
+5. **Invites** (`/invites/create`): pick a published exam and a candidate's e-mail address. The invitation is e-mailed when `Smtp:Host` is configured; if the address belongs to an account with a phone number and the host sends invitations on WhatsApp, the exam code goes to that phone too (see [Invitations on WhatsApp](#invitations-on-whatsapp)); when neither could be sent the page shows the link and its code to pass on by hand. Staff can also copy a code of their own to hand over at any time (see [Handing an invite code over by hand](#handing-an-invite-code-over-by-hand)).
 6. The candidate opens the link (signing in or registering first), and accepts it. Only the account holding the invited e-mail address can accept; accepting enrolls them.
 7. **My exams** (`/my-exams`): Start (this opens the instructions and system check, see [Instructions and system check](#instructions-and-system-check); the server fixes the deadline once the candidate has acknowledged them), answer (saved as they go; an answer can be cleared and a question marked for review, see [Sitting an exam](#sitting-an-exam-clearing-a-response-and-marking-for-review)), submit, and read the score, then review which answers were right once they are released. If time runs out the attempt is closed with the saved answers the next time anyone looks at it. A candidate asks for another attempt by contacting an administrator, who gives one on the exam's **Candidates and attempts** page (see [Extra attempts](#extra-attempts)).
 
@@ -762,6 +762,21 @@ If the switch is on and `PhoneProvider` is `WhatsApp`, but the access token, pho
 
 **What the platform does with it.** Sign-in works as it does for e-mail: the same answer whether or not the number has an account, and a failure is logged (with the number masked to its last two digits, and never the code) rather than shown. The API log says `A code for ********10 was handed to WhatsApp as message wamid...`, and the webhook then reports what became of that message: `WhatsApp message wamid... to ********10 is delivered`, or a warning with Meta's error (for example `131026 Message undeliverable` when the number is not on WhatsApp), so a code that never arrived can be followed. Anything a person writes to the number is acknowledged and its content is not read or logged. The webhook (`GET`/`POST /v1/webhooks/whatsapp`) is open to any caller, so it proves each one: the set-up handshake by the verify token, and each report by the app secret's HMAC signature over the exact bytes received (an unsigned or mis-signed call gets 401 and nothing in it is read).
 
+#### Handing an invite code over by hand
+
+Invitations reach a candidate by e-mail (and WhatsApp), but staff can also copy an **invite code** and hand it over themselves: read out on a call, pasted into a chat, written on a sheet, anything the platform does not send.
+
+| What | Rule |
+|------|------|
+| Where | **Invitations** (`/invites`): every invitation that is still pending has **Copy invite code**. The invite page (`/invites/create`) offers the same once an invitation has been delivered. |
+| What a click does | Asks the API for a new single-use code (`POST /v1/invites/{id}/codes`, valid for 72 hours), copies it to the clipboard, and shows it with the link that carries it, whom it works for and when it expires, with **Copy code** and **Copy link** buttons. **Get another code** makes another one; **Hide** removes the panel. |
+| If the browser will not copy | The code and the link are also plain text that one click selects, and the panel says so, so copying by hand always works (a page not served over HTTPS has no clipboard; a user may deny the permission). |
+| Why a new code each time | A code that was e-mailed or sent on WhatsApp is never read back or shown again. A hand-over code is a second, separate code: both work until one of them is used, and once the candidate accepts, the invitation is done and the other stops mattering. |
+| When nothing was delivered | The invite page already shows the invitation's own code and link (`inviteCode`, `inviteLink` in the response), with the same copy buttons, and makes no extra code. |
+| Who it works for | The code alone is not enough: accepting needs the signed-in account that holds the invited e-mail address, so a code that reaches the wrong person is no use to them. |
+| API | `POST /v1/invites/{inviteId}/codes` (`invite.manage`) now also returns `link`, and refuses an invitation that is no longer pending (`409 invite_state_invalid`), since a code for an accepted, declined or revoked invitation could never be redeemed. A lifetime outside 1 to 720 hours is still `400`, reported first. Before this the endpoint existed but nothing in the web app used it. |
+| Audit | Each code handed over is audited as `Invite.CodeGenerated`: who asked, the invitation, the exam and the code's id. **Never the code, the link or the address.** |
+
 #### Invitations on WhatsApp
 
 When an invitation is created, the invited address is looked up among **active accounts**; if one has a phone number, the invitation's exam code (the one the candidate enters on the invitation page, with the link and when it expires) is also sent to that phone on WhatsApp. The e-mail is unchanged. A number comes only from an account: an address with no account, an account without a phone, one still waiting to be verified and a suspended one get nothing on WhatsApp, and the roster's phone column is not used (nothing links an invite to a roster entry in the UI).
@@ -1014,6 +1029,7 @@ GET    /v1/admin/otp-codes            (SuperAdmin: unspent candidate sign-in/reg
 POST   /v1/exams                       (FR-11)
 POST   /v1/batches                     (FR-17)
 POST   /v1/invites                     (FR-20)
+POST   /v1/invites/{id}/codes          (a new code to hand over by hand, audited)
 POST   /v1/guardians                   (FR-22)
 ... (complete list in the Scalar UI at /scalar/v1, Development only)
 ```

@@ -2,6 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { vi } from 'vitest';
+import { ClipboardService } from '../../shared/clipboard/clipboard.service';
 import { InviteCreate } from './invite-create';
 
 describe('InviteCreate', () => {
@@ -121,13 +123,119 @@ describe('InviteCreate', () => {
     httpMock
       .expectOne((r) => r.method === 'POST')
       .flush(
-        { id: 'i1', email: 'student@example.com', emailSent: false, inviteLink: 'http://localhost:4200/invite?code=AB12CD34' },
+        {
+          id: 'i1',
+          email: 'student@example.com',
+          emailSent: false,
+          inviteLink: 'http://localhost:4200/invite?code=AB12CD34',
+          inviteCode: 'AB12CD34',
+        },
         { status: 201, statusText: 'Created' },
       );
     fixture.detectChanges();
 
     expect(root.textContent).toContain('no e-mail could be sent');
     expect(root.textContent).toContain('http://localhost:4200/invite?code=AB12CD34');
+    expect(root.textContent).toContain('AB12CD34');
+  });
+
+  it('lets the inviter copy the code and the link that came back when nothing could be sent', async () => {
+    const copy = vi.spyOn(TestBed.inject(ClipboardService), 'copy').mockResolvedValue(true);
+    const { fixture, root } = open();
+    fill(fixture, root);
+    (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+    httpMock
+      .expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites'))
+      .flush(
+        { id: 'i1', email: 'student@example.com', emailSent: false, inviteLink: 'http://localhost:4200/invite?code=AB12CD34', inviteCode: 'AB12CD34' },
+        { status: 201, statusText: 'Created' },
+      );
+    fixture.detectChanges();
+    const button = (label: string) =>
+      Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
+
+    button('Copy code').click();
+    button('Copy link').click();
+    await fixture.whenStable();
+
+    expect(copy).toHaveBeenCalledWith('AB12CD34');
+    expect(copy).toHaveBeenCalledWith('http://localhost:4200/invite?code=AB12CD34');
+    // The code that came back is the one the link carries: no further code is made.
+    httpMock.expectNone((r) => r.url.endsWith('/codes'));
+  });
+
+  describe('when the invitation was delivered', () => {
+    function sendInvite(whatsAppOnly = false) {
+      const view = open();
+      fill(view.fixture, view.root);
+      (view.root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites'))
+        .flush(
+          { id: 'i1', email: 'student@example.com', emailSent: !whatsAppOnly, whatsAppSent: whatsAppOnly, inviteLink: null, inviteCode: null },
+          { status: 201, statusText: 'Created' },
+        );
+      view.fixture.detectChanges();
+      return view;
+    }
+
+    const button = (root: HTMLElement) =>
+      Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Copy an invite code to hand over') as HTMLButtonElement;
+
+    it('offers a code of its own to hand over, which is made, copied and shown on request', async () => {
+      const copy = vi.spyOn(TestBed.inject(ClipboardService), 'copy').mockResolvedValue(true);
+      const { fixture, root } = sendInvite();
+      expect(root.textContent).not.toContain('K7M2QX9A');
+
+      button(root).click();
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites/i1/codes'))
+        .flush(
+          { id: 'c1', code: 'K7M2QX9A', expiresAt: '2026-10-10T09:00:00Z', usedAt: null, revokedAt: null, link: 'http://localhost:4200/invite?code=K7M2QX9A' },
+          { status: 201, statusText: 'Created' },
+        );
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(copy).toHaveBeenCalledWith('K7M2QX9A');
+      expect(root.textContent).toContain('K7M2QX9A');
+      expect(root.textContent).toContain('http://localhost:4200/invite?code=K7M2QX9A');
+    });
+
+    it('offers it when only WhatsApp delivered, too', () => {
+      const { root } = sendInvite(true);
+
+      expect(button(root)).toBeDefined();
+    });
+
+    it('shows the API error when the code could not be made', async () => {
+      const { fixture, root } = sendInvite();
+
+      button(root).click();
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites/i1/codes'))
+        .flush({ title: 'invite_not_found', detail: 'No invitation has that id.' }, { status: 404, statusText: 'Not Found' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('No invitation has that id.');
+      expect(root.querySelector('app-invite-handover')).toBeNull();
+    });
+
+    it('does not offer a code for an invitation that was not delivered, whose code is already on screen', () => {
+      const { fixture, root } = open();
+      fill(fixture, root);
+      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites'))
+        .flush(
+          { id: 'i1', email: 'student@example.com', emailSent: false, inviteLink: 'http://localhost:4200/invite?code=AB12CD34', inviteCode: 'AB12CD34' },
+          { status: 201, statusText: 'Created' },
+        );
+      fixture.detectChanges();
+
+      expect(button(root)).toBeUndefined();
+    });
   });
 
   it('shows the API error when the invitation is refused', () => {

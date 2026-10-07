@@ -69,14 +69,42 @@ public class Invite : AggregateRoot
     /// <exception cref="InvalidInviteExpiryError">The lifetime is outside the allowed range.</exception>
     public InviteCode GenerateCode(int expiryHours, DateTime nowUtc)
     {
-        if (expiryHours is < MinCodeExpiryHours or > MaxCodeExpiryHours)
-            throw new InvalidInviteExpiryError(MinCodeExpiryHours, MaxCodeExpiryHours);
+        EnsureCodeLifetime(expiryHours);
 
         // A cryptographic generator: the code is the credential that lets someone take the exam.
         var code = new InviteCode(Id, RandomNumberGenerator.GetString(CodeAlphabet, CodeLength), expiryHours, nowUtc);
         _codes.Add(code);
         UpdatedAt = nowUtc;
         return code;
+    }
+
+    /// <summary>
+    /// Adds another single-use code to a pending invite, for staff to hand to the invited person themselves (read out, pasted into a chat,
+    /// printed), and records that they did. The invite's first code, made with it, is not announced this way.
+    /// </summary>
+    /// <param name="expiryHours">How long the code lives, from <see cref="MinCodeExpiryHours"/> to <see cref="MaxCodeExpiryHours"/>.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="InvalidInviteExpiryError">The lifetime is outside the allowed range.</exception>
+    /// <exception cref="InviteStateError">
+    /// The invite is no longer pending: a code for an accepted, declined, revoked or expired invite could never be redeemed, so none is made.
+    /// </exception>
+    public InviteCode AddCode(int expiryHours, DateTime nowUtc)
+    {
+        // The lifetime first: a bad one is refused the same way whatever state the invite is in.
+        EnsureCodeLifetime(expiryHours);
+
+        if (Status != InviteStatus.Pending)
+            throw new InviteStateError("Only a pending invitation can be given another code.");
+
+        var code = GenerateCode(expiryHours, nowUtc);
+        AddDomainEvent(new InviteCodeGeneratedEvent(Id, ExamId, code.Id));
+        return code;
+    }
+
+    private static void EnsureCodeLifetime(int expiryHours)
+    {
+        if (expiryHours is < MinCodeExpiryHours or > MaxCodeExpiryHours)
+            throw new InvalidInviteExpiryError(MinCodeExpiryHours, MaxCodeExpiryHours);
     }
 
     /// <summary>

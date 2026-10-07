@@ -50,6 +50,9 @@ public sealed class InviteEmailDeliveryTests(MailDeliveringApiFactory factory) :
         Assert.True(invite.GetProperty("emailSent").GetBoolean());
         Assert.Equal(JsonValueKind.Null, invite.GetProperty("inviteLink").ValueKind);
 
+        // Nor is the code handed back: it was delivered, and a credential that has been delivered is not shown again.
+        Assert.Equal(JsonValueKind.Null, invite.GetProperty("inviteCode").ValueKind);
+
         InviteEmail sent;
         lock (factory.Sent) sent = Assert.Single(factory.Sent, m => m.To == email);
         Assert.Equal("Mailed Exam", sent.ExamName);
