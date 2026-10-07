@@ -581,6 +581,18 @@ describe('ExamAttempts', () => {
       expect(textOf(fixture)).not.toContain('Address changed');
     });
 
+    it('says nothing was recorded, instead of explaining an empty table, for an attempt from before the details were kept', () => {
+      const fixture = open(exam([withAttempt(staff({ clientChanges: 0, devices: 0 }))]));
+
+      buttonLabelled(fixture, 'Sign-in details')[0].click();
+      httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts/a1/clients')).flush([]);
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Nothing was recorded for this attempt');
+      expect(textOf(fixture)).not.toContain('evidence to weigh, not proof');
+      expect((fixture.nativeElement as HTMLElement).querySelector('table.data-table')).toBeNull();
+    });
+
     it('shows each place the attempt was seen, with a short device signature, and hides it again', () => {
       const fixture = open(exam([withAttempt(staff({ clientChanges: 1, devices: 2 }))]));
 

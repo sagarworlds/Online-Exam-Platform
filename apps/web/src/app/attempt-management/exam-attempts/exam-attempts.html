@@ -89,6 +89,12 @@
               @if (clientsFor() === attempt.id) {
                 <li class="attempt-paper">
                   @if (clients(); as rows) {
+                    @if (rows.length === 0) {
+                      <p class="hint">
+                        Nothing was recorded for this attempt. It was most likely started before the address and device were kept, so there
+                        is nothing to compare.
+                      </p>
+                    } @else {
                     <p class="hint">
                       Where this attempt was sat from, as the server saw it. A change is evidence to weigh, not proof: a phone moving between
                       wifi and mobile data changes its address, and a browser update changes its signature.
@@ -108,6 +114,7 @@
                         }
                       </tbody>
                     </table>
+                    }
                   } @else {
                     <p>Loading…</p>
                   }
