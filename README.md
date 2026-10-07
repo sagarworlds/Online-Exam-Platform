@@ -240,6 +240,21 @@ An illegal step (approving a draft, putting a draft forward twice, restoring a q
 | Not built | Notifying a reviewer that a question is waiting (FR-39), assigning a question to a particular reviewer, and bulk approval. Import and export do not carry the status: imported questions are drafts. |
 | Migration | `QuestionReviewWorkflow` adds `Status` to `questionBank.Questions` (existing rows `Approved`) and creates `questionBank.QuestionReviewEntries`. |
 
+#### Duplicate detection and usage statistics (FR-9)
+
+| What | Rule |
+|------|------|
+| What counts as the same | Two questions are the same when the **words** of the wording match, ignoring case, spacing, punctuation and formatting ("What is 2 + 2?" = "what is  2+2"), **and** their options match as a set, in any order. The wording is kept as a hash of its letters and digits (`Questions.TextKey`, indexed), set whenever the text is, so finding a repeat is one index lookup. A question with no readable words, such as a picture alone, has no key and never matches. |
+| Same wording, other options | Reported but never blocked: "Which of these is prime?" is asked with many different options. |
+| Creating | A question that repeats one in the bank is refused (`409 duplicate_question`) unless the request carries `"allowDuplicate": true`. The form looks up what it repeats, shows it, and offers **Add it anyway** or **Don't add it**. |
+| Importing | A row that repeats a question in the bank, or an earlier row of the same file, is **left out and reported** in `duplicates` (row and why), apart from `rejected` rows that are not valid questions. `"allowDuplicates": true`, or the "Import questions the bank already has" box, imports them anyway. |
+| Checking beforehand | `POST /v1/questions/duplicates` (`question.read`) with `{ text, options, excludeQuestionId? }` lists up to ten matches, those with the same options first, each with a preview, status and `sameOptions`. |
+| Turning it off | `QuestionBank:RefuseDuplicates` (default `true`) set to `false` makes a deployment accept repeats without asking. The check endpoint always works. |
+| Existing questions | The migration gives every stored question its key from its readable text with a SQL expression that matches the code for plain letters and digits. An unusual character may normalise differently, which can only make an old question be missed as a repeat, never wrongly matched; editing it recomputes the key exactly. |
+| Statistics | `GET /v1/questions/{id}/statistics` (`question.read`): the exams that hold the question, how many times it was **answered** in finished attempts that still count (an attempt an administrator invalidated does not), how many of those answers were **fully correct**, the percentage, and how often each option was chosen. "Statistics" on a question's card opens it. |
+| Fully correct | The candidate chose exactly the correct options **at the version their attempt sat** (FR-7), so a key corrected later does not change what an old attempt got right. It is not the marks: partial credit and negative marking belong to an exam, while a question's difficulty is the same wherever it is used. An attempt made before versions were kept is judged by the current key. |
+| Not counted | Attempts still open, invalidated attempts, and a question that was drawn onto a paper but left unanswered, so the percentage is of the candidates who answered. |
+
 #### Bulk import/export (FR-6)
 
 A staff member holding `question.manage` can create questions from a CSV, Excel or JSON file, or download questions as one, from the **Import and export** card on the question bank page (or `/v1/questions`). The CSV and Excel files share one column shape, so a bank's own export is always a file it can re-import unchanged: `Text,Option1,Correct1,...,Option6,Correct6,AllowsMultiple,Difficulty,Topics` (up to six options as fixed column pairs; an unused pair is left blank, so a two-option question's later columns are simply empty; `Topics` is `;`-joined since `,` is the column delimiter). Chapter placement is not part of the file — it stays the separate `POST /v1/questions/placement` bulk action, so a row never has to resolve a chapter by name across books.

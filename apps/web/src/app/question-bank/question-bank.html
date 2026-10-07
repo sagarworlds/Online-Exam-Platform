@@ -8,6 +8,24 @@
     <p class="success-message">Question saved.</p>
   }
 
+  @if (repeat(); as pending) {
+    <section class="card" role="alert" aria-label="Question already in the bank">
+      <h2>This question is already in the bank</h2>
+      <p>The bank has a question with this wording and these options:</p>
+      <ul>
+        @for (match of pending.matches; track match.id) {
+          @if (match.sameOptions) {
+            <li>{{ match.preview }} <span class="badge">{{ match.status }}</span></li>
+          }
+        }
+      </ul>
+      <div class="actions">
+        <button type="button" (click)="addAnyway()" [disabled]="saving()">Add it anyway</button>
+        <button type="button" class="primary" (click)="dismissRepeat()">Don't add it</button>
+      </div>
+    </section>
+  }
+
   <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="New question">
     <h2>New question</h2>
 
@@ -113,6 +131,8 @@
         [busy]="busyId() === question.id"
         [error]="cardErrors()[question.id] ?? null"
         (selectionChanged)="toggleSelected(question.id, $event)"
+        [statistics]="statistics()[question.id] ?? null"
+        (statisticsRequested)="onStatisticsRequested($event)"
         (statusChanged)="onStatusChanged($event)"
         (fileRequested)="fileQuestion($event.questionId, $event.chapterId)"
         (deleteConfirmed)="deleteQuestion($event)"

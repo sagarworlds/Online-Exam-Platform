@@ -38,6 +38,8 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         // Combines the IQuestionUsageSource each module that uses questions registers for itself.
         services.AddScoped<QuestionUsageReader>();
         services.AddScoped<QuestionDtoFactory>();
+        services.AddScoped<QuestionDuplicateFinder>();
+        services.AddSingleton(sp => new QuestionDuplicatePolicy(sp.GetRequiredService<IConfiguration>().GetValue("QuestionBank:RefuseDuplicates", true)));
         services.AddScoped<OpenChapterResolver>();
         // A new sanitizer per request: the library's instance carries mutable configuration.
         services.AddScoped<IRichTextSanitizer, RichTextSanitizer>();
@@ -53,6 +55,8 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         services.AddScoped<GetQuestionReviewLogHandler>();
         services.AddScoped<QuestionReviewHandler>();
         services.AddScoped<ListTopicsHandler>();
+        services.AddScoped<FindDuplicatesHandler>();
+        services.AddScoped<GetQuestionStatisticsHandler>();
         services.AddScoped<ImportQuestionsHandler>();
         services.AddScoped<ExportQuestionsHandler>();
 

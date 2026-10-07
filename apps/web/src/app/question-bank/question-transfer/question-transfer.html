@@ -19,6 +19,10 @@
     <button type="button" (click)="download()" [disabled]="busy()">Download questions</button>
 
     <button type="button" (click)="picker.click()" [disabled]="busy()">Import from a file…</button>
+    <label class="inline-check">
+      <input type="checkbox" [checked]="allowDuplicates()" (change)="allowDuplicates.set($any($event.target).checked)" />
+      Import questions the bank already has
+    </label>
     <input #picker type="file" hidden accept=".csv,.xlsx,.json" aria-label="Question file" (change)="onFilePicked($event)" />
   </div>
 
@@ -33,6 +37,14 @@
           report.rejected.length > 0 ? ', ' + report.rejected.length + ' left out' : ''
         }}.
       </p>
+      @if (report.duplicates?.length) {
+        <p>These rows were left out because the bank already has the question:</p>
+        <ul class="import-report">
+          @for (row of report.duplicates; track row.row) {
+            <li>Row {{ row.row }}: {{ row.reason }}</li>
+          }
+        </ul>
+      }
       @if (report.rejected.length > 0) {
         <p>These rows were left out. Correct them and import a file holding only those rows, so the questions already created are not added twice.</p>
         <ul class="import-report">

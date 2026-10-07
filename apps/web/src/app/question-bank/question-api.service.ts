@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
   CreateQuestionRequest,
+  DuplicateQuestion,
   ExportedFile,
   ImportQuestionsResult,
   QuestionFileFormat,
@@ -14,6 +15,7 @@ import {
   FileQuestionsResult,
   QuestionDto,
   QuestionFilter,
+  QuestionStatistics,
   UpdateQuestionRequest,
 } from './question.models';
 
@@ -62,8 +64,19 @@ export class QuestionApiService {
   }
 
   /** Creates the questions a file holds; `content` is text for CSV and JSON and base64 for Excel. Rows that fail are reported, not fatal. */
-  import(format: QuestionFileFormat, content: string): Observable<ImportQuestionsResult> {
-    return this.http.post<ImportQuestionsResult>(`${this.baseUrl}/import`, { format, content });
+  import(format: QuestionFileFormat, content: string, allowDuplicates = false): Observable<ImportQuestionsResult> {
+    // Sent only when set, so an ordinary import is the request it always was.
+    return this.http.post<ImportQuestionsResult>(`${this.baseUrl}/import`, { format, content, ...(allowDuplicates ? { allowDuplicates } : {}) });
+  }
+
+  /** The questions already in the bank with the same wording as this one, those with the same options first (FR-9). */
+  duplicates(text: string, options: string[], excludeQuestionId?: string): Observable<DuplicateQuestion[]> {
+    return this.http.post<DuplicateQuestion[]>(`${this.baseUrl}/duplicates`, { text, options, excludeQuestionId });
+  }
+
+  /** The exams that hold a question and how candidates have answered it (FR-9). */
+  statistics(id: string): Observable<QuestionStatistics> {
+    return this.http.get<QuestionStatistics>(`${this.baseUrl}/${id}/statistics`);
   }
 
   /** Downloads the questions the filter matches in a file format. */

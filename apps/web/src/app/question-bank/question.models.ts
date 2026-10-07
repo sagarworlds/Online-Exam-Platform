@@ -62,6 +62,40 @@ export interface CreateQuestionRequest {
   topics: string[];
   /** True when more than one option is correct. */
   allowsMultiple: boolean;
+  /** True to add the question although the bank already has one with the same wording and options (FR-9). */
+  allowDuplicate?: boolean;
+}
+
+/** A question already in the bank that repeats one being added (FR-9). */
+export interface DuplicateQuestion {
+  id: string;
+  /** The start of its wording as plain text. */
+  preview: string;
+  /** Whether its options match too; false means only the wording does. */
+  sameOptions: boolean;
+  status: string;
+  chapterId: string | null;
+}
+
+/** How often one option was chosen (FR-9). */
+export interface OptionStatistics {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+  timesChosen: number;
+}
+
+/** Where a question is used and how candidates fared on it (FR-9). */
+export interface QuestionStatistics {
+  examCount: number;
+  examNames: string[];
+  /** In how many finished, valid attempts it was answered. */
+  answered: number;
+  /** How many of those answers chose exactly the correct options. */
+  correct: number;
+  /** 0 to 100, or null while nobody has answered it. */
+  percentCorrect: number | null;
+  options: OptionStatistics[];
 }
 
 /** The body of PUT /v1/questions/{id}: the question's whole new content, not a patch. */
@@ -137,6 +171,8 @@ export type QuestionFileFormat = 'csv' | 'xlsx' | 'json';
 export interface ImportQuestionsResult {
   created: { row: number; id: string }[];
   rejected: { row: number; errors: string[] }[];
+  /** Rows left out because the same question already exists; absent from a response that predates FR-9. */
+  duplicates?: { row: number; reason: string }[];
 }
 
 /** A downloaded export, and how many matching questions did not fit the format and were left out. */

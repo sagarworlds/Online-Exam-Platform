@@ -27,7 +27,7 @@ public class QuestionFilesTests
         repository.When(r => r.Add(Arg.Any<Question>())).Do(c => added.Add(c.Arg<Question>()));
         var clock = Substitute.For<Clock>();
         clock.UtcNow.Returns(Now);
-        return (new ImportQuestionsHandler(repository, Substitute.For<IQuestionBankUnitOfWork>(), new RichTextSanitizer(), clock), added);
+        return (new ImportQuestionsHandler(repository, new QuestionDuplicateFinder(repository), new QuestionDuplicatePolicy(true), Substitute.For<IQuestionBankUnitOfWork>(), new RichTextSanitizer(), clock), added);
     }
 
     [Theory]

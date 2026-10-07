@@ -53,6 +53,28 @@
     </p>
   }
 
+  @if (showingStatistics()) {
+    <div class="question-card__statistics" aria-label="Statistics">
+      @if (statistics(); as stats) {
+        @if (stats.answered === 0) {
+          <p class="hint">No candidate has answered this question yet.</p>
+        } @else {
+          <p>
+            Answered {{ stats.answered }} {{ stats.answered === 1 ? 'time' : 'times' }}, fully correct {{ stats.correct }}
+            ({{ stats.percentCorrect }}%).
+          </p>
+          <ul>
+            @for (option of stats.options; track option.id) {
+              <li>{{ option.text }}: chosen {{ option.timesChosen }} {{ option.timesChosen === 1 ? 'time' : 'times' }}@if (option.isCorrect) { (correct)}</li>
+            }
+          </ul>
+        }
+      } @else {
+        <p class="hint">Loading…</p>
+      }
+    </div>
+  }
+
   @if (error()) {
     <p class="error-message" role="alert">{{ error() }}</p>
   }
@@ -80,6 +102,7 @@
 
   <div class="actions question-card__actions">
     <a class="btn btn--small" [routerLink]="['/admin/questions', question().id, 'edit']">Edit</a>
+    <button type="button" class="btn--small" (click)="toggleStatistics()" [attr.aria-expanded]="showingStatistics()">Statistics</button>
     <button type="button" class="btn--small" (click)="filing.set(!filing())" [attr.aria-expanded]="filing()" [disabled]="busy()">
       File under…
     </button>

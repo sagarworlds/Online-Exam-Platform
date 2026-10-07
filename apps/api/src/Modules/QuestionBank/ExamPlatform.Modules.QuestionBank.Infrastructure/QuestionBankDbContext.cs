@@ -36,6 +36,9 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
             b.Property(q => q.Text).IsRequired().HasColumnType("text");
             // Plain text for searching; never null so a search needs no null check.
             b.Property(q => q.SearchText).IsRequired().HasColumnType("text");
+            // A hash of the stem's letters and digits, so a new question is checked against the bank by an index lookup (FR-9).
+            b.Property(q => q.TextKey).IsRequired().HasMaxLength(64);
+            b.HasIndex(q => q.TextKey);
             // Stored as its name rather than its number, so the column reads the same in a query and survives a reordered enum.
             b.Property(q => q.Difficulty).HasConversion<string>().HasMaxLength(10);
             b.Property(q => q.Status).HasConversion<string>().HasMaxLength(10);

@@ -500,6 +500,133 @@ describe('QuestionBank', () => {
     expect(root.textContent).toContain('Exactly one option must be marked correct.');
   });
 
+  describe('a question the bank already has (FR-9)', () => {
+    const isCreate = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/questions');
+    const isCheck = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/questions/duplicates');
+
+    function submitRepeat() {
+      const fixture = create();
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      fill(fixture, 'Capital of France?', ['Paris', 'Rome']);
+      (root.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      httpMock
+        .expectOne(isCreate)
+        .flush({ title: 'duplicate_question', detail: 'The question bank already has a question with this wording.' }, { status: 409, statusText: 'Conflict' });
+      httpMock
+        .expectOne(isCheck)
+        .flush([{ id: 'q1', preview: 'Capital of France?', sameOptions: true, status: 'approved', chapterId: null }]);
+      fixture.detectChanges();
+      return { fixture, root };
+    }
+
+    it('shows what it repeats instead of an error, and sends nothing more until the author decides', () => {
+      const { root } = submitRepeat();
+
+      expect(root.textContent).toContain('This question is already in the bank');
+      expect(root.textContent).toContain('Capital of France?');
+      expect(root.querySelector('.error-message')).toBeNull();
+    });
+
+    it('asks the bank which questions it repeats, by the wording and the option texts it sent', () => {
+      const fixture = create();
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      fill(fixture, 'Capital of France?', ['Paris', 'Rome']);
+      (root.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      httpMock.expectOne(isCreate).flush({ title: 'duplicate_question' }, { status: 409, statusText: 'Conflict' });
+
+      const check = httpMock.expectOne(isCheck);
+
+      expect(check.request.body).toEqual({ text: 'Capital of France?', options: ['Paris', 'Rome'] });
+      check.flush([]);
+    });
+
+    it('adds the question when the author says to add it anyway', () => {
+      const { fixture, root } = submitRepeat();
+
+      (Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Add it anyway') as HTMLButtonElement).click();
+
+      const again = httpMock.expectOne(isCreate);
+      expect(again.request.body.allowDuplicate).toBe(true);
+      expect(again.request.body.text).toBe('Capital of France?');
+      again.flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      expect(root.textContent).toContain('Question saved.');
+      expect(root.textContent).not.toContain('This question is already in the bank');
+    });
+
+    it('drops the question when the author chooses not to add it, keeping what they typed', () => {
+      const { fixture, root } = submitRepeat();
+
+      (Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === "Don't add it") as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(root.textContent).not.toContain('This question is already in the bank');
+      expect(Array.from(root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]')).map((i) => i.value)).toEqual(['Paris', 'Rome']);
+    });
+  });
+
+  describe('statistics on a question (FR-9)', () => {
+    const isStats = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/questions/q1/statistics');
+
+    function open() {
+      const fixture = create();
+      httpMock.expectOne(isList).flush([listedQuestion('q1', 'What is 2 + 2?')]);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const statistics = () => Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Statistics') as HTMLButtonElement;
+      return { fixture, root, statistics };
+    }
+
+    it('loads them when first opened and shows how often each option was chosen', () => {
+      const { fixture, root, statistics } = open();
+
+      statistics().click();
+      httpMock.expectOne(isStats).flush({
+        examCount: 1, examNames: ['Mock'], answered: 3, correct: 2, percentCorrect: 66.7,
+        options: [{ id: 'q1-a', text: 'A', isCorrect: true, timesChosen: 2 }, { id: 'q1-b', text: 'B', isCorrect: false, timesChosen: 1 }],
+      });
+      fixture.detectChanges();
+
+      const text = (root.querySelector('.question-card__statistics')?.textContent ?? '').replace(/\s+/g, ' ');
+      expect(text).toContain('Answered 3 times, fully correct 2 (66.7%)');
+      expect(text).toContain('A: chosen 2 times (correct)');
+      expect(text).toContain('B: chosen 1 time');
+    });
+
+    it('says so when nobody has answered it, and does not load them again once they are in', () => {
+      const { fixture, root, statistics } = open();
+
+      statistics().click();
+      httpMock.expectOne(isStats).flush({ examCount: 0, examNames: [], answered: 0, correct: 0, percentCorrect: null, options: [] });
+      fixture.detectChanges();
+      expect(root.textContent).toContain('No candidate has answered this question yet.');
+
+      statistics().click();
+      statistics().click();
+      fixture.detectChanges();
+      httpMock.expectNone(isStats);
+    });
+
+    it('shows why they could not be loaded on the question itself', () => {
+      const { fixture, root, statistics } = open();
+
+      statistics().click();
+      httpMock.expectOne(isStats).flush({ title: 'forbidden', detail: 'No access.' }, { status: 403, statusText: 'Forbidden' });
+      fixture.detectChanges();
+
+      expect(root.querySelector('app-question-card .error-message')?.textContent).toContain('No access.');
+    });
+  });
+
   describe('deleting a question', () => {
     const isDelete = (id: string) => (r: { method: string; url: string }) => r.method === 'DELETE' && r.url.endsWith(`/v1/questions/${id}`);
 

@@ -57,6 +57,25 @@ describe('QuestionTransfer', () => {
     });
   });
 
+  it('leaves out questions the bank already has, says which rows, and can be told to import them anyway', async () => {
+    show();
+
+    await choose(new File(['x'], 'bank.csv'));
+    const first = httpMock.expectOne(isImport);
+    expect(first.request.body.allowDuplicates).toBeUndefined();
+    first.flush({ created: [], rejected: [], duplicates: [{ row: 2, reason: 'The bank already has this question (q1).' }] });
+    fixture.detectChanges();
+    expect(text()).toContain('Row 2: The bank already has this question (q1).');
+
+    const box = root.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    box.checked = true;
+    box.dispatchEvent(new Event('change'));
+    await choose(new File(['x'], 'bank.csv'));
+    const second = httpMock.expectOne(isImport);
+    expect(second.request.body.allowDuplicates).toBe(true);
+    second.flush({ created: [{ row: 2, id: 'q2' }], rejected: [], duplicates: [] });
+  });
+
   it('downloads what the list shows, in the chosen format', () => {
     show({ bookId: 'b1', topic: 'fractions' });
     const select = root.querySelector('#export-format') as HTMLSelectElement;

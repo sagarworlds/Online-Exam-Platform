@@ -22,7 +22,7 @@ public class ImportQuestionsHandlerTests
     {
         var clock = Substitute.For<Clock>();
         clock.UtcNow.Returns(Now);
-        handler = new ImportQuestionsHandler(repository, unitOfWork, new RichTextSanitizer(), clock);
+        handler = new ImportQuestionsHandler(repository, new QuestionDuplicateFinder(repository), new QuestionDuplicatePolicy(true), unitOfWork, new RichTextSanitizer(), clock);
     }
 
     // Mirrors QuestionCsvRow.Header (internal to the Application project, so not referenced directly here):

@@ -70,6 +70,12 @@ public sealed class Question : AggregateRoot
     /// </summary>
     public string SearchText { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// What the question's stem is looked up by to find another question that says the same thing (FR-9); see
+    /// <see cref="QuestionFingerprint"/>. Set with <see cref="SearchText"/>, empty when there is no readable text.
+    /// </summary>
+    public string TextKey { get; private set; } = string.Empty;
+
     /// <summary>The answer options, in display order.</summary>
     public IReadOnlyList<QuestionOption> Options => _options.AsReadOnly();
 
@@ -393,7 +399,11 @@ public sealed class Question : AggregateRoot
 
     /// <summary>Records the readable text of the question for searching.</summary>
     /// <param name="plainText">The question text with all markup removed; null counts as empty.</param>
-    public void IndexText(string? plainText) => SearchText = plainText?.Trim() ?? string.Empty;
+    public void IndexText(string? plainText)
+    {
+        SearchText = plainText?.Trim() ?? string.Empty;
+        TextKey = QuestionFingerprint.KeyOf(SearchText);
+    }
 
     /// <summary>Sets how hard the question is and which topics it covers, replacing what was there.</summary>
     /// <remarks>
