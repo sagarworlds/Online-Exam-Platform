@@ -6,6 +6,7 @@ import { AuthApiService } from '../auth-api.service';
 import { AuthSessionService } from '../auth-session.service';
 import { landingRoute } from '../landing-route';
 import { AuthResult, OtpChannel, VerifyOtpNavigationState } from '../auth.models';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { SessionEndReason, isSessionEndReason } from '../session-end-reason';
 
 /** Banner copy for each reason the API gives when it refuses a session (see authInterceptor). */
@@ -21,7 +22,7 @@ const SESSION_END_MESSAGES: Record<SessionEndReason, string> = {
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, TranslatePipe],
   templateUrl: './login.html',
 })
 export class Login {

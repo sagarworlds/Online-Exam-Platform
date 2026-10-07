@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
+import { QuestionApiService } from '../question-api.service';
 import { QuestionFilter } from '../question.models';
 import { QuestionTransfer, formatOfFile } from './question-transfer';
 
@@ -10,6 +11,7 @@ describe('QuestionTransfer', () => {
   let root: HTMLElement;
   let httpMock: HttpTestingController;
   let imported: number;
+  let importSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -17,6 +19,7 @@ describe('QuestionTransfer', () => {
       providers: [provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
+    importSpy = vi.spyOn(TestBed.inject(QuestionApiService), 'import');
     URL.createObjectURL = vi.fn(() => 'blob:x');
     URL.revokeObjectURL = vi.fn();
     // jsdom cannot follow a download link; the link having been clicked is all these tests need.
@@ -42,9 +45,19 @@ describe('QuestionTransfer', () => {
   async function choose(file: File): Promise<void> {
     const input = root.querySelector('input[type="file"]') as HTMLInputElement;
     Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    const calls = importSpy.mock.calls.length;
     input.dispatchEvent(new Event('change'));
-    // Reading the file takes a few turns of the event loop.
-    await new Promise((r) => setTimeout(r, 20));
+    // Reading the file takes as long as the machine takes, so wait for what the read leads to rather than for a guessed time: the
+    // import being sent, or the page going idle because the file was refused.
+    const page = fixture.componentInstance as unknown as { busy(): boolean };
+    await vi.waitFor(
+      () => {
+        if (importSpy.mock.calls.length === calls && page.busy()) {
+          throw new Error('The file is still being read.');
+        }
+      },
+      { timeout: 5000, interval: 5 },
+    );
   }
 
   describe('formatOfFile', () => {

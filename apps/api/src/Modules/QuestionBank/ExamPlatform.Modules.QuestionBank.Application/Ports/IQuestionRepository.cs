@@ -87,6 +87,14 @@ public interface IQuestionRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Question>> ListTranslationGroupAsync(Guid translationGroupId, CancellationToken cancellationToken);
 
+    /// <summary>Finds the questions of some translation groups that are written in one of some languages and in one of some statuses (FR-51), with their options.</summary>
+    /// <param name="translationGroupIds">The groups, see <see cref="Question.TranslationGroupId"/>.</param>
+    /// <param name="languages">The language codes wanted.</param>
+    /// <param name="statuses">The review statuses a question may be in to count.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Question>> ListTranslationCandidatesAsync(
+        IReadOnlyCollection<Guid> translationGroupIds, IReadOnlyCollection<string> languages, IReadOnlyCollection<QuestionStatus> statuses, CancellationToken cancellationToken);
+
     /// <summary>Lists every topic any question carries, once each, in alphabetical order.</summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<string>> ListTopicsAsync(CancellationToken cancellationToken);

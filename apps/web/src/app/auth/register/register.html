@@ -1,5 +1,5 @@
 <div class="page">
-  <h1>Register</h1>
+  <h1>{{ 'register.title' | t }}</h1>
 
   @if (errorMessage()) {
     <p class="error-message">{{ errorMessage() }}</p>
@@ -7,7 +7,7 @@
 
   <form class="card" [formGroup]="form" (ngSubmit)="submit()">
     <div class="field">
-      <label for="register-display-name">Display name</label>
+      <label for="register-display-name">{{ 'register.displayName' | t }}</label>
       <input
         id="register-display-name"
         type="text"
@@ -22,7 +22,7 @@
     </div>
 
     <div class="field">
-      <label for="register-dob">Date of birth</label>
+      <label for="register-dob">{{ 'register.dob' | t }}</label>
       <input
         id="register-dob"
         type="date"
@@ -38,24 +38,24 @@
     </div>
 
     <div class="field">
-      <label for="register-channel">Verify by</label>
+      <label for="register-channel">{{ 'register.verifyBy' | t }}</label>
       <select id="register-channel" formControlName="channel">
-        <option value="Email">Email</option>
-        <option value="Sms">SMS</option>
+        <option value="Email">{{ 'common.email' | t }}</option>
+        <option value="Sms">{{ 'register.sms' | t }}</option>
       </select>
     </div>
 
     <div class="field">
       <label for="register-destination">
-        {{ form.value.channel === 'Sms' ? 'Phone number' : 'Email address' }}
+        {{ form.value.channel === 'Sms' ? ('register.phone' | t) : ('register.emailAddress' | t) }}
       </label>
       <input id="register-destination" type="text" formControlName="destination" />
     </div>
 
-    <button type="submit" class="primary" [disabled]="form.invalid || submitting()">Create account</button>
+    <button type="submit" class="primary" [disabled]="form.invalid || submitting()">{{ 'register.submit' | t }}</button>
   </form>
 
   <p class="link-row">
-    <a routerLink="/login">Already have an account? Log in</a>
+    <a routerLink="/login">{{ 'register.haveAccount' | t }}</a>
   </p>
 </div>

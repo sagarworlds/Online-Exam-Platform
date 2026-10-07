@@ -1,6 +1,6 @@
 <div class="page page--exam" [class.page--contrast]="highContrast()">
   @if (loading()) {
-    <p>Loading…</p>
+    <p>{{ 'common.loading' | t }}</p>
   }
 
   @if (errorMessage()) {
@@ -11,51 +11,49 @@
     @if (current.status === 'InProgress') {
       @if (preview) {
         <p class="info-message preview-banner" role="note">
-          <strong>Preview.</strong> This is how candidates see the exam. Nothing you choose is saved or scored, and the exam's copy and
-          page-leaving rules are not applied to you. Submitting ends the preview.
-          <a [routerLink]="['/exams', examIdForLinks]">Back to the exam</a>
+          <strong>{{ 'attempt.preview.title' | t }}</strong> {{ 'attempt.preview.body' | t }}
+          <a [routerLink]="['/exams', examIdForLinks]">{{ 'attempt.preview.back' | t }}</a>
         </p>
       }
       <header class="exam-bar card">
         <div>
-          <p class="exam-bar__label">Exam@if (current.number && current.number > 1) { · Attempt {{ current.number }} }</p>
+          <p class="exam-bar__label">{{ 'attempt.exam' | t }}@if (current.number && current.number > 1) { · {{ 'common.attempt' | t: { number: current.number } }} }</p>
           <h1 class="exam-bar__title">{{ current.examName }}</h1>
         </div>
-        <div class="exam-bar__timer" role="timer" aria-label="Time left">
-          <span class="exam-bar__label">Time left</span>
+        <div class="exam-bar__timer" role="timer" [attr.aria-label]="'attempt.timeLeft' | t">
+          <span class="exam-bar__label">{{ 'attempt.timeLeft' | t }}</span>
           <strong class="countdown" [class.countdown--low]="remainingSeconds() <= 60">{{ formatRemaining(remainingSeconds()) }}</strong>
         </div>
       </header>
 
-      <div class="exam-zoom actions" role="group" aria-label="Display options">
-        <button type="button" [attr.aria-pressed]="highContrast()" (click)="toggleHighContrast()">High contrast</button>
-        <button type="button" [disabled]="!canZoomOut()" (click)="zoomOut()" aria-label="Smaller text">A&minus;</button>
+      <div class="exam-zoom actions" role="group" [attr.aria-label]="'attempt.display' | t">
+        <button type="button" [attr.aria-pressed]="highContrast()" (click)="toggleHighContrast()">{{ 'attempt.highContrast' | t }}</button>
+        <button type="button" [disabled]="!canZoomOut()" (click)="zoomOut()" [attr.aria-label]="'attempt.smallerText' | t">A&minus;</button>
         <span class="hint" aria-live="polite">{{ zoom() * 100 | number: '1.0-0' }}%</span>
-        <button type="button" [disabled]="!canZoomIn()" (click)="zoomIn()" aria-label="Larger text">A+</button>
+        <button type="button" [disabled]="!canZoomIn()" (click)="zoomIn()" [attr.aria-label]="'attempt.largerText' | t">A+</button>
       </div>
-      <p class="hint exam-shortcuts">Keyboard: N next, P previous, M mark for review, C clear response.</p>
+      <p class="hint exam-shortcuts">{{ 'attempt.shortcuts' | t }}</p>
       @if (protectContent()) {
-        <p class="hint exam-protection">Copying, pasting, right-click and printing are turned off during this exam.</p>
+        <p class="hint exam-protection">{{ 'attempt.protect' | t }}</p>
       }
       @if (watchFocus()) {
         <p class="hint exam-focus">
-          Stay on this page. Leaving it, or leaving full screen, is recorded: you have left {{ focusViolations() }} of {{ focusLimit() }} times
-          allowed, and the exam is submitted when you reach {{ focusLimit() }}.
+          {{ 'attempt.focus' | t: { violations: focusViolations(), limit: focusLimit() } }}
           @if (canOfferFullscreen()) {
-            <button type="button" (click)="goFullscreen()">Enter full screen</button>
+            <button type="button" (click)="goFullscreen()">{{ 'attempt.fullscreen' | t }}</button>
           }
         </p>
       }
       @if (focusWarning(); as warning) {
         <p class="exam-focus-warning" role="alert">
           {{ warning }}
-          <button type="button" (click)="dismissFocusWarning()">OK</button>
+          <button type="button" (click)="dismissFocusWarning()">{{ 'common.ok' | t }}</button>
         </p>
       }
       @for (warning of unreadWarnings(); track warning.id) {
         <p class="exam-focus-warning" role="alert">
-          <strong>Message from the exam organiser:</strong> {{ warning.message }}
-          <button type="button" (click)="dismissWarning(warning)">OK</button>
+          <strong>{{ 'attempt.organiserMessage' | t }}</strong> {{ warning.message }}
+          <button type="button" (click)="dismissWarning(warning)">{{ 'common.ok' | t }}</button>
         </p>
       }
       <!-- Always present, so what was just refused is announced politely instead of interrupting. -->
@@ -63,23 +61,22 @@
 
       @if (paused()) {
         <div class="card exam-paused" role="status">
-          <h2>Your exam is paused</h2>
+          <h2>{{ 'attempt.paused.title' | t }}</h2>
           <p>
-            An organiser has paused your exam. Please wait; your answers are saved and your time is stopped. The exam comes back on its
-            own when it is resumed, and you will have the time you had left.
+            {{ 'attempt.paused.body' | t }}
           </p>
         </div>
       } @else {
       <div class="exam-layout">
-        <section aria-label="Question">
+        <section [attr.aria-label]="'attempt.questionRegion' | t">
           @if (currentQuestion(); as question) {
             <div class="card exam-question" [style.--exam-zoom]="zoom()">
-              <p class="question__meta">{{ currentSectionName() }} · Question {{ position() + 1 }} of {{ questions().length }}</p>
+              <p class="question__meta">{{ 'attempt.position' | t: { section: currentSectionName(), number: position() + 1, total: questions().length } }}</p>
               <fieldset class="question" [attr.aria-labelledby]="'question-text-' + question.id">
                 <!-- The text is the API's sanitized HTML, rendered through Angular's own sanitizer as a second layer. -->
                 <div class="question__text rich-text" [id]="'question-text-' + question.id" [appMath]="question.text"></div>
                 @if (question.allowsMultiple) {
-                  <p class="question__hint">Choose all the answers that apply.</p>
+                  <p class="question__hint">{{ 'attempt.chooseAll' | t }}</p>
                 }
                 @for (option of question.options; track option.id; let i = $index) {
                   <label class="option-choice">
@@ -96,33 +93,33 @@
               </fieldset>
 
               <div class="actions exam-tools">
-                <button type="button" [attr.aria-pressed]="question.markedForReview" (click)="toggleMark(question)">Mark for review</button>
-                <button type="button" [disabled]="!isAnswered(question)" (click)="clearResponse(question)">Clear response</button>
+                <button type="button" [attr.aria-pressed]="question.markedForReview" (click)="toggleMark(question)">{{ 'attempt.markReview' | t }}</button>
+                <button type="button" [disabled]="!isAnswered(question)" (click)="clearResponse(question)">{{ 'attempt.clear' | t }}</button>
               </div>
             </div>
 
             <div class="exam-pager">
-              <button type="button" [disabled]="isFirst()" (click)="previous()">&larr; Previous</button>
-              <button type="button" [disabled]="isLast()" (click)="next()">Next &rarr;</button>
-              <button type="button" class="primary" [disabled]="isLast()" (click)="saveAndNext()">{{ nextLeavesSection() ? 'Save & Next section' : 'Save & Next' }}</button>
+              <button type="button" [disabled]="isFirst()" (click)="previous()">&larr; {{ 'attempt.previous' | t }}</button>
+              <button type="button" [disabled]="isLast()" (click)="next()">{{ 'attempt.next' | t }} &rarr;</button>
+              <button type="button" class="primary" [disabled]="isLast()" (click)="saveAndNext()">{{ nextLeavesSection() ? ('attempt.saveNextSection' | t) : ('attempt.saveNext' | t) }}</button>
             </div>
 
             @if (leavingTo(); as target) {
-              <div class="submit-confirm" role="alertdialog" aria-label="Confirm leaving the section">
-                <p>Move to {{ target.name }}? You will not be able to come back to this section.</p>
+              <div class="submit-confirm" role="alertdialog" [attr.aria-label]="'attempt.leave.aria' | t">
+                <p>{{ 'attempt.leave.body' | t: { name: target.name } }}</p>
                 <div class="actions">
-                  <button type="button" class="primary" (click)="confirmLeaveSection()">Yes, move on</button>
-                  <button type="button" (click)="stayInSection()">Stay here</button>
+                  <button type="button" class="primary" (click)="confirmLeaveSection()">{{ 'attempt.leave.yes' | t }}</button>
+                  <button type="button" (click)="stayInSection()">{{ 'attempt.leave.stay' | t }}</button>
                 </div>
               </div>
             }
           }
         </section>
 
-        <aside class="card exam-side" aria-label="Question palette">
-          <h2>Questions</h2>
+        <aside class="card exam-side" [attr.aria-label]="'attempt.palette' | t">
+          <h2>{{ 'attempt.questions' | t }}</h2>
           <p class="hint">
-            {{ answeredCount() }} of {{ questions().length }} answered@if (markedCount() > 0) { · {{ markedCount() }} marked for review }
+            {{ 'attempt.answeredOf' | t: { answered: answeredCount(), total: questions().length } }}@if (markedCount() > 0) { · {{ 'attempt.markedCount' | t: { count: markedCount() } }} }
           </p>
 
           @for (section of palette(); track section.id) {
@@ -137,7 +134,7 @@
                   [class.palette__item--seen]="item.seen"
                   [class.palette__item--current]="item.index === position()"
                   [attr.aria-current]="item.index === position() ? 'true' : null"
-                  [attr.aria-label]="'Question ' + item.number + ', ' + item.status"
+                  [attr.aria-label]="'attempt.paletteItem' | t: { number: item.number, status: item.status }"
                   [disabled]="item.closed"
                   (click)="goTo(item.index)"
                 >
@@ -148,86 +145,86 @@
           }
 
           <ul class="palette-legend" aria-hidden="true">
-            <li class="legend--answered">Answered</li>
-            <li class="legend--seen">Not answered</li>
-            <li>Not visited</li>
-            <li class="legend--marked">Marked for review</li>
-            <li class="legend--current">Current</li>
+            <li class="legend--answered">{{ 'attempt.legend.answered' | t }}</li>
+            <li class="legend--seen">{{ 'attempt.legend.notAnswered' | t }}</li>
+            <li>{{ 'attempt.legend.notVisited' | t }}</li>
+            <li class="legend--marked">{{ 'attempt.legend.marked' | t }}</li>
+            <li class="legend--current">{{ 'attempt.legend.current' | t }}</li>
           </ul>
 
           @if (confirmingSubmit()) {
-            <div class="submit-confirm" role="alertdialog" aria-label="Confirm submit">
+            <div class="submit-confirm" role="alertdialog" [attr.aria-label]="'attempt.submit.aria' | t">
               <p>
-                Submit now? {{ answeredCount() }} of {{ questions().length }} questions are answered.
+                {{ 'attempt.submit.summary' | t: { answered: answeredCount(), total: questions().length } }}
                 @if (markedCount() === 1) {
-                  1 question is marked for review.
+                  {{ 'attempt.submit.marked.one' | t }}
                 } @else if (markedCount() > 1) {
-                  {{ markedCount() }} questions are marked for review.
+                  {{ 'attempt.submit.marked.other' | t: { count: markedCount() } }}
                 }
                 @if (submitSummary().notVisited === 1) {
-                  1 question was never opened.
+                  {{ 'attempt.submit.unseen.one' | t }}
                 } @else if (submitSummary().notVisited > 1) {
-                  {{ submitSummary().notVisited }} questions were never opened.
+                  {{ 'attempt.submit.unseen.other' | t: { count: submitSummary().notVisited } }}
                 }
-                You cannot change your answers afterwards.
+                {{ 'attempt.submit.final' | t }}
               </p>
               @if (submitSummary().sections.length > 1) {
-                <ul class="submit-summary" aria-label="Summary by section">
+                <ul class="submit-summary" [attr.aria-label]="'attempt.submit.bySection' | t">
                   @for (section of submitSummary().sections; track section.id) {
                     <li>
-                      <strong>{{ section.name }}</strong>: {{ section.answered }} of {{ section.total }} answered@if (section.marked > 0) {, {{ section.marked }} marked for review}@if (section.notVisited > 0) {, {{ section.notVisited }} not visited}
+                      <strong>{{ section.name }}</strong>: {{ 'attempt.submit.sectionAnswered' | t: { answered: section.answered, total: section.total } }}@if (section.marked > 0) {{{ 'attempt.submit.sectionMarked' | t: { count: section.marked } }}}@if (section.notVisited > 0) {{{ 'attempt.submit.sectionNotVisited' | t: { count: section.notVisited } }}}
                     </li>
                   }
                 </ul>
               }
               <div class="actions">
-                <button type="button" class="primary" [disabled]="submitting()" (click)="submit()">Yes, submit</button>
-                <button type="button" [disabled]="submitting()" (click)="cancelSubmit()">Keep working</button>
+                <button type="button" class="primary" [disabled]="submitting()" (click)="submit()">{{ 'attempt.submit.yes' | t }}</button>
+                <button type="button" [disabled]="submitting()" (click)="cancelSubmit()">{{ 'attempt.submit.keep' | t }}</button>
               </div>
             </div>
           } @else {
-            <button type="button" class="primary" (click)="askToSubmit()">Submit exam</button>
+            <button type="button" class="primary" (click)="askToSubmit()">{{ 'attempt.submit.ask' | t }}</button>
           }
         </aside>
       </div>
       }
     } @else {
       <div class="card result">
-        <p class="exam-bar__label">Result@if (current.number && current.number > 1) { · Attempt {{ current.number }} }</p>
+        <p class="exam-bar__label">{{ 'result.title' | t }}@if (current.number && current.number > 1) { · {{ 'common.attempt' | t: { number: current.number } }} }</p>
         <h1>{{ current.examName }}</h1>
         @if (current.invalidated) {
           <p class="error-message" role="alert">
-            This result was invalidated by an organiser, so it has no score. Reason: {{ current.invalidationReason }}
+            {{ 'result.invalidated' | t: { reason: current.invalidationReason ?? '' } }}
           </p>
         } @else {
           <p class="score">{{ current.score }} / {{ current.maxScore }}</p>
         }
         @if (current.terminatedByAdmin) {
-          <p class="hint">An organiser ended this exam. It was submitted with the answers you had saved. Reason: {{ current.terminationReason }}</p>
+          <p class="hint">{{ 'result.terminated' | t: { reason: current.terminationReason ?? '' } }}</p>
         } @else if (current.endedByViolations) {
-          <p class="hint">You left the exam page too many times, so the exam was submitted automatically with the answers you had saved.</p>
+          <p class="hint">{{ 'result.endedByViolations' | t }}</p>
         } @else if (current.autoSubmitted) {
-          <p class="hint">Time ran out, so the exam was submitted automatically with the answers you had saved.</p>
+          <p class="hint">{{ 'common.autoSubmitted' | t }}</p>
         }
         @if (current.invalidated) {
           <!-- No answer review for a result that no longer counts. -->
         } @else if (current.review?.available) {
-          <p class="hint">Your answers have been marked. See which were right and which were not.</p>
+          <p class="hint">{{ 'result.reviewAvailable' | t }}</p>
         } @else if (current.review) {
           <p class="hint">
             @if (current.review.availableFromUtc) {
-              The correct answers will be shown from {{ current.review.availableFromUtc | date: 'medium' }}.
+              {{ 'result.reviewFrom' | t: { date: (current.review.availableFromUtc | date: 'medium') ?? '' } }}
             } @else {
-              The correct answers will be shown when the exam's organiser releases them.
+              {{ 'result.reviewWhenReleased' | t }}
             }
           </p>
         }
         <div class="actions">
           @if (current.review?.available && !current.invalidated) {
-            <a [routerLink]="['/attempt', current.id, 'review']" class="btn btn--primary">Review answers</a>
-            <a routerLink="/my-exams" class="btn">Back to my exams</a>
+            <a [routerLink]="['/attempt', current.id, 'review']" class="btn btn--primary">{{ 'result.reviewAnswers' | t }}</a>
+            <a routerLink="/my-exams" class="btn">{{ 'common.backToMyExams' | t }}</a>
           } @else {
-            <a routerLink="/my-exams" class="btn btn--primary">Back to my exams</a>
+            <a routerLink="/my-exams" class="btn btn--primary">{{ 'common.backToMyExams' | t }}</a>
           }
         </div>
       </div>

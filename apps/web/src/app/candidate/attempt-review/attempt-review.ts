@@ -1,6 +1,8 @@
 import { DOCUMENT, DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
 import { AnswerVerdict, AttemptReviewDto, ReviewQuestionDto } from '../candidate.models';
@@ -18,11 +20,12 @@ interface NumberedQuestion extends ReviewQuestionDto {
  */
 @Component({
   selector: 'app-attempt-review',
-  imports: [RouterLink, DatePipe, MathDirective],
+  imports: [RouterLink, DatePipe, MathDirective, TranslatePipe],
   templateUrl: './attempt-review.html',
 })
 export class AttemptReview {
   private readonly api = inject(CandidateApiService);
+  private readonly i18n = inject(I18nService);
   private readonly document = inject(DOCUMENT);
   protected readonly attemptId = inject(ActivatedRoute).snapshot.paramMap.get('attemptId');
 
@@ -72,13 +75,13 @@ export class AttemptReview {
   protected verdictLabel(verdict: AnswerVerdict): string {
     switch (verdict) {
       case 'Correct':
-        return 'Correct';
+        return this.i18n.t('verdict.correct');
       case 'Partial':
-        return 'Partly correct';
+        return this.i18n.t('verdict.partial');
       case 'Wrong':
-        return 'Wrong';
+        return this.i18n.t('verdict.wrong');
       default:
-        return 'Not answered';
+        return this.i18n.t('verdict.unanswered');
     }
   }
 

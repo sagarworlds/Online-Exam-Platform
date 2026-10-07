@@ -1,6 +1,8 @@
 import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
 import { bestAttemptId } from '../best-attempt';
@@ -12,11 +14,12 @@ import { MAX_ATTEMPT_REQUEST_TEXT, MyExamDto } from '../candidate.models';
  */
 @Component({
   selector: 'app-my-exams',
-  imports: [DatePipe, RouterLink],
+  imports: [DatePipe, RouterLink, TranslatePipe],
   templateUrl: './my-exams.html',
 })
 export class MyExams {
   private readonly api = inject(CandidateApiService);
+  private readonly i18n = inject(I18nService);
 
   protected readonly exams = signal<MyExamDto[]>([]);
   protected readonly loading = signal(true);
@@ -50,7 +53,7 @@ export class MyExams {
 
   /** The label of the button that begins the next attempt. */
   protected startLabel(exam: MyExamDto): string {
-    return exam.attempts.length === 0 ? 'Start exam' : `Start attempt ${exam.attemptsUsed + 1}`;
+    return exam.attempts.length === 0 ? this.i18n.t('myExams.start') : this.i18n.t('myExams.startAttempt', { number: exam.attemptsUsed + 1 });
   }
 
   protected openRequestForm(exam: MyExamDto): void {

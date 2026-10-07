@@ -32,6 +32,7 @@ builder.Services.AddSharedKernel();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IRequestContext, HttpRequestContext>();
 builder.Services.AddScoped<IClientInfo, HttpClientInfo>();
+builder.Services.AddScoped<IRequestLanguage, HttpRequestLanguage>();
 
 // One mail sender for everything the platform sends (invitations, OTP codes, answers to attempt requests). Mail:Provider
 // picks the transport: Smtp (the default, unchanged behaviour) or BrevoApi, which sends over HTTPS for a host (e.g.

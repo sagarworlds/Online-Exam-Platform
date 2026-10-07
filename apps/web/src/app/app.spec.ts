@@ -70,6 +70,24 @@ describe('App', () => {
     });
   });
 
+  it('shows the navigation in the language the user picks, with no reload', () => {
+    localStorage.clear();
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    httpMock.expectOne(() => true).flush('Healthy');
+    const compiled = fixture.nativeElement as HTMLElement;
+    const picker = compiled.querySelector('select.language-switcher') as HTMLSelectElement;
+
+    picker.value = 'hi';
+    picker.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('header.nav nav')?.textContent).toContain('लॉग इन');
+    expect(compiled.querySelector('header.nav nav')?.textContent).not.toContain('Log in');
+    expect(document.documentElement.lang).toBe('hi');
+    localStorage.clear();
+  });
+
   it('shows login/register links when signed out', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();

@@ -3,6 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AuthApiService } from '../auth-api.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { OtpChannel, VerifyOtpNavigationState } from '../auth.models';
 import {
   MAX_DISPLAY_NAME_LENGTH,
@@ -17,7 +18,7 @@ import {
 
 @Component({
   selector: 'app-register',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, TranslatePipe],
   templateUrl: './register.html',
 })
 export class Register {

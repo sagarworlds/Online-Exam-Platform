@@ -10,15 +10,16 @@
   </a>
   <nav>
     @if (authSession.isAuthenticated()) {
-      <a routerLink="/my-exams" routerLinkActive="active">My exams</a>
-      <a routerLink="/invite" routerLinkActive="active">Redeem invite</a>
-      <a routerLink="/profile" routerLinkActive="active">Profile</a>
-      <a routerLink="/consent" routerLinkActive="active">Consent</a>
-      <button type="button" (click)="logout()">Log out</button>
+      <a routerLink="/my-exams" routerLinkActive="active">{{ 'nav.myExams' | t }}</a>
+      <a routerLink="/invite" routerLinkActive="active">{{ 'nav.redeemInvite' | t }}</a>
+      <a routerLink="/profile" routerLinkActive="active">{{ 'nav.profile' | t }}</a>
+      <a routerLink="/consent" routerLinkActive="active">{{ 'nav.consent' | t }}</a>
+      <button type="button" (click)="logout()">{{ 'nav.logout' | t }}</button>
     } @else {
-      <a routerLink="/login" routerLinkActive="active">Log in</a>
-      <a routerLink="/register" routerLinkActive="active">Register</a>
+      <a routerLink="/login" routerLinkActive="active">{{ 'nav.login' | t }}</a>
+      <a routerLink="/register" routerLinkActive="active">{{ 'nav.register' | t }}</a>
     }
+    <app-language-switcher />
   </nav>
 </header>
 

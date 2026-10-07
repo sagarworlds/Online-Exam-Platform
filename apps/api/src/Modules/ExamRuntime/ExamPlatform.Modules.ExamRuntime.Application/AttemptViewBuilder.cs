@@ -11,7 +11,7 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 /// Builds what a candidate is shown for an attempt. This is the one place a question leaves the module on its
 /// way to a candidate, so it is also the one place the answer key is dropped.
 /// </summary>
-public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock)
+public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock, IRequestLanguage? language = null)
 {
     /// <summary>Builds the candidate's view of an attempt.</summary>
     /// <param name="attempt">The attempt.</param>
@@ -61,7 +61,8 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock)
     private async Task<IReadOnlyList<AttemptSectionDto>> BuildSectionsAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken)
     {
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
-        var questions = await questionBank.ReadAsync(attempt, questionIds, cancellationToken);
+        // In the language the candidate asked for where there is a translation (FR-51); the words only, never the options or the key.
+        var questions = await questionBank.ReadForCandidateAsync(attempt, questionIds, language?.Preferred ?? [], cancellationToken);
         var chosen = attempt.Answers.ToDictionary(a => a.QuestionId, a => a.SelectedOptionIds);
         var marked = attempt.Marks.Select(m => m.QuestionId).ToHashSet();
 

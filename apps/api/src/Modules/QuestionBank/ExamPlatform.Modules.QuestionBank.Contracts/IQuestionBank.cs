@@ -26,6 +26,24 @@ public interface IQuestionBank
     /// <returns>One snapshot per question found, carrying the version it is the content of. Where it is filed is always where it is now.</returns>
     Task<IReadOnlyList<QuestionSnapshot>> GetVersionsAsync(IReadOnlyCollection<QuestionVersionRef> versions, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Finds the translations to show a candidate who prefers some languages over the language a question is written in (FR-51).
+    /// </summary>
+    /// <remarks>
+    /// Display only: a translation is read as it is now, not at a pinned version, and carries no answer key, so what a candidate is marked
+    /// on never depends on it. Only translations an exam may hold are returned (see <see cref="QuestionSnapshot.UnusableReason"/>).
+    /// </remarks>
+    /// <param name="questionIds">The questions about to be shown.</param>
+    /// <param name="languages">The languages wanted, best first, as codes such as "hi"; ones the bank does not support are ignored.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// A translation for each question that has one in a language the caller wants more than the question's own, in the best such language.
+    /// A question already written in the caller's first language, or with no usable translation in any language they rank above its own,
+    /// is simply absent: it is shown as it is.
+    /// </returns>
+    Task<IReadOnlyList<QuestionTranslationSnapshot>> GetTranslationsAsync(
+        IReadOnlyCollection<Guid> questionIds, IReadOnlyList<string> languages, CancellationToken cancellationToken);
+
     /// <summary>Finds the questions that match the criteria, without their text or answer key.</summary>
     /// <param name="criteria">What the questions must match; nothing set matches every question.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

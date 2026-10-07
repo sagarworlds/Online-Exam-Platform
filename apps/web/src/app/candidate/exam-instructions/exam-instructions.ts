@@ -1,19 +1,13 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
 import { MyExamDto } from '../candidate.models';
 import { CheckResult, CheckStatus, SystemCheckService } from '../system-check/system-check';
 import { instructionLines, timeAllowed } from './exam-rules-text';
-
-/** What each result is called aloud, so the symbol next to it is never the only thing that carries its meaning. */
-const STATUS_WORDS: Record<CheckStatus, string> = {
-  pass: 'Passed',
-  warn: 'Warning',
-  fail: 'Problem',
-  info: 'Not measured',
-};
 
 /**
  * The page between "Start exam" and the exam itself (FR-17): the exam's instructions, a check that this browser and connection can
@@ -22,12 +16,13 @@ const STATUS_WORDS: Record<CheckStatus, string> = {
  */
 @Component({
   selector: 'app-exam-instructions',
-  imports: [DatePipe, RouterLink],
+  imports: [DatePipe, RouterLink, TranslatePipe],
   templateUrl: './exam-instructions.html',
   styleUrl: './exam-instructions.css',
 })
 export class ExamInstructions {
   private readonly api = inject(CandidateApiService);
+  private readonly i18n = inject(I18nService);
   private readonly router = inject(Router);
   private readonly systemCheck = inject(SystemCheckService);
   private readonly examId = inject(ActivatedRoute).snapshot.paramMap.get('examId') ?? '';
@@ -42,12 +37,18 @@ export class ExamInstructions {
   protected readonly starting = signal(false);
   protected readonly startError = signal<string | null>(null);
 
-  protected readonly statusWords = STATUS_WORDS;
-  protected readonly timeAllowed = timeAllowed;
+  /** What each result is called aloud, so the symbol next to it is never the only thing that carries its meaning. */
+  protected statusWord(status: CheckStatus): string {
+    return this.i18n.t(`check.${status}`);
+  }
+
+  protected timeAllowed(exam: MyExamDto): string {
+    return timeAllowed(exam, this.i18n);
+  }
 
   protected readonly lines = computed(() => {
     const exam = this.exam();
-    return exam === null ? [] : instructionLines(exam);
+    return exam === null ? [] : instructionLines(exam, this.i18n);
   });
 
   /** Whether the check found something that stops the exam from being sat. Warnings never do. */
@@ -68,16 +69,14 @@ export class ExamInstructions {
     }
 
     if (exam.state === 'NotOpen') {
-      return 'This exam has not opened yet.';
+      return this.i18n.t('instructions.cannot.notOpen');
     }
 
     if (exam.state === 'Closed') {
-      return 'This exam is closed, so a new attempt can no longer be started.';
+      return this.i18n.t('instructions.cannot.closed');
     }
 
-    return exam.attemptStatus === 'InProgress'
-      ? 'You already have an attempt in progress.'
-      : 'You have used every attempt you have at this exam.';
+    return this.i18n.t(exam.attemptStatus === 'InProgress' ? 'instructions.cannot.inProgress' : 'instructions.cannot.noAttempts');
   });
 
   constructor() {

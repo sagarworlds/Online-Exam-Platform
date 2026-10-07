@@ -1,9 +1,9 @@
 <div class="page page--wide">
   @if (loading()) {
-    <p>Loading…</p>
+    <p>{{ 'common.loading' | t }}</p>
   } @else if (loadError()) {
     <p class="error-message" role="alert">{{ loadError() }}</p>
-    <a routerLink="/my-exams" class="btn">Back to my exams</a>
+    <a routerLink="/my-exams" class="btn">{{ 'common.backToMyExams' | t }}</a>
   } @else if (exam(); as exam) {
     <div class="page-header">
       <h1>{{ exam.name }}</h1>
@@ -14,27 +14,27 @@
     }
 
     <section class="card" aria-labelledby="facts-heading">
-      <h2 id="facts-heading" class="card__title">About this exam</h2>
+      <h2 id="facts-heading" class="card__title">{{ 'instructions.about' | t }}</h2>
       <dl class="facts">
         <div>
-          <dt>Time allowed</dt>
+          <dt>{{ 'instructions.timeAllowed' | t }}</dt>
           <dd>{{ timeAllowed(exam) }}</dd>
         </div>
         <div>
-          <dt>Questions</dt>
+          <dt>{{ 'instructions.questions' | t }}</dt>
           <dd>{{ exam.questionCount }}</dd>
         </div>
         <div>
-          <dt>Open from</dt>
+          <dt>{{ 'instructions.openFrom' | t }}</dt>
           <dd>{{ exam.startUtc | date: 'medium' }}</dd>
         </div>
         <div>
-          <dt>Closes</dt>
+          <dt>{{ 'instructions.closes' | t }}</dt>
           <dd>{{ exam.endUtc | date: 'medium' }}</dd>
         </div>
         @if (exam.lateEntryDeadlineUtc) {
           <div>
-            <dt>Last time to start</dt>
+            <dt>{{ 'instructions.lastStart' | t }}</dt>
             <dd>{{ exam.lateEntryDeadlineUtc | date: 'medium' }}</dd>
           </div>
         }
@@ -45,13 +45,13 @@
       <p class="hint" role="status">{{ reason }}</p>
       <div class="actions">
         @if (exam.attemptStatus === 'InProgress' && exam.attemptId) {
-          <a [routerLink]="['/attempt', exam.attemptId]" class="btn btn--primary">Resume exam</a>
+          <a [routerLink]="['/attempt', exam.attemptId]" class="btn btn--primary">{{ 'myExams.resume' | t }}</a>
         }
-        <a routerLink="/my-exams" class="btn">Back to my exams</a>
+        <a routerLink="/my-exams" class="btn">{{ 'common.backToMyExams' | t }}</a>
       </div>
     } @else {
       <section class="card" aria-labelledby="rules-heading">
-        <h2 id="rules-heading" class="card__title">Instructions</h2>
+        <h2 id="rules-heading" class="card__title">{{ 'instructions.heading' | t }}</h2>
         <ul class="rules">
           @for (line of lines(); track line) {
             <li>{{ line }}</li>
@@ -60,7 +60,7 @@
       </section>
 
       <section class="card" aria-labelledby="check-heading">
-        <h2 id="check-heading" class="card__title">System check</h2>
+        <h2 id="check-heading" class="card__title">{{ 'instructions.systemCheck' | t }}</h2>
         @if (checks(); as results) {
           <ul class="checks">
             @for (check of results; track check.id) {
@@ -68,49 +68,49 @@
                 <span class="check__mark" aria-hidden="true"></span>
                 <span class="check__body">
                   <strong>{{ check.label }}</strong>
-                  <span class="check__status">{{ statusWords[check.status] }}</span>
+                  <span class="check__status">{{ statusWord(check.status) }}</span>
                   <span class="check__detail">{{ check.detail }}</span>
                 </span>
               </li>
             }
           </ul>
           @if (hasProblem()) {
-            <p class="error-message" role="alert">Fix what is marked as a problem, then run the check again. You cannot start until it passes.</p>
+            <p class="error-message" role="alert">{{ 'instructions.checkProblem' | t }}</p>
           } @else if (hasWarning()) {
-            <p class="hint" role="status">Everything you need works. The warnings only mean the exam may feel slower, and you can go on.</p>
+            <p class="hint" role="status">{{ 'instructions.checkWarning' | t }}</p>
           } @else {
-            <p class="success-message" role="status">All checks passed.</p>
+            <p class="success-message" role="status">{{ 'instructions.checkPassed' | t }}</p>
           }
           <div class="actions">
-            <button type="button" (click)="runChecks()">Run the check again</button>
+            <button type="button" (click)="runChecks()">{{ 'instructions.runAgain' | t }}</button>
           </div>
         } @else {
-          <p role="status" aria-live="polite">Checking your browser and connection…</p>
+          <p role="status" aria-live="polite">{{ 'instructions.checking' | t }}</p>
         }
       </section>
 
       <section class="card" aria-labelledby="ack-heading">
-        <h2 id="ack-heading" class="card__title">Before you start</h2>
+        <h2 id="ack-heading" class="card__title">{{ 'instructions.beforeStart' | t }}</h2>
         <label class="acknowledge">
           <input type="checkbox" [checked]="acknowledged()" (change)="setAcknowledged($event)" />
-          <span>I have read and understood these instructions.</span>
+          <span>{{ 'instructions.acknowledge' | t }}</span>
         </label>
         @if (startError()) {
           <p class="error-message" role="alert">{{ startError() }}</p>
         }
         <div class="actions">
           <button type="button" class="primary" [disabled]="!canStart()" (click)="start()">
-            {{ starting() ? 'Starting…' : 'Start exam' }}
+            {{ starting() ? ('instructions.starting' | t) : ('instructions.start' | t) }}
           </button>
-          <a routerLink="/my-exams" class="btn">Back to my exams</a>
+          <a routerLink="/my-exams" class="btn">{{ 'common.backToMyExams' | t }}</a>
         </div>
         @if (!acknowledged()) {
-          <p class="hint">Tick the box to start. The time begins as soon as you press Start exam.</p>
+          <p class="hint">{{ 'instructions.tickToStart' | t }}</p>
         }
       </section>
     }
   } @else {
-    <p class="error-message" role="alert">We could not find this exam among yours.</p>
-    <a routerLink="/my-exams" class="btn">Back to my exams</a>
+    <p class="error-message" role="alert">{{ 'instructions.notFound' | t }}</p>
+    <a routerLink="/my-exams" class="btn">{{ 'common.backToMyExams' | t }}</a>
   }
 </div>

@@ -1,13 +1,25 @@
+import { englishTranslate } from '../../i18n/i18n.service';
+import { MessageKey } from '../../i18n/messages.en';
+
 /** What the exam page can refuse to let a candidate do while an exam is open (FR-23). */
 export type BlockedAction = 'copy' | 'cut' | 'paste' | 'contextMenu' | 'print';
 
-/** The calm, plain sentence shown when something is refused: a statement of the rule, not a warning. */
+/** The message of each refused action, so the sentence can be shown in the candidate's language (FR-51). */
+export const BLOCKED_MESSAGE_KEYS: Readonly<Record<BlockedAction, MessageKey>> = {
+  copy: 'guard.copy',
+  cut: 'guard.cut',
+  paste: 'guard.paste',
+  contextMenu: 'guard.contextMenu',
+  print: 'guard.print',
+};
+
+/** The calm, plain sentence shown when something is refused: a statement of the rule, not a warning. In English; see {@link BLOCKED_MESSAGE_KEYS} for the translated ones. */
 export const BLOCKED_MESSAGES: Readonly<Record<BlockedAction, string>> = {
-  copy: 'Copying is turned off during this exam.',
-  cut: 'Cutting is turned off during this exam.',
-  paste: 'Pasting is turned off during this exam.',
-  contextMenu: 'The right-click menu is turned off during this exam.',
-  print: 'Printing is turned off during this exam.',
+  copy: englishTranslate('guard.copy'),
+  cut: englishTranslate('guard.cut'),
+  paste: englishTranslate('guard.paste'),
+  contextMenu: englishTranslate('guard.contextMenu'),
+  print: englishTranslate('guard.print'),
 };
 
 /** The class put on the page body while the guard is on, which the print stylesheet uses to hide the exam from a printout. */

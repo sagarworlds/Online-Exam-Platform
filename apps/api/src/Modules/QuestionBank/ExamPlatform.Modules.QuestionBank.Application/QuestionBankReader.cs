@@ -82,6 +82,40 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
             v.VersionNumber);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<QuestionTranslationSnapshot>> GetTranslationsAsync(
+        IReadOnlyCollection<Guid> questionIds, IReadOnlyList<string> languages, CancellationToken cancellationToken)
+    {
+        var wanted = languages.Where(l => QuestionLanguage.Supported.Contains(l)).Distinct().ToList();
+        if (questionIds.Count == 0 || wanted.Count == 0)
+            return [];
+
+        var sources = await repository.GetManyAsync(questionIds, cancellationToken);
+        var candidates = await repository.ListTranslationCandidatesAsync(
+            sources.Select(s => s.TranslationGroupId).Distinct().ToList(), wanted, _approval.UsableStatuses, cancellationToken);
+
+        var found = new List<QuestionTranslationSnapshot>();
+        foreach (var source in sources)
+        {
+            foreach (var language in wanted)
+            {
+                // The question is already in a language the caller prefers to any further down their list, so it is shown as it is.
+                if (source.Language == language)
+                    break;
+
+                var translation = candidates.FirstOrDefault(c => c.TranslationGroupId == source.TranslationGroupId && c.Language == language && c.Id != source.Id);
+                if (translation is null)
+                    continue;
+
+                found.Add(new QuestionTranslationSnapshot(
+                    source.Id, language, translation.Text, translation.Options.OrderBy(o => o.Order).Select(o => o.Text).ToList()));
+                break;
+            }
+        }
+
+        return found;
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<FoundQuestion>> FindAsync(QuestionCriteria criteria, CancellationToken cancellationToken)
     {
         var filter = new QuestionFilter(
