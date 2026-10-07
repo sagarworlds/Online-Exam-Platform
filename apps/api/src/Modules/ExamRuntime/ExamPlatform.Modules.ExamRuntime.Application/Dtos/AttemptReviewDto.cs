@@ -33,8 +33,9 @@ public sealed record ReviewQuestionDto(
 /// <param name="NewMaxScore">The marks available after this revision.</param>
 /// <param name="Reason">Why the score changed.</param>
 /// <param name="RevisedAtUtc">When it changed.</param>
+/// <param name="Version">The version of the result this revision produced: 2 for the first revision, 3 for the next. The result as first submitted is version 1.</param>
 public sealed record ScoreRevisionDto(
-    decimal PreviousScore, decimal PreviousMaxScore, decimal NewScore, decimal NewMaxScore, string Reason, DateTime RevisedAtUtc);
+    decimal PreviousScore, decimal PreviousMaxScore, decimal NewScore, decimal NewMaxScore, string Reason, DateTime RevisedAtUtc, int Version = 0);
 
 /// <summary>A section of the exam in a review.</summary>
 /// <param name="Id">The section's id.</param>
@@ -63,6 +64,9 @@ public sealed record ReviewSectionDto(Guid Id, string Name, IReadOnlyList<Review
 /// How the score has changed since this attempt was first submitted, oldest first; empty for a result that has never
 /// been revised. See <see cref="ScoreRevisionDto"/>.
 /// </param>
+/// <param name="ResultVersion">Which version of the result the score and marks above are: 1 as first submitted, one more for each revision (FR-31).</param>
+/// <param name="DisputeWindow">Whether the answer key of this result can still be disputed, and until when; null in a review built without it.</param>
+/// <param name="Disputes">The candidate's own disputes of this attempt's answer keys, oldest first, with how staff answered each; null in a review built without them.</param>
 public sealed record AttemptReviewDto(
     Guid AttemptId,
     Guid ExamId,
@@ -77,4 +81,7 @@ public sealed record AttemptReviewDto(
     int UnansweredCount,
     IReadOnlyList<ReviewSectionDto> Sections,
     int PartialCount = 0,
-    IReadOnlyList<ScoreRevisionDto>? Revisions = null);
+    IReadOnlyList<ScoreRevisionDto>? Revisions = null,
+    int ResultVersion = 1,
+    DisputeWindowDto? DisputeWindow = null,
+    IReadOnlyList<MyDisputeDto>? Disputes = null);

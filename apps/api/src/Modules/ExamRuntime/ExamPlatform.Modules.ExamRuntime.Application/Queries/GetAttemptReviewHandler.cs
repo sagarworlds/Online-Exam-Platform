@@ -1,10 +1,13 @@
 using ExamPlatform.Modules.ExamRuntime.Application.Dtos;
+using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
+using ExamPlatform.SharedKernel.Application;
 
 namespace ExamPlatform.Modules.ExamRuntime.Application.Queries;
 
 /// <summary>Reads the answer review of one of the candidate's own submitted attempts (FR-32, FR-33).</summary>
-public sealed class GetAttemptReviewHandler(AttemptAccess access, AttemptReviewBuilder review)
+public sealed class GetAttemptReviewHandler(
+    AttemptAccess access, AttemptReviewBuilder review, IDisputeRepository disputes, DisputePolicy disputePolicy, Clock clock)
 {
     /// <summary>Returns the review, closing the attempt first if its time has run out.</summary>
     /// <param name="attemptId">The attempt.</param>
@@ -23,6 +26,14 @@ public sealed class GetAttemptReviewHandler(AttemptAccess access, AttemptReviewB
         if (attempt.IsInvalidated)
             throw new AttemptInvalidatedError();
 
-        return await review.BuildAsync(attempt, exam, cancellationToken);
+        var built = await review.BuildAsync(attempt, exam, cancellationToken);
+
+        // What the candidate can do about the key, and what has become of what they already did (FR-31).
+        var raised = await disputes.ListForAttemptAsync(attemptId, cancellationToken);
+        return built with
+        {
+            DisputeWindow = disputePolicy.WindowFor(exam, attempt, clock.UtcNow),
+            Disputes = raised.Select(DisputeDtoFactory.ForCandidate).ToList(),
+        };
     }
 }

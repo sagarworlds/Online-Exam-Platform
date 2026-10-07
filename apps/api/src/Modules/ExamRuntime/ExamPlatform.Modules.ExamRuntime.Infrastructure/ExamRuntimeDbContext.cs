@@ -19,6 +19,9 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
     /// <summary>The requests candidates made for another attempt.</summary>
     public DbSet<AttemptRequest> AttemptRequests => Set<AttemptRequest>();
 
+    /// <summary>The disputes candidates raised of an answer key (FR-31).</summary>
+    public DbSet<Dispute> Disputes => Set<Dispute>();
+
     /// <summary>What administrators allow candidates because of a disability or other need (FR-49).</summary>
     public DbSet<Accommodation> Accommodations => Set<Accommodation>();
 
@@ -190,6 +193,24 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             // The staff queue lists by status, oldest first.
             b.HasIndex(x => new { x.Status, x.RequestedAtUtc });
             b.HasIndex(x => x.CandidateId);
+        });
+
+        modelBuilder.Entity<Dispute>(b =>
+        {
+            b.ToTable("Disputes");
+            b.HasKey(x => x.Id);
+            b.Ignore(x => x.DomainEvents);
+            b.Property(x => x.Reason).IsRequired().HasMaxLength(Dispute.MaxReasonLength);
+            b.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            b.Property(x => x.ResolutionNote).HasMaxLength(Dispute.MaxNoteLength);
+
+            // The store, not the code, keeps a candidate to one dispute per question per attempt: two taps of "dispute" at the same
+            // moment both pass the check, and only one insert survives. It also serves reading an attempt's disputes.
+            b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
+            // A key correction settles the open disputes of one question.
+            b.HasIndex(x => new { x.QuestionId, x.Status });
+            // The staff queue lists by status, oldest first.
+            b.HasIndex(x => new { x.Status, x.RaisedAtUtc });
         });
 
         modelBuilder.Entity<Accommodation>(b =>

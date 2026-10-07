@@ -61,8 +61,10 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
             sections,
             marked.Count(q => q.Verdict == AnswerVerdict.Partial),
             attempt.Revisions
-                .Select(r => new ScoreRevisionDto(r.PreviousScore, r.PreviousMaxScore, r.NewScore, r.NewMaxScore, r.Reason, r.RevisedAtUtc))
-                .ToList());
+                // The result as first submitted is version 1, so the first revision is version 2.
+                .Select((r, i) => new ScoreRevisionDto(r.PreviousScore, r.PreviousMaxScore, r.NewScore, r.NewMaxScore, r.Reason, r.RevisedAtUtc, i + 2))
+                .ToList(),
+            attempt.Revisions.Count + 1);
     }
 
     private static ReviewQuestionDto ReviewQuestion(

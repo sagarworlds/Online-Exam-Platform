@@ -36,6 +36,11 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<IExtraAttemptGrantRepository, ExtraAttemptGrantRepository>();
         services.AddScoped<IAccommodationRepository, AccommodationRepository>();
         services.AddScoped<IAttemptRequestRepository, AttemptRequestRepository>();
+        services.AddScoped<IDisputeRepository, DisputeRepository>();
+
+        // How long after a result is released a candidate may dispute its answer key; 0 switches disputes off (FR-31). Read now, not on
+        // first use, so a mistyped window stops the application starting instead of failing the first candidate who disputes.
+        services.AddSingleton(DisputePolicy.From(configuration.GetValue<int?>("ExamRuntime:Disputes:WindowDays")));
 
         // Answers to attempt requests go out through the platform's mail sender when a mail server is configured and are otherwise
         // not sent; the administrator is told so in the response.
@@ -50,6 +55,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<AttemptReviewBuilder>();
         services.AddScoped<AttemptAccess>();
         services.AddScoped<AttemptRequestDtoFactory>();
+        services.AddScoped<DisputeDtoFactory>();
 
         services.AddScoped<MyExamsHandler>();
         services.AddScoped<PaperDrawer>();
@@ -82,6 +88,9 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<ListAttemptRequestsHandler>();
         services.AddScoped<ApproveAttemptRequestHandler>();
         services.AddScoped<DeclineAttemptRequestHandler>();
+        services.AddScoped<RaiseDisputeHandler>();
+        services.AddScoped<ListDisputesHandler>();
+        services.AddScoped<RejectDisputeHandler>();
     }
 
     /// <inheritdoc />

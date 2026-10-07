@@ -15,7 +15,9 @@ public sealed class AttemptAuditTrail(IAuditLogger auditLogger, IRequestContext 
         IDomainEventHandler<AttemptResumedEvent>,
         IDomainEventHandler<AttemptTerminatedEvent>,
         IDomainEventHandler<AttemptInvalidatedEvent>,
-        IDomainEventHandler<AttemptClientChangedEvent>
+        IDomainEventHandler<AttemptClientChangedEvent>,
+        IDomainEventHandler<DisputeRaisedEvent>,
+        IDomainEventHandler<DisputeResolvedEvent>
 {
     /// <inheritdoc />
     public Task HandleAsync(AttemptWarnedEvent domainEvent, CancellationToken cancellationToken) =>
@@ -59,6 +61,28 @@ public sealed class AttemptAuditTrail(IAuditLogger auditLogger, IRequestContext 
         Add("device", domainEvent.DeviceFingerprint);
         return RecordAsync("ExamRuntime.AttemptClientChanged", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId, extra, cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task HandleAsync(DisputeRaisedEvent domainEvent, CancellationToken cancellationToken) =>
+        // The candidate's reason stays on the dispute; the trail records that it was raised, about which question.
+        RecordAsync("ExamRuntime.DisputeRaised", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
+            new Dictionary<string, string>
+            {
+                ["disputeId"] = domainEvent.DisputeId.ToString(),
+                ["questionId"] = domainEvent.QuestionId.ToString(),
+            },
+            cancellationToken);
+
+    /// <inheritdoc />
+    public Task HandleAsync(DisputeResolvedEvent domainEvent, CancellationToken cancellationToken) =>
+        RecordAsync(domainEvent.Accepted ? "ExamRuntime.DisputeAccepted" : "ExamRuntime.DisputeRejected",
+            domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
+            new Dictionary<string, string>
+            {
+                ["disputeId"] = domainEvent.DisputeId.ToString(),
+                ["questionId"] = domainEvent.QuestionId.ToString(),
+            },
+            cancellationToken);
 
     private Task RecordAsync(
         string action, Guid attemptId, Guid examId, Guid candidateId, Dictionary<string, string>? extra, CancellationToken cancellationToken)
