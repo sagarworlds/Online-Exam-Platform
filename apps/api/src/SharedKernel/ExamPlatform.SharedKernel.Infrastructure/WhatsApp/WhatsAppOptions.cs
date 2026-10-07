@@ -11,6 +11,17 @@ public sealed class WhatsAppOptions
     public const string SectionName = "WhatsApp";
 
     /// <summary>
+    /// The master switch for sending anything through WhatsApp: sign-in codes, invitations, whatever is added later. Off unless this is
+    /// true, whatever else is configured, so a host that has the credentials in place sends nothing until someone turns it on on
+    /// purpose, and can be stopped again by turning it off. Blank counts as off. It does not stop the webhook from answering, which
+    /// only receives what WhatsApp reports about messages already sent.
+    /// </summary>
+    public bool? Enabled { get; set; }
+
+    /// <summary>Whether the master switch is on.</summary>
+    public bool IsEnabled => Enabled == true;
+
+    /// <summary>
     /// A permanent access token for the Cloud API, from a system user of the business that owns the WhatsApp Business Account
     /// (a temporary token from the app dashboard expires within a day). A secret: never log it.
     /// </summary>

@@ -36,6 +36,10 @@ services:
       # WhatsApp (Meta's Cloud API) for codes sent to phone numbers. All optional and unset until docs/deploy-render.md step 8:
       # with Identity__OtpDelivery__PhoneProvider unset (or blank), phone numbers get no code, as before. Set it to WhatsApp
       # only once the other values below are filled in, or the API refuses to start and names what is missing.
+      # The master switch for everything sent through WhatsApp. Leave it unset (off) until the values below are in place, then set it to
+      # true; setting it back to false stops all WhatsApp messages at once, whatever else is configured.
+      - key: WhatsApp__Enabled
+        sync: false
       - key: Identity__OtpDelivery__PhoneProvider
         sync: false
       - key: WhatsApp__AccessToken

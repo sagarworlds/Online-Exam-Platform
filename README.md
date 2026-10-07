@@ -733,10 +733,13 @@ The destination is masked (an email keeps its first character and domain, a phon
 
 #### WhatsApp (Meta Cloud API)
 
-With `Identity:OtpDelivery:PhoneProvider` = `WhatsApp`, a code for a phone number is sent as a WhatsApp message through Meta's Cloud API, while e-mail codes keep using `Provider`. The sign-in and register pages already take a phone number (the wire channel is `Sms`, meaning "a phone number"; the register form's option now reads **WhatsApp**).
+**WhatsApp is off unless `WhatsApp__Enabled` is `true`.** That one switch covers every message the platform would send through WhatsApp, whatever else is configured: with it off, nothing is sent (each attempt says so in the log), no phone number is read for an invitation, and the other settings below are not demanded at startup, so the credentials can be put in place first and the switch turned off again in an emergency without the host refusing to start. It ships off (`appsettings.json` says `"Enabled": false`) and a blank value counts as off. It does not stop the webhook, which only receives reports about messages already sent.
+
+With `Identity:OtpDelivery:PhoneProvider` = `WhatsApp` and the switch on, a code for a phone number is sent as a WhatsApp message through Meta's Cloud API, while e-mail codes keep using `Provider`. The sign-in and register pages already take a phone number (the wire channel is `Sms`, meaning "a phone number"; the register form's option now reads **WhatsApp**).
 
 | Setting (environment variable) | What it is |
 |---|---|
+| `WhatsApp__Enabled` | The master switch: `true` to send anything through WhatsApp. Off (the default) sends nothing. Turn it on last. |
 | `Identity__OtpDelivery__PhoneProvider` | `WhatsApp`. Leave it unset to send nothing to phones. A blank value counts as unset. |
 | `WhatsApp__AccessToken` | A **permanent** token from a system user of the business that owns the WhatsApp Business Account (the dashboard's temporary token expires in a day). A secret. |
 | `WhatsApp__PhoneNumberId` | The id of the sending number (not the number), shown under it in the app dashboard. |
@@ -747,7 +750,7 @@ With `Identity:OtpDelivery:PhoneProvider` = `WhatsApp`, a code for a phone numbe
 | `WhatsApp__WebhookVerifyToken` | Any string you choose; you type the same one into the app dashboard when you set the webhook up. A secret. |
 | `WhatsApp__ApiVersion`, `WhatsApp__BaseUrl` | The Graph API version (default `v23.0`) and address. Rarely changed; Meta retires each version after about two years. |
 
-If `PhoneProvider` is `WhatsApp` and the access token, phone number id or template name is missing, **the API refuses to start** and names what is missing, rather than failing the first phone sign-in. The webhook settings are separate: the webhook is optional for sending.
+If the switch is on and `PhoneProvider` is `WhatsApp`, but the access token, phone number id or template name is missing, **the API refuses to start** and names what is missing, rather than failing the first phone sign-in. The webhook settings are separate: the webhook is optional for sending.
 
 **Setting it up on Meta's side** (done once, in the browser; nothing here is in the repository):
 
@@ -755,7 +758,7 @@ If `PhoneProvider` is `WhatsApp` and the access token, phone number id or templa
 2. Under WhatsApp > **API Setup**, note the **Phone number ID**. The free test number can message only the few recipients you verify there; a real number is added in WhatsApp Manager. Meta may ask for business verification and a payment method before a real number can message the public, and bills authentication messages per message.
 3. In Business settings > **System users**, add a system user, give it the app and the WhatsApp account, and generate a token with the `whatsapp_business_messaging` and `whatsapp_business_management` permissions. That is `WhatsApp__AccessToken`. The app secret (App settings > Basic) is `WhatsApp__AppSecret`.
 4. In WhatsApp Manager > **Message templates**, create a template of category **Authentication** in the language you will set, with the **Copy code** button. Meta writes its body ("*123456* is your verification code."); you may add the security note and an expiry line. Its name is `WhatsApp__OtpTemplateName`. Codes cannot be sent until Meta approves it.
-5. Set the variables above on the API and redeploy. Then under WhatsApp > **Configuration**, set the webhook's **Callback URL** to `https://<the API's address>/v1/webhooks/whatsapp` and the **Verify token** to your `WhatsApp__WebhookVerifyToken`, choose **Verify and save**, and subscribe to the `messages` field.
+5. Set the variables above on the API, with `WhatsApp__Enabled` = `true` last, and redeploy. Then under WhatsApp > **Configuration**, set the webhook's **Callback URL** to `https://<the API's address>/v1/webhooks/whatsapp` and the **Verify token** to your `WhatsApp__WebhookVerifyToken`, choose **Verify and save**, and subscribe to the `messages` field.
 
 **What the platform does with it.** Sign-in works as it does for e-mail: the same answer whether or not the number has an account, and a failure is logged (with the number masked to its last two digits, and never the code) rather than shown. The API log says `A code for ********10 was handed to WhatsApp as message wamid...`, and the webhook then reports what became of that message: `WhatsApp message wamid... to ********10 is delivered`, or a warning with Meta's error (for example `131026 Message undeliverable` when the number is not on WhatsApp), so a code that never arrived can be followed. Anything a person writes to the number is acknowledged and its content is not read or logged. The webhook (`GET`/`POST /v1/webhooks/whatsapp`) is open to any caller, so it proves each one: the set-up handshake by the verify token, and each report by the app secret's HMAC signature over the exact bytes received (an unsigned or mis-signed call gets 401 and nothing in it is read).
 

@@ -46,7 +46,7 @@ public class WhatsAppCloudApiSenderTests
             Messages.Add(formatter(state, exception) + (exception is null ? string.Empty : " " + exception));
     }
 
-    private static WhatsAppOptions Configured() => new() { AccessToken = AccessToken, PhoneNumberId = "1234567890" };
+    private static WhatsAppOptions Configured() => new() { Enabled = true, AccessToken = AccessToken, PhoneNumberId = "1234567890" };
 
     private static WhatsAppCloudApiSender SenderFor(StubHandler handler, WhatsAppOptions? options = null, ILogger<WhatsAppCloudApiSender>? logger = null) =>
         new(new HttpClient(handler), Options.Create(options ?? Configured()), logger ?? new ListLogger());
@@ -120,6 +120,31 @@ public class WhatsAppCloudApiSenderTests
     }
 
     [Theory]
+    [InlineData(null)]
+    [InlineData(false)]
+    public async Task SendTemplateAsync_WithTheSwitchOff_SendsNothingAndSaysWhy_EvenWhenFullyConfigured(bool? enabled)
+    {
+        var handler = new StubHandler(_ => throw new InvalidOperationException("Should not call out while switched off."));
+        var logger = new ListLogger();
+        var options = Configured();
+        options.Enabled = enabled;
+
+        var result = await SenderFor(handler, options, logger).SendTemplateAsync(OtpMessage, CancellationToken.None);
+
+        Assert.False(result.Sent);
+        Assert.Equal(0, handler.Calls);
+        Assert.Contains(logger.Messages, m => m.Contains("switched off", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Options_AreOffUnlessExplicitlyEnabled()
+    {
+        Assert.False(new WhatsAppOptions().IsEnabled);
+        Assert.False(new WhatsAppOptions { Enabled = false }.IsEnabled);
+        Assert.True(new WhatsAppOptions { Enabled = true }.IsEnabled);
+    }
+
+    [Theory]
     [InlineData(null, "1234567890")]
     [InlineData("", "1234567890")]
     [InlineData(AccessToken, null)]
@@ -129,7 +154,7 @@ public class WhatsAppCloudApiSenderTests
         var handler = new StubHandler(_ => throw new InvalidOperationException("Should not call out when not configured."));
         var logger = new ListLogger();
 
-        var result = await SenderFor(handler, new WhatsAppOptions { AccessToken = token, PhoneNumberId = phoneNumberId }, logger)
+        var result = await SenderFor(handler, new WhatsAppOptions { Enabled = true, AccessToken = token, PhoneNumberId = phoneNumberId }, logger)
             .SendTemplateAsync(OtpMessage, CancellationToken.None);
 
         Assert.False(result.Sent);
