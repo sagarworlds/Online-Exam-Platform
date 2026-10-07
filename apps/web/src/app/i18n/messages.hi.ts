@@ -8,6 +8,7 @@ export const HI: Messages = {
   'common.cancel': 'रद्द करें',
   'common.ok': 'ठीक है',
   'common.email': 'ईमेल',
+  'common.privacy': 'गोपनीयता नीति',
   'common.attempt': 'प्रयास {number}',
   'common.autoSubmitted': 'समय समाप्त हो गया, इसलिए परीक्षा आपके सहेजे हुए उत्तरों के साथ अपने आप जमा कर दी गई।',
   'language.label': 'भाषा',
