@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { I18nService } from '../../i18n/i18n.service';
 import { AttemptSummaryDto } from '../candidate.models';
 import { MyExams } from './my-exams';
 
@@ -87,6 +88,29 @@ describe('MyExams', () => {
     expect(text).toContain('Not open yet');
     expect(text).toContain('Closed');
     expect(text).toContain('5 questions');
+  });
+
+  it('is shown in the language the candidate chose, and changes with it', () => {
+    localStorage.clear();
+    const { fixture, root } = openWith([exam({ attemptsAllowed: 3, attemptsUsed: 1, attempts: [attempt(1, 'Submitted', 15)] })]);
+    const i18n = TestBed.inject(I18nService);
+
+    i18n.setLanguage('hi');
+    fixture.detectChanges();
+
+    const text = root.textContent ?? '';
+    expect(text).toContain('मेरी परीक्षाएँ');
+    expect(text).toContain('20 प्रश्न, 90 मिनट');
+    expect(text).toContain('उपयोग किए गए प्रयास: 1 में से 3');
+    expect(text).toContain('आपका स्कोर:');
+    expect(root.textContent).toContain('प्रयास 2 शुरू करें');
+    expect(root.textContent).not.toContain('My exams');
+
+    i18n.setLanguage('mr');
+    fixture.detectChanges();
+    expect(root.textContent).toContain('माझ्या परीक्षा');
+    expect(root.textContent).toContain('प्रयत्न 2 सुरू करा');
+    localStorage.clear();
   });
 
   it('tells a candidate with no exams how to get one', () => {

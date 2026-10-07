@@ -127,6 +127,13 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Question>> ListTranslationCandidatesAsync(
+        IReadOnlyCollection<Guid> translationGroupIds, IReadOnlyCollection<string> languages, IReadOnlyCollection<QuestionStatus> statuses, CancellationToken cancellationToken) =>
+        await context.Questions.AsNoTracking().Include(q => q.Options)
+            .Where(q => translationGroupIds.Contains(q.TranslationGroupId) && languages.Contains(q.Language) && statuses.Contains(q.Status))
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<string>> ListTopicsAsync(CancellationToken cancellationToken) =>
         await context.Questions.AsNoTracking().SelectMany(q => q.Topics).Distinct().OrderBy(t => t).ToListAsync(cancellationToken);
 

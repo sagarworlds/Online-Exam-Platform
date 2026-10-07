@@ -7,11 +7,13 @@ import { AuthApiService } from './auth/auth-api.service';
 import { AuthSessionService } from './auth/auth-session.service';
 import { HealthService } from './health/health.service';
 import { AdminSidebar } from './shared/admin-sidebar/admin-sidebar';
+import { LanguageSwitcher } from './i18n/language-switcher';
+import { TranslatePipe } from './i18n/translate.pipe';
 import { ApiActivity } from './shared/api-activity/api-activity';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, AdminSidebar, ApiActivity],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, AdminSidebar, ApiActivity, LanguageSwitcher, TranslatePipe],
   styleUrl: './app.css',
   templateUrl: './app.html',
 })

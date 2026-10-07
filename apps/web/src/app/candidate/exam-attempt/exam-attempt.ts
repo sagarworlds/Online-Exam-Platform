@@ -6,7 +6,9 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
 import { AttemptDto, AttemptQuestionDto, AttemptStatusDto, AttemptWarningDto, FocusViolationKind } from '../candidate.models';
-import { BLOCKED_MESSAGES, BlockedAction, ContentGuard } from './content-guard';
+import { I18nService, Translate } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
+import { BLOCKED_MESSAGE_KEYS, BlockedAction, ContentGuard } from './content-guard';
 import { shortcutFor } from './exam-shortcuts';
 import { FocusMonitor } from './focus-monitor';
 import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-store';
@@ -38,12 +40,9 @@ function loadDismissedWarnings(attemptId: string | null): Set<string> {
 const NOTICE_MS = 4000;
 
 /** What a candidate is told right after leaving the exam page: how many times so far, and what the next ones will cost. */
-function warningFor(violations: number, limit: number): string {
+function warningFor(violations: number, limit: number, t: Translate): string {
   const left = limit - violations;
-  return (
-    `You left the exam page (${violations} of ${limit} allowed). ` +
-    (left === 1 ? 'If you leave once more, the exam will be submitted.' : `If you leave ${left} more times, the exam will be submitted.`)
-  );
+  return t(left === 1 ? 'attempt.warning.last' : 'attempt.warning', { violations, limit, left });
 }
 
 /** The text sizes a candidate can pick, as a share of normal. Capped at 150% so the question and palette still fit side by side. */
@@ -80,11 +79,11 @@ export function chosenOptionIds(question: AttemptQuestionDto): string[] {
   return question.selectedOptionIds ?? (question.selectedOptionId ? [question.selectedOptionId] : []);
 }
 
-function paletteStatus(answered: boolean, marked: boolean, seen: boolean): string {
-  if (answered && marked) return 'answered and marked for review';
-  if (marked) return 'marked for review';
-  if (answered) return 'answered';
-  return seen ? 'not answered' : 'not visited';
+function paletteStatus(answered: boolean, marked: boolean, seen: boolean, t: Translate): string {
+  if (answered && marked) return t('attempt.status.answeredMarked');
+  if (marked) return t('attempt.status.marked');
+  if (answered) return t('attempt.status.answered');
+  return seen ? t('attempt.status.notAnswered') : t('attempt.status.notVisited');
 }
 
 /**
@@ -95,11 +94,12 @@ function paletteStatus(answered: boolean, marked: boolean, seen: boolean): strin
  */
 @Component({
   selector: 'app-exam-attempt',
-  imports: [RouterLink, DatePipe, DecimalPipe, MathDirective],
+  imports: [RouterLink, DatePipe, DecimalPipe, MathDirective, TranslatePipe],
   templateUrl: './exam-attempt.html',
 })
 export class ExamAttempt {
   private readonly api = inject(CandidateApiService);
+  private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute).snapshot;
   private readonly router = inject(Router);
 
@@ -267,7 +267,7 @@ export class ExamAttempt {
           answered,
           marked,
           seen,
-          status: paletteStatus(answered, marked, seen),
+          status: paletteStatus(answered, marked, seen, this.i18n.t),
           // A section behind the candidate is closed for good; one ahead can be moved to (after a confirmation).
           closed: active !== null && offset + i < active.start,
         };
@@ -369,7 +369,7 @@ export class ExamAttempt {
         }
         if (result.limit > 0) {
           this.focusViolations.set(result.violations);
-          this.focusWarning.set(warningFor(result.violations, result.limit));
+          this.focusWarning.set(warningFor(result.violations, result.limit, this.i18n.t));
         }
       },
       error: (error: unknown) => {
@@ -383,7 +383,7 @@ export class ExamAttempt {
 
   /** Says, briefly and calmly, what was just turned off. */
   private showNotice(action: BlockedAction): void {
-    this.protectionNotice.set(BLOCKED_MESSAGES[action]);
+    this.protectionNotice.set(this.i18n.t(BLOCKED_MESSAGE_KEYS[action]));
     clearTimeout(this.noticeTimer);
     this.noticeTimer = setTimeout(() => this.protectionNotice.set(null), NOTICE_MS);
   }
@@ -445,7 +445,7 @@ export class ExamAttempt {
       },
       error: (error: unknown) => {
         this.leavingTo.set(null);
-        this.explainFailure(error, 'You could not move to that section. Please try again.');
+        this.explainFailure(error, this.i18n.t('attempt.failure.moveSection'));
       },
     });
   }
@@ -581,7 +581,7 @@ export class ExamAttempt {
     this.tracked(this.api.saveAnswer(attempt.id, question.id, optionId)).subscribe({
       error: (error: unknown) => {
         this.setSelection(question.id, previous);
-        this.explainFailure(error, 'Your answer could not be saved. Please try again.');
+        this.explainFailure(error, this.i18n.t('attempt.failure.save'));
       },
     });
   }
@@ -609,7 +609,7 @@ export class ExamAttempt {
     this.tracked(save).subscribe({
       error: (error: unknown) => {
         this.setSelection(question.id, previous);
-        this.explainFailure(error, 'Your answer could not be saved. Please try again.');
+        this.explainFailure(error, this.i18n.t('attempt.failure.save'));
       },
     });
   }
@@ -628,7 +628,7 @@ export class ExamAttempt {
     this.tracked(this.api.clearAnswer(attempt.id, question.id)).subscribe({
       error: (error: unknown) => {
         this.setSelection(question.id, previous);
-        this.explainFailure(error, 'Your answer could not be cleared. Please try again.');
+        this.explainFailure(error, this.i18n.t('attempt.failure.clear'));
       },
     });
   }
@@ -650,7 +650,7 @@ export class ExamAttempt {
     request.subscribe({
       error: (error: unknown) => {
         this.setMarked(question.id, previous);
-        this.explainFailure(error, 'The review mark could not be saved. Please try again.');
+        this.explainFailure(error, this.i18n.t('attempt.failure.mark'));
       },
     });
   }

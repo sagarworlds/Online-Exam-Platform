@@ -1,4 +1,6 @@
 import { ExamRulesDto, MyExamDto } from '../candidate.models';
+import { TestBed } from '@angular/core/testing';
+import { I18nService } from '../../i18n/i18n.service';
 import { instructionLines, markingRules, marks, timeAllowed } from './exam-rules-text';
 
 const RULES: ExamRulesDto = {
@@ -131,6 +133,52 @@ describe('instructionLines', () => {
   it('shows no proctoring lines when the API sent none', () => {
     expect(instructionLines(exam({ rules: { ...RULES } })).some((l) => /recorded|camera/i.test(l))).toBe(false);
     expect(instructionLines(exam({ rules: null })).some((l) => /recorded|camera/i.test(l))).toBe(false);
+  });
+
+  describe('in another language (FR-51)', () => {
+    afterEach(() => localStorage.clear());
+
+    const inLanguage = (language: 'hi' | 'mr') => {
+      localStorage.clear();
+      const i18n = TestBed.inject(I18nService);
+      i18n.setLanguage(language);
+      return i18n;
+    };
+
+    it('states the marking in Hindi, with the amounts filled in', () => {
+      const words = inLanguage('hi');
+
+      expect(markingRules(RULES, words)).toEqual([
+        'हर सही उत्तर पर 4 अंक मिलते हैं।',
+        'गलत उत्तर पर 1 अंक कटते हैं।',
+        'जिस प्रश्न का उत्तर आप खाली छोड़ते हैं उस पर कोई अंक नहीं मिलते।',
+      ]);
+    });
+
+    it('states the time and the attempts in Marathi', () => {
+      const words = inLanguage('mr');
+
+      expect(timeAllowed(exam({ durationSeconds: 5400 }), words)).toBe('90 मिनिटे');
+      expect(timeAllowed(exam({ durationSeconds: null }), words)).toBe('परीक्षा बंद होईपर्यंत');
+      expect(instructionLines(exam({ attemptsAllowed: 3, attemptsUsed: 1 }), words).at(-1)).toContain('3');
+    });
+
+    it('chooses the singular form of a section count by the count', () => {
+      const words = inLanguage('hi');
+
+      const lines = instructionLines(exam({ rules: { ...RULES, sectionLock: true, sectionCount: 1 } }), words);
+
+      expect(lines.some((l) => l.includes('1 खंड है'))).toBe(true);
+    });
+
+    it('is the same sentences as the English ones in number, so no rule is lost in translation', () => {
+      const english = instructionLines(exam({ rules: { ...RULES, partialCredit: true, sectionLock: true, sectionCount: 3 }, attemptsAllowed: 2 }));
+
+      expect(instructionLines(exam({ rules: { ...RULES, partialCredit: true, sectionLock: true, sectionCount: 3 }, attemptsAllowed: 2 }), inLanguage('hi')))
+        .toHaveLength(english.length);
+      expect(instructionLines(exam({ rules: { ...RULES, partialCredit: true, sectionLock: true, sectionCount: 3 }, attemptsAllowed: 2 }), inLanguage('mr')))
+        .toHaveLength(english.length);
+    });
   });
 
   it('still gives the general rules when the API sent no exam rules', () => {

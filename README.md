@@ -240,6 +240,19 @@ An illegal step (approving a draft, putting a draft forward twice, restoring a q
 | Not built | Notifying a reviewer that a question is waiting (FR-39), assigning a question to a particular reviewer, and bulk approval. Import and export do not carry the status: imported questions are drafts. |
 | Migration | `QuestionReviewWorkflow` adds `Status` to `questionBank.Questions` (existing rows `Approved`) and creates `questionBank.QuestionReviewEntries`. |
 
+#### Interface and content language (FR-51)
+
+| What | Rule |
+|------|------|
+| Choosing | A language picker in the header (English, हिन्दी, मराठी, each in its own script). The choice is a signal, so the screen changes at once with no reload; it is kept in `localStorage` (`exam-platform.language`), sets `<html lang>`, and starts from the browser's language list when nothing has been chosen. |
+| Messages | Every sentence of a translated screen is a key in `i18n/messages.en.ts`, with a file per language typed as `Messages`, so a missing or extra key stops the build. A unit test also checks each language has the same `{parameters}` as English in every message, so a value is never dropped. `{{ 'key' | t }}` in a template, `I18nService.t` in code; a count that changes the wording has `.one` and `.other` keys. |
+| Adding a language | Add its code to `UI_LANGUAGES` (and to the API's `QuestionLanguage.Supported`), write `messages.<code>.ts`, register it in `MESSAGES`. |
+| Content | The web app sends the chosen language as `Accept-Language` to the API only, never to other sites. Where a question is shown to a candidate (the attempt, and the answer review of it), the API shows its linked translation (FR-10) in the first language the candidate asked for that the question has one in. A question already written in that language, or with none in any language they rank above its own, is shown as it was written. |
+| Words only | The translation replaces the question's text and its options' texts and nothing else. The options keep their ids, which are the ones the attempt sat, and which are correct and which are pinned stay the question's: an answer is still saved against the same option, and marking and the shuffle never depend on the language. The translation is read as it is now, not at a pinned version. |
+| When a translation is not used | It must be one an exam may hold (not retired, and approved where `QuestionBank:RequireApproval` is on). Options are paired by position, so a translation with a different number of options than the question the attempt sat (the source gained or lost one after it was written) is not used, and the question is shown in its own language. |
+| Translated screens | The header, log in, register, My exams, the instructions before an exam (the rules, the marking, the system check's verdicts), the exam itself (timer, palette, submit confirmation, warnings), the result and the answer review. |
+| Not translated yet | Staff and admin screens, profile, consent, guardian, invite and password-reset screens, the system check's own wording, dates and numbers (still English formats), and text the server writes (error messages, proctoring notices, exam names). They keep working in any language; they just stay in English until their messages are added. |
+
 #### Languages and linked translations (FR-10)
 
 | What | Rule |

@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { I18nService } from '../../i18n/i18n.service';
 import { AttemptReviewDto } from '../candidate.models';
 import { AttemptReview } from './attempt-review';
 
@@ -97,6 +98,27 @@ describe('AttemptReview', () => {
   }
 
   afterEach(() => httpMock.verify());
+
+  it('is read in the language the candidate chose, down to the verdicts and the tags on the options', async () => {
+    localStorage.clear();
+    const fixture = await open(review());
+
+    TestBed.inject(I18nService).setLanguage('hi');
+    fixture.detectChanges();
+
+    const text = textOf(fixture);
+    expect(text).toContain('उत्तरों की समीक्षा');
+    expect(text).toContain('1 सही');
+    expect(text).toContain('1 गलत');
+    expect(text).toContain('1 अनुत्तरित');
+    expect(text).toContain('प्रश्न 2');
+    expect(card(fixture, 2).textContent).toContain('सही उत्तर');
+    expect(card(fixture, 2).textContent).toContain('आपका उत्तर');
+    expect(root(fixture).querySelector('.review-strip__item')?.getAttribute('aria-label')).toBe('प्रश्न 1, सही');
+    // What the author wrote is not translated by the page.
+    expect(text).toContain('Capital of France?');
+    localStorage.clear();
+  });
 
   it('shows the score and how many answers were right, wrong and left out', async () => {
     const fixture = await open(review());

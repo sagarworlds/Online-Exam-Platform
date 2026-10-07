@@ -12,7 +12,7 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 /// anything shown to a candidate, so it checks the two conditions itself rather than trusting its caller: the attempt must be
 /// over, and the exam's author must have released the answers. A future caller cannot forget either check.
 /// </summary>
-public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock)
+public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock, IRequestLanguage? language = null)
 {
     /// <summary>Builds the review.</summary>
     /// <param name="attempt">The candidate's own attempt.</param>
@@ -31,7 +31,8 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
             throw new ResultsNotReleasedError(availability.AvailableFromUtc);
 
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
-        var questions = await questionBank.ReadAsync(attempt, questionIds, cancellationToken);
+        // The same language the candidate sat the exam in (FR-51); marking below uses the ids and key, which a translation never changes.
+        var questions = await questionBank.ReadForCandidateAsync(attempt, questionIds, language?.Preferred ?? [], cancellationToken);
         var chosen = attempt.Answers.ToDictionary(a => a.QuestionId, a => (IReadOnlyCollection<Guid>)a.SelectedOptionIds);
 
         var sections = exam.Sections

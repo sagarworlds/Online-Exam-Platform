@@ -1,81 +1,69 @@
+import { Words, englishWords } from '../../i18n/i18n.service';
 import { ExamRulesDto, MyExamDto } from '../candidate.models';
 
 /** "1 mark", "2 marks", "0.5 marks": the number as the exam sets it, without a spurious ".0". */
-export function marks(value: number): string {
-  const amount = Math.abs(value);
-  return `${amount} ${amount === 1 ? 'mark' : 'marks'}`;
+export function marks(value: number, words: Words = englishWords): string {
+  return words.plural('marks', Math.abs(value));
 }
 
 /** What a wrong or unanswered question does to the score, in a sentence that says so plainly. */
-function effect(subject: string, value: number): string {
+function effect(kind: 'wrong' | 'skipped', value: number, words: Words): string {
   if (value === 0) {
-    return `${subject} earns no marks.`;
+    return words.t(`rules.${kind}.zero`);
   }
 
-  return value < 0 ? `${subject} costs ${marks(value)}.` : `${subject} earns ${marks(value)}.`;
+  return words.t(value < 0 ? `rules.${kind}.cost` : `rules.${kind}.earn`, { marks: marks(value, words) });
 }
 
 /** The sentences that explain how an exam is marked. */
-export function markingRules(rules: ExamRulesDto): string[] {
+export function markingRules(rules: ExamRulesDto, words: Words = englishWords): string[] {
   const lines = [
-    `Each correct answer earns ${marks(rules.correctMarks)}.`,
-    effect('A wrong answer', rules.incorrectMarks),
-    effect('A question you leave unanswered', rules.unattemptedMarks),
+    words.t('rules.correct', { marks: marks(rules.correctMarks, words) }),
+    effect('wrong', rules.incorrectMarks, words),
+    effect('skipped', rules.unattemptedMarks, words),
   ];
 
   if (rules.partialCredit) {
-    lines.push('A question with several correct options can earn part of its marks if you choose some of them.');
+    lines.push(words.t('rules.partial'));
   }
 
   return lines;
 }
 
 /** How long the candidate has, in the words the instructions use. */
-export function timeAllowed(exam: Pick<MyExamDto, 'durationSeconds'>): string {
+export function timeAllowed(exam: Pick<MyExamDto, 'durationSeconds'>, words: Words = englishWords): string {
   if (exam.durationSeconds === null) {
-    return 'until the exam closes';
+    return words.t('time.untilClose');
   }
 
-  const minutes = Math.round(exam.durationSeconds / 60);
-  return minutes === 1 ? '1 minute' : `${minutes} minutes`;
+  return words.plural('time.minutes', Math.round(exam.durationSeconds / 60));
 }
 
 /**
  * Everything a candidate is told before starting, as short sentences in the order they matter. Only rules that are true of this
  * exam are stated: marking and section lock come from the exam's own settings.
  */
-export function instructionLines(exam: MyExamDto): string[] {
+export function instructionLines(exam: MyExamDto, words: Words = englishWords): string[] {
   const lines: string[] = [];
 
-  lines.push(
-    exam.durationSeconds === null
-      ? 'You can work until the exam closes. The timer starts when you press Start exam.'
-      : `You have ${timeAllowed(exam)} from the moment you press Start exam.`,
-  );
-  lines.push(
-    'The timer runs on the server, not on your device. It keeps running if you refresh the page, close it or lose your connection, ' +
-      'and the exam is submitted for you with the answers saved so far when time runs out.',
-  );
-  lines.push('Each answer is saved as you choose it. You can change or clear it, and mark a question for review, until you submit or time runs out.');
+  lines.push(exam.durationSeconds === null ? words.t('rules.untilClose') : words.t('rules.timeLimit', { time: timeAllowed(exam, words) }));
+  lines.push(words.t('rules.serverTimer'));
+  lines.push(words.t('rules.autosave'));
 
   if (exam.rules !== null) {
-    lines.push(...markingRules(exam.rules));
-    lines.push(
-      exam.rules.sectionLock
-        ? `The exam has ${exam.rules.sectionCount} ${exam.rules.sectionCount === 1 ? 'section' : 'sections'}, taken in order. Once you move on from a section you cannot come back to it.`
-        : 'You can move freely between questions.',
-    );
+    lines.push(...markingRules(exam.rules, words));
+    lines.push(exam.rules.sectionLock ? words.plural('rules.sectionLock', exam.rules.sectionCount) : words.t('rules.freeMove'));
   }
 
   // What is turned off, recorded and watched is worded by the server from the exam's own settings (FR-46), so the candidate is told
   // exactly what is collected and the wording cannot drift from it. An older API that sends none says nothing here.
   lines.push(...(exam.rules?.proctoringNotice ?? []));
 
-  lines.push('Stay on this device and browser. Signing in somewhere else ends this session.');
-  lines.push('You can submit before time runs out. Once you submit, your answers cannot be changed.');
+  lines.push(words.t('rules.sameDevice'));
+  lines.push(words.t('rules.submitEarly'));
 
   if (exam.attemptsAllowed > 1) {
-    lines.push(`You have ${exam.attemptsAllowed} attempts at this exam in all, and have used ${exam.attemptsUsed}. This starts attempt ${exam.attemptsUsed + 1}.`);
+    lines.push(words.t('rules.attempts', { allowed: exam.attemptsAllowed, used: exam.attemptsUsed, next: exam.attemptsUsed + 1 }));
   }
 
   return lines;
