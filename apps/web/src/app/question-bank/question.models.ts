@@ -63,11 +63,13 @@ export interface QuestionDto {
   options: QuestionOptionDto[];
   createdBy: string;
   createdAtUtc: string;
-  /** Where the question is filed; all four are null for a question that is not filed under a chapter. */
+  /** Where the question is filed; all six are null for a question that is not filed under a chapter. A book without a class has null for the class. */
   chapterId: string | null;
   chapterTitle: string | null;
   bookId: string | null;
   bookName: string | null;
+  classId: string | null;
+  className: string | null;
   usage: QuestionUsageDto;
   /** Null when the author has not said how hard the question is. */
   difficulty: QuestionDifficulty | null;
@@ -158,8 +160,10 @@ export interface FileQuestionsResult {
   bookName: string;
 }
 
-/** Narrows the question list. `unfiled` and a book or chapter are alternatives; a chapter implies its book. */
+/** Narrows the question list. `unfiled` and a book or chapter are alternatives; a chapter implies its book, and a book its class. */
 export interface QuestionFilter {
+  /** Combines with the place filters: only questions filed under a chapter of a book of this class. */
+  classId?: string;
   bookId?: string;
   chapterId?: string;
   unfiled?: boolean;

@@ -90,7 +90,7 @@ describe('QuestionTransfer', () => {
   });
 
   it('downloads what the list shows, in the chosen format', () => {
-    show({ bookId: 'b1', topic: 'fractions' });
+    show({ classId: 'k4', bookId: 'b1', topic: 'fractions' });
     const select = root.querySelector('#export-format') as HTMLSelectElement;
     select.value = 'xlsx';
     select.dispatchEvent(new Event('change'));
@@ -99,6 +99,7 @@ describe('QuestionTransfer', () => {
 
     const req = httpMock.expectOne(isExport);
     expect(req.request.params.get('format')).toBe('xlsx');
+    expect(req.request.params.get('classId')).toBe('k4');
     expect(req.request.params.get('bookId')).toBe('b1');
     expect(req.request.params.get('topic')).toBe('fractions');
     req.flush(new Blob(['x']), { headers: { 'X-Questions-Skipped': '0' } });

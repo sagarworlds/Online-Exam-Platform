@@ -59,7 +59,7 @@ describe('ExamBuilder', () => {
 
   describe('scope', () => {
     const MATHS = {
-      id: 'b1', name: 'Maths Grade 10', subject: null, description: null, isArchived: false, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
+      id: 'b1', name: 'Maths Grade 10', classId: null, className: null, subject: null, description: null, isArchived: false, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
       chapters: [
         { id: 'c1', bookId: 'b1', title: 'Algebra', order: 1, isArchived: false, questionCount: 3 },
         { id: 'c2', bookId: 'b1', title: 'Geometry', order: 2, isArchived: false, questionCount: 0 },

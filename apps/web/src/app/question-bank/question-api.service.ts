@@ -31,6 +31,7 @@ export class QuestionApiService {
   list(filter: QuestionFilter = {}, skip = 0): Observable<QuestionDto[]> {
     // Only what is set goes on the URL, so an unfiltered list is the plain /v1/questions it always was.
     const params: Record<string, string | boolean> = {};
+    if (filter.classId) params['classId'] = filter.classId;
     if (filter.bookId) params['bookId'] = filter.bookId;
     if (filter.chapterId) params['chapterId'] = filter.chapterId;
     if (filter.unfiled) params['unfiled'] = true;
@@ -95,6 +96,7 @@ export class QuestionApiService {
   /** Downloads the questions the filter matches in a file format. */
   export(filter: QuestionFilter, format: QuestionFileFormat): Observable<ExportedFile> {
     const params: Record<string, string | boolean> = { format };
+    if (filter.classId) params['classId'] = filter.classId;
     if (filter.bookId) params['bookId'] = filter.bookId;
     if (filter.chapterId) params['chapterId'] = filter.chapterId;
     if (filter.unfiled) params['unfiled'] = true;

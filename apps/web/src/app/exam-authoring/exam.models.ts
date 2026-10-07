@@ -122,6 +122,8 @@ export interface ExamScopeDto {
   type: ExamScopeType;
   bookId: string | null;
   bookName: string | null;
+  /** The class of the scope's book, null when the book has none (or there is no book). */
+  className: string | null;
   /** The chosen chapters for a `Chapters` scope; empty for the others. */
   chapters: ExamScopeChapterDto[];
 }

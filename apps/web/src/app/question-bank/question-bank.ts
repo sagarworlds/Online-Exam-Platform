@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { BookApiService } from '../book-management/book-api.service';
+import { ANY_CLASS, bookOptionLabel, booksInClass, classChoicesOf } from '../book-management/book-class';
 import { BookDto } from '../book-management/book.models';
 import { extractErrorMessage, extractProblemCode } from '../shared/problem-details';
 import { BookChapterPicker, isCompletePlacement, NO_PLACEMENT, Placement } from './book-chapter-picker/book-chapter-picker';
@@ -30,7 +31,7 @@ export const UNFILED = 'unfiled';
 
 /**
  * Admin page: the newest questions, and a form to add one with its options and correct answer (FR-5). A question can
- * be filed under a chapter of a book, and the list can be narrowed to a book, a chapter, or what is not filed yet.
+ * be filed under a chapter of a book of a class, and the list can be narrowed to a class, a book, a chapter, or what is not filed yet.
  */
 @Component({
   selector: 'app-question-bank',
@@ -80,7 +81,8 @@ export class QuestionBank {
   protected readonly placement = signal<Placement>(NO_PLACEMENT);
   protected readonly placementComplete = computed(() => isCompletePlacement(this.placement()));
 
-  /** The list filter: a book id, {@link UNFILED}, or '' for everything; and a chapter id or ''. */
+  /** The list filter: a class id or '' for every class; a book id, {@link UNFILED}, or '' for everything; and a chapter id or ''. */
+  protected readonly filterClass = signal(ANY_CLASS);
   protected readonly filterBook = signal('');
   protected readonly filterChapter = signal('');
   /** The difficulty and topic the list is narrowed to, '' for any. */
@@ -95,6 +97,11 @@ export class QuestionBank {
   protected readonly difficulties = QUESTION_DIFFICULTIES;
   /** Every topic in use, for the topic filter and for the form's suggestions. */
   protected readonly topics = signal<string[]>([]);
+  /** The classes the books are filed under, archived books included: a class whose books are all archived still has questions. */
+  protected readonly filterClasses = computed(() => classChoicesOf(this.books()));
+  /** The books the book filter offers: those of the chosen class, or every book. */
+  protected readonly filterBooks = computed(() => booksInClass(this.books(), this.filterClass()));
+  protected readonly optionLabel = bookOptionLabel;
   protected readonly filterChapters = computed(() => this.books().find((book) => book.id === this.filterBook())?.chapters ?? []);
 
   protected readonly form = createQuestionForm(this.formBuilder);
@@ -106,6 +113,18 @@ export class QuestionBank {
       next: (books) => this.books.set(books),
       error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
     });
+  }
+
+  protected onFilterClassChanged(value: string): void {
+    this.filterClass.set(value);
+    // A book belongs to one class, and a question not filed under a chapter to none, so a book or chapter filter that no
+    // longer matches the class is cleared rather than left to match nothing.
+    const book = this.books().find((candidate) => candidate.id === this.filterBook());
+    if (value !== ANY_CLASS && (this.filterBook() === UNFILED || (book !== undefined && book.classId !== value))) {
+      this.filterBook.set('');
+      this.filterChapter.set('');
+    }
+    this.refresh();
   }
 
   protected onFilterBookChanged(value: string): void {
@@ -324,9 +343,9 @@ export class QuestionBank {
     this.cardErrors.update((errors) => ({ ...errors, [id]: extractErrorMessage(error) }));
   }
 
-  /** The filter the list is currently narrowed by; a chapter implies its book, so only one of them is sent. */
+  /** The filter the list is currently narrowed by; a chapter implies its book, so only one of them is sent. The class is sent besides them, since it narrows too. */
   private currentFilter(): QuestionFilter {
-    return { ...this.placeFilter(), ...this.labelFilter() };
+    return { ...(this.filterClass() ? { classId: this.filterClass() } : {}), ...this.placeFilter(), ...this.labelFilter() };
   }
 
   private placeFilter(): QuestionFilter {

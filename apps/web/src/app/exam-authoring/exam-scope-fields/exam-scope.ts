@@ -53,7 +53,9 @@ export function describeScope(scope: ExamScopeDto | null | undefined): string {
     return 'Any question in the bank';
   }
 
-  const book = scope.bookName ?? 'a book that is no longer in the bank';
+  // The class is shown beside the book, since the same book name can exist under several classes.
+  const bookName = scope.bookName ?? 'a book that is no longer in the bank';
+  const book = scope.className ? `${bookName} (${scope.className})` : bookName;
   if (scope.type === 'Book') {
     return `The whole book ${book}`;
   }
