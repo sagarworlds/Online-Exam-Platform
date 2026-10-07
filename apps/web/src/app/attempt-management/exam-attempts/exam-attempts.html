@@ -75,6 +75,9 @@
                   } @else if (!attempt.invalidated) {
                     <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'invalidate')" [disabled]="busy()">Invalidate result</button>
                   }
+                  @if (attempt.status === 'Submitted') {
+                    <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'rescore')" [disabled]="busy()">Rescore</button>
+                  }
                   <button type="button" class="btn--small" (click)="toggleClients(attempt.id)" [attr.aria-expanded]="clientsFor() === attempt.id">
                     {{ clientsFor() === attempt.id ? 'Hide sign-in details' : 'Sign-in details' }}
                   </button>
@@ -150,6 +153,13 @@
                           <li class="badge badge--inactive">{{ verdictCount(p, 'Unanswered') }} not answered</li>
                         </ul>
                       </div>
+                      @if (scoreDisagrees(p)) {
+                        <p class="warning-note" role="alert">
+                          The stored score is {{ p.score }}, but the questions on this paper add up to {{ paperTotal(p) }}. Something was saved or
+                          changed after the score was worked out.
+                          <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'rescore')" [disabled]="busy()">Rescore this attempt</button>
+                        </p>
+                      }
                       @if (p.isInvalidated) {
                         <p class="hint">This attempt was invalidated, so the candidate is not shown this score.</p>
                       }

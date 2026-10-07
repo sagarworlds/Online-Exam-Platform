@@ -3,6 +3,7 @@ using ExamPlatform.Modules.ExamRuntime.Application.Dtos;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
+using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Domain.Exceptions;
 
@@ -31,6 +32,45 @@ public sealed class StaffAttemptAccess(IAttemptRepository attempts, IExamCatalog
         exam = exam.For(attempt);
         await access.CloseIfExpiredAsync(attempt, exam, cancellationToken);
         return (attempt, exam);
+    }
+}
+
+/// <summary>
+/// Scores a submitted attempt again from the answers that are stored, and records the change if the score moves. The safety valve for a
+/// result that disagrees with its paper, such as one scored without an answer that was still being saved as the candidate submitted.
+/// </summary>
+public sealed class RescoreAttemptHandler(
+    StaffAttemptAccess access, IQuestionBank questionBank, IExamRuntimeUnitOfWork unitOfWork, Clock clock)
+{
+    /// <summary>Rescores the attempt; when the score changes, the change is kept as a revision the candidate sees in their review.</summary>
+    /// <param name="examId">The exam.</param>
+    /// <param name="attemptId">The attempt.</param>
+    /// <param name="reason">Why, 1 to <see cref="Attempt.MaxReasonLength"/> characters; it is shown to the candidate with the change.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The attempt as staff see it, with its score after the rescore.</returns>
+    /// <exception cref="AttemptNotFoundError">No such attempt at the exam.</exception>
+    /// <exception cref="InvalidAttemptError">The reason is empty or too long.</exception>
+    /// <exception cref="AttemptNotSubmittedError">The attempt is still open, so it has no score to redo.</exception>
+    /// <exception cref="ExamContentUnavailableError">The exam's questions cannot be read.</exception>
+    public async Task<AttemptSummaryDto> HandleAsync(Guid examId, Guid attemptId, string? reason, CancellationToken cancellationToken)
+    {
+        var why = reason?.Trim() ?? string.Empty;
+        if (why.Length == 0 || why.Length > Attempt.MaxReasonLength)
+            throw new InvalidAttemptError($"Say why, in 1 to {Attempt.MaxReasonLength} characters.");
+
+        // Exclusive, and taken before the attempt is loaded, so the answers scored are the ones stored when the others finished.
+        await using var hold = await unitOfWork.LockAttemptAsync(attemptId, exclusive: true, cancellationToken);
+        var (attempt, exam) = await access.LoadAsync(examId, attemptId, cancellationToken);
+        if (attempt.Status != AttemptStatus.Submitted)
+            throw new AttemptNotSubmittedError();
+
+        var questions = await questionBank.ReadAsync(attempt, exam.Sections.SelectMany(s => s.QuestionIds).ToList(), cancellationToken);
+        var result = AttemptScorer.Score(exam, questions, attempt.Answers.ToList());
+        if (attempt.ReviseScore(result.Score, result.MaxScore, $"Rescored by staff: {why}", clock.UtcNow))
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        await hold.CompleteAsync(cancellationToken);
+
+        return ExamCandidateRows.StaffSummary(attempt);
     }
 }
 

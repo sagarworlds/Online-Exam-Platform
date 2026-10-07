@@ -61,6 +61,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<RecordFocusViolationHandler>();
         services.AddScoped<StaffAttemptAccess>();
         services.AddScoped<WarnAttemptHandler>();
+        services.AddScoped<RescoreAttemptHandler>();
         services.AddScoped<PauseAttemptHandler>();
         services.AddScoped<ResumeAttemptHandler>();
         services.AddScoped<TerminateAttemptHandler>();

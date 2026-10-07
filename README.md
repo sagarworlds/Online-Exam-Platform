@@ -283,6 +283,18 @@ On **Candidates and attempts**, **Show paper** opens the paper one attempt consi
 
 The candidate's own version of this is the [answer review](#answer-review), which follows the exam's release setting; the staff view does not, because staff hold the answer key anyway.
 
+#### Saving answers and submitting at the same moment
+
+The exam page saves each answer as it is chosen and does not wait for the reply, so an answer and the submit can reach the server together. Each used to load the attempt, change it and save, so a submit that loaded the attempt a moment before an answer was committed scored without that answer, and nothing noticed, because saving an answer does not touch the attempt's own row. A candidate saw 28 questions correct on the paper and a score of 27: the last answer was saved 0.65 seconds before the submit committed.
+
+| What | Rule |
+|------|------|
+| On the server | Saving or clearing an answer takes a **shared** row lock on the attempt, and submitting takes an **exclusive** one, **before** the attempt is loaded and until the change is committed (`IExamRuntimeUnitOfWork.LockAttemptAsync`, Postgres `FOR SHARE` / `FOR UPDATE`). Any number of answers are saved together, but never with a submit: an answer that gets in first is stored and scored, and one that arrives after is refused as the attempt being over (`409 attempt_not_in_progress`). The score is always of the answers stored. |
+| On the page | A submit waits until every save already sent has been answered, then goes. A submit that clashes with another request (`409`) is sent once more, since submitting is safe to repeat. |
+| Rescore | A result that already disagrees with its paper can be corrected by staff: **Rescore** on the attempt (`POST /v1/exams/{examId}/attempts/{attemptId}/rescore`, `exam.manage`, `{ "reason": "..." }`) scores it again from the stored answers, at the versions the attempt began with, under the same lock. A changed score is kept as a revision (`Rescored by staff: ...`) which the candidate sees in their review; the same score changes nothing. Only a submitted attempt can be rescored. |
+| The warning | The marked paper adds up the marks of its questions and, when a submitted attempt's stored score is not that total, says so above the paper with a **Rescore this attempt** button. |
+| Not covered | The locks are taken for saving an answer, clearing one and submitting. Marking for review, moving between sections and the page-leaving report do not change the score and take no lock; an attempt closed because time ran out or by an administrator is not locked either. |
+
 #### Extra attempts
 
 Every candidate has **one attempt** at an exam unless its author allows more (see [Attempts allowed](#attempts-allowed) below). When a candidate asks for another (a power cut, a dropped connection), an administrator gives them one on **Candidates and attempts** (`/exams/:id/attempts`, linked from a published exam; needs `exam.manage`). The candidate then sees "Start attempt 2" on My exams, and each attempt is numbered, scored and reviewed on its own. My exams lists every attempt and marks the highest-scoring submitted one as **Best** once there are two to compare (the earlier one on a tie); nothing is stored as the exam's official score.

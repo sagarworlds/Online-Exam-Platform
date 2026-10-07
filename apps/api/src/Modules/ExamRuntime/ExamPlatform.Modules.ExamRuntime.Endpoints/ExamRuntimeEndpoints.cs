@@ -32,6 +32,10 @@ public sealed record FocusViolationRequest(string? Kind);
 /// <param name="Message">What to tell the candidate, 1 to 500 characters.</param>
 public sealed record WarnAttemptRequest(string? Message);
 
+/// <summary>Request body for rescoring a submitted attempt.</summary>
+/// <param name="Reason">Why; the candidate is shown it with the change.</param>
+public sealed record RescoreAttemptRequest(string? Reason);
+
 /// <summary>Body of <c>POST /v1/exams/{examId}/attempts/{attemptId}/terminate</c> and <c>/invalidate</c>.</summary>
 /// <param name="Reason">Why, 1 to 500 characters; the candidate is shown it.</param>
 public sealed record AttemptActionReasonRequest(string? Reason);
@@ -173,6 +177,17 @@ public static class ExamRuntimeEndpoints
 
         // What an administrator can do to an attempt in progress or just finished (FR-29). Each route names the exam as well as the
         // attempt, so an attempt of another exam is a 404, and each is audited by the events the attempt raises.
+        exams.MapPost("/{examId:guid}/attempts/{attemptId:guid}/rescore", RescoreAttempt)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AttemptSummaryDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("RescoreAttempt")
+            .WithDescription("Score a submitted attempt again from the answers stored; a change in the score is kept as a revision with the reason");
+
         exams.MapPost("/{examId:guid}/attempts/{attemptId:guid}/warn", WarnAttempt)
             .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
             .Produces<AttemptSummaryDto>()
@@ -326,6 +341,10 @@ public static class ExamRuntimeEndpoints
     private static async Task<IResult> DeclineAttemptRequest(
         Guid requestId, DeclineAttemptRequestRequest? request, ClaimsPrincipal user, DeclineAttemptRequestHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(requestId, user.GetUserId(), request?.Note, ct));
+
+    private static async Task<IResult> RescoreAttempt(
+        Guid examId, Guid attemptId, RescoreAttemptRequest? request, RescoreAttemptHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, attemptId, request?.Reason, ct));
 
     private static async Task<IResult> WarnAttempt(
         Guid examId, Guid attemptId, WarnAttemptRequest? request, ClaimsPrincipal user, WarnAttemptHandler handler, CancellationToken ct) =>

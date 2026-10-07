@@ -61,6 +61,11 @@ export class AttemptAdminApiService {
     return this.http.post<AttemptSummaryDto>(`${this.examsUrl}/${examId}/attempts/${attemptId}/terminate`, { reason });
   }
 
+  /** Scores a finished attempt again from the answers stored; a change is kept as a revision the candidate sees, with this reason. */
+  rescoreAttempt(examId: string, attemptId: string, reason: string): Observable<AttemptSummaryDto> {
+    return this.http.post<AttemptSummaryDto>(`${this.examsUrl}/${examId}/attempts/${attemptId}/rescore`, { reason });
+  }
+
   /** Invalidates a finished attempt's result so it no longer counts; the candidate is shown the reason instead of a score (FR-29). */
   invalidateAttempt(examId: string, attemptId: string, reason: string): Observable<AttemptSummaryDto> {
     return this.http.post<AttemptSummaryDto>(`${this.examsUrl}/${examId}/attempts/${attemptId}/invalidate`, { reason });

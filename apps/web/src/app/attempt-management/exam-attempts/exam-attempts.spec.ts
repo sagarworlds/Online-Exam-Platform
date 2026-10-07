@@ -200,6 +200,68 @@ describe('ExamAttempts', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('.review-options')).toBeNull();
   });
 
+  it('warns when the stored score is not what the paper adds up to, and rescores with a reason', () => {
+    const fixture = showPaper({
+      attemptId: 'a1',
+      number: 1,
+      hasDrawnQuestions: false,
+      status: 'Submitted',
+      score: 1,
+      maxScore: 2,
+      sections: [
+        {
+          id: 's1',
+          name: 'A',
+          questions: [
+            { id: 'q1', text: '<p>One</p>', drawn: false, verdict: 'Correct', marks: 1, options: optionsOf('a', ['a']) },
+            { id: 'q2', text: '<p>Two</p>', drawn: false, verdict: 'Correct', marks: 1, options: optionsOf('a', ['a']) },
+          ],
+        },
+      ],
+    });
+    expect(textOf(fixture)).toContain('The stored score is 1, but the questions on this paper add up to 2');
+
+    buttonLabelled(fixture, 'Rescore this attempt')[0].click();
+    fixture.detectChanges();
+    const box = (fixture.nativeElement as HTMLElement).querySelector('textarea') as HTMLTextAreaElement;
+    box.value = 'The last answer was missed';
+    box.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    buttonLabelled(fixture, 'Rescore').find((b) => b.textContent?.trim() === 'Rescore' && b.classList.contains('primary'))!.click();
+
+    const request = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/exams/exam-1/attempts/a1/rescore'));
+    expect(request.request.body).toEqual({ reason: 'The last answer was missed' });
+    request.flush({ ...candidate().attempts[0], score: 2 });
+    // The paper that is open is read again, so it shows the score now stored.
+    httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts/a1/paper')).flush({
+      attemptId: 'a1',
+      number: 1,
+      hasDrawnQuestions: false,
+      status: 'Submitted',
+      score: 2,
+      maxScore: 2,
+      sections: [{ id: 's1', name: 'A', questions: [{ id: 'q1', text: '<p>One</p>', drawn: false, verdict: 'Correct', marks: 1, options: optionsOf('a', ['a']) }, { id: 'q2', text: '<p>Two</p>', drawn: false, verdict: 'Correct', marks: 1, options: optionsOf('a', ['a']) }] }],
+    });
+    fixture.detectChanges();
+
+    expect(textOf(fixture)).not.toContain('The stored score is');
+    expect(textOf(fixture)).toContain('was scored again');
+  });
+
+  it('does not warn when the score is what the paper adds up to', () => {
+    const fixture = showPaper({
+      attemptId: 'a1',
+      number: 1,
+      hasDrawnQuestions: false,
+      status: 'Submitted',
+      score: 1,
+      maxScore: 2,
+      sections: [{ id: 's1', name: 'A', questions: [{ id: 'q1', text: '<p>One</p>', drawn: false, verdict: 'Correct', marks: 1, options: optionsOf('a', ['a']) }, { id: 'q2', text: '<p>Two</p>', drawn: false, verdict: 'Wrong', marks: 0, options: optionsOf('a', ['b']) }] }],
+    });
+
+    expect(textOf(fixture)).not.toContain('The stored score is');
+  });
+
   it('says so when the paper cannot be loaded', () => {
     const fixture = open(exam([candidate()]));
 

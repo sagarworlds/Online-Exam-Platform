@@ -13,7 +13,7 @@ import { AnswerVerdict } from '../../candidate/candidate.models';
 const MAX_REASON_LENGTH = 500;
 
 /** The actions that need words from the administrator: a warning's text, or the reason shown to the candidate. */
-type ActionKind = 'warn' | 'terminate' | 'invalidate';
+type ActionKind = 'warn' | 'terminate' | 'invalidate' | 'rescore';
 
 /** What each wording action asks, and what its button says. */
 const ACTIONS: Record<ActionKind, { label: string; hint: string; button: string; failure: string }> = {
@@ -28,6 +28,12 @@ const ACTIONS: Record<ActionKind, { label: string; hint: string; button: string;
     hint: 'The candidate is shown this. The attempt is scored with the answers they had saved, and cannot be reopened.',
     button: 'End attempt',
     failure: 'The attempt could not be ended. Please try again.',
+  },
+  rescore: {
+    label: 'Why is this attempt being scored again?',
+    hint: 'It is scored again from the answers stored. If the score changes, the candidate is shown the change and this reason.',
+    button: 'Rescore',
+    failure: 'The attempt could not be rescored. Please try again.',
   },
   invalidate: {
     label: 'Why is this result being invalidated?',
@@ -102,6 +108,26 @@ export class ExamAttempts {
       error: (error: unknown) => {
         this.loading.set(false);
         this.errorMessage.set(extractErrorMessage(error));
+      },
+    });
+  }
+
+  /** The marks the questions of the paper earned, added up: what a stored score should equal. */
+  protected paperTotal(paper: AttemptPaperDto): number {
+    return paper.sections.reduce((sum, s) => sum + s.questions.reduce((n, q) => n + (q.marks ?? 0), 0), 0);
+  }
+
+  /** Whether a submitted attempt's stored score is not what its own questions add up to, which is worth a second look. */
+  protected scoreDisagrees(paper: AttemptPaperDto): boolean {
+    return paper.status === 'Submitted' && typeof paper.score === 'number' && Math.abs(this.paperTotal(paper) - paper.score) > 0.001;
+  }
+
+  private refreshPaper(attemptId: string): void {
+    this.api.getAttemptPaper(this.examId, attemptId).subscribe({
+      next: (paper) => {
+        if (this.paperFor() === attemptId) {
+          this.paper.set(paper);
+        }
       },
     });
   }
@@ -182,18 +208,25 @@ export class ExamAttempts {
       return;
     }
 
-    const call =
-      acting.kind === 'warn'
-        ? this.api.warnAttempt(this.examId, attempt.id, text)
-        : acting.kind === 'terminate'
-          ? this.api.terminateAttempt(this.examId, attempt.id, text)
-          : this.api.invalidateAttempt(this.examId, attempt.id, text);
+    const call = {
+      warn: () => this.api.warnAttempt(this.examId, attempt.id, text),
+      terminate: () => this.api.terminateAttempt(this.examId, attempt.id, text),
+      rescore: () => this.api.rescoreAttempt(this.examId, attempt.id, text),
+      invalidate: () => this.api.invalidateAttempt(this.examId, attempt.id, text),
+    }[acting.kind]();
     const done = {
       warn: `Warning sent to ${candidate.email}.`,
       terminate: `Attempt ${attempt.number} of ${candidate.email} was ended.`,
+      rescore: `Attempt ${attempt.number} of ${candidate.email} was scored again.`,
       invalidate: `The result of attempt ${attempt.number} of ${candidate.email} was invalidated.`,
     }[acting.kind];
-    this.run(call, done, ACTIONS[acting.kind].failure, () => this.acting.set(null));
+    this.run(call, done, ACTIONS[acting.kind].failure, () => {
+      this.acting.set(null);
+      // A paper that is open shows the score it had; read it again so it shows the new one.
+      if (acting.kind === 'rescore' && this.paperFor() === attempt.id) {
+        this.refreshPaper(attempt.id);
+      }
+    });
   }
 
   protected pause(candidate: ExamCandidateDto, attempt: AttemptSummaryDto): void {
