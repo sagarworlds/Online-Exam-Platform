@@ -35,6 +35,17 @@ describe('Register', () => {
     expect(compiled.textContent).toContain('Register');
   });
 
+  it('links to the privacy policy where personal data is collected, opening it in a new tab', () => {
+    const fixture = TestBed.createComponent(Register);
+    fixture.detectChanges();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector('a[href="/privacy.html"]') as HTMLAnchorElement;
+
+    expect(link.textContent?.trim()).toBe('Privacy policy');
+    expect(link.target).toBe('_blank');
+    expect(link.rel).toContain('noopener');
+  });
+
   it('submit is disabled while the date of birth is in the future', () => {
     const { fixture, compiled, submitButton } = render();
     const inFiveDays = new Date();

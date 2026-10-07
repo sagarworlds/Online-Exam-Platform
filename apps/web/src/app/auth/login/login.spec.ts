@@ -24,6 +24,17 @@ describe('Login', () => {
     expect(compiled.textContent).toContain('Log in');
   });
 
+  it('links to the privacy policy, a static page that opens in a new tab', () => {
+    const fixture = TestBed.createComponent(Login);
+    fixture.detectChanges();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector('a[href="/privacy.html"]') as HTMLAnchorElement;
+
+    expect(link.textContent?.trim()).toBe('Privacy policy');
+    expect(link.target).toBe('_blank');
+    expect(link.rel).toContain('noopener');
+  });
+
   it('switches to the one-time-code form', () => {
     const fixture = TestBed.createComponent(Login);
     fixture.detectChanges();

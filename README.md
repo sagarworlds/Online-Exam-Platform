@@ -240,6 +240,16 @@ An illegal step (approving a draft, putting a draft forward twice, restoring a q
 | Not built | Notifying a reviewer that a question is waiting (FR-39), assigning a question to a particular reviewer, and bulk approval. Import and export do not carry the status: imported questions are drafts. |
 | Migration | `QuestionReviewWorkflow` adds `Status` to `questionBank.Questions` (existing rows `Approved`) and creates `questionBank.QuestionReviewEntries`. |
 
+#### Privacy policy page (public)
+
+| What | Rule |
+|------|------|
+| Where | `https://<the website's address>/privacy.html`, a static file in `apps/web/public/` that the build copies to the site root. It opens without signing in and without JavaScript, and does not depend on the API being awake, so Meta's checks (for example a WhatsApp Business app asking for a privacy policy URL) and any crawler can read it. The Angular routes cannot serve that purpose: the site is client-rendered, so a crawler would see an empty shell. |
+| Linked from | The log in and register pages, where personal data is collected; not from the exam page, so a candidate mid-exam cannot leave it by accident. |
+| What it says | Who it covers, what is collected (account, guardian, exam activity, integrity events, sign-in and device, accommodations, consent records, messages, browser storage), why, WhatsApp and other messages (Meta receives the number and message text; opt-out), who it is shared with, children, retention, security, DPDP rights and how to complain, and changes. It states only what the platform does today: no camera, microphone or screen capture, no advertising, no selling of data. |
+| Before using it with Meta | The contact section (`id="contact"`) says to write to the address that sent the invitation or sign-in code; replace it with the operator's legal name and a monitored grievance address. Counsel should review the page (M0 issue #11); the retention and deletion promises are commitments that retention jobs (FR-47) and data requests (FR-48) must honour. |
+| Language | English only for now. The notice wording is not part of the interface catalogue (FR-51), because a legal text needs counsel's review in each language. |
+
 #### Interface and content language (FR-51)
 
 | What | Rule |

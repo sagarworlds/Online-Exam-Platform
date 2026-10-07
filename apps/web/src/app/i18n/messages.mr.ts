@@ -8,6 +8,7 @@ export const MR: Messages = {
   'common.cancel': 'रद्द करा',
   'common.ok': 'ठीक आहे',
   'common.email': 'ईमेल',
+  'common.privacy': 'गोपनीयता धोरण',
   'common.attempt': 'प्रयत्न {number}',
   'common.autoSubmitted': 'वेळ संपली, म्हणून परीक्षा तुम्ही जतन केलेल्या उत्तरांसह आपोआप सादर करण्यात आली.',
   'language.label': 'भाषा',

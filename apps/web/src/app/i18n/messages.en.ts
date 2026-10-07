@@ -13,6 +13,7 @@ export const EN = {
   'common.cancel': 'Cancel',
   'common.ok': 'OK',
   'common.email': 'Email',
+  'common.privacy': 'Privacy policy',
   'common.attempt': 'Attempt {number}',
   'common.autoSubmitted': 'Time ran out, so the exam was submitted automatically with the answers you had saved.',
   'language.label': 'Language',
