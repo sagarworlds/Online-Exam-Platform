@@ -13,10 +13,12 @@ import {
   DuplicateQuestion,
   FileQuestionsResult,
   QUESTION_DIFFICULTIES,
+  QUESTION_LANGUAGES,
   QUESTION_LIST_PAGE_SIZE,
   QuestionDifficulty,
   QuestionDto,
   QuestionFilter,
+  QuestionLanguage,
   QuestionStatistics,
   QuestionStatus,
 } from './question.models';
@@ -87,6 +89,9 @@ export class QuestionBank {
   /** The text the list is searched for; empty for no search. */
   protected readonly filterSearch = signal('');
   protected readonly filterStatus = signal<QuestionStatus | ''>('');
+  /** The language the list is narrowed to, '' for any (FR-10). */
+  protected readonly filterLanguage = signal<QuestionLanguage | ''>('');
+  protected readonly languages = QUESTION_LANGUAGES;
   protected readonly difficulties = QUESTION_DIFFICULTIES;
   /** Every topic in use, for the topic filter and for the form's suggestions. */
   protected readonly topics = signal<string[]>([]);
@@ -148,6 +153,16 @@ export class QuestionBank {
     this.refresh();
   }
 
+  protected onFilterLanguageChanged(value: string): void {
+    this.filterLanguage.set(value as QuestionLanguage | '');
+    this.refresh();
+  }
+
+  /** A translation was added from a card: it is a question of its own, so the list is read again. */
+  protected onTranslationAdded(): void {
+    this.refresh();
+  }
+
   protected onFilterTopicChanged(value: string): void {
     this.filterTopic.set(value);
     this.refresh();
@@ -164,6 +179,7 @@ export class QuestionBank {
       options: toNewOptions(this.form),
       ...toLabels(this.form),
       allowsMultiple: toAllowsMultiple(this.form),
+      language: this.form.getRawValue().language,
     };
 
     this.send(request);
@@ -329,7 +345,14 @@ export class QuestionBank {
     const topic = this.filterTopic();
     const search = this.filterSearch();
     const status = this.filterStatus();
-    return { ...(difficulty ? { difficulty } : {}), ...(topic ? { topic } : {}), ...(search ? { search } : {}), ...(status ? { status } : {}) };
+    const language = this.filterLanguage();
+    return {
+      ...(difficulty ? { difficulty } : {}),
+      ...(topic ? { topic } : {}),
+      ...(search ? { search } : {}),
+      ...(status ? { status } : {}),
+      ...(language ? { language } : {}),
+    };
   }
 
   /** What the export button downloads: the questions the list is showing. */
@@ -389,7 +412,8 @@ export class QuestionBank {
   }
 
   private resetForm(): void {
-    this.form.reset({ text: '', allowsMultiple: false, correctIndex: -1, difficulty: '', topics: '' });
+    // The language stays as it was: an author enters many questions in one language in a row.
+    this.form.reset({ text: '', allowsMultiple: false, correctIndex: -1, difficulty: '', topics: '', language: this.form.getRawValue().language });
     this.form.controls.options.clear();
     this.form.controls.options.push(newOption(this.formBuilder));
     this.form.controls.options.push(newOption(this.formBuilder));

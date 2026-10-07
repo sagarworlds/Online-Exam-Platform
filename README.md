@@ -240,6 +240,19 @@ An illegal step (approving a draft, putting a draft forward twice, restoring a q
 | Not built | Notifying a reviewer that a question is waiting (FR-39), assigning a question to a particular reviewer, and bulk approval. Import and export do not carry the status: imported questions are drafts. |
 | Migration | `QuestionReviewWorkflow` adds `Status` to `questionBank.Questions` (existing rows `Approved`) and creates `questionBank.QuestionReviewEntries`. |
 
+#### Languages and linked translations (FR-10)
+
+| What | Rule |
+|------|------|
+| Languages | English (`en`), Hindi (`hi`) and Marathi (`mr`). A question carries one in `Questions.Language`; every question written before this is English. Another language is added by adding its code to `QuestionLanguage.Supported`. |
+| Creating | `POST /v1/questions` takes an optional `language` (default `en`); an unsupported one is `400 invalid_question`. The language is fixed at creation: the same question in another language is a translation, not an edit. |
+| Linking | Questions that say the same thing in different languages share a `translationGroupId`, which is a question's own id until it gets a translation. A group holds at most one question per language (a unique index, so two translators racing cannot both add Hindi). |
+| Adding a translation | `POST /v1/questions/{id}/translations` (`question.manage`) with `{ language, text, options: [..] }`, one option text for each option of the source, in the same order. The **answer key is copied** (which options are correct, which stay in place, whether several are correct), as are the chapter, difficulty and topics, so a translation cannot disagree with its source about what is right; the translator supplies only words. A missing or unsupported language is `400`, a wrong number of options is `400`, a language the group already has is `409 translation_exists`. |
+| Independent afterwards | A translation is a question in its own right: a draft that is reviewed (FR-8), versioned (FR-7), edited and answered on its own. Editing the source does not change it, and neither does a corrected answer key; the link only helps find the other languages. Its options have their own ids. |
+| Finding them | `GET /v1/questions/{id}/translations` (`question.read`) lists the question's group, itself included, in the order languages are offered, each with language, preview and review status. `GET /v1/questions?language=hi` narrows the list. Each card shows its language, and "Translations" opens the linked ones with a form to add the next. |
+| Duplicates | The duplicate key (FR-9) now keeps the vowel signs of Devanagari, which are combining marks rather than letters; without them words that differ only by a vowel sign would look like one question. |
+| Not in this change | Bulk import and export still read and write English questions, as their columns are fixed; add translations afterwards. Choosing which language a candidate sits an exam in comes with the multi-language UI (FR-51). |
+
 #### Duplicate detection and usage statistics (FR-9)
 
 | What | Rule |

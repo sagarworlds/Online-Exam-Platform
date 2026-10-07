@@ -39,6 +39,9 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
             // A hash of the stem's letters and digits, so a new question is checked against the bank by an index lookup (FR-9).
             b.Property(q => q.TextKey).IsRequired().HasMaxLength(64);
             b.HasIndex(q => q.TextKey);
+            b.Property(q => q.Language).IsRequired().HasMaxLength(QuestionLanguage.MaxLength);
+            // One question per language in a group, so two translators racing to add the same language cannot both succeed (FR-10).
+            b.HasIndex(q => new { q.TranslationGroupId, q.Language }).IsUnique();
             // Stored as its name rather than its number, so the column reads the same in a query and survives a reordered enum.
             b.Property(q => q.Difficulty).HasConversion<string>().HasMaxLength(10);
             b.Property(q => q.Status).HasConversion<string>().HasMaxLength(10);

@@ -95,6 +95,8 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
             query = query.Where(q => context.Chapters.Any(c => c.Id == q.ChapterId && c.BookId == bookId));
         if (filter.Difficulty is { } difficulty)
             query = query.Where(q => q.Difficulty == difficulty);
+        if (filter.Language is { Length: > 0 } language)
+            query = query.Where(q => q.Language == language);
         if (filter.Statuses is { Count: > 0 } statuses)
             query = query.Where(q => statuses.Contains(q.Status));
         if (filter.Topic is { Length: > 0 } topic)
@@ -116,6 +118,13 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
             : await context.Questions.AsNoTracking().Include(q => q.Options)
                 .Where(q => q.TextKey == textKey && q.Id != excludeQuestionId)
                 .OrderBy(q => q.CreatedAtUtc).ThenBy(q => q.Id).Take(take).ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Question>> ListTranslationGroupAsync(Guid translationGroupId, CancellationToken cancellationToken) =>
+        await context.Questions.AsNoTracking()
+            .Where(q => q.TranslationGroupId == translationGroupId)
+            .OrderBy(q => q.CreatedAtUtc).ThenBy(q => q.Id)
+            .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<string>> ListTopicsAsync(CancellationToken cancellationToken) =>

@@ -1,5 +1,5 @@
 import { AbstractControl, FormArray, FormBuilder, ValidationErrors, Validators } from '@angular/forms';
-import { QUESTION_LIMITS, QuestionDifficulty, QuestionDto } from './question.models';
+import { QUESTION_LIMITS, QuestionDifficulty, QuestionDto, QuestionLanguage } from './question.models';
 
 /** One option row of the question form. `id` is the existing option's id when editing, and '' for a new option. */
 function newOptionGroup(formBuilder: FormBuilder, id = '', text = '', pinned = false, correct = false) {
@@ -18,6 +18,8 @@ export function createQuestionForm(formBuilder: FormBuilder) {
       correctIndex: [-1],
       // '' means no difficulty; the topics are typed as one comma-separated line and split by {@link parseTopics}.
       difficulty: ['' as QuestionDifficulty | ''],
+      // The language a new question is written in (FR-10); an edit leaves it alone, as another language is a translation.
+      language: ['en' as QuestionLanguage],
       topics: ['', topicsValidator],
       options: formBuilder.array([newOptionGroup(formBuilder), newOptionGroup(formBuilder)]),
     },
@@ -84,6 +86,7 @@ export function fillQuestionForm(form: QuestionForm, formBuilder: FormBuilder, q
   form.controls.allowsMultiple.setValue(question.allowsMultiple ?? false);
   form.controls.correctIndex.setValue(question.options.findIndex((option) => option.isCorrect));
   form.controls.difficulty.setValue(question.difficulty ?? '');
+  form.controls.language.setValue(question.language ?? 'en');
   form.controls.topics.setValue(question.topics.join(', '));
 }
 

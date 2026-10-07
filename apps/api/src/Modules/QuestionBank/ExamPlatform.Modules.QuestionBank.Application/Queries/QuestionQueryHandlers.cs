@@ -49,6 +49,29 @@ public sealed class GetQuestionHandler(IQuestionRepository repository, QuestionU
     }
 }
 
+/// <summary>Lists a question together with its translations (FR-10).</summary>
+public sealed class ListTranslationsHandler(IQuestionRepository repository)
+{
+    /// <summary>Returns every question in the question's translation group, itself included, in the order languages are offered.</summary>
+    /// <param name="questionId">Any question of the group.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="QuestionNotFoundError">No question has that id.</exception>
+    public async Task<IReadOnlyList<QuestionTranslationDto>> HandleAsync(Guid questionId, CancellationToken cancellationToken)
+    {
+        var question = (await repository.GetManyAsync([questionId], cancellationToken)).FirstOrDefault() ?? throw new QuestionNotFoundError();
+
+        var offered = Domain.QuestionLanguage.Supported.ToList();
+        return (await repository.ListTranslationGroupAsync(question.TranslationGroupId, cancellationToken))
+            .OrderBy(q => offered.IndexOf(q.Language)).ThenBy(q => q.CreatedAtUtc)
+            .Select(q => new QuestionTranslationDto(
+                q.Id,
+                q.Language,
+                q.SearchText.Length <= QuestionTranslationDto.PreviewLength ? q.SearchText : q.SearchText[..QuestionTranslationDto.PreviewLength] + "…",
+                QuestionStatusText.Format(q.Status)))
+            .ToList();
+    }
+}
+
 /// <summary>Reads a question's review thread (FR-8).</summary>
 public sealed class GetQuestionReviewLogHandler(IQuestionRepository repository)
 {

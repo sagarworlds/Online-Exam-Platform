@@ -27,6 +27,34 @@ export const QUESTION_DIFFICULTIES: readonly { value: QuestionDifficulty; label:
   { value: 'hard', label: 'Hard' },
 ];
 
+/** A language a question can be written in (FR-10). */
+export type QuestionLanguage = 'en' | 'hi' | 'mr';
+
+/** The languages in the order a picker lists them, with the words an author reads. */
+export const QUESTION_LANGUAGES: readonly { code: QuestionLanguage; label: string }[] = [
+  { code: 'en', label: 'English' },
+  { code: 'hi', label: 'Hindi' },
+  { code: 'mr', label: 'Marathi' },
+];
+
+/** One question in a group of translations (FR-10). */
+export interface QuestionTranslation {
+  id: string;
+  language: QuestionLanguage;
+  /** The start of its wording as plain text. */
+  preview: string;
+  status: QuestionStatus;
+}
+
+/** The body of POST /v1/questions/{id}/translations: words only, as the answer key is copied from the question translated. */
+export interface AddTranslationRequest {
+  language: QuestionLanguage;
+  /** The translated question as HTML from the editor. */
+  text: string;
+  /** One text for each option of the question translated, in the same order. */
+  options: string[];
+}
+
 /** A question with its answer key (FR-5). Only authors get this shape; candidates never see `isCorrect`. */
 export interface QuestionDto {
   id: string;
@@ -49,6 +77,8 @@ export interface QuestionDto {
   status?: QuestionStatus;
   /** Whether more than one option may be correct; a candidate must then choose exactly the correct ones to be marked right. */
   allowsMultiple: boolean;
+  /** The language it is written in; absent from an API that predates languages (FR-10). */
+  language?: QuestionLanguage;
 }
 
 /** The body of POST /v1/questions. The author is the caller, so it carries no user id. */
@@ -64,6 +94,8 @@ export interface CreateQuestionRequest {
   allowsMultiple: boolean;
   /** True to add the question although the bank already has one with the same wording and options (FR-9). */
   allowDuplicate?: boolean;
+  /** The language the question is written in; the same question in another language is added as a translation (FR-10). */
+  language?: QuestionLanguage;
 }
 
 /** A question already in the bank that repeats one being added (FR-9). */
@@ -139,6 +171,8 @@ export interface QuestionFilter {
   search?: string;
   /** Combines with the others: only questions in this review status. */
   status?: QuestionStatus;
+  /** Combines with the others: only questions written in this language (FR-10). */
+  language?: QuestionLanguage;
 }
 
 /** Where a question is in the review workflow (FR-8). */

@@ -15,9 +15,11 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 /// <param name="Topics">The question's topics, or null for none.</param>
 /// <param name="AllowsMultiple">Whether more than one option may be correct.</param>
 /// <param name="AllowDuplicate">Add the question even though the bank already holds one with the same wording and options (FR-9).</param>
+/// <param name="Language">The language it is written in (FR-10): "en", "hi" or "mr"; null means English. To write the same question in another language, add a translation instead.</param>
 public sealed record CreateQuestionCommand(
     string? Text, IReadOnlyList<NewQuestionOption>? Options, Guid CreatedBy, Guid? ChapterId = null,
-    string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false, bool AllowDuplicate = false);
+    string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false, bool AllowDuplicate = false,
+    string? Language = null);
 
 /// <summary>Handles <see cref="CreateQuestionCommand"/>.</summary>
 public sealed class CreateQuestionHandler(
@@ -49,7 +51,7 @@ public sealed class CreateQuestionHandler(
 
         var question = Question.Create(
             cleaned.Html, command.Options, command.CreatedBy, clock.UtcNow, filedUnder?.ChapterId,
-            QuestionDifficultyText.Parse(command.Difficulty), command.Topics, command.AllowsMultiple);
+            QuestionDifficultyText.Parse(command.Difficulty), command.Topics, command.AllowsMultiple, command.Language);
         question.IndexText(cleaned.PlainText);
 
         repository.Add(question);

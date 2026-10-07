@@ -2,7 +2,8 @@ import { Component, computed, effect, input, output, signal, untracked } from '@
 import { RouterLink } from '@angular/router';
 import { BookDto } from '../../book-management/book.models';
 import { BookChapterPicker, NO_PLACEMENT, Placement } from '../book-chapter-picker/book-chapter-picker';
-import { QuestionDto, QuestionStatistics, QuestionStatus } from '../question.models';
+import { QUESTION_LANGUAGES, QuestionDto, QuestionStatistics, QuestionStatus } from '../question.models';
+import { QuestionTranslations } from '../question-translations/question-translations';
 import { QuestionReview, STATUS_LABELS } from '../question-review/question-review';
 import { MathDirective } from '../../shared/rich-text/math.directive';
 
@@ -13,7 +14,7 @@ import { MathDirective } from '../../shared/rich-text/math.directive';
  */
 @Component({
   selector: 'app-question-card',
-  imports: [RouterLink, BookChapterPicker, MathDirective, QuestionReview],
+  imports: [RouterLink, BookChapterPicker, MathDirective, QuestionReview, QuestionTranslations],
   templateUrl: './question-card.html',
 })
 export class QuestionCard {
@@ -33,6 +34,10 @@ export class QuestionCard {
   /** The author opened the statistics before they were loaded; carries the question's id. */
   readonly statisticsRequested = output<string>();
   protected readonly showingStatistics = signal(false);
+
+  /** A translation of this question was saved (FR-10). */
+  readonly translationAdded = output<void>();
+  protected readonly showingTranslations = signal(false);
 
   /** The author confirmed deleting this question; carries its id. */
   readonly deleteConfirmed = output<string>();
@@ -73,6 +78,9 @@ export class QuestionCard {
     const count = this.question().usage.examCount;
     return `In ${count} ${count === 1 ? 'exam' : 'exams'}`;
   });
+
+  /** The question's language as an author reads it, or null for a question from an API that predates languages. */
+  protected readonly languageLabel = computed(() => QUESTION_LANGUAGES.find((language) => language.code === this.question().language)?.label ?? null);
 
   protected toggleStatistics(): void {
     const open = !this.showingStatistics();
