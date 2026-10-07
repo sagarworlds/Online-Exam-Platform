@@ -26,6 +26,7 @@ Things the requirements do ask for are not listed here, however they were done. 
 | N8 | Admin page that shows unspent sign-in codes, for support | New | FR-1, FR-3 | #123 | Merged |
 | N9 | Question bank search and paging | New | FR-5 | #116, #108 | Merged |
 | N10 | Admin sidebar, API status dot, loading cue | New | None | #126, #129, #134, #135 | Merged |
+| N11 | A class level above books (Class, Book, Chapter, Question) | New | Section 4, section 10 (no class or grade) | #160 | In review |
 | B1 | Marathi as a third language | Beyond the wording | FR-10, FR-51, open question 3 | #152, #153 | Merged |
 | B2 | Pinned options, and the shuffling rules | Beyond the wording | FR-12, FR-28 | #106, #107 | Merged |
 | B3 | Putting a draft exam right, and deleting a draft | Beyond the wording | FR-11, FR-12 | #98 | Merged |
@@ -40,7 +41,7 @@ Things the requirements do ask for are not listed here, however they were done. 
 
 ## New functionality
 
-**N1. Books and chapters, and limiting an exam to them.** Questions can be filed under a chapter of a book, and an exam can be limited to one whole book or to chosen chapters of one book. The requirements name "chapter" only as one metadata field of a question (section 4) and their data model has a Subject/Topic tree with no Book or Chapter; nothing limits where an exam's questions may come from. The platform has admin pages for books and chapters, filing one or many questions at once, filtering the question list by book or chapter, and an API rule that refuses a question outside an exam's scope. Books and chapters are archived, never deleted. See [Books, chapters and exam scope](../README.md#books-chapters-and-exam-scope).
+**N1. Books and chapters, and limiting an exam to them.** Questions can be filed under a chapter of a book, and an exam can be limited to one whole book or to chosen chapters of one book. The requirements name "chapter" only as one metadata field of a question (section 4) and their data model has a Subject/Topic tree with no Book or Chapter; nothing limits where an exam's questions may come from. The platform has admin pages for books and chapters, filing one or many questions at once, filtering the question list by book or chapter, and an API rule that refuses a question outside an exam's scope. Books and chapters are archived, never deleted. A class level above books is N11. See [Books, chapters and exam scope](../README.md#books-chapters-and-exam-scope).
 
 **N2. WhatsApp: sign-in codes, delivery reports, one master switch.** A candidate who registers or signs in with a phone number gets the one-time code as a WhatsApp message through Meta's Cloud API. FR-1 asks for e-mail or phone codes and FR-39 for e-mail, SMS and in-app notices; WhatsApp is not mentioned anywhere. It comes with the webhook Meta needs (`/v1/webhooks/whatsapp`, which checks a signature and logs delivery reports with numbers masked) and one master switch, `WhatsApp__Enabled`, off unless set to true, which stops every WhatsApp message whatever else is configured. See [WhatsApp (Meta Cloud API)](../README.md#whatsapp-meta-cloud-api).
 
@@ -59,6 +60,8 @@ Things the requirements do ask for are not listed here, however they were done. 
 **N9. Question bank search and paging.** Full-text search of questions, and a "Load older" button instead of loading the whole bank. FR-5 asks for create, read, update and delete; finding and paging are not specified.
 
 **N10. Admin sidebar, API status dot, loading cue.** Admin navigation moved to a sidebar with drawn icons, a small coloured dot shows whether the API is answering, and a calm loading indicator appears while it is slow to answer (a free-plan service sleeps when idle). None is a stated requirement.
+
+**N11. A class level above books.** A class (a standard or grade such as "4th") sits above books, so the structure is Class, Book, Chapter, Question: "English" for the 4th and "English" for the 5th are two books with their own chapters and questions, and an exam limited to that book, or to chosen chapters of it, is in effect an exam for that class ("Olympiad English for the 4th"). The requirements have no class or grade concept; they organise content by subject, chapter, topic and difficulty (section 4) and people by batches (section 10), and "school" appears only as the audience. Classes are managed on the Books page, archived rather than deleted, and optional: every existing book has none. An exam's scope does not change; a scope over a whole class is not built. See [Books, chapters and exam scope](../README.md#books-chapters-and-exam-scope).
 
 ## Beyond the wording of a requirement
 
