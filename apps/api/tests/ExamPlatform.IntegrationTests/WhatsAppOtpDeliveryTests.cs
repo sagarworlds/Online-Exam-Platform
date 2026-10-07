@@ -36,6 +36,7 @@ public sealed class WhatsAppOtpDeliveryTests(ApiFactory factory) : IClassFixture
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Identity:OtpDelivery:PhoneProvider"] = phoneProvider,
+                ["WhatsApp:Enabled"] = "true",
                 ["WhatsApp:AccessToken"] = "integration-test-token",
                 ["WhatsApp:PhoneNumberId"] = "1234567890",
                 ["WhatsApp:OtpTemplateName"] = "exam_login_code",

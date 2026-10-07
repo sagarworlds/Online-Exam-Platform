@@ -155,7 +155,7 @@ Online-Exam-Platform/
 2. **Questions** (`/admin/questions`): single-answer multiple choice, 2 to 6 options, exactly one correct. The question text is written in a rich-text editor (see [Question formatting](#question-formatting)); options are plain text. A question can be edited, deleted or filed under a book and chapter later (see [Editing, deleting and filing questions](#editing-deleting-and-filing-questions)).
 3. **Books** (`/admin/books`, optional): a book has chapters; questions can be filed under a chapter and exams can be limited to a book or some of its chapters (see [Books, chapters and exam scope](#books-chapters-and-exam-scope)).
 4. **Exams** (`/exams`): create an exam, add sections and questions, set the schedule (window, minutes per attempt, optional latest start), choose when candidates may see which answers were right (see [Answer review](#answer-review)), publish. A draft can be put right on the way (see [Putting a draft exam right](#putting-a-draft-exam-right)).
-5. **Invites** (`/invites/create`): pick a published exam and a candidate's e-mail address. The invitation is e-mailed when `Smtp:Host` is configured; otherwise the page shows the link to pass on by hand.
+5. **Invites** (`/invites/create`): pick a published exam and a candidate's e-mail address. The invitation is e-mailed when `Smtp:Host` is configured; if the address belongs to an account with a phone number and the host sends invitations on WhatsApp, the exam code goes to that phone too (see [Invitations on WhatsApp](#invitations-on-whatsapp)); when neither could be sent the page shows the link to pass on by hand.
 6. The candidate opens the link (signing in or registering first), and accepts it. Only the account holding the invited e-mail address can accept; accepting enrolls them.
 7. **My exams** (`/my-exams`): Start (this opens the instructions and system check, see [Instructions and system check](#instructions-and-system-check); the server fixes the deadline once the candidate has acknowledged them), answer (saved as they go; an answer can be cleared and a question marked for review, see [Sitting an exam](#sitting-an-exam-clearing-a-response-and-marking-for-review)), submit, and read the score, then review which answers were right once they are released. If time runs out the attempt is closed with the saved answers the next time anyone looks at it. A candidate asks for another attempt by contacting an administrator, who gives one on the exam's **Candidates and attempts** page (see [Extra attempts](#extra-attempts)).
 
@@ -733,10 +733,13 @@ The destination is masked (an email keeps its first character and domain, a phon
 
 #### WhatsApp (Meta Cloud API)
 
-With `Identity:OtpDelivery:PhoneProvider` = `WhatsApp`, a code for a phone number is sent as a WhatsApp message through Meta's Cloud API, while e-mail codes keep using `Provider`. The sign-in and register pages already take a phone number (the wire channel is `Sms`, meaning "a phone number"; the register form's option now reads **WhatsApp**).
+**WhatsApp is off unless `WhatsApp__Enabled` is `true`.** That one switch covers every message the platform would send through WhatsApp, whatever else is configured: with it off, nothing is sent (each attempt says so in the log), no phone number is read for an invitation, and the other settings below are not demanded at startup, so the credentials can be put in place first and the switch turned off again in an emergency without the host refusing to start. It ships off (`appsettings.json` says `"Enabled": false`) and a blank value counts as off. It does not stop the webhook, which only receives reports about messages already sent.
+
+With `Identity:OtpDelivery:PhoneProvider` = `WhatsApp` and the switch on, a code for a phone number is sent as a WhatsApp message through Meta's Cloud API, while e-mail codes keep using `Provider`. The sign-in and register pages already take a phone number (the wire channel is `Sms`, meaning "a phone number"; the register form's option now reads **WhatsApp**).
 
 | Setting (environment variable) | What it is |
 |---|---|
+| `WhatsApp__Enabled` | The master switch: `true` to send anything through WhatsApp. Off (the default) sends nothing. Turn it on last. |
 | `Identity__OtpDelivery__PhoneProvider` | `WhatsApp`. Leave it unset to send nothing to phones. A blank value counts as unset. |
 | `WhatsApp__AccessToken` | A **permanent** token from a system user of the business that owns the WhatsApp Business Account (the dashboard's temporary token expires in a day). A secret. |
 | `WhatsApp__PhoneNumberId` | The id of the sending number (not the number), shown under it in the app dashboard. |
@@ -747,7 +750,7 @@ With `Identity:OtpDelivery:PhoneProvider` = `WhatsApp`, a code for a phone numbe
 | `WhatsApp__WebhookVerifyToken` | Any string you choose; you type the same one into the app dashboard when you set the webhook up. A secret. |
 | `WhatsApp__ApiVersion`, `WhatsApp__BaseUrl` | The Graph API version (default `v23.0`) and address. Rarely changed; Meta retires each version after about two years. |
 
-If `PhoneProvider` is `WhatsApp` and the access token, phone number id or template name is missing, **the API refuses to start** and names what is missing, rather than failing the first phone sign-in. The webhook settings are separate: the webhook is optional for sending.
+If the switch is on and `PhoneProvider` is `WhatsApp`, but the access token, phone number id or template name is missing, **the API refuses to start** and names what is missing, rather than failing the first phone sign-in. The webhook settings are separate: the webhook is optional for sending.
 
 **Setting it up on Meta's side** (done once, in the browser; nothing here is in the repository):
 
@@ -755,11 +758,33 @@ If `PhoneProvider` is `WhatsApp` and the access token, phone number id or templa
 2. Under WhatsApp > **API Setup**, note the **Phone number ID**. The free test number can message only the few recipients you verify there; a real number is added in WhatsApp Manager. Meta may ask for business verification and a payment method before a real number can message the public, and bills authentication messages per message.
 3. In Business settings > **System users**, add a system user, give it the app and the WhatsApp account, and generate a token with the `whatsapp_business_messaging` and `whatsapp_business_management` permissions. That is `WhatsApp__AccessToken`. The app secret (App settings > Basic) is `WhatsApp__AppSecret`.
 4. In WhatsApp Manager > **Message templates**, create a template of category **Authentication** in the language you will set, with the **Copy code** button. Meta writes its body ("*123456* is your verification code."); you may add the security note and an expiry line. Its name is `WhatsApp__OtpTemplateName`. Codes cannot be sent until Meta approves it.
-5. Set the variables above on the API and redeploy. Then under WhatsApp > **Configuration**, set the webhook's **Callback URL** to `https://<the API's address>/v1/webhooks/whatsapp` and the **Verify token** to your `WhatsApp__WebhookVerifyToken`, choose **Verify and save**, and subscribe to the `messages` field.
+5. Set the variables above on the API, with `WhatsApp__Enabled` = `true` last, and redeploy. Then under WhatsApp > **Configuration**, set the webhook's **Callback URL** to `https://<the API's address>/v1/webhooks/whatsapp` and the **Verify token** to your `WhatsApp__WebhookVerifyToken`, choose **Verify and save**, and subscribe to the `messages` field.
 
 **What the platform does with it.** Sign-in works as it does for e-mail: the same answer whether or not the number has an account, and a failure is logged (with the number masked to its last two digits, and never the code) rather than shown. The API log says `A code for ********10 was handed to WhatsApp as message wamid...`, and the webhook then reports what became of that message: `WhatsApp message wamid... to ********10 is delivered`, or a warning with Meta's error (for example `131026 Message undeliverable` when the number is not on WhatsApp), so a code that never arrived can be followed. Anything a person writes to the number is acknowledged and its content is not read or logged. The webhook (`GET`/`POST /v1/webhooks/whatsapp`) is open to any caller, so it proves each one: the set-up handshake by the verify token, and each report by the app secret's HMAC signature over the exact bytes received (an unsigned or mis-signed call gets 401 and nothing in it is read).
 
-**Not built yet** (FR-39): invitations, guardian-consent requests, reminders and result messages over WhatsApp; opt-in and opt-out records for them (the [privacy page](#privacy-policy-page-public) describes opt-in-only notices, so those messages must not start before that exists); and keeping delivery status where support can see it, rather than in the log. The client (`IWhatsAppSender`, in `SharedKernel.Infrastructure`) already sends any approved template, so those add templates and callers, not a new integration.
+#### Invitations on WhatsApp
+
+When an invitation is created, the invited address is looked up among **active accounts**; if one has a phone number, the invitation's exam code (the one the candidate enters on the invitation page, with the link and when it expires) is also sent to that phone on WhatsApp. The e-mail is unchanged. A number comes only from an account: an address with no account, an account without a phone, one still waiting to be verified and a suspended one get nothing on WhatsApp, and the roster's phone column is not used (nothing links an invite to a roster entry in the UI).
+
+It is **off** unless the master switch `WhatsApp__Enabled` is `true` **and** the operator names a template: `Invite__WhatsApp__TemplateName` (and `Invite__WhatsApp__TemplateLanguage`, default `en`, to match it), on top of the `WhatsApp__*` settings above. With the switch on, naming a template without `WhatsApp__AccessToken` and `WhatsApp__PhoneNumberId` stops the API at start and names what is missing. While it is off, no phone number is read for an invitation.
+
+**The template.** An invitation is a business-started message, so it needs a template Meta has approved, of category **Utility** (Meta may reclassify one that mentions a code; its review says so). Its body takes four values, in this order, and must not start or end with one:
+
+```
+You have been invited to take the exam {{1}}.
+
+Your exam code is {{2}}.
+
+Open {{3}} and sign in with the e-mail address you were invited at, or enter the code on the invitation page. The code works once and expires on {{4}}.
+```
+
+`{{1}}` is the exam's name (put on one line and cut at 200 characters, since WhatsApp refuses line breaks in a value), `{{2}}` the code, `{{3}}` the link and `{{4}}` the expiry as `10 Oct 2026 14:30 UTC`. Give Meta sample values when you submit it.
+
+**What the inviter sees.** The page says the code was also sent to their phone on WhatsApp. If the e-mail could not be sent but WhatsApp took the message, the page does not show a link to pass on, since the message carried it; if neither went out it shows the link as before. A WhatsApp failure never fails the invitation: the invite is saved and e-mailed first, and WhatsApp is best effort after that. The log says `An invitation was handed to WhatsApp for ********10 as message wamid...`, and the webhook then reports its delivery. Numbers appear masked and the code and link never appear in a log.
+
+**Before you turn it on: consent.** The [privacy page](#privacy-policy-page-public) tells people WhatsApp notices go only to those who agreed to receive them, and WhatsApp's own rules require the same. The platform does **not** yet record that agreement (there is no consent purpose for it): an account that registered with a phone number has given the number for sign-in codes, not necessarily for invitations. Turning the switch and the template on is therefore the operator's assertion that those accounts have agreed. Opt-in and opt-out records are the next piece of FR-39.
+
+**Not built yet** (FR-39): guardian-consent requests, reminders and result messages over WhatsApp; opt-in and opt-out records for them (the [privacy page](#privacy-policy-page-public) describes opt-in-only notices, so those messages must not start before that exists); and keeping delivery status where support can see it, rather than in the log. The client (`IWhatsAppSender`, in `SharedKernel.Infrastructure`) already sends any approved template, so those add templates and callers, not a new integration.
 
 ### Rate limiting (NFR-5)
 

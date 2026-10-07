@@ -18,6 +18,14 @@ public sealed class WhatsAppCloudApiSender(HttpClient httpClient, IOptions<Whats
     public async Task<WhatsAppSendResult> SendTemplateAsync(WhatsAppTemplateMessage message, CancellationToken cancellationToken)
     {
         var whatsApp = options.Value;
+        if (!whatsApp.IsEnabled)
+        {
+            // Said every time, not once: a sign-in or invitation that got nothing should say why in the log, and a switch left off by
+            // mistake is found that way.
+            logger.LogWarning("WhatsApp message not sent: WhatsApp is switched off (WhatsApp:Enabled is not true).");
+            return new WhatsAppSendResult(false);
+        }
+
         if (!whatsApp.CanSend)
         {
             logger.LogWarning("WhatsApp message not sent: it is not configured (WhatsApp:AccessToken / WhatsApp:PhoneNumberId).");

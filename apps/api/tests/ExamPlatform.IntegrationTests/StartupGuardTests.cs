@@ -2,6 +2,7 @@ using System.Net;
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Endpoints.OtpDelivery;
 using ExamPlatform.Modules.Identity.Endpoints.RateLimiting;
+using ExamPlatform.Modules.Invite.Infrastructure.WhatsApp;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -125,7 +126,7 @@ public sealed class StartupGuardTests
     public void NonDevelopment_WithWhatsAppForPhonesButNothingConfiguredForWhatsApp_FailsAtStartupNamingWhatIsMissing()
     {
         // Told to send codes over WhatsApp with no way to, the host must stop here, not fail the first phone sign-in.
-        using var factory = SmtpHostWith(("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp));
+        using var factory = SmtpHostWith(("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp), ("WhatsApp:Enabled", "true"));
 
         var failure = AssertStartupFails<OtpDeliveryOptions>(factory);
 
@@ -137,6 +138,7 @@ public sealed class StartupGuardTests
     {
         using var factory = SmtpHostWith(
             ("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp),
+            ("WhatsApp:Enabled", "true"),
             ("WhatsApp:AccessToken", "token"),
             ("WhatsApp:PhoneNumberId", "1234567890"));
 
@@ -157,13 +159,78 @@ public sealed class StartupGuardTests
     }
 
     [Fact]
+    public async Task NonDevelopment_WithWhatsAppForPhonesButSwitchedOff_BootsWithoutItsSettings()
+    {
+        // The master switch is off unless turned on: nothing is sent, so nothing else is demanded of the host. Turning it on is what
+        // checks the settings (the tests above), and turning it off again in an emergency must not stop the host starting.
+        using var factory = SmtpHostWith(("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task NonDevelopment_WithWhatsAppForPhonesAndItsSettings_Boots()
     {
         using var factory = SmtpHostWith(
             ("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp),
+            ("WhatsApp:Enabled", "true"),
             ("WhatsApp:AccessToken", "token"),
             ("WhatsApp:PhoneNumberId", "1234567890"),
             ("WhatsApp:OtpTemplateName", "exam_login_code"));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public void NonDevelopment_WithAnInviteTemplateButNothingConfiguredForWhatsApp_FailsAtStartupNamingWhatIsMissing()
+    {
+        // Told to send invitations on WhatsApp with no way to, the host must stop here, not skip WhatsApp on every invitation.
+        using var factory = SmtpHostWith(("Invite:WhatsApp:TemplateName", "exam_invitation"), ("WhatsApp:Enabled", "true"));
+
+        var failure = AssertStartupFails<InviteWhatsAppOptions>(factory);
+
+        Assert.Contains(
+            "Invite:WhatsApp:TemplateName is set and WhatsApp is switched on, but WhatsApp:AccessToken, WhatsApp:PhoneNumberId are not set",
+            failure.Message);
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithAnInviteTemplateButWhatsAppSwitchedOff_BootsWithoutItsSettings()
+    {
+        // Nothing is sent while the master switch is off, so nothing else is demanded; turning it on is what checks the settings.
+        using var factory = SmtpHostWith(("Invite:WhatsApp:TemplateName", "exam_invitation"));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithAnInviteTemplateAndWhatsAppConfigured_Boots()
+    {
+        using var factory = SmtpHostWith(
+            ("Invite:WhatsApp:TemplateName", "exam_invitation"),
+            ("WhatsApp:Enabled", "true"),
+            ("WhatsApp:AccessToken", "token"),
+            ("WhatsApp:PhoneNumberId", "1234567890"));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithABlankInviteTemplate_BootsAsIfItWereUnset()
+    {
+        using var factory = SmtpHostWith(("Invite:WhatsApp:TemplateName", ""));
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/v1/health");

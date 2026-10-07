@@ -1,8 +1,9 @@
 export type InviteStatus = 'Pending' | 'Accepted' | 'Declined' | 'Expired' | 'Revoked';
 
 /**
- * An invite as the inviting side sees it. `emailSent` and `inviteLink` are only set when an invite is created:
- * the link is given back only when the e-mail could not be sent, so the inviter can pass it on by hand.
+ * An invite as the inviting side sees it. `emailSent`, `whatsAppSent` and `inviteLink` are only set when an invite is
+ * created: `whatsAppSent` says the exam code was also handed to WhatsApp for the invited person's registered phone, and the
+ * link is given back only when neither went out, so the inviter can pass it on by hand.
  */
 export interface InviteDto {
   id: string;
@@ -17,6 +18,7 @@ export interface InviteDto {
   createdAt: string;
   updatedAt: string;
   emailSent: boolean;
+  whatsAppSent: boolean;
   inviteLink: string | null;
 }
 

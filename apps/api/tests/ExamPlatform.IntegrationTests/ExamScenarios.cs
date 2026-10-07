@@ -20,10 +20,11 @@ internal static class ExamScenarios
     }
 
     /// <summary>A client signed in as a candidate with the given e-mail address.</summary>
-    public static async Task<(HttpClient Client, SignedInTestUser User)> CandidateClientAsync(this ApiFactory factory, string? email = null)
+    public static async Task<(HttpClient Client, SignedInTestUser User)> CandidateClientAsync(
+        this ApiFactory factory, string? email = null, string? phoneNumber = null)
     {
         var client = factory.CreateClient();
-        var user = await factory.SignInAsAsync("Candidate", email);
+        var user = await factory.SignInAsAsync("Candidate", email, phoneNumber: phoneNumber);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.AccessToken);
         return (client, user);
     }

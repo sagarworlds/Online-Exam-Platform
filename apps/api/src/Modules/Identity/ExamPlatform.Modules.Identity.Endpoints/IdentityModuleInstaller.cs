@@ -47,6 +47,7 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
         services.AddScoped<ISessionLookup, SessionLookup>();
         services.AddScoped<IStaffDirectory, StaffDirectory>();
+        services.AddScoped<IContactDirectory, ContactDirectory>();
         services.AddScoped<IIdentityUnitOfWork, IdentityUnitOfWork>();
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
