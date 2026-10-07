@@ -125,7 +125,7 @@ public sealed class StartupGuardTests
     public void NonDevelopment_WithWhatsAppForPhonesButNothingConfiguredForWhatsApp_FailsAtStartupNamingWhatIsMissing()
     {
         // Told to send codes over WhatsApp with no way to, the host must stop here, not fail the first phone sign-in.
-        using var factory = SmtpHostWith(("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp));
+        using var factory = SmtpHostWith(("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp), ("WhatsApp:Enabled", "true"));
 
         var failure = AssertStartupFails<OtpDeliveryOptions>(factory);
 
@@ -137,6 +137,7 @@ public sealed class StartupGuardTests
     {
         using var factory = SmtpHostWith(
             ("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp),
+            ("WhatsApp:Enabled", "true"),
             ("WhatsApp:AccessToken", "token"),
             ("WhatsApp:PhoneNumberId", "1234567890"));
 
@@ -157,10 +158,24 @@ public sealed class StartupGuardTests
     }
 
     [Fact]
+    public async Task NonDevelopment_WithWhatsAppForPhonesButSwitchedOff_BootsWithoutItsSettings()
+    {
+        // The master switch is off unless turned on: nothing is sent, so nothing else is demanded of the host. Turning it on is what
+        // checks the settings (the tests above), and turning it off again in an emergency must not stop the host starting.
+        using var factory = SmtpHostWith(("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task NonDevelopment_WithWhatsAppForPhonesAndItsSettings_Boots()
     {
         using var factory = SmtpHostWith(
             ("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp),
+            ("WhatsApp:Enabled", "true"),
             ("WhatsApp:AccessToken", "token"),
             ("WhatsApp:PhoneNumberId", "1234567890"),
             ("WhatsApp:OtpTemplateName", "exam_login_code"));

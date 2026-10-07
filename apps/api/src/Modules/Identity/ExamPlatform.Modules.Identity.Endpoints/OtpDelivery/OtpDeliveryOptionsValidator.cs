@@ -8,8 +8,9 @@ namespace ExamPlatform.Modules.Identity.Endpoints.OtpDelivery;
 /// Refuses, at startup, an <see cref="OtpDeliveryOptions"/> that names no known provider,
 /// or that names <see cref="OtpDeliveryOptions.DevelopmentLog"/> outside the Development
 /// environment, so codes and reset links can never end up in a production log (NFR-6).
-/// It also refuses a <see cref="OtpDeliveryOptions.PhoneProvider"/> that is not WhatsApp, or is WhatsApp without the
-/// settings WhatsApp needs, so a host that is told to send codes there cannot start and then fail on the first sign-in.
+/// It also refuses a <see cref="OtpDeliveryOptions.PhoneProvider"/> that is not WhatsApp, or is WhatsApp, with WhatsApp switched on
+/// (<c>WhatsApp:Enabled</c>), without the settings WhatsApp needs, so a host that is told to send codes there cannot start and then
+/// fail on the first sign-in.
 /// Registered with <c>ValidateOnStart</c>, so a misconfigured host fails to boot instead
 /// of failing on the first sign-in.
 /// </summary>
@@ -81,11 +82,18 @@ internal sealed class OtpDeliveryOptionsValidator(IHostEnvironment environment, 
                 + $"'{OtpDeliveryOptions.WhatsApp}'. Leave it unset to send nothing to phone numbers.");
         }
 
+        // Switched off, nothing is sent, so nothing else is demanded: the credentials can be put in place first, and the switch turned
+        // off again in an emergency without the host refusing to start. Turning it on is what checks them.
+        if (!whatsApp.Value.IsEnabled)
+        {
+            return ValidateOptionsResult.Success;
+        }
+
         var missing = whatsApp.Value.MissingForOtp();
         return missing.Count == 0
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(
-                $"{OtpDeliveryOptions.SectionName}:PhoneProvider is '{OtpDeliveryOptions.WhatsApp}', but "
+                $"{OtpDeliveryOptions.SectionName}:PhoneProvider is '{OtpDeliveryOptions.WhatsApp}' and WhatsApp is switched on, but "
                 + $"{string.Join(", ", missing.Select(setting => $"{WhatsAppOptions.SectionName}:{setting}"))} "
                 + (missing.Count == 1 ? "is" : "are") + " not set.");
     }
