@@ -50,12 +50,23 @@
   <div class="page-header">
     <h2>Newest questions</h2>
     <div class="list-filter">
+      @if (filterClasses().length > 0) {
+        <label class="visually-hidden" for="filter-class">Class</label>
+        <select id="filter-class" [value]="filterClass()" (change)="onFilterClassChanged($any($event.target).value)">
+          <option value="">Any class</option>
+          @for (item of filterClasses(); track item.id) {
+            <option [value]="item.id">{{ item.name }}</option>
+          }
+        </select>
+      }
       <label class="visually-hidden" for="filter-book">Show questions from</label>
       <select id="filter-book" [value]="filterBook()" (change)="onFilterBookChanged($any($event.target).value)">
-        <option value="">All questions</option>
-        <option [value]="unfiled">Not filed under a chapter</option>
-        @for (book of books(); track book.id) {
-          <option [value]="book.id">{{ book.name }}{{ book.isArchived ? ' (archived)' : '' }}</option>
+        <option value="">{{ filterClass() ? 'All books of this class' : 'All questions' }}</option>
+        @if (!filterClass()) {
+          <option [value]="unfiled">Not filed under a chapter</option>
+        }
+        @for (book of filterBooks(); track book.id) {
+          <option [value]="book.id">{{ optionLabel(book, filterClass()) }}{{ book.isArchived ? ' (archived)' : '' }}</option>
         }
       </select>
       <label class="visually-hidden" for="filter-search">Search questions</label>
@@ -133,7 +144,7 @@
   @if (loading()) {
     <p>Loading…</p>
   } @else if (questions().length === 0) {
-    <p>{{ filterBook() || filterDifficulty() || filterTopic() || filterSearch() || filterStatus() || filterLanguage() ? 'No questions match this filter.' : 'No questions yet.' }}</p>
+    <p>{{ filterClass() || filterBook() || filterDifficulty() || filterTopic() || filterSearch() || filterStatus() || filterLanguage() ? 'No questions match this filter.' : 'No questions yet.' }}</p>
   } @else {
     <label class="inline-check select-all">
       <input type="checkbox" [checked]="allSelected()" (change)="toggleAll($any($event.target).checked)" />

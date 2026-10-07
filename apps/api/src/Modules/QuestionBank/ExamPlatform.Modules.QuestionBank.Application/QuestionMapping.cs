@@ -28,7 +28,9 @@ internal static class QuestionMapping
             question.AllowsMultiple,
             QuestionStatusText.Format(question.Status),
             question.Language,
-            question.TranslationGroupId);
+            question.TranslationGroupId,
+            filedUnder?.ClassId,
+            filedUnder?.ClassName);
 
     /// <summary>Maps a line of a question's review thread.</summary>
     public static QuestionReviewEntryDto ToDto(this QuestionReviewEntry entry) =>

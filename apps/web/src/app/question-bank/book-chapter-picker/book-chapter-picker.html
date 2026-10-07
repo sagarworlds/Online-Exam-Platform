@@ -1,10 +1,24 @@
-<div class="form-row form-row--pair">
+<div class="form-row" [class.form-row--pair]="!cascade.offered()" [class.form-row--triple]="cascade.offered()">
+  @if (cascade.offered()) {
+    <div class="field">
+      <label [for]="idPrefix() + '-class'">Class</label>
+      <select [id]="idPrefix() + '-class'" (change)="chooseClass($any($event.target).value)">
+        <option [value]="anyClass" [selected]="cascade.key() === anyClass">Any class</option>
+        @for (item of cascade.classes(); track item.id) {
+          <option [value]="item.id" [selected]="cascade.key() === item.id">{{ item.name }}</option>
+        }
+        @if (cascade.offersNoClass()) {
+          <option [value]="noClass" [selected]="cascade.key() === noClass">No class</option>
+        }
+      </select>
+    </div>
+  }
   <div class="field">
     <label [for]="idPrefix() + '-book'">{{ bookLabel() }}</label>
     <select [id]="idPrefix() + '-book'" (change)="chooseBook($any($event.target).value)">
       <option value="" [selected]="!value().bookId">{{ noBookLabel() }}</option>
-      @for (book of openBooks(); track book.id) {
-        <option [value]="book.id" [selected]="book.id === value().bookId">{{ book.name }}</option>
+      @for (book of cascade.books(); track book.id) {
+        <option [value]="book.id" [selected]="book.id === value().bookId">{{ optionLabel(book, cascade.key()) }}</option>
       }
     </select>
   </div>

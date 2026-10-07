@@ -8,7 +8,7 @@ import { QuestionCard } from './question-card';
 
 const question = (overrides: Partial<QuestionDto> = {}): QuestionDto => ({
   id: 'q1', text: '<p>Capital of France?</p>', createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
-  chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths',
+  chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths', classId: null, className: null,
   usage: { examCount: 0, examNames: [], answered: false },
   difficulty: null,
   topics: [],
@@ -22,7 +22,7 @@ const question = (overrides: Partial<QuestionDto> = {}): QuestionDto => ({
 
 const chapter = (id: string, order: number, title: string) => ({ id, bookId: 'b1', title, order, isArchived: false, questionCount: 0 });
 const MATHS: BookDto = {
-  id: 'b1', name: 'Maths', subject: null, description: null, isArchived: false, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
+  id: 'b1', name: 'Maths', classId: null, className: null, subject: null, description: null, isArchived: false, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
   chapters: [chapter('c1', 1, 'Algebra'), chapter('c2', 2, 'Geometry')],
 };
 
@@ -69,6 +69,18 @@ describe('QuestionCard', () => {
     expect(root.querySelector('.correct-option')?.textContent).toContain('Paris');
   });
 
+  it('shows the class first, then the book and the chapter, when the book has a class', () => {
+    show(question({ classId: 'k4', className: '4th', bookName: 'English', chapterTitle: 'Nouns' }));
+
+    expect(root.querySelector('.question-card__where')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('4th › English › Nouns');
+  });
+
+  it('shows just the book and the chapter when the book has no class', () => {
+    show();
+
+    expect(root.querySelector('.question-card__where')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Maths › Algebra');
+  });
+
   it('shows the language the question is written in', () => {
     show(question({ language: 'mr' }));
 
@@ -103,7 +115,7 @@ describe('QuestionCard', () => {
   });
 
   it('says so when the question is not filed', () => {
-    show(question({ chapterId: null, chapterTitle: null, bookId: null, bookName: null }));
+    show(question({ chapterId: null, chapterTitle: null, bookId: null, bookName: null, classId: null, className: null }));
 
     expect(root.querySelector('.question-card__where')?.textContent).toContain('Not filed under a chapter');
   });
@@ -232,7 +244,7 @@ describe('QuestionCard', () => {
     };
 
     it('opens a book and chapter choice, and files only once a chapter is chosen', () => {
-      show(question({ chapterId: null, chapterTitle: null, bookId: null, bookName: null }));
+      show(question({ chapterId: null, chapterTitle: null, bookId: null, bookName: null, classId: null, className: null }));
       expect(root.querySelector('#file-q1-book')).toBeNull();
 
       press('File under…');
@@ -245,6 +257,25 @@ describe('QuestionCard', () => {
       press('File question');
 
       expect(filed).toEqual([{ questionId: 'q1', chapterId: 'c2' }]);
+    });
+
+    it('narrows the books by class on the way to a chapter, and files under the chapter chosen', () => {
+      const english = (id: string, classId: string, className: string, chapterId: string) => ({
+        ...MATHS, id, name: 'English', classId, className, chapters: [{ ...chapter(chapterId, 1, 'Nouns'), bookId: id }],
+      });
+      show(question({ chapterId: null, chapterTitle: null, bookId: null, bookName: null, classId: null, className: null }));
+      fixture.componentRef.setInput('books', [MATHS, english('e4', 'k4', '4th', 'e4-c1'), english('e5', 'k5', '5th', 'e5-c1')]);
+      fixture.detectChanges();
+
+      press('File under…');
+      expect(Array.from(root.querySelectorAll('#file-q1-book option')).map((o) => o.textContent?.trim())).toEqual(['Choose a book…', '4th · English', '5th · English', 'Maths']);
+      choose('file-q1-class', 'k5');
+      expect(Array.from(root.querySelectorAll('#file-q1-book option')).map((o) => o.textContent?.trim())).toEqual(['Choose a book…', 'English']);
+      choose('file-q1-book', 'e5');
+      choose('file-q1-chapter', 'e5-c1');
+      press('File question');
+
+      expect(filed).toEqual([{ questionId: 'q1', chapterId: 'e5-c1' }]);
     });
 
     it('closes and forgets the choice once the question has moved', () => {

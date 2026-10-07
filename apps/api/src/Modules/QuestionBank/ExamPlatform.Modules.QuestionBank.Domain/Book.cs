@@ -4,9 +4,10 @@ using ExamPlatform.SharedKernel.Domain;
 namespace ExamPlatform.Modules.QuestionBank.Domain;
 
 /// <summary>
-/// A book: the unit authors organise questions by, made of chapters (FR-5). Exams can later be limited to a book or
-/// to some of its chapters. The book owns its chapters, so the rules between them (unique titles, nothing added to
-/// an archived book) live here and no caller can break them.
+/// A book: the unit authors organise questions by, made of chapters (FR-5). It may belong to a class (for example the
+/// 4th), so "English" for the 4th and "English" for the 5th are two books. Exams can be limited to a book or to some
+/// of its chapters. The book owns its chapters, so the rules between them (unique titles, nothing added to an archived
+/// book) live here and no caller can break them.
 /// </summary>
 public sealed class Book : AggregateRoot
 {
@@ -34,6 +35,12 @@ public sealed class Book : AggregateRoot
     public string? Description { get; private set; }
 
     /// <summary>
+    /// The class the book belongs to (see <see cref="SchoolClass"/>), or null when it has none, as every book made before classes
+    /// existed. Whether the class exists and is open is the caller's concern, because it is a separate aggregate.
+    /// </summary>
+    public Guid? ClassId { get; private set; }
+
+    /// <summary>
     /// Whether the book is archived: kept for the questions filed under it, but closed to new chapters and hidden from
     /// pickers. Books are archived rather than deleted so nothing filed under them is ever lost.
     /// </summary>
@@ -51,11 +58,12 @@ public sealed class Book : AggregateRoot
     // For EF Core.
     private Book() : base(Guid.Empty) => Name = null!;
 
-    private Book(Guid id, string name, string? subject, string? description, Guid createdBy, DateTime createdAtUtc) : base(id)
+    private Book(Guid id, string name, string? subject, string? description, Guid? classId, Guid createdBy, DateTime createdAtUtc) : base(id)
     {
         Name = name;
         Subject = subject;
         Description = description;
+        ClassId = classId;
         CreatedBy = createdBy;
         CreatedAtUtc = createdAtUtc;
     }
@@ -66,24 +74,27 @@ public sealed class Book : AggregateRoot
     /// <param name="description">A description, or null or blank for none.</param>
     /// <param name="createdBy">The authoring user.</param>
     /// <param name="nowUtc">The current instant.</param>
+    /// <param name="classId">The class the book belongs to, or null for none.</param>
     /// <exception cref="InvalidBookError">The name is blank, or a field is too long.</exception>
-    public static Book Create(string? name, string? subject, string? description, Guid createdBy, DateTime nowUtc)
+    public static Book Create(string? name, string? subject, string? description, Guid createdBy, DateTime nowUtc, Guid? classId = null)
     {
         var details = Validate(name, subject, description);
-        return new Book(Guid.NewGuid(), details.Name, details.Subject, details.Description, createdBy, nowUtc);
+        return new Book(Guid.NewGuid(), details.Name, details.Subject, details.Description, classId, createdBy, nowUtc);
     }
 
-    /// <summary>Changes the book's name, subject and description.</summary>
+    /// <summary>Changes the book's name, subject, description and class: the details are replaced as a whole.</summary>
     /// <param name="name">The new name.</param>
     /// <param name="subject">The new subject, or null or blank for none.</param>
     /// <param name="description">The new description, or null or blank for none.</param>
+    /// <param name="classId">The class the book now belongs to; null takes it out of its class, so it is never left unchanged by omission.</param>
     /// <exception cref="InvalidBookError">The name is blank, or a field is too long.</exception>
-    public void Update(string? name, string? subject, string? description)
+    public void Update(string? name, string? subject, string? description, Guid? classId = null)
     {
         var details = Validate(name, subject, description);
         Name = details.Name;
         Subject = details.Subject;
         Description = details.Description;
+        ClassId = classId;
     }
 
     /// <summary>Archives the book: it keeps its questions, takes no new chapters and leaves the pickers.</summary>

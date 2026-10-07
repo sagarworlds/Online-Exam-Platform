@@ -29,6 +29,7 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
 
         services.AddScoped<IQuestionRepository, QuestionRepository>();
         services.AddScoped<IBookRepository, BookRepository>();
+        services.AddScoped<IClassRepository, ClassRepository>();
         services.AddScoped<IQuestionBankUnitOfWork, QuestionBankUnitOfWork>();
         // Whether an exam may only hold approved questions (FR-8). Off unless the deployment asks for it.
         // Read when first needed, not now, so a host that adds its settings after registration (as the tests do) is honoured.
@@ -41,6 +42,7 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         services.AddScoped<QuestionDuplicateFinder>();
         services.AddSingleton(sp => new QuestionDuplicatePolicy(sp.GetRequiredService<IConfiguration>().GetValue("QuestionBank:RefuseDuplicates", true)));
         services.AddScoped<OpenChapterResolver>();
+        services.AddScoped<OpenClassResolver>();
         // A new sanitizer per request: the library's instance carries mutable configuration.
         services.AddScoped<IRichTextSanitizer, RichTextSanitizer>();
 
@@ -66,6 +68,10 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         services.AddScoped<ChangeBookHandler>();
         services.AddScoped<ListBooksHandler>();
         services.AddScoped<GetBookHandler>();
+
+        services.AddScoped<CreateClassHandler>();
+        services.AddScoped<ChangeClassHandler>();
+        services.AddScoped<ListClassesHandler>();
     }
 
     /// <inheritdoc />
@@ -73,6 +79,7 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
     {
         endpoints.MapQuestionBankEndpoints();
         endpoints.MapBookEndpoints();
+        endpoints.MapClassEndpoints();
     }
 
     /// <inheritdoc />

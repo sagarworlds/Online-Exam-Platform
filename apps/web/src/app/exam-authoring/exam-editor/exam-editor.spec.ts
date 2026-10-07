@@ -15,6 +15,8 @@ const question = (id: string, text: string, filedUnder: { chapterId: string; boo
   chapterTitle: null,
   bookId: filedUnder?.bookId ?? null,
   bookName: null,
+  classId: null,
+  className: null,
   options: [
     { id: `${id}-a`, text: 'A', isCorrect: true, isPinned: false },
     { id: `${id}-b`, text: 'B', isCorrect: false, isPinned: false },
@@ -46,7 +48,7 @@ function examBody(overrides: Record<string, unknown> = {}) {
     updatedAt: '2026-10-02T00:00:00Z',
     isScheduled: false,
     sections: [{ id: 's1', name: 'Algebra', timeSeconds: null, order: 1, questions: [] }],
-    scope: { type: 'Independent', bookId: null, bookName: null, chapters: [] },
+    scope: { type: 'Independent', bookId: null, bookName: null, className: null, chapters: [] },
     ...overrides,
   };
 }
@@ -221,9 +223,9 @@ describe('ExamEditor', () => {
   });
 
   describe('scope', () => {
-    const chaptersScope = { type: 'Chapters', bookId: 'b1', bookName: 'Maths Grade 10', chapters: [{ id: 'c1', title: 'Algebra' }] };
+    const chaptersScope = { type: 'Chapters', bookId: 'b1', bookName: 'Maths Grade 10', className: null, chapters: [{ id: 'c1', title: 'Algebra' }] };
     const MATHS = {
-      id: 'b1', name: 'Maths Grade 10', subject: null, description: null, isArchived: false, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
+      id: 'b1', name: 'Maths Grade 10', subject: null, description: null, classId: null, className: null, isArchived: false, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
       chapters: [
         { id: 'c1', bookId: 'b1', title: 'Algebra', order: 1, isArchived: false, questionCount: 1 },
         { id: 'c2', bookId: 'b1', title: 'Geometry', order: 2, isArchived: false, questionCount: 1 },
@@ -259,6 +261,12 @@ describe('ExamEditor', () => {
       expect(request.params.get('bookId')).toBe('b1');
     });
 
+    it('names the class of the book an exam draws from', () => {
+      const { root } = openScoped(examBody({ scope: { ...chaptersScope, className: '4th' } }));
+
+      expect(root.textContent).toContain('Maths Grade 10 (4th): Algebra');
+    });
+
     it('offers only the questions inside the exam scope', () => {
       const { root } = openScoped(undefined, [inAlgebra, inGeometry, elsewhere, unfiled]);
 
@@ -271,7 +279,7 @@ describe('ExamEditor', () => {
     });
 
     it('offers every question of the book to a whole-book exam', () => {
-      const { root } = openScoped(examBody({ scope: { type: 'Book', bookId: 'b1', bookName: 'Maths Grade 10', chapters: [] } }), [inAlgebra, inGeometry, elsewhere]);
+      const { root } = openScoped(examBody({ scope: { type: 'Book', bookId: 'b1', bookName: 'Maths Grade 10', className: null, chapters: [] } }), [inAlgebra, inGeometry, elsewhere]);
 
       const options = Array.from(root.querySelectorAll('select option')).map((o) => o.textContent?.trim());
       expect(options).toContain('Solve x');
@@ -303,8 +311,8 @@ describe('ExamEditor', () => {
 
       const put = httpMock.expectOne((r) => r.method === 'PUT' && r.url.endsWith('/v1/exams/exam-1/scope'));
       expect(put.request.body).toEqual({ type: 'Book', bookId: 'b1' });
-      put.flush(examBody({ scope: { type: 'Book', bookId: 'b1', bookName: 'Maths Grade 10', chapters: [] } }));
-      httpMock.expectOne(isExam).flush(examBody({ scope: { type: 'Book', bookId: 'b1', bookName: 'Maths Grade 10', chapters: [] } }));
+      put.flush(examBody({ scope: { type: 'Book', bookId: 'b1', bookName: 'Maths Grade 10', className: null, chapters: [] } }));
+      httpMock.expectOne(isExam).flush(examBody({ scope: { type: 'Book', bookId: 'b1', bookName: 'Maths Grade 10', className: null, chapters: [] } }));
       expect(httpMock.expectOne(isBank).request.params.get('bookId')).toBe('b1');
       fixture.detectChanges();
 

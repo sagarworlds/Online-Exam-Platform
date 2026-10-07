@@ -10,7 +10,7 @@ const isAdd = (r: { method: string; url: string }) => r.method === 'POST' && r.u
 
 const question: QuestionDto = {
   id: 'q1', text: '<p>Capital of France?</p>', createdBy: 'u1', createdAtUtc: '2026-10-08T00:00:00Z',
-  chapterId: null, chapterTitle: null, bookId: null, bookName: null,
+  chapterId: null, chapterTitle: null, bookId: null, bookName: null, classId: null, className: null,
   usage: { examCount: 0, examNames: [], answered: false },
   difficulty: null, topics: [], allowsMultiple: false, language: 'en',
   options: [

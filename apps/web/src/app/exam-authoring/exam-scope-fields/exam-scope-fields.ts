@@ -1,4 +1,5 @@
 import { Component, computed, input, model } from '@angular/core';
+import { ANY_CLASS, ClassCascade, NO_CLASS, bookOptionLabel } from '../../book-management/book-class';
 import { BookDto } from '../../book-management/book.models';
 import { ExamScopeType } from '../exam.models';
 import { NO_SCOPE, ScopeSelection } from './exam-scope';
@@ -9,7 +10,8 @@ let nextId = 0;
  * The "questions come from" choice of an exam (FR-11): anywhere in the bank, one whole book, or chosen chapters of a
  * book. It only collects the choice; the page that holds it decides when it is complete and what to do with it, and the
  * API checks it all again. Archived books and chapters are not offered: they are kept for what is filed under them,
- * not to be chosen for something new.
+ * not to be chosen for something new. A Class select in front of the Book select narrows the books, and is only there while some
+ * book has a class; the choice that is emitted is still the type, a book and chapters.
  */
 @Component({
   selector: 'app-exam-scope-fields',
@@ -35,6 +37,14 @@ export class ExamScopeFields {
   ];
 
   protected readonly openBooks = computed(() => this.books().filter((book) => !book.isArchived));
+  /** The class step in front of the book select; it follows a book chosen from outside, such as the scope an exam already has. */
+  protected readonly cascade = new ClassCascade(
+    this.openBooks,
+    computed(() => this.scope().bookId),
+  );
+  protected readonly anyClass = ANY_CLASS;
+  protected readonly noClass = NO_CLASS;
+  protected readonly optionLabel = bookOptionLabel;
   protected readonly openChapters = computed(
     () => this.books().find((book) => book.id === this.scope().bookId)?.chapters.filter((chapter) => !chapter.isArchived) ?? [],
   );
@@ -49,7 +59,16 @@ export class ExamScopeFields {
     }));
   }
 
+  protected chooseClass(key: string): void {
+    // A book belongs to one class, so one that is not in the new class is dropped, with its chapters.
+    if (!this.cascade.fits(this.scope().bookId, key)) {
+      this.scope.update((current) => ({ ...current, bookId: '', chapterIds: [] }));
+    }
+    this.cascade.choose(key);
+  }
+
   protected chooseBook(bookId: string): void {
+    this.cascade.keep();
     this.scope.update((current) => ({ ...current, bookId, chapterIds: [] }));
   }
 

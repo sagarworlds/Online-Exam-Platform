@@ -24,6 +24,9 @@
         <button type="button" (click)="setBookArchived(true)" [disabled]="busy()">Archive book</button>
       }
     </div>
+    @if (b.className) {
+      <p class="hint book-class">Class: <strong>{{ b.className }}</strong></p>
+    }
     @if (b.isArchived) {
       <p class="hint">
         This book is archived. Its {{ totalQuestions() }} questions are kept, but no chapters can be added and it is hidden
@@ -35,17 +38,28 @@
       <h2>Details</h2>
       <div class="form-row form-row--pair">
         <div class="field">
+          <label for="detail-class">Class (optional)</label>
+          <select id="detail-class" formControlName="classId">
+            <option value="">No class</option>
+            @for (option of classOptions(); track option.id) {
+              <option [value]="option.id">{{ option.label }}</option>
+            }
+          </select>
+        </div>
+        <div class="field">
           <label for="detail-name">Name</label>
           <input id="detail-name" type="text" formControlName="name" [attr.maxlength]="limits.name" />
         </div>
+      </div>
+      <div class="form-row form-row--pair">
         <div class="field">
           <label for="detail-subject">Subject (optional)</label>
           <input id="detail-subject" type="text" formControlName="subject" [attr.maxlength]="limits.subject" />
         </div>
-      </div>
-      <div class="field">
-        <label for="detail-description">Description (optional)</label>
-        <input id="detail-description" type="text" formControlName="description" [attr.maxlength]="limits.description" />
+        <div class="field">
+          <label for="detail-description">Description (optional)</label>
+          <input id="detail-description" type="text" formControlName="description" [attr.maxlength]="limits.description" />
+        </div>
       </div>
       <button type="submit" class="primary" [disabled]="detailsForm.invalid || detailsForm.pristine || busy()">Save details</button>
     </form>

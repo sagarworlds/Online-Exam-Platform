@@ -17,7 +17,7 @@ const section = (overrides: Partial<ExamSectionDto> = {}): ExamSectionDto => ({
 
 const bankQuestion = (id: string, text: string): QuestionDto => ({
   id, text, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
-  chapterId: null, chapterTitle: null, bookId: null, bookName: null,
+  chapterId: null, chapterTitle: null, bookId: null, bookName: null, classId: null, className: null,
   usage: { examCount: 0, examNames: [], answered: false },
   difficulty: null,
   topics: [],

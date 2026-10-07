@@ -39,9 +39,14 @@ public sealed class BookRepository(QuestionBankDbContext context) : IBookReposit
         if (chapterIds.Count == 0)
             return new Dictionary<Guid, ChapterRef>();
 
-        return await context.Chapters.AsNoTracking()
-            .Where(c => chapterIds.Contains(c.Id))
-            .Join(context.Books, c => c.BookId, b => b.Id, (c, b) => new ChapterRef(c.Id, c.Title, b.Id, b.Name))
+        // A left join on the class: a book with none still has its chapter reference.
+        return await (
+                from c in context.Chapters.AsNoTracking()
+                where chapterIds.Contains(c.Id)
+                join b in context.Books on c.BookId equals b.Id
+                join k in context.Classes on b.ClassId equals (Guid?)k.Id into classes
+                from k in classes.DefaultIfEmpty()
+                select new ChapterRef(c.Id, c.Title, b.Id, b.Name, b.ClassId, k == null ? null : k.Name))
             .ToDictionaryAsync(r => r.ChapterId, cancellationToken);
     }
 }

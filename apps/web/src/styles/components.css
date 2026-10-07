@@ -676,3 +676,63 @@ button.primary:hover:not(:disabled),
   display: grid;
   gap: 0.25rem;
 }
+
+/* The classes books are filed under: a row each with its book count and actions, and a one-field form to add one. */
+.class-list {
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.class-list__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.class-list__name {
+  flex: 1;
+  min-width: 8rem;
+}
+
+.class-list__item .actions {
+  margin: 0;
+}
+
+.class-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.class-add .field {
+  flex: 1;
+  min-width: 12rem;
+  margin-bottom: 0;
+}
+
+/* The books page lists books under a heading per class. */
+.book-group__title {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 1.1rem;
+}
+
+/* Class, book and chapter side by side in the pickers; stacked on a narrow screen. */
+.form-row--triple {
+  grid-template-columns: repeat(3, 1fr);
+  align-items: start;
+}
+
+.form-row--triple .field {
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 40rem) {
+  .form-row--triple {
+    grid-template-columns: 1fr;
+  }
+}

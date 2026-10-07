@@ -19,10 +19,10 @@ describe('exam scope helpers', () => {
   });
 
   it('starts editing from the scope an exam has', () => {
-    const scope: ExamScopeDto = { type: 'Chapters', bookId: 'b1', bookName: 'Maths', chapters: [{ id: 'c1', title: 'Algebra' }, { id: 'c2', title: null }] };
+    const scope: ExamScopeDto = { type: 'Chapters', bookId: 'b1', bookName: 'Maths', className: null, chapters: [{ id: 'c1', title: 'Algebra' }, { id: 'c2', title: null }] };
 
     expect(selectionOf(scope)).toEqual({ type: 'Chapters', bookId: 'b1', chapterIds: ['c1', 'c2'] });
-    expect(selectionOf({ type: 'Book', bookId: 'b1', bookName: 'Maths', chapters: [] })).toEqual({ type: 'Book', bookId: 'b1', chapterIds: [] });
+    expect(selectionOf({ type: 'Book', bookId: 'b1', bookName: 'Maths', className: '4th', chapters: [] })).toEqual({ type: 'Book', bookId: 'b1', chapterIds: [] });
     expect(selectionOf(undefined)).toEqual(NO_SCOPE);
   });
 
@@ -36,13 +36,25 @@ describe('exam scope helpers', () => {
 
   it('describes what an exam draws from in a line', () => {
     expect(describeScope(undefined)).toBe('Any question in the bank');
-    expect(describeScope({ type: 'Independent', bookId: null, bookName: null, chapters: [] })).toBe('Any question in the bank');
-    expect(describeScope({ type: 'Book', bookId: 'b1', bookName: 'Maths', chapters: [] })).toBe('The whole book Maths');
-    expect(describeScope({ type: 'Chapters', bookId: 'b1', bookName: 'Maths', chapters: [{ id: 'c1', title: 'Algebra' }, { id: 'c2', title: 'Geometry' }] })).toBe('Maths: Algebra, Geometry');
+    expect(describeScope({ type: 'Independent', bookId: null, bookName: null, className: null, chapters: [] })).toBe('Any question in the bank');
+    expect(describeScope({ type: 'Book', bookId: 'b1', bookName: 'Maths', className: null, chapters: [] })).toBe('The whole book Maths');
+    expect(describeScope({ type: 'Chapters', bookId: 'b1', bookName: 'Maths', className: null, chapters: [{ id: 'c1', title: 'Algebra' }, { id: 'c2', title: 'Geometry' }] })).toBe('Maths: Algebra, Geometry');
+  });
+
+  it('shows the class of the book beside its name, for a whole book and for chosen chapters', () => {
+    expect(describeScope({ type: 'Book', bookId: 'b1', bookName: 'English', className: '4th', chapters: [] })).toBe('The whole book English (4th)');
+    expect(describeScope({ type: 'Chapters', bookId: 'b1', bookName: 'English', className: '4th', chapters: [{ id: 'c1', title: 'Nouns' }, { id: 'c2', title: 'Verbs' }] })).toBe(
+      'English (4th): Nouns, Verbs',
+    );
+  });
+
+  it('says nothing of a class for a book that has none, so its text is what it always was', () => {
+    expect(describeScope({ type: 'Book', bookId: 'b1', bookName: 'Maths', className: null, chapters: [] })).not.toContain('(');
+    expect(describeScope({ type: 'Chapters', bookId: 'b1', bookName: 'Maths', className: null, chapters: [{ id: 'c1', title: 'Algebra' }] })).not.toContain('(');
   });
 
   it('says so, rather than showing a blank, when the bank no longer has the book or a chapter', () => {
-    expect(describeScope({ type: 'Book', bookId: 'b1', bookName: null, chapters: [] })).toContain('no longer in the bank');
-    expect(describeScope({ type: 'Chapters', bookId: 'b1', bookName: 'Maths', chapters: [{ id: 'c1', title: null }] })).toContain('no longer in the bank');
+    expect(describeScope({ type: 'Book', bookId: 'b1', bookName: null, className: null, chapters: [] })).toContain('no longer in the bank');
+    expect(describeScope({ type: 'Chapters', bookId: 'b1', bookName: 'Maths', className: null, chapters: [{ id: 'c1', title: null }] })).toContain('no longer in the bank');
   });
 });

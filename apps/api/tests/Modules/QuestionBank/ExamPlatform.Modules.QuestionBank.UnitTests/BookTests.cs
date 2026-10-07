@@ -190,4 +190,47 @@ public class BookTests
         Assert.True(book.IsArchived);
         Assert.All(book.Chapters, c => Assert.False(c.IsArchived));
     }
+
+    // ---- the class a book belongs to -----------------------------------------------------------------------
+
+    [Fact]
+    public void Create_WithoutAClass_LeavesTheBookUnderNone_AsEveryBookWasBeforeClassesExisted()
+    {
+        Assert.Null(NewBook().ClassId);
+    }
+
+    [Fact]
+    public void Create_WithAClass_RecordsIt()
+    {
+        var classId = Guid.NewGuid();
+
+        var book = Book.Create("English", "English", null, Author, Now, classId);
+
+        Assert.Equal(classId, book.ClassId);
+    }
+
+    [Fact]
+    public void Update_ReplacesTheClass_AndLeavingItOutTakesTheBookOutOfItsClass()
+    {
+        var book = Book.Create("English", null, null, Author, Now, Guid.NewGuid());
+        var other = Guid.NewGuid();
+
+        book.Update("English", null, null, other);
+        Assert.Equal(other, book.ClassId);
+
+        // The details are replaced as a whole: a caller that does not name a class has not kept the old one.
+        book.Update("English", null, null);
+        Assert.Null(book.ClassId);
+    }
+
+    [Fact]
+    public void Update_WithABadName_ChangesNothingAboutTheClass()
+    {
+        var classId = Guid.NewGuid();
+        var book = Book.Create("English", null, null, Author, Now, classId);
+
+        Assert.Throws<InvalidBookError>(() => book.Update("  ", null, null, null));
+
+        Assert.Equal(classId, book.ClassId);
+    }
 }

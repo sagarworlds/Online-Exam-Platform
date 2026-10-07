@@ -12,12 +12,12 @@ const isTopics = (r: { method: string; url: string }) => r.method === 'GET' && r
 const isBooks = (r: { method: string; url: string }) => r.method === 'GET' && r.url.includes('/v1/books');
 
 const chapter = (id: string, order: number, title: string, isArchived = false) => ({ id, bookId: 'b1', title, order, isArchived, questionCount: 0 });
-const book = (id: string, name: string, chapters: ReturnType<typeof chapter>[], isArchived = false) => ({
-  id, name, subject: null, description: null, isArchived, chapters, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
+const book = (id: string, name: string, chapters: ReturnType<typeof chapter>[], isArchived = false, schoolClass: { id: string; name: string } | null = null) => ({
+  id, name, classId: schoolClass?.id ?? null, className: schoolClass?.name ?? null, subject: null, description: null, isArchived, chapters, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
 });
 const UNUSED: QuestionUsageDto = { examCount: 0, examNames: [], answered: false };
 const listedQuestion = (id: string, text: string, usage: QuestionUsageDto = UNUSED) => ({
-  id, text, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: null, chapterTitle: null, bookId: null, bookName: null, usage,
+  id, text, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z', chapterId: null, chapterTitle: null, bookId: null, bookName: null, classId: null, className: null, usage,
   difficulty: null, topics: [], allowsMultiple: false,
   options: [{ id: `${id}-a`, text: 'A', isCorrect: true, isPinned: false }, { id: `${id}-b`, text: 'B', isCorrect: false, isPinned: false }],
 });
@@ -523,6 +523,209 @@ describe('QuestionBank', () => {
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('No questions match this filter.');
+  });
+
+  describe('class', () => {
+    const FOURTH = { id: 'k4', name: '4th' };
+    const FIFTH = { id: 'k5', name: '5th' };
+    const THIRD = { id: 'k3', name: '3rd' };
+    const english = (id: string, schoolClass: { id: string; name: string }, chapters: string[], isArchived = false) =>
+      book(id, 'English', chapters.map((title, i) => ({ ...chapter(`${id}-c${i + 1}`, i + 1, title), bookId: id })), isArchived, schoolClass);
+    const ENGLISH_4 = english('b4', FOURTH, ['Nouns', 'Verbs']);
+    const ENGLISH_5 = english('b5', FIFTH, ['Poems']);
+    // English exists in two classes, Maths has none, and the only book of the 3rd class is archived (its questions still exist).
+    const BOOKS = [MATHS, ENGLISH_5, ENGLISH_4, english('b3', THIRD, [], true)];
+
+    function open(books: ReturnType<typeof book>[] = BOOKS) {
+      const fixture = create(books);
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const pick = (id: string, value: string) => {
+        const select = root.querySelector(`#${id}`) as HTMLSelectElement;
+        select.value = value;
+        select.dispatchEvent(new Event('change'));
+        fixture.detectChanges();
+      };
+      const texts = (id: string) => Array.from(root.querySelectorAll(`#${id} option`)).map((o) => o.textContent?.trim());
+      // Answers the list the page asks for after a filter changes and hands back its query.
+      const nextList = () => {
+        const req = httpMock.expectOne(isList);
+        req.flush([]);
+        fixture.detectChanges();
+        return req.request.params;
+      };
+      return { fixture, root, pick, texts, nextList };
+    }
+
+    it('offers no class filter, and no class select in the form, while no book has a class', () => {
+      const { root } = open([MATHS, OLD_BOOK]);
+
+      expect(root.querySelector('#filter-class')).toBeNull();
+      expect(root.querySelector('#question-class')).toBeNull();
+    });
+
+    it('offers a class filter before the book filter, with the classes of all books, archived ones too, in natural order', () => {
+      const { root, texts } = open([...BOOKS, english('b10', { id: 'k10', name: '10th' }, ['A']), english('b2', { id: 'k2', name: '2nd' }, ['A'])]);
+
+      expect(texts('filter-class')).toEqual(['Any class', '2nd', '3rd', '4th', '5th', '10th']);
+      const selects = Array.from(root.querySelectorAll('.list-filter select')).map((s) => s.id);
+      expect(selects.indexOf('filter-class')).toBeLessThan(selects.indexOf('filter-book'));
+      expect(root.querySelector('label[for="filter-class"]')?.textContent).toBe('Class');
+    });
+
+    it('labels the books with their class while any class is chosen', () => {
+      const { texts } = open();
+
+      expect(texts('filter-book')).toEqual(['All questions', 'Not filed under a chapter', '3rd · English (archived)', '4th · English', '5th · English', 'Maths Grade 10']);
+    });
+
+    it('sends the class chosen as classId, and narrows the books to it', () => {
+      const { pick, texts, nextList } = open();
+
+      pick('filter-class', 'k4');
+      const params = nextList();
+
+      expect(params.get('classId')).toBe('k4');
+      expect(params.has('bookId')).toBe(false);
+      expect(texts('filter-book')).toEqual(['All books of this class', 'English']);
+    });
+
+    it('combines the class with a book, and with a chapter, in the request', () => {
+      const { pick, nextList } = open();
+      pick('filter-class', 'k4');
+      nextList();
+
+      pick('filter-book', 'b4');
+      const withBook = nextList();
+      expect([withBook.get('classId'), withBook.get('bookId')]).toEqual(['k4', 'b4']);
+
+      pick('filter-chapter', 'b4-c2');
+      const withChapter = nextList();
+      expect([withChapter.get('classId'), withChapter.get('chapterId'), withChapter.has('bookId')]).toEqual(['k4', 'b4-c2', false]);
+    });
+
+    it('combines the class with the other filters', () => {
+      const { pick, nextList } = open();
+
+      pick('filter-difficulty', 'hard');
+      nextList();
+      pick('filter-class', 'k5');
+
+      const params = nextList();
+      expect([params.get('classId'), params.get('difficulty')]).toEqual(['k5', 'hard']);
+    });
+
+    it('clears the book and chapter filter when the class changes to one that does not hold the book', () => {
+      const { root, pick, texts, nextList } = open();
+      pick('filter-class', 'k4');
+      nextList();
+      pick('filter-book', 'b4');
+      nextList();
+      pick('filter-chapter', 'b4-c1');
+      nextList();
+
+      pick('filter-class', 'k5');
+      const params = nextList();
+
+      expect([params.get('classId'), params.has('bookId'), params.has('chapterId')]).toEqual(['k5', false, false]);
+      expect((root.querySelector('#filter-book') as HTMLSelectElement).value).toBe('');
+      expect(root.querySelector('#filter-chapter')).toBeNull();
+      expect(texts('filter-book')).toEqual(['All books of this class', 'English']);
+    });
+
+    it('keeps the book and chapter filter when the class changes to the class of that book, or back to any class', () => {
+      const { root, pick, nextList } = open();
+      pick('filter-book', 'b4');
+      nextList();
+      pick('filter-chapter', 'b4-c1');
+      nextList();
+
+      pick('filter-class', 'k4');
+      const same = nextList();
+      expect([same.get('classId'), same.get('chapterId')]).toEqual(['k4', 'b4-c1']);
+      expect((root.querySelector('#filter-chapter') as HTMLSelectElement).value).toBe('b4-c1');
+
+      pick('filter-class', '');
+      const any = nextList();
+      expect([any.has('classId'), any.get('chapterId')]).toEqual([false, 'b4-c1']);
+    });
+
+    it('does not offer questions not filed under a chapter while a class is chosen, since they have no class', () => {
+      const { pick, texts, nextList } = open();
+
+      pick('filter-class', 'k4');
+      nextList();
+
+      expect(texts('filter-book')).not.toContain('Not filed under a chapter');
+      pick('filter-class', '');
+      expect(texts('filter-book')).toContain('Not filed under a chapter');
+      nextList();
+    });
+
+    it('drops the "not filed" filter when a class is chosen, which no question of a class can match', () => {
+      const { root, pick, nextList } = open();
+      pick('filter-book', 'unfiled');
+      expect(nextList().get('unfiled')).toBe('true');
+
+      pick('filter-class', 'k4');
+      const params = nextList();
+
+      expect([params.get('classId'), params.has('unfiled')]).toEqual(['k4', false]);
+      expect((root.querySelector('#filter-book') as HTMLSelectElement).value).toBe('');
+    });
+
+    it('lists everything again when the class is set back to any class', () => {
+      const { pick, nextList } = open();
+      pick('filter-class', 'k4');
+      nextList();
+
+      pick('filter-class', '');
+
+      expect(nextList().has('classId')).toBe(false);
+    });
+
+    it('says so when a class filter matches no questions', () => {
+      const { fixture, pick } = open();
+      pick('filter-class', 'k4');
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('No questions match this filter.');
+    });
+
+    it('puts a class select before the book in the new-question form, and files under the chapter reached through it', () => {
+      const { fixture, root, pick, texts } = open();
+      expect(Array.from(root.querySelectorAll('form[aria-label="New question"] select')).map((s) => s.id).slice(0, 2)).toEqual(['question-class', 'question-book']);
+      expect(texts('question-class')).toEqual(['Any class', '4th', '5th', 'No class']);
+
+      pick('question-class', 'k4');
+      expect(texts('question-book')).toEqual(['Not filed under a book', 'English']);
+      pick('question-book', 'b4');
+      pick('question-chapter', 'b4-c2');
+      fill(fixture, 'Which is a noun?', ['Run', 'Dog']);
+      (root.querySelectorAll('input[type="radio"]')[1] as HTMLInputElement).dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+
+      const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/questions'));
+      expect(post.request.body.chapterId).toBe('b4-c2');
+      expect(Object.keys(post.request.body)).not.toContain('classId');
+      post.flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
+      httpMock.expectOne(isList).flush([]);
+    });
+
+    it('shows the class first on the card of a question filed under a book with one', () => {
+      const fixture = create(BOOKS);
+      httpMock.expectOne(isList).flush([
+        { ...listedQuestion('q1', 'Pick the noun'), chapterId: 'b4-c1', chapterTitle: 'Nouns', bookId: 'b4', bookName: 'English', classId: 'k4', className: '4th' },
+        { ...listedQuestion('q2', 'Solve x'), chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths Grade 10' },
+      ]);
+      fixture.detectChanges();
+
+      const where = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.question-card__where')).map((w) => w.textContent?.replace(/\s+/g, ' ').trim());
+      expect(where).toEqual(['4th › English › Nouns', 'Maths Grade 10 › Algebra']);
+    });
   });
 
   it('adds options up to six and removes down to two', () => {

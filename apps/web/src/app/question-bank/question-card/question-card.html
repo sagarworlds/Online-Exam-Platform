@@ -2,6 +2,9 @@
   <div class="question-card__head">
     <p class="question-card__where">
       @if (question().chapterId) {
+        @if (question().className) {
+          {{ question().className }} <span aria-hidden="true">›</span>
+        }
         {{ question().bookName }} <span aria-hidden="true">›</span> {{ question().chapterTitle }}
       } @else {
         <span class="hint">Not filed under a chapter</span>

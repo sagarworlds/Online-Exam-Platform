@@ -9,6 +9,8 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Dtos;
 /// <param name="Chapters">The chapters, in the order they were added.</param>
 /// <param name="CreatedBy">The authoring user.</param>
 /// <param name="CreatedAtUtc">When the book was created.</param>
+/// <param name="ClassId">The class the book belongs to, or null when it has none.</param>
+/// <param name="ClassName">That class's name, or null.</param>
 public sealed record BookDto(
     Guid Id,
     string Name,
@@ -17,7 +19,9 @@ public sealed record BookDto(
     bool IsArchived,
     IReadOnlyList<ChapterDto> Chapters,
     Guid CreatedBy,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    Guid? ClassId = null,
+    string? ClassName = null);
 
 /// <summary>One chapter of a <see cref="BookDto"/>.</summary>
 /// <param name="Id">The chapter's id.</param>

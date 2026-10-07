@@ -11,7 +11,7 @@ const isPut = (r: { method: string; url: string }) => r.method === 'PUT' && r.ur
 
 const question = (overrides: Partial<QuestionDto> = {}): QuestionDto => ({
   id: 'q1', text: '<p>Capital of France?</p>', createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
-  chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths',
+  chapterId: 'c1', chapterTitle: 'Algebra', bookId: 'b1', bookName: 'Maths', classId: null, className: null,
   usage: { examCount: 0, examNames: [], answered: false },
   difficulty: null,
   topics: [],
@@ -72,6 +72,12 @@ describe('QuestionEdit', () => {
     expect(root.querySelector('.question-card__where')?.textContent).toContain('Maths');
     expect(root.querySelector('.question-card__where')?.textContent).toContain('Algebra');
     expect(root.querySelector('.question-lock-note')).toBeNull();
+  });
+
+  it('shows the class first when the book it is filed under has one', () => {
+    open(question({ classId: 'k4', className: '4th' }));
+
+    expect(root.querySelector('.question-card__where')?.textContent?.replace(/\s+/g, ' ').trim()).toContain('4th › Maths › Algebra');
   });
 
   it('sends the whole edit, naming the options it keeps by id and the new one without an id', () => {

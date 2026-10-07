@@ -17,6 +17,9 @@ export interface BookDto {
   name: string;
   subject: string | null;
   description: string | null;
+  /** The class the book is filed under, such as "4th"; both are null for a book without a class. */
+  classId: string | null;
+  className: string | null;
   /** An archived book keeps its questions but takes no new chapters and is hidden from pickers. */
   isArchived: boolean;
   chapters: ChapterDto[];
@@ -27,6 +30,8 @@ export interface BookDto {
 /** The body of POST /v1/books and PUT /v1/books/{id}. */
 export interface BookRequest {
   name: string;
+  /** The class to file the book under; null for none. PUT replaces the whole detail, so null also takes a book out of its class. */
+  classId: string | null;
   subject: string | null;
   description: string | null;
 }

@@ -28,6 +28,9 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ClassId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -51,6 +54,8 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ClassId");
 
                     b.HasIndex("Name");
 
@@ -261,6 +266,41 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("QuestionVersions", "questionBank");
+                });
+
+            modelBuilder.Entity("ExamPlatform.Modules.QuestionBank.Domain.SchoolClass", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Classes", "questionBank");
+                });
+
+            modelBuilder.Entity("ExamPlatform.Modules.QuestionBank.Domain.Book", b =>
+                {
+                    b.HasOne("ExamPlatform.Modules.QuestionBank.Domain.SchoolClass", null)
+                        .WithMany()
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("ExamPlatform.Modules.QuestionBank.Domain.Chapter", b =>
