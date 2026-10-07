@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -14,7 +15,11 @@ namespace ExamPlatform.Modules.QuestionBank.Domain;
 /// </remarks>
 public static class QuestionFingerprint
 {
-    /// <summary>Keeps letters and digits, lower-cased; everything else is dropped.</summary>
+    /// <summary>Keeps letters, digits and the marks that belong to a letter, lower-cased; everything else is dropped.</summary>
+    /// <remarks>
+    /// The marks matter for Hindi (FR-10): a vowel sign such as the one in "कमला" is a combining mark, not a letter, so dropping it
+    /// would make words that differ only by a vowel sign look identical.
+    /// </remarks>
     /// <param name="text">Plain text (markup already removed); null counts as empty.</param>
     public static string Normalize(string? text)
     {
@@ -24,7 +29,7 @@ public static class QuestionFingerprint
         var builder = new StringBuilder(text.Length);
         foreach (var c in text)
         {
-            if (char.IsLetterOrDigit(c))
+            if (char.IsLetterOrDigit(c) || char.GetUnicodeCategory(c) is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark)
                 builder.Append(char.ToLowerInvariant(c));
         }
 

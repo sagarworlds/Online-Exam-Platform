@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { BookDto } from '../../book-management/book.models';
@@ -32,7 +34,7 @@ describe('QuestionCard', () => {
   let filed: { questionId: string; chapterId: string }[];
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [QuestionCard], providers: [provideRouter([])] }).compileComponents();
+    await TestBed.configureTestingModule({ imports: [QuestionCard], providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()] }).compileComponents();
   });
 
   function show(q: QuestionDto = question(), inputs: { busy?: boolean; error?: string | null; selected?: boolean } = {}) {
@@ -65,6 +67,39 @@ describe('QuestionCard', () => {
     expect(root.querySelector('.question-card__where')?.textContent).toContain('Algebra');
     expect(root.querySelector('.question-card__text')?.textContent).toContain('Capital of France?');
     expect(root.querySelector('.correct-option')?.textContent).toContain('Paris');
+  });
+
+  it('shows the language the question is written in', () => {
+    show(question({ language: 'mr' }));
+
+    expect(root.querySelector('.badge--language')?.textContent?.trim()).toBe('Marathi');
+  });
+
+  it('shows no language for a question from an API that predates languages', () => {
+    show();
+
+    expect(root.querySelector('.badge--language')).toBeNull();
+  });
+
+  it('opens the translations on request, loading them only then, and passes on that one was added', () => {
+    show(question({ language: 'en' }));
+    const http = TestBed.inject(HttpTestingController);
+    const isTranslations = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/questions/q1/translations');
+    let added = 0;
+    fixture.componentInstance.translationAdded.subscribe(() => added++);
+    expect(root.querySelector('app-question-translations')).toBeNull();
+    http.expectNone(isTranslations);
+
+    press('Translations');
+    http.expectOne(isTranslations).flush([{ id: 'q1', language: 'en', preview: 'Capital of France?', status: 'draft' }]);
+    fixture.detectChanges();
+
+    expect(root.querySelector('app-question-translations')).not.toBeNull();
+    expect(root.textContent).toContain('Add Hindi translation');
+    expect(added).toBe(0);
+
+    press('Translations');
+    expect(root.querySelector('app-question-translations')).toBeNull();
   });
 
   it('says so when the question is not filed', () => {

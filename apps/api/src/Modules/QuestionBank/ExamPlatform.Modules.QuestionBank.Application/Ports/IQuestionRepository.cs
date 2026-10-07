@@ -11,9 +11,10 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Ports;
 /// <param name="Search">Only questions whose text, or any option's text, contains this; case does not matter.</param>
 /// <param name="ChapterIds">Only questions filed under one of these chapters; null or empty sets no limit.</param>
 /// <param name="Statuses">Only questions in one of these review statuses (FR-8); null or empty sets no limit.</param>
+/// <param name="Language">Only questions written in this language (FR-10), as a code already parsed by <see cref="QuestionLanguage.Parse"/>.</param>
 public sealed record QuestionFilter(
     Guid? BookId = null, Guid? ChapterId = null, bool UnfiledOnly = false, QuestionDifficulty? Difficulty = null, string? Topic = null,
-    string? Search = null, IReadOnlyList<Guid>? ChapterIds = null, IReadOnlyList<QuestionStatus>? Statuses = null);
+    string? Search = null, IReadOnlyList<Guid>? ChapterIds = null, IReadOnlyList<QuestionStatus>? Statuses = null, string? Language = null);
 
 /// <summary>Persistence port for <see cref="Question"/>.</summary>
 public interface IQuestionRepository
@@ -80,6 +81,11 @@ public interface IQuestionRepository
     /// <param name="take">How many to return at most.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Question>> FindByTextKeyAsync(string textKey, Guid? excludeQuestionId, int take, CancellationToken cancellationToken);
+
+    /// <summary>Lists the questions of one translation group (FR-10), without their options.</summary>
+    /// <param name="translationGroupId">The group, see <see cref="Question.TranslationGroupId"/>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Question>> ListTranslationGroupAsync(Guid translationGroupId, CancellationToken cancellationToken);
 
     /// <summary>Lists every topic any question carries, once each, in alphabetical order.</summary>
     /// <param name="cancellationToken">Cancellation token.</param>

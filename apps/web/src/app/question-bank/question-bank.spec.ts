@@ -199,6 +199,7 @@ describe('QuestionBank', () => {
       difficulty: null,
       topics: [],
       allowsMultiple: false,
+      language: 'en',
       options: [
         { text: 'Rome', isCorrect: false, isPinned: false },
         { text: 'Paris', isCorrect: true, isPinned: false },
@@ -208,6 +209,72 @@ describe('QuestionBank', () => {
     httpMock.expectOne(isList).flush([]);
     fixture.detectChanges();
     expect(root.textContent).toContain('Question saved.');
+  });
+
+  describe('language (FR-10)', () => {
+    it('offers English, Hindi and Marathi for a new question, English first, and sends the one chosen', () => {
+      const fixture = create();
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const select = root.querySelector('#question-language') as HTMLSelectElement;
+
+      expect(Array.from(select.options).map((o) => o.textContent?.trim())).toEqual(['English', 'Hindi', 'Marathi']);
+      expect(select.value).toBe('en');
+
+      select.value = 'mr';
+      select.dispatchEvent(new Event('change'));
+      fill(fixture, 'फ्रान्सची राजधानी?', ['पॅरिस', 'रोम']);
+      (root.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+
+      const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/questions'));
+      expect(post.request.body.language).toBe('mr');
+      post.flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+
+      // An author enters many questions in one language in a row.
+      expect((root.querySelector('#question-language') as HTMLSelectElement).value).toBe('mr');
+    });
+
+    it('narrows the list to one language, and back to any', () => {
+      const fixture = create();
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const pick = (value: string) => {
+        const select = root.querySelector('#filter-language') as HTMLSelectElement;
+        select.value = value;
+        select.dispatchEvent(new Event('change'));
+        fixture.detectChanges();
+      };
+
+      expect(Array.from(root.querySelectorAll('#filter-language option')).map((o) => o.textContent?.trim())).toEqual(['Any language', 'English', 'Hindi', 'Marathi']);
+
+      pick('hi');
+      const hindi = httpMock.expectOne(isList);
+      expect(hindi.request.params.get('language')).toBe('hi');
+      hindi.flush([]);
+      fixture.detectChanges();
+      expect(root.textContent).toContain('No questions match this filter.');
+
+      pick('');
+      const any = httpMock.expectOne(isList);
+      expect(any.request.params.has('language')).toBe(false);
+      any.flush([]);
+    });
+
+    it('reads the list again when a translation is added from a card', () => {
+      const fixture = create();
+      httpMock.expectOne(isList).flush([listedQuestion('q1', 'What is 2 + 2?')]);
+      fixture.detectChanges();
+
+      (fixture.componentInstance as unknown as { onTranslationAdded(): void }).onTranslationAdded();
+
+      httpMock.expectOne(isList).flush([]);
+    });
   });
 
   describe('difficulty and topics', () => {

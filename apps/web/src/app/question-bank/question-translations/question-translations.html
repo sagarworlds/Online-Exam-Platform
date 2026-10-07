@@ -1,0 +1,51 @@
+<section class="question-translations" aria-label="Translations">
+  @if (error()) {
+    <p class="error-message" role="alert">{{ error() }}</p>
+  }
+
+  @if (linked(); as list) {
+    <ul>
+      @for (translation of list; track translation.id) {
+        <li>
+          <span class="badge">{{ labelOf(translation.language) }}</span>
+          @if (translation.id === question().id) {
+            <span class="hint">This question</span>
+          } @else {
+            <a [routerLink]="['/admin/questions', translation.id, 'edit']">{{ translation.preview }}</a>
+          }
+          <span class="badge badge--status-{{ translation.status }}">{{ statusLabels[translation.status] ?? translation.status }}</span>
+        </li>
+      }
+    </ul>
+    @for (language of missing(); track language.code) {
+      <button type="button" class="btn--small" (click)="start(language.code)" [disabled]="adding() !== null">
+        Add {{ language.label }} translation
+      </button>
+    }
+  } @else if (!error()) {
+    <p class="hint">Loading…</p>
+  }
+
+  @if (adding(); as language) {
+    <form [formGroup]="form" (ngSubmit)="save()" [attr.aria-label]="'New ' + labelOf(language) + ' translation'">
+      <div class="field">
+        <label [id]="idPrefix() + '-text-label'" [for]="idPrefix() + '-text'">Question in {{ labelOf(language) }}</label>
+        <app-rich-text-editor formControlName="text" [inputId]="idPrefix() + '-text'" [labelledBy]="idPrefix() + '-text-label'" />
+      </div>
+      <fieldset class="field">
+        <legend>Options in {{ labelOf(language) }}, in the same order</legend>
+        @for (control of options.controls; track control; let i = $index) {
+          <div class="option-row">
+            <span class="hint">{{ question().options[i].text }}@if (question().options[i].isCorrect) { (correct)}</span>
+            <input type="text" [formControl]="control" [attr.aria-label]="'Option ' + (i + 1) + ' in ' + labelOf(language)" />
+          </div>
+        }
+      </fieldset>
+      <p class="hint">Which options are correct, and the chapter, difficulty and topics, are copied from this question.</p>
+      <div class="actions">
+        <button type="submit" class="primary" [disabled]="form.invalid || saving()">Save translation</button>
+        <button type="button" (click)="cancel()">Cancel</button>
+      </div>
+    </form>
+  }
+</section>

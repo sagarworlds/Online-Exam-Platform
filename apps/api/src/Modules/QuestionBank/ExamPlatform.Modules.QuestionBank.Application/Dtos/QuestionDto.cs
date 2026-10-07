@@ -15,6 +15,8 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Dtos;
 /// <param name="Topics">The question's topics, lower case.</param>
 /// <param name="AllowsMultiple">Whether more than one option may be correct.</param>
 /// <param name="Status">Where the question is in the review workflow (FR-8): "draft", "in_review", "approved" or "retired".</param>
+/// <param name="Language">The language it is written in (FR-10): "en", "hi" or "mr".</param>
+/// <param name="TranslationGroupId">Shared by this question and its translations, which are found by it (FR-10); a question with none is alone in its own group.</param>
 public sealed record QuestionDto(
     Guid Id,
     string Text,
@@ -29,7 +31,9 @@ public sealed record QuestionDto(
     string? Difficulty = null,
     IReadOnlyList<string>? Topics = null,
     bool AllowsMultiple = false,
-    string Status = "draft");
+    string Status = "draft",
+    string Language = "en",
+    Guid? TranslationGroupId = null);
 
 /// <summary>One option of a <see cref="QuestionDto"/>.</summary>
 /// <param name="Id">The option's id.</param>

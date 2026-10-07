@@ -49,6 +49,18 @@ public static class QuestionBankEndpoints
             .WithName("FindDuplicateQuestions")
             .WithDescription("List the questions already in the bank with the same wording as the one given, saying which also have the same options");
 
+        questions.MapPost("/{questionId:guid}/translations", AddTranslation)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("AddQuestionTranslation")
+            .WithDescription("Add a translation of a question in another language, linked to it: the translator gives the words, the answer key is copied");
+
+        readers.MapGet("/{questionId:guid}/translations", ListTranslations)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ListQuestionTranslations")
+            .WithDescription("List a question and its linked translations, one per language");
+
         readers.MapGet("/{questionId:guid}/statistics", GetStatistics)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
@@ -157,6 +169,16 @@ public static class QuestionBankEndpoints
     private static async Task<IResult> FindDuplicates(FindDuplicatesRequest request, FindDuplicatesHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(request.Text, request.Options, request.ExcludeQuestionId, ct));
 
+    private static async Task<IResult> AddTranslation(
+        Guid questionId, AddTranslationRequest request, ClaimsPrincipal user, AddTranslationHandler handler, CancellationToken ct)
+    {
+        var result = await handler.HandleAsync(new AddTranslationCommand(questionId, request.Language, request.Text, request.Options, user.GetUserId()), ct);
+        return Results.Created($"/v1/questions/{result.Id}", result);
+    }
+
+    private static async Task<IResult> ListTranslations(Guid questionId, ListTranslationsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(questionId, ct));
+
     private static async Task<IResult> GetStatistics(Guid questionId, GetQuestionStatisticsHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(questionId, ct));
 
@@ -180,16 +202,17 @@ public static class QuestionBankEndpoints
         CreateQuestionRequest request, ClaimsPrincipal user, CreateQuestionHandler handler, CancellationToken ct)
     {
         var options = request.Options?.Select(o => new NewQuestionOption(o?.Text, o?.IsCorrect ?? false, o?.IsPinned ?? false)).ToList();
-        var result = await handler.HandleAsync(new CreateQuestionCommand(request.Text, options, user.GetUserId(), request.ChapterId, request.Difficulty, request.Topics, request.AllowsMultiple, request.AllowDuplicate), ct);
+        var result = await handler.HandleAsync(new CreateQuestionCommand(request.Text, options, user.GetUserId(), request.ChapterId, request.Difficulty, request.Topics, request.AllowsMultiple, request.AllowDuplicate, request.Language), ct);
         return Results.Created($"/v1/questions/{result.Id}", result);
     }
 
     private static async Task<IResult> ListQuestions(
-        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, int? skip, string? status, CancellationToken ct)
+        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, int? skip, string? status, string? language, CancellationToken ct)
     {
         var statuses = QuestionStatusText.Parse(status) is { } one ? new[] { one } : null;
         return Results.Ok(await handler.HandleAsync(
-            new QuestionFilter(bookId, chapterId, unfiled ?? false, QuestionDifficultyText.Parse(difficulty), Question.NormalizeTopic(topic), q, null, statuses), ct, skip ?? 0));
+            new QuestionFilter(bookId, chapterId, unfiled ?? false, QuestionDifficultyText.Parse(difficulty), Question.NormalizeTopic(topic), q, null, statuses,
+                string.IsNullOrWhiteSpace(language) ? null : QuestionLanguage.Parse(language)), ct, skip ?? 0));
     }
 
     private static ReviewActor Actor(ClaimsPrincipal user) => new(user.GetUserId(), user.GetEmail());
@@ -262,9 +285,17 @@ public static class QuestionBankEndpoints
 /// <param name="Topics">Up to five short topics such as "fractions"; omit for none.</param>
 /// <param name="AllowsMultiple">True when more than one option is correct and a candidate must choose all of them; omitted means a single correct option.</param>
 /// <param name="AllowDuplicate">True to add the question even when the bank already has the same wording and options; omitted means a repeat is refused.</param>
+/// <param name="Language">"en", "hi" or "mr"; omitted means English. The same question in another language is added as a translation (FR-10).</param>
 public sealed record CreateQuestionRequest(
     string? Text, IReadOnlyList<CreateQuestionOptionRequest?>? Options, Guid? ChapterId = null,
-    string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false, bool AllowDuplicate = false);
+    string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false, bool AllowDuplicate = false,
+    string? Language = null);
+
+/// <summary>Request body for adding a translation of a question (FR-10).</summary>
+/// <param name="Language">The language of the translation, "en", "hi" or "mr"; required, and not one the question's group already has.</param>
+/// <param name="Text">The translated question text; HTML from the author's editor, which the server sanitizes before storing it.</param>
+/// <param name="Options">The translated option texts, one for each option of the question being translated, in the same order. Which is correct is copied, not sent.</param>
+public sealed record AddTranslationRequest(string? Language, string? Text, IReadOnlyList<string?>? Options);
 
 /// <summary>Asks which questions already repeat one that is about to be added (FR-9).</summary>
 /// <param name="Text">The question text as the editor produced it (HTML).</param>

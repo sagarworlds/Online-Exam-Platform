@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
+  AddTranslationRequest,
   CreateQuestionRequest,
   DuplicateQuestion,
   ExportedFile,
@@ -16,6 +17,7 @@ import {
   QuestionDto,
   QuestionFilter,
   QuestionStatistics,
+  QuestionTranslation,
   UpdateQuestionRequest,
 } from './question.models';
 
@@ -36,6 +38,7 @@ export class QuestionApiService {
     if (filter.topic) params['topic'] = filter.topic;
     if (filter.search) params['q'] = filter.search;
     if (filter.status) params['status'] = filter.status;
+    if (filter.language) params['language'] = filter.language;
     if (skip > 0) params['skip'] = String(skip);
     return this.http.get<QuestionDto[]>(this.baseUrl, { params });
   }
@@ -72,6 +75,16 @@ export class QuestionApiService {
   /** The questions already in the bank with the same wording as this one, those with the same options first (FR-9). */
   duplicates(text: string, options: string[], excludeQuestionId?: string): Observable<DuplicateQuestion[]> {
     return this.http.post<DuplicateQuestion[]>(`${this.baseUrl}/duplicates`, { text, options, excludeQuestionId });
+  }
+
+  /** The question and its linked translations, one per language (FR-10). */
+  translations(id: string): Observable<QuestionTranslation[]> {
+    return this.http.get<QuestionTranslation[]>(`${this.baseUrl}/${id}/translations`);
+  }
+
+  /** Adds a translation of a question; it is a draft of its own, with the answer key of the question translated (FR-10). */
+  addTranslation(id: string, request: AddTranslationRequest): Observable<QuestionDto> {
+    return this.http.post<QuestionDto>(`${this.baseUrl}/${id}/translations`, request);
   }
 
   /** The exams that hold a question and how candidates have answered it (FR-9). */

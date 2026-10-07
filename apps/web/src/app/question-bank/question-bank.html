@@ -31,6 +31,15 @@
 
     <app-book-chapter-picker [books]="books()" idPrefix="question" [(value)]="placement" />
 
+    <div class="field">
+      <label for="question-language">Language</label>
+      <select id="question-language" formControlName="language">
+        @for (language of languages; track language.code) {
+          <option [value]="language.code">{{ language.label }}</option>
+        }
+      </select>
+    </div>
+
     <app-question-fields [topicSuggestions]="topics()" />
 
     <button type="submit" class="primary" [disabled]="form.invalid || !placementComplete() || saving()">Save question</button>
@@ -70,6 +79,13 @@
         <option value="">Any status</option>
         @for (status of statuses; track status.value) {
           <option [value]="status.value">{{ status.label }}</option>
+        }
+      </select>
+      <label class="visually-hidden" for="filter-language">Language</label>
+      <select id="filter-language" [value]="filterLanguage()" (change)="onFilterLanguageChanged($any($event.target).value)">
+        <option value="">Any language</option>
+        @for (language of languages; track language.code) {
+          <option [value]="language.code">{{ language.label }}</option>
         }
       </select>
       <label class="visually-hidden" for="filter-topic">Topic</label>
@@ -117,7 +133,7 @@
   @if (loading()) {
     <p>Loading…</p>
   } @else if (questions().length === 0) {
-    <p>{{ filterBook() || filterDifficulty() || filterTopic() || filterSearch() ? 'No questions match this filter.' : 'No questions yet.' }}</p>
+    <p>{{ filterBook() || filterDifficulty() || filterTopic() || filterSearch() || filterStatus() || filterLanguage() ? 'No questions match this filter.' : 'No questions yet.' }}</p>
   } @else {
     <label class="inline-check select-all">
       <input type="checkbox" [checked]="allSelected()" (change)="toggleAll($any($event.target).checked)" />
@@ -133,6 +149,7 @@
         (selectionChanged)="toggleSelected(question.id, $event)"
         [statistics]="statistics()[question.id] ?? null"
         (statisticsRequested)="onStatisticsRequested($event)"
+        (translationAdded)="onTranslationAdded()"
         (statusChanged)="onStatusChanged($event)"
         (fileRequested)="fileQuestion($event.questionId, $event.chapterId)"
         (deleteConfirmed)="deleteQuestion($event)"

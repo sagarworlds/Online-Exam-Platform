@@ -56,6 +56,8 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         services.AddScoped<QuestionReviewHandler>();
         services.AddScoped<ListTopicsHandler>();
         services.AddScoped<FindDuplicatesHandler>();
+        services.AddScoped<AddTranslationHandler>();
+        services.AddScoped<ListTranslationsHandler>();
         services.AddScoped<GetQuestionStatisticsHandler>();
         services.AddScoped<ImportQuestionsHandler>();
         services.AddScoped<ExportQuestionsHandler>();

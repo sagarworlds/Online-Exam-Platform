@@ -12,8 +12,11 @@
       <span class="visually-hidden">Select this question</span>
     </label>
   </div>
-  @if (question().allowsMultiple || question().difficulty || question().topics.length > 0 || question().status) {
+  @if (languageLabel() || question().allowsMultiple || question().difficulty || question().topics.length > 0 || question().status) {
     <p class="question-card__labels">
+      @if (languageLabel(); as language) {
+        <span class="badge badge--language">{{ language }}</span>
+      }
       @if (question().status; as status) {
         <span class="badge badge--status-{{ status }}">{{ statusLabels[status] }}</span>
       }
@@ -75,6 +78,10 @@
     </div>
   }
 
+  @if (showingTranslations()) {
+    <app-question-translations [question]="question()" (added)="translationAdded.emit()" />
+  }
+
   @if (error()) {
     <p class="error-message" role="alert">{{ error() }}</p>
   }
@@ -102,6 +109,9 @@
 
   <div class="actions question-card__actions">
     <a class="btn btn--small" [routerLink]="['/admin/questions', question().id, 'edit']">Edit</a>
+    <button type="button" class="btn--small" (click)="showingTranslations.set(!showingTranslations())" [attr.aria-expanded]="showingTranslations()">
+      Translations
+    </button>
     <button type="button" class="btn--small" (click)="toggleStatistics()" [attr.aria-expanded]="showingStatistics()">Statistics</button>
     <button type="button" class="btn--small" (click)="filing.set(!filing())" [attr.aria-expanded]="filing()" [disabled]="busy()">
       File under…

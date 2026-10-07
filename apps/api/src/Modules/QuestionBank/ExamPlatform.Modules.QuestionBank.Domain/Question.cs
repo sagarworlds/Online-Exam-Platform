@@ -76,6 +76,20 @@ public sealed class Question : AggregateRoot
     /// </summary>
     public string TextKey { get; private set; } = string.Empty;
 
+    /// <summary>
+    /// The language the question is written in (FR-10), a code from <see cref="QuestionLanguage.Supported"/>; "en" for every question
+    /// written before languages existed. Fixed when the question is created: a question in another language is a translation, a
+    /// different question linked to this one, not an edit of it.
+    /// </summary>
+    public string Language { get; private set; } = QuestionLanguage.English;
+
+    /// <summary>
+    /// Ties together the versions of one question in different languages (FR-10). A question that has no translations is alone in its
+    /// group, whose id is its own; a translation joins the group of the question it translates. The link is only a label for finding the
+    /// other languages: each translation is a question in its own right, reviewed, versioned and answered on its own.
+    /// </summary>
+    public Guid TranslationGroupId { get; private set; }
+
     /// <summary>The answer options, in display order.</summary>
     public IReadOnlyList<QuestionOption> Options => _options.AsReadOnly();
 
@@ -158,19 +172,27 @@ public sealed class Question : AggregateRoot
     /// <param name="difficulty">How hard the question is, or null for unsaid.</param>
     /// <param name="topics">The question's topics; see <see cref="Classify"/>.</param>
     /// <param name="allowsMultiple">Whether more than one option may be correct.</param>
+    /// <param name="language">The language it is written in; null means English (see <see cref="QuestionLanguage.Parse"/>).</param>
+    /// <param name="translationGroupId">
+    /// The group of the question this one translates (FR-10), or null to start a group of its own. The caller has already checked that
+    /// the group exists and has no question in this language yet; this aggregate cannot, because it knows only itself.
+    /// </param>
     /// <exception cref="InvalidQuestionError">
-    /// The text is blank or larger than <see cref="MaxHtmlLength"/>, the number of options is outside <see cref="MinOptions"/> to
+    /// The text is blank or larger than <see cref="MaxHtmlLength"/>, the language is not supported, the number of options is outside <see cref="MinOptions"/> to
     /// <see cref="MaxOptions"/>, an option is blank or too long, the options do not have exactly one correct answer, or the topics
     /// break the rules of <see cref="Classify"/>.
     /// </exception>
     public static Question Create(
         string? text, IReadOnlyList<NewQuestionOption>? options, Guid createdBy, DateTime nowUtc, Guid? chapterId = null,
-        QuestionDifficulty? difficulty = null, IReadOnlyList<string?>? topics = null, bool allowsMultiple = false)
+        QuestionDifficulty? difficulty = null, IReadOnlyList<string?>? topics = null, bool allowsMultiple = false,
+        string? language = null, Guid? translationGroupId = null)
     {
         var trimmedText = RequireText(text);
+        var code = QuestionLanguage.Parse(language);
         RequireOptionShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0, allowsMultiple);
 
-        var question = new Question(Guid.NewGuid(), trimmedText, chapterId, createdBy, nowUtc) { AllowsMultiple = allowsMultiple };
+        var question = new Question(Guid.NewGuid(), trimmedText, chapterId, createdBy, nowUtc) { AllowsMultiple = allowsMultiple, Language = code };
+        question.TranslationGroupId = translationGroupId ?? question.Id;
         question.Classify(difficulty, topics);
         foreach (var option in options!)
         {
