@@ -33,6 +33,7 @@ Things the requirements do ask for are not listed here, however they were done. 
 | B5 | Re-scoring one attempt | Beyond the wording | FR-31 | #149 | Merged |
 | B6 | Staff view of where an attempt was sat from | Beyond the wording | FR-26 | #141, #150 | Merged |
 | B7 | One active session per account at all times | Beyond the wording | FR-4 | #97 | Merged |
+| B8 | The rules of an answer-key dispute: window, once per question, accepted by a correction | Beyond the wording | FR-31, section 10 (Dispute), section 13 | #161 | In review |
 | S1 | Hosting on Render and Neon free plans | Supporting work | NFR-12, M1 | #124, #127 | Merged |
 | S2 | E-mail through SMTP or Brevo | Supporting work | FR-39 | #118, #124 | Merged |
 | S3 | Project board automation and hand-off notes | Supporting work | None | #94, #95 | Merged |
@@ -76,6 +77,8 @@ Things the requirements do ask for are not listed here, however they were done. 
 
 **B7. One active session per account at all times.** FR-4 says one active session per candidate *during an exam*. The platform ends an account's earlier session whenever it signs in again, for staff too, whether or not an exam is running.
 
+**B8. The rules of an answer-key dispute.** FR-31 asks for an answer-key dispute flow, the data model names a Dispute (attempt, question, reason, status), the API outline names `POST /attempts/{id}/disputes` and the flow names a "Review & Dispute window"; none says how long the window is, how often a candidate may dispute, or who decides. The platform's reading: a dispute can be raised for seven days after the result is released (`ExamRuntime:Disputes:WindowDays`, one setting for the platform, `0` for off), once per question per attempt, with staff's answer final; staff reject with a required reason, and a correction of the key is the only way a dispute is accepted, which then settles every open dispute about that question. Nothing is e-mailed to either side. See [Disputing an answer key](../README.md#disputing-an-answer-key-fr-31).
+
 ## Supporting work
 
 **S1. Hosting on Render and Neon free plans.** The live deployment runs on Render's free web service and a free Neon database (`render.yaml`, [`docs/deploy-render.md`](./deploy-render.md)). NFR-12 asks for India-region hosting and M1 for India-region infrastructure as code; ADR 0001 records that as blocked on open question 4 (which cloud provider). The free plans sleep when idle and the database holds 0.5 GB, so this is a stand-in for trying the platform, not the hosting the requirements describe.
@@ -91,7 +94,7 @@ Things the requirements do ask for are not listed here, however they were done. 
 1. **WhatsApp consent (N2, N3).** The privacy page says WhatsApp notices go only to people who agreed to them, and WhatsApp's own policy requires the same, but the platform records no such agreement (there is no consent purpose for it). Everything ships off, and turning it on is the operator's statement that those people agreed. Opt-in and opt-out records are the next piece of FR-39.
 2. **The unspent-codes page (N8).** It shows credentials to anyone holding `identity.otp.read`. Decide whether it should exist in production, especially now that codes can be delivered on WhatsApp.
 3. **Hosting region (S1).** Moving to an India region is the open question 4 the requirements left for the owner.
-4. **Policy choices made while the requirements were silent (N6, B2, B4).** Marking the best attempt, shuffling later attempts, and locking a question's answers once answered are reasonable, but they are choices; confirm or change them.
+4. **Policy choices made while the requirements were silent (N6, B2, B4, B8).** Marking the best attempt, shuffling later attempts, locking a question's answers once answered, and the dispute rules (seven days, once per question, accepted only by a correction) are reasonable, but they are choices; confirm or change them.
 
 ## Keeping this list current
 
