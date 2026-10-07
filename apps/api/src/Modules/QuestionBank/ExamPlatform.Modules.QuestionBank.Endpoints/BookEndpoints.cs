@@ -41,7 +41,8 @@ public static class BookEndpoints
     private static async Task<IResult> CreateBook(
         BookRequest request, ClaimsPrincipal user, CreateBookHandler handler, CancellationToken ct)
     {
-        var created = await handler.HandleAsync(new CreateBookCommand(request.Name, request.Subject, request.Description, user.GetUserId()), ct);
+        var created = await handler.HandleAsync(
+            new CreateBookCommand(request.Name, request.Subject, request.Description, user.GetUserId(), request.ClassId), ct);
         return Results.Created($"/v1/books/{created.Id}", created);
     }
 
@@ -52,7 +53,7 @@ public static class BookEndpoints
         Results.Ok(await handler.HandleAsync(bookId, ct));
 
     private static async Task<IResult> UpdateBook(Guid bookId, BookRequest request, ChangeBookHandler handler, CancellationToken ct) =>
-        Results.Ok(await handler.UpdateAsync(new UpdateBookCommand(bookId, request.Name, request.Subject, request.Description), ct));
+        Results.Ok(await handler.UpdateAsync(new UpdateBookCommand(bookId, request.Name, request.Subject, request.Description, request.ClassId), ct));
 
     private static async Task<IResult> ArchiveBook(Guid bookId, ChangeBookHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.ArchiveAsync(bookId, ct));
@@ -78,7 +79,8 @@ public static class BookEndpoints
 /// <param name="Name">The book's name.</param>
 /// <param name="Subject">The subject it covers (for example "Maths"); optional.</param>
 /// <param name="Description">A short description; optional.</param>
-public sealed record BookRequest(string? Name, string? Subject, string? Description);
+/// <param name="ClassId">The class the book belongs to; optional. A change replaces the details as a whole, so omitting it takes the book out of its class.</param>
+public sealed record BookRequest(string? Name, string? Subject, string? Description, Guid? ClassId = null);
 
 /// <summary>Request body for adding or renaming a chapter.</summary>
 /// <param name="Title">The chapter's title.</param>

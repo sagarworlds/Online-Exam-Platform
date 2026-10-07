@@ -25,7 +25,7 @@ public class QuestionDuplicateTests
     public QuestionDuplicateTests() => clock.UtcNow.Returns(Now);
 
     private CreateQuestionHandler Creator(bool refuse = true) =>
-        new(repository, new OpenChapterResolver(books), new QuestionDuplicateFinder(repository), new QuestionDuplicatePolicy(refuse), unitOfWork, new RichTextSanitizer(), clock);
+        new(repository, new OpenChapterResolver(books, Substitute.For<IClassRepository>()), new QuestionDuplicateFinder(repository), new QuestionDuplicatePolicy(refuse), unitOfWork, new RichTextSanitizer(), clock);
 
     private ImportQuestionsHandler Importer(bool refuse = true) =>
         new(repository, new QuestionDuplicateFinder(repository), new QuestionDuplicatePolicy(refuse), unitOfWork, new RichTextSanitizer(), clock);

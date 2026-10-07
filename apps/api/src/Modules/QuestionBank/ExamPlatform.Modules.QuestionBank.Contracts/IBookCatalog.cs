@@ -19,7 +19,10 @@ public interface IBookCatalog
 /// <param name="Name">The book's name.</param>
 /// <param name="IsArchived">Whether the book is archived: kept, but not to be chosen for anything new.</param>
 /// <param name="Chapters">The book's chapters, in order.</param>
-public sealed record BookSnapshot(Guid Id, string Name, bool IsArchived, IReadOnlyList<ChapterSnapshot> Chapters);
+/// <param name="ClassId">The class the book belongs to, or null when it has none.</param>
+/// <param name="ClassName">That class's name, or null.</param>
+public sealed record BookSnapshot(
+    Guid Id, string Name, bool IsArchived, IReadOnlyList<ChapterSnapshot> Chapters, Guid? ClassId = null, string? ClassName = null);
 
 /// <summary>One chapter of a <see cref="BookSnapshot"/>.</summary>
 /// <param name="Id">The chapter's id.</param>

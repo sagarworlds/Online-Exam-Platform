@@ -19,6 +19,9 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
     /// <summary>The stored chapters, owned by their books.</summary>
     public DbSet<Chapter> Chapters => Set<Chapter>();
 
+    /// <summary>The stored classes, the level above books.</summary>
+    public DbSet<SchoolClass> Classes => Set<SchoolClass>();
+
     /// <summary>Every version any question has had (FR-7).</summary>
     public DbSet<QuestionVersion> QuestionVersions => Set<QuestionVersion>();
     public DbSet<QuestionReviewEntry> QuestionReviewEntries => Set<QuestionReviewEntry>();
@@ -76,6 +79,20 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
 
             b.HasMany(x => x.Chapters).WithOne().HasForeignKey(c => c.BookId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(x => x.Chapters).HasField("_chapters").UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            // A book may sit under a class. Restrict, not cascade or clear: classes are archived, never deleted, so a class that
+            // still has books must never disappear from under them.
+            b.HasOne<SchoolClass>().WithMany().HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SchoolClass>(b =>
+        {
+            b.ToTable("Classes");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(SchoolClass.MaxNameLength);
+            b.Ignore(x => x.DomainEvents);
+            // Names are checked ignoring case by the handler; this index turns two requests racing with the very same name into a conflict.
+            b.HasIndex(x => x.Name).IsUnique();
         });
 
         modelBuilder.Entity<Chapter>(b =>

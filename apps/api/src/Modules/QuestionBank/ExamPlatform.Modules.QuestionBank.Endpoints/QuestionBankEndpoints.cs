@@ -41,7 +41,7 @@ public static class QuestionBankEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("ListQuestions")
-            .WithDescription("List the newest questions, 200 at a time (skip leaves out that many of the newest), optionally only those under a book or chapter, only unfiled ones, of one difficulty, on one topic, in one review status, or containing some text (q)");
+            .WithDescription("List the newest questions, 200 at a time (skip leaves out that many of the newest), optionally only those under a class, book or chapter, only unfiled ones, of one difficulty, on one topic, in one review status, or containing some text (q)");
 
         readers.MapPost("/duplicates", FindDuplicates)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -207,12 +207,12 @@ public static class QuestionBankEndpoints
     }
 
     private static async Task<IResult> ListQuestions(
-        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, int? skip, string? status, string? language, CancellationToken ct)
+        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, int? skip, string? status, string? language, Guid? classId, CancellationToken ct)
     {
         var statuses = QuestionStatusText.Parse(status) is { } one ? new[] { one } : null;
         return Results.Ok(await handler.HandleAsync(
             new QuestionFilter(bookId, chapterId, unfiled ?? false, QuestionDifficultyText.Parse(difficulty), Question.NormalizeTopic(topic), q, null, statuses,
-                string.IsNullOrWhiteSpace(language) ? null : QuestionLanguage.Parse(language)), ct, skip ?? 0));
+                string.IsNullOrWhiteSpace(language) ? null : QuestionLanguage.Parse(language), classId), ct, skip ?? 0));
     }
 
     private static ReviewActor Actor(ClaimsPrincipal user) => new(user.GetUserId(), user.GetEmail());
@@ -267,9 +267,9 @@ public static class QuestionBankEndpoints
             new ImportQuestionsCommand(request.Content ?? request.Csv ?? string.Empty, user.GetUserId(), QuestionFiles.ParseFormat(request.Format), request.AllowDuplicates), ct));
 
     private static async Task<IResult> ExportQuestions(
-        ExportQuestionsHandler handler, HttpContext http, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, string? format, CancellationToken ct)
+        ExportQuestionsHandler handler, HttpContext http, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, string? format, Guid? classId, CancellationToken ct)
     {
-        var filter = new QuestionFilter(bookId, chapterId, unfiled ?? false, QuestionDifficultyText.Parse(difficulty), Question.NormalizeTopic(topic), q);
+        var filter = new QuestionFilter(bookId, chapterId, unfiled ?? false, QuestionDifficultyText.Parse(difficulty), Question.NormalizeTopic(topic), q, ClassId: classId);
         var file = await handler.ExportAsync(filter, QuestionFiles.ParseFormat(format), ct);
         // A workbook cannot hold a question whose text is longer than a cell, so the caller is told how many were left out.
         http.Response.Headers["X-Questions-Skipped"] = file.Skipped.ToString(System.Globalization.CultureInfo.InvariantCulture);

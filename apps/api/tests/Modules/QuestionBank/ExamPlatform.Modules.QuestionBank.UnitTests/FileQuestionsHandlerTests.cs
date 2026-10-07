@@ -23,7 +23,7 @@ public class FileQuestionsHandlerTests
 
     public FileQuestionsHandlerTests()
     {
-        handler = new FileQuestionsHandler(repository, new OpenChapterResolver(books), [guard], unitOfWork);
+        handler = new FileQuestionsHandler(repository, new OpenChapterResolver(books, Substitute.For<IClassRepository>()), [guard], unitOfWork);
         book = Book.Create("Maths", "Maths", null, Guid.NewGuid(), Now);
         book.AddChapter("Algebra");
         chapterId = book.Chapters.Single().Id;
@@ -171,7 +171,7 @@ public class FileQuestionsHandlerTests
         var questions = Stored(1);
         second.CheckAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns([new PlacementObjection(questions[0].Id, "Another module objects.")]);
-        var both = new FileQuestionsHandler(repository, new OpenChapterResolver(books), [guard, second], unitOfWork);
+        var both = new FileQuestionsHandler(repository, new OpenChapterResolver(books, Substitute.For<IClassRepository>()), [guard, second], unitOfWork);
 
         var error = await Assert.ThrowsAsync<PlacementRefusedError>(() => both.HandleAsync(new FileQuestionsCommand([questions[0].Id], chapterId), CancellationToken.None));
 

@@ -53,6 +53,7 @@ public sealed class ExamDtoFactory(IBookCatalog catalog)
             book?.Name,
             scope.ChapterIds
                 .Select(id => new ExamScopeChapterDto(id, book?.Chapters.FirstOrDefault(c => c.Id == id)?.Title))
-                .ToList());
+                .ToList(),
+            book?.ClassName);
     }
 }

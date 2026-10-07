@@ -12,9 +12,11 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Ports;
 /// <param name="ChapterIds">Only questions filed under one of these chapters; null or empty sets no limit.</param>
 /// <param name="Statuses">Only questions in one of these review statuses (FR-8); null or empty sets no limit.</param>
 /// <param name="Language">Only questions written in this language (FR-10), as a code already parsed by <see cref="QuestionLanguage.Parse"/>.</param>
+/// <param name="ClassId">Only questions filed under a chapter of a book of this class; combines with the book and chapter limits.</param>
 public sealed record QuestionFilter(
     Guid? BookId = null, Guid? ChapterId = null, bool UnfiledOnly = false, QuestionDifficulty? Difficulty = null, string? Topic = null,
-    string? Search = null, IReadOnlyList<Guid>? ChapterIds = null, IReadOnlyList<QuestionStatus>? Statuses = null, string? Language = null);
+    string? Search = null, IReadOnlyList<Guid>? ChapterIds = null, IReadOnlyList<QuestionStatus>? Statuses = null, string? Language = null,
+    Guid? ClassId = null);
 
 /// <summary>Persistence port for <see cref="Question"/>.</summary>
 public interface IQuestionRepository

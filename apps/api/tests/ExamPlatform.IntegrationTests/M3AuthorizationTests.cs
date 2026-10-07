@@ -116,6 +116,11 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("POST", "/v1/questions/{questionId:guid}/retire", RbacCatalog.PermissionCodes.QuestionManage, null),
         new("POST", "/v1/questions/{questionId:guid}/restore", RbacCatalog.PermissionCodes.QuestionManage, null),
 
+        new("POST", "/v1/classes", RbacCatalog.PermissionCodes.QuestionManage, new { name = "Authorization Test Class" }),
+        new("GET", "/v1/classes", RbacCatalog.PermissionCodes.QuestionRead, null),
+        new("PUT", "/v1/classes/{classId:guid}", RbacCatalog.PermissionCodes.QuestionManage, new { name = "Renamed" }),
+        new("POST", "/v1/classes/{classId:guid}/archive", RbacCatalog.PermissionCodes.QuestionManage, null),
+        new("POST", "/v1/classes/{classId:guid}/restore", RbacCatalog.PermissionCodes.QuestionManage, null),
         new("POST", "/v1/books", RbacCatalog.PermissionCodes.QuestionManage, new { name = "Authorization Test Book" }),
         new("GET", "/v1/books", RbacCatalog.PermissionCodes.QuestionRead, null),
         new("GET", "/v1/books/{bookId:guid}", RbacCatalog.PermissionCodes.QuestionRead, null),
@@ -154,7 +159,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
     // is the invitee's own action, so it cannot demand a staff permission.
     private static readonly string[] SelfServiceRoutes = ["POST /v1/invites/accept"];
 
-    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/questions", "/v1/books", "/v1/attempt-requests", "/v1/proctoring-profiles"];
+    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/proctoring-profiles"];
 
     public static TheoryData<string> StaffRouteKeys => [.. StaffRoutes.Select(r => r.Key)];
 

@@ -382,6 +382,8 @@ The exam's author chooses how many attempts **every** enrolled candidate has, on
 
 A **book** (name, optional subject such as "Maths", optional description) holds ordered **chapters**. A question may be filed under one chapter of one book, or under none (existing questions stay unfiled). An **exam's scope** says where its questions may come from: **anywhere** in the bank (the default, and what every exam did before), **one whole book**, or **chosen chapters** of one book. Questions are still picked by hand; the scope limits what can be picked.
 
+Above the books there can be a **class** (a standard or grade such as "4th"), so the structure is **Class, Book, Chapter, Question**. "Olympiad English for the 4th" is the class 4th, the book English, and an exam limited to that whole book or to chosen chapters of it. A book belongs to at most one class, so "English" for the 4th and "English" for the 5th are two books, each with its own chapters and questions. A class is optional: every book made before classes existed has none and works exactly as before (it is listed under "No class").
+
 Books and chapters are for authors and administrators only (the `question.manage` permission, the same one the question bank uses). Candidates never see them.
 
 | What | Rule |
@@ -392,8 +394,12 @@ Books and chapters are for authors and administrators only (the `question.manage
 | Exam scope | Set when creating the exam or later on a draft (`PUT /v1/exams/{id}/scope`). Once an exam is published its scope is fixed. |
 | Enforced by the API | Adding a question outside the exam's scope is refused with `409 question_outside_scope`, however the request is made; the editor's picker only offers in-scope questions. Narrowing a scope is refused, naming how many questions would be left outside it, until they are removed. |
 | Authors without bank access | A user who may author exams but not read the question bank can still create exams, just not book-limited ones. |
+| Classes | The **Classes** panel on `/admin/books` adds, renames, archives and restores classes (`POST /v1/classes`, `PUT /v1/classes/{id}`, `POST /v1/classes/{id}/archive` and `/restore` need `question.manage`; `GET /v1/classes`, with `?includeArchived=true`, needs `question.read` and reports how many books each class holds). A name is 1 to 100 characters and unique ignoring case (`400 invalid_class`, `409 duplicate_class`; `404 class_not_found`). Classes are archived, never deleted: an archived class keeps its books and leaves the pickers, but takes no new books (`409 class_archived`, whether a book is made there or moved there). |
+| A book's class | Chosen when the book is made and changed on its page: `POST /v1/books` and `PUT /v1/books/{id}` take `classId` (`404 class_not_found`). Changing a book replaces its details as a whole, so a request that names no class takes the book out of its class. A book may stay in a class that has since been archived. Books, and the questions filed under them, report `classId` and `className`. |
+| Choosing | The pickers run Class, Book, Chapter (the question form, a question's "File under…", the bulk toolbar and the exam's scope), listing the books of the chosen class; "Any class" lists every book labelled with its class. The question list filters by class (`GET /v1/questions?classId=`, also on the export), which combines with the book and chapter filters. |
+| Exams | An exam's scope is unchanged (anywhere, one book, chosen chapters): limiting an exam to a book already limits it to that book's class. The exam reports the class of its book (`scope.className`) and the editor shows "English (4th)". A scope over a whole class, with questions from several of its books, is not built; say so if exams need one. |
 
-Existing data is untouched: both migrations (`BooksAndChapters`, `ExamScope`) only add tables and nullable or defaulted columns, and existing exams read as "anywhere" (the `ExamScope` default was checked against a database that already held an exam).
+Existing data is untouched: both migrations (`BooksAndChapters`, `ExamScope`) only add tables and nullable or defaulted columns, and existing exams read as "anywhere" (the `ExamScope` default was checked against a database that already held an exam). `ClassesAboveBooks` does the same for classes: a new `Classes` table and a nullable `ClassId` on `Books` (restrict on delete), so every existing book is simply under no class.
 
 #### Editing, deleting and filing questions
 

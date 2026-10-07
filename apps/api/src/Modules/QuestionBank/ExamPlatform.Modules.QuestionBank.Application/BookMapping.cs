@@ -9,7 +9,8 @@ internal static class BookMapping
     /// <summary>Maps a book and its chapters, in the order they were added.</summary>
     /// <param name="book">The book to map.</param>
     /// <param name="questionCounts">How many questions are filed under each chapter; a missing chapter has none.</param>
-    public static BookDto ToDto(this Book book, IReadOnlyDictionary<Guid, int> questionCounts) =>
+    /// <param name="className">The name of the book's class, when it has one; the book carries only the class's id.</param>
+    public static BookDto ToDto(this Book book, IReadOnlyDictionary<Guid, int> questionCounts, string? className = null) =>
         new(
             book.Id,
             book.Name,
@@ -18,5 +19,7 @@ internal static class BookMapping
             book.IsArchived,
             book.Chapters.Select(c => new ChapterDto(c.Id, c.BookId, c.Title, c.Order, c.IsArchived, questionCounts.GetValueOrDefault(c.Id))).ToList(),
             book.CreatedBy,
-            book.CreatedAtUtc);
+            book.CreatedAtUtc,
+            book.ClassId,
+            className);
 }
