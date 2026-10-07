@@ -138,17 +138,72 @@
               @if (paperFor() === attempt.id) {
                 <li class="attempt-paper">
                   @if (paper(); as p) {
+                    @if (p.status === 'Submitted') {
+                      <div class="review-summary">
+                        <p class="review-summary__score">{{ p.score }} / {{ p.maxScore }}</p>
+                        <ul class="review-counts" aria-label="Summary">
+                          <li class="badge badge--active">{{ verdictCount(p, 'Correct') }} correct</li>
+                          @if (verdictCount(p, 'Partial')) {
+                            <li class="badge badge--warning">{{ verdictCount(p, 'Partial') }} partly correct</li>
+                          }
+                          <li class="badge badge--danger">{{ verdictCount(p, 'Wrong') }} wrong</li>
+                          <li class="badge badge--inactive">{{ verdictCount(p, 'Unanswered') }} not answered</li>
+                        </ul>
+                      </div>
+                      @if (p.isInvalidated) {
+                        <p class="hint">This attempt was invalidated, so the candidate is not shown this score.</p>
+                      }
+                    } @else if (p.status === 'InProgress') {
+                      <p class="hint">Still in progress: what the candidate has chosen so far is marked, and nothing is scored until it is submitted.</p>
+                    }
                     @if (p.hasDrawnQuestions) {
                       <p class="hint">Some questions were drawn for this candidate, so other candidates' papers may differ.</p>
                     }
                     @for (section of p.sections; track section.id) {
                       <h4>{{ section.name }}</h4>
-                      <ol>
+                      <ol class="attempt-paper__questions">
                         @for (question of section.questions; track question.id) {
-                          <li>
-                            {{ question.text ? (question.text | plainText: 160) : '(question no longer in the bank)' }}
+                          <li class="attempt-paper__question">
+                            @if (question.text) {
+                              <div class="rich-text" [appMath]="question.text"></div>
+                            } @else {
+                              <p>(question no longer in the bank)</p>
+                            }
                             @if (question.drawn) {
                               <span class="badge badge--inactive">drawn</span>
+                            }
+                            @if (question.verdict) {
+                              <span
+                                class="badge"
+                                [class.badge--active]="question.verdict === 'Correct'"
+                                [class.badge--warning]="question.verdict === 'Partial'"
+                                [class.badge--danger]="question.verdict === 'Wrong'"
+                                [class.badge--inactive]="question.verdict === 'Unanswered'"
+                              >{{ verdictLabel(question.verdict) }}</span>
+                              @if (question.marks !== null && question.marks !== undefined) {
+                                <span class="review-question__marks" aria-label="Marks">{{ formatMarks(question.marks) }}</span>
+                              }
+                            }
+                            @if (question.options) {
+                              <ul class="review-options">
+                                @for (option of question.options; track option.id; let i = $index) {
+                                  <li
+                                    class="review-option"
+                                    [class.review-option--correct]="option.isCorrect"
+                                    [class.review-option--wrong]="option.wasChosen && !option.isCorrect"
+                                  >
+                                    <span class="review-option__marker" aria-hidden="true">{{ optionLetter(i) }}</span>
+                                    <span class="review-option__text">{{ option.text }}</span>
+                                    @if (option.wasChosen && option.isCorrect) {
+                                      <span class="review-option__tag">Chosen · Correct</span>
+                                    } @else if (option.wasChosen) {
+                                      <span class="review-option__tag">Chosen</span>
+                                    } @else if (option.isCorrect) {
+                                      <span class="review-option__tag">Correct answer</span>
+                                    }
+                                  </li>
+                                }
+                              </ul>
                             }
                           </li>
                         }

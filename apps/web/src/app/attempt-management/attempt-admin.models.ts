@@ -1,4 +1,4 @@
-import { AttemptRequestStatus, AttemptSummaryDto } from '../candidate/candidate.models';
+import { AttemptRequestStatus, AttemptSummaryDto, AnswerVerdict, AttemptStatus, ReviewOptionDto } from '../candidate/candidate.models';
 
 /** One enrolled candidate of an exam, with their attempts and whether another can be given, as staff see them. */
 export interface ExamCandidateDto {
@@ -32,6 +32,13 @@ export interface AttemptPaperQuestionDto {
   id: string;
   text: string | null;
   drawn: boolean;
+  /** The options in the order this candidate saw them, with the correct one and the candidate's choice marked; null if the bank no longer has the question. */
+  options?: ReviewOptionDto[] | null;
+  /** How the answer was marked; null until the attempt is submitted. */
+  verdict?: AnswerVerdict | null;
+  /** The marks the answer earned, which may be negative; null until the attempt is submitted. */
+  marks?: number | null;
+  allowsMultiple?: boolean;
 }
 
 export interface AttemptPaperSectionDto {
@@ -57,6 +64,13 @@ export interface AttemptPaperDto {
   number: number;
   hasDrawnQuestions: boolean;
   sections: AttemptPaperSectionDto[];
+  /** Absent from an API that predates the marked paper. */
+  status?: AttemptStatus;
+  /** The marks scored and available; null until the attempt is submitted. */
+  score?: number | null;
+  maxScore?: number | null;
+  /** Staff invalidated the attempt (FR-29): the candidate is not shown the score, staff still see what it was. */
+  isInvalidated?: boolean;
 }
 
 /** The statuses the request queue can be filtered to, as the API spells them in the query. */
