@@ -30,6 +30,9 @@ Things the requirements do ask for are not listed here, however they were done. 
 | B2 | Pinned options, and the shuffling rules | Beyond the wording | FR-12, FR-28 | #106, #107 | Merged |
 | B3 | Putting a draft exam right, and deleting a draft | Beyond the wording | FR-11, FR-12 | #98 | Merged |
 | B4 | What may change about a question that is in use | Beyond the wording | FR-5, FR-7 | #97, #131 | Merged |
+| B5 | Re-scoring one attempt | Beyond the wording | FR-31 | #149 | Merged |
+| B6 | Staff view of where an attempt was sat from | Beyond the wording | FR-26 | #141, #150 | Merged |
+| B7 | One active session per account at all times | Beyond the wording | FR-4 | #97 | Merged |
 | S1 | Hosting on Render and Neon free plans | Supporting work | NFR-12, M1 | #124, #127 | Merged |
 | S2 | E-mail through SMTP or Brevo | Supporting work | FR-39 | #118, #124 | Merged |
 | S3 | Project board automation and hand-off notes | Supporting work | None | #94, #95 | Merged |
@@ -59,13 +62,19 @@ Things the requirements do ask for are not listed here, however they were done. 
 
 ## Beyond the wording of a requirement
 
-**B1. Marathi.** FR-10 and FR-51 say "English + Hindi first", extensible, and open question 3 asks which regional languages come next. Marathi (`mr`) is now a third interface language and question language, so this answers that open question, but the choice is the platform's, not the document's. See [Interface and content language](../README.md#interface-and-content-language-fr-51) and [Languages and linked translations](../README.md#languages-and-linked-translations-fr-10).
+**B1. Marathi.** FR-10 and FR-51 say "English + Hindi first", extensible, and open question 3 asks which regional languages come next. Marathi (`mr`) is now a third interface language and question language, so this answers that open question. The board records it as a decision: issue #31 was retitled from "EN + HI" to "EN + HI + MR" on 7 October 2026, shortly before the pull request. The requirements document itself still says English and Hindi. See [Interface and content language](../README.md#interface-and-content-language-fr-51) and [Languages and linked translations](../README.md#languages-and-linked-translations-fr-10).
 
 **B2. Pinned options and the shuffling rules.** FR-12 and FR-28 ask for question and option shuffling, seeded per candidate. Added on top: an option can be pinned ("keep in place", such as a "none of the above" that must stay last); shuffling is off by default; and a later attempt at an exam shows questions and options shuffled even when the first did not. See [Extra attempts](../README.md#extra-attempts).
 
 **B3. Putting a draft exam right.** FR-11 and FR-12 ask for building and configuring an exam. Added: taking a question or section out of a draft, renaming a section, correcting the name and description (also after publishing, since nothing asked or scored changes), and deleting a draft, which the other modules can refuse. See [Putting a draft exam right](../README.md#putting-a-draft-exam-right).
 
 **B4. What may change about a question that is in use.** FR-5 asks for create, read, update and delete and FR-7 for versions that never alter past attempts. The platform's reading of them: once a candidate has answered a question only its wording can change, and a question cannot be deleted while any exam holds it. See [Editing, deleting and filing questions](../README.md#editing-deleting-and-filing-questions).
+
+**B5. Re-scoring one attempt.** FR-31 asks for rescoring all affected attempts when an answer key is revised (that route is covered by the requirement). Beyond it, staff can re-score a single submitted attempt from its stored answers, with a reason, and a changed score is kept as a revision the candidate sees. It was added to repair a real defect: a submit racing an answer save once left a score one question short (#149). See [Saving answers and submitting at the same moment](../README.md#saving-answers-and-submitting-at-the-same-moment).
+
+**B6. Staff view of where an attempt was sat from.** FR-26 asks for IP and device fingerprint logging and multi-login detection. The platform also shows staff, per attempt, how many devices and address changes there were and a list of sign-in details (address, short device signature, when). Candidates never see it. See [Where an attempt is sat from](../README.md#where-an-attempt-is-sat-from-ip-address-device-signature-and-multi-login-detection).
+
+**B7. One active session per account at all times.** FR-4 says one active session per candidate *during an exam*. The platform ends an account's earlier session whenever it signs in again, for staff too, whether or not an exam is running.
 
 ## Supporting work
 
@@ -75,7 +84,7 @@ Things the requirements do ask for are not listed here, however they were done. 
 
 **S3. Project board automation and hand-off notes.** A GitHub Actions job keeps the project board in step with issue and pull request activity, and `docs/handoff/` holds the stabilisation plan. Process, not product.
 
-**S4. Start-up refusals and consistency tests.** The host refuses to start without a one-time-code provider (and without WhatsApp's settings once WhatsApp is switched on), a test fails if a module's migrations stop describing its model, and architecture tests keep the module boundaries. They support NFR-5 and NFR-11 rather than add behaviour.
+**S4. Start-up refusals, safety nets and developer helpers.** The host refuses to start without a one-time-code provider (and without WhatsApp's settings once WhatsApp is switched on), and refuses a log-only code sender outside Development, so a code can never end up in a production log. Asking for a code for an unknown or locked address gets the same answer as a real request (a decoy challenge is stored), so replies do not reveal who has an account. A test fails if a module's migrations stop describing its model, and architecture tests keep the module boundaries. In Development, codes are written (masked) to the log and the log says why a sign-in got none, and a first administrator can be created from user-secrets. These support NFR-5, NFR-6 and NFR-11 rather than add behaviour.
 
 ## Decisions waiting for the owner
 
