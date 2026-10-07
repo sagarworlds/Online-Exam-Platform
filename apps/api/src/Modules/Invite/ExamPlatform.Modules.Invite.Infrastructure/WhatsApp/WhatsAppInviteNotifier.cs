@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.RegularExpressions;
 using ExamPlatform.Modules.Invite.Application.Ports;
 using ExamPlatform.SharedKernel.Infrastructure.WhatsApp;
 using Microsoft.Extensions.Logging;
@@ -12,7 +11,7 @@ namespace ExamPlatform.Modules.Invite.Infrastructure.WhatsApp;
 /// switched on (<c>WhatsApp:Enabled</c>), a template is named and the platform has what it needs to send, and otherwise sends nothing. The code and link are credentials, so
 /// they appear only in the message itself, and a number appears in a log only masked, like the e-mail and one-time-code senders.
 /// </summary>
-public sealed partial class WhatsAppInviteNotifier(
+public sealed class WhatsAppInviteNotifier(
     IWhatsAppSender whatsApp,
     IOptions<InviteWhatsAppOptions> invite,
     IOptions<WhatsAppOptions> platform,
@@ -72,11 +71,9 @@ public sealed partial class WhatsAppInviteNotifier(
         return result.Sent;
     }
 
-    // A template value may not hold a line break, a tab or a run of spaces: WhatsApp refuses the whole message if it does.
-    private static string OneLine(string text) => Whitespace().Replace(text, " ").Trim();
+    // A template value may not hold a line break, a tab or a run of spaces: WhatsApp refuses the whole message if it does. (Split on
+    // whitespace rather than a generated regex: the generator would put a type of its own in this assembly, outside the module's namespace.)
+    private static string OneLine(string text) => string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     private static string Truncate(string text, int length) => text.Length <= length ? text : text[..length];
-
-    [GeneratedRegex(@"\s+")]
-    private static partial Regex Whitespace();
 }
