@@ -284,7 +284,8 @@ public sealed class ClassFlowTests(ApiFactory factory) : IClassFixture<ApiFactor
     [Fact]
     public async Task AnExamLimitedToABook_OrToItsChapters_ReportsTheClassOfThatBook()
     {
-        using var client = await AuthorAsync();
+        // Making an exam needs the exam-authoring permission, which a content author does not hold.
+        using var client = await factory.AdminClientAsync();
         var fourth = await CreateClassAsync(client, Unique("4th"));
         var book = await CreateBookAsync(client, "English", fourth.GetProperty("id").GetGuid());
         var bookId = book.GetProperty("id").GetGuid();
