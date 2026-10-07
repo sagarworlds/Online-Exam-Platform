@@ -7,7 +7,17 @@
 
   @if (created(); as invite) {
     @if (invite.emailSent) {
-      <p class="success-message">Invitation e-mailed to {{ invite.email }}.</p>
+      <p class="success-message">
+        Invitation e-mailed to {{ invite.email }}.
+        @if (invite.whatsAppSent) {
+          The exam code was also sent to their phone on WhatsApp.
+        }
+      </p>
+    } @else if (invite.whatsAppSent) {
+      <p class="success-message">
+        Invitation created for {{ invite.email }}. No e-mail could be sent, but the exam code and link were sent to their phone on
+        WhatsApp.
+      </p>
     } @else {
       <div class="card">
         <p class="success-message">Invitation created for {{ invite.email }}, but no e-mail could be sent.</p>

@@ -79,7 +79,8 @@ public static class TestSessions
         string? email = null,
         DateOnly? dateOfBirth = null,
         string? password = null,
-        TimeSpan? sessionLifetime = null)
+        TimeSpan? sessionLifetime = null,
+        string? phoneNumber = null)
     {
         using var scope = factory.Services.CreateScope();
         var services = scope.ServiceProvider;
@@ -96,7 +97,7 @@ public static class TestSessions
 
         var user = User.Register(
             email ?? $"{roleName.ToLowerInvariant()}-{Guid.NewGuid():N}@tests.local",
-            phoneNumber: null,
+            phoneNumber,
             dateOfBirth ?? DefaultDateOfBirth,
             displayName: $"Test {roleName}",
             nowUtc);

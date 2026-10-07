@@ -58,8 +58,8 @@ public sealed class WhatsAppOptions
     /// <summary>Whether enough is set to answer Meta's webhook verification and to check the signature of what it sends.</summary>
     public bool CanReceiveWebhooks => Has(AppSecret) && Has(WebhookVerifyToken);
 
-    /// <summary>The settings still needed before one-time codes can be delivered, by name (empty when none is).</summary>
-    public IReadOnlyList<string> MissingForOtp()
+    /// <summary>The settings still needed before any message can be sent, by name (empty when none is).</summary>
+    public IReadOnlyList<string> MissingForSending()
     {
         var missing = new List<string>();
         if (!Has(AccessToken))
@@ -72,6 +72,13 @@ public sealed class WhatsAppOptions
             missing.Add(nameof(PhoneNumberId));
         }
 
+        return missing;
+    }
+
+    /// <summary>The settings still needed before one-time codes can be delivered, by name (empty when none is).</summary>
+    public IReadOnlyList<string> MissingForOtp()
+    {
+        var missing = MissingForSending().ToList();
         if (!Has(OtpTemplateName))
         {
             missing.Add(nameof(OtpTemplateName));

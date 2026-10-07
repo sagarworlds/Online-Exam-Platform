@@ -63,6 +63,56 @@ describe('InviteCreate', () => {
     expect(root.textContent).not.toContain('Send this link');
   });
 
+  it('says so when the exam code also went to their phone on WhatsApp', () => {
+    const { fixture, root } = open();
+    fill(fixture, root);
+    (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+
+    httpMock
+      .expectOne((r) => r.method === 'POST')
+      .flush(
+        { id: 'i1', email: 'student@example.com', emailSent: true, whatsAppSent: true, inviteLink: null },
+        { status: 201, statusText: 'Created' },
+      );
+    fixture.detectChanges();
+
+    expect(root.textContent).toContain('Invitation e-mailed to student@example.com');
+    expect(root.textContent).toContain('also sent to their phone on WhatsApp');
+  });
+
+  it('does not ask the inviter to pass a link on when only WhatsApp delivered', () => {
+    const { fixture, root } = open();
+    fill(fixture, root);
+    (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+
+    httpMock
+      .expectOne((r) => r.method === 'POST')
+      .flush(
+        { id: 'i1', email: 'student@example.com', emailSent: false, whatsAppSent: true, inviteLink: null },
+        { status: 201, statusText: 'Created' },
+      );
+    fixture.detectChanges();
+
+    expect(root.textContent).toContain('sent to their phone on WhatsApp');
+    expect(root.textContent).not.toContain('Send this link');
+  });
+
+  it('does not mention WhatsApp when it was not used', () => {
+    const { fixture, root } = open();
+    fill(fixture, root);
+    (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+
+    httpMock
+      .expectOne((r) => r.method === 'POST')
+      .flush(
+        { id: 'i1', email: 'student@example.com', emailSent: true, whatsAppSent: false, inviteLink: null },
+        { status: 201, statusText: 'Created' },
+      );
+    fixture.detectChanges();
+
+    expect(root.textContent).not.toContain('WhatsApp');
+  });
+
   it('shows the link to pass on when no e-mail could be sent', () => {
     const { fixture, root } = open();
     fill(fixture, root);

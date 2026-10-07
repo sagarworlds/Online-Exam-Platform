@@ -2,6 +2,7 @@ using System.Net;
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Endpoints.OtpDelivery;
 using ExamPlatform.Modules.Identity.Endpoints.RateLimiting;
+using ExamPlatform.Modules.Invite.Infrastructure.WhatsApp;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -164,6 +165,42 @@ public sealed class StartupGuardTests
             ("WhatsApp:AccessToken", "token"),
             ("WhatsApp:PhoneNumberId", "1234567890"),
             ("WhatsApp:OtpTemplateName", "exam_login_code"));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public void NonDevelopment_WithAnInviteTemplateButNothingConfiguredForWhatsApp_FailsAtStartupNamingWhatIsMissing()
+    {
+        // Told to send invitations on WhatsApp with no way to, the host must stop here, not skip WhatsApp on every invitation.
+        using var factory = SmtpHostWith(("Invite:WhatsApp:TemplateName", "exam_invitation"));
+
+        var failure = AssertStartupFails<InviteWhatsAppOptions>(factory);
+
+        Assert.Contains("Invite:WhatsApp:TemplateName is set, but WhatsApp:AccessToken, WhatsApp:PhoneNumberId are not set", failure.Message);
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithAnInviteTemplateAndWhatsAppConfigured_Boots()
+    {
+        using var factory = SmtpHostWith(
+            ("Invite:WhatsApp:TemplateName", "exam_invitation"),
+            ("WhatsApp:AccessToken", "token"),
+            ("WhatsApp:PhoneNumberId", "1234567890"));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithABlankInviteTemplate_BootsAsIfItWereUnset()
+    {
+        using var factory = SmtpHostWith(("Invite:WhatsApp:TemplateName", ""));
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync("/v1/health");

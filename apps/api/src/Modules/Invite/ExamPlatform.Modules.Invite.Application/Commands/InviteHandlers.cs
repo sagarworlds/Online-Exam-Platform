@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
+using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Invite.Application.Dtos;
 using ExamPlatform.Modules.Invite.Application.Ports;
 using ExamPlatform.Modules.Invite.Domain;
@@ -10,12 +11,17 @@ using InviteAggregate = ExamPlatform.Modules.Invite.Domain.Invite;
 
 namespace ExamPlatform.Modules.Invite.Application.Commands;
 
-/// <summary>Handles <see cref="CreateInviteCommand"/>: invites an address to an exam and e-mails it the link (FR-14, FR-50a).</summary>
+/// <summary>
+/// Handles <see cref="CreateInviteCommand"/>: invites an address to an exam and e-mails it the link, and, when the host sends
+/// invitations on WhatsApp and the address belongs to an account with a phone number, sends the exam code there too (FR-14, FR-50a).
+/// </summary>
 public sealed class CreateInviteHandler(
     IInviteRepository repository,
     IInviteUnitOfWork unitOfWork,
     IExamCatalog examCatalog,
     IInviteNotifier notifier,
+    IInviteWhatsAppNotifier whatsAppNotifier,
+    IContactDirectory contacts,
     IInviteLinkBuilder linkBuilder,
     Clock clock,
     ILogger<CreateInviteHandler> logger)
@@ -23,10 +29,10 @@ public sealed class CreateInviteHandler(
     /// <summary>How long the first code of a new invite lives.</summary>
     public const int DefaultCodeExpiryHours = 72;
 
-    /// <summary>Creates the invite with its first code, stores it, then tries to e-mail the link.</summary>
+    /// <summary>Creates the invite with its first code, stores it, then tries to e-mail the link and to send the code on WhatsApp.</summary>
     /// <param name="command">The invite to create.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The invite; its link is included only when the e-mail could not be sent.</returns>
+    /// <returns>The invite; its link is included only when neither the e-mail nor the WhatsApp message could be sent.</returns>
     /// <exception cref="InvalidInviteEmailError"><see cref="CreateInviteCommand.Email"/> is not a valid e-mail address.</exception>
     /// <exception cref="InviteExamNotFoundError">The exam does not exist.</exception>
     public async Task<InviteDto> HandleAsync(CreateInviteCommand command, CancellationToken cancellationToken)
@@ -47,10 +53,39 @@ public sealed class CreateInviteHandler(
         // After the save, so a mail failure can never lose the invite; the inviter gets the link to pass on instead.
         var link = linkBuilder.Build(code.Code);
         var sent = await notifier.SendAsync(new InviteEmail(invite.Email, exam.Name, link, code.ExpiresAt), cancellationToken);
-        if (!sent)
-            logger.LogWarning("Invite {InviteId} was created but its e-mail was not sent; the inviter was given the link.", invite.Id);
+        var whatsAppSent = await TrySendOnWhatsAppAsync(invite, exam.Name, code, link, cancellationToken);
 
-        return invite.ToDto(exam.Name) with { EmailSent = sent, InviteLink = sent ? null : link };
+        if (!sent && !whatsAppSent)
+            logger.LogWarning("Invite {InviteId} was created but could not be sent; the inviter was given the link.", invite.Id);
+        else if (!sent)
+            logger.LogWarning("Invite {InviteId} was created and its e-mail was not sent; the code went to the invited person on WhatsApp.", invite.Id);
+
+        return invite.ToDto(exam.Name) with { EmailSent = sent, WhatsAppSent = whatsAppSent, InviteLink = sent || whatsAppSent ? null : link };
+    }
+
+    // Sends the code to the phone registered on the invited address, when there is one and the host sends invitations on WhatsApp.
+    // Best effort and after the save: the invite exists whatever happens here, so nothing in this may fail the request.
+    private async Task<bool> TrySendOnWhatsAppAsync(
+        InviteAggregate invite, string examName, InviteCode code, string link, CancellationToken cancellationToken)
+    {
+        // Asked first, so that nobody's number is read for a message that will not be sent.
+        if (!whatsAppNotifier.IsEnabled)
+            return false;
+
+        try
+        {
+            var phoneNumber = await contacts.FindPhoneNumberByEmailAsync(invite.Email, cancellationToken);
+            if (phoneNumber is null)
+                return false;
+
+            return await whatsAppNotifier.SendAsync(
+                new InviteWhatsAppMessage(phoneNumber, examName, code.Code, link, code.ExpiresAt), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Invite {InviteId} was created but sending its code on WhatsApp failed.", invite.Id);
+            return false;
+        }
     }
 }
 
