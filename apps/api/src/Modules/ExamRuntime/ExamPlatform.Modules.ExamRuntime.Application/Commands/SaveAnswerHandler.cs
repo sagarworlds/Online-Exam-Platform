@@ -39,29 +39,41 @@ public sealed class SaveAnswerHandler(
     public async Task HandleAsync(
         Guid attemptId, Guid candidateId, Guid questionId, IReadOnlyCollection<Guid> optionIds, CancellationToken cancellationToken)
     {
-        var (attempt, exam) = await access.LoadOwnedAsync(attemptId, candidateId, cancellationToken);
+        // Shared with other answers being saved, but not with a submit: see IExamRuntimeUnitOfWork.LockAttemptAsync.
+        await using var hold = await unitOfWork.LockAttemptAsync(attemptId, exclusive: false, cancellationToken);
+        try
+        {
+            var (attempt, exam) = await access.LoadOwnedAsync(attemptId, candidateId, cancellationToken);
 
-        // Every id comes from the client, so none is trusted: the question must be in this exam and each option on that question,
-        // or an answer could be filed against anything.
-        if (!exam.Includes(questionId))
-            throw new InvalidAnswerError();
+            // Every id comes from the client, so none is trusted: the question must be in this exam and each option on that question,
+            // or an answer could be filed against anything.
+            if (!exam.Includes(questionId))
+                throw new InvalidAnswerError();
 
-        var chosen = optionIds.Distinct().ToList();
-        if (chosen.Count == 0)
-            throw new InvalidAnswerError();
+            var chosen = optionIds.Distinct().ToList();
+            if (chosen.Count == 0)
+                throw new InvalidAnswerError();
 
-        var question = (await questionBank.ReadAsync(attempt, [questionId], cancellationToken)).GetValueOrDefault(questionId)
-            ?? throw new ExamContentUnavailableError();
-        var known = question.Options.Select(o => o.Id).ToHashSet();
-        if (!chosen.All(known.Contains))
-            throw new InvalidAnswerError();
+            var question = (await questionBank.ReadAsync(attempt, [questionId], cancellationToken)).GetValueOrDefault(questionId)
+                ?? throw new ExamContentUnavailableError();
+            var known = question.Options.Select(o => o.Id).ToHashSet();
+            if (!chosen.All(known.Contains))
+                throw new InvalidAnswerError();
 
-        // A single-answer question takes exactly one option: several would be a client that does not know the question's shape.
-        if (!question.AllowsMultiple && chosen.Count != 1)
-            throw new InvalidAnswerError();
+            // A single-answer question takes exactly one option: several would be a client that does not know the question's shape.
+            if (!question.AllowsMultiple && chosen.Count != 1)
+                throw new InvalidAnswerError();
 
-        SectionLock.EnsureQuestionReachable(exam, attempt, questionId);
-        attempt.RecordAnswer(questionId, chosen, clock.UtcNow);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+            SectionLock.EnsureQuestionReachable(exam, attempt, questionId);
+            attempt.RecordAnswer(questionId, chosen, clock.UtcNow);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            await hold.CompleteAsync(cancellationToken);
+        }
+        catch (AttemptNotInProgressError)
+        {
+            // Time ran out and loading the attempt closed it: keep that, so the closing is not undone along with this refused answer.
+            await hold.CompleteAsync(cancellationToken);
+            throw;
+        }
     }
 }

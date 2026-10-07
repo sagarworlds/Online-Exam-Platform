@@ -1,6 +1,7 @@
 using ExamPlatform.Modules.ExamRuntime.Application;
 using ExamPlatform.SharedKernel.Domain.Exceptions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 
 namespace ExamPlatform.Modules.ExamRuntime.Infrastructure;
@@ -10,6 +11,36 @@ public sealed class ExamRuntimeUnitOfWork(ExamRuntimeDbContext context) : IExamR
 {
     /// <summary>Postgres's SQLSTATE for a unique-constraint violation.</summary>
     private const string UniqueViolation = "23505";
+
+    /// <inheritdoc />
+    public async Task<IAttemptLock> LockAttemptAsync(Guid attemptId, bool exclusive, CancellationToken cancellationToken)
+    {
+        // A transaction of its own: the row lock lives as long as it does, and the saves in between join it.
+        var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // FOR UPDATE waits for every holder and blocks every other; FOR SHARE only conflicts with FOR UPDATE, so many answers
+            // can be saved together. The statements differ because the lock strength cannot be a parameter.
+            if (exclusive)
+                await context.Database.ExecuteSqlAsync($"""SELECT 1 FROM "examRuntime"."Attempts" WHERE "Id" = {attemptId} FOR UPDATE""", cancellationToken);
+            else
+                await context.Database.ExecuteSqlAsync($"""SELECT 1 FROM "examRuntime"."Attempts" WHERE "Id" = {attemptId} FOR SHARE""", cancellationToken);
+        }
+        catch
+        {
+            await transaction.DisposeAsync();
+            throw;
+        }
+
+        return new AttemptLock(transaction);
+    }
+
+    private sealed class AttemptLock(IDbContextTransaction transaction) : IAttemptLock
+    {
+        public Task CompleteAsync(CancellationToken cancellationToken) => transaction.CommitAsync(cancellationToken);
+
+        public ValueTask DisposeAsync() => transaction.DisposeAsync();
+    }
 
     /// <inheritdoc />
     /// <exception cref="ConcurrencyConflictError">

@@ -1,5 +1,6 @@
 import { DOCUMENT, DatePipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Observable, finalize } from 'rxjs';
 import { Component, DestroyRef, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
@@ -119,6 +120,10 @@ export class ExamAttempt {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly confirmingSubmit = signal(false);
   protected readonly submitting = signal(false);
+
+  /** Answers and marks still being sent to the server, and what to do when the last one has been answered. */
+  private inFlight = 0;
+  private whenIdle: (() => void)[] = [];
   protected readonly remainingSeconds = signal(0);
 
   /** The question text size, as a multiple of normal. */
@@ -526,6 +531,33 @@ export class ExamAttempt {
     return String.fromCharCode(65 + index);
   }
 
+  /**
+   * Counts a save while it runs. A submit waits for every save already sent: otherwise the last answer, chosen a moment before the
+   * submit, can reach the server after the attempt was scored and be left out of the score.
+   */
+  private tracked<T>(request: Observable<T>): Observable<T> {
+    this.inFlight++;
+    return request.pipe(
+      finalize(() => {
+        this.inFlight--;
+        if (this.inFlight === 0) {
+          const waiting = this.whenIdle;
+          this.whenIdle = [];
+          waiting.forEach((resume) => resume());
+        }
+      }),
+    );
+  }
+
+  /** Runs <paramref name="action"/> once no save is in flight; at once when none is. */
+  private afterSaves(action: () => void): void {
+    if (this.inFlight === 0) {
+      action();
+    } else {
+      this.whenIdle.push(action);
+    }
+  }
+
   /** Records a choice. It shows at once and is saved in the background; if the save fails the previous choice comes back. */
   protected choose(question: AttemptQuestionDto, optionId: string): void {
     const attempt = this.attempt();
@@ -546,7 +578,7 @@ export class ExamAttempt {
     this.setSelection(question.id, [optionId]);
     this.errorMessage.set(null);
 
-    this.api.saveAnswer(attempt.id, question.id, optionId).subscribe({
+    this.tracked(this.api.saveAnswer(attempt.id, question.id, optionId)).subscribe({
       error: (error: unknown) => {
         this.setSelection(question.id, previous);
         this.explainFailure(error, 'Your answer could not be saved. Please try again.');
@@ -574,7 +606,7 @@ export class ExamAttempt {
     this.errorMessage.set(null);
 
     const save = next.length === 0 ? this.api.clearAnswer(attemptId, question.id) : this.api.saveAnswers(attemptId, question.id, next);
-    save.subscribe({
+    this.tracked(save).subscribe({
       error: (error: unknown) => {
         this.setSelection(question.id, previous);
         this.explainFailure(error, 'Your answer could not be saved. Please try again.');
@@ -593,7 +625,7 @@ export class ExamAttempt {
     this.setSelection(question.id, []);
     this.errorMessage.set(null);
 
-    this.api.clearAnswer(attempt.id, question.id).subscribe({
+    this.tracked(this.api.clearAnswer(attempt.id, question.id)).subscribe({
       error: (error: unknown) => {
         this.setSelection(question.id, previous);
         this.explainFailure(error, 'Your answer could not be cleared. Please try again.');
@@ -645,13 +677,22 @@ export class ExamAttempt {
 
     this.submitting.set(true);
     this.errorMessage.set(null);
-    this.api.submitAttempt(attempt.id).subscribe({
+    this.afterSaves(() => this.sendSubmit(attempt.id, true));
+  }
+
+  /** Sends the submit. One that clashed with another request for the attempt is sent once more: submitting is safe to repeat. */
+  private sendSubmit(attemptId: string, mayRetry: boolean): void {
+    this.api.submitAttempt(attemptId).subscribe({
       next: (submitted) => {
         this.submitting.set(false);
         this.confirmingSubmit.set(false);
         this.show(submitted);
       },
       error: (error: unknown) => {
+        if (mayRetry && error instanceof HttpErrorResponse && error.status === 409) {
+          this.sendSubmit(attemptId, false);
+          return;
+        }
         this.submitting.set(false);
         this.errorMessage.set(extractErrorMessage(error));
       },

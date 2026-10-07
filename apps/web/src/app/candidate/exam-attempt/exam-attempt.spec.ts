@@ -614,6 +614,72 @@ describe('ExamAttempt', () => {
     expect(root(fixture).querySelector('a')?.getAttribute('href')).toBe('/my-exams');
   });
 
+  it('waits for an answer still being saved before it submits, so the answer is in the score', async () => {
+    const fixture = await open(attempt());
+    radios(fixture)[1].click();
+    const save = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q1'));
+
+    buttonLabelled(fixture, 'Submit exam')?.click();
+    fixture.detectChanges();
+    buttonLabelled(fixture, 'Yes, submit')?.click();
+
+    // The save has not been answered yet, so nothing is sent: the server could score before it had the answer.
+    httpMock.expectNone((r) => r.url.endsWith('/submit'));
+    save.flush(null);
+    const submit = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/submit'));
+    submit.flush(attempt({ status: 'Submitted', score: 2, maxScore: 2, sections: [], submittedAtUtc: '2026-10-05T04:40:00Z' }));
+    fixture.detectChanges();
+
+    expect(textOf(fixture)).toContain('2 / 2');
+  });
+
+  it('waits for every answer being saved, not just the last', async () => {
+    const fixture = await open(attempt());
+    radios(fixture)[1].click();
+    const first = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q1'));
+    radios(fixture)[0].click();
+    const second = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q1'));
+    buttonLabelled(fixture, 'Submit exam')?.click();
+    fixture.detectChanges();
+    buttonLabelled(fixture, 'Yes, submit')?.click();
+
+    first.flush(null);
+    httpMock.expectNone((r) => r.url.endsWith('/submit'));
+    second.flush(null);
+
+    httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/submit')).flush(attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [] }));
+  });
+
+  it('sends a submit again, once, when it clashed with another request for the attempt', async () => {
+    const fixture = await open(attempt());
+    buttonLabelled(fixture, 'Submit exam')?.click();
+    fixture.detectChanges();
+    buttonLabelled(fixture, 'Yes, submit')?.click();
+
+    httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/submit'))
+      .flush({ title: 'concurrency_conflict', detail: 'Another request changed this at the same moment.' }, { status: 409, statusText: 'Conflict' });
+    httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/submit'))
+      .flush(attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [], submittedAtUtc: '2026-10-05T04:40:00Z' }));
+    fixture.detectChanges();
+
+    expect(textOf(fixture)).toContain('1 / 2');
+  });
+
+  it('does not keep retrying a submit that keeps being refused', async () => {
+    const fixture = await open(attempt());
+    buttonLabelled(fixture, 'Submit exam')?.click();
+    fixture.detectChanges();
+    buttonLabelled(fixture, 'Yes, submit')?.click();
+
+    const conflict = { title: 'concurrency_conflict', detail: 'Still clashing.' };
+    httpMock.expectOne((r) => r.url.endsWith('/submit')).flush(conflict, { status: 409, statusText: 'Conflict' });
+    httpMock.expectOne((r) => r.url.endsWith('/submit')).flush(conflict, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    httpMock.expectNone((r) => r.url.endsWith('/submit'));
+    expect(textOf(fixture)).toContain('Still clashing.');
+  });
+
   it('lets the candidate back out of submitting', async () => {
     const fixture = await open(attempt());
 

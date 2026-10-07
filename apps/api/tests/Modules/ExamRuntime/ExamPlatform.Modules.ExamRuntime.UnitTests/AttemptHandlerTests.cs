@@ -56,7 +56,7 @@ public class AttemptHandlerTests
     private ClearAnswerHandler Clear => new(Access, _unitOfWork, _clock);
     private MarkQuestionHandler Mark => new(Access, _unitOfWork, _clock);
     private MoveToSectionHandler MoveSection => new(Access, _unitOfWork, _clock);
-    private SubmitAttemptHandler Submit => new(Access, Closer, Views);
+    private SubmitAttemptHandler Submit => new(Access, Closer, Views, _unitOfWork);
     private GetAttemptHandler Get => new(Access, Views, _client, _unitOfWork, _clock);
 
     private Attempt OpenAttempt(DateTime? startedAt = null, DateTime? deadline = null)

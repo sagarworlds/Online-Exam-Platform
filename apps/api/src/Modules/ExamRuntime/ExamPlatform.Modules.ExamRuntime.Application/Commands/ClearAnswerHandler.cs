@@ -19,13 +19,25 @@ public sealed class ClearAnswerHandler(AttemptAccess access, IExamRuntimeUnitOfW
     /// <exception cref="ConcurrencyConflictError">Another request changed the same attempt at the same moment.</exception>
     public async Task HandleAsync(Guid attemptId, Guid candidateId, Guid questionId, CancellationToken cancellationToken)
     {
-        var (attempt, exam) = await access.LoadOwnedAsync(attemptId, candidateId, cancellationToken);
+        // Shared with other answers being saved, but not with a submit: see IExamRuntimeUnitOfWork.LockAttemptAsync.
+        await using var hold = await unitOfWork.LockAttemptAsync(attemptId, exclusive: false, cancellationToken);
+        try
+        {
+            var (attempt, exam) = await access.LoadOwnedAsync(attemptId, candidateId, cancellationToken);
 
-        if (!exam.Includes(questionId))
-            throw new QuestionNotInAttemptError();
+            if (!exam.Includes(questionId))
+                throw new QuestionNotInAttemptError();
 
-        SectionLock.EnsureQuestionReachable(exam, attempt, questionId);
-        attempt.ClearAnswer(questionId, clock.UtcNow);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+            SectionLock.EnsureQuestionReachable(exam, attempt, questionId);
+            attempt.ClearAnswer(questionId, clock.UtcNow);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            await hold.CompleteAsync(cancellationToken);
+        }
+        catch (AttemptNotInProgressError)
+        {
+            // Time ran out and loading the attempt closed it: keep that, so the closing is not undone along with this refused answer.
+            await hold.CompleteAsync(cancellationToken);
+            throw;
+        }
     }
 }

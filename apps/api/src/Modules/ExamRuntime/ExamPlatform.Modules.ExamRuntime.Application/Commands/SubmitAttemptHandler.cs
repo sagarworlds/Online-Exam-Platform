@@ -6,7 +6,7 @@ using ExamPlatform.SharedKernel.Domain.Exceptions;
 namespace ExamPlatform.Modules.ExamRuntime.Application.Commands;
 
 /// <summary>Ends an attempt and scores it (FR-19, FR-21).</summary>
-public sealed class SubmitAttemptHandler(AttemptAccess access, AttemptCloser closer, AttemptViewBuilder views)
+public sealed class SubmitAttemptHandler(AttemptAccess access, AttemptCloser closer, AttemptViewBuilder views, IExamRuntimeUnitOfWork unitOfWork)
 {
     /// <summary>
     /// Scores and closes the attempt. Submitting one that is already over returns its result unchanged, so a
@@ -20,10 +20,14 @@ public sealed class SubmitAttemptHandler(AttemptAccess access, AttemptCloser clo
     /// <exception cref="ConcurrencyConflictError">Another request closed the attempt at the same moment.</exception>
     public async Task<AttemptDto> HandleAsync(Guid attemptId, Guid candidateId, CancellationToken cancellationToken)
     {
+        // Held from before the attempt is loaded until it is closed: an answer being saved at this moment either finishes first, and is
+        // scored, or waits and is refused because the attempt is over. Either way the score is of the answers that are stored.
+        await using var hold = await unitOfWork.LockAttemptAsync(attemptId, exclusive: true, cancellationToken);
         var (attempt, exam) = await access.LoadOwnedAsync(attemptId, candidateId, cancellationToken);
 
         if (attempt.Status == AttemptStatus.InProgress)
             await closer.CloseAsync(attempt, exam, cancellationToken);
+        await hold.CompleteAsync(cancellationToken);
 
         return await views.BuildAsync(attempt, exam, cancellationToken);
     }
