@@ -24,6 +24,14 @@ public sealed record SaveAnswerRequest(Guid? OptionId = null, IReadOnlyList<Guid
 /// <param name="Reason">Why the candidate is being given another attempt; optional, at most 500 characters.</param>
 public sealed record GrantExtraAttemptRequest(string? Reason);
 
+/// <summary>Body of <c>PUT /v1/exams/{examId}/candidates/{candidateId}/accommodation</c> (FR-49): the whole accommodation, not a patch.</summary>
+/// <param name="ExtraTimeMinutes">Minutes added to the candidate's deadline, 0 to 720; omitted means none.</param>
+/// <param name="ReaderScribe">Whether the candidate may use a reader or scribe; omitted means no.</param>
+/// <param name="AlternateFormats">Formats of the exam page they get: <c>large_text</c>, <c>high_contrast</c>, <c>screen_reader</c>; omitted means none.</param>
+/// <param name="Notes">A note for staff, at most 500 characters. Shown to staff only.</param>
+public sealed record SetAccommodationRequest(
+    int ExtraTimeMinutes = 0, bool ReaderScribe = false, IReadOnlyList<string?>? AlternateFormats = null, string? Notes = null);
+
 /// <summary>Body of <c>POST /v1/me/attempts/{attemptId}/focus-violations</c>.</summary>
 /// <param name="Kind">How the candidate left the page: <c>TabHidden</c>, <c>WindowBlurred</c> or <c>FullscreenExited</c>.</param>
 public sealed record FocusViolationRequest(string? Kind);
@@ -281,6 +289,27 @@ public static class ExamRuntimeEndpoints
             .WithName("GrantExtraAttempt")
             .WithDescription("Give one enrolled candidate one more attempt at an exam, once they have used the ones they hold");
 
+        // What a candidate is allowed because of a disability or another need (FR-49): staff only, since it describes a person's need.
+        exams.MapPut("/{examId:guid}/candidates/{candidateId:guid}/accommodation", SetAccommodation)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<ExamCandidateDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("SetAccommodation")
+            .WithDescription("Give an enrolled candidate extra time, a reader or scribe and alternate formats at an exam, or change what they have; extra time reaches an attempt already in progress");
+
+        exams.MapDelete("/{examId:guid}/candidates/{candidateId:guid}/accommodation", RemoveAccommodation)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<ExamCandidateDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("RemoveAccommodation")
+            .WithDescription("Take a candidate's accommodation away for the attempts that start afterwards; one in progress keeps what it was given");
+
         var requests = endpoints.MapGroup("/v1/attempt-requests").WithTags("ExamRuntime").RequireAuthorization();
 
         requests.MapGet("/", ListAttemptRequests)
@@ -385,6 +414,18 @@ public static class ExamRuntimeEndpoints
         var row = await handler.HandleAsync(examId, candidateId, user.GetUserId(), request?.Reason, ct);
         return Results.Created($"/v1/exams/{examId}/attempts", row);
     }
+
+    private static async Task<IResult> SetAccommodation(
+        Guid examId, Guid candidateId, SetAccommodationRequest request, ClaimsPrincipal user, SetAccommodationHandler handler, CancellationToken ct) =>
+        // Minutes in the API, seconds in the model; clamped so an absurd number reaches the domain's range check instead of overflowing.
+        Results.Ok(await handler.HandleAsync(
+            new SetAccommodationCommand(
+                examId, candidateId, user.GetUserId(), (int)Math.Clamp((long)request.ExtraTimeMinutes * 60, int.MinValue, int.MaxValue),
+                request.ReaderScribe, request.AlternateFormats, request.Notes),
+            ct));
+
+    private static async Task<IResult> RemoveAccommodation(Guid examId, Guid candidateId, RemoveAccommodationHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, candidateId, ct));
 
     private static async Task<IResult> ListMyExams(ClaimsPrincipal user, MyExamsHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(user.GetUserId(), ct));

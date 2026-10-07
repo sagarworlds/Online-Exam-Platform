@@ -1,7 +1,7 @@
 import { ExamRulesDto, MyExamDto } from '../candidate.models';
 import { TestBed } from '@angular/core/testing';
 import { I18nService } from '../../i18n/i18n.service';
-import { instructionLines, markingRules, marks, timeAllowed } from './exam-rules-text';
+import { accommodationLines, instructionLines, markingRules, marks, timeAllowed } from './exam-rules-text';
 
 const RULES: ExamRulesDto = {
   correctMarks: 4,
@@ -133,6 +133,54 @@ describe('instructionLines', () => {
   it('shows no proctoring lines when the API sent none', () => {
     expect(instructionLines(exam({ rules: { ...RULES } })).some((l) => /recorded|camera/i.test(l))).toBe(false);
     expect(instructionLines(exam({ rules: null })).some((l) => /recorded|camera/i.test(l))).toBe(false);
+  });
+
+  describe('an accommodation (FR-49)', () => {
+    it('says nothing about one when the candidate has none', () => {
+      expect(instructionLines(exam({ accommodation: null })).some((l) => /accommodation|reader|screen reader/i.test(l))).toBe(false);
+      expect(instructionLines(exam()).some((l) => /accommodation|reader|screen reader/i.test(l))).toBe(false);
+    });
+
+    it('states each thing the candidate was given in a sentence of its own', () => {
+      const lines = accommodationLines({ extraTimeSeconds: 1800, readerScribe: true, alternateFormats: ['large_text', 'high_contrast', 'screen_reader'] });
+
+      expect(lines).toEqual([
+        'Because of your accommodation you have 30 minutes of extra time. It is added to the time allowed, and your timer already includes it.',
+        'You may use a reader or scribe, as arranged with the exam organiser.',
+        'The exam page starts in the format arranged for you: large text, high contrast. You can still change the text size and contrast at any time.',
+        'Because you use a screen reader, leaving the exam page is not counted against you.',
+      ]);
+    });
+
+    it('leaves out what was not given', () => {
+      expect(accommodationLines({ extraTimeSeconds: 600, readerScribe: false, alternateFormats: [] })).toHaveLength(1);
+      expect(accommodationLines({ extraTimeSeconds: 0, readerScribe: true, alternateFormats: [] })).toEqual(['You may use a reader or scribe, as arranged with the exam organiser.']);
+      expect(accommodationLines({ extraTimeSeconds: 0, readerScribe: false, alternateFormats: ['screen_reader'] })).toHaveLength(1);
+    });
+
+    it('is part of the instructions, straight after the sentences about the timer and saving', () => {
+      const lines = instructionLines(exam({ accommodation: { extraTimeSeconds: 1800, readerScribe: false, alternateFormats: [] } }));
+
+      const saving = lines.findIndex((l) => l.startsWith('Each answer is saved'));
+      expect(lines[saving + 1]).toContain('30 minutes of extra time');
+    });
+
+    it('is stated in Hindi and Marathi too, with the time filled in', () => {
+      localStorage.clear();
+      const i18n = TestBed.inject(I18nService);
+      const given = { extraTimeSeconds: 2700, readerScribe: true, alternateFormats: ['screen_reader' as const] };
+
+      i18n.setLanguage('hi');
+      const hindi = accommodationLines(given, i18n);
+      i18n.setLanguage('mr');
+      const marathi = accommodationLines(given, i18n);
+
+      expect(hindi).toHaveLength(3);
+      expect(hindi[0]).toContain('45 मिनट');
+      expect(marathi).toHaveLength(3);
+      expect(marathi[0]).toContain('45 मिनिटे');
+      localStorage.clear();
+    });
   });
 
   describe('in another language (FR-51)', () => {

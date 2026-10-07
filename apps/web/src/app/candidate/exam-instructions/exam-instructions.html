@@ -20,6 +20,12 @@
           <dt>{{ 'instructions.timeAllowed' | t }}</dt>
           <dd>{{ timeAllowed(exam) }}</dd>
         </div>
+        @if (extraTime(exam); as extra) {
+          <div>
+            <dt>{{ 'instructions.extraTime' | t }}</dt>
+            <dd>{{ extra }}</dd>
+          </div>
+        }
         <div>
           <dt>{{ 'instructions.questions' | t }}</dt>
           <dd>{{ exam.questionCount }}</dd>

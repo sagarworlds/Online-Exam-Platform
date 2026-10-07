@@ -29,6 +29,9 @@
           {{ 'myExams.window' | t: { start: (exam.startUtc | date: 'medium') ?? '', end: (exam.endUtc | date: 'medium') ?? '' } }}<br />
           {{ 'myExams.questionCount' | t: { count: exam.questionCount } }}{{ exam.durationSeconds ? ', ' + ('myExams.minutes' | t: { count: exam.durationSeconds / 60 }) : '' }}
         </p>
+        @if (extraTime(exam); as extra) {
+          <p class="card__meta">{{ 'myExams.extraTime' | t: { time: extra } }}</p>
+        }
         @if (showNumbers(exam)) {
           <p class="card__meta">{{ 'myExams.attemptsUsed' | t: { used: exam.attemptsUsed, allowed: exam.attemptsAllowed } }}</p>
         }

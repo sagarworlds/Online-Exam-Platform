@@ -51,6 +51,12 @@ export class MyExams {
     return exam.attemptsAllowed > 1 || exam.attempts.length > 1;
   }
 
+  /** The extra time the candidate's accommodation gives, in words (FR-49); null when it gives none. */
+  protected extraTime(exam: MyExamDto): string | null {
+    const seconds = exam.accommodation?.extraTimeSeconds ?? 0;
+    return seconds > 0 ? this.i18n.plural('time.minutes', Math.round(seconds / 60)) : null;
+  }
+
   /** The label of the button that begins the next attempt. */
   protected startLabel(exam: MyExamDto): string {
     return exam.attempts.length === 0 ? this.i18n.t('myExams.start') : this.i18n.t('myExams.startAttempt', { number: exam.attemptsUsed + 1 });

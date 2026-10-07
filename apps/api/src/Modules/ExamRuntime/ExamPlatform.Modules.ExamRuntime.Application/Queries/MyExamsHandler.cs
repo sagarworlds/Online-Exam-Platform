@@ -14,6 +14,7 @@ public sealed class MyExamsHandler(
     IAttemptRepository attempts,
     IExtraAttemptGrantRepository grants,
     IAttemptRequestRepository requests,
+    IAccommodationRepository accommodations,
     Clock clock)
 {
     /// <summary>Returns the exams the user accepted an invitation to, soonest first, each with every attempt they have made at it.</summary>
@@ -28,6 +29,7 @@ public sealed class MyExamsHandler(
             .ToDictionary(group => group.Key, group => group.OrderBy(a => a.Number).ToList());
         var grantCounts = await grants.CountsForCandidateAsync(userId, cancellationToken);
         var latestRequests = await requests.LatestForCandidateAsync(userId, cancellationToken);
+        var accommodated = await accommodations.ListForCandidateAsync(userId, cancellationToken);
         var nowUtc = clock.UtcNow;
 
         return exams
@@ -39,6 +41,9 @@ public sealed class MyExamsHandler(
                 var granted = grantCounts.GetValueOrDefault(e.Id);
                 var state = StateOf(e, nowUtc);
                 var request = latestRequests.GetValueOrDefault(e.Id);
+                var accommodation = accommodated.GetValueOrDefault(e.Id);
+                // The rules as this candidate sits the exam: an accommodation may lift the page-leaving limit (FR-49).
+                var theirRules = AccommodationPolicy.Apply(e, accommodation?.AlternateFormats ?? []);
 
                 return new MyExamDto(
                     e.Id,
@@ -65,7 +70,8 @@ public sealed class MyExamsHandler(
                         && AttemptAllowance.CanGrant(e.MaxAttempts, made.Count, granted)
                         && request is not { Status: AttemptRequestStatus.Pending },
                     request is null ? null : AttemptRequestDtoFactory.ForCandidate(request),
-                    new ExamRulesDto(e.CorrectMarks, e.IncorrectMarks, e.UnattemptedMarks, e.PartialCredit, e.SectionLockEnabled, e.Sections.Count, e.ContentProtection, e.FocusViolationLimit, e.ProctoringNotice));
+                    new ExamRulesDto(e.CorrectMarks, e.IncorrectMarks, e.UnattemptedMarks, e.PartialCredit, e.SectionLockEnabled, e.Sections.Count, e.ContentProtection, theirRules.FocusViolationLimit, e.ProctoringNotice),
+                    accommodation is null ? null : AccommodationPolicy.ForCandidate(accommodation));
             })
             .ToList();
     }

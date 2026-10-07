@@ -72,6 +72,51 @@ describe('ExamAttempts', () => {
 
   afterEach(() => httpMock.verify());
 
+  describe('accommodations (FR-49)', () => {
+    const isAccommodation = (method: string, id: string) => (r: { method: string; url: string }) =>
+      r.method === method && r.url.endsWith(`/v1/exams/exam-1/candidates/${id}/accommodation`);
+
+    it('offers each candidate an accommodation, and shows what one has', () => {
+      const fixture = open(
+        exam([
+          candidate(),
+          candidate({
+            candidateId: 'c2',
+            email: 'bo@example.com',
+            accommodation: { extraTimeMinutes: 30, readerScribe: false, alternateFormats: ['screen_reader'], notes: null, updatedAtUtc: '2026-10-07T04:30:00Z' },
+          }),
+        ]),
+      );
+
+      const sections = Array.from(root(fixture).querySelectorAll('app-candidate-accommodation'));
+      expect(sections).toHaveLength(2);
+      expect(sections[0].textContent).toContain('Give an accommodation');
+      expect(sections[1].textContent).toContain('+30 minutes');
+      expect(sections[1].textContent).toContain('Screen reader');
+    });
+
+    it('shows the API\'s answer on the candidate\'s card once an accommodation is saved, leaving the others alone', () => {
+      const fixture = open(exam([candidate(), candidate({ candidateId: 'c2', email: 'bo@example.com' })]));
+      const first = root(fixture).querySelectorAll('app-candidate-accommodation')[0];
+      (Array.from(first.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Give an accommodation') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const minutes = first.querySelector('#accommodation-c1-minutes') as HTMLInputElement;
+      minutes.value = '25';
+      minutes.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      (first.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      httpMock.expectOne(isAccommodation('PUT', 'c1')).flush(
+        candidate({ accommodation: { extraTimeMinutes: 25, readerScribe: false, alternateFormats: [], notes: null, updatedAtUtc: '2026-10-07T04:30:00Z' } }),
+      );
+      fixture.detectChanges();
+
+      const sections = Array.from(root(fixture).querySelectorAll('app-candidate-accommodation'));
+      expect(sections[0].textContent).toContain('+25 minutes');
+      expect(sections[1].textContent).toContain('None.');
+    });
+  });
+
   it('shows the paper of an attempt on request, marking the questions drawn for the candidate', () => {
     const fixture = open(exam([candidate()]));
 

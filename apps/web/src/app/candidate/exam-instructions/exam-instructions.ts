@@ -46,6 +46,12 @@ export class ExamInstructions {
     return timeAllowed(exam, this.i18n);
   }
 
+  /** The extra time the candidate's accommodation gives, in words (FR-49); null when it gives none. */
+  protected extraTime(exam: MyExamDto): string | null {
+    const seconds = exam.accommodation?.extraTimeSeconds ?? 0;
+    return seconds > 0 ? this.i18n.plural('time.minutes', Math.round(seconds / 60)) : null;
+  }
+
   protected readonly lines = computed(() => {
     const exam = this.exam();
     return exam === null ? [] : instructionLines(exam, this.i18n);

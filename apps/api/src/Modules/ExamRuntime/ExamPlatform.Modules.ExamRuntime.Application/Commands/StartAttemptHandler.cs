@@ -16,6 +16,7 @@ public sealed class StartAttemptHandler(
     IEnrollments enrollments,
     IAttemptRepository attempts,
     IExtraAttemptGrantRepository grants,
+    IAccommodationRepository accommodations,
     IExamRuntimeUnitOfWork unitOfWork,
     AttemptAccess access,
     AttemptViewBuilder views,
@@ -77,6 +78,9 @@ public sealed class StartAttemptHandler(
             throw new InstructionsNotAcknowledgedError();
 
         var attempt = Begin(exam, candidateId, theirs.Count + 1);
+        // Extra time and formats are part of the attempt from its first moment, so the deadline the server holds already includes them (FR-49).
+        if (await accommodations.FindAsync(examId, candidateId, cancellationToken) is { } accommodation)
+            attempt.ApplyAccommodation(accommodation.ExtraTimeSeconds, accommodation.ReaderScribe, accommodation.AlternateFormats);
         // The acknowledgment is the start: one instant, so the record cannot disagree with the attempt's own clock.
         // What the candidate was told about proctoring is kept as shown, so the record says what they acknowledged (FR-46).
         attempt.AcknowledgeInstructions(attempt.StartedAtUtc, exam.ProctoringNotice is { Count: > 0 } notice ? string.Join("\n", notice) : null);
