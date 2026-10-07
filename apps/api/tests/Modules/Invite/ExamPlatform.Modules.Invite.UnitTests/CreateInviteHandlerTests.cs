@@ -71,6 +71,7 @@ public class CreateInviteHandlerTests
         var result = await _handler.HandleAsync(Command(), CancellationToken.None);
 
         Assert.Null(result.InviteLink);
+        Assert.Null(result.InviteCode);
     }
 
     [Fact]
@@ -83,6 +84,10 @@ public class CreateInviteHandlerTests
         Assert.False(result.EmailSent);
         Assert.NotNull(result.InviteLink);
         Assert.StartsWith("https://app.example/invite?code=", result.InviteLink);
+
+        // The code the link carries is handed back with it, so the inviter can copy either one.
+        Assert.Matches("^[A-Z0-9]{8}$", result.InviteCode);
+        Assert.EndsWith(result.InviteCode!, result.InviteLink);
         // The invite itself is kept: only the delivery failed.
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -225,6 +230,7 @@ public class CreateInviteHandlerTests
         Assert.True(result.WhatsAppSent);
         // The message carried the code and the link, so there is nothing for the inviter to pass on.
         Assert.Null(result.InviteLink);
+        Assert.Null(result.InviteCode);
     }
 
     [Fact]
@@ -238,6 +244,7 @@ public class CreateInviteHandlerTests
         Assert.False(result.EmailSent);
         Assert.False(result.WhatsAppSent);
         Assert.StartsWith("https://app.example/invite?code=", result.InviteLink);
+        Assert.EndsWith(result.InviteCode!, result.InviteLink);
     }
 
     [Fact]

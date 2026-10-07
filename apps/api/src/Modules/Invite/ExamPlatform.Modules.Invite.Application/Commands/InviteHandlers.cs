@@ -32,7 +32,7 @@ public sealed class CreateInviteHandler(
     /// <summary>Creates the invite with its first code, stores it, then tries to e-mail the link and to send the code on WhatsApp.</summary>
     /// <param name="command">The invite to create.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The invite; its link is included only when neither the e-mail nor the WhatsApp message could be sent.</returns>
+    /// <returns>The invite; its link and code are included only when neither the e-mail nor the WhatsApp message could be sent.</returns>
     /// <exception cref="InvalidInviteEmailError"><see cref="CreateInviteCommand.Email"/> is not a valid e-mail address.</exception>
     /// <exception cref="InviteExamNotFoundError">The exam does not exist.</exception>
     public async Task<InviteDto> HandleAsync(CreateInviteCommand command, CancellationToken cancellationToken)
@@ -60,7 +60,14 @@ public sealed class CreateInviteHandler(
         else if (!sent)
             logger.LogWarning("Invite {InviteId} was created and its e-mail was not sent; the code went to the invited person on WhatsApp.", invite.Id);
 
-        return invite.ToDto(exam.Name) with { EmailSent = sent, WhatsAppSent = whatsAppSent, InviteLink = sent || whatsAppSent ? null : link };
+        var delivered = sent || whatsAppSent;
+        return invite.ToDto(exam.Name) with
+        {
+            EmailSent = sent,
+            WhatsAppSent = whatsAppSent,
+            InviteLink = delivered ? null : link,
+            InviteCode = delivered ? null : code.Code,
+        };
     }
 
     // Sends the code to the phone registered on the invited address, when there is one and the host sends invitations on WhatsApp.
@@ -89,21 +96,27 @@ public sealed class CreateInviteHandler(
     }
 }
 
-/// <summary>Handles <see cref="GenerateInviteCodeCommand"/>: adds a new code to an invite.</summary>
-public sealed class GenerateInviteCodeHandler(IInviteRepository repository, IInviteUnitOfWork unitOfWork, Clock clock)
+/// <summary>
+/// Handles <see cref="GenerateInviteCodeCommand"/>: adds a new code to a pending invite, for staff to hand over by hand. Each request
+/// makes a new single-use code (the ones already sent are never read back), and the audit trail records who asked.
+/// </summary>
+public sealed class GenerateInviteCodeHandler(
+    IInviteRepository repository, IInviteUnitOfWork unitOfWork, IInviteLinkBuilder linkBuilder, Clock clock)
 {
     /// <summary>Generates the code and stores it.</summary>
     /// <param name="command">The invite and the code lifetime.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The code and the link that carries it.</returns>
     /// <exception cref="InviteNotFoundError">No invite has that id.</exception>
     /// <exception cref="InvalidInviteExpiryError">The lifetime is outside the allowed range.</exception>
+    /// <exception cref="InviteStateError">The invite is no longer pending, so a new code could never be redeemed.</exception>
     public async Task<InviteCodeDto> HandleAsync(GenerateInviteCodeCommand command, CancellationToken cancellationToken)
     {
         var invite = await repository.GetByIdOrThrowAsync(command.InviteId, cancellationToken);
-        var code = invite.GenerateCode(command.ExpiryHours, clock.UtcNow);
+        var code = invite.AddCode(command.ExpiryHours, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return new InviteCodeDto(code.Id, code.Code, code.ExpiresAt, code.UsedAt, code.RevokedAt);
+        return new InviteCodeDto(code.Id, code.Code, code.ExpiresAt, code.UsedAt, code.RevokedAt, linkBuilder.Build(code.Code));
     }
 }
 

@@ -22,8 +22,22 @@
         <p class="card__meta">Invited {{ invite.sentAt | date: 'medium' }}</p>
         @if (invite.status === 'Pending') {
           <div class="actions">
+            <button type="button" (click)="copyCode(invite)" [disabled]="generatingFor() !== null">
+              {{ handovers()[invite.id] ? 'Get another code' : 'Copy invite code' }}
+            </button>
             <button type="button" (click)="revoke(invite)">Revoke</button>
           </div>
+          @if (handovers()[invite.id]; as handover) {
+            <app-invite-handover
+              [code]="handover.code"
+              [link]="handover.link"
+              [email]="invite.email"
+              [expiresAt]="handover.expiresAt"
+              [autoCopy]="true"
+              [dismissible]="true"
+              (dismissed)="hide(invite.id)"
+            />
+          }
         }
       </div>
     }

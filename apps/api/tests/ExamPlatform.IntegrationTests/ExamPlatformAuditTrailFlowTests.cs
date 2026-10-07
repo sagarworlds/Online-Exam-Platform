@@ -100,6 +100,35 @@ public sealed class ExamPlatformAuditTrailFlowTests(ApiFactory factory) : IClass
     }
 
     [Fact]
+    public async Task ACodeHandedOverByHand_IsAudited_WithWhoAskedForIt_AndNeverCarriesTheCodeOrTheLink()
+    {
+        var (admin, staff) = await StaffAsync();
+        var question = await CreateQuestionAsync(admin, "What is 2 + 2?", "4", "5");
+        var examId = await CreateExamAsync(admin, "Hand Over Audit Exam", [question], startsIn: TimeSpan.FromHours(-1));
+        var email = UniqueEmail();
+        var inviteId = (await InviteAsync(admin, examId, email)).GetProperty("id").GetGuid();
+
+        var response = await admin.PostAsJsonAsync($"/v1/invites/{inviteId}/codes", new { expiryHours = 24 });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var handedOver = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var entries = await EntriesForAsync(inviteId);
+
+        var entry = Assert.Single(entries, e => e.Action == "Invite.CodeGenerated");
+        Assert.Equal(staff.UserId, entry.ActorUserId);
+        Assert.Equal(examId.ToString(), entry.Metadata["examId"]);
+
+        // The entry names the code by its id, so the trail shows which one was handed over without being a place to read it.
+        Assert.Equal(handedOver.GetProperty("id").GetGuid().ToString(), entry.Metadata["codeId"]);
+        var everything = string.Join(' ', entries.SelectMany(e => e.Metadata.Values));
+        Assert.DoesNotContain(handedOver.GetProperty("code").GetString()!, everything, StringComparison.Ordinal);
+        Assert.DoesNotContain(email, everything, StringComparison.OrdinalIgnoreCase);
+
+        // The code made with the invitation itself is not announced this way: one entry for the one code handed over.
+        Assert.Single(entries, e => e.Action == "Invite.Created");
+    }
+
+    [Fact]
     public async Task ARevokedInvite_IsAudited()
     {
         var (admin, staff) = await StaffAsync();

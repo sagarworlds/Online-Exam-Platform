@@ -44,7 +44,11 @@ public sealed class InviteFlowTests(ApiFactory factory) : IClassFixture<ApiFacto
         Assert.Equal("Maths Final", invite.GetProperty("examName").GetString());
         Assert.Equal("Pending", invite.GetProperty("status").GetString());
         Assert.False(invite.GetProperty("emailSent").GetBoolean());
-        Assert.Matches(@"/invite\?code=[A-Z0-9]{8}$", invite.GetProperty("inviteLink").GetString());
+        var link = invite.GetProperty("inviteLink").GetString()!;
+        Assert.Matches(@"/invite\?code=[A-Z0-9]{8}$", link);
+
+        // The code the link carries comes back with it, so the inviter can copy either one to hand over.
+        Assert.Equal(CodeFromLink(link), invite.GetProperty("inviteCode").GetString());
     }
 
     [Fact]
@@ -275,7 +279,12 @@ public sealed class InviteFlowTests(ApiFactory factory) : IClassFixture<ApiFacto
 
         var created = await admin.PostAsJsonAsync($"/v1/invites/{inviteId}/codes", new { expiryHours = 24 });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        var code = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString();
+        var body = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var code = body.GetProperty("code").GetString();
+
+        // The link that carries the code comes with it, for handing over as a link rather than a code.
+        Assert.Matches(@"/invite\?code=[A-Z0-9]{8}$", body.GetProperty("link").GetString());
+        Assert.Equal(code, CodeFromLink(body.GetProperty("link").GetString()!));
         var (candidate, _) = await factory.CandidateClientAsync(email);
         Assert.Equal(HttpStatusCode.OK, (await candidate.PostAsJsonAsync("/v1/invites/accept", new { code })).StatusCode);
 
@@ -283,6 +292,49 @@ public sealed class InviteFlowTests(ApiFactory factory) : IClassFixture<ApiFacto
             await admin.PostAsJsonAsync($"/v1/invites/{inviteId}/codes", new { expiryHours = 0 }), HttpStatusCode.BadRequest, "invalid_invite_expiry");
         await AssertProblemAsync(
             await admin.PostAsJsonAsync($"/v1/invites/{Guid.NewGuid()}/codes", new { expiryHours = 24 }), HttpStatusCode.NotFound, "invite_not_found");
+    }
+
+    [Fact]
+    public async Task GenerateCode_GivesAFreshCodeEachTime_AndEveryOneWorksForTheInvitedCandidate()
+    {
+        var (admin, examId) = await AdminWithPublishedExamAsync();
+        var email = UniqueEmail();
+        var invite = await InviteAsync(admin, examId, email);
+        var inviteId = invite.GetProperty("id").GetGuid();
+
+        var first = await (await admin.PostAsJsonAsync($"/v1/invites/{inviteId}/codes", new { })).Content.ReadFromJsonAsync<JsonElement>();
+        var second = await (await admin.PostAsJsonAsync($"/v1/invites/{inviteId}/codes", new { })).Content.ReadFromJsonAsync<JsonElement>();
+
+        var codes = new[] { first.GetProperty("code").GetString(), second.GetProperty("code").GetString(), invite.GetProperty("inviteCode").GetString() };
+        Assert.Equal(3, codes.Distinct().Count());
+
+        // Any of them is the invitation's key: the candidate enters one, and the others stop mattering.
+        var (candidate, _) = await factory.CandidateClientAsync(email);
+        Assert.Equal(HttpStatusCode.OK, (await candidate.PostAsJsonAsync("/v1/invites/accept", new { code = codes[1] })).StatusCode);
+        await AssertProblemAsync(
+            await candidate.PostAsJsonAsync("/v1/invites/accept", new { code = codes[0] }), HttpStatusCode.Conflict, "invite_state_invalid");
+    }
+
+    [Fact]
+    public async Task GenerateCode_ForAnInviteNoLongerPending_Returns409_AndAddsNoCode()
+    {
+        var (admin, examId) = await AdminWithPublishedExamAsync();
+        var email = UniqueEmail();
+        var revoked = (await InviteAsync(admin, examId, email)).GetProperty("id").GetGuid();
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsync($"/v1/invites/{revoked}/revoke", null)).StatusCode);
+
+        await AssertProblemAsync(
+            await admin.PostAsJsonAsync($"/v1/invites/{revoked}/codes", new { expiryHours = 24 }), HttpStatusCode.Conflict, "invite_state_invalid");
+
+        var accepted = await InviteAsync(admin, examId, UniqueEmail());
+        var acceptedEmail = accepted.GetProperty("email").GetString()!;
+        var (candidate, _) = await factory.CandidateClientAsync(acceptedEmail);
+        (await candidate.PostAsJsonAsync("/v1/invites/accept", new { code = accepted.GetProperty("inviteCode").GetString() })).EnsureSuccessStatusCode();
+
+        await AssertProblemAsync(
+            await admin.PostAsJsonAsync($"/v1/invites/{accepted.GetProperty("id").GetGuid()}/codes", new { expiryHours = 24 }),
+            HttpStatusCode.Conflict,
+            "invite_state_invalid");
     }
 
     // ---- what enrollment gives the candidate ------------------------------------------------------

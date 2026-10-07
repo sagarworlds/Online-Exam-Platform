@@ -40,7 +40,7 @@ public static class InviteEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("GenerateInviteCode")
-            .WithDescription("Generate an invite code");
+            .WithDescription("Generate another single-use code (and its link) for a pending invite, to hand to the invited person; audited");
 
         // Accepting is the candidate's own action, so it asks for a signed-in caller and nothing more. What
         // keeps it safe is the code and the e-mail check: the caller must hold the invited address.
