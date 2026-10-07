@@ -35,6 +35,18 @@ describe('Register', () => {
     expect(compiled.textContent).toContain('Register');
   });
 
+  it('offers a phone number as WhatsApp, and still sends it on the phone channel', () => {
+    const { compiled } = render();
+
+    const options = Array.from(compiled.querySelectorAll('#register-channel option')) as HTMLOptionElement[];
+
+    // The channel value is the API's word for "a phone number"; how a code reaches it is the host's choice (WhatsApp).
+    expect(options.map((o) => [o.value, o.textContent?.trim()])).toEqual([
+      ['Email', 'Email'],
+      ['Sms', 'WhatsApp'],
+    ]);
+  });
+
   it('links to the privacy policy where personal data is collected, opening it in a new tab', () => {
     const fixture = TestBed.createComponent(Register);
     fixture.detectChanges();

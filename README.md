@@ -719,7 +719,7 @@ Every authenticated request costs one indexed lookup of its session; if that eve
 
 ### One-time code delivery (NFR-6)
 
-`Identity:OtpDelivery:Provider` picks the adapter that delivers codes and password-reset links. The only provider today is `DevelopmentLog`, which writes the code to the API log instead of sending it, and it is **allowed only when `ASPNETCORE_ENVIRONMENT=Development`** (`appsettings.Development.json` sets it):
+`Identity:OtpDelivery:Provider` picks the adapter that delivers codes and password-reset links: `Smtp` e-mails them (through the `Smtp` section, or Brevo's HTTPS API when `Mail:Provider` is `BrevoApi`), and `DevelopmentLog` writes the code to the API log instead of sending it. `DevelopmentLog` is **allowed only when `ASPNETCORE_ENVIRONMENT=Development`** (`appsettings.Development.json` sets it):
 
 ```
 [DEV ONLY - never enabled outside Development] Email code for j***@example.com: 123456
@@ -727,7 +727,39 @@ Every authenticated request costs one indexed lookup of its session; if that eve
 
 The destination is masked (an email keeps its first character and domain, a phone number its last two digits); the code is printed because signing in during development depends on it.
 
-`appsettings.json` deliberately leaves the provider unset, so **in any other environment the API refuses to start** (an options-validation error naming `Identity:OtpDelivery`) until a real email/SMS adapter exists (the Notifications module, FR-39). Whoever owns deployments needs to know this. An integration test that boots the host outside Development must replace the sender; the recipe is on `OtpDeliveryOptionsValidator`.
+`appsettings.json` deliberately leaves the provider unset, so **in any other environment the API refuses to start** (an options-validation error naming `Identity:OtpDelivery`) until one is named. Whoever owns deployments needs to know this. An integration test that boots the host outside Development must replace the sender; the recipe is on `OtpDeliveryOptionsValidator`.
+
+`Provider` serves e-mail. A code for a **phone number** has no SMS adapter (that arrives with the Notifications module, FR-39): with nothing else set, the API logs that the code was not sent and sends nothing. `Identity:OtpDelivery:PhoneProvider` = `WhatsApp` sends phone codes over WhatsApp instead, see below.
+
+#### WhatsApp (Meta Cloud API)
+
+With `Identity:OtpDelivery:PhoneProvider` = `WhatsApp`, a code for a phone number is sent as a WhatsApp message through Meta's Cloud API, while e-mail codes keep using `Provider`. The sign-in and register pages already take a phone number (the wire channel is `Sms`, meaning "a phone number"; the register form's option now reads **WhatsApp**).
+
+| Setting (environment variable) | What it is |
+|---|---|
+| `Identity__OtpDelivery__PhoneProvider` | `WhatsApp`. Leave it unset to send nothing to phones. A blank value counts as unset. |
+| `WhatsApp__AccessToken` | A **permanent** token from a system user of the business that owns the WhatsApp Business Account (the dashboard's temporary token expires in a day). A secret. |
+| `WhatsApp__PhoneNumberId` | The id of the sending number (not the number), shown under it in the app dashboard. |
+| `WhatsApp__OtpTemplateName` | The name of the approved **Authentication** template that carries the code. |
+| `WhatsApp__OtpTemplateLanguage` | The language that template was approved in. Default `en`; it must match the template. |
+| `WhatsApp__DefaultCountryCode` | Added to a number written without one (`9876543210` becomes `919876543210`). Default `91`. Blank accepts only numbers that already carry theirs. |
+| `WhatsApp__AppSecret` | The Meta app's secret, which signs every webhook call. A secret. Without it, and the verify token, the webhook answers 404. |
+| `WhatsApp__WebhookVerifyToken` | Any string you choose; you type the same one into the app dashboard when you set the webhook up. A secret. |
+| `WhatsApp__ApiVersion`, `WhatsApp__BaseUrl` | The Graph API version (default `v23.0`) and address. Rarely changed; Meta retires each version after about two years. |
+
+If `PhoneProvider` is `WhatsApp` and the access token, phone number id or template name is missing, **the API refuses to start** and names what is missing, rather than failing the first phone sign-in. The webhook settings are separate: the webhook is optional for sending.
+
+**Setting it up on Meta's side** (done once, in the browser; nothing here is in the repository):
+
+1. At developers.facebook.com create an app of type **Business** and add the **WhatsApp** product. Set the **Privacy Policy URL** (App settings > Basic) to `https://<the website's address>/privacy.html` (see [Privacy policy page](#privacy-policy-page-public)).
+2. Under WhatsApp > **API Setup**, note the **Phone number ID**. The free test number can message only the few recipients you verify there; a real number is added in WhatsApp Manager. Meta may ask for business verification and a payment method before a real number can message the public, and bills authentication messages per message.
+3. In Business settings > **System users**, add a system user, give it the app and the WhatsApp account, and generate a token with the `whatsapp_business_messaging` and `whatsapp_business_management` permissions. That is `WhatsApp__AccessToken`. The app secret (App settings > Basic) is `WhatsApp__AppSecret`.
+4. In WhatsApp Manager > **Message templates**, create a template of category **Authentication** in the language you will set, with the **Copy code** button. Meta writes its body ("*123456* is your verification code."); you may add the security note and an expiry line. Its name is `WhatsApp__OtpTemplateName`. Codes cannot be sent until Meta approves it.
+5. Set the variables above on the API and redeploy. Then under WhatsApp > **Configuration**, set the webhook's **Callback URL** to `https://<the API's address>/v1/webhooks/whatsapp` and the **Verify token** to your `WhatsApp__WebhookVerifyToken`, choose **Verify and save**, and subscribe to the `messages` field.
+
+**What the platform does with it.** Sign-in works as it does for e-mail: the same answer whether or not the number has an account, and a failure is logged (with the number masked to its last two digits, and never the code) rather than shown. The API log says `A code for ********10 was handed to WhatsApp as message wamid...`, and the webhook then reports what became of that message: `WhatsApp message wamid... to ********10 is delivered`, or a warning with Meta's error (for example `131026 Message undeliverable` when the number is not on WhatsApp), so a code that never arrived can be followed. Anything a person writes to the number is acknowledged and its content is not read or logged. The webhook (`GET`/`POST /v1/webhooks/whatsapp`) is open to any caller, so it proves each one: the set-up handshake by the verify token, and each report by the app secret's HMAC signature over the exact bytes received (an unsigned or mis-signed call gets 401 and nothing in it is read).
+
+**Not built yet** (FR-39): invitations, guardian-consent requests, reminders and result messages over WhatsApp; opt-in and opt-out records for them (the [privacy page](#privacy-policy-page-public) describes opt-in-only notices, so those messages must not start before that exists); and keeping delivery status where support can see it, rather than in the log. The client (`IWhatsAppSender`, in `SharedKernel.Infrastructure`) already sends any approved template, so those add templates and callers, not a new integration.
 
 ### Rate limiting (NFR-5)
 

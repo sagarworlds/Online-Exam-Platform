@@ -40,7 +40,7 @@ export const HI: Messages = {
   'register.displayName': 'प्रदर्शित नाम',
   'register.dob': 'जन्म तिथि',
   'register.verifyBy': 'सत्यापन का माध्यम',
-  'register.sms': 'एसएमएस',
+  'register.whatsapp': 'WhatsApp',
   'register.phone': 'फ़ोन नंबर',
   'register.emailAddress': 'ईमेल पता',
   'register.submit': 'खाता बनाएँ',

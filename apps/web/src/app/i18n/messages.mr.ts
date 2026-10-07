@@ -40,7 +40,7 @@ export const MR: Messages = {
   'register.displayName': 'दाखवायचे नाव',
   'register.dob': 'जन्मतारीख',
   'register.verifyBy': 'पडताळणीचे माध्यम',
-  'register.sms': 'एसएमएस',
+  'register.whatsapp': 'WhatsApp',
   'register.phone': 'फोन नंबर',
   'register.emailAddress': 'ईमेल पत्ता',
   'register.submit': 'खाते तयार करा',
