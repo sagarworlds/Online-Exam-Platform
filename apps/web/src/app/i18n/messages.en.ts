@@ -45,7 +45,7 @@ export const EN = {
   'register.displayName': 'Display name',
   'register.dob': 'Date of birth',
   'register.verifyBy': 'Verify by',
-  'register.sms': 'SMS',
+  'register.whatsapp': 'WhatsApp',
   'register.phone': 'Phone number',
   'register.emailAddress': 'Email address',
   'register.submit': 'Create account',

@@ -41,7 +41,8 @@
       <label for="register-channel">{{ 'register.verifyBy' | t }}</label>
       <select id="register-channel" formControlName="channel">
         <option value="Email">{{ 'common.email' | t }}</option>
-        <option value="Sms">{{ 'register.sms' | t }}</option>
+        <!-- The wire value stays "Sms", the channel for a phone number: the host decides how a code reaches a phone, and WhatsApp is how. -->
+        <option value="Sms">{{ 'register.whatsapp' | t }}</option>
       </select>
     </div>
 

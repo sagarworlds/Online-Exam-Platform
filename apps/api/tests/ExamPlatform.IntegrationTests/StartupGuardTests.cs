@@ -116,6 +116,73 @@ public sealed class StartupGuardTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    private static ProductionHostFactory SmtpHostWith(params (string Key, string? Value)[] settings) =>
+        new(
+            OtpDeliveryOptions.Smtp,
+            extraSettings: settings.ToDictionary(setting => setting.Key, setting => setting.Value));
+
+    [Fact]
+    public void NonDevelopment_WithWhatsAppForPhonesButNothingConfiguredForWhatsApp_FailsAtStartupNamingWhatIsMissing()
+    {
+        // Told to send codes over WhatsApp with no way to, the host must stop here, not fail the first phone sign-in.
+        using var factory = SmtpHostWith(("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp));
+
+        var failure = AssertStartupFails<OtpDeliveryOptions>(factory);
+
+        Assert.Contains("WhatsApp:AccessToken, WhatsApp:PhoneNumberId, WhatsApp:OtpTemplateName are not set", failure.Message);
+    }
+
+    [Fact]
+    public void NonDevelopment_WithWhatsAppForPhonesButNoCodeTemplate_FailsAtStartupNamingOnlyThat()
+    {
+        using var factory = SmtpHostWith(
+            ("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp),
+            ("WhatsApp:AccessToken", "token"),
+            ("WhatsApp:PhoneNumberId", "1234567890"));
+
+        var failure = AssertStartupFails<OtpDeliveryOptions>(factory);
+
+        Assert.Contains("WhatsApp:OtpTemplateName is not set", failure.Message);
+        Assert.DoesNotContain("AccessToken", failure.Message);
+    }
+
+    [Fact]
+    public void NonDevelopment_WithAnUnknownPhoneProvider_FailsAtStartup()
+    {
+        using var factory = SmtpHostWith(("Identity:OtpDelivery:PhoneProvider", "Carrier-Pigeon"));
+
+        var failure = AssertStartupFails<OtpDeliveryOptions>(factory);
+
+        Assert.Contains("Carrier-Pigeon", failure.Message);
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithWhatsAppForPhonesAndItsSettings_Boots()
+    {
+        using var factory = SmtpHostWith(
+            ("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp),
+            ("WhatsApp:AccessToken", "token"),
+            ("WhatsApp:PhoneNumberId", "1234567890"),
+            ("WhatsApp:OtpTemplateName", "exam_login_code"));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithABlankPhoneProvider_BootsAsIfItWereUnset()
+    {
+        // A platform that lets an operator clear a variable can hand over an empty string rather than nothing.
+        using var factory = SmtpHostWith(("Identity:OtpDelivery:PhoneProvider", ""));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     [Fact]
     public async Task NonDevelopment_WithValidatorOverriddenAndSenderReplaced_Boots()
     {

@@ -1,7 +1,10 @@
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure.Email;
+using ExamPlatform.SharedKernel.Infrastructure.WhatsApp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace ExamPlatform.SharedKernel.Infrastructure;
 
@@ -65,6 +68,22 @@ public static class SharedKernelServiceCollectionExtensions
         // time), so pooled handler rotation and the extra package it needs would add nothing here.
         services.TryAddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(15) });
         services.TryAddScoped<IMailSender, BrevoApiMailSender>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the <see cref="IWhatsAppSender"/> that sends through Meta's WhatsApp Cloud API. The caller binds
+    /// <see cref="WhatsAppOptions"/> to the <c>WhatsApp</c> configuration section, which needs the configuration system
+    /// this assembly does not reference. With nothing configured it sends nothing and says so.
+    /// </summary>
+    /// <param name="services">The application's service collection.</param>
+    public static IServiceCollection AddWhatsAppCloudApi(this IServiceCollection services)
+    {
+        // Its own HttpClient (not the one the Brevo mailer shares), so the two keep their own timeouts.
+        services.TryAddSingleton<IWhatsAppSender>(sp => new WhatsAppCloudApiSender(
+            new HttpClient { Timeout = TimeSpan.FromSeconds(15) },
+            sp.GetRequiredService<IOptions<WhatsAppOptions>>(),
+            sp.GetRequiredService<ILogger<WhatsAppCloudApiSender>>()));
         return services;
     }
 }

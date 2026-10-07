@@ -2,6 +2,7 @@ using System.Text;
 using System.Threading.RateLimiting;
 using ExamPlatform.Api;
 using ExamPlatform.Api.RateLimiting;
+using ExamPlatform.Api.WhatsApp;
 using ExamPlatform.Modules.Admin.Endpoints;
 using ExamPlatform.Modules.Batch.Endpoints;
 using ExamPlatform.Modules.Consent.Endpoints;
@@ -14,6 +15,7 @@ using ExamPlatform.Modules.QuestionBank.Endpoints;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using ExamPlatform.SharedKernel.Infrastructure.Email;
+using ExamPlatform.SharedKernel.Infrastructure.WhatsApp;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
@@ -49,6 +51,11 @@ else
     builder.Services.AddOptions<SmtpOptions>().Bind(builder.Configuration.GetSection(SmtpOptions.SectionName));
     builder.Services.AddSmtpMailer();
 }
+
+// WhatsApp (Meta's Cloud API): one sender for whatever the platform sends there (sign-in codes now). It sends nothing, and says
+// so, until the WhatsApp section is filled in; Identity:OtpDelivery:PhoneProvider decides whether phone codes use it.
+builder.Services.AddOptions<WhatsAppOptions>().Bind(builder.Configuration.GetSection(WhatsAppOptions.SectionName));
+builder.Services.AddWhatsAppCloudApi();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -192,6 +199,7 @@ if (apiReferenceEnabled)
 }
 
 app.MapHealthChecks("/v1/health");
+app.MapWhatsAppWebhook();
 
 foreach (var module in modules)
 {

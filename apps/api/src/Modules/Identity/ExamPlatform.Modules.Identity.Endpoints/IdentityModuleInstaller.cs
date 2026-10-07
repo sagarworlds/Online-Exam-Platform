@@ -113,7 +113,9 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
                 : new NoSignInDiagnostics());
 
         services.AddScoped<IOtpSender>(sp =>
-            sp.GetRequiredService<IOptions<OtpDeliveryOptions>>().Value.Provider switch
+        {
+            var delivery = sp.GetRequiredService<IOptions<OtpDeliveryOptions>>().Value;
+            IOtpSender sender = delivery.Provider switch
             {
                 OtpDeliveryOptions.DevelopmentLog => ActivatorUtilities.CreateInstance<LoggingOtpSender>(sp),
                 OtpDeliveryOptions.Smtp => ActivatorUtilities.CreateInstance<SmtpOtpSender>(sp),
@@ -122,7 +124,14 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
                 // any other provider at startup.
                 var provider => throw new InvalidOperationException(
                     $"No IOtpSender adapter exists for {OtpDeliveryOptions.SectionName}:Provider '{provider}'."),
-            });
+            };
+
+            // Codes for phone numbers go over WhatsApp when the host says so; the adapter above keeps every other
+            // channel. Without it the one adapter takes both channels, as it did before WhatsApp existed.
+            return delivery.PhoneProvider == OtpDeliveryOptions.WhatsApp
+                ? new ChannelRoutingOtpSender(sender, ActivatorUtilities.CreateInstance<WhatsAppOtpSender>(sp))
+                : sender;
+        });
     }
 
     // Adds Identity's named rate-limit policies (NFR-5) onto the Host's rate limiter, which
