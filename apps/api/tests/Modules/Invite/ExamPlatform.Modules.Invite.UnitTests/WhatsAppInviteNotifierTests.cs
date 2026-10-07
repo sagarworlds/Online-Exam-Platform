@@ -31,12 +31,13 @@ public class WhatsAppInviteNotifierTests
     }
 
     private WhatsAppInviteNotifier Notifier(
-        string? template = "exam_invitation", bool platformConfigured = true, string language = "en", string? country = "91") =>
+        string? template = "exam_invitation", bool platformConfigured = true, string language = "en", string? country = "91", bool? enabled = true) =>
         new(
             _whatsApp,
             Options.Create(new InviteWhatsAppOptions { TemplateName = template, TemplateLanguage = language }),
             Options.Create(new WhatsAppOptions
             {
+                Enabled = enabled,
                 AccessToken = platformConfigured ? "token" : null,
                 PhoneNumberId = platformConfigured ? "1234567890" : null,
                 DefaultCountryCode = country,
@@ -58,6 +59,18 @@ public class WhatsAppInviteNotifierTests
     [InlineData("exam_invitation", false, false)]
     public void IsEnabled_NeedsATemplateAndAPlatformThatCanSend(string? template, bool platformConfigured, bool expected) =>
         Assert.Equal(expected, Notifier(template, platformConfigured).IsEnabled);
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(null)]
+    public async Task WithTheMasterSwitchOff_NothingIsSent_EvenWithATemplateAndCredentials(bool? switchedOn)
+    {
+        var notifier = Notifier(enabled: switchedOn);
+
+        Assert.False(notifier.IsEnabled);
+        Assert.False(await notifier.SendAsync(Message(), CancellationToken.None));
+        await _whatsApp.DidNotReceiveWithAnyArgs().SendTemplateAsync(default!, default);
+    }
 
     [Fact]
     public async Task SendAsync_WhenNotEnabled_SendsNothing()

@@ -191,11 +191,25 @@ public sealed class StartupGuardTests
     public void NonDevelopment_WithAnInviteTemplateButNothingConfiguredForWhatsApp_FailsAtStartupNamingWhatIsMissing()
     {
         // Told to send invitations on WhatsApp with no way to, the host must stop here, not skip WhatsApp on every invitation.
-        using var factory = SmtpHostWith(("Invite:WhatsApp:TemplateName", "exam_invitation"));
+        using var factory = SmtpHostWith(("Invite:WhatsApp:TemplateName", "exam_invitation"), ("WhatsApp:Enabled", "true"));
 
         var failure = AssertStartupFails<InviteWhatsAppOptions>(factory);
 
-        Assert.Contains("Invite:WhatsApp:TemplateName is set, but WhatsApp:AccessToken, WhatsApp:PhoneNumberId are not set", failure.Message);
+        Assert.Contains(
+            "Invite:WhatsApp:TemplateName is set and WhatsApp is switched on, but WhatsApp:AccessToken, WhatsApp:PhoneNumberId are not set",
+            failure.Message);
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithAnInviteTemplateButWhatsAppSwitchedOff_BootsWithoutItsSettings()
+    {
+        // Nothing is sent while the master switch is off, so nothing else is demanded; turning it on is what checks the settings.
+        using var factory = SmtpHostWith(("Invite:WhatsApp:TemplateName", "exam_invitation"));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -203,6 +217,7 @@ public sealed class StartupGuardTests
     {
         using var factory = SmtpHostWith(
             ("Invite:WhatsApp:TemplateName", "exam_invitation"),
+            ("WhatsApp:Enabled", "true"),
             ("WhatsApp:AccessToken", "token"),
             ("WhatsApp:PhoneNumberId", "1234567890"));
         using var client = factory.CreateClient();

@@ -8,8 +8,8 @@ using Microsoft.Extensions.Options;
 namespace ExamPlatform.Modules.Invite.Infrastructure.WhatsApp;
 
 /// <summary>
-/// Sends an invitation's exam code to the invited person's phone as a WhatsApp template message. It is enabled only when a
-/// template is named and the platform can reach WhatsApp at all, and otherwise sends nothing. The code and link are credentials, so
+/// Sends an invitation's exam code to the invited person's phone as a WhatsApp template message. It is enabled only when WhatsApp is
+/// switched on (<c>WhatsApp:Enabled</c>), a template is named and the platform has what it needs to send, and otherwise sends nothing. The code and link are credentials, so
 /// they appear only in the message itself, and a number appears in a log only masked, like the e-mail and one-time-code senders.
 /// </summary>
 public sealed partial class WhatsAppInviteNotifier(
@@ -22,7 +22,7 @@ public sealed partial class WhatsAppInviteNotifier(
     private const int MaxExamNameLength = 200;
 
     /// <inheritdoc />
-    public bool IsEnabled => invite.Value.HasTemplate && platform.Value.CanSend;
+    public bool IsEnabled => invite.Value.HasTemplate && platform.Value.IsEnabled && platform.Value.CanSend;
 
     /// <inheritdoc />
     public async Task<bool> SendAsync(InviteWhatsAppMessage message, CancellationToken cancellationToken)

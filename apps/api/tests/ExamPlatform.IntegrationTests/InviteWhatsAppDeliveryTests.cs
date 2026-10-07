@@ -13,7 +13,7 @@ namespace ExamPlatform.IntegrationTests;
 /// An API that sends invitations on WhatsApp (a template is named and the platform's WhatsApp settings are filled in), with the
 /// messages it sends captured. No mail server is configured, as in a deployment that has only WhatsApp working.
 /// </summary>
-public sealed class WhatsAppInviteApiFactory : ApiFactory
+public class WhatsAppInviteApiFactory : ApiFactory
 {
     /// <summary>The template messages handed to WhatsApp so far.</summary>
     public List<WhatsAppTemplateMessage> Sent { get; } = [];
@@ -22,6 +22,7 @@ public sealed class WhatsAppInviteApiFactory : ApiFactory
     protected override IReadOnlyDictionary<string, string?> AdditionalConfiguration =>
         new Dictionary<string, string?>(base.AdditionalConfiguration)
         {
+            ["WhatsApp:Enabled"] = "true",
             ["Invite:WhatsApp:TemplateName"] = "exam_invitation",
             ["WhatsApp:AccessToken"] = "integration-test-token",
             ["WhatsApp:PhoneNumberId"] = "1234567890",
@@ -143,6 +144,38 @@ public sealed class InviteWhatsAppDeliveryTests(WhatsAppInviteApiFactory factory
         Assert.False(invite.GetProperty("whatsAppSent").GetBoolean());
         Assert.Equal(JsonValueKind.String, invite.GetProperty("inviteLink").ValueKind);
         Assert.Equal(before, factory.Sent.Count);
+    }
+}
+
+/// <summary>The same API, with a template named and the credentials in place, but the master switch off.</summary>
+public sealed class WhatsAppInviteSwitchedOffApiFactory : WhatsAppInviteApiFactory
+{
+    /// <inheritdoc />
+    protected override IReadOnlyDictionary<string, string?> AdditionalConfiguration =>
+        new Dictionary<string, string?>(base.AdditionalConfiguration) { ["WhatsApp:Enabled"] = "false" };
+}
+
+/// <summary>With the master switch off, nothing goes to WhatsApp however much else is configured.</summary>
+public sealed class InviteWhatsAppSwitchedOffTests(WhatsAppInviteSwitchedOffApiFactory factory)
+    : IClassFixture<WhatsAppInviteSwitchedOffApiFactory>
+{
+    [Fact]
+    public async Task Create_ForAnAccountWithAPhone_SendsNothingOnWhatsApp_WhileTheMasterSwitchIsOff()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var question = await CreateQuestionAsync(admin, "Q?", "A", "B");
+        var examId = await CreateExamAsync(admin, "Switched Off Exam", [question], startsIn: TimeSpan.FromHours(-1));
+        var email = UniqueEmail();
+        var (candidate, _) = await factory.CandidateClientAsync(email, phoneNumber: "98765 43213");
+        using var candidateClient = candidate;
+
+        var response = await admin.PostAsJsonAsync("/v1/invites", new { examId, email });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var invite = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(invite.GetProperty("whatsAppSent").GetBoolean());
+        Assert.Equal(JsonValueKind.String, invite.GetProperty("inviteLink").ValueKind);
+        lock (factory.Sent) Assert.Empty(factory.Sent);
     }
 }
 

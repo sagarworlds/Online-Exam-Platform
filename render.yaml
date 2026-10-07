@@ -52,8 +52,8 @@ services:
         sync: false
       - key: WhatsApp__WebhookVerifyToken
         sync: false
-      # Also send an invitation's exam code to the invited account's phone on WhatsApp. Off while unset or blank; needs the WhatsApp
-      # settings above, and the operator's confirmation that those people agreed to WhatsApp notices (README, Invitations on WhatsApp).
+      # Also send an invitation's exam code to the invited account's phone on WhatsApp. Off while unset or blank, and whenever
+      # WhatsApp__Enabled is not true; needs the WhatsApp settings above, and the operator's confirmation that those people agreed to WhatsApp notices (README, Invitations on WhatsApp).
       - key: Invite__WhatsApp__TemplateName
         sync: false
       # Free web services have no pre-deploy command, so the single instance migrates and seeds itself on start.
