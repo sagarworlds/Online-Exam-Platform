@@ -10,7 +10,8 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 /// <param name="Content">The file's contents: text for CSV and JSON, base64 for Excel. A table's first row is the header and is not imported as a question.</param>
 /// <param name="CreatedBy">The authoring user, taken from the caller's token.</param>
 /// <param name="Format">How <paramref name="Content"/> is written; CSV unless said otherwise.</param>
-public sealed record ImportQuestionsCommand(string Content, Guid CreatedBy, QuestionFileFormat Format = QuestionFileFormat.Csv);
+/// <param name="AllowDuplicates">Create a row even when the bank, or an earlier row of the file, already has the same question (FR-9).</param>
+public sealed record ImportQuestionsCommand(string Content, Guid CreatedBy, QuestionFileFormat Format = QuestionFileFormat.Csv, bool AllowDuplicates = false);
 
 /// <summary>
 /// Handles <see cref="ImportQuestionsCommand"/>. Every row is checked under the exact rules
@@ -21,7 +22,7 @@ public sealed record ImportQuestionsCommand(string Content, Guid CreatedBy, Ques
 /// was the problem.
 /// </summary>
 public sealed class ImportQuestionsHandler(
-    IQuestionRepository repository, IQuestionBankUnitOfWork unitOfWork, IRichTextSanitizer sanitizer, Clock clock)
+    IQuestionRepository repository, QuestionDuplicateFinder duplicates, QuestionDuplicatePolicy duplicatePolicy, IQuestionBankUnitOfWork unitOfWork, IRichTextSanitizer sanitizer, Clock clock)
 {
     /// <summary>The most data rows one import processes; a larger file is refused outright rather than run partway.</summary>
     public const int MaxRows = 1000;
@@ -39,6 +40,8 @@ public sealed class ImportQuestionsHandler(
 
         var created = new List<ImportedQuestionDto>();
         var rejected = new List<RejectedRowDto>();
+        var skipped = new List<DuplicateRowDto>();
+        var seenInFile = new Dictionary<string, int>();
 
         foreach (var (line, fields, error) in dataRows)
         {
@@ -49,6 +52,14 @@ public sealed class ImportQuestionsHandler(
 
                 var (text, options, allowsMultiple, difficulty, topics) = QuestionCsvRow.Parse(fields);
                 var cleaned = QuestionText.Clean(sanitizer, text);
+
+                // A repeat is left out rather than rejected: nothing is wrong with the row, the bank just has it. Rows that repeat an
+                // earlier row of the same file are caught here, since that row is not stored until the end.
+                if (duplicatePolicy.Refuse && !command.AllowDuplicates && (RepeatOfEarlierRow(cleaned.PlainText, options, seenInFile, line) ?? await FindStoredAsync(cleaned.PlainText, options, cancellationToken)) is { } reason)
+                {
+                    skipped.Add(new DuplicateRowDto(line, reason));
+                    continue;
+                }
 
                 var question = Question.Create(
                     cleaned.Html, options, command.CreatedBy, clock.UtcNow,
@@ -69,6 +80,26 @@ public sealed class ImportQuestionsHandler(
         if (created.Count > 0)
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return new ImportQuestionsResultDto(created, rejected);
+        return new ImportQuestionsResultDto(created, rejected, skipped);
+    }
+
+    private async Task<string?> FindStoredAsync(string plainText, IReadOnlyList<NewQuestionOption> options, CancellationToken cancellationToken)
+    {
+        var same = (await duplicates.FindAsync(plainText, options.Select(o => o?.Text ?? string.Empty).ToList(), null, cancellationToken)).FirstOrDefault(m => m.SameOptions);
+        return same is null ? null : $"The bank already has this question ({same.Question.Id}).";
+    }
+
+    private static string? RepeatOfEarlierRow(string plainText, IReadOnlyList<NewQuestionOption> options, Dictionary<string, int> seenInFile, int line)
+    {
+        var key = QuestionFingerprint.KeyOf(plainText);
+        if (key.Length == 0)
+            return null;
+
+        key += "|" + QuestionFingerprint.OptionsKeyOf(options.Select(o => o?.Text ?? string.Empty));
+        if (seenInFile.TryGetValue(key, out var firstLine))
+            return $"Same as row {firstLine} of this file.";
+
+        seenInFile[key] = line;
+        return null;
     }
 }

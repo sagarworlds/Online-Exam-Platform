@@ -2,6 +2,11 @@ using ExamPlatform.Modules.ExamRuntime.Domain;
 
 namespace ExamPlatform.Modules.ExamRuntime.Application.Ports;
 
+/// <summary>One answer in a finished attempt.</summary>
+/// <param name="SelectedOptionIds">The options the candidate chose.</param>
+/// <param name="VersionNumber">The version of the question the attempt sat, or null for an attempt made before versions were recorded.</param>
+public sealed record SubmittedAnswer(IReadOnlyCollection<Guid> SelectedOptionIds, int? VersionNumber);
+
 /// <summary>Persistence port for <see cref="Attempt"/>.</summary>
 public interface IAttemptRepository
 {
@@ -32,6 +37,12 @@ public interface IAttemptRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The ids among <paramref name="questionIds"/> that have at least one saved answer.</returns>
     Task<IReadOnlyCollection<Guid>> FindAnsweredQuestionIdsAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken);
+
+    /// <summary>Lists the answers given to a question in finished attempts that still count, for its statistics (FR-9).</summary>
+    /// <param name="questionId">The question-bank id of the question.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>One entry per answer; attempts still open, and attempts an administrator invalidated, are left out.</returns>
+    Task<IReadOnlyList<SubmittedAnswer>> ListSubmittedAnswersAsync(Guid questionId, CancellationToken cancellationToken);
 
     /// <summary>Lists every attempt a candidate has made, without their answers, for read-only display.</summary>
     /// <param name="candidateId">The candidate.</param>

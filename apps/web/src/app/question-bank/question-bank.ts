@@ -2,7 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { BookApiService } from '../book-management/book-api.service';
 import { BookDto } from '../book-management/book.models';
-import { extractErrorMessage } from '../shared/problem-details';
+import { extractErrorMessage, extractProblemCode } from '../shared/problem-details';
 import { BookChapterPicker, isCompletePlacement, NO_PLACEMENT, Placement } from './book-chapter-picker/book-chapter-picker';
 import { QuestionApiService } from './question-api.service';
 import { QuestionCard } from './question-card/question-card';
@@ -10,12 +10,14 @@ import { createQuestionForm, newOption, toAllowsMultiple, toLabels, toNewOptions
 import { QuestionFields } from './question-fields/question-fields';
 import {
   CreateQuestionRequest,
+  DuplicateQuestion,
   FileQuestionsResult,
   QUESTION_DIFFICULTIES,
   QUESTION_LIST_PAGE_SIZE,
   QuestionDifficulty,
   QuestionDto,
   QuestionFilter,
+  QuestionStatistics,
   QuestionStatus,
 } from './question.models';
 import { QuestionTransfer } from './question-transfer/question-transfer';
@@ -47,6 +49,10 @@ export class QuestionBank {
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+  /** A question the bank refused as a repeat, with what it repeats, until the author adds it anyway or gives up (FR-9). */
+  protected readonly repeat = signal<{ request: CreateQuestionRequest; matches: DuplicateQuestion[] } | null>(null);
+  /** What candidates did on the questions whose statistics were opened, by question id (FR-9). */
+  protected readonly statistics = signal<Record<string, QuestionStatistics>>({});
   /** What the last action on the list did, such as a deletion; announced to screen readers. */
   protected readonly notice = signal<string | null>(null);
   /** The question a request is running for, if any, so only its card is locked meanwhile. */
@@ -160,9 +166,34 @@ export class QuestionBank {
       allowsMultiple: toAllowsMultiple(this.form),
     };
 
+    this.send(request);
+  }
+
+  /** Adds the question the bank called a repeat, because the author looked at what it repeats and still wants it. */
+  protected addAnyway(): void {
+    const pending = this.repeat();
+    if (pending && !this.saving()) {
+      this.send({ ...pending.request, allowDuplicate: true });
+    }
+  }
+
+  protected dismissRepeat(): void {
+    this.repeat.set(null);
+  }
+
+  /** Loads how candidates did on a question, for its card. */
+  protected onStatisticsRequested(questionId: string): void {
+    this.api.statistics(questionId).subscribe({
+      next: (stats) => this.statistics.update((all) => ({ ...all, [questionId]: stats })),
+      error: (error: unknown) => this.failAction(questionId, error),
+    });
+  }
+
+  private send(request: CreateQuestionRequest): void {
     this.saving.set(true);
     this.saved.set(false);
     this.errorMessage.set(null);
+    this.repeat.set(null);
 
     this.api.create(request).subscribe({
       next: () => {
@@ -175,8 +206,21 @@ export class QuestionBank {
       },
       error: (error: unknown) => {
         this.saving.set(false);
+        if (extractProblemCode(error) === 'duplicate_question') {
+          this.showRepeat(request, error);
+          return;
+        }
         this.errorMessage.set(extractErrorMessage(error));
       },
+    });
+  }
+
+  /** Looks up what the refused question repeats, so the author can see it before deciding. */
+  private showRepeat(request: CreateQuestionRequest, refusal: unknown): void {
+    this.api.duplicates(request.text, request.options.map((o) => o.text)).subscribe({
+      next: (matches) => this.repeat.set({ request, matches }),
+      // The refusal itself is the message when the list of matches cannot be had.
+      error: () => this.errorMessage.set(extractErrorMessage(refusal)),
     });
   }
 

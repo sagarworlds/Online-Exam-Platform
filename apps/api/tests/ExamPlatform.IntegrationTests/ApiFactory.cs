@@ -76,6 +76,8 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             ["Jwt:SigningKey"] = "integration-test-only-signing-key-at-least-32-bytes",
             ["Jwt:Issuer"] = "exam-platform-tests",
             ["Jwt:Audience"] = "exam-platform-tests-clients",
+            // The suites create the same question again and again; the duplicate tests turn this back on for their own host.
+            ["QuestionBank:RefuseDuplicates"] = "false",
         };
 
         foreach (var (key, value) in AdditionalConfiguration)

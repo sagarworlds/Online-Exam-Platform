@@ -48,6 +48,20 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<SubmittedAnswer>> ListSubmittedAnswersAsync(Guid questionId, CancellationToken cancellationToken)
+    {
+        var rows = await (
+            from answer in context.Set<AttemptAnswer>().AsNoTracking()
+            join attempt in context.Attempts.AsNoTracking() on answer.AttemptId equals attempt.Id
+            where answer.QuestionId == questionId && attempt.Status == AttemptStatus.Submitted && attempt.InvalidatedAtUtc == null
+            select new { answer.SelectedOptionIds, attempt.QuestionVersions }).ToListAsync(cancellationToken);
+
+        return rows
+            .Select(r => new SubmittedAnswer(r.SelectedOptionIds, r.QuestionVersions.TryGetValue(questionId, out var version) ? version : null))
+            .ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListForCandidateAsync(Guid candidateId, CancellationToken cancellationToken) =>
         await context.Attempts.AsNoTracking().Where(a => a.CandidateId == candidateId).ToListAsync(cancellationToken);
 

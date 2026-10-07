@@ -43,6 +43,18 @@ public static class QuestionBankEndpoints
             .WithName("ListQuestions")
             .WithDescription("List the newest questions, 200 at a time (skip leaves out that many of the newest), optionally only those under a book or chapter, only unfiled ones, of one difficulty, on one topic, in one review status, or containing some text (q)");
 
+        readers.MapPost("/duplicates", FindDuplicates)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("FindDuplicateQuestions")
+            .WithDescription("List the questions already in the bank with the same wording as the one given, saying which also have the same options");
+
+        readers.MapGet("/{questionId:guid}/statistics", GetStatistics)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("GetQuestionStatistics")
+            .WithDescription("The exams that hold a question, how many candidates answered it, how many were fully correct and how often each option was chosen");
+
         readers.MapGet("/topics", ListTopics)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
@@ -142,6 +154,12 @@ public static class QuestionBankEndpoints
             .WithDescription("Download questions matching the same filters as the list, as a CSV, Excel or JSON file ImportQuestions can read back");
     }
 
+    private static async Task<IResult> FindDuplicates(FindDuplicatesRequest request, FindDuplicatesHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(request.Text, request.Options, request.ExcludeQuestionId, ct));
+
+    private static async Task<IResult> GetStatistics(Guid questionId, GetQuestionStatisticsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(questionId, ct));
+
     private static async Task<IResult> FileQuestions(FileQuestionsRequest request, FileQuestionsHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new FileQuestionsCommand(request.QuestionIds, request.ChapterId), ct));
 
@@ -162,7 +180,7 @@ public static class QuestionBankEndpoints
         CreateQuestionRequest request, ClaimsPrincipal user, CreateQuestionHandler handler, CancellationToken ct)
     {
         var options = request.Options?.Select(o => new NewQuestionOption(o?.Text, o?.IsCorrect ?? false, o?.IsPinned ?? false)).ToList();
-        var result = await handler.HandleAsync(new CreateQuestionCommand(request.Text, options, user.GetUserId(), request.ChapterId, request.Difficulty, request.Topics, request.AllowsMultiple), ct);
+        var result = await handler.HandleAsync(new CreateQuestionCommand(request.Text, options, user.GetUserId(), request.ChapterId, request.Difficulty, request.Topics, request.AllowsMultiple, request.AllowDuplicate), ct);
         return Results.Created($"/v1/questions/{result.Id}", result);
     }
 
@@ -223,7 +241,7 @@ public static class QuestionBankEndpoints
     private static async Task<IResult> ImportQuestions(
         ImportQuestionsRequest request, ClaimsPrincipal user, ImportQuestionsHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(
-            new ImportQuestionsCommand(request.Content ?? request.Csv ?? string.Empty, user.GetUserId(), QuestionFiles.ParseFormat(request.Format)), ct));
+            new ImportQuestionsCommand(request.Content ?? request.Csv ?? string.Empty, user.GetUserId(), QuestionFiles.ParseFormat(request.Format), request.AllowDuplicates), ct));
 
     private static async Task<IResult> ExportQuestions(
         ExportQuestionsHandler handler, HttpContext http, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, string? format, CancellationToken ct)
@@ -243,9 +261,16 @@ public static class QuestionBankEndpoints
 /// <param name="Difficulty">"easy", "medium" or "hard"; omit or send null for unsaid.</param>
 /// <param name="Topics">Up to five short topics such as "fractions"; omit for none.</param>
 /// <param name="AllowsMultiple">True when more than one option is correct and a candidate must choose all of them; omitted means a single correct option.</param>
+/// <param name="AllowDuplicate">True to add the question even when the bank already has the same wording and options; omitted means a repeat is refused.</param>
 public sealed record CreateQuestionRequest(
     string? Text, IReadOnlyList<CreateQuestionOptionRequest?>? Options, Guid? ChapterId = null,
-    string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false);
+    string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false, bool AllowDuplicate = false);
+
+/// <summary>Asks which questions already repeat one that is about to be added (FR-9).</summary>
+/// <param name="Text">The question text as the editor produced it (HTML).</param>
+/// <param name="Options">The option texts.</param>
+/// <param name="ExcludeQuestionId">A question being edited, which is not a duplicate of itself.</param>
+public sealed record FindDuplicatesRequest(string? Text, IReadOnlyList<string?>? Options, Guid? ExcludeQuestionId = null);
 
 /// <summary>Request body for filing questions under a chapter.</summary>
 /// <param name="QuestionIds">The questions to file, at least one.</param>
@@ -288,4 +313,5 @@ public sealed record ReviewCommentRequest(string? Comment = null);
 /// <param name="Content">The file's contents: text for CSV and JSON, base64 for Excel. A table's header row is included.</param>
 /// <param name="Format">"csv" (the default), "xlsx" or "json".</param>
 /// <param name="Csv">The original name for <paramref name="Content"/> when the file is CSV; still accepted.</param>
-public sealed record ImportQuestionsRequest(string? Content = null, string? Format = null, string? Csv = null);
+/// <param name="AllowDuplicates">Create rows even when the same question is already in the bank or earlier in the file; omitted means repeats are left out.</param>
+public sealed record ImportQuestionsRequest(string? Content = null, string? Format = null, string? Csv = null, bool AllowDuplicates = false);

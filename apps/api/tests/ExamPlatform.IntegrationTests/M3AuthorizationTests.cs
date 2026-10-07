@@ -99,6 +99,8 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("POST", "/v1/questions/import", RbacCatalog.PermissionCodes.QuestionManage,
             new { csv = "Text,Option1,Correct1,Option2,Correct2,Option3,Correct3,Option4,Correct4,Option5,Correct5,Option6,Correct6,AllowsMultiple,Difficulty,Topics\r\n" }),
         new("GET", "/v1/questions/export", RbacCatalog.PermissionCodes.QuestionManage, null),
+        new("POST", "/v1/questions/duplicates", RbacCatalog.PermissionCodes.QuestionRead, new { text = "Authorization test", options = new[] { "A", "B" } }),
+        new("GET", "/v1/questions/{questionId:guid}/statistics", RbacCatalog.PermissionCodes.QuestionRead, null),
         new("GET", "/v1/questions/{questionId:guid}/history", RbacCatalog.PermissionCodes.QuestionRead, null),
         new("GET", "/v1/questions/{questionId:guid}/review-log", RbacCatalog.PermissionCodes.QuestionRead, null),
         new("POST", "/v1/questions/{questionId:guid}/comments", RbacCatalog.PermissionCodes.QuestionRead, new { comment = "Authorization test" }),

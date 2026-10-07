@@ -74,6 +74,13 @@ public interface IQuestionRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<(Guid Id, Guid? ChapterId)>> FindPlacementsAsync(QuestionFilter filter, int take, CancellationToken cancellationToken);
 
+    /// <summary>Finds the questions whose wording has the given key (FR-9), with their options, oldest first.</summary>
+    /// <param name="textKey">The key of the wording, see <see cref="QuestionFingerprint"/>; empty matches nothing.</param>
+    /// <param name="excludeQuestionId">A question to leave out, or null.</param>
+    /// <param name="take">How many to return at most.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Question>> FindByTextKeyAsync(string textKey, Guid? excludeQuestionId, int take, CancellationToken cancellationToken);
+
     /// <summary>Lists every topic any question carries, once each, in alphabetical order.</summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<string>> ListTopicsAsync(CancellationToken cancellationToken);

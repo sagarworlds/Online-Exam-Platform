@@ -54,6 +54,8 @@ export class QuestionTransfer {
   protected readonly error = signal<string | null>(null);
   protected readonly exportNote = signal<string | null>(null);
   protected readonly result = signal<ImportQuestionsResult | null>(null);
+  /** Whether a question already in the bank is imported again; off, so importing a file twice does not double the bank. */
+  protected readonly allowDuplicates = signal(false);
 
   private readonly api = inject(QuestionApiService);
 
@@ -102,7 +104,7 @@ export class QuestionTransfer {
 
     try {
       const content = format === 'xlsx' ? toBase64((await read(file, 'buffer')) as ArrayBuffer) : ((await read(file, 'text')) as string);
-      this.api.import(format, content).subscribe({
+      this.api.import(format, content, this.allowDuplicates()).subscribe({
         next: (result) => {
           this.result.set(result);
           this.busy.set(false);

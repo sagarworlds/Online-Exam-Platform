@@ -69,7 +69,7 @@ public class ExportQuestionsHandlerTests
         var importRepository = Substitute.For<IQuestionRepository>();
         var clock = Substitute.For<Clock>();
         clock.UtcNow.Returns(Now);
-        var importHandler = new ImportQuestionsHandler(importRepository, unitOfWork, new RichTextSanitizer(), clock);
+        var importHandler = new ImportQuestionsHandler(importRepository, new QuestionDuplicateFinder(importRepository), new QuestionDuplicatePolicy(true), unitOfWork, new RichTextSanitizer(), clock);
 
         var result = await importHandler.HandleAsync(new ImportQuestionsCommand(csv, Author), CancellationToken.None);
 

@@ -110,6 +110,14 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Question>> FindByTextKeyAsync(string textKey, Guid? excludeQuestionId, int take, CancellationToken cancellationToken) =>
+        string.IsNullOrEmpty(textKey)
+            ? []
+            : await context.Questions.AsNoTracking().Include(q => q.Options)
+                .Where(q => q.TextKey == textKey && q.Id != excludeQuestionId)
+                .OrderBy(q => q.CreatedAtUtc).ThenBy(q => q.Id).Take(take).ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<string>> ListTopicsAsync(CancellationToken cancellationToken) =>
         await context.Questions.AsNoTracking().SelectMany(q => q.Topics).Distinct().OrderBy(t => t).ToListAsync(cancellationToken);
 

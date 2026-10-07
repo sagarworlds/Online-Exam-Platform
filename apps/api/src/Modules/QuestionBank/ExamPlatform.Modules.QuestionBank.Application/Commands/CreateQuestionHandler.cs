@@ -14,14 +14,17 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 /// <param name="Difficulty">"easy", "medium" or "hard", or null for unsaid.</param>
 /// <param name="Topics">The question's topics, or null for none.</param>
 /// <param name="AllowsMultiple">Whether more than one option may be correct.</param>
+/// <param name="AllowDuplicate">Add the question even though the bank already holds one with the same wording and options (FR-9).</param>
 public sealed record CreateQuestionCommand(
     string? Text, IReadOnlyList<NewQuestionOption>? Options, Guid CreatedBy, Guid? ChapterId = null,
-    string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false);
+    string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false, bool AllowDuplicate = false);
 
 /// <summary>Handles <see cref="CreateQuestionCommand"/>.</summary>
 public sealed class CreateQuestionHandler(
     IQuestionRepository repository,
     OpenChapterResolver chapters,
+    QuestionDuplicateFinder duplicates,
+    QuestionDuplicatePolicy duplicatePolicy,
     IQuestionBankUnitOfWork unitOfWork,
     IRichTextSanitizer sanitizer,
     Clock clock)
@@ -31,11 +34,16 @@ public sealed class CreateQuestionHandler(
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The stored question.</returns>
     /// <exception cref="InvalidQuestionError">The question breaks one of the bank's rules.</exception>
+    /// <exception cref="DuplicateQuestionError">The bank already has the same question and the author did not say to add it anyway.</exception>
     /// <exception cref="ChapterNotFoundError">The chapter to file it under does not exist.</exception>
     /// <exception cref="BookArchivedError">The chapter, or its book, is archived.</exception>
     public async Task<QuestionDto> HandleAsync(CreateQuestionCommand command, CancellationToken cancellationToken)
     {
         var cleaned = QuestionText.Clean(sanitizer, command.Text);
+
+        var optionTexts = command.Options is null ? [] : command.Options.Select(o => o?.Text ?? string.Empty).ToList();
+        if (duplicatePolicy.Refuse && !command.AllowDuplicate && (await duplicates.FindAsync(cleaned.PlainText, optionTexts, null, cancellationToken)).Any(m => m.SameOptions))
+            throw new DuplicateQuestionError();
 
         var filedUnder = command.ChapterId is { } chapterId ? await chapters.ResolveAsync(chapterId, cancellationToken) : null;
 

@@ -2,7 +2,7 @@ import { Component, computed, effect, input, output, signal, untracked } from '@
 import { RouterLink } from '@angular/router';
 import { BookDto } from '../../book-management/book.models';
 import { BookChapterPicker, NO_PLACEMENT, Placement } from '../book-chapter-picker/book-chapter-picker';
-import { QuestionDto, QuestionStatus } from '../question.models';
+import { QuestionDto, QuestionStatistics, QuestionStatus } from '../question.models';
 import { QuestionReview, STATUS_LABELS } from '../question-review/question-review';
 import { MathDirective } from '../../shared/rich-text/math.directive';
 
@@ -26,6 +26,13 @@ export class QuestionCard {
   readonly busy = input(false);
   /** Why the last request about this question failed, if it did. */
   readonly error = input<string | null>(null);
+
+  /** How candidates did on this question, once the page has loaded it (FR-9). */
+  readonly statistics = input<QuestionStatistics | null>(null);
+
+  /** The author opened the statistics before they were loaded; carries the question's id. */
+  readonly statisticsRequested = output<string>();
+  protected readonly showingStatistics = signal(false);
 
   /** The author confirmed deleting this question; carries its id. */
   readonly deleteConfirmed = output<string>();
@@ -66,6 +73,14 @@ export class QuestionCard {
     const count = this.question().usage.examCount;
     return `In ${count} ${count === 1 ? 'exam' : 'exams'}`;
   });
+
+  protected toggleStatistics(): void {
+    const open = !this.showingStatistics();
+    this.showingStatistics.set(open);
+    if (open && this.statistics() === null) {
+      this.statisticsRequested.emit(this.question().id);
+    }
+  }
 
   protected fileHere(): void {
     const chapterId = this.placement().chapterId;
