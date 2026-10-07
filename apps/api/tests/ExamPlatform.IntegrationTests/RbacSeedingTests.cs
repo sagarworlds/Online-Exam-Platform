@@ -151,6 +151,43 @@ public sealed class RbacSeedingTests(ApiFactory factory) : IClassFixture<ApiFact
         }
     }
 
+    [Fact]
+    public async Task TheMigrationsGrants_GiveQuestionReadAndReviewToTheRightRoles_OnADatabaseThatHadNeitherPermission()
+    {
+        // The state a database was in before FR-8: the two permissions do not exist, so no role holds them.
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                DELETE FROM identity."RolePermissions"
+                WHERE "PermissionsId" IN (SELECT "Id" FROM identity."Permissions" WHERE "Code" IN ('question.read', 'question.review'));
+                DELETE FROM identity."Permissions" WHERE "Code" IN ('question.read', 'question.review');
+                """);
+
+            // Run twice: a migration that is repeated, or runs after the seeder, must change nothing the second time.
+            await db.Database.ExecuteSqlRawAsync(QuestionReviewPermissions.GrantSql);
+            var grants = await CountGrantsAsync(db);
+            await db.Database.ExecuteSqlRawAsync(QuestionReviewPermissions.GrantSql);
+            Assert.Equal(grants, await CountGrantsAsync(db));
+        }
+
+        using var check = factory.Services.CreateScope();
+        var context = check.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var roles = await context.Roles.Include(r => r.Permissions).ToListAsync();
+        // Whatever the catalog says each role holds, the migration alone has to arrive at for these two permissions.
+        foreach (var definition in RbacCatalog.Roles)
+        {
+            var held = roles.Single(r => r.Name == definition.Name).Permissions.Select(p => p.Code).ToHashSet();
+            foreach (var code in new[] { RbacCatalog.PermissionCodes.QuestionRead, RbacCatalog.PermissionCodes.QuestionReview })
+            {
+                Assert.True(
+                    definition.PermissionCodes.Contains(code) == held.Contains(code),
+                    $"{definition.Name}: the catalog says {(definition.PermissionCodes.Contains(code) ? "grant" : "do not grant")} {code}, the migration did the opposite.");
+            }
+        }
+    }
+
     private static Task<int> CountGrantsAsync(IdentityDbContext db) =>
         db.Database.SqlQueryRaw<int>("""SELECT COUNT(*)::int AS "Value" FROM identity."RolePermissions" """).SingleAsync();
 }
