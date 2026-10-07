@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
   AddTranslationRequest,
+  AnswerKeyCorrectionResult,
   CreateQuestionRequest,
   DuplicateQuestion,
   ExportedFile,
@@ -60,6 +61,15 @@ export class QuestionApiService {
   /** Replaces the question's content. Once candidates have answered it the API refuses anything but a wording change. */
   update(id: string, request: UpdateQuestionRequest): Observable<QuestionDto> {
     return this.http.put<QuestionDto>(`${this.baseUrl}/${id}`, request);
+  }
+
+  /**
+   * Corrects which options are right in a question candidates may already have answered (FR-31): the one change an answered question
+   * allows. Every submitted attempt that held the question is scored again under the corrected key and its candidate is shown the reason,
+   * and the open disputes of the question are accepted. Naming the options the key already has changes nothing.
+   */
+  correctAnswerKey(id: string, correctOptionIds: string[], reason: string): Observable<AnswerKeyCorrectionResult> {
+    return this.http.post<AnswerKeyCorrectionResult>(`${this.baseUrl}/${id}/correct-answer-key`, { correctOptionIds, reason });
   }
 
   /** Deletes a question that no exam holds; the API refuses one that is in use. */

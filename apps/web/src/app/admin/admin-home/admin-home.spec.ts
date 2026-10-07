@@ -33,6 +33,18 @@ describe('AdminHome', () => {
     expect(page.querySelector('a')?.getAttribute('href')).toBe('/admin/questions');
   });
 
+  it('offers the disputes queue to whoever manages exams, as it does the attempt requests', () => {
+    const page = render(['exam.manage']);
+
+    expect(page.textContent).toContain('Disputes');
+    expect(page.textContent).toContain('Attempt requests');
+    expect(Array.from(page.querySelectorAll('a')).map((a) => a.getAttribute('href'))).toContain('/admin/disputes');
+  });
+
+  it('keeps the disputes queue from those who may not manage exams', () => {
+    expect(render(['exam.read', 'question.manage']).textContent).not.toContain('Disputes');
+  });
+
   it('says so when no area is open to the user', () => {
     expect(render([]).textContent).toContain('no admin areas');
   });

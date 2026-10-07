@@ -1,4 +1,4 @@
-import { AttemptRequestStatus, AttemptSummaryDto, AnswerVerdict, AttemptStatus, ReviewOptionDto } from '../candidate/candidate.models';
+import { AttemptRequestStatus, AttemptSummaryDto, AnswerVerdict, AttemptStatus, DisputeStatus, ReviewOptionDto } from '../candidate/candidate.models';
 
 /** One enrolled candidate of an exam, with their attempts and whether another can be given, as staff see them. */
 export interface ExamCandidateDto {
@@ -137,4 +137,34 @@ export interface AttemptRequestRow {
    * server is set up, it refused the message, or the candidate is no longer enrolled, so the administrator should tell them.
    */
   candidateNotified?: boolean | null;
+}
+
+/** The statuses the dispute queue can be filtered to, as the API spells them in the query. */
+export type DisputeFilterStatus = 'open' | 'accepted' | 'rejected';
+
+/** The longest explanation the API accepts when rejecting a dispute; the candidate is shown it. */
+export const MAX_DISPUTE_REJECTION_NOTE = 500;
+
+/** A candidate's dispute of one question's answer key (FR-31), as staff see it in the queue. */
+export interface DisputeRow {
+  id: string;
+  examId: string;
+  /** Null when the exam can no longer be read. */
+  examName: string | null;
+  attemptId: string;
+  /** Which attempt this is for the candidate at the exam; null when it cannot be worked out. */
+  attemptNumber: number | null;
+  candidateId: string;
+  /** The address the candidate was invited at; null when they are no longer enrolled. */
+  candidateEmail: string | null;
+  questionId: string;
+  /** The question as it is now, as sanitized HTML; null when the bank no longer has it. Show it with `[appMath]`, never as trusted markup. */
+  questionText: string | null;
+  /** Why the candidate thinks the answer key is wrong. */
+  reason: string;
+  raisedAtUtc: string;
+  status: DisputeStatus;
+  resolvedAtUtc: string | null;
+  /** What staff said when rejecting, or the reason the answer key was corrected when the dispute was accepted. */
+  resolutionNote: string | null;
 }

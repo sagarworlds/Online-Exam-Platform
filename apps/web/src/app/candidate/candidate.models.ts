@@ -278,6 +278,37 @@ export interface ScoreRevisionDto {
   newMaxScore: number;
   reason: string;
   revisedAtUtc: string;
+  /** The result version this revision produced; the first revision makes version 2 (FR-31). Absent from an API that predates result versions. */
+  version?: number;
+}
+
+/** Where a candidate's dispute of an answer key stands (FR-31). */
+export type DisputeStatus = 'Open' | 'Accepted' | 'Rejected';
+
+/** The longest reason the API accepts on a dispute. */
+export const MAX_DISPUTE_REASON = 1000;
+
+/** The candidate's own dispute of one question's answer key (FR-31); a question can be disputed once per attempt. */
+export interface MyDisputeDto {
+  id: string;
+  questionId: string;
+  /** Why the candidate thinks the answer key is wrong. */
+  reason: string;
+  raisedAtUtc: string;
+  status: DisputeStatus;
+  resolvedAtUtc: string | null;
+  /** Once answered: what staff said when rejecting, or the reason the answer key was corrected when accepting. */
+  resolutionNote: string | null;
+}
+
+/** Whether the answer key of a result can still be disputed (FR-31). The time is counted from when the result was released. */
+export interface DisputeWindowDto {
+  /** Whether disputes are being taken at all. */
+  enabled: boolean;
+  /** Whether one can be raised now. */
+  open: boolean;
+  /** When the time to dispute ends; null when there is no release time to count from. UTC. */
+  closesAtUtc: string | null;
 }
 
 /** A submitted attempt with its answer key; only ever sent once the attempt is over and the answers are released. */
@@ -299,4 +330,10 @@ export interface AttemptReviewDto {
   sections: ReviewSectionDto[];
   /** How the score has changed since this attempt was first submitted, oldest first. Absent or empty means never revised. */
   revisions?: ScoreRevisionDto[];
+  /** Which version of the result the score above is: 1 as first submitted, one more for each revision (FR-31). Absent from an API that predates result versions, which means 1. */
+  resultVersion?: number;
+  /** Whether the answer key can be disputed, and until when (FR-31); null or absent when the API does not say, and then the page says nothing about disputes. */
+  disputeWindow?: DisputeWindowDto | null;
+  /** The candidate's own disputes of this attempt's answer keys, oldest first; null or absent when none are known. */
+  disputes?: MyDisputeDto[] | null;
 }

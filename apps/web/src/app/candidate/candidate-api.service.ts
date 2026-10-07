@@ -3,7 +3,16 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { SILENT_ACTIVITY } from '../shared/api-activity/api-activity.interceptor';
-import { AttemptDto, AttemptReviewDto, AttemptStatusDto, FocusViolationKind, FocusViolationResultDto, MyAttemptRequestDto, MyExamDto } from './candidate.models';
+import {
+  AttemptDto,
+  AttemptReviewDto,
+  AttemptStatusDto,
+  FocusViolationKind,
+  FocusViolationResultDto,
+  MyAttemptRequestDto,
+  MyDisputeDto,
+  MyExamDto,
+} from './candidate.models';
 
 /** Thin HTTP wrapper over the ExamRuntime module's candidate-facing /v1/me endpoints. */
 @Injectable({ providedIn: 'root' })
@@ -43,6 +52,14 @@ export class CandidateApiService {
   /** Which answers were right, for a submitted attempt whose answers have been released; the API refuses it otherwise. */
   getAttemptReview(attemptId: string): Observable<AttemptReviewDto> {
     return this.http.get<AttemptReviewDto>(`${this.baseUrl}/attempts/${attemptId}/review`);
+  }
+
+  /**
+   * Disputes the answer key of one question of a result the candidate can review (FR-31). Each question can be disputed once, and staff's
+   * answer is final; the API refuses a dispute once the time allowed since the result was released has passed.
+   */
+  raiseDispute(attemptId: string, questionId: string, reason: string): Observable<MyDisputeDto> {
+    return this.http.post<MyDisputeDto>(`${this.baseUrl}/attempts/${attemptId}/disputes`, { questionId, reason });
   }
 
   /** Saves (or changes) the option chosen for one question of an open attempt. */

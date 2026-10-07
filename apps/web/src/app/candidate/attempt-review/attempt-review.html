@@ -27,12 +27,25 @@
       @if (r.autoSubmitted) {
         <p class="hint">{{ 'common.autoSubmitted' | t }}</p>
       }
+      @if ((r.resultVersion ?? 1) > 1) {
+        <p class="hint">{{ 'review.version' | t: { version: r.resultVersion ?? 1 } }}</p>
+      }
+      @if (r.disputeWindow; as disputeWindow) {
+        @if (disputeWindow.enabled) {
+          <p class="hint">
+            {{ disputeWindow.open ? ('review.dispute.windowOpen' | t: { date: (disputeWindow.closesAtUtc | date: 'medium') ?? '' }) : ('review.dispute.windowClosed' | t) }}
+          </p>
+        }
+      }
       @if (r.revisions && r.revisions.length > 0) {
         <div class="warning-note" role="status">
           <p><strong>{{ 'review.revised' | t }}</strong></p>
           <ul>
             @for (revision of r.revisions; track revision.revisedAtUtc) {
               <li>
+                @if (revision.version) {
+                  <strong>{{ 'review.revisionVersion' | t: { version: revision.version } }}</strong>
+                }
                 {{ 'review.revisionLine' | t: { previous: revision.previousScore, previousMax: revision.previousMaxScore, next: revision.newScore, nextMax: revision.newMaxScore, date: (revision.revisedAtUtc | date: 'medium') ?? '', reason: revision.reason } }}
               </li>
             }
@@ -102,6 +115,59 @@
           </ul>
           @if (question.verdict === 'Unanswered') {
             <p class="hint">{{ 'review.notAnswered' | t }}</p>
+          }
+
+          @if (disputeFor(question.id); as dispute) {
+            <section class="review-dispute" [attr.aria-label]="'review.dispute.yours' | t">
+              @if (disputeSentId() === question.id) {
+                <p class="success-message" role="status">{{ 'review.dispute.sent' | t }}</p>
+              }
+              <p class="review-dispute__head">
+                <strong>{{ 'review.dispute.yours' | t }}</strong>
+                <span
+                  class="badge review-dispute__status"
+                  [class.badge--warning]="dispute.status === 'Open'"
+                  [class.badge--active]="dispute.status === 'Accepted'"
+                  [class.badge--inactive]="dispute.status === 'Rejected'"
+                >{{ disputeStatusLabel(dispute.status) }}</span>
+              </p>
+              <p class="review-dispute__text">{{ dispute.reason }}</p>
+              @if (dispute.resolutionNote) {
+                <p class="review-dispute__text">
+                  {{ (dispute.status === 'Accepted' ? 'review.dispute.noteAccepted' : 'review.dispute.noteRejected') | t: { note: dispute.resolutionNote } }}
+                </p>
+              }
+            </section>
+          } @else if (r.disputeWindow?.open) {
+            @if (disputingId() === question.id) {
+              <form class="review-dispute" (submit)="$event.preventDefault(); sendDispute(question.id)" [attr.aria-label]="'review.dispute.formLabel' | t: { number: question.number }">
+                <div class="field">
+                  <label [for]="'dispute-reason-' + question.number">{{ 'review.dispute.why' | t }}</label>
+                  <textarea
+                    [id]="'dispute-reason-' + question.number"
+                    rows="3"
+                    aria-required="true"
+                    [maxLength]="maxDisputeReason"
+                    [attr.aria-describedby]="'dispute-hint-' + question.number"
+                    [value]="disputeReason()"
+                    (input)="disputeReason.set($any($event.target).value)"
+                    [disabled]="disputeBusy()"
+                  ></textarea>
+                  <p class="hint" [id]="'dispute-hint-' + question.number">{{ 'review.dispute.hint' | t: { max: maxDisputeReason } }}</p>
+                </div>
+                @if (disputeError()) {
+                  <p class="error-message" role="alert">{{ disputeError() }}</p>
+                }
+                <div class="actions">
+                  <button type="submit" class="primary" [disabled]="disputeBusy() || disputeReason().trim() === ''">{{ 'review.dispute.send' | t }}</button>
+                  <button type="button" (click)="cancelDispute()" [disabled]="disputeBusy()">{{ 'common.cancel' | t }}</button>
+                </div>
+              </form>
+            } @else {
+              <div class="actions">
+                <button type="button" (click)="startDispute(question.id)">{{ 'review.dispute.start' | t }}</button>
+              </div>
+            }
           }
         </div>
       }
