@@ -1098,6 +1098,8 @@ Example: "Add exam authoring endpoints (FR-11, FR-12, FR-13)"
 
 Compliance-sensitive features (consent, RBAC, audit) have explicit test coverage and ADR documentation.
 
+What the platform does that the requirements do not ask for, or ask for more narrowly (books and chapters, WhatsApp, handing an invite code over by hand, and others), is listed in [`docs/additional-functionality.md`](./docs/additional-functionality.md), with the decisions that are waiting for the owner.
+
 ---
 
 ## Support & Resources
