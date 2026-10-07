@@ -101,6 +101,21 @@ export interface MyExamDto {
   attemptRequest: MyAttemptRequestDto | null;
   /** The marking and navigation rules the instructions page states; null from an older API. */
   rules: ExamRulesDto | null;
+  /** What they are allowed at this exam because of a disability or another need (FR-49); null or absent when nothing is. Never the staff note. */
+  accommodation?: CandidateAccommodation | null;
+}
+
+/** An alternate format of the exam page an accommodation can give (FR-49). */
+export type AccommodationFormat = 'large_text' | 'high_contrast' | 'screen_reader';
+
+/** What a candidate is allowed because of a disability or another need (FR-49). The staff note is never sent to the candidate. */
+export interface CandidateAccommodation {
+  /** Seconds added to their deadline, already part of it once an attempt has started; 0 for none. */
+  extraTimeSeconds: number;
+  /** Whether they may use a reader or scribe. */
+  readerScribe: boolean;
+  /** The formats the exam page starts in; "screen_reader" also means leaving the page is not counted against them. */
+  alternateFormats: AccommodationFormat[];
 }
 
 /** When candidates may see which of their answers were right, as the exam's author chose it. */
@@ -192,6 +207,8 @@ export interface AttemptDto {
   /** Whether an administrator invalidated the result: there is then no score or review, and this says why. */
   invalidated?: boolean;
   invalidationReason?: string | null;
+  /** What this attempt carries because of the candidate's accommodation (FR-49); null or absent when none applies. */
+  accommodation?: CandidateAccommodation | null;
 }
 
 /** A warning an administrator sent the candidate during the attempt (FR-29). */

@@ -23,6 +23,7 @@ public class AttemptHandlerTests
     private readonly IQuestionBank _bank = Substitute.For<IQuestionBank>();
     private readonly IAttemptRepository _attempts = Substitute.For<IAttemptRepository>();
     private readonly IExtraAttemptGrantRepository _grants = Substitute.For<IExtraAttemptGrantRepository>();
+    private readonly IAccommodationRepository _accommodations = Substitute.For<IAccommodationRepository>();
     private readonly List<Attempt> _theirs = [];
     private readonly IExamRuntimeUnitOfWork _unitOfWork = Substitute.For<IExamRuntimeUnitOfWork>();
 
@@ -51,7 +52,7 @@ public class AttemptHandlerTests
     private AttemptViewBuilder Views => new(_bank, _clock);
     private AttemptCloser Closer => new(_bank, _unitOfWork, _clock);
     private AttemptAccess Access => new(_attempts, _catalog, Closer, _clock);
-    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _bank, _clock, _client);
+    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _accommodations, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _bank, _clock, _client);
     private SaveAnswerHandler Save => new(Access, _bank, _unitOfWork, _clock);
     private ClearAnswerHandler Clear => new(Access, _unitOfWork, _clock);
     private MarkQuestionHandler Mark => new(Access, _unitOfWork, _clock);
@@ -548,7 +549,7 @@ public class AttemptHandlerTests
         _catalog.FindPublishedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns([_exam]);
         _attempts.ListForCandidateAsync(_candidate, Arg.Any<CancellationToken>()).Returns([attempt]);
 
-        var exams = await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _clock).HandleAsync(_candidate, CancellationToken.None);
+        var exams = await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _accommodations, _clock).HandleAsync(_candidate, CancellationToken.None);
 
         var item = Assert.Single(exams);
         Assert.Equal(attempt.Id, item.AttemptId);
@@ -565,7 +566,7 @@ public class AttemptHandlerTests
         _catalog.FindPublishedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns([_exam]);
         _attempts.ListForCandidateAsync(_candidate, Arg.Any<CancellationToken>()).Returns([]);
 
-        var exams = await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _clock).HandleAsync(_candidate, CancellationToken.None);
+        var exams = await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _accommodations, _clock).HandleAsync(_candidate, CancellationToken.None);
 
         var item = Assert.Single(exams);
         Assert.Null(item.AttemptId);

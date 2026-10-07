@@ -57,6 +57,7 @@ public sealed record AttemptSectionDto(Guid Id, string Name, IReadOnlyList<Attem
 /// <param name="Invalidated">Whether an administrator invalidated the result, so there is no score or review to show.</param>
 /// <param name="InvalidationReason">Why the result was invalidated.</param>
 /// <param name="ContentProtection">Whether the exam page turns off copying, pasting, right-click and printing while this attempt is open (FR-23).</param>
+/// <param name="Accommodation">What the attempt carries because of the candidate's accommodation (FR-49): the extra time already in <paramref name="DeadlineUtc"/> and the formats the page starts in; null when none applies.</param>
 public sealed record AttemptDto(
     Guid Id,
     Guid ExamId,
@@ -83,4 +84,5 @@ public sealed record AttemptDto(
     bool TerminatedByAdmin = false,
     string? TerminationReason = null,
     bool Invalidated = false,
-    string? InvalidationReason = null);
+    string? InvalidationReason = null,
+    CandidateAccommodationDto? Accommodation = null);

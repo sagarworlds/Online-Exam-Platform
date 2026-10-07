@@ -805,6 +805,64 @@ describe('ExamAttempt', () => {
     localStorage.removeItem('exam.textZoom');
   });
 
+  describe('an accommodation (FR-49)', () => {
+    const accommodated = (alternateFormats: ('large_text' | 'high_contrast' | 'screen_reader')[]) =>
+      attempt({ accommodation: { extraTimeSeconds: 1800, readerScribe: false, alternateFormats } });
+    const zoomOf = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector<HTMLElement>('.exam-question')!.style.getPropertyValue('--exam-zoom');
+
+    it('starts the page in large text and high contrast when the candidate was given them, without storing it as their choice', async () => {
+      const fixture = await open(accommodated(['large_text', 'high_contrast']));
+
+      expect(zoomOf(fixture)).toBe('1.5');
+      expect(root(fixture).querySelector('.page--contrast')).not.toBeNull();
+      expect(localStorage.getItem('exam.textZoom')).toBeNull();
+      expect(localStorage.getItem('exam.highContrast')).toBeNull();
+    });
+
+    it('leaves the page as it was for a candidate with no accommodation', async () => {
+      const fixture = await open(attempt());
+
+      expect(zoomOf(fixture)).toBe('1');
+      expect(root(fixture).querySelector('.page--contrast')).toBeNull();
+    });
+
+    it('applies only the formats that were given', async () => {
+      const fixture = await open(accommodated(['high_contrast']));
+
+      expect(zoomOf(fixture)).toBe('1');
+      expect(root(fixture).querySelector('.page--contrast')).not.toBeNull();
+    });
+
+    it('lets the candidate change either, and the change is remembered like any other', async () => {
+      const fixture = await open(accommodated(['large_text', 'high_contrast']));
+
+      buttonLabelled(fixture, 'High contrast')?.click();
+      (root(fixture).querySelector('button[aria-label="Smaller text"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(root(fixture).querySelector('.page--contrast')).toBeNull();
+      expect(zoomOf(fixture)).toBe('1.3');
+      expect(localStorage.getItem('exam.highContrast')).toBe('off');
+      expect(localStorage.getItem('exam.textZoom')).toBe('1.3');
+    });
+
+    it('leaves alone a choice the candidate already made on this device', async () => {
+      localStorage.setItem('exam.textZoom', '1');
+      localStorage.setItem('exam.highContrast', 'off');
+
+      const fixture = await open(accommodated(['large_text', 'high_contrast']));
+
+      expect(zoomOf(fixture)).toBe('1');
+      expect(root(fixture).querySelector('.page--contrast')).toBeNull();
+    });
+
+    it('does not start in a format for a result that is not an open attempt', async () => {
+      const fixture = await open(attempt({ status: 'Submitted', sections: [], accommodation: { extraTimeSeconds: 0, readerScribe: false, alternateFormats: ['high_contrast'] } }));
+
+      expect(root(fixture).querySelector('.page--contrast')).toBeNull();
+    });
+  });
+
   describe('with sections locked', () => {
     const lockedAttempt = (activeSectionId = 's1') =>
       attempt({

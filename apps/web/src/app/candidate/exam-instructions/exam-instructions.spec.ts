@@ -41,6 +41,9 @@ function exam(overrides: Partial<MyExamDto> = {}): MyExamDto {
 }
 
 describe('ExamInstructions', () => {
+  const accommodated = (overrides: Partial<NonNullable<MyExamDto['accommodation']>> = {}) =>
+    exam({ accommodation: { extraTimeSeconds: 1800, readerScribe: false, alternateFormats: [], ...overrides } });
+
   let httpMock: HttpTestingController;
   let run: ReturnType<typeof vi.fn<() => Promise<CheckResult[]>>>;
 
@@ -71,6 +74,34 @@ describe('ExamInstructions', () => {
   }
 
   const root = (fixture: ComponentFixture<ExamInstructions>) => fixture.nativeElement as HTMLElement;
+
+  it('shows the extra time an accommodation gives, beside the time allowed, and says so in the instructions (FR-49)', async () => {
+    const fixture = await open([accommodated({ readerScribe: true })]);
+
+    const facts = Array.from(root(fixture).querySelectorAll('.facts div')).map(
+      (d) => `${d.querySelector('dt')?.textContent?.trim()} ${d.querySelector('dd')?.textContent?.trim()}`,
+    );
+    expect(facts).toContain('Time allowed 60 minutes');
+    expect(facts).toContain('Extra time (your accommodation) 30 minutes');
+    const rules = root(fixture).querySelector('.rules')?.textContent ?? '';
+    expect(rules).toContain('30 minutes of extra time');
+    expect(rules).toContain('You may use a reader or scribe');
+  });
+
+  it('shows no extra-time row, and no accommodation sentences, for a candidate who has none', async () => {
+    const fixture = await open();
+
+    expect(root(fixture).textContent).not.toContain('Extra time');
+    expect(root(fixture).querySelector('.rules')?.textContent).not.toContain('accommodation');
+  });
+
+  it('tells a screen reader user that leaving the page is not counted against them', async () => {
+    const fixture = await open([accommodated({ extraTimeSeconds: 0, alternateFormats: ['screen_reader'] })]);
+
+    expect(root(fixture).textContent).toContain('leaving the exam page is not counted against you');
+    expect(root(fixture).textContent).not.toContain('Extra time');
+  });
+
   const startButton = (fixture: ComponentFixture<ExamInstructions>) =>
     Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes('Start')) as HTMLButtonElement;
   const checkbox = (fixture: ComponentFixture<ExamInstructions>) => root(fixture).querySelector('input[type="checkbox"]') as HTMLInputElement;

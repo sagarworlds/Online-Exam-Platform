@@ -14,6 +14,48 @@ export interface ExamCandidateDto {
   canGrant: boolean;
   /** Oldest first. */
   attempts: AttemptSummaryDto[];
+  /** What they are allowed at this exam because of a disability or another need (FR-49); null or absent when nothing is. */
+  accommodation?: Accommodation | null;
+}
+
+/** An alternate format of the exam page an accommodation can give (FR-49). */
+export type AccommodationFormat = 'large_text' | 'high_contrast' | 'screen_reader';
+
+/** The formats staff can choose, in the order they are offered, with what each does. */
+export const ACCOMMODATION_FORMATS: readonly { value: AccommodationFormat; label: string; hint: string }[] = [
+  { value: 'large_text', label: 'Large text', hint: 'The exam page starts at its largest text size. The candidate can still change it.' },
+  { value: 'high_contrast', label: 'High contrast', hint: 'The exam page starts in high contrast. The candidate can still change it.' },
+  {
+    value: 'screen_reader',
+    label: 'Screen reader',
+    hint: 'The candidate uses a screen reader, so leaving the exam page is not counted against them.',
+  },
+];
+
+/** The most extra time the API accepts, in minutes. */
+export const MAX_ACCOMMODATION_MINUTES = 720;
+
+/** The longest staff note the API accepts. */
+export const MAX_ACCOMMODATION_NOTES = 500;
+
+/** What a candidate is allowed at an exam because of a disability or another need, as staff see it (FR-49). */
+export interface Accommodation {
+  /** Minutes added to the candidate's deadline; 0 for none. */
+  extraTimeMinutes: number;
+  /** Whether the candidate may use a reader or scribe. */
+  readerScribe: boolean;
+  alternateFormats: AccommodationFormat[];
+  /** The note staff wrote. Staff only: it is never sent to the candidate. */
+  notes: string | null;
+  updatedAtUtc: string;
+}
+
+/** The body of PUT .../candidates/{id}/accommodation: the whole accommodation, not a patch. */
+export interface SetAccommodationRequest {
+  extraTimeMinutes: number;
+  readerScribe: boolean;
+  alternateFormats: AccommodationFormat[];
+  notes: string | null;
 }
 
 /** An exam's enrolled candidates and how each has got on. */

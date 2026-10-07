@@ -34,6 +34,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
 
         services.AddScoped<IAttemptRepository, AttemptRepository>();
         services.AddScoped<IExtraAttemptGrantRepository, ExtraAttemptGrantRepository>();
+        services.AddScoped<IAccommodationRepository, AccommodationRepository>();
         services.AddScoped<IAttemptRequestRepository, AttemptRequestRepository>();
 
         // Answers to attempt requests go out through the platform's mail sender when a mail server is configured and are otherwise
@@ -73,6 +74,8 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<MoveToSectionHandler>();
         services.AddScoped<SubmitAttemptHandler>();
         services.AddScoped<GrantExtraAttemptHandler>();
+        services.AddScoped<SetAccommodationHandler>();
+        services.AddScoped<RemoveAccommodationHandler>();
         services.AddScoped<ListExamAttemptsHandler>();
         services.AddScoped<GetAttemptPaperHandler>();
         services.AddScoped<RequestAttemptHandler>();

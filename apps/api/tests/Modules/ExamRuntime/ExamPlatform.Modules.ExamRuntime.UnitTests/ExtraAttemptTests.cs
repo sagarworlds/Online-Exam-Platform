@@ -122,6 +122,7 @@ public class ExtraAttemptHandlerTests
     private readonly IQuestionBank _bank = Substitute.For<IQuestionBank>();
     private readonly IAttemptRepository _attempts = Substitute.For<IAttemptRepository>();
     private readonly IExtraAttemptGrantRepository _grants = Substitute.For<IExtraAttemptGrantRepository>();
+    private readonly IAccommodationRepository _accommodations = Substitute.For<IAccommodationRepository>();
     private readonly IExamRuntimeUnitOfWork _unitOfWork = Substitute.For<IExamRuntimeUnitOfWork>();
 
     private readonly QuestionSnapshot _q1 = Fixtures.Question("First");
@@ -152,8 +153,8 @@ public class ExtraAttemptHandlerTests
 
     private AttemptViewBuilder Views => new(_bank, _clock);
     private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock);
-    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _bank, _clock, _client);
-    private GrantExtraAttemptHandler Grant => new(_catalog, _roster, _attempts, _grants, _unitOfWork, _clock);
+    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _accommodations, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _bank, _clock, _client);
+    private GrantExtraAttemptHandler Grant => new(_catalog, _roster, _attempts, _grants, _accommodations, _unitOfWork, _clock);
 
     /// <summary>An attempt the candidate has already made: submitted unless <paramref name="open"/>.</summary>
     private Attempt Made(bool open = false, DateTime? startedAt = null, DateTime? deadline = null, decimal score = 1m)
@@ -490,7 +491,7 @@ public class ExtraAttemptHandlerTests
         var theirFirst = Made(score: 2m);
         _attempts.ListForExamAsync(_exam.Id, Arg.Any<CancellationToken>()).Returns(_theirs);
         _grants.CountsForExamAsync(_exam.Id, Arg.Any<CancellationToken>()).Returns(new Dictionary<Guid, int>());
-        var handler = new ListExamAttemptsHandler(_catalog, _roster, _attempts, _grants, _clock);
+        var handler = new ListExamAttemptsHandler(_catalog, _roster, _attempts, _grants, _accommodations, _clock);
 
         var list = await handler.HandleAsync(_exam.Id, CancellationToken.None);
 
@@ -511,7 +512,7 @@ public class ExtraAttemptHandlerTests
         Made();
         _attempts.ListForExamAsync(_exam.Id, Arg.Any<CancellationToken>()).Returns(_theirs);
         _grants.CountsForExamAsync(_exam.Id, Arg.Any<CancellationToken>()).Returns(new Dictionary<Guid, int> { [_candidate] = 1 });
-        var handler = new ListExamAttemptsHandler(_catalog, _roster, _attempts, _grants, _clock);
+        var handler = new ListExamAttemptsHandler(_catalog, _roster, _attempts, _grants, _accommodations, _clock);
 
         var open = await handler.HandleAsync(_exam.Id, CancellationToken.None);
         _clock.UtcNow = _exam.EndUtc.AddMinutes(1);
@@ -527,7 +528,7 @@ public class ExtraAttemptHandlerTests
     [Fact]
     public async Task TheStaffList_ForAnUnknownExam_IsNotFound()
     {
-        var handler = new ListExamAttemptsHandler(_catalog, _roster, _attempts, _grants, _clock);
+        var handler = new ListExamAttemptsHandler(_catalog, _roster, _attempts, _grants, _accommodations, _clock);
 
         await Assert.ThrowsAsync<ExamNotFoundError>(() => handler.HandleAsync(Guid.NewGuid(), CancellationToken.None));
     }
@@ -542,7 +543,7 @@ public class ExtraAttemptHandlerTests
         _grants.CountsForCandidateAsync(_candidate, Arg.Any<CancellationToken>())
             .Returns(granted > 0 ? new Dictionary<Guid, int> { [_exam.Id] = granted } : new Dictionary<Guid, int>());
 
-        return Assert.Single(await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _clock).HandleAsync(_candidate, CancellationToken.None));
+        return Assert.Single(await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _accommodations, _clock).HandleAsync(_candidate, CancellationToken.None));
     }
 
     [Fact]
@@ -597,7 +598,7 @@ public class ExtraAttemptHandlerTests
         Made();
         _attempts.ListForExamAsync(_exam.Id, Arg.Any<CancellationToken>()).Returns(_theirs);
         _grants.CountsForExamAsync(_exam.Id, Arg.Any<CancellationToken>()).Returns(new Dictionary<Guid, int> { [_candidate] = 1 });
-        var handler = new ListExamAttemptsHandler(_catalog, _roster, _attempts, _grants, _clock);
+        var handler = new ListExamAttemptsHandler(_catalog, _roster, _attempts, _grants, _accommodations, _clock);
 
         var list = await handler.HandleAsync(_exam.Id, CancellationToken.None);
 

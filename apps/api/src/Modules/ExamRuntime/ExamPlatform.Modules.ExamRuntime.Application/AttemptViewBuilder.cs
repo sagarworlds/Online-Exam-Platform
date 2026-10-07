@@ -55,7 +55,8 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock, 
             attempt.IsTerminated,
             attempt.TerminationReason,
             attempt.IsInvalidated,
-            attempt.InvalidationReason);
+            attempt.InvalidationReason,
+            AccommodationPolicy.ForCandidate(attempt));
     }
 
     private async Task<IReadOnlyList<AttemptSectionDto>> BuildSectionsAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken)

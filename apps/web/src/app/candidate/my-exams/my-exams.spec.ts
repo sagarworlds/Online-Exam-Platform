@@ -113,6 +113,23 @@ describe('MyExams', () => {
     localStorage.clear();
   });
 
+  it('says how much time the candidate\'s accommodation adds, and nothing when there is none (FR-49)', () => {
+    const { root } = openWith([
+      exam({ accommodation: { extraTimeSeconds: 1800, readerScribe: true, alternateFormats: [] } }),
+      exam({ examId: 'e2', name: 'Physics' }),
+    ]);
+
+    const cards = Array.from(root.querySelectorAll('.card'));
+    expect(cards[0].textContent).toContain('Your accommodation adds 30 minutes to the time allowed.');
+    expect(cards[1].textContent).not.toContain('accommodation');
+  });
+
+  it('says nothing about time for an accommodation that gives none, such as a reader alone', () => {
+    const { root } = openWith([exam({ accommodation: { extraTimeSeconds: 0, readerScribe: true, alternateFormats: [] } })]);
+
+    expect(root.textContent).not.toContain('Your accommodation adds');
+  });
+
   it('tells a candidate with no exams how to get one', () => {
     const fixture = TestBed.createComponent(MyExams);
     fixture.detectChanges();

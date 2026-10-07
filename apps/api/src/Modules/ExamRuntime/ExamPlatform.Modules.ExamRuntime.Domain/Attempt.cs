@@ -55,6 +55,22 @@ public sealed class Attempt : AggregateRoot
     /// <summary>The longest notice kept; far longer than any the platform writes.</summary>
     public const int MaxNoticeLength = 2000;
 
+    /// <summary>
+    /// The extra time, in seconds, this attempt carries because of the candidate's accommodation (FR-49), already part of
+    /// <see cref="DeadlineUtc"/>. Kept on the attempt so what applied to it is on record whatever staff change later, and so it is never
+    /// lowered while the candidate is sitting.
+    /// </summary>
+    public int AccommodationExtraSeconds { get; private set; }
+
+    /// <summary>Whether the candidate may use a reader or scribe at this attempt (FR-49).</summary>
+    public bool AccommodationReaderScribe { get; private set; }
+
+    /// <summary>The alternate formats of the exam page this attempt is delivered in (FR-49), from <see cref="AccommodationFormat.All"/>.</summary>
+    public string[] AccommodationFormats { get; private set; } = [];
+
+    /// <summary>Whether any accommodation applies to this attempt.</summary>
+    public bool IsAccommodated => AccommodationExtraSeconds > 0 || AccommodationReaderScribe || AccommodationFormats.Length > 0;
+
     /// <summary>Whether the attempt is still open.</summary>
     public AttemptStatus Status { get; private set; }
 
@@ -186,6 +202,36 @@ public sealed class Attempt : AggregateRoot
             throw new InvalidAttemptError("An attempt must end after it starts.");
 
         return new Attempt(Guid.NewGuid(), examId, candidateId, number, startedAtUtc, deadlineUtc);
+    }
+
+    /// <summary>
+    /// Applies the candidate's accommodation to this attempt (FR-49): the extra time is added to the deadline, and the formats and the
+    /// reader flag are recorded. Called as the attempt starts, and again when staff set an accommodation while it is in progress.
+    /// </summary>
+    /// <remarks>
+    /// Extra time only ever grows during an attempt: a candidate who was told they have an hour and a half is never left with less because
+    /// staff later lowered the figure; the lower figure applies to the attempts that follow. Only the time that is new is added, so
+    /// applying the same accommodation twice changes nothing. Formats and the reader flag can change either way, as they take nothing away.
+    /// </remarks>
+    /// <param name="extraTimeSeconds">The extra time the accommodation gives.</param>
+    /// <param name="readerScribe">Whether a reader or scribe is allowed.</param>
+    /// <param name="formats">The alternate formats.</param>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already over.</exception>
+    public void ApplyAccommodation(int extraTimeSeconds, bool readerScribe, IEnumerable<string> formats)
+    {
+        EnsureInProgress();
+
+        var added = Math.Max(0, extraTimeSeconds - AccommodationExtraSeconds);
+        var formatList = formats.ToArray();
+        var changed = added > 0 || readerScribe != AccommodationReaderScribe || !formatList.OrderBy(f => f).SequenceEqual(AccommodationFormats.OrderBy(f => f));
+
+        AccommodationExtraSeconds += added;
+        DeadlineUtc = DeadlineUtc.AddSeconds(added);
+        AccommodationReaderScribe = readerScribe;
+        AccommodationFormats = formatList;
+
+        if (changed)
+            AddDomainEvent(new AttemptAccommodatedEvent(Id, ExamId, CandidateId, AccommodationExtraSeconds, added));
     }
 
     /// <summary>Records that the candidate acknowledged the instructions as they started. Done once, when the attempt is created.</summary>

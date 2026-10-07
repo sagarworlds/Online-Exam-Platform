@@ -19,7 +19,9 @@ public static class ExamCandidateRows
     /// <param name="attempts">Their attempts at the exam, in any order.</param>
     /// <param name="grants">How many extra attempts they have been granted.</param>
     /// <param name="nowUtc">The current instant.</param>
-    public static ExamCandidateDto For(ExamSnapshot exam, EnrolledCandidate candidate, IEnumerable<Attempt> attempts, int grants, DateTime nowUtc)
+    /// <param name="accommodation">Their accommodation at the exam (FR-49), or null when they have none.</param>
+    public static ExamCandidateDto For(
+        ExamSnapshot exam, EnrolledCandidate candidate, IEnumerable<Attempt> attempts, int grants, DateTime nowUtc, Accommodation? accommodation = null)
     {
         var ordered = attempts.OrderBy(a => a.Number).ToList();
 
@@ -29,7 +31,8 @@ public static class ExamCandidateRows
             AttemptAllowance.Allowed(exam.MaxAttempts, grants),
             ordered.Count,
             AttemptAllowance.CanGrant(exam.MaxAttempts, ordered.Count, grants) && !IsWindowClosed(exam, nowUtc),
-            ordered.Select(StaffSummary).ToList());
+            ordered.Select(StaffSummary).ToList(),
+            accommodation is null ? null : AccommodationPolicy.ForStaff(accommodation));
     }
 
     /// <summary>Summarises one attempt for the candidate's own list: an invalidated result shows no score (FR-29).</summary>

@@ -19,6 +19,9 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
     /// <summary>The requests candidates made for another attempt.</summary>
     public DbSet<AttemptRequest> AttemptRequests => Set<AttemptRequest>();
 
+    /// <summary>What administrators allow candidates because of a disability or other need (FR-49).</summary>
+    public DbSet<Accommodation> Accommodations => Set<Accommodation>();
+
     /// <summary>The extra attempts administrators have granted.</summary>
     public DbSet<ExtraAttemptGrant> ExtraAttemptGrants => Set<ExtraAttemptGrant>();
 
@@ -187,6 +190,18 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             // The staff queue lists by status, oldest first.
             b.HasIndex(x => new { x.Status, x.RequestedAtUtc });
             b.HasIndex(x => x.CandidateId);
+        });
+
+        modelBuilder.Entity<Accommodation>(b =>
+        {
+            b.ToTable("Accommodations");
+            b.HasKey(x => x.Id);
+            b.Ignore(x => x.DomainEvents);
+            b.Property(x => x.Notes).HasMaxLength(Accommodation.MaxNotesLength);
+
+            // One accommodation per candidate per exam, so two administrators setting it at once cannot both create it. The index also
+            // serves reading a candidate's accommodations and an exam's.
+            b.HasIndex(x => new { x.ExamId, x.CandidateId }).IsUnique();
         });
 
         modelBuilder.Entity<ExtraAttemptGrant>(b =>

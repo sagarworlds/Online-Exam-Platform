@@ -104,6 +104,7 @@ public class AttemptRequestHandlerTests
     private readonly IExamRoster _roster = Substitute.For<IExamRoster>();
     private readonly IAttemptRepository _attempts = Substitute.For<IAttemptRepository>();
     private readonly IExtraAttemptGrantRepository _grants = Substitute.For<IExtraAttemptGrantRepository>();
+    private readonly IAccommodationRepository _accommodations = Substitute.For<IAccommodationRepository>();
     private readonly IAttemptRequestRepository _requests = Substitute.For<IAttemptRequestRepository>();
     private readonly IExamRuntimeUnitOfWork _unitOfWork = Substitute.For<IExamRuntimeUnitOfWork>();
     private readonly IAttemptRequestNotifier _notifier = Substitute.For<IAttemptRequestNotifier>();
@@ -135,7 +136,7 @@ public class AttemptRequestHandlerTests
     private RequestAttemptHandler Request => new(_catalog, _enrollments, _attempts, _grants, _requests, _unitOfWork, _staff, _roster, _notifier, _clock);
     private AttemptRequestDtoFactory Dtos => new(_catalog, _roster);
     private ApproveAttemptRequestHandler Approve =>
-        new(_requests, new GrantExtraAttemptHandler(_catalog, _roster, _attempts, _grants, _unitOfWork, _clock), Dtos, _notifier);
+        new(_requests, new GrantExtraAttemptHandler(_catalog, _roster, _attempts, _grants, _accommodations, _unitOfWork, _clock), Dtos, _notifier);
     private DeclineAttemptRequestHandler Decline => new(_requests, _unitOfWork, Dtos, _clock, _notifier);
 
     private Attempt Made(bool open = false)
@@ -449,7 +450,7 @@ public class AttemptRequestHandlerTests
         _requests.LatestForCandidateAsync(_candidate, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyDictionary<Guid, AttemptRequest>>(latest is null ? new Dictionary<Guid, AttemptRequest>() : new Dictionary<Guid, AttemptRequest> { [_exam.Id] = latest }));
 
-        return Assert.Single(await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, _requests, _clock).HandleAsync(_candidate, CancellationToken.None));
+        return Assert.Single(await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, _requests, _accommodations, _clock).HandleAsync(_candidate, CancellationToken.None));
     }
 
     [Fact]

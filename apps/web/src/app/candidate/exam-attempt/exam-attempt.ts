@@ -54,6 +54,15 @@ const ZOOM_STORAGE_KEY = 'exam.textZoom';
 /** Where the high contrast choice is remembered. Browser-only, like the text size. */
 const CONTRAST_STORAGE_KEY = 'exam.highContrast';
 
+/** Whether the candidate has ever chosen this setting on this device; a blocked store counts as never. */
+function hasStoredChoice(key: string): boolean {
+  try {
+    return localStorage.getItem(key) !== null;
+  } catch {
+    return false;
+  }
+}
+
 /** Reads whether high contrast was left on, treating a blocked store as off. */
 function loadHighContrast(): boolean {
   try {
@@ -699,9 +708,32 @@ export class ExamAttempt {
     });
   }
 
+  /** Whether the candidate's accommodation has already set the page's starting formats, so a reload never undoes a change they made. */
+  private accommodationFormatsApplied = false;
+
+  /**
+   * Starts the page in the formats the candidate's accommodation gives them (FR-49): the largest text and high contrast. They are a
+   * starting point, not a lock: the candidate can change either, and a choice made on this device before is left as it was.
+   */
+  private applyAccommodationFormats(attempt: AttemptDto): void {
+    if (this.accommodationFormatsApplied || attempt.status !== 'InProgress' || !attempt.accommodation) {
+      return;
+    }
+
+    this.accommodationFormatsApplied = true;
+    const formats = attempt.accommodation.alternateFormats;
+    if (formats.includes('high_contrast') && !hasStoredChoice(CONTRAST_STORAGE_KEY)) {
+      this.highContrast.set(true);
+    }
+    if (formats.includes('large_text') && !hasStoredChoice(ZOOM_STORAGE_KEY)) {
+      this.zoom.set(ZOOM_LEVELS[ZOOM_LEVELS.length - 1]);
+    }
+  }
+
   private show(attempt: AttemptDto): void {
     this.loading.set(false);
     this.attempt.set(attempt);
+    this.applyAccommodationFormats(attempt);
     this.focusViolations.set(attempt.focusViolations ?? 0);
     this.stopTimer();
 

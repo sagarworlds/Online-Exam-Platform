@@ -1,0 +1,111 @@
+<section class="accommodation" [attr.aria-label]="'Accommodation for ' + candidate().email">
+  <h4 class="accommodation__title">Accommodation</h4>
+
+  @if (notice()) {
+    <p class="success-message" role="status">{{ notice() }}</p>
+  }
+  @if (error() && !editing()) {
+    <p class="error-message" role="alert">{{ error() }}</p>
+  }
+
+  @if (!editing()) {
+    @if (candidate().accommodation; as given) {
+      <p class="accommodation__summary">
+        @if (given.extraTimeMinutes > 0) {
+          <span class="badge badge--active">+{{ given.extraTimeMinutes }} minutes</span>
+        }
+        @if (given.readerScribe) {
+          <span class="badge badge--active">Reader or scribe</span>
+        }
+        @for (format of given.alternateFormats; track format) {
+          <span class="badge badge--active">{{ formatLabel(format) }}</span>
+        }
+      </p>
+      @if (given.notes) {
+        <p class="hint">Note, for staff only: {{ given.notes }}</p>
+      }
+      <div class="actions">
+        <button type="button" class="btn--small" (click)="edit()" [disabled]="busy()">Change</button>
+        @if (confirmingRemove()) {
+          <span role="alertdialog" aria-label="Remove this accommodation?">
+            Remove it? An attempt in progress keeps what it was given.
+            <button type="button" class="btn--danger btn--small" (click)="remove()" [disabled]="busy()">Remove</button>
+            <button type="button" class="btn--small" (click)="confirmingRemove.set(false)" [disabled]="busy()">Cancel</button>
+          </span>
+        } @else {
+          <button type="button" class="btn--small" (click)="confirmingRemove.set(true)" [disabled]="busy()">Remove</button>
+        }
+      </div>
+    } @else {
+      <p class="hint">None. Extra time, a reader or scribe, or an alternate format can be given here.</p>
+      <div class="actions">
+        <button type="button" class="btn--small" (click)="edit()">Give an accommodation</button>
+      </div>
+    }
+  } @else {
+    <form (submit)="$event.preventDefault(); save()" [attr.aria-label]="'Accommodation for ' + candidate().email">
+      <div class="field">
+        <label [for]="id('minutes')">Extra time (minutes)</label>
+        <input
+          [id]="id('minutes')"
+          type="number"
+          min="0"
+          [max]="maxMinutes"
+          step="5"
+          [value]="minutes()"
+          (input)="setMinutes($any($event.target).value)"
+          [disabled]="busy()"
+          [attr.aria-describedby]="id('minutes-hint')"
+        />
+        <p [id]="id('minutes-hint')" class="hint">
+          Added to this candidate's time, on top of what the exam gives everyone, up to {{ maxMinutes }} minutes. If they are sitting now, it
+          is added to their attempt at once.
+        </p>
+        @if (!minutesValid()) {
+          <p class="error-message" role="alert">Extra time must be a whole number of minutes from 0 to {{ maxMinutes }}.</p>
+        }
+      </div>
+
+      <label class="inline-check">
+        <input type="checkbox" [checked]="readerScribe()" (change)="readerScribe.set($any($event.target).checked)" [disabled]="busy()" />
+        A reader or scribe may be used
+      </label>
+
+      <fieldset class="field">
+        <legend>Alternate formats of the exam page</legend>
+        @for (format of formats; track format.value) {
+          <label class="inline-check">
+            <input type="checkbox" [checked]="chosen().has(format.value)" (change)="toggleFormat(format.value, $any($event.target).checked)" [disabled]="busy()" />
+            {{ format.label }}
+          </label>
+          <p class="hint">{{ format.hint }}</p>
+        }
+      </fieldset>
+
+      <div class="field">
+        <label [for]="id('notes')">Note (optional)</label>
+        <textarea
+          [id]="id('notes')"
+          rows="2"
+          [maxLength]="maxNotes"
+          [value]="notes()"
+          (input)="notes.set($any($event.target).value)"
+          [disabled]="busy()"
+          [attr.aria-describedby]="id('notes-hint')"
+        ></textarea>
+        <p [id]="id('notes-hint')" class="hint">For staff only: never shown to the candidate and never written to the audit log.</p>
+      </div>
+
+      @if (error()) {
+        <p class="error-message" role="alert">{{ error() }}</p>
+      }
+      <div class="actions">
+        <button type="submit" class="primary" [disabled]="!canSave()">Save accommodation</button>
+        <button type="button" (click)="cancel()" [disabled]="busy()">Cancel</button>
+        @if (!givesSomething()) {
+          <span class="hint">Give extra time, a reader or scribe, or a format.</span>
+        }
+      </div>
+    </form>
+  }
+</section>

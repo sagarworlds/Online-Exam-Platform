@@ -83,6 +83,9 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("POST", "/v1/attempt-requests/{requestId:guid}/decline", RbacCatalog.PermissionCodes.ExamManage, new { note = "No" }),
         new("POST", "/v1/exams/{examId:guid}/candidates/{candidateId:guid}/extra-attempts", RbacCatalog.PermissionCodes.ExamManage,
             new { reason = "Authorization test" }),
+        new("PUT", "/v1/exams/{examId:guid}/candidates/{candidateId:guid}/accommodation", RbacCatalog.PermissionCodes.ExamManage,
+            new { extraTimeMinutes = 30, readerScribe = false, alternateFormats = new[] { "large_text" } }),
+        new("DELETE", "/v1/exams/{examId:guid}/candidates/{candidateId:guid}/accommodation", RbacCatalog.PermissionCodes.ExamManage, null),
 
         new("POST", "/v1/questions", RbacCatalog.PermissionCodes.QuestionManage,
             new { text = "Q?", options = new[] { new { text = "A", isCorrect = true }, new { text = "B", isCorrect = false } } }),

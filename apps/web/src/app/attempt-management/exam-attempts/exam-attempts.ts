@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AttemptAdminApiService } from '../attempt-admin-api.service';
+import { CandidateAccommodation } from '../candidate-accommodation/candidate-accommodation';
 import { AttemptSummaryDto } from '../../candidate/candidate.models';
 import { AttemptClientDto, AttemptPaperDto, ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
 import { MathDirective } from '../../shared/rich-text/math.directive';
@@ -50,7 +51,7 @@ const ACTIONS: Record<ActionKind, { label: string; hint: string; button: string;
  */
 @Component({
   selector: 'app-exam-attempts',
-  imports: [RouterLink, DatePipe, MathDirective],
+  imports: [RouterLink, DatePipe, MathDirective, CandidateAccommodation],
   templateUrl: './exam-attempts.html',
 })
 export class ExamAttempts {
@@ -295,6 +296,11 @@ export class ExamAttempts {
         this.errorMessage.set(extractErrorMessage(error, 'The attempt could not be given. Please try again.'));
       },
     });
+  }
+
+  /** An accommodation was saved or removed (FR-49): the API's answer is the truth about this candidate now, so it replaces their row. */
+  protected onCandidateChanged(row: ExamCandidateDto): void {
+    this.data.update((data) => (data === null ? data : { ...data, candidates: data.candidates.map((c) => (c.candidateId === row.candidateId ? row : c)) }));
   }
 
   /** Why another attempt cannot be given to this candidate right now, in words; null when it can. */

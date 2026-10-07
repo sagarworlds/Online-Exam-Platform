@@ -13,6 +13,7 @@ public sealed class ListExamAttemptsHandler(
     IExamRoster roster,
     IAttemptRepository attempts,
     IExtraAttemptGrantRepository grants,
+    IAccommodationRepository accommodations,
     Clock clock)
 {
     /// <summary>Returns every enrolled candidate of the exam, by e-mail address.</summary>
@@ -28,6 +29,7 @@ public sealed class ListExamAttemptsHandler(
             .GroupBy(a => a.CandidateId)
             .ToDictionary(group => group.Key, group => group.ToList());
         var grantCounts = await grants.CountsForExamAsync(examId, cancellationToken);
+        var accommodated = await accommodations.ListForExamAsync(examId, cancellationToken);
         var nowUtc = clock.UtcNow;
 
         var rows = enrolled
@@ -36,7 +38,8 @@ public sealed class ListExamAttemptsHandler(
                 candidate,
                 attemptsByCandidate.GetValueOrDefault(candidate.UserId) ?? [],
                 grantCounts.GetValueOrDefault(candidate.UserId),
-                nowUtc))
+                nowUtc,
+                accommodated.GetValueOrDefault(candidate.UserId)))
             .ToList();
 
         return new ExamAttemptsDto(exam.Id, exam.Name, ExamCandidateRows.IsWindowClosed(exam, nowUtc), exam.MaxAttempts, rows);

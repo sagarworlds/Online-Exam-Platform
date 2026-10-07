@@ -3,7 +3,15 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AttemptSummaryDto } from '../candidate/candidate.models';
-import { AttemptClientDto, AttemptPaperDto, AttemptRequestFilterStatus, AttemptRequestRow, ExamAttemptsDto, ExamCandidateDto } from './attempt-admin.models';
+import {
+  AttemptClientDto,
+  AttemptPaperDto,
+  AttemptRequestFilterStatus,
+  AttemptRequestRow,
+  ExamAttemptsDto,
+  ExamCandidateDto,
+  SetAccommodationRequest,
+} from './attempt-admin.models';
 
 /** Thin HTTP wrapper over the ExamRuntime module's staff routes: an exam's candidates and their attempts. */
 @Injectable({ providedIn: 'root' })
@@ -69,6 +77,19 @@ export class AttemptAdminApiService {
   /** Invalidates a finished attempt's result so it no longer counts; the candidate is shown the reason instead of a score (FR-29). */
   invalidateAttempt(examId: string, attemptId: string, reason: string): Observable<AttemptSummaryDto> {
     return this.http.post<AttemptSummaryDto>(`${this.examsUrl}/${examId}/attempts/${attemptId}/invalidate`, { reason });
+  }
+
+  /**
+   * Gives a candidate extra time, a reader or scribe and alternate formats, or changes what they have (FR-49). Extra time reaches an attempt
+   * they are sitting at once. Answers with how they now stand.
+   */
+  setAccommodation(examId: string, candidateId: string, request: SetAccommodationRequest): Observable<ExamCandidateDto> {
+    return this.http.put<ExamCandidateDto>(`${this.examsUrl}/${examId}/candidates/${candidateId}/accommodation`, request);
+  }
+
+  /** Takes a candidate's accommodation away for the attempts that start afterwards; one in progress keeps what it was given. */
+  removeAccommodation(examId: string, candidateId: string): Observable<ExamCandidateDto> {
+    return this.http.delete<ExamCandidateDto>(`${this.examsUrl}/${examId}/candidates/${candidateId}/accommodation`);
   }
 
   /** Gives one enrolled candidate one more attempt; answers with how they now stand. The giver is the signed-in user. */

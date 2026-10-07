@@ -15,6 +15,7 @@ public sealed class GrantExtraAttemptHandler(
     IExamRoster roster,
     IAttemptRepository attempts,
     IExtraAttemptGrantRepository grants,
+    IAccommodationRepository accommodations,
     IExamRuntimeUnitOfWork unitOfWork,
     Clock clock)
 {
@@ -60,6 +61,6 @@ public sealed class GrantExtraAttemptHandler(
         fulfilling?.Approve(grantedByUserId, nowUtc);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return ExamCandidateRows.For(exam, candidate, theirs, granted + 1, nowUtc);
+        return ExamCandidateRows.For(exam, candidate, theirs, granted + 1, nowUtc, await accommodations.FindAsync(examId, candidateId, cancellationToken));
     }
 }

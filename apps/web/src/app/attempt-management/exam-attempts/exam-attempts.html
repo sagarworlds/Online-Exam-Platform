@@ -235,6 +235,8 @@
           </ul>
         }
 
+        <app-candidate-accommodation [examId]="examId" [candidate]="candidate" (changed)="onCandidateChanged($event)" />
+
         @if (grantingFor() === candidate.candidateId) {
           <div class="field">
             <label [for]="'reason-' + candidate.candidateId">Why? (optional, kept on record)</label>
