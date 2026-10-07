@@ -108,8 +108,10 @@ public class QuestionTranslationTests
         Assert.Equal([false, true, true, false], dto.Options.Select(o => o.IsCorrect));
         Assert.Equal([false, false, false, true], dto.Options.Select(o => o.IsPinned));
         Assert.True(dto.AllowsMultiple);
-        Assert.Equal(("hard", Chapter), (dto.Difficulty, dto.ChapterId));
+        Assert.Equal("hard", dto.Difficulty);
         Assert.Equal(["primes"], dto.Topics);
+        // Where it is filed is read from the stored question: the response's book and chapter names come from a lookup this test does not stub.
+        repository.Received(1).Add(Arg.Is<Question>(q => q.Id == dto.Id && q.ChapterId == Chapter));
     }
 
     [Fact]
