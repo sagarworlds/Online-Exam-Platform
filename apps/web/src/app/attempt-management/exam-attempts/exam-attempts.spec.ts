@@ -96,9 +96,108 @@ describe('ExamAttempts', () => {
 
     const text = textOf(fixture);
     expect(text).toContain('Fixed question');
-    expect(text).toContain('Drawn question drawn');
+    expect(text).toContain('Drawn question');
+    expect(text).toContain('drawn');
     expect(text).toContain("other candidates' papers may differ");
     expect(buttonLabelled(fixture, 'Hide paper').length).toBe(1);
+  });
+
+  const optionsOf = (right: string, chosen: string[] = []) =>
+    ['a', 'b', 'c'].map((id) => ({ id, text: `Option ${id}`, isCorrect: id === right, wasChosen: chosen.includes(id) }));
+
+  function showPaper(paper: object) {
+    const fixture = open(exam([candidate()]));
+    buttonLabelled(fixture, 'Show paper')[0].click();
+    httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts/a1/paper')).flush(paper);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  it('shows a submitted paper with the score, each question\'s verdict and marks, the candidate\'s choice and the correct answer', () => {
+    const fixture = showPaper({
+      attemptId: 'a1',
+      number: 1,
+      hasDrawnQuestions: false,
+      status: 'Submitted',
+      score: 3,
+      maxScore: 8,
+      isInvalidated: false,
+      sections: [
+        {
+          id: 's1',
+          name: 'Algebra',
+          questions: [
+            { id: 'q1', text: '<p>Right one</p>', drawn: false, verdict: 'Correct', marks: 4, options: optionsOf('a', ['a']) },
+            { id: 'q2', text: '<p>Wrong one</p>', drawn: false, verdict: 'Wrong', marks: -1, options: optionsOf('b', ['c']) },
+            { id: 'q3', text: '<p>Blank one</p>', drawn: false, verdict: 'Unanswered', marks: 0, options: optionsOf('a') },
+          ],
+        },
+      ],
+    });
+
+    const text = textOf(fixture);
+    expect(text).toContain('3 / 8');
+    expect(text).toContain('1 correct');
+    expect(text).toContain('1 wrong');
+    expect(text).toContain('1 not answered');
+    expect(text).toContain('+4');
+    expect(text).toContain('-1');
+    expect(text).toContain('Chosen · Correct');
+    expect(text).toContain('Correct answer');
+
+    const items = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.attempt-paper__question'));
+    const wrong = items[1];
+    expect(wrong.querySelector('.review-option--wrong')?.textContent).toContain('Option c');
+    expect(wrong.querySelector('.review-option--correct')?.textContent).toContain('Option b');
+    expect(items[2].querySelectorAll('.review-option--wrong').length).toBe(0);
+    expect(items[2].textContent).toContain('Not answered');
+  });
+
+  it('says an invalidated attempt was invalidated, and still shows its marks to staff', () => {
+    const fixture = showPaper({
+      attemptId: 'a1',
+      number: 1,
+      hasDrawnQuestions: false,
+      status: 'Submitted',
+      score: 4,
+      maxScore: 4,
+      isInvalidated: true,
+      sections: [{ id: 's1', name: 'A', questions: [{ id: 'q1', text: '<p>Q</p>', drawn: false, verdict: 'Correct', marks: 4, options: optionsOf('a', ['a']) }] }],
+    });
+
+    expect(textOf(fixture)).toContain('invalidated');
+    expect(textOf(fixture)).toContain('4 / 4');
+  });
+
+  it('shows what an attempt in progress has chosen so far, without scoring it', () => {
+    const fixture = showPaper({
+      attemptId: 'a1',
+      number: 1,
+      hasDrawnQuestions: false,
+      status: 'InProgress',
+      score: null,
+      maxScore: null,
+      sections: [{ id: 's1', name: 'A', questions: [{ id: 'q1', text: '<p>Q</p>', drawn: false, verdict: null, marks: null, options: optionsOf('a', ['a']) }] }],
+    });
+
+    const text = textOf(fixture);
+    expect(text).toContain('Still in progress');
+    expect(text).toContain('Chosen · Correct');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.review-summary')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.review-question__marks')).toBeNull();
+  });
+
+  it('says a question is no longer in the bank, and shows a paper from an older API as a plain list', () => {
+    const fixture = showPaper({
+      attemptId: 'a1',
+      number: 1,
+      hasDrawnQuestions: false,
+      sections: [{ id: 's1', name: 'A', questions: [{ id: 'q1', text: null, drawn: false }, { id: 'q2', text: '<p>Plain</p>', drawn: false }] }],
+    });
+
+    expect(textOf(fixture)).toContain('(question no longer in the bank)');
+    expect(textOf(fixture)).toContain('Plain');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.review-options')).toBeNull();
   });
 
   it('says so when the paper cannot be loaded', () => {

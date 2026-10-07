@@ -6,7 +6,8 @@ import { extractErrorMessage } from '../../shared/problem-details';
 import { AttemptAdminApiService } from '../attempt-admin-api.service';
 import { AttemptSummaryDto } from '../../candidate/candidate.models';
 import { AttemptClientDto, AttemptPaperDto, ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
-import { PlainTextPipe } from '../../shared/rich-text/plain-text.pipe';
+import { MathDirective } from '../../shared/rich-text/math.directive';
+import { AnswerVerdict } from '../../candidate/candidate.models';
 
 /** The longest reason the API accepts. */
 const MAX_REASON_LENGTH = 500;
@@ -43,7 +44,7 @@ const ACTIONS: Record<ActionKind, { label: string; hint: string; button: string;
  */
 @Component({
   selector: 'app-exam-attempts',
-  imports: [RouterLink, DatePipe, PlainTextPipe],
+  imports: [RouterLink, DatePipe, MathDirective],
   templateUrl: './exam-attempts.html',
 })
 export class ExamAttempts {
@@ -64,6 +65,24 @@ export class ExamAttempts {
   /** The attempt whose paper is open, and what it holds once loaded; one at a time keeps the page short. */
   protected readonly paperFor = signal<string | null>(null);
   protected readonly paper = signal<AttemptPaperDto | null>(null);
+
+  protected optionLetter(index: number): string {
+    return String.fromCharCode(65 + index);
+  }
+
+  /** `+4`, `0` or `-1`: the sign is always shown so a gain and a loss cannot be mistaken for each other. */
+  protected formatMarks(marks: number): string {
+    return marks > 0 ? `+${marks}` : `${marks}`;
+  }
+
+  protected verdictLabel(verdict: AnswerVerdict): string {
+    return verdict === 'Partial' ? 'Partly correct' : verdict === 'Unanswered' ? 'Not answered' : verdict;
+  }
+
+  /** How many questions of the paper were marked with each verdict, for the line above it. */
+  protected verdictCount(paper: AttemptPaperDto, verdict: AnswerVerdict): number {
+    return paper.sections.reduce((n, s) => n + s.questions.filter((q) => q.verdict === verdict).length, 0);
+  }
 
   /** The attempt whose sign-in details (where it was sat from, FR-26) are open, and what they hold once loaded. */
   protected readonly clientsFor = signal<string | null>(null);

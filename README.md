@@ -269,6 +269,20 @@ Every accepted change to a question's gradable content — creating it, a succes
 | Previews | A preview is never stored, so it reads the current content. |
 | Not built | A staff page for the history, reverting to an earlier version, and warning an author that an exam holds a question that has a newer version. |
 
+#### The marked paper, for staff
+
+On **Candidates and attempts**, **Show paper** opens the paper one attempt consisted of, marked, so a result can be read against what was asked (`GET /v1/exams/{examId}/attempts/{attemptId}/paper`, `exam.manage`). It reads the questions as the candidate saw them: in their order (shuffled from the second attempt on), with their options in the order they saw, and at the version the attempt began with (FR-7).
+
+| What | Shown |
+|------|-------|
+| The attempt | Its score and the marks available, and how many questions were correct, partly correct, wrong and not answered. An invalidated attempt (FR-29) says so, and staff still see its marks. |
+| Each question | The text, a **drawn** badge for a question picked for this candidate, the verdict and the marks it earned (`+4`, `0`, `-1`: negative marking shows). |
+| Each option | The correct one is marked **Correct answer**, the one the candidate chose **Chosen**, and **Chosen · Correct** where they agree; a wrong choice is highlighted. |
+| In progress | The choices saved so far are marked, with no verdict, marks or score: nothing is scored until it is submitted. |
+| Gone from the bank | A question the bank no longer has is listed as such, without options, and does not stop the rest of the paper showing. |
+
+The candidate's own version of this is the [answer review](#answer-review), which follows the exam's release setting; the staff view does not, because staff hold the answer key anyway.
+
 #### Extra attempts
 
 Every candidate has **one attempt** at an exam unless its author allows more (see [Attempts allowed](#attempts-allowed) below). When a candidate asks for another (a power cut, a dropped connection), an administrator gives them one on **Candidates and attempts** (`/exams/:id/attempts`, linked from a published exam; needs `exam.manage`). The candidate then sees "Start attempt 2" on My exams, and each attempt is numbered, scored and reviewed on its own. My exams lists every attempt and marks the highest-scoring submitted one as **Best** once there are two to compare (the earlier one on a tie); nothing is stored as the exam's official score.
