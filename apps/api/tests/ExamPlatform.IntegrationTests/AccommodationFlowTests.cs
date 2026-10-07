@@ -151,7 +151,8 @@ public sealed class AccommodationFlowTests(ApiFactory factory) : IClassFixture<A
         Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
         Assert.Equal(JsonValueKind.Null, (await JsonAsync(removed)).GetProperty("accommodation").ValueKind);
         var status = await candidate.GetFromJsonAsync<JsonElement>($"/v1/me/attempts/{attempt.GetProperty("id").GetGuid()}/status");
-        Assert.Equal(attempt.GetProperty("deadlineUtc").GetDateTime(), status.GetProperty("deadlineUtc").GetDateTime());
+        // Within a second: the start response carries the instant as .NET holds it, the heartbeat as the database stored it (to the microsecond).
+        Assert.InRange(Math.Abs((attempt.GetProperty("deadlineUtc").GetDateTime() - status.GetProperty("deadlineUtc").GetDateTime()).TotalSeconds), 0, 1);
         await AssertProblemAsync(await admin.DeleteAsync(Route(examId, candidateId)), HttpStatusCode.NotFound, "accommodation_not_found");
     }
 
