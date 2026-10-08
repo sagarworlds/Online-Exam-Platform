@@ -4,18 +4,18 @@
   </div>
 
   @if (errorMessage()) {
-    <p class="error-message">{{ errorMessage() }}</p>
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
   }
 
   @if (loading()) {
-    <p>{{ 'common.loading' | t }}</p>
+    <p role="status">{{ 'common.loading' | t }}</p>
   } @else if (exams().length === 0) {
     <div class="card empty-state">
       {{ 'myExams.empty' | t }}
     </div>
   } @else {
     @for (exam of exams(); track exam.examId) {
-      <div class="card">
+      <article class="card">
         <h3 class="card__title">
           {{ exam.name }}
           <span class="badge" [class.badge--active]="exam.state === 'Open'" [class.badge--inactive]="exam.state !== 'Open'">
@@ -25,16 +25,66 @@
         @if (exam.description) {
           <p>{{ exam.description }}</p>
         }
-        <p class="card__meta">
-          {{ 'myExams.window' | t: { start: (exam.startUtc | date: 'medium') ?? '', end: (exam.endUtc | date: 'medium') ?? '' } }}<br />
-          {{ 'myExams.questionCount' | t: { count: exam.questionCount } }}{{ exam.durationSeconds ? ', ' + ('myExams.minutes' | t: { count: exam.durationSeconds / 60 }) : '' }}
+        <p class="exam-card__window">
+          {{ 'myExams.window' | t: { start: (exam.startUtc | date: 'medium') ?? '', end: (exam.endUtc | date: 'medium') ?? '' } }}
         </p>
+        <ul class="exam-facts">
+          <li>{{ 'myExams.questionCount' | t: { count: exam.questionCount } }}</li>
+          @if (exam.durationSeconds) {
+            <li>{{ 'myExams.minutes' | t: { count: exam.durationSeconds / 60 } }}</li>
+          }
+          @if (showNumbers(exam)) {
+            <li>{{ 'myExams.attemptsUsed' | t: { used: exam.attemptsUsed, allowed: exam.attemptsAllowed } }}</li>
+          }
+        </ul>
         @if (extraTime(exam); as extra) {
           <p class="card__meta">{{ 'myExams.extraTime' | t: { time: extra } }}</p>
         }
-        @if (showNumbers(exam)) {
-          <p class="card__meta">{{ 'myExams.attemptsUsed' | t: { used: exam.attemptsUsed, allowed: exam.attemptsAllowed } }}</p>
+
+        @if (hasActions(exam)) {
+          <div class="actions">
+            @if (resumableAttemptId(exam); as attemptId) {
+              <a class="btn btn--primary" [routerLink]="['/attempt', attemptId]">{{ 'myExams.resume' | t }}</a>
+            } @else if (exam.canStartAttempt) {
+              <a class="btn btn--primary" [routerLink]="['/my-exams', exam.examId, 'start']">{{ startLabel(exam) }}</a>
+            }
+            @if (canAskForAttempt(exam)) {
+              <button type="button" (click)="openRequestForm(exam)">{{ 'myExams.request.ask' | t }}</button>
+            }
+          </div>
         }
+
+        @if (exam.attemptRequest?.status === 'Pending') {
+          <p class="hint" role="status">
+            {{ 'myExams.request.pending' | t }}
+          </p>
+        } @else if (exam.attemptRequest?.status === 'Declined' && !exam.canStartAttempt) {
+          <p class="hint" role="status">
+            {{ exam.attemptRequest?.decisionNote ? ('myExams.request.declinedWithNote' | t: { note: exam.attemptRequest?.decisionNote ?? '' }) : ('myExams.request.declined' | t) }}
+          </p>
+        }
+        @if (exam.canRequestAttempt && requestingFor() === exam.examId) {
+          <form class="request-form" (submit)="$event.preventDefault(); sendRequest(exam)" [attr.aria-label]="'myExams.request.formLabel' | t: { exam: exam.name }">
+            <div class="field">
+              <label [attr.for]="'request-message-' + exam.examId">{{ 'myExams.request.why' | t }}</label>
+              <textarea
+                [attr.id]="'request-message-' + exam.examId"
+                rows="3"
+                [maxLength]="maxRequestText"
+                [value]="requestMessage()"
+                (input)="requestMessage.set($any($event.target).value)"
+              ></textarea>
+            </div>
+            @if (requestError()) {
+              <p class="error-message" role="alert">{{ requestError() }}</p>
+            }
+            <div class="actions">
+              <button type="submit" class="primary" [disabled]="requestBusy()">{{ 'myExams.request.send' | t }}</button>
+              <button type="button" (click)="closeRequestForm()" [disabled]="requestBusy()">{{ 'common.cancel' | t }}</button>
+            </div>
+          </form>
+        }
+
         @if (exam.attempts.length > 0) {
           <ul class="attempt-list">
             @for (attempt of exam.attempts; track attempt.id) {
@@ -54,49 +104,12 @@
                 }
                 @if (attempt.status === 'Submitted') {
                   <a [routerLink]="['/attempt', attempt.id]" class="btn">{{ 'myExams.viewResult' | t }}</a>
-                } @else {
-                  <a [routerLink]="['/attempt', attempt.id]" class="btn btn--primary">{{ 'myExams.resume' | t }}</a>
                 }
               </li>
             }
           </ul>
         }
-        @if (exam.attemptRequest?.status === 'Pending') {
-          <p class="hint" role="status">
-            {{ 'myExams.request.pending' | t }}
-          </p>
-        } @else if (exam.attemptRequest?.status === 'Declined' && !exam.canStartAttempt) {
-          <p class="hint" role="status">
-            {{ exam.attemptRequest?.decisionNote ? ('myExams.request.declinedWithNote' | t: { note: exam.attemptRequest?.decisionNote ?? '' }) : ('myExams.request.declined' | t) }}
-          </p>
-        }
-        @if (exam.canRequestAttempt) {
-          @if (requestingFor() === exam.examId) {
-            <form class="request-form" (submit)="$event.preventDefault(); sendRequest(exam)" [attr.aria-label]="'myExams.request.formLabel' | t: { exam: exam.name }">
-              <label>
-                {{ 'myExams.request.why' | t }}
-                <textarea rows="3" [maxLength]="maxRequestText" [value]="requestMessage()" (input)="requestMessage.set($any($event.target).value)"></textarea>
-              </label>
-              @if (requestError()) {
-                <p class="error-message" role="alert">{{ requestError() }}</p>
-              }
-              <div class="actions">
-                <button type="submit" class="primary" [disabled]="requestBusy()">{{ 'myExams.request.send' | t }}</button>
-                <button type="button" (click)="closeRequestForm()" [disabled]="requestBusy()">{{ 'common.cancel' | t }}</button>
-              </div>
-            </form>
-          } @else {
-            <div class="actions">
-              <button type="button" (click)="openRequestForm(exam)">{{ 'myExams.request.ask' | t }}</button>
-            </div>
-          }
-        }
-        @if (exam.canStartAttempt) {
-          <div class="actions">
-            <a class="btn btn--primary" [routerLink]="['/my-exams', exam.examId, 'start']">{{ startLabel(exam) }}</a>
-          </div>
-        }
-      </div>
+      </article>
     }
   }
 </div>

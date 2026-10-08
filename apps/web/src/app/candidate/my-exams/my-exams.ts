@@ -16,6 +16,7 @@ import { MAX_ATTEMPT_REQUEST_TEXT, MyExamDto } from '../candidate.models';
   selector: 'app-my-exams',
   imports: [DatePipe, RouterLink, TranslatePipe],
   templateUrl: './my-exams.html',
+  styleUrl: './my-exams.css',
 })
 export class MyExams {
   private readonly api = inject(CandidateApiService);
@@ -60,6 +61,24 @@ export class MyExams {
   /** The label of the button that begins the next attempt. */
   protected startLabel(exam: MyExamDto): string {
     return exam.attempts.length === 0 ? this.i18n.t('myExams.start') : this.i18n.t('myExams.startAttempt', { number: exam.attemptsUsed + 1 });
+  }
+
+  /**
+   * The attempt the candidate started and has not yet submitted, so they can carry on with it; null when there is none.
+   * Only one attempt can be open at a time, so the first match is the one.
+   */
+  protected resumableAttemptId(exam: MyExamDto): string | null {
+    return exam.attempts.find((attempt) => attempt.status === 'InProgress')?.id ?? null;
+  }
+
+  /** Whether the card offers "ask for another attempt" now: the API allows it and the request form is not already open. */
+  protected canAskForAttempt(exam: MyExamDto): boolean {
+    return exam.canRequestAttempt && this.requestingFor() !== exam.examId;
+  }
+
+  /** Whether the card has an action row to show: resume, start, or ask for another attempt. */
+  protected hasActions(exam: MyExamDto): boolean {
+    return this.resumableAttemptId(exam) !== null || exam.canStartAttempt || this.canAskForAttempt(exam);
   }
 
   protected openRequestForm(exam: MyExamDto): void {

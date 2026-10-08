@@ -1,0 +1,16 @@
+/* The window and the facts sit under the exam's name, in the order a candidate needs them, before the one action they can take. */
+.exam-card__window {
+  margin: 0 0 0.5rem;
+}
+
+/* Question count, time limit and attempts used on one line; the items wrap onto the next line on a phone. */
+.exam-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
