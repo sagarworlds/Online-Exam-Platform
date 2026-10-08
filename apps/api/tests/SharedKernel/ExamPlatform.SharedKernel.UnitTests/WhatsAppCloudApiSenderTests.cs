@@ -76,7 +76,8 @@ public class WhatsAppCloudApiSenderTests
 
         var body = JsonSerializer.Deserialize<JsonElement>(handler.LastRequestBody!);
         Assert.Equal("whatsapp", body.GetProperty("messaging_product").GetString());
-        Assert.Equal("919876543210", body.GetProperty("to").GetString());
+        // Meta recommends the leading +; without it a number can be read as local to the business's own country.
+        Assert.Equal("+919876543210", body.GetProperty("to").GetString());
         Assert.Equal("template", body.GetProperty("type").GetString());
 
         var template = body.GetProperty("template");
