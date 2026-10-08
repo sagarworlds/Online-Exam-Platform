@@ -448,11 +448,28 @@
   list-style: none;
 }
 
+/* Stays at the top of the screen while the answers are read, so any question is one tap away. It is one row that scrolls sideways,
+   rather than a grid that grows taller with every question. */
 .review-strip {
+  position: sticky;
+  top: 0;
+  z-index: 4;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.4rem;
-  margin-top: 1rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0;
+  overflow-x: auto;
+  background: var(--bg);
+}
+
+.review-strip__item {
+  flex: none;
+}
+
+/* A question opened from the strip starts below the strip, not under it. */
+.review-question {
+  scroll-margin-top: 4rem;
 }
 
 .review-strip__item {
