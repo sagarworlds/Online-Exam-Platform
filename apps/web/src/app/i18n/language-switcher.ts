@@ -10,6 +10,7 @@ import { TranslatePipe } from './translate.pipe';
 @Component({
   selector: 'app-language-switcher',
   imports: [TranslatePipe],
+  styleUrl: './language-switcher.css',
   template: `
     <label class="visually-hidden" for="ui-language">{{ 'language.label' | t }}</label>
     <select id="ui-language" class="language-switcher" [value]="i18n.language()" (change)="choose($any($event.target).value)">
