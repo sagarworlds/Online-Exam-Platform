@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace ExamPlatform.Modules.ExamRuntime.Endpoints;
 
@@ -38,9 +39,17 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<IAttemptRequestRepository, AttemptRequestRepository>();
         services.AddScoped<IDisputeRepository, DisputeRepository>();
 
-        // How long after a result is released a candidate may dispute its answer key; 0 switches disputes off (FR-31). Read now, not on
-        // first use, so a mistyped window stops the application starting instead of failing the first candidate who disputes.
-        services.AddSingleton(DisputePolicy.From(configuration.GetValue<int?>("ExamRuntime:Disputes:WindowDays")));
+        // How long after a result is released a candidate may dispute its answer key; 0 switches disputes off (FR-31). Validated when the
+        // host starts, so a mistyped window stops the application starting instead of failing the first candidate who disputes. It is
+        // bound as options, not read from configuration here: a test's WebApplicationFactory layers its configuration on after AddModule
+        // runs, so a value captured now could be stale.
+        services.AddOptions<DisputeOptions>()
+            .Bind(configuration.GetSection(DisputeOptions.SectionName))
+            .Validate(
+                options => options.WindowDays is null or (>= 0 and <= DisputePolicy.MaxWindowDays),
+                $"{DisputeOptions.SectionName}:WindowDays must be between 0 and {DisputePolicy.MaxWindowDays}.")
+            .ValidateOnStart();
+        services.AddSingleton(sp => DisputePolicy.From(sp.GetRequiredService<IOptions<DisputeOptions>>().Value.WindowDays));
 
         // Answers to attempt requests go out through the platform's mail sender when a mail server is configured and are otherwise
         // not sent; the administrator is told so in the response.
