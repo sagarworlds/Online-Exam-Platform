@@ -1,37 +1,56 @@
 <div class="page">
-  <h1>Verify code</h1>
+  <h1>{{ 'verify.title' | t }}</h1>
 
   @if (maskedDestination) {
     <!-- Login copy never confirms the account exists: the API answers unknown,
          locked and staff accounts the same way and silently sends nothing. -->
     @if (isRegistration) {
-      <p>We've sent a code to {{ maskedDestination }}.</p>
+      <p>{{ 'verify.sentToRegistration' | t: { destination: maskedDestination } }}</p>
     } @else {
-      <p>If an account exists for {{ maskedDestination }}, we've sent a code.</p>
+      <p>{{ 'verify.sentToLogin' | t: { destination: maskedDestination } }}</p>
     }
   }
 
-  @if (errorMessage()) {
-    <p class="error-message">{{ errorMessage() }}</p>
-  }
-
-  @if (challengeId) {
-    <form class="card" [formGroup]="form" (ngSubmit)="submit()">
+  @if (missingChallenge) {
+    <p class="error-message" role="alert">{{ 'verify.missingChallenge' | t }}</p>
+  } @else {
+    <form class="card" [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="submitting()" novalidate>
       <div class="field">
-        <label for="verify-otp-code">Code</label>
-        <input
-          id="verify-otp-code"
-          type="text"
-          inputmode="numeric"
-          formControlName="code"
-          autocomplete="one-time-code"
-        />
+        <label for="verify-otp-code">{{ 'verify.code' | t }}</label>
+        <div class="code-entry">
+          <div class="code-entry__boxes" aria-hidden="true">
+            @for (position of positions; track position) {
+              <span class="code-entry__box" [class.code-entry__box--next]="position === nextPosition()">{{
+                digitAt(position)
+              }}</span>
+            }
+          </div>
+          <input
+            id="verify-otp-code"
+            class="code-entry__input"
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            maxlength="6"
+            formControlName="code"
+            (input)="keepDigits($event)"
+            [attr.aria-invalid]="codeError() ? 'true' : null"
+            [attr.aria-describedby]="codeError() ? 'verify-otp-code-error' : null"
+          />
+        </div>
+        @if (codeError(); as key) {
+          <p id="verify-otp-code-error" class="field-error">{{ key | t }}</p>
+        }
       </div>
-      <button type="submit" class="primary" [disabled]="form.invalid || submitting()">Verify</button>
+
+      @if (errorMessage()) {
+        <p class="error-message" role="alert">{{ errorMessage() }}</p>
+      }
+      <button type="submit" class="primary auth-submit" [disabled]="submitting()">{{ 'verify.submit' | t }}</button>
     </form>
   }
 
   <p class="link-row">
-    <a routerLink="/login">Back to login</a>
+    <a routerLink="/login">{{ 'verify.backToLogin' | t }}</a>
   </p>
 </div>

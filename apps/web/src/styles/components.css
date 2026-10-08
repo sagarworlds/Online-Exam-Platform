@@ -56,7 +56,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  margin-bottom: 1rem;
+  margin: 0 0 1rem;
   border: 0;
   padding: 0;
   min-width: 0;
@@ -104,6 +104,48 @@
   font-size: 0.85rem;
 }
 
+/* A one-time code: six boxes drawn over one real input, so typing, pasting and phone autofill all reach a single field.
+   The input is invisible but still focusable, and taps on the boxes land on it. */
+.code-entry {
+  position: relative;
+}
+
+.code-entry__boxes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.code-entry__box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 3.25rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.code-entry:focus-within .code-entry__box--next {
+  border-color: var(--primary);
+  box-shadow: var(--focus-ring);
+}
+
+.field .code-entry input.code-entry__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  opacity: 0;
+  font-size: 16px;
+}
+
 .option-row {
   display: flex;
   gap: 0.5rem;
@@ -116,32 +158,51 @@
   flex: 1;
 }
 
-/* The sign-in method switch, drawn as one track so its two choices read as a pair. */
-.mode-toggle {
+/* A two-way choice drawn as one track, so its options read as a pair: buttons for the sign-in method, radio buttons for the
+   contact channel. The selected option must stay primary when hovered, which the global button hover would otherwise override. */
+.mode-toggle,
+.segmented {
   display: flex;
   gap: 0.25rem;
   padding: 0.25rem;
-  margin-bottom: 1.25rem;
   background: var(--surface-muted);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
 
-.mode-toggle button {
+.mode-toggle {
+  margin-bottom: 1.25rem;
+}
+
+.mode-toggle button,
+.segmented__option {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 2.5rem;
   padding-inline: 0.5rem;
-  border-color: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
   font-size: 0.95rem;
   font-weight: 600;
+  text-align: center;
+  cursor: pointer;
 }
 
-.mode-toggle button.active {
+.mode-toggle button.active,
+.mode-toggle button.active:hover:not(:disabled),
+.segmented__option:has(input:checked) {
   background: var(--primary);
   border-color: var(--primary);
   color: var(--on-primary);
+}
+
+.segmented__option:has(input:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .auth-submit {
