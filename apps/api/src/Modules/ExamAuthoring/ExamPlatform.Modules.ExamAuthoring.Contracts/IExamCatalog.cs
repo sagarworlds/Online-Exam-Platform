@@ -16,4 +16,10 @@ public interface IExamCatalog
     /// <param name="examIds">The exams to read.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<ExamSnapshot>> FindPublishedAsync(IReadOnlyCollection<Guid> examIds, CancellationToken cancellationToken);
+
+    /// <summary>Reads the published exams that start after <paramref name="afterUtc"/> and no later than <paramref name="untilUtc"/>, earliest first (FR-39 reminders).</summary>
+    /// <param name="afterUtc">The earliest start, exclusive.</param>
+    /// <param name="untilUtc">The latest start, inclusive.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<ExamSnapshot>> FindPublishedStartingBetweenAsync(DateTime afterUtc, DateTime untilUtc, CancellationToken cancellationToken);
 }

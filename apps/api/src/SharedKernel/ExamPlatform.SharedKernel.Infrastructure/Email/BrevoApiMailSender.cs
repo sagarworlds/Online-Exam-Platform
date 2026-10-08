@@ -18,6 +18,9 @@ public sealed class BrevoApiMailSender(HttpClient httpClient, IOptions<BrevoOpti
     private const string SendEndpoint = "https://api.brevo.com/v3/smtp/email";
 
     /// <inheritdoc />
+    public bool IsConfigured => options.Value.IsConfigured;
+
+    /// <inheritdoc />
     public async Task<bool> SendAsync(OutgoingMail mail, CancellationToken cancellationToken)
     {
         var brevo = options.Value;

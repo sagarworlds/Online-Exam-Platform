@@ -45,6 +45,16 @@ public sealed class EFExamRepository(ExamAuthoringDbContext context) : IExamRepo
             .Where(e => examIds.Contains(e.Id))
             .ToListAsync(cancellationToken);
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Exam>> ListPublishedStartingBetweenAsync(DateTime afterUtc, DateTime untilUtc, CancellationToken cancellationToken = default) =>
+        await context.Exams.AsNoTracking()
+            .AsSplitQuery()
+            .Include(e => e.Sections).ThenInclude(s => s.Questions)
+            .Include(e => e.Sections).ThenInclude(s => s.DrawRules)
+            .Where(e => e.Status == ExamStatus.Published && e.ScheduledStartTime > afterUtc && e.ScheduledStartTime <= untilUtc)
+            .OrderBy(e => e.ScheduledStartTime)
+            .ToListAsync(cancellationToken);
+
     // A projection over the question rows, not a load of whole exams: a page of 200 questions can sit in many exams,
     // and only the exam's name and status are wanted. Exams marked deleted are left out by the context's query filter.
     /// <inheritdoc />

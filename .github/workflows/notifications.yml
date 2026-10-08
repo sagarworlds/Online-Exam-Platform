@@ -1,0 +1,43 @@
+name: Scheduled notifications
+
+# Starts a pass of the platform's scheduled e-mails (FR-39: exam reminders, released results, revised scores) by calling the API's
+# key-protected route every ten minutes. The API's own timer cannot be relied on where the host sleeps when idle (a free Render service
+# does), and this call also wakes it. A pass sends only what is due and records it, so an extra or overlapping call is harmless.
+#
+# Does nothing until both secrets are set (see docs/deploy-render.md, step 9), so it is safe to have in the repository before then.
+
+on:
+  schedule:
+    # GitHub runs these on a best-effort basis, so a pass can be a few minutes late; reminders are worded with the real start time.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+# One call at a time: a slow pass (a host waking up) is not trodden on by the next.
+concurrency:
+  group: scheduled-notifications
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Start a notification pass
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      API_URL: ${{ secrets.NOTIFICATIONS_API_URL }}
+      RUN_KEY: ${{ secrets.NOTIFICATIONS_RUN_KEY }}
+    steps:
+      - name: Call the API
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$RUN_KEY" ]; then
+            echo "Not configured: set the NOTIFICATIONS_API_URL and NOTIFICATIONS_RUN_KEY secrets to turn this on."
+            exit 0
+          fi
+          # A host that was asleep can take a minute or two to answer the first call.
+          curl --silent --show-error --fail-with-body \
+            --max-time 150 --retry 2 --retry-delay 20 --retry-all-errors \
+            --request POST \
+            --header "X-Notifications-Key: ${RUN_KEY}" \
+            "${API_URL%/}/v1/notifications/run"
+          echo
