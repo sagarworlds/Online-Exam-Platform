@@ -417,4 +417,22 @@ export const MR: Messages = {
   'admin.area.candidateCodes.description': 'परीक्षार्थीची प्रतीक्षा असलेला साइन-इन कोड वाचा.',
   'admin.area.whatsappTest.name': 'व्हॉट्सअॅप चाचणी',
   'admin.area.whatsappTest.description': 'व्हॉट्सअॅप संदेश पाठवू शकते का ते तपासा, आणि पाठवू शकत नसेल तर नेमके कारण पाहा.',
+
+  // ---- candidate codes ----
+  'admin.codes.title': 'परीक्षार्थी कोड',
+  'admin.codes.hint': 'कोड फक्त वापरले जाईपर्यंत, बदलले जाईपर्यंत किंवा संपेपर्यंत (10 मिनिटे) दिसतात. प्रत्येक शोध ऑडिट नोंदीत नोंदवला जातो. कोड फक्त ज्या व्यक्तीला पाठवला होता तिलाच वाचून दाखवा.',
+  'admin.codes.searchLabel': 'परीक्षार्थीचा कोड शोधा',
+  'admin.codes.searchField': 'ईमेल किंवा फोन नंबर',
+  'admin.codes.searchPlaceholder': 'ईमेल किंवा फोन नंबर टाका',
+  'admin.codes.find': 'कोड शोधा',
+  'admin.codes.needSearch': 'त्याचे कोड शोधण्यासाठी ईमेल किंवा फोन नंबर टाका.',
+  'admin.codes.none': 'वापरता येईल असा कोणताही कोड जुळला नाही. परीक्षार्थीला नवीन कोड मागावा लागू शकतो.',
+  'admin.codes.revealNote': 'कोड एका मिनिटानंतर पुन्हा लपतो, किंवा तुम्ही पुन्हा शोधता तेव्हा.',
+  'admin.codes.sentence': '{purpose} कोड, {channel} द्वारे पाठवला, {time} वाजता संपेल.',
+  'admin.codes.purpose.Login': 'साइन-इन',
+  'admin.codes.purpose.Registration': 'नोंदणी',
+  'admin.codes.channel.Email': 'ईमेल',
+  'admin.codes.channel.Sms': 'एसएमएस',
+  'admin.codes.show': 'कोड दाखवा',
+  'admin.codes.hide': 'कोड लपवा',
 };

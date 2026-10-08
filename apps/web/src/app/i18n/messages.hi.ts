@@ -417,4 +417,22 @@ export const HI: Messages = {
   'admin.area.candidateCodes.description': 'जिस परीक्षार्थी का साइन-इन कोड प्रतीक्षा में है, वह कोड पढ़ें।',
   'admin.area.whatsappTest.name': 'व्हाट्सऐप जाँच',
   'admin.area.whatsappTest.description': 'जाँचें कि व्हाट्सऐप संदेश भेज सकता है, और यदि नहीं भेज सकता तो ठीक-ठीक कारण देखें।',
+
+  // ---- candidate codes ----
+  'admin.codes.title': 'परीक्षार्थी कोड',
+  'admin.codes.hint': 'कोड तब तक दिखते हैं जब तक वे इस्तेमाल नहीं होते, बदले नहीं जाते या समाप्त नहीं हो जाते (10 मिनट)। हर खोज ऑडिट लॉग में दर्ज होती है। कोड केवल उसी व्यक्ति को पढ़कर सुनाएँ जिसे वह भेजा गया था।',
+  'admin.codes.searchLabel': 'परीक्षार्थी का कोड खोजें',
+  'admin.codes.searchField': 'ईमेल या फ़ोन नंबर',
+  'admin.codes.searchPlaceholder': 'ईमेल या फ़ोन नंबर दर्ज करें',
+  'admin.codes.find': 'कोड खोजें',
+  'admin.codes.needSearch': 'इसके कोड खोजने के लिए ईमेल या फ़ोन नंबर दर्ज करें।',
+  'admin.codes.none': 'कोई उपयोग योग्य कोड नहीं मिला। परीक्षार्थी को नया कोड माँगना पड़ सकता है।',
+  'admin.codes.revealNote': 'कोड एक मिनट बाद फिर छिप जाता है, या जब आप दोबारा खोजते हैं।',
+  'admin.codes.sentence': '{purpose} कोड, {channel} से भेजा गया, {time} पर समाप्त होगा।',
+  'admin.codes.purpose.Login': 'साइन-इन',
+  'admin.codes.purpose.Registration': 'पंजीकरण',
+  'admin.codes.channel.Email': 'ईमेल',
+  'admin.codes.channel.Sms': 'एसएमएस',
+  'admin.codes.show': 'कोड दिखाएँ',
+  'admin.codes.hide': 'कोड छिपाएँ',
 };

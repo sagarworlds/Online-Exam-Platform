@@ -423,6 +423,24 @@ export const EN = {
   'admin.area.candidateCodes.description': 'Read the sign-in code a candidate is waiting for.',
   'admin.area.whatsappTest.name': 'WhatsApp test',
   'admin.area.whatsappTest.description': 'Check that WhatsApp can send, and see exactly why not if it cannot.',
+
+  // ---- candidate codes ----
+  'admin.codes.title': 'Candidate codes',
+  'admin.codes.hint': 'Codes are listed only until they are used, replaced or expire (10 minutes). Each search is recorded in the audit log. Read a code out only to the person it was sent to.',
+  'admin.codes.searchLabel': 'Find a candidate code',
+  'admin.codes.searchField': 'Email or phone number',
+  'admin.codes.searchPlaceholder': 'Enter an email or phone number',
+  'admin.codes.find': 'Find codes',
+  'admin.codes.needSearch': 'Enter an email or phone number to find its codes.',
+  'admin.codes.none': 'No usable code matches. The candidate may need to request a new one.',
+  'admin.codes.revealNote': 'A code is hidden again after a minute, or when you search again.',
+  'admin.codes.sentence': '{purpose} code, sent by {channel}, expires at {time}.',
+  'admin.codes.purpose.Login': 'Sign-in',
+  'admin.codes.purpose.Registration': 'Registration',
+  'admin.codes.channel.Email': 'email',
+  'admin.codes.channel.Sms': 'SMS',
+  'admin.codes.show': 'Show code',
+  'admin.codes.hide': 'Hide code',
 } as const;
 
 /** The key of a message. */
