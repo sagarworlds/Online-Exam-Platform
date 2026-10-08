@@ -51,6 +51,7 @@ export const HI: Messages = {
   'register.emailAddress': 'ईमेल पता',
   'register.submit': 'खाता बनाएँ',
   'register.haveAccount': 'पहले से खाता है? लॉग इन करें',
+  'register.destinationRequired': 'अपना ईमेल पता या फ़ोन नंबर दर्ज करें।',
 
   // ---- my exams ----
   'myExams.title': 'मेरी परीक्षाएँ',

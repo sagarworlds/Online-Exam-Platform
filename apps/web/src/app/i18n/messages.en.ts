@@ -56,6 +56,7 @@ export const EN = {
   'register.emailAddress': 'Email address',
   'register.submit': 'Create account',
   'register.haveAccount': 'Already have an account? Log in',
+  'register.destinationRequired': 'Enter your email address or phone number.',
 
   // ---- my exams ----
   'myExams.title': 'My exams',

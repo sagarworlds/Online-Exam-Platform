@@ -51,6 +51,7 @@ export const MR: Messages = {
   'register.emailAddress': 'ईमेल पत्ता',
   'register.submit': 'खाते तयार करा',
   'register.haveAccount': 'आधीच खाते आहे? लॉग इन करा',
+  'register.destinationRequired': 'तुमचा ईमेल पत्ता किंवा फोन नंबर टाका.',
 
   // ---- my exams ----
   'myExams.title': 'माझ्या परीक्षा',
