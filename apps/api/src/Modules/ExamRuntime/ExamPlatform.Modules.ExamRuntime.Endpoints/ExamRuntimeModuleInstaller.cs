@@ -73,6 +73,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.TryAddSingleton<IQuestionPicker, RandomQuestionPicker>();
         services.AddScoped<StartAttemptHandler>();
         services.AddScoped<GetAttemptHandler>();
+        services.AddScoped<GetQuestionPictureHandler>();
         services.AddScoped<GetAttemptReviewHandler>();
         services.AddScoped<SaveAnswerHandler>();
         services.AddScoped<ClearAnswerHandler>();

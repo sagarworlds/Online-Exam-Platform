@@ -19,6 +19,7 @@ using ExamPlatform.SharedKernel.Infrastructure.WhatsApp;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -139,6 +140,17 @@ builder.Services.AddSingleton<IConfigureOptions<ForwardedHeadersOptions>, Forwar
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 
+// Compressed responses for a candidate on a slow connection (FR-53): an exam's questions are the largest thing the API sends, and text
+// compresses well. Brotli where the browser asks for it, gzip otherwise. TLS ends at the proxy, so a response is compressed whatever
+// the scheme the request claims to have used (EnableForHttps), except for the sign-in routes (see below).
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["application/problem+json"]);
+});
+
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
 builder.Services.AddExceptionHandler<DomainExceptionHandler>();
@@ -183,6 +195,13 @@ if (!app.Environment.IsDevelopment())
 // surface: they would hand an attacker a map of every route. One flag both maps them below
 // and exempts the UI from the Content-Security-Policy, so the two cannot drift apart.
 var apiReferenceEnabled = app.Environment.IsDevelopment();
+
+// Outside everything that writes a body, so each response is compressed on its way out. Not for the sign-in routes: their answers carry
+// tokens, and compressing a secret next to text a caller can influence is what the BREACH attack on compressed HTTPS needs. They are
+// small, so nothing is lost.
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/v1/auth", StringComparison.OrdinalIgnoreCase),
+    branch => branch.UseResponseCompression());
 
 // Before the exception handler, so error responses carry the headers too.
 app.UseMiddleware<SecurityHeadersMiddleware>(apiReferenceEnabled);

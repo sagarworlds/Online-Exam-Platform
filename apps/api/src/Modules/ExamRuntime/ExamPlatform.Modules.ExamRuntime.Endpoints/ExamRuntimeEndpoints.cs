@@ -115,7 +115,15 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("GetAttempt")
-            .WithDescription("Read an attempt: its questions while open, its score once submitted");
+            .WithDescription("Read an attempt: its questions while open, its score once submitted. With lite=true the pictures in the questions are left out, each as a marker to fetch with GetQuestionPicture (low-bandwidth mode)");
+
+        me.MapGet("/attempts/{attemptId:guid}/questions/{questionId:guid}/pictures/{key}", GetQuestionPicture)
+            .Produces(StatusCodes.Status200OK, contentType: "image/png")
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("GetQuestionPicture")
+            .WithDescription("One picture of a question in an open attempt, named by the key its marker carries (low-bandwidth mode)");
 
         me.MapGet("/attempts/{attemptId:guid}/status", GetAttemptStatus)
             .Produces<AttemptStatusDto>()
@@ -572,8 +580,19 @@ public static class ExamRuntimeEndpoints
         // No body means "not acknowledged": resuming needs none, but a new attempt is then refused.
         Results.Ok(await handler.HandleAsync(examId, user.GetUserId(), request?.InstructionsAcknowledged ?? false, ct));
 
-    private static async Task<IResult> GetAttempt(Guid attemptId, ClaimsPrincipal user, GetAttemptHandler handler, CancellationToken ct) =>
-        Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct));
+    private static async Task<IResult> GetAttempt(Guid attemptId, bool? lite, ClaimsPrincipal user, GetAttemptHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct, lite == true));
+
+    private static async Task<IResult> GetQuestionPicture(
+        Guid attemptId, Guid questionId, string key, ClaimsPrincipal user, GetQuestionPictureHandler handler, HttpResponse response, CancellationToken ct)
+    {
+        var picture = await handler.HandleAsync(attemptId, user.GetUserId(), questionId, key, ct);
+
+        // A question's picture does not change within an attempt (its version is pinned), and only its candidate may read it, so the browser may keep it
+        // for the sitting: a picture fetched once is never fetched again over a slow connection.
+        response.Headers.CacheControl = "private, max-age=86400";
+        return Results.File(picture.Bytes, picture.ContentType);
+    }
 
     private static async Task<IResult> GetAttemptReview(Guid attemptId, ClaimsPrincipal user, GetAttemptReviewHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct));

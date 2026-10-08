@@ -17,12 +17,13 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock, 
     /// <param name="attempt">The attempt.</param>
     /// <param name="exam">The exam it is an attempt at.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="lowBandwidth">Whether to leave the pictures out of the questions' text, each as a marker the page fetches when wanted (FR-53, see <see cref="QuestionMedia"/>).</param>
     /// <returns>The attempt with its questions while it is open, or with its score once it is submitted.</returns>
     /// <exception cref="ExamContentUnavailableError">The exam's questions cannot be read.</exception>
-    public async Task<AttemptDto> BuildAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken)
+    public async Task<AttemptDto> BuildAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken, bool lowBandwidth = false)
     {
         var sections = attempt.Status == AttemptStatus.InProgress
-            ? await BuildSectionsAsync(attempt, exam, cancellationToken)
+            ? await BuildSectionsAsync(attempt, exam, lowBandwidth, cancellationToken)
             : [];
 
         return new AttemptDto(
@@ -59,7 +60,7 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock, 
             AccommodationPolicy.ForCandidate(attempt));
     }
 
-    private async Task<IReadOnlyList<AttemptSectionDto>> BuildSectionsAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<AttemptSectionDto>> BuildSectionsAsync(Attempt attempt, ExamSnapshot exam, bool lowBandwidth, CancellationToken cancellationToken)
     {
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
         // In the language the candidate asked for where there is a translation (FR-51); the words only, never the options or the key.
@@ -79,7 +80,7 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock, 
                     var question = questions.GetValueOrDefault(id) ?? throw new ExamContentUnavailableError();
                     return new AttemptQuestionDto(
                         question.Id,
-                        question.Text,
+                        lowBandwidth ? QuestionMedia.Detach(question.Text) : question.Text,
                         AttemptOrdering.Arrange(question.Options, o => o.Id, attempt.Id, attempt.Number, question.Id, exam.ShuffleOptions, o => o.IsPinned)
                             .Select(o => new AttemptOptionDto(o.Id, o.Text)).ToList(),
                         chosen.TryGetValue(id, out var optionIds) ? optionIds[0] : null,
