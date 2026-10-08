@@ -57,6 +57,15 @@ export const EN = {
   'register.submit': 'Create account',
   'register.haveAccount': 'Already have an account? Log in',
   'register.destinationRequired': 'Enter your email address or phone number.',
+  'verify.title': 'Verify code',
+  'verify.code': 'Six-digit code',
+  'verify.codeRequired': 'Enter the six-digit code.',
+  'verify.sentToLogin': 'If an account exists for {destination}, we\'ve sent a code.',
+  'verify.sentToRegistration': 'We\'ve sent a code to {destination}.',
+  'verify.submit': 'Verify',
+  'verify.backToLogin': 'Back to login',
+  'verify.missingChallenge': 'Missing verification challenge — start again from login or registration.',
+  'verify.unexpectedResponse': 'Unexpected response from the server.',
 
   // ---- my exams ----
   'myExams.title': 'My exams',

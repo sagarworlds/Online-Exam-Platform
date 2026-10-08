@@ -52,6 +52,15 @@ export const MR: Messages = {
   'register.submit': 'खाते तयार करा',
   'register.haveAccount': 'आधीच खाते आहे? लॉग इन करा',
   'register.destinationRequired': 'तुमचा ईमेल पत्ता किंवा फोन नंबर टाका.',
+  'verify.title': 'कोड पडताळा',
+  'verify.code': 'सहा अंकी कोड',
+  'verify.codeRequired': 'सहा अंकी कोड टाका.',
+  'verify.sentToLogin': 'जर {destination} साठी खाते असेल, तर आम्ही एक कोड पाठवला आहे.',
+  'verify.sentToRegistration': 'आम्ही {destination} वर एक कोड पाठवला आहे.',
+  'verify.submit': 'पडताळा',
+  'verify.backToLogin': 'लॉग इनकडे परत जा',
+  'verify.missingChallenge': 'पडताळणीची माहिती मिळाली नाही — लॉग इन किंवा नोंदणीपासून पुन्हा सुरू करा.',
+  'verify.unexpectedResponse': 'सर्व्हरकडून अनपेक्षित प्रतिसाद मिळाला.',
 
   // ---- my exams ----
   'myExams.title': 'माझ्या परीक्षा',

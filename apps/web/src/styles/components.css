@@ -104,6 +104,48 @@
   font-size: 0.85rem;
 }
 
+/* A one-time code: six boxes drawn over one real input, so typing, pasting and phone autofill all reach a single field.
+   The input is invisible but still focusable, and taps on the boxes land on it. */
+.code-entry {
+  position: relative;
+}
+
+.code-entry__boxes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.code-entry__box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 3.25rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.code-entry:focus-within .code-entry__box--next {
+  border-color: var(--primary);
+  box-shadow: var(--focus-ring);
+}
+
+.field .code-entry input.code-entry__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  opacity: 0;
+  font-size: 16px;
+}
+
 .option-row {
   display: flex;
   gap: 0.5rem;

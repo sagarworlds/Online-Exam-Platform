@@ -52,6 +52,15 @@ export const HI: Messages = {
   'register.submit': 'खाता बनाएँ',
   'register.haveAccount': 'पहले से खाता है? लॉग इन करें',
   'register.destinationRequired': 'अपना ईमेल पता या फ़ोन नंबर दर्ज करें।',
+  'verify.title': 'कोड सत्यापित करें',
+  'verify.code': 'छह अंकों का कोड',
+  'verify.codeRequired': 'छह अंकों का कोड दर्ज करें।',
+  'verify.sentToLogin': 'यदि {destination} के लिए कोई खाता मौजूद है, तो हमने एक कोड भेजा है।',
+  'verify.sentToRegistration': 'हमने {destination} पर एक कोड भेजा है।',
+  'verify.submit': 'सत्यापित करें',
+  'verify.backToLogin': 'लॉग इन पर वापस जाएँ',
+  'verify.missingChallenge': 'सत्यापन की जानकारी नहीं मिली — लॉग इन या पंजीकरण से फिर शुरू करें।',
+  'verify.unexpectedResponse': 'सर्वर से अप्रत्याशित प्रतिक्रिया मिली।',
 
   // ---- my exams ----
   'myExams.title': 'मेरी परीक्षाएँ',
