@@ -94,6 +94,13 @@ describe('ExamAttempt preview', () => {
     expect(back?.getAttribute('href')).toBe('/exams/e1');
   });
 
+  it('offers no way to report an issue, since a preview has no attempt to report from', async () => {
+    const fixture = await open();
+
+    expect(Array.from(root(fixture).querySelectorAll('button')).some((b) => b.textContent?.trim() === 'Report an issue')).toBe(false);
+    expect(root(fixture).querySelector('app-report-issue')).toBeNull();
+  });
+
   it('saves nothing: a choice, a mark and a clear all stay on the page', async () => {
     const fixture = await open();
 

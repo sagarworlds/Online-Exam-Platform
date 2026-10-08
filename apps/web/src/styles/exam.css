@@ -512,6 +512,15 @@
   overflow-wrap: anywhere;
 }
 
+/* The "report an issue" button of the exam page (FR-42) and the form that opens in its place; it sits above the questions, so it stays reachable while paused. */
+.report-issue {
+  margin-block: 0.75rem;
+}
+
+.report-issue .card {
+  margin-top: 0.5rem;
+}
+
 /* Text size for the question and its options only: the palette and timer keep their size so they never crowd the screen. */
 .exam-question {
   font-size: calc(1rem * var(--exam-zoom, 1));

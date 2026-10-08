@@ -12,6 +12,8 @@ import {
   DisputeRow,
   ExamAttemptsDto,
   ExamCandidateDto,
+  IssueReportFilterStatus,
+  IssueReportRow,
   SetAccommodationRequest,
 } from './attempt-admin.models';
 
@@ -22,6 +24,7 @@ export class AttemptAdminApiService {
   private readonly examsUrl = `${environment.apiBaseUrl}/v1/exams`;
   private readonly requestsUrl = `${environment.apiBaseUrl}/v1/attempt-requests`;
   private readonly disputesUrl = `${environment.apiBaseUrl}/v1/disputes`;
+  private readonly issueReportsUrl = `${environment.apiBaseUrl}/v1/issue-reports`;
 
   getExamAttempts(examId: string): Observable<ExamAttemptsDto> {
     return this.http.get<ExamAttemptsDto>(`${this.examsUrl}/${examId}/attempts`);
@@ -60,6 +63,16 @@ export class AttemptAdminApiService {
   /** Turns a dispute down; the explanation is shown to the candidate. Correcting the question's answer key accepts its disputes instead. */
   rejectDispute(disputeId: string, note: string): Observable<DisputeRow> {
     return this.http.post<DisputeRow>(`${this.disputesUrl}/${disputeId}/reject`, { note });
+  }
+
+  /** The problems candidates reported from inside an exam, with the given status, oldest first (open ones by default), at most 200 (FR-42). */
+  listIssueReports(status: IssueReportFilterStatus = 'open'): Observable<IssueReportRow[]> {
+    return this.http.get<IssueReportRow[]>(this.issueReportsUrl, { params: { status } });
+  }
+
+  /** Marks a reported problem as dealt with, optionally saying what was done; a blank note is sent as none. */
+  resolveIssueReport(issueReportId: string, note: string): Observable<IssueReportRow> {
+    return this.http.post<IssueReportRow>(`${this.issueReportsUrl}/${issueReportId}/resolve`, { note: note.trim() === '' ? null : note });
   }
 
   /** Sends the candidate a warning, which their exam page shows within seconds (FR-29). */

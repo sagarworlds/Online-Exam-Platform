@@ -1301,6 +1301,34 @@ describe('ExamAttempt', () => {
       expect(textOf(fixture)).toContain('Question 1 of 2');
     });
 
+    it('offers to report an issue during a sitting, naming the attempt and the question on screen (FR-42)', async () => {
+      const fixture = await open(attempt());
+
+      const report = Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Report an issue') as HTMLButtonElement;
+      expect(report).toBeTruthy();
+      report.click();
+      fixture.detectChanges();
+      const box = root(fixture).querySelector('textarea') as HTMLTextAreaElement;
+      box.value = 'Option C is missing';
+      box.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      (Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Send report') as HTMLButtonElement).click();
+
+      const request = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/me/attempts/a1/issues'));
+      expect(request.request.body).toMatchObject({ category: 'Question', message: 'Option C is missing' });
+      expect((request.request.body as { questionId: string }).questionId).toBeTruthy();
+      request.flush({ id: 'r1', category: 'Question', questionId: null, message: 'Option C is missing', reportedAtUtc: '2026-10-05T04:31:00Z' });
+    });
+
+    it('still offers to report an issue while an organiser has the attempt paused', async () => {
+      const fixture = await open(attempt());
+
+      beat(fixture, status({ pausedAtUtc: new Date(Date.now()).toISOString() }));
+
+      expect(textOf(fixture)).toContain('Your exam is paused');
+      expect(Array.from(root(fixture).querySelectorAll('button')).some((b) => b.textContent?.trim() === 'Report an issue')).toBe(true);
+    });
+
     it('hides the questions and says so when an organiser pauses the attempt, and brings them back on resume with the new deadline', async () => {
       const fixture = await open(attempt());
 

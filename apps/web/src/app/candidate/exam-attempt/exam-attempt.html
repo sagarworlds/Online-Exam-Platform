@@ -32,6 +32,10 @@
         <span class="hint" aria-live="polite">{{ zoom() * 100 | number: '1.0-0' }}%</span>
         <button type="button" [disabled]="!canZoomIn()" (click)="zoomIn()" [attr.aria-label]="'attempt.largerText' | t">A+</button>
       </div>
+      <!-- Outside the paused branch below on purpose: a candidate who was stopped is the one most likely to have something to report. A preview has no real attempt to report from. -->
+      @if (!preview) {
+        <app-report-issue [attemptId]="current.id" [questionId]="currentQuestion()?.id ?? null" />
+      }
       <p class="hint exam-shortcuts">{{ 'attempt.shortcuts' | t }}</p>
       @if (protectContent()) {
         <p class="hint exam-protection">{{ 'attempt.protect' | t }}</p>

@@ -282,6 +282,25 @@ export interface ScoreRevisionDto {
   version?: number;
 }
 
+/** What kind of problem a candidate reports from inside an exam (FR-42). */
+export type IssueCategory = 'Question' | 'Technical' | 'Other';
+
+/** The kinds a candidate can choose from, in the order they are offered. */
+export const ISSUE_CATEGORIES: readonly IssueCategory[] = ['Question', 'Technical', 'Other'];
+
+/** The longest description the API accepts on a reported problem. */
+export const MAX_ISSUE_MESSAGE = 1000;
+
+/** A problem the candidate has just reported from inside the exam (FR-42); it only confirms what was recorded. */
+export interface MyIssueReportDto {
+  id: string;
+  category: IssueCategory;
+  /** The question on screen when it was reported, if it was about one. */
+  questionId: string | null;
+  message: string;
+  reportedAtUtc: string;
+}
+
 /** Where a candidate's dispute of an answer key stands (FR-31). */
 export type DisputeStatus = 'Open' | 'Accepted' | 'Rejected';
 
