@@ -34,6 +34,12 @@ export const MR: Messages = {
   'login.sendCode': 'कोड पाठवा',
   'login.createAccount': 'खाते तयार करा',
   'login.forgot': 'पासवर्ड विसरलात?',
+  'login.showPassword': 'दाखवा',
+  'login.hidePassword': 'लपवा',
+  'login.emailRequired': 'तुमचा ईमेल पत्ता टाका.',
+  'login.emailInvalid': 'ईमेल पत्ता name@example.com अशा स्वरूपात टाका.',
+  'login.passwordRequired': 'तुमचा पासवर्ड टाका.',
+  'login.destinationRequired': 'तुमचा ईमेल पत्ता किंवा फोन नंबर टाका.',
 
   // ---- register ----
   'register.title': 'नोंदणी',

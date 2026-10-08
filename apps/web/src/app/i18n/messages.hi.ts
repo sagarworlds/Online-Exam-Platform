@@ -34,6 +34,12 @@ export const HI: Messages = {
   'login.sendCode': 'कोड भेजें',
   'login.createAccount': 'खाता बनाएँ',
   'login.forgot': 'पासवर्ड भूल गए?',
+  'login.showPassword': 'दिखाएँ',
+  'login.hidePassword': 'छिपाएँ',
+  'login.emailRequired': 'अपना ईमेल पता दर्ज करें।',
+  'login.emailInvalid': 'ईमेल पता इस रूप में लिखें: name@example.com',
+  'login.passwordRequired': 'अपना पासवर्ड दर्ज करें।',
+  'login.destinationRequired': 'अपना ईमेल पता या फ़ोन नंबर दर्ज करें।',
 
   // ---- register ----
   'register.title': 'पंजीकरण',

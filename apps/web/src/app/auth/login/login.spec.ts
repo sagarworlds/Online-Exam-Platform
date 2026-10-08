@@ -138,4 +138,63 @@ describe('Login', () => {
       expect(compiled.querySelector('[role="status"]')).toBeNull();
     });
   });
+
+  describe('the sign-in form', () => {
+    function render() {
+      const fixture = TestBed.createComponent(Login);
+      fixture.detectChanges();
+      return { fixture, compiled: fixture.nativeElement as HTMLElement };
+    }
+
+    it('says what is missing when submitted empty, and leaves the button usable', () => {
+      const { fixture, compiled } = render();
+
+      fixture.componentInstance['submitPassword']();
+      fixture.detectChanges();
+
+      expect(compiled.querySelector('#login-email-error')?.textContent).toContain('Enter your email address.');
+      expect(compiled.querySelector('#login-password-error')?.textContent).toContain('Enter your password.');
+      expect((compiled.querySelector('button[type="submit"]') as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it('explains a malformed email differently from a missing one', () => {
+      const { fixture, compiled } = render();
+      fixture.componentInstance['passwordForm'].setValue({ email: 'not-an-email', password: 'secret' });
+
+      fixture.componentInstance['submitPassword']();
+      fixture.detectChanges();
+
+      expect(compiled.querySelector('#login-email-error')?.textContent).toContain('name@example.com');
+    });
+
+    it('announces a failed sign-in as an alert, directly above the submit button', () => {
+      const { fixture, compiled } = render();
+      fixture.componentInstance['passwordForm'].setValue({ email: 'a@b.com', password: 'wrong' });
+
+      fixture.componentInstance['submitPassword']();
+      TestBed.inject(HttpTestingController)
+        .expectOne((r) => r.url.endsWith('/auth/login'))
+        .flush({ detail: 'The email or password is incorrect.' }, { status: 401, statusText: 'Unauthorized' });
+      fixture.detectChanges();
+
+      const alert = compiled.querySelector('[role="alert"]');
+      expect(alert?.textContent).toContain('The email or password is incorrect.');
+      expect(alert?.nextElementSibling?.getAttribute('type')).toBe('submit');
+    });
+
+    it('shows the password as text only while the user asks to see it', () => {
+      const { fixture, compiled } = render();
+      const password = compiled.querySelector('#login-password') as HTMLInputElement;
+      const toggle = compiled.querySelector('.password-toggle') as HTMLButtonElement;
+
+      expect(password.type).toBe('password');
+      expect(toggle.textContent?.trim()).toBe('Show');
+
+      toggle.click();
+      fixture.detectChanges();
+
+      expect(password.type).toBe('text');
+      expect(toggle.textContent?.trim()).toBe('Hide');
+    });
+  });
 });

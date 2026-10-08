@@ -40,8 +40,7 @@
 
 .api-activity__note {
   position: fixed;
-  /* Clear of the API health pill that sits in the bottom corner, even on a narrow screen. */
-  inset: auto 0 3.25rem 0;
+  inset: auto 0 1rem 0;
   z-index: 1000;
   margin: 0 auto;
   width: fit-content;

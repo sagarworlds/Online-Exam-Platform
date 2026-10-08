@@ -39,6 +39,12 @@ export const EN = {
   'login.sendCode': 'Send code',
   'login.createAccount': 'Create an account',
   'login.forgot': 'Forgot password?',
+  'login.showPassword': 'Show',
+  'login.hidePassword': 'Hide',
+  'login.emailRequired': 'Enter your email address.',
+  'login.emailInvalid': 'Enter an email address like name@example.com.',
+  'login.passwordRequired': 'Enter your password.',
+  'login.destinationRequired': 'Enter your email address or phone number.',
 
   // ---- register ----
   'register.title': 'Register',
