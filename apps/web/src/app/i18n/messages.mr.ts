@@ -320,4 +320,10 @@ export const MR: Messages = {
   'verdict.partial': 'अंशतः बरोबर',
   'verdict.wrong': 'चुकीचे',
   'verdict.unanswered': 'अनुत्तरित',
+
+  // ---- no access ----
+  'forbidden.title': 'या पानावर तुम्हाला प्रवेश नाही',
+  'forbidden.reason': 'तुमच्या खात्यात या भागाची परवानगी नाही. ती हवी असल्यास प्रशासकाला विचारा.',
+  'forbidden.home': 'माझ्या मुख्य पानावर जा',
+  'forbidden.switchAccount': 'दुसऱ्या खात्याने साइन इन करा',
 };

@@ -1,0 +1,34 @@
+/* The no-access screen: a centred card with one primary action and one text-style action. */
+.forbidden {
+  text-align: center;
+}
+
+.forbidden__icon {
+  display: block;
+  width: 3rem;
+  height: 3rem;
+  margin: 0 auto 1rem;
+  color: var(--primary);
+}
+
+/* Focus is moved here on arrival so the reason is read out. The heading is not a control, so a focus ring would only add noise. */
+.forbidden h1:focus {
+  outline: none;
+}
+
+.forbidden__alternative {
+  margin: 1rem 0 0;
+}
+
+/* Looks like a link, but it signs the user out, so it stays a button for keyboard and screen reader users. */
+.forbidden__switch {
+  padding: 0.5rem;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.forbidden__switch:hover:not(:disabled) {
+  background: none;
+}

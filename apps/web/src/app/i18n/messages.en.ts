@@ -326,6 +326,12 @@ export const EN = {
   'verdict.partial': 'Partly correct',
   'verdict.wrong': 'Wrong',
   'verdict.unanswered': 'Not answered',
+
+  // ---- no access ----
+  'forbidden.title': 'You don’t have access to this page',
+  'forbidden.reason': 'Your account doesn’t include permission for this area. If you need it, ask an administrator.',
+  'forbidden.home': 'Go to my home page',
+  'forbidden.switchAccount': 'Sign in with a different account',
 } as const;
 
 /** The key of a message. */
