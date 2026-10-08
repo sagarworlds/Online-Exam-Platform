@@ -1,0 +1,238 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>WhatsApp test</h1>
+  </div>
+
+  <p class="hint">
+    Send a message to a phone number through the platform's WhatsApp connection to check that it works. If it does not, this page
+    says why.
+  </p>
+
+  <section class="card" aria-labelledby="whatsapp-setup-heading">
+    <div class="whatsapp-card-head">
+      <h2 id="whatsapp-setup-heading">Setup check</h2>
+      <button type="button" (click)="loadStatus()" [disabled]="statusLoading()">Refresh</button>
+    </div>
+
+    @if (statusError(); as error) {
+      <p class="error-message" role="alert">{{ error }}</p>
+      <button type="button" (click)="loadStatus()" [disabled]="statusLoading()">Retry</button>
+    } @else if (status(); as setup) {
+      <p>
+        <span class="badge whatsapp-pill" [class.badge--active]="setup.enabled" [class.badge--inactive]="!setup.enabled">
+          {{ setup.enabled ? 'WhatsApp is on' : 'WhatsApp is off' }}
+        </span>
+      </p>
+
+      <div class="table-wrap">
+        <table class="table">
+          <caption class="visually-hidden">
+            WhatsApp settings
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Setting</th>
+              <th scope="col">Status</th>
+              <th scope="col">What it is for</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of setup.settings; track item.setting) {
+              <tr>
+                <td>
+                  <code class="whatsapp-setting">{{ item.setting }}</code>
+                </td>
+                <td>
+                  <span class="badge whatsapp-tag" [class.badge--active]="item.isSet" [class.badge--danger]="!item.isSet && item.required">
+                    {{ item.isSet ? 'Set' : 'Not set' }}
+                  </span>
+                  @if (item.required) {
+                    <span class="badge whatsapp-tag">required</span>
+                  }
+                </td>
+                <td class="whatsapp-purpose">
+                  {{ item.purpose }}
+                  @if (item.value !== null && item.value !== '') {
+                    <span class="hint whatsapp-value">Value: <code>{{ item.value }}</code></span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (setup.problems.length > 0) {
+        <div class="error-message whatsapp-problems">
+          <h3>What is stopping WhatsApp from sending</h3>
+          <ul>
+            @for (problem of setup.problems; track $index) {
+              <li>{{ problem }}</li>
+            }
+          </ul>
+        </div>
+      } @else {
+        <p class="success-message">Nothing is missing.</p>
+      }
+
+      @if (setup.notes.length > 0) {
+        <h3 class="whatsapp-notes__title">Worth knowing</h3>
+        <ul class="hint whatsapp-notes">
+          @for (note of setup.notes; track $index) {
+            <li>{{ note }}</li>
+          }
+        </ul>
+      }
+    } @else {
+      <p>Loading…</p>
+    }
+  </section>
+
+  <form class="card" (submit)="$event.preventDefault(); send()" aria-labelledby="whatsapp-send-heading">
+    <h2 id="whatsapp-send-heading">Send a message</h2>
+
+    <div class="field">
+      <label for="whatsapp-phone">Phone number</label>
+      <input
+        id="whatsapp-phone"
+        type="tel"
+        required
+        autocomplete="off"
+        aria-describedby="whatsapp-phone-hint"
+        [value]="phone()"
+        (input)="phone.set($any($event.target).value)"
+      />
+      <p class="field-hint" id="whatsapp-phone-hint">
+        With the country code, for example 919876543210. Without one, the platform's default country code is added.
+      </p>
+    </div>
+
+    <fieldset class="field release-fields">
+      <legend>What to send</legend>
+      <label class="inline-check release-fields__choice">
+        <input type="radio" name="whatsapp-mode" value="Text" [checked]="mode() === 'Text'" (change)="mode.set('Text')" />
+        <span>
+          A message I write
+          <span class="hint release-fields__hint">
+            WhatsApp only delivers a free message to someone who messaged your WhatsApp number in the last 24 hours.
+          </span>
+        </span>
+      </label>
+      <label class="inline-check release-fields__choice">
+        <input
+          type="radio"
+          name="whatsapp-mode"
+          value="SignInTemplate"
+          [checked]="mode() === 'SignInTemplate'"
+          (change)="mode.set('SignInTemplate')"
+        />
+        <span>
+          The sign-in code template
+          <span class="hint release-fields__hint">Works for anyone. Sends a test code that cannot be used to sign in.</span>
+        </span>
+      </label>
+    </fieldset>
+
+    @if (mode() === 'Text') {
+      <div class="field">
+        <label for="whatsapp-message">Message</label>
+        <textarea
+          id="whatsapp-message"
+          rows="4"
+          required
+          aria-describedby="whatsapp-message-count"
+          [attr.maxlength]="maxLength"
+          [value]="message()"
+          (input)="message.set($any($event.target).value)"
+        ></textarea>
+        <p class="field-hint whatsapp-counter" id="whatsapp-message-count">
+          <span aria-hidden="true">{{ message().length }} / {{ maxLength }}</span>
+          <span class="visually-hidden">{{ message().length }} of {{ maxLength }} characters used</span>
+        </p>
+      </div>
+    }
+
+    <div class="actions">
+      <button type="submit" class="primary" [disabled]="!canSend()">{{ sending() ? 'Sending…' : 'Send to WhatsApp' }}</button>
+    </div>
+  </form>
+
+  <div aria-live="polite">
+    @if (sendError(); as error) {
+      <p class="error-message">{{ error }}</p>
+    }
+
+    @if (failure(); as why) {
+      <section class="card whatsapp-result whatsapp-result--failed" aria-labelledby="whatsapp-result-heading">
+        <h2 id="whatsapp-result-heading">{{ failureTitle(why.kind) }}</h2>
+        @if (sendResult()?.sent) {
+          <p class="card__meta">WhatsApp accepted the message but could not deliver it.</p>
+        }
+        <p>{{ why.explanation }}</p>
+        @if (hasMetaDetails(why)) {
+          <details class="whatsapp-meta">
+            <summary>What Meta said</summary>
+            <dl class="whatsapp-meta__list">
+              @if (why.metaCode !== null) {
+                <dt>Meta code</dt>
+                <dd>{{ why.metaCode }}</dd>
+              }
+              @if (why.httpStatus !== null) {
+                <dt>HTTP status</dt>
+                <dd>{{ why.httpStatus }}</dd>
+              }
+              @if (why.metaMessage) {
+                <dt>Meta message</dt>
+                <dd>{{ why.metaMessage }}</dd>
+              }
+            </dl>
+          </details>
+        }
+      </section>
+    } @else if (sendResult(); as result) {
+      <section class="card whatsapp-result" aria-labelledby="whatsapp-result-heading">
+        <h2 id="whatsapp-result-heading">Handed to WhatsApp</h2>
+        @if (result.to) {
+          <p>
+            To <strong>{{ result.to }}</strong>
+          </p>
+        }
+        @if (result.messageId) {
+          <p class="card__meta">
+            Message ID <code>{{ result.messageId }}</code>
+          </p>
+        }
+        @if (result.note) {
+          <p>{{ result.note }}</p>
+        }
+
+        @if (tracking()) {
+          <ol class="whatsapp-steps" aria-label="Delivery progress">
+            @for (step of steps(); track step.label) {
+              <li [attr.aria-current]="step.state === 'current' ? 'step' : null">
+                @if (!$first) {
+                  <span class="whatsapp-steps__arrow" aria-hidden="true">→</span>
+                }
+                <span class="whatsapp-steps__step" [class.whatsapp-steps__step--done]="step.state === 'done'" [class.whatsapp-steps__step--current]="step.state === 'current'">
+                  <span aria-hidden="true">{{ step.mark }}</span>
+                  {{ step.label }}
+                  @if (step.spoken) {
+                    <span class="visually-hidden">({{ step.spoken }})</span>
+                  }
+                </span>
+              </li>
+            }
+          </ol>
+          @if (awaitingReport()) {
+            <p class="hint">Waiting for a delivery report…</p>
+          }
+          @if (timeoutNote(); as note) {
+            <p class="hint">{{ note }}</p>
+          }
+        } @else {
+          <p class="hint">Delivery cannot be confirmed here because delivery reports are not set up; check the phone.</p>
+        }
+      </section>
+    }
+  </div>
+</div>

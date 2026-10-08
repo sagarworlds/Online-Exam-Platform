@@ -69,6 +69,9 @@ public static class RbacCatalog
 
         /// <summary>Link guardians to candidates and revoke those links (FR-45).</summary>
         public const string GuardianLinkManage = "guardian.link.manage";
+
+        /// <summary>Check the WhatsApp connection and send a test message through it: a real message to a real number.</summary>
+        public const string WhatsAppTest = "admin.whatsapp.test";
     }
 
     /// <summary>The names of the roles the platform defines.</summary>
@@ -116,6 +119,7 @@ public static class RbacCatalog
         new(PermissionCodes.InviteManage, "Create invites and manage their codes"),
         new(PermissionCodes.GuardianLinkManage, "Link guardians to candidates and revoke those links"),
         new(PermissionCodes.OtpRead, "Read candidates' unspent sign-in and registration codes"),
+        new(PermissionCodes.WhatsAppTest, "Check the WhatsApp connection and send test messages through it"),
     ];
 
     /// <summary>

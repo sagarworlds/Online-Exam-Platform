@@ -14,7 +14,7 @@ describe('landingRoute', () => {
     expect(landingRoute(sessionWith(true, []))).toBe('/my-exams');
   });
 
-  it.each(['question.manage', 'question.read', 'exam.read', 'invite.manage', 'batch.manage', 'guardian.link.manage', 'identity.otp.read'])(
+  it.each(['question.manage', 'question.read', 'exam.read', 'invite.manage', 'batch.manage', 'guardian.link.manage', 'identity.otp.read', 'admin.whatsapp.test'])(
     'sends a user holding %s to the admin home',
     (permission) => {
       expect(landingRoute(sessionWith(true, [permission]))).toBe('/admin');

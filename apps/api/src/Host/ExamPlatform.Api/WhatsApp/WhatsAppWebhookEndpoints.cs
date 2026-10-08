@@ -42,7 +42,11 @@ internal static class WhatsAppWebhookEndpoints
     }
 
     private static async Task<IResult> ReceiveAsync(
-        HttpRequest request, IOptions<WhatsAppOptions> options, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
+        HttpRequest request,
+        IOptions<WhatsAppOptions> options,
+        IWhatsAppDeliveryTracker tracker,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
     {
         var whatsApp = options.Value;
         if (!whatsApp.CanReceiveWebhooks)
@@ -85,6 +89,10 @@ internal static class WhatsAppWebhookEndpoints
         foreach (var webhookEvent in events)
         {
             Log(logger, webhookEvent);
+            if (webhookEvent is WhatsAppDeliveryStatus delivery)
+            {
+                tracker.Record(delivery);
+            }
         }
 
         // Answered 200 whatever the events were: Meta redelivers anything else, and there is nothing here to retry.

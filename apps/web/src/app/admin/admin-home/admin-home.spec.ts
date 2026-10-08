@@ -18,11 +18,35 @@ function render(permissions: string[]): HTMLElement {
 
 describe('AdminHome', () => {
   it('offers every admin area to a user holding all the permissions', () => {
-    const text = render(['question.manage', 'question.read', 'exam.read', 'invite.manage', 'batch.manage', 'guardian.link.manage', 'identity.otp.read']).textContent;
+    const text = render([
+      'question.manage',
+      'question.read',
+      'exam.read',
+      'invite.manage',
+      'batch.manage',
+      'guardian.link.manage',
+      'identity.otp.read',
+      'admin.whatsapp.test',
+    ]).textContent;
 
-    for (const label of ['Questions', 'Books', 'Exams', 'Invites', 'Batches', 'Guardians', 'Candidate codes']) {
+    for (const label of ['Questions', 'Books', 'Exams', 'Invites', 'Batches', 'Guardians', 'Candidate codes', 'WhatsApp test']) {
       expect(text).toContain(label);
     }
+  });
+
+  it('offers the WhatsApp test to a user holding its permission, linking to its page', () => {
+    const page = render(['admin.whatsapp.test']);
+
+    expect(page.textContent).toContain('WhatsApp test');
+    expect(page.textContent).toContain('Check that WhatsApp can send, and see exactly why not if it cannot.');
+    expect(page.querySelector('a')?.getAttribute('href')).toBe('/admin/whatsapp');
+  });
+
+  it('keeps the WhatsApp test from a user without its permission, however many others they hold', () => {
+    const page = render(['question.manage', 'question.read', 'exam.read', 'invite.manage', 'identity.otp.read']);
+
+    expect(page.textContent).not.toContain('WhatsApp test');
+    expect(page.querySelector('a[href="/admin/whatsapp"]')).toBeNull();
   });
 
   it('offers only the areas the permissions open', () => {

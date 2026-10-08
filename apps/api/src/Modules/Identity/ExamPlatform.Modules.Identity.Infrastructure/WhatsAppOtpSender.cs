@@ -35,7 +35,7 @@ public sealed class WhatsAppOtpSender(IWhatsAppSender whatsApp, IOptions<WhatsAp
         }
 
         var result = await whatsApp.SendTemplateAsync(
-            new WhatsAppTemplateMessage(to, settings.OtpTemplateName!, settings.OtpTemplateLanguage, [code], code),
+            WhatsAppMessages.AuthenticationCode(to, settings.OtpTemplateName!, settings.OtpTemplateLanguage, code),
             cancellationToken);
 
         if (result.Sent)

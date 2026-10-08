@@ -21,6 +21,12 @@ public sealed record RequestPasswordResetRequest(string Email);
 /// <summary>Request body for <c>POST /v1/auth/password-reset/reset</c>.</summary>
 public sealed record ResetPasswordRequest(Guid PasswordResetTokenId, string Token, string NewPassword);
 
+/// <summary>Request body for <c>POST /v1/admin/whatsapp/messages</c>.</summary>
+/// <param name="PhoneNumber">The recipient, as typed; the default country code is added when it has none.</param>
+/// <param name="Mode"><c>Text</c> (a message the administrator wrote) or <c>SignInTemplate</c> (the sign-in code template, which works for anyone).</param>
+/// <param name="Message">The text, for <c>Text</c>; at most 1000 characters.</param>
+public sealed record SendWhatsAppTestRequest(string? PhoneNumber, string? Mode, string? Message);
+
 /// <summary>Request body for <c>PUT /v1/me/profile</c>.</summary>
 public sealed record UpdateProfileRequest(string DisplayName);
 

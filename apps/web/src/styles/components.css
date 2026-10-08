@@ -575,7 +575,7 @@ button.primary:hover:not(:disabled),
   padding-inline-start: 1rem;
 }
 
-/* The answer-review choice: a radio per mode, with a one-line explanation under its label. */
+/* The answer-review choice (the WhatsApp test's "What to send" too): a radio per option, with a one-line explanation under its label. */
 .release-fields {
   display: flex;
   flex-direction: column;
@@ -735,4 +735,139 @@ button.primary:hover:not(:disabled),
   .form-row--triple {
     grid-template-columns: 1fr;
   }
+}
+
+/* The WhatsApp test page: a card's title with its Refresh button, the setup table's tags, the problem and note lists, the
+   message counter, the result, and the Sent, Delivered, Read progress line. Colours are tokens only, so dark mode follows;
+   every state also has words or a symbol, so none of it relies on colour alone. */
+.whatsapp-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.whatsapp-card-head h2 {
+  margin: 0;
+}
+
+.whatsapp-pill {
+  margin-inline-start: 0;
+  padding: 0.25rem 0.8rem;
+  font-size: 0.9rem;
+}
+
+/* A setting name is read and copied whole, so beside the sidebar it never breaks mid-word and the table scrolls instead. On a
+   phone the page is as wide as its widest content (see .shell), so there the name wraps to keep the table on screen. */
+@media (min-width: 40.01rem) {
+  .whatsapp-setting {
+    white-space: nowrap;
+    word-break: normal;
+  }
+
+  .whatsapp-purpose {
+    min-width: 14rem;
+  }
+}
+
+.whatsapp-tag {
+  margin-inline-start: 0;
+  margin-inline-end: 0.35rem;
+}
+
+.whatsapp-value {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.whatsapp-problems h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.whatsapp-problems ul,
+.whatsapp-notes {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
+.whatsapp-notes__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.whatsapp-counter {
+  text-align: end;
+}
+
+.whatsapp-result {
+  border-inline-start: 4px solid var(--success);
+}
+
+.whatsapp-result--failed {
+  border-inline-start-color: var(--danger);
+}
+
+.whatsapp-meta summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.whatsapp-meta__list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+}
+
+.whatsapp-meta__list dt {
+  color: var(--text-muted);
+}
+
+.whatsapp-meta__list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.whatsapp-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.whatsapp-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.whatsapp-steps__step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.whatsapp-steps__step--done {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.whatsapp-steps__step--current {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--text);
+  font-weight: 700;
 }
