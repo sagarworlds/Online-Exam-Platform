@@ -34,6 +34,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { label: 'Exams', description: 'Build an exam from questions, schedule it and publish it.', path: '/exams', permission: Permission.ExamRead, icon: 'exam' },
   { label: 'Attempt requests', description: 'Answer candidates who ask for another attempt.', path: '/admin/attempt-requests', permission: Permission.ExamManage, icon: 'attempt-request' },
   { label: 'Disputes', description: 'Answer candidates who dispute an answer key: correct it or explain why it stands.', path: '/admin/disputes', permission: Permission.ExamManage, icon: 'dispute' },
+  { label: 'Reported issues', description: 'Read the problems candidates report from inside an exam and mark them resolved.', path: '/admin/issue-reports', permission: Permission.ExamManage, icon: 'issue' },
   { label: 'Invites', description: 'Invite candidates to an exam by email.', path: '/invites', permission: Permission.InviteManage, icon: 'invite' },
   { label: 'Batches', description: 'Group candidates into batches.', path: '/batches', permission: Permission.BatchManage, icon: 'batch' },
   { label: 'Guardians', description: 'Link a guardian to a candidate.', path: '/guardian/link-candidate', permission: Permission.GuardianLinkManage, icon: 'guardian' },

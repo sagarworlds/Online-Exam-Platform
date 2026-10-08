@@ -17,7 +17,9 @@ public sealed class AttemptAuditTrail(IAuditLogger auditLogger, IRequestContext 
         IDomainEventHandler<AttemptInvalidatedEvent>,
         IDomainEventHandler<AttemptClientChangedEvent>,
         IDomainEventHandler<DisputeRaisedEvent>,
-        IDomainEventHandler<DisputeResolvedEvent>
+        IDomainEventHandler<DisputeResolvedEvent>,
+        IDomainEventHandler<IssueReportedEvent>,
+        IDomainEventHandler<IssueResolvedEvent>
 {
     /// <inheritdoc />
     public Task HandleAsync(AttemptWarnedEvent domainEvent, CancellationToken cancellationToken) =>
@@ -82,6 +84,23 @@ public sealed class AttemptAuditTrail(IAuditLogger auditLogger, IRequestContext 
                 ["disputeId"] = domainEvent.DisputeId.ToString(),
                 ["questionId"] = domainEvent.QuestionId.ToString(),
             },
+            cancellationToken);
+
+    /// <inheritdoc />
+    public Task HandleAsync(IssueReportedEvent domainEvent, CancellationToken cancellationToken) =>
+        // What the candidate wrote stays on the report; the trail records that one was made, and of what kind.
+        RecordAsync("ExamRuntime.IssueReported", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
+            new Dictionary<string, string>
+            {
+                ["issueReportId"] = domainEvent.IssueReportId.ToString(),
+                ["category"] = domainEvent.Category.ToString(),
+            },
+            cancellationToken);
+
+    /// <inheritdoc />
+    public Task HandleAsync(IssueResolvedEvent domainEvent, CancellationToken cancellationToken) =>
+        RecordAsync("ExamRuntime.IssueResolved", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
+            new Dictionary<string, string> { ["issueReportId"] = domainEvent.IssueReportId.ToString() },
             cancellationToken);
 
     private Task RecordAsync(

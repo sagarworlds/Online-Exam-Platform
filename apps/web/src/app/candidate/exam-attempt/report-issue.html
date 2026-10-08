@@ -1,0 +1,43 @@
+<section class="report-issue" [attr.aria-label]="'attempt.report.region' | t">
+  @if (sent()) {
+    <p class="success-message" role="status">{{ 'attempt.report.sent' | t }}</p>
+  }
+
+  @if (open()) {
+    <form class="card" (submit)="$event.preventDefault(); send()" [attr.aria-label]="'attempt.report.formLabel' | t">
+      <div class="field">
+        <label for="report-issue-category">{{ 'attempt.report.category' | t }}</label>
+        <select id="report-issue-category" [value]="category()" (change)="category.set($any($event.target).value)" [disabled]="busy()">
+          @for (option of categories; track option) {
+            <option [value]="option" [selected]="option === category()">{{ categoryLabel(option) }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="report-issue-message">{{ 'attempt.report.what' | t }}</label>
+        <textarea
+          id="report-issue-message"
+          rows="3"
+          aria-required="true"
+          aria-describedby="report-issue-hint"
+          [maxLength]="maxMessage"
+          [value]="message()"
+          (input)="message.set($any($event.target).value)"
+          [disabled]="busy()"
+        ></textarea>
+        <p class="hint" id="report-issue-hint">{{ 'attempt.report.hint' | t: { max: maxMessage } }}</p>
+      </div>
+      @if (error()) {
+        <p class="error-message" role="alert">{{ error() }}</p>
+      }
+      <div class="actions">
+        <button type="submit" class="primary" [disabled]="busy() || message().trim() === ''">{{ 'attempt.report.send' | t }}</button>
+        <button type="button" (click)="cancel()" [disabled]="busy()">{{ 'common.cancel' | t }}</button>
+      </div>
+    </form>
+  } @else {
+    <div class="actions">
+      <button type="button" (click)="start()">{{ 'attempt.report.start' | t }}</button>
+    </div>
+  }
+</section>

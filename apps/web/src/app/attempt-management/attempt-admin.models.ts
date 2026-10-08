@@ -1,4 +1,12 @@
-import { AttemptRequestStatus, AttemptSummaryDto, AnswerVerdict, AttemptStatus, DisputeStatus, ReviewOptionDto } from '../candidate/candidate.models';
+import {
+  AttemptRequestStatus,
+  AttemptSummaryDto,
+  AnswerVerdict,
+  AttemptStatus,
+  DisputeStatus,
+  IssueCategory,
+  ReviewOptionDto,
+} from '../candidate/candidate.models';
 
 /** One enrolled candidate of an exam, with their attempts and whether another can be given, as staff see them. */
 export interface ExamCandidateDto {
@@ -141,6 +149,41 @@ export interface AttemptRequestRow {
 
 /** The statuses the dispute queue can be filtered to, as the API spells them in the query. */
 export type DisputeFilterStatus = 'open' | 'accepted' | 'rejected';
+
+/** Which reported problems the staff queue lists (FR-42). */
+export type IssueReportFilterStatus = 'open' | 'resolved';
+
+/** The longest note the API accepts when resolving a reported problem. */
+export const MAX_ISSUE_RESOLUTION_NOTE = 500;
+
+/** A problem a candidate reported from inside an exam (FR-42), as staff see it in the queue. */
+export interface IssueReportRow {
+  id: string;
+  examId: string;
+  /** Null when the exam can no longer be read. */
+  examName: string | null;
+  attemptId: string;
+  /** Which attempt this is for the candidate at the exam; null when it cannot be worked out. */
+  attemptNumber: number | null;
+  candidateId: string;
+  /** The address the candidate was invited at; null when they are no longer enrolled. */
+  candidateEmail: string | null;
+  /** The question on screen when they reported, or null when the report is not about one. */
+  questionId: string | null;
+  /** That question as it is now, as sanitized HTML; null when there is none or the bank no longer has it. Show it with `[appMath]`, never as trusted markup. */
+  questionText: string | null;
+  category: IssueCategory;
+  /** What the candidate wrote. */
+  message: string;
+  reportedAtUtc: string;
+  status: IssueReportStatus;
+  resolvedAtUtc: string | null;
+  /** What staff said they did, when they said anything. */
+  resolutionNote: string | null;
+}
+
+/** Whether a reported problem is waiting or has been dealt with. */
+export type IssueReportStatus = 'Open' | 'Resolved';
 
 /** The longest explanation the API accepts when rejecting a dispute; the candidate is shown it. */
 export const MAX_DISPUTE_REJECTION_NOTE = 500;

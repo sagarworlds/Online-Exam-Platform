@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../environments/environment';
 import { CandidateApiService } from './candidate-api.service';
-import { MyDisputeDto } from './candidate.models';
+import { MyDisputeDto, MyIssueReportDto } from './candidate.models';
 
 describe('CandidateApiService', () => {
   let service: CandidateApiService;
@@ -47,6 +47,45 @@ describe('CandidateApiService', () => {
 
       httpMock.expectOne(`${environment.apiBaseUrl}/v1/me/attempts/a1/disputes`).flush({ title: 'dispute_already_raised' }, { status: 409, statusText: 'Conflict' });
       expect(status).toBe(409);
+    });
+  });
+
+  describe('reportIssue', () => {
+    const created: MyIssueReportDto = {
+      id: 'r1',
+      category: 'Question',
+      questionId: 'q2',
+      message: 'Option C is missing',
+      reportedAtUtc: '2026-10-08T10:00:00Z',
+    };
+
+    it('posts the kind, the message and the question to the attempt’s issues and returns the report', () => {
+      let result: MyIssueReportDto | undefined;
+
+      service.reportIssue('a1', 'Question', 'Option C is missing', 'q2').subscribe((report) => (result = report));
+
+      const request = httpMock.expectOne(`${environment.apiBaseUrl}/v1/me/attempts/a1/issues`);
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({ category: 'Question', message: 'Option C is missing', questionId: 'q2' });
+      request.flush(created, { status: 201, statusText: 'Created' });
+      expect(result).toEqual(created);
+    });
+
+    it('sends no question for a report about the page', () => {
+      service.reportIssue('a1', 'Technical', 'The timer froze', null).subscribe();
+
+      const request = httpMock.expectOne(`${environment.apiBaseUrl}/v1/me/attempts/a1/issues`);
+      expect(request.request.body).toEqual({ category: 'Technical', message: 'The timer froze', questionId: null });
+      request.flush({ ...created, category: 'Technical', questionId: null });
+    });
+
+    it('passes the API’s refusal on to the caller', () => {
+      let status: number | undefined;
+
+      service.reportIssue('a1', 'Other', 'Why', null).subscribe({ error: (error: { status: number }) => (status = error.status) });
+
+      httpMock.expectOne(`${environment.apiBaseUrl}/v1/me/attempts/a1/issues`).flush({ title: 'too_many_issue_reports' }, { status: 429, statusText: 'Too Many Requests' });
+      expect(status).toBe(429);
     });
   });
 });

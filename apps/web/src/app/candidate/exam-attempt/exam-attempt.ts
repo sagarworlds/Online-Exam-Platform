@@ -11,6 +11,7 @@ import { TranslatePipe } from '../../i18n/translate.pipe';
 import { BLOCKED_MESSAGE_KEYS, BlockedAction, ContentGuard } from './content-guard';
 import { shortcutFor } from './exam-shortcuts';
 import { FocusMonitor } from './focus-monitor';
+import { ReportIssue } from './report-issue';
 import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-store';
 import { MathDirective } from '../../shared/rich-text/math.directive';
 
@@ -103,7 +104,7 @@ function paletteStatus(answered: boolean, marked: boolean, seen: boolean, t: Tra
  */
 @Component({
   selector: 'app-exam-attempt',
-  imports: [RouterLink, DatePipe, DecimalPipe, MathDirective, TranslatePipe],
+  imports: [RouterLink, DatePipe, DecimalPipe, MathDirective, TranslatePipe, ReportIssue],
   templateUrl: './exam-attempt.html',
 })
 export class ExamAttempt {

@@ -9,9 +9,11 @@ import {
   AttemptStatusDto,
   FocusViolationKind,
   FocusViolationResultDto,
+  IssueCategory,
   MyAttemptRequestDto,
   MyDisputeDto,
   MyExamDto,
+  MyIssueReportDto,
 } from './candidate.models';
 
 /** Thin HTTP wrapper over the ExamRuntime module's candidate-facing /v1/me endpoints. */
@@ -60,6 +62,14 @@ export class CandidateApiService {
    */
   raiseDispute(attemptId: string, questionId: string, reason: string): Observable<MyDisputeDto> {
     return this.http.post<MyDisputeDto>(`${this.baseUrl}/attempts/${attemptId}/disputes`, { questionId, reason });
+  }
+
+  /**
+   * Reports a problem from inside the exam being sat (FR-42): with a question, the page, or anything else. The attempt carries on and
+   * the clock keeps running; an attempt may report only so many problems, and a submitted one none.
+   */
+  reportIssue(attemptId: string, category: IssueCategory, message: string, questionId: string | null): Observable<MyIssueReportDto> {
+    return this.http.post<MyIssueReportDto>(`${this.baseUrl}/attempts/${attemptId}/issues`, { category, message, questionId });
   }
 
   /** Saves (or changes) the option chosen for one question of an open attempt. */

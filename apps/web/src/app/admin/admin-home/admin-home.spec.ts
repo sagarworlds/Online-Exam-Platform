@@ -69,6 +69,17 @@ describe('AdminHome', () => {
     expect(render(['exam.read', 'question.manage']).textContent).not.toContain('Disputes');
   });
 
+  it('offers the reported issues to whoever manages exams', () => {
+    const page = render(['exam.manage']);
+
+    expect(page.textContent).toContain('Reported issues');
+    expect(Array.from(page.querySelectorAll('a')).map((a) => a.getAttribute('href'))).toContain('/admin/issue-reports');
+  });
+
+  it('keeps the reported issues from those who may not manage exams', () => {
+    expect(render(['exam.read', 'question.manage']).textContent).not.toContain('Reported issues');
+  });
+
   it('says so when no area is open to the user', () => {
     expect(render([]).textContent).toContain('no admin areas');
   });

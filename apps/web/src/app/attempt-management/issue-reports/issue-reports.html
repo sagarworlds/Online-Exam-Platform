@@ -1,0 +1,99 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>Reported issues</h1>
+    <div class="list-filter">
+      <label class="visually-hidden" for="issue-status">Show reports that are</label>
+      <select id="issue-status" [value]="status()" (change)="onStatusChanged($any($event.target).value)">
+        @for (option of statuses; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+  @if (notice()) {
+    <p class="success-message" role="status">{{ notice() }}</p>
+  }
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (reports().length === 0) {
+    <div class="card empty-state">{{ emptyMessage() }}</div>
+  } @else {
+    <ul class="issue-list">
+      @for (report of reports(); track report.id) {
+        <li class="card issue-row">
+          <p class="card__meta">
+            <strong>{{ report.candidateEmail ?? 'A candidate who is no longer enrolled' }}</strong>
+            ·
+            <a [routerLink]="['/exams', report.examId, 'attempts']">{{ report.examName ?? 'An exam that can no longer be read' }}</a>
+            @if (report.attemptNumber !== null) {
+              · attempt {{ report.attemptNumber }}
+            }
+            · reported {{ report.reportedAtUtc | date: 'medium' }}
+            <span class="badge" [class.badge--warning]="report.category === 'Technical'">{{ categoryLabel(report.category) }}</span>
+          </p>
+
+          <blockquote class="issue-row__message">{{ report.message }}</blockquote>
+
+          <!-- The question as it is now, from the API's sanitized HTML, run through Angular's sanitizer again before it is shown. -->
+          @if (report.questionId !== null) {
+            @if (report.questionText) {
+              <details class="issue-row__question">
+                <summary>The question on screen</summary>
+                <div class="rich-text" [appMath]="report.questionText"></div>
+              </details>
+            } @else {
+              <p class="hint">(question no longer in the bank)</p>
+            }
+          }
+
+          @if (report.status === 'Resolved') {
+            <p class="card__meta">
+              <span class="badge badge--active">Resolved</span>
+              @if (report.resolvedAtUtc) {
+                {{ report.resolvedAtUtc | date: 'medium' }}
+              }
+            </p>
+            @if (report.resolutionNote) {
+              <p>What was done: {{ report.resolutionNote }}</p>
+            }
+          }
+
+          @if (rowErrors()[report.id]) {
+            <p class="error-message" role="alert">{{ rowErrors()[report.id] }}</p>
+          }
+
+          @if (report.status === 'Open') {
+            @if (resolvingId() === report.id) {
+              <form (submit)="$event.preventDefault(); confirmResolve(report)" [attr.aria-label]="'Resolve the report from ' + (report.candidateEmail ?? 'the candidate')">
+                <div class="field">
+                  <label [for]="'resolve-note-' + report.id">What was done (optional)</label>
+                  <textarea
+                    [id]="'resolve-note-' + report.id"
+                    rows="2"
+                    [maxLength]="maxNoteLength"
+                    [value]="note()"
+                    (input)="note.set($any($event.target).value)"
+                    [disabled]="busyId() !== null"
+                  ></textarea>
+                </div>
+                <div class="actions">
+                  <button type="submit" class="primary" [disabled]="busyId() !== null">Mark resolved</button>
+                  <button type="button" (click)="cancelResolving()" [disabled]="busyId() !== null">Cancel</button>
+                </div>
+              </form>
+            } @else {
+              <div class="actions">
+                <button type="button" (click)="startResolving(report)" [disabled]="busyId() !== null">Resolve…</button>
+              </div>
+            }
+          }
+        </li>
+      }
+    </ul>
+  }
+</div>

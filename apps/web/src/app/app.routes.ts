@@ -131,6 +131,11 @@ export const routes: Routes = [
     loadComponent: () => import('./attempt-management/disputes/disputes').then((m) => m.Disputes),
   },
   {
+    path: 'admin/issue-reports',
+    canActivate: [permissionGuard(Permission.ExamManage)],
+    loadComponent: () => import('./attempt-management/issue-reports/issue-reports').then((m) => m.IssueReports),
+  },
+  {
     // Staff see an exam as a candidate would (FR-15). The same page runs on the preview API, which saves nothing.
     path: 'exams/:id/preview',
     canActivate: [permissionGuard(Permission.ExamManage)],

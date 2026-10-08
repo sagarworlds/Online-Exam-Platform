@@ -893,6 +893,26 @@ button.primary:hover:not(:disabled),
   overflow-wrap: anywhere;
 }
 
+/* The staff queue of problems candidates reported from inside an exam (FR-42): one card for each report, oldest first. */
+.issue-list {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* What the candidate wrote: its own line breaks are kept, and a long word never widens the card. */
+.issue-row__message {
+  margin: 0.5rem 0;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 3px solid var(--border-strong);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.issue-row__question {
+  margin: 0.5rem 0;
+}
+
 /* The panel that corrects a question's answer key, set apart from the disputes it settles. */
 .key-correction {
   margin-top: 1rem;
