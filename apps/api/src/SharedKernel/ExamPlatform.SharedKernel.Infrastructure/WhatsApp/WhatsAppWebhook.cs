@@ -77,7 +77,9 @@ public abstract record WhatsAppWebhookEvent;
 /// <param name="Recipient">The recipient's WhatsApp id (their number), if given.</param>
 /// <param name="ErrorCode">Meta's error code when the message failed.</param>
 /// <param name="ErrorTitle">Meta's short reason when the message failed.</param>
-public sealed record WhatsAppDeliveryStatus(string MessageId, string Status, string? Recipient, int? ErrorCode, string? ErrorTitle)
+/// <param name="ErrorDetails">Meta's longer account of why it failed (<c>error_data.details</c>), when it gave one.</param>
+public sealed record WhatsAppDeliveryStatus(
+    string MessageId, string Status, string? Recipient, int? ErrorCode, string? ErrorTitle, string? ErrorDetails = null)
     : WhatsAppWebhookEvent;
 
 /// <summary>
@@ -124,7 +126,12 @@ public static class WhatsAppWebhookPayload
                             error.ValueKind == JsonValueKind.Object && error.TryGetProperty("code", out var code) && code.TryGetInt32(out var number)
                                 ? number
                                 : null,
-                            error.ValueKind == JsonValueKind.Object ? Text(error, "title") : null));
+                            error.ValueKind == JsonValueKind.Object ? Text(error, "title") : null,
+                            error.ValueKind == JsonValueKind.Object
+                            && error.TryGetProperty("error_data", out var data)
+                            && data.ValueKind == JsonValueKind.Object
+                                ? Text(data, "details")
+                                : null));
                     }
                 }
 

@@ -10,7 +10,7 @@ describe('AdminIcon', () => {
     return fixture;
   }
 
-  const names: AdminIconName[] = ['question', 'book', 'exam', 'attempt-request', 'dispute', 'invite', 'batch', 'guardian', 'otp'];
+  const names: AdminIconName[] = ['question', 'book', 'exam', 'attempt-request', 'dispute', 'invite', 'batch', 'guardian', 'otp', 'whatsapp'];
 
   it.each(names)('draws something for every icon the admin sections use (%s)', async (name) => {
     const fixture = await render(name);

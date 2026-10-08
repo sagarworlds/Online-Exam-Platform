@@ -11,6 +11,7 @@ export const Permission = {
   InviteManage: 'invite.manage',
   GuardianLinkManage: 'guardian.link.manage',
   OtpRead: 'identity.otp.read',
+  WhatsAppTest: 'admin.whatsapp.test',
 } as const;
 
 /** One area of the admin section: where it lives and which permission opens it. */
@@ -37,4 +38,5 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { label: 'Batches', description: 'Group candidates into batches.', path: '/batches', permission: Permission.BatchManage, icon: 'batch' },
   { label: 'Guardians', description: 'Link a guardian to a candidate.', path: '/guardian/link-candidate', permission: Permission.GuardianLinkManage, icon: 'guardian' },
   { label: 'Candidate codes', description: 'Read the sign-in code a candidate is waiting for.', path: '/admin/otp-codes', permission: Permission.OtpRead, icon: 'otp' },
+  { label: 'WhatsApp test', description: 'Check that WhatsApp can send, and see exactly why not if it cannot.', path: '/admin/whatsapp', permission: Permission.WhatsAppTest, icon: 'whatsapp' },
 ];

@@ -116,6 +116,11 @@ export const routes: Routes = [
     loadComponent: () => import('./admin/otp-codes/otp-codes').then((m) => m.OtpCodes),
   },
   {
+    path: 'admin/whatsapp',
+    canActivate: [permissionGuard(Permission.WhatsAppTest)],
+    loadComponent: () => import('./admin/whatsapp-test/whatsapp-test').then((m) => m.WhatsAppTest),
+  },
+  {
     path: 'admin/attempt-requests',
     canActivate: [permissionGuard(Permission.ExamManage)],
     loadComponent: () => import('./attempt-management/attempt-requests/attempt-requests').then((m) => m.AttemptRequests),

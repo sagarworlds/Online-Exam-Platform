@@ -84,6 +84,9 @@ public static class SharedKernelServiceCollectionExtensions
             new HttpClient { Timeout = TimeSpan.FromSeconds(15) },
             sp.GetRequiredService<IOptions<WhatsAppOptions>>(),
             sp.GetRequiredService<ILogger<WhatsAppCloudApiSender>>()));
+
+        // What the webhook reports about recent messages, for the administrator's WhatsApp test (a diagnostic aid, kept in memory).
+        services.TryAddSingleton<IWhatsAppDeliveryTracker>(sp => new InMemoryWhatsAppDeliveryTracker(sp.GetRequiredService<Clock>()));
         return services;
     }
 }

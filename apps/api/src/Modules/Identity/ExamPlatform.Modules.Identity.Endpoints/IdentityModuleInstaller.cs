@@ -72,6 +72,10 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<GetProfileHandler>();
         services.AddScoped<ListRolesHandler>();
         services.AddScoped<ListOutstandingOtpsHandler>();
+        services.AddScoped<IWhatsAppDiagnostics, WhatsAppDiagnostics>();
+        services.AddScoped<GetWhatsAppStatusHandler>();
+        services.AddScoped<SendWhatsAppTestHandler>();
+        services.AddScoped<GetWhatsAppDeliveryHandler>();
 
         // Development-only first administrator (see IdentityBootstrapOptions). Bound in every
         // environment so MigrateAndSeedAsync can tell that it was asked for and refuse it

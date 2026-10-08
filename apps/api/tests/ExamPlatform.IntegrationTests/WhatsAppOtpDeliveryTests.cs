@@ -28,6 +28,9 @@ public sealed class WhatsAppOtpDeliveryTests(ApiFactory factory) : IClassFixture
             Sent.Add(message);
             return Task.FromResult(new WhatsAppSendResult(true, "wamid.test"));
         }
+
+        public Task<WhatsAppSendResult> SendTextAsync(WhatsAppTextMessage message, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("Signing in never sends free text.");
     }
 
     private WebApplicationFactory<Program> HostWith(RecordingWhatsAppSender whatsApp, string? phoneProvider) =>

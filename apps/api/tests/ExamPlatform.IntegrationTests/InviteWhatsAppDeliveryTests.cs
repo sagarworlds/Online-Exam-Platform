@@ -42,6 +42,9 @@ public class WhatsAppInviteApiFactory : ApiFactory
             lock (sent) sent.Add(message);
             return Task.FromResult(new WhatsAppSendResult(true, "wamid.test"));
         }
+
+        public Task<WhatsAppSendResult> SendTextAsync(WhatsAppTextMessage message, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("An invitation never sends free text.");
     }
 }
 
