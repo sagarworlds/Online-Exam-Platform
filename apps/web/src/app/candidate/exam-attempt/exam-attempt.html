@@ -15,43 +15,56 @@
           <a [routerLink]="['/exams', examIdForLinks]">{{ 'attempt.preview.back' | t }}</a>
         </p>
       }
-      <header class="exam-bar card">
-        <div>
-          <p class="exam-bar__label">{{ 'attempt.exam' | t }}@if (current.number && current.number > 1) { · {{ 'common.attempt' | t: { number: current.number } }} }</p>
-          <h1 class="exam-bar__title">{{ current.examName }}</h1>
-        </div>
-        <div class="exam-bar__timer" role="timer" [attr.aria-label]="'attempt.timeLeft' | t">
-          <span class="exam-bar__label">{{ 'attempt.timeLeft' | t }}</span>
-          <strong class="countdown" [class.countdown--low]="remainingSeconds() <= 60">{{ formatRemaining(remainingSeconds()) }}</strong>
-        </div>
-      </header>
 
-      <div class="exam-zoom actions" role="group" [attr.aria-label]="'attempt.display' | t">
-        <button type="button" [attr.aria-pressed]="highContrast()" (click)="toggleHighContrast()">{{ 'attempt.highContrast' | t }}</button>
-        <button type="button" [disabled]="!canZoomOut()" (click)="zoomOut()" [attr.aria-label]="'attempt.smallerText' | t">A&minus;</button>
-        <span class="hint" aria-live="polite">{{ zoom() * 100 | number: '1.0-0' }}%</span>
-        <button type="button" [disabled]="!canZoomIn()" (click)="zoomIn()" [attr.aria-label]="'attempt.largerText' | t">A+</button>
-        @if (!preview) {
-          <button type="button" [attr.aria-pressed]="lowBandwidth.enabled()" aria-describedby="low-bandwidth-hint" (click)="toggleLowBandwidth()">{{ 'attempt.lowBandwidth' | t }}</button>
-          <span id="low-bandwidth-hint" class="visually-hidden">{{ 'attempt.lowBandwidth.hint' | t }}</span>
+      <!-- Sticky as one block, so the time and Submit stay in reach, and the confirmation sits right under them when it is open. -->
+      <div class="exam-top">
+        <header class="exam-bar card">
+          <div class="exam-bar__heading">
+            <p class="exam-bar__label">{{ 'attempt.exam' | t }}@if (current.number && current.number > 1) { · {{ 'common.attempt' | t: { number: current.number } }} }</p>
+            <h1 class="exam-bar__title">{{ current.examName }}</h1>
+          </div>
+          <div class="exam-bar__status">
+            <div class="exam-bar__timer" role="timer" [attr.aria-label]="'attempt.timeLeft' | t">
+              <span class="exam-bar__label">{{ 'attempt.timeLeft' | t }}</span>
+              <strong class="countdown" [class.countdown--low]="remainingSeconds() <= 60">{{ formatRemaining(remainingSeconds()) }}</strong>
+            </div>
+            <button type="button" #submitButton class="primary exam-bar__submit" (click)="askToSubmit()">{{ 'attempt.submit.ask' | t }}</button>
+          </div>
+        </header>
+
+        @if (confirmingSubmit()) {
+          <div class="submit-confirm exam-submit-confirm" role="alertdialog" [attr.aria-label]="'attempt.submit.aria' | t">
+            <p #confirmText tabindex="-1">
+              {{ 'attempt.submit.summary' | t: { answered: answeredCount(), total: questions().length } }}
+              @if (markedCount() === 1) {
+                {{ 'attempt.submit.marked.one' | t }}
+              } @else if (markedCount() > 1) {
+                {{ 'attempt.submit.marked.other' | t: { count: markedCount() } }}
+              }
+              @if (submitSummary().notVisited === 1) {
+                {{ 'attempt.submit.unseen.one' | t }}
+              } @else if (submitSummary().notVisited > 1) {
+                {{ 'attempt.submit.unseen.other' | t: { count: submitSummary().notVisited } }}
+              }
+              {{ 'attempt.submit.final' | t }}
+            </p>
+            @if (submitSummary().sections.length > 1) {
+              <ul class="submit-summary" [attr.aria-label]="'attempt.submit.bySection' | t">
+                @for (section of submitSummary().sections; track section.id) {
+                  <li>
+                    <strong>{{ section.name }}</strong>: {{ 'attempt.submit.sectionAnswered' | t: { answered: section.answered, total: section.total } }}@if (section.marked > 0) {{{ 'attempt.submit.sectionMarked' | t: { count: section.marked } }}}@if (section.notVisited > 0) {{{ 'attempt.submit.sectionNotVisited' | t: { count: section.notVisited } }}}
+                  </li>
+                }
+              </ul>
+            }
+            <div class="actions">
+              <button type="button" class="primary" [disabled]="submitting()" (click)="submit()">{{ 'attempt.submit.yes' | t }}</button>
+              <button type="button" [disabled]="submitting()" (click)="cancelSubmit()">{{ 'attempt.submit.keep' | t }}</button>
+            </div>
+          </div>
         }
       </div>
-      <!-- Outside the paused branch below on purpose: a candidate who was stopped is the one most likely to have something to report. A preview has no real attempt to report from. -->
-      @if (!preview) {
-        <app-report-issue [attemptId]="current.id" [questionId]="currentQuestion()?.id ?? null" />
-      }
-      <p class="hint exam-shortcuts">{{ 'attempt.shortcuts' | t }}</p>
-      @if (protectContent()) {
-        <p class="hint exam-protection">{{ 'attempt.protect' | t }}</p>
-      }
-      @if (watchFocus()) {
-        <p class="hint exam-focus">
-          {{ 'attempt.focus' | t: { violations: focusViolations(), limit: focusLimit() } }}
-          @if (canOfferFullscreen()) {
-            <button type="button" (click)="goFullscreen()">{{ 'attempt.fullscreen' | t }}</button>
-          }
-        </p>
-      }
+
       @if (focusWarning(); as warning) {
         <p class="exam-focus-warning" role="alert">
           {{ warning }}
@@ -64,10 +77,43 @@
           <button type="button" (click)="dismissWarning(warning)">{{ 'common.ok' | t }}</button>
         </p>
       }
+      @if (watchFocus()) {
+        <p class="hint exam-focus">
+          {{ 'attempt.focus' | t: { violations: focusViolations(), limit: focusLimit() } }}
+          @if (canOfferFullscreen()) {
+            <button type="button" (click)="goFullscreen()">{{ 'attempt.fullscreen' | t }}</button>
+          }
+        </p>
+      }
       <!-- Always present, so what was just refused is announced politely instead of interrupting. -->
       <p class="exam-protection-notice" role="status" aria-live="polite">{{ protectionNotice() }}</p>
       <!-- Always present for the same reason: answers kept on this device while the connection is down (FR-53). -->
       <p class="exam-sync" role="status" aria-live="polite" [class.exam-sync--active]="syncMessage() !== ''">{{ syncMessage() }}</p>
+
+      <!-- Outside the paused branch below on purpose: a candidate who was stopped is the one most likely to have something to report. A preview has no real attempt to report from. -->
+      @if (!preview) {
+        <app-report-issue [attemptId]="current.id" [questionId]="currentQuestion()?.id ?? null" />
+      }
+
+      <!-- Closed by default: the question is what a candidate came for. The contents are still in the page, so the shortcuts and the
+           display settings work whether or not this is open. -->
+      <details class="exam-help">
+        <summary>{{ 'attempt.helpSummary' | t }}</summary>
+        <div class="exam-zoom actions" role="group" [attr.aria-label]="'attempt.display' | t">
+          <button type="button" [attr.aria-pressed]="highContrast()" (click)="toggleHighContrast()">{{ 'attempt.highContrast' | t }}</button>
+          <button type="button" [disabled]="!canZoomOut()" (click)="zoomOut()" [attr.aria-label]="'attempt.smallerText' | t">A&minus;</button>
+          <span class="hint" aria-live="polite">{{ zoom() * 100 | number: '1.0-0' }}%</span>
+          <button type="button" [disabled]="!canZoomIn()" (click)="zoomIn()" [attr.aria-label]="'attempt.largerText' | t">A+</button>
+          @if (!preview) {
+            <button type="button" [attr.aria-pressed]="lowBandwidth.enabled()" aria-describedby="low-bandwidth-hint" (click)="toggleLowBandwidth()">{{ 'attempt.lowBandwidth' | t }}</button>
+            <span id="low-bandwidth-hint" class="visually-hidden">{{ 'attempt.lowBandwidth.hint' | t }}</span>
+          }
+        </div>
+        <p class="hint exam-shortcuts">{{ 'attempt.shortcuts' | t }}</p>
+        @if (protectContent()) {
+          <p class="hint exam-protection">{{ 'attempt.protect' | t }}</p>
+        }
+      </details>
 
       @if (paused()) {
         <div class="card exam-paused" role="status">
@@ -161,40 +207,6 @@
             <li class="legend--marked">{{ 'attempt.legend.marked' | t }}</li>
             <li class="legend--current">{{ 'attempt.legend.current' | t }}</li>
           </ul>
-
-          @if (confirmingSubmit()) {
-            <div class="submit-confirm" role="alertdialog" [attr.aria-label]="'attempt.submit.aria' | t">
-              <p>
-                {{ 'attempt.submit.summary' | t: { answered: answeredCount(), total: questions().length } }}
-                @if (markedCount() === 1) {
-                  {{ 'attempt.submit.marked.one' | t }}
-                } @else if (markedCount() > 1) {
-                  {{ 'attempt.submit.marked.other' | t: { count: markedCount() } }}
-                }
-                @if (submitSummary().notVisited === 1) {
-                  {{ 'attempt.submit.unseen.one' | t }}
-                } @else if (submitSummary().notVisited > 1) {
-                  {{ 'attempt.submit.unseen.other' | t: { count: submitSummary().notVisited } }}
-                }
-                {{ 'attempt.submit.final' | t }}
-              </p>
-              @if (submitSummary().sections.length > 1) {
-                <ul class="submit-summary" [attr.aria-label]="'attempt.submit.bySection' | t">
-                  @for (section of submitSummary().sections; track section.id) {
-                    <li>
-                      <strong>{{ section.name }}</strong>: {{ 'attempt.submit.sectionAnswered' | t: { answered: section.answered, total: section.total } }}@if (section.marked > 0) {{{ 'attempt.submit.sectionMarked' | t: { count: section.marked } }}}@if (section.notVisited > 0) {{{ 'attempt.submit.sectionNotVisited' | t: { count: section.notVisited } }}}
-                    </li>
-                  }
-                </ul>
-              }
-              <div class="actions">
-                <button type="button" class="primary" [disabled]="submitting()" (click)="submit()">{{ 'attempt.submit.yes' | t }}</button>
-                <button type="button" [disabled]="submitting()" (click)="cancelSubmit()">{{ 'attempt.submit.keep' | t }}</button>
-              </div>
-            </div>
-          } @else {
-            <button type="button" class="primary" (click)="askToSubmit()">{{ 'attempt.submit.ask' | t }}</button>
-          }
         </aside>
       </div>
       }

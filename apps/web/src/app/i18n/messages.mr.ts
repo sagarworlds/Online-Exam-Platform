@@ -182,6 +182,7 @@ export const MR: Messages = {
   'attempt.exam': 'परीक्षा',
   'attempt.timeLeft': 'उरलेला वेळ',
   'attempt.display': 'प्रदर्शन पर्याय',
+  'attempt.helpSummary': 'दृश्य आणि मदत',
   'attempt.lowBandwidth': 'कमी बँडविड्थ मोड',
   'attempt.lowBandwidth.hint': 'सुरू असताना प्रश्नांमधील चित्रे तुम्ही मागितल्यावरच दिसतात, आणि पेज सर्व्हरशी कमी वेळा संपर्क साधते.',
   'attempt.picture.load': 'चित्र दाखवा ({size})',

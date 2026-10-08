@@ -187,6 +187,7 @@ export const EN = {
   'attempt.exam': 'Exam',
   'attempt.timeLeft': 'Time left',
   'attempt.display': 'Display options',
+  'attempt.helpSummary': 'Display and help',
   'attempt.lowBandwidth': 'Low-bandwidth mode',
   'attempt.lowBandwidth.hint': 'When on, pictures in questions are shown only when you ask for them, and the page checks in with the server less often.',
   'attempt.picture.load': 'Show picture ({size})',

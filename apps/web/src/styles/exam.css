@@ -56,15 +56,81 @@
   }
 }
 
-.exam-bar {
+/* The bar and the confirmation under it are one sticky block, so the time and Submit stay in reach wherever the candidate has scrolled. */
+.exam-top {
   position: sticky;
   top: 0;
   z-index: 5;
+  background: var(--bg);
+}
+
+.exam-top .exam-bar {
+  margin-bottom: 0.75rem;
+}
+
+.exam-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem 1rem;
   padding: 0.75rem 1.25rem;
+}
+
+.exam-bar__heading {
+  min-width: 0;
+}
+
+.exam-bar__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* A touch target of the usual height, so Submit is easy to hit beside the timer. */
+.exam-bar__submit {
+  min-height: 2.75rem;
+}
+
+/* On a phone the title takes a line of its own, and the time and Submit share the next, so they are sized to fit that line. */
+@media (max-width: 40rem) {
+  .exam-bar {
+    padding: 0.6rem 1rem;
+  }
+
+  .exam-bar__heading {
+    flex-basis: 100%;
+  }
+
+  .exam-bar__status {
+    gap: 0.5rem;
+  }
+
+  .exam-bar__timer {
+    padding: 0.25rem 0.5rem;
+    gap: 0.35rem;
+  }
+
+  .exam-bar .countdown {
+    font-size: 1.1rem;
+  }
+
+  .exam-bar__submit {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* The confirmation hangs from the bar as one panel with it, not a card of its own. */
+.exam-top .exam-submit-confirm {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .exam-bar__title {
@@ -88,6 +154,12 @@
   border: 1px solid var(--border-strong);
   border-radius: 999px;
   background: var(--surface-muted);
+}
+
+/* "Time left" is read beside the countdown, so it is set in sentence case: the capitals take width a phone does not have to spare. */
+.exam-bar__timer .exam-bar__label {
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .countdown {
@@ -543,6 +615,31 @@
 .exam-zoom {
   justify-content: flex-end;
   align-items: center;
+}
+
+/* "Display and help" opens from one line, so the question is not pushed down by settings most candidates never change. */
+.exam-help {
+  margin: 0.75rem 0 1rem;
+}
+
+.exam-help > summary {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.25rem 0;
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Opened, the settings and notes read from the left, as the rest of the text does, rather than pushed to the right edge. */
+.exam-help .exam-zoom {
+  justify-content: flex-start;
+  margin-top: 0.5rem;
+}
+
+.exam-help .exam-shortcuts {
+  text-align: left;
 }
 
 .exam-shortcuts {

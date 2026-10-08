@@ -182,6 +182,7 @@ export const HI: Messages = {
   'attempt.exam': 'परीक्षा',
   'attempt.timeLeft': 'शेष समय',
   'attempt.display': 'प्रदर्शन विकल्प',
+  'attempt.helpSummary': 'प्रदर्शन और सहायता',
   'attempt.lowBandwidth': 'कम बैंडविड्थ मोड',
   'attempt.lowBandwidth.hint': 'चालू होने पर प्रश्नों के चित्र तभी दिखते हैं जब आप माँगें, और पेज सर्वर से कम बार संपर्क करता है।',
   'attempt.picture.load': 'चित्र दिखाएँ ({size})',

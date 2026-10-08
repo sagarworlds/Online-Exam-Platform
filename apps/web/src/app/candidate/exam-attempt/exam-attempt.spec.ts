@@ -1684,4 +1684,57 @@ describe('ExamAttempt', () => {
       httpMock.expectOne(isStatus).flush({ status: 'InProgress', pausedAtUtc: null, deadlineUtc: '2026-10-05T05:00:00Z', serverTimeUtc: new Date(Date.now()).toISOString(), warnings: [] });
     });
   });
+
+  describe('the layout', () => {
+    const submitInBar = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector('.exam-bar .exam-bar__submit') as HTMLButtonElement | null;
+    const confirmation = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector('.exam-top .exam-submit-confirm') as HTMLElement | null;
+
+    it('keeps Submit in the timer bar, so it is in reach from anywhere on the page, and not at the foot of the palette', async () => {
+      const fixture = await open(attempt());
+
+      expect(submitInBar(fixture)?.textContent?.trim()).toBe('Submit exam');
+      expect(root(fixture).querySelector('.exam-top')?.contains(submitInBar(fixture))).toBe(true);
+      expect(root(fixture).querySelector('.exam-side')?.textContent).not.toContain('Submit exam');
+    });
+
+    it('opens the confirmation under the bar, with the same summary, and moves focus to it', async () => {
+      const fixture = await open(attempt());
+
+      submitInBar(fixture)?.click();
+      fixture.detectChanges();
+
+      expect(confirmation(fixture)?.textContent).toContain('Submit now? 1 of 2 questions are answered.');
+      expect(root(fixture).querySelector('.exam-side .submit-confirm')).toBeNull();
+      expect(document.activeElement).toBe(confirmation(fixture)?.querySelector('p'));
+    });
+
+    it('gives focus back to Submit when the candidate chooses to keep working', async () => {
+      const fixture = await open(attempt());
+      submitInBar(fixture)?.click();
+      fixture.detectChanges();
+
+      buttonLabelled(fixture, 'Keep working')?.click();
+      fixture.detectChanges();
+
+      expect(confirmation(fixture)).toBeNull();
+      expect(document.activeElement).toBe(submitInBar(fixture));
+    });
+
+    it('keeps the display settings and the shortcut note in a "Display and help" section that starts closed', async () => {
+      const fixture = await open(attempt());
+      const help = root(fixture).querySelector('details.exam-help') as HTMLDetailsElement;
+
+      expect(help.open).toBe(false);
+      expect(help.querySelector('summary')?.textContent?.trim()).toBe('Display and help');
+      expect(help.querySelector('.exam-zoom')?.textContent).toContain('High contrast');
+      expect(help.textContent).toContain('Keyboard: N next');
+    });
+
+    it('still offers the report button while the attempt is paused, outside the paused message', async () => {
+      const fixture = await open(attempt({ pausedAtUtc: '2026-10-05T04:35:00Z' }));
+
+      expect(root(fixture).querySelector('.exam-paused')).not.toBeNull();
+      expect(root(fixture).querySelector('app-report-issue')).not.toBeNull();
+    });
+  });
 });

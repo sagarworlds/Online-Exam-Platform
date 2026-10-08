@@ -1,6 +1,6 @@
 import { DOCUMENT, DatePipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, HostListener, computed, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, HostListener, Injector, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
@@ -129,6 +129,12 @@ export class ExamAttempt {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly confirmingSubmit = signal(false);
   protected readonly submitting = signal(false);
+
+  /** The bar's Submit button: where focus returns when the candidate chooses to keep working. */
+  private readonly submitButton = viewChild<ElementRef<HTMLButtonElement>>('submitButton');
+  /** The sentence that opens the confirmation: focus goes there so a screen reader reads what is being asked. */
+  private readonly confirmText = viewChild<ElementRef<HTMLElement>>('confirmText');
+  private readonly injector = inject(Injector);
 
   /** Low-bandwidth mode (FR-53): the attempt is read without its pictures, which are fetched when asked for, and checked on less often. */
   protected readonly lowBandwidth = inject(LowBandwidthService);
@@ -655,12 +661,16 @@ export class ExamAttempt {
     });
   }
 
+  /** Opens the submit confirmation under the bar. Focus moves to it once it is rendered, so the candidate hears the question. */
   protected askToSubmit(): void {
     this.confirmingSubmit.set(true);
+    afterNextRender(() => this.confirmText()?.nativeElement.focus(), { injector: this.injector });
   }
 
+  /** Closes the confirmation without submitting, and gives focus back to the button that opened it. */
   protected cancelSubmit(): void {
     this.confirmingSubmit.set(false);
+    afterNextRender(() => this.submitButton()?.nativeElement.focus(), { injector: this.injector });
   }
 
   protected submit(): void {
