@@ -1,5 +1,14 @@
 <div class="page">
-  <h1>Not allowed</h1>
-  <p class="error-message" role="alert">Your account does not have access to that page.</p>
-  <p><a routerLink="/">Back to your home page</a></p>
+  <section class="card forbidden">
+    <svg class="forbidden__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
+    <h1 #heading tabindex="-1">{{ 'forbidden.title' | t }}</h1>
+    <p>{{ 'forbidden.reason' | t }}</p>
+    <a class="btn btn--primary auth-submit" routerLink="/">{{ 'forbidden.home' | t }}</a>
+    <p class="forbidden__alternative">
+      <button type="button" class="forbidden__switch" (click)="switchAccount()">{{ 'forbidden.switchAccount' | t }}</button>
+    </p>
+  </section>
 </div>

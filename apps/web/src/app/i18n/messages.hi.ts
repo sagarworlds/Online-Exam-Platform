@@ -320,4 +320,10 @@ export const HI: Messages = {
   'verdict.partial': 'आंशिक रूप से सही',
   'verdict.wrong': 'गलत',
   'verdict.unanswered': 'अनुत्तरित',
+
+  // ---- no access ----
+  'forbidden.title': 'इस पेज तक आपकी पहुँच नहीं है',
+  'forbidden.reason': 'आपके खाते में इस हिस्से की अनुमति शामिल नहीं है। अगर आपको इसकी ज़रूरत है, तो किसी प्रशासक से पूछें।',
+  'forbidden.home': 'मेरे होम पेज पर जाएँ',
+  'forbidden.switchAccount': 'किसी दूसरे खाते से साइन इन करें',
 };
