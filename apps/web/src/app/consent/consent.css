@@ -1,0 +1,10 @@
+/* One card per purpose: what it is, what agreeing means, where the full text is, then the one action. The action is full height on a
+   phone so it is easy to press. */
+.consent-card__link,
+.consent-card__status {
+  margin: 0 0 0.75rem;
+}
+
+.consent-card > button {
+  min-height: 2.75rem;
+}

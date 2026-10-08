@@ -375,6 +375,23 @@ export const EN = {
   'profile.role.InstituteTeacher': 'Teacher',
   'profile.role.Candidate': 'Candidate',
   'profile.role.Guardian': 'Guardian',
+
+  // ---- consent ----
+  'consent.title': 'Consent',
+  'consent.intro': 'Each choice below says what it covers. You can change any of them here.',
+  'consent.name.TermsOfService': 'Terms of Service',
+  'consent.name.PrivacyNotice': 'Privacy Notice',
+  'consent.name.ProctoringDataProcessing': 'Proctoring Data Processing',
+  'consent.explain.TermsOfService': 'The rules for using this platform and for taking exams on it.',
+  'consent.explain.PrivacyNotice': 'How the platform collects and uses your personal information.',
+  'consent.explain.ProctoringDataProcessing': 'Recording of proctoring data, such as camera or screen capture, for an exam that uses proctoring.',
+  'consent.privacyLink': 'Read the privacy notice',
+  'consent.agreed': 'Agreed',
+  'consent.notAgreed': 'Not agreed',
+  'consent.agree': 'Agree',
+  'consent.withdraw': 'Withdraw agreement',
+  'consent.saving': 'Saving…',
+  'consent.unavailable': 'This choice is not available yet. Try again later.',
 } as const;
 
 /** The key of a message. */

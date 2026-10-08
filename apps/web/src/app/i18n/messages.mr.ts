@@ -369,4 +369,21 @@ export const MR: Messages = {
   'profile.role.InstituteTeacher': 'शिक्षक',
   'profile.role.Candidate': 'परीक्षार्थी',
   'profile.role.Guardian': 'पालक',
+
+  // ---- consent ----
+  'consent.title': 'संमती',
+  'consent.intro': 'खाली प्रत्येक पर्याय काय समाविष्ट करतो ते सांगतो. तुम्ही यापैकी कोणताही येथे बदलू शकता.',
+  'consent.name.TermsOfService': 'सेवा अटी',
+  'consent.name.PrivacyNotice': 'गोपनीयता सूचना',
+  'consent.name.ProctoringDataProcessing': 'प्रॉक्टरिंग डेटा प्रक्रिया',
+  'consent.explain.TermsOfService': 'या प्लॅटफॉर्मचा वापर आणि त्यावर परीक्षा देण्याचे नियम.',
+  'consent.explain.PrivacyNotice': 'प्लॅटफॉर्म तुमची वैयक्तिक माहिती कशी गोळा करते आणि कशी वापरते.',
+  'consent.explain.ProctoringDataProcessing': 'प्रॉक्टरिंग असलेल्या परीक्षेसाठी प्रॉक्टरिंग डेटा, जसे कॅमेरा किंवा स्क्रीन कॅप्चर, नोंदवणे.',
+  'consent.privacyLink': 'गोपनीयता सूचना वाचा',
+  'consent.agreed': 'सहमत',
+  'consent.notAgreed': 'सहमत नाही',
+  'consent.agree': 'सहमत आहे',
+  'consent.withdraw': 'संमती मागे घ्या',
+  'consent.saving': 'जतन होत आहे…',
+  'consent.unavailable': 'हा पर्याय अजून उपलब्ध नाही. नंतर पुन्हा प्रयत्न करा.',
 };
