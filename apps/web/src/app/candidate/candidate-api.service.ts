@@ -47,8 +47,17 @@ export class CandidateApiService {
     return this.http.post<MyAttemptRequestDto>(`${this.baseUrl}/exams/${examId}/attempt-requests`, { message });
   }
 
-  getAttempt(attemptId: string): Observable<AttemptDto> {
-    return this.http.get<AttemptDto>(`${this.baseUrl}/attempts/${attemptId}`);
+  /**
+   * Reads an attempt. With `lowBandwidth` the questions come without their pictures, which are fetched one at a time with
+   * `getQuestionPicture` when the candidate asks for them (FR-53).
+   */
+  getAttempt(attemptId: string, lowBandwidth = false): Observable<AttemptDto> {
+    return this.http.get<AttemptDto>(`${this.baseUrl}/attempts/${attemptId}`, lowBandwidth ? { params: { lite: true } } : {});
+  }
+
+  /** One picture of a question in an open attempt, for a page that was sent the attempt without them (FR-53). The browser keeps it for the sitting. */
+  getQuestionPicture(attemptId: string, questionId: string, key: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/attempts/${attemptId}/questions/${questionId}/pictures/${key}`, { responseType: 'blob' });
   }
 
   /** Which answers were right, for a submitted attempt whose answers have been released; the API refuses it otherwise. */

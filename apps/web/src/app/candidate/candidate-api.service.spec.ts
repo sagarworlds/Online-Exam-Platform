@@ -50,6 +50,39 @@ describe('CandidateApiService', () => {
     });
   });
 
+  describe('getAttempt', () => {
+    it('reads the attempt as it is by default', () => {
+      service.getAttempt('a1').subscribe();
+
+      const request = httpMock.expectOne(`${environment.apiBaseUrl}/v1/me/attempts/a1`);
+      expect(request.request.method).toBe('GET');
+      expect(request.request.params.keys()).toEqual([]);
+      request.flush({});
+    });
+
+    it('asks for the attempt without its pictures in low-bandwidth mode (FR-53)', () => {
+      service.getAttempt('a1', true).subscribe();
+
+      const request = httpMock.expectOne((r) => r.url === `${environment.apiBaseUrl}/v1/me/attempts/a1`);
+      expect(request.request.params.get('lite')).toBe('true');
+      request.flush({});
+    });
+  });
+
+  describe('getQuestionPicture', () => {
+    it('reads one picture of one question of the attempt as a blob (FR-53)', () => {
+      let result: Blob | undefined;
+
+      service.getQuestionPicture('a1', 'q2', 'q-0').subscribe((blob) => (result = blob));
+
+      const request = httpMock.expectOne(`${environment.apiBaseUrl}/v1/me/attempts/a1/questions/q2/pictures/q-0`);
+      expect(request.request.method).toBe('GET');
+      expect(request.request.responseType).toBe('blob');
+      request.flush(new Blob(['x'], { type: 'image/png' }));
+      expect(result).toBeInstanceOf(Blob);
+    });
+  });
+
   describe('reportIssue', () => {
     const created: MyIssueReportDto = {
       id: 'r1',

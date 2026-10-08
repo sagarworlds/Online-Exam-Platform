@@ -25,6 +25,20 @@
   margin-left: 0.5rem;
 }
 
+/* Answers kept on this device while the connection is down (FR-53). Always on the page so it is announced, and takes no room while empty. */
+.exam-sync {
+  margin: 0;
+}
+
+.exam-sync--active {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--warning, #b45309);
+  border-radius: 6px;
+  background: var(--warning-bg, #fffbeb);
+  color: var(--warning-text, #78350f);
+}
+
 /*
  * A browser's own Print menu cannot be cancelled from the page, so while the exam is protected the printout is blank
  * except for a sentence saying why. The body class is set by the exam page's content guard and removed when it leaves.

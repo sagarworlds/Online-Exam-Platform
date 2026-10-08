@@ -1,5 +1,5 @@
 import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { afterEach, beforeEach, vi } from 'vitest';
@@ -60,7 +60,7 @@ describe('ExamAttempt', () => {
   const buttonLabelled = (fixture: ComponentFixture<ExamAttempt>, label: string) =>
     Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes(label));
 
-  async function open(initial: AttemptDto) {
+  async function open(initial: AttemptDto, onRead?: (request: TestRequest) => void) {
     await TestBed.configureTestingModule({
       imports: [ExamAttempt],
       providers: [
@@ -74,7 +74,9 @@ describe('ExamAttempt', () => {
 
     const fixture = TestBed.createComponent(ExamAttempt);
     fixture.detectChanges();
-    httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET').flush(initial);
+    const read = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET');
+    onRead?.(read);
+    read.flush(initial);
     fixture.detectChanges();
     return fixture;
   }
@@ -188,20 +190,121 @@ describe('ExamAttempt', () => {
     expect(textOf(fixture)).toContain('2 of 2 answered');
   });
 
-  it('puts the previous choice back and says so when a save fails', async () => {
+  it('puts the previous choice back and says so when the server refuses the save', async () => {
     const fixture = await open(attempt());
 
-    // q2 was Paris (o3); picking Rome (o4) shows at once, then the save fails.
+    // q2 was Paris (o3); picking Rome (o4) shows at once, then the server turns it down.
     buttonLabelled(fixture, 'Next')?.click();
     fixture.detectChanges();
     radios(fixture)[1].click();
     fixture.detectChanges();
     expect(radios(fixture)[1].checked).toBe(true);
-    httpMock.expectOne((r) => r.url.endsWith('/answers/q2')).flush(null, { status: 500, statusText: 'Server Error' });
+    httpMock.expectOne((r) => r.url.endsWith('/answers/q2')).flush(null, { status: 400, statusText: 'Bad Request' });
     fixture.detectChanges();
 
     expect(radios(fixture).map((r) => r.checked)).toEqual([true, false]);
     expect(textOf(fixture)).toContain('could not be saved');
+  });
+
+  describe('when the connection fails (FR-53)', () => {
+    const chooseRome = async (fixture: ComponentFixture<ExamAttempt>) => {
+      buttonLabelled(fixture, 'Next')?.click();
+      fixture.detectChanges();
+      radios(fixture)[1].click();
+      fixture.detectChanges();
+    };
+    const answerCalls = () => httpMock.match((r) => r.url.endsWith('/answers/q2'));
+    const waitingNotice = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector('.exam-sync')?.textContent?.trim() ?? '';
+
+    it('keeps the choice, says it is waiting for a connection, and sends it when the connection is back', async () => {
+      const fixture = await open(attempt());
+      await chooseRome(fixture);
+
+      httpMock.expectOne((r) => r.url.endsWith('/answers/q2')).error(new ProgressEvent('error'));
+      fixture.detectChanges();
+
+      expect(radios(fixture).map((r) => r.checked)).toEqual([false, true]);
+      expect(waitingNotice(fixture)).toBe('No connection. 1 answer is kept on this device and will be sent as soon as the connection is back.');
+      expect(textOf(fixture)).not.toContain('could not be saved');
+
+      await vi.advanceTimersByTimeAsync(2000);
+      const retry = answerCalls();
+      expect(retry).toHaveLength(1);
+      retry[0].flush(null, { status: 204, statusText: 'No Content' });
+      fixture.detectChanges();
+
+      expect(radios(fixture).map((r) => r.checked)).toEqual([false, true]);
+      expect(waitingNotice(fixture)).toBe('');
+    });
+
+    it('treats a server that is not answering the same way, and does not call it a refusal', async () => {
+      const fixture = await open(attempt());
+      await chooseRome(fixture);
+
+      httpMock.expectOne((r) => r.url.endsWith('/answers/q2')).flush(null, { status: 503, statusText: 'Service Unavailable' });
+      fixture.detectChanges();
+
+      expect(radios(fixture).map((r) => r.checked)).toEqual([false, true]);
+      expect(waitingNotice(fixture)).toContain('No connection.');
+      await vi.advanceTimersByTimeAsync(2000);
+      answerCalls().forEach((call) => call.flush(null, { status: 204, statusText: 'No Content' }));
+    });
+
+    it('counts the answers that are waiting', async () => {
+      const fixture = await open(attempt());
+      radios(fixture)[1].click();
+      fixture.detectChanges();
+      httpMock.expectOne((r) => r.url.endsWith('/answers/q1')).error(new ProgressEvent('error'));
+      await chooseRome(fixture);
+      // A new choice makes the queue try again at once, oldest first, so the first answer is the one sent and refused again.
+      httpMock.expectOne((r) => r.url.endsWith('/answers/q1')).error(new ProgressEvent('error'));
+      fixture.detectChanges();
+
+      expect(waitingNotice(fixture)).toContain('2 answers are kept on this device');
+      for (let i = 0; i < 3; i++) {
+        await vi.advanceTimersByTimeAsync(60_000);
+        httpMock.match((r) => r.url.includes('/answers/')).forEach((call) => call.flush(null, { status: 204, statusText: 'No Content' }));
+      }
+    });
+
+    it('sends the answers kept on this device when the attempt is opened again', async () => {
+      localStorage.setItem(
+        'exam.pendingAnswers.a1',
+        JSON.stringify([{ questionId: 'q2', optionIds: ['o4'], multiple: false, confirmed: ['o3'] }]),
+      );
+
+      const fixture = await open(attempt());
+
+      // The page shows the choice the candidate made, not what the server had, and sends it.
+      buttonLabelled(fixture, 'Next')?.click();
+      fixture.detectChanges();
+      expect(radios(fixture).map((r) => r.checked)).toEqual([false, true]);
+      const resent = answerCalls();
+      expect(resent).toHaveLength(1);
+      expect(resent[0].request.body).toEqual({ optionId: 'o4' });
+      resent[0].flush(null, { status: 204, statusText: 'No Content' });
+      expect(localStorage.getItem('exam.pendingAnswers.a1')).toBeNull();
+    });
+
+    it('does not submit while an answer is still on this device, and says so', async () => {
+      const fixture = await open(attempt());
+      await chooseRome(fixture);
+      httpMock.expectOne((r) => r.url.endsWith('/answers/q2')).error(new ProgressEvent('error'));
+      fixture.detectChanges();
+
+      (buttonLabelled(fixture, 'Submit exam') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      (buttonLabelled(fixture, 'Yes, submit') as HTMLButtonElement).click();
+      // The queue tries once more before giving up on the submit.
+      httpMock.expectOne((r) => r.url.endsWith('/answers/q2')).error(new ProgressEvent('error'));
+      fixture.detectChanges();
+
+      httpMock.expectNone((r) => r.url.endsWith('/submit'));
+      expect(textOf(fixture)).toContain('could not all be sent because the connection is down');
+      expect(radios(fixture).map((r) => r.checked)).toEqual([false, true]);
+      await vi.advanceTimersByTimeAsync(60_000);
+      answerCalls().forEach((call) => call.flush(null, { status: 204, statusText: 'No Content' }));
+    });
   });
 
   describe('a question with several correct answers', () => {
@@ -278,13 +381,13 @@ describe('ExamAttempt', () => {
       expect(textOf(fixture)).toContain('0 of 1 answered');
     });
 
-    it('puts the previous set back and says so when a save fails', async () => {
+    it('puts the previous set back and says so when the server refuses the save', async () => {
       const fixture = await open(multi(['o1']));
 
       boxes(fixture)[2].click();
       fixture.detectChanges();
       expect(boxes(fixture).map((b) => b.checked)).toEqual([true, false, true]);
-      httpMock.expectOne((r) => r.url.endsWith('/answers/q1')).flush(null, { status: 500, statusText: 'Server Error' });
+      httpMock.expectOne((r) => r.url.endsWith('/answers/q1')).flush(null, { status: 400, statusText: 'Bad Request' });
       fixture.detectChanges();
 
       expect(boxes(fixture).map((b) => b.checked)).toEqual([true, false, false]);
@@ -332,13 +435,13 @@ describe('ExamAttempt', () => {
       expect(clearButton(fixture).disabled).toBe(true);
     });
 
-    it('puts the answer back and says so when the server could not clear it', async () => {
+    it('puts the answer back and says so when the server refuses to clear it', async () => {
       const fixture = await open(attempt());
       buttonLabelled(fixture, 'Next')?.click();
       fixture.detectChanges();
 
       clearButton(fixture).click();
-      httpMock.expectOne((r) => r.url.endsWith('/answers/q2')).flush(null, { status: 500, statusText: 'Server Error' });
+      httpMock.expectOne((r) => r.url.endsWith('/answers/q2')).flush(null, { status: 400, statusText: 'Bad Request' });
       fixture.detectChanges();
 
       expect(radios(fixture).map((r) => r.checked)).toEqual([true, false]);
@@ -637,15 +740,16 @@ describe('ExamAttempt', () => {
     const fixture = await open(attempt());
     radios(fixture)[1].click();
     const first = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q1'));
+    // The answers are sent one at a time, so a second choice waits its turn behind the first.
     radios(fixture)[0].click();
-    const second = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q1'));
+    httpMock.expectNone((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q1'));
     buttonLabelled(fixture, 'Submit exam')?.click();
     fixture.detectChanges();
     buttonLabelled(fixture, 'Yes, submit')?.click();
 
     first.flush(null);
     httpMock.expectNone((r) => r.url.endsWith('/submit'));
-    second.flush(null);
+    httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q1')).flush(null);
 
     httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/submit')).flush(attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [] }));
   });
@@ -1462,6 +1566,122 @@ describe('ExamAttempt', () => {
 
       beat(fixture, status({ pausedAtUtc: new Date(Date.now()).toISOString() }));
       expect(textOf(fixture)).toContain('Your exam is paused');
+    });
+  });
+
+  describe('low-bandwidth mode (FR-53)', () => {
+    const MARKED_TEXT = '<p>Which city?</p><img class="lazy-media lazy-media--q-0 lazy-bytes--45000" alt="A map">';
+    const isRead = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/me/attempts/a1');
+    const isStatus = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/me/attempts/a1/status');
+    const toggle = (fixture: ComponentFixture<ExamAttempt>) => buttonLabelled(fixture, 'Low-bandwidth mode') as HTMLButtonElement;
+
+    /** The exam as the API sends it without pictures: the first question's text holds a marker. */
+    const withMarker = () => {
+      const base = attempt();
+      return attempt({
+        sections: base.sections.map((section) => ({
+          ...section,
+          questions: section.questions.map((question) => (question.id === 'q1' ? { ...question, text: MARKED_TEXT } : question)),
+        })),
+      });
+    };
+
+    beforeEach(() => {
+      URL.createObjectURL = vi.fn(() => 'blob:fetched');
+      URL.revokeObjectURL = vi.fn();
+    });
+
+    it('asks for the attempt in full by default, with the switch off', async () => {
+      let lite: string | null = 'unset';
+
+      const fixture = await open(attempt(), (request) => (lite = request.request.params.get('lite')));
+
+      expect(lite).toBeNull();
+      expect(toggle(fixture).getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('asks for the attempt without its pictures when the candidate chose that on this device before', async () => {
+      localStorage.setItem('exam.lowBandwidth', 'on');
+      let lite: string | null = null;
+
+      const fixture = await open(attempt(), (request) => (lite = request.request.params.get('lite')));
+
+      expect(lite).toBe('true');
+      expect(toggle(fixture).getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('reads the attempt again without its pictures when it is switched on, and offers each picture with its size', async () => {
+      const fixture = await open(attempt());
+
+      toggle(fixture).click();
+      fixture.detectChanges();
+      const reread = httpMock.expectOne(isRead);
+      expect(reread.request.params.get('lite')).toBe('true');
+      reread.flush(withMarker());
+      fixture.detectChanges();
+
+      expect(toggle(fixture).getAttribute('aria-pressed')).toBe('true');
+      expect(root(fixture).querySelector('img.lazy-media')).toBeNull();
+      expect((root(fixture).querySelector('button.lazy-picture') as HTMLButtonElement).textContent).toBe('Show picture: A map (44 KB)');
+      expect(localStorage.getItem('exam.lowBandwidth')).toBe('on');
+    });
+
+    it('fetches a picture from the attempt when the candidate asks for it, and shows it', async () => {
+      localStorage.setItem('exam.lowBandwidth', 'on');
+      const fixture = await open(withMarker());
+
+      (root(fixture).querySelector('button.lazy-picture') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const picture = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/questions/q1/pictures/q-0'));
+      expect(picture.request.responseType).toBe('blob');
+      picture.flush(new Blob(['x'], { type: 'image/png' }));
+      fixture.detectChanges();
+
+      expect(root(fixture).querySelector('button.lazy-picture')).toBeNull();
+      expect(root(fixture).querySelector('.question__text img')?.getAttribute('src')).toBe('blob:fetched');
+    });
+
+    it('reads the attempt in full again when it is switched off', async () => {
+      localStorage.setItem('exam.lowBandwidth', 'on');
+      const fixture = await open(withMarker());
+
+      toggle(fixture).click();
+      fixture.detectChanges();
+      const reread = httpMock.expectOne(isRead);
+
+      expect(reread.request.params.get('lite')).toBeNull();
+      reread.flush(attempt());
+      fixture.detectChanges();
+      expect(toggle(fixture).getAttribute('aria-pressed')).toBe('false');
+      expect(localStorage.getItem('exam.lowBandwidth')).toBe('off');
+    });
+
+    it('keeps an answer that was waiting for a connection through the switch', async () => {
+      const fixture = await open(attempt());
+      radios(fixture)[1].click();
+      httpMock.expectOne((r) => r.url.endsWith('/answers/q1')).error(new ProgressEvent('error'));
+
+      toggle(fixture).click();
+      fixture.detectChanges();
+      // The page read again shows the choice though the server never had it, and sends it again.
+      httpMock.expectOne(isRead).flush(withMarker());
+      fixture.detectChanges();
+
+      expect(radios(fixture).map((r) => r.checked)).toEqual([false, true]);
+      const resent = httpMock.expectOne((r) => r.url.endsWith('/answers/q1'));
+      expect(resent.request.body).toEqual({ optionId: 'o2' });
+      resent.flush(null, { status: 204, statusText: 'No Content' });
+    });
+
+    it('checks on the attempt every thirty seconds instead of ten', async () => {
+      localStorage.setItem('exam.lowBandwidth', 'on');
+      await open(attempt());
+
+      vi.advanceTimersByTime(10_000);
+      httpMock.expectNone(isStatus);
+      vi.advanceTimersByTime(20_000);
+
+      httpMock.expectOne(isStatus).flush({ status: 'InProgress', pausedAtUtc: null, deadlineUtc: '2026-10-05T05:00:00Z', serverTimeUtc: new Date(Date.now()).toISOString(), warnings: [] });
     });
   });
 });

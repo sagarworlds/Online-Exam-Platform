@@ -1,10 +1,10 @@
 import { DOCUMENT, DatePipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Observable, finalize } from 'rxjs';
 import { Component, DestroyRef, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
+import { LowBandwidthService } from '../low-bandwidth.service';
 import { AttemptDto, AttemptQuestionDto, AttemptStatusDto, AttemptWarningDto, FocusViolationKind } from '../candidate.models';
 import { I18nService, Translate } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
@@ -12,14 +12,13 @@ import { BLOCKED_MESSAGE_KEYS, BlockedAction, ContentGuard } from './content-gua
 import { shortcutFor } from './exam-shortcuts';
 import { FocusMonitor } from './focus-monitor';
 import { ReportIssue } from './report-issue';
+import { AnswerSync, PendingAnswer } from './answer-sync';
 import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-store';
+import { PictureLoader } from '../../shared/rich-text/lazy-pictures';
 import { MathDirective } from '../../shared/rich-text/math.directive';
 
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
-
-/** How often the page asks the server whether an administrator has paused, warned or ended the attempt. Frequent enough to feel prompt, rare enough to cost little. */
-const HEARTBEAT_MS = 10_000;
 
 /** Where the warnings a candidate has dismissed are remembered, per attempt, so a reload does not show them again. Browser-only. */
 const dismissedWarningsKey = (attemptId: string) => `exam.dismissedWarnings.${attemptId}`;
@@ -131,9 +130,24 @@ export class ExamAttempt {
   protected readonly confirmingSubmit = signal(false);
   protected readonly submitting = signal(false);
 
-  /** Answers and marks still being sent to the server, and what to do when the last one has been answered. */
-  private inFlight = 0;
-  private whenIdle: (() => void)[] = [];
+  /** Low-bandwidth mode (FR-53): the attempt is read without its pictures, which are fetched when asked for, and checked on less often. */
+  protected readonly lowBandwidth = inject(LowBandwidthService);
+
+  /**
+   * Sends the candidate's answers and keeps them if the connection fails (FR-53): a choice shows at once and is sent in the background, again
+   * and again if need be, and is kept on this device meanwhile. Null when the page was opened without an attempt.
+   */
+  private readonly sync: AnswerSync | null;
+
+  /** The pictures a question was sent without are fetched through these, one loader for each question so the page does not redraw them. */
+  private readonly pictureLoaders = new Map<string, PictureLoader>();
+
+  /** What the candidate is told while answers are waiting for a connection; empty otherwise. */
+  protected readonly syncMessage = computed(() => {
+    const waiting = this.sync?.waiting() ?? false;
+    const count = this.sync?.pendingCount() ?? 0;
+    return waiting && count > 0 ? this.i18n.plural('attempt.sync.waiting', count) : '';
+  });
   protected readonly remainingSeconds = signal(0);
 
   /** The question text size, as a multiple of normal. */
@@ -317,9 +331,22 @@ export class ExamAttempt {
       // And stop counting departures: leaving this page is not leaving the exam once it is over.
       this.focus.stop();
       clearTimeout(this.noticeTimer);
+      // What is still waiting stays on this device for the next time the attempt is opened.
+      this.sync?.dispose();
     });
     effect(() => (this.protectContent() ? this.guard.start() : this.guard.stop()));
     effect(() => (this.watchFocus() ? this.focus.start() : this.focus.stop()));
+
+    this.sync =
+      this.attemptId === null
+        ? null
+        : new AnswerSync({
+            api: this.api,
+            attemptId: this.attemptId,
+            // A preview saves nothing, so there is nothing to keep for a reload.
+            persist: !this.preview,
+            onRefused: (answer, error) => this.refuse(answer, error),
+          });
 
     if (this.attemptId === null) {
       this.loading.set(false);
@@ -327,7 +354,7 @@ export class ExamAttempt {
       return;
     }
 
-    this.api.getAttempt(this.attemptId).subscribe({
+    this.api.getAttempt(this.attemptId, this.lowBandwidth.enabled()).subscribe({
       next: (attempt) => this.show(attempt),
       error: (error: unknown) => this.fail(error),
     });
@@ -542,33 +569,22 @@ export class ExamAttempt {
   }
 
   /**
-   * Counts a save while it runs. A submit waits for every save already sent: otherwise the last answer, chosen a moment before the
-   * submit, can reach the server after the attempt was scored and be left out of the score.
+   * Records a choice for a question. It shows at once and is handed to the answer queue, which sends it in the background and keeps it,
+   * trying again, if the connection is down (FR-53). Only the server turning it down puts the previous choice back (see `refuse`).
    */
-  private tracked<T>(request: Observable<T>): Observable<T> {
-    this.inFlight++;
-    return request.pipe(
-      finalize(() => {
-        this.inFlight--;
-        if (this.inFlight === 0) {
-          const waiting = this.whenIdle;
-          this.whenIdle = [];
-          waiting.forEach((resume) => resume());
-        }
-      }),
-    );
+  private changeAnswer(question: AttemptQuestionDto, optionIds: string[], previous: string[]): void {
+    this.setSelection(question.id, optionIds);
+    this.errorMessage.set(null);
+    this.sync?.enqueue({ questionId: question.id, optionIds, multiple: question.allowsMultiple === true, previous });
   }
 
-  /** Runs <paramref name="action"/> once no save is in flight; at once when none is. */
-  private afterSaves(action: () => void): void {
-    if (this.inFlight === 0) {
-      action();
-    } else {
-      this.whenIdle.push(action);
-    }
+  /** Puts a question back as the server last had it, when the server refused the choice, and says why. */
+  private refuse(answer: PendingAnswer, error: unknown): void {
+    this.setSelection(answer.questionId, answer.confirmed);
+    this.explainFailure(error, this.i18n.t(answer.optionIds.length === 0 ? 'attempt.failure.clear' : 'attempt.failure.save'));
   }
 
-  /** Records a choice. It shows at once and is saved in the background; if the save fails the previous choice comes back. */
+  /** Records a choice. It shows at once and is saved in the background, and kept and sent again if the connection fails. */
   protected choose(question: AttemptQuestionDto, optionId: string): void {
     const attempt = this.attempt();
     if (attempt === null || !this.isOpen()) {
@@ -577,7 +593,7 @@ export class ExamAttempt {
 
     const previous = chosenOptionIds(question);
     if (question.allowsMultiple) {
-      this.toggleOption(attempt.id, question, optionId, previous);
+      this.toggleOption(question, optionId, previous);
       return;
     }
 
@@ -585,15 +601,7 @@ export class ExamAttempt {
       return;
     }
 
-    this.setSelection(question.id, [optionId]);
-    this.errorMessage.set(null);
-
-    this.tracked(this.api.saveAnswer(attempt.id, question.id, optionId)).subscribe({
-      error: (error: unknown) => {
-        this.setSelection(question.id, previous);
-        this.explainFailure(error, this.i18n.t('attempt.failure.save'));
-      },
-    });
+    this.changeAnswer(question, [optionId], previous);
   }
 
   /** Whether the question has any answer to clear. */
@@ -610,37 +618,19 @@ export class ExamAttempt {
    * Ticks or unticks one option of a multiple-answer question and saves the whole set, since the set is the answer. Unticking the
    * last one takes the answer back, which is the same as clearing it: a question is either answered with something or not at all.
    */
-  private toggleOption(attemptId: string, question: AttemptQuestionDto, optionId: string, previous: string[]): void {
+  private toggleOption(question: AttemptQuestionDto, optionId: string, previous: string[]): void {
     const next = previous.includes(optionId) ? previous.filter((id) => id !== optionId) : [...previous, optionId];
-    this.setSelection(question.id, next);
-    this.errorMessage.set(null);
-
-    const save = next.length === 0 ? this.api.clearAnswer(attemptId, question.id) : this.api.saveAnswers(attemptId, question.id, next);
-    this.tracked(save).subscribe({
-      error: (error: unknown) => {
-        this.setSelection(question.id, previous);
-        this.explainFailure(error, this.i18n.t('attempt.failure.save'));
-      },
-    });
+    this.changeAnswer(question, next, previous);
   }
 
-  /** Takes back the question's answer. It shows at once and is saved in the background; if the save fails the answer comes back. */
+  /** Takes back the question's answer. It shows at once and is saved in the background; if the server refuses, the answer comes back. */
   protected clearResponse(question: AttemptQuestionDto): void {
-    const attempt = this.attempt();
     const previous = chosenOptionIds(question);
-    if (attempt === null || !this.isOpen() || previous.length === 0) {
+    if (this.attempt() === null || !this.isOpen() || previous.length === 0) {
       return;
     }
 
-    this.setSelection(question.id, []);
-    this.errorMessage.set(null);
-
-    this.tracked(this.api.clearAnswer(attempt.id, question.id)).subscribe({
-      error: (error: unknown) => {
-        this.setSelection(question.id, previous);
-        this.explainFailure(error, this.i18n.t('attempt.failure.clear'));
-      },
-    });
+    this.changeAnswer(question, [], previous);
   }
 
   /** Marks the question for review, or takes the mark off. It shows at once; if the save fails the mark goes back as it was. */
@@ -687,7 +677,21 @@ export class ExamAttempt {
 
     this.submitting.set(true);
     this.errorMessage.set(null);
-    this.afterSaves(() => this.sendSubmit(attempt.id, true));
+    // Every answer must have reached the server first, or the last one, chosen a moment before, can arrive after the attempt was scored and
+    // be left out. With the connection down they cannot, so the candidate is told, and the answers stay on this device.
+    const afterAnswers = (saved: boolean) => {
+      if (saved) {
+        this.sendSubmit(attempt.id, true);
+      } else {
+        this.submitting.set(false);
+        this.errorMessage.set(this.i18n.t('attempt.failure.offlineSubmit'));
+      }
+    };
+    if (this.sync === null) {
+      afterAnswers(true);
+    } else {
+      this.sync.whenSettled(afterAnswers);
+    }
   }
 
   /** Sends the submit. One that clashed with another request for the attempt is sent once more: submitting is safe to repeat. */
@@ -739,15 +743,36 @@ export class ExamAttempt {
     this.stopTimer();
 
     if (attempt.status === 'InProgress') {
+      this.applyWaitingAnswers();
       this.markCurrentVisited();
       this.clockOffsetMs = Date.parse(attempt.serverTimeUtc) - Date.now();
       this.tick();
       this.timer = setInterval(() => this.tick(), TICK_MS);
       // A preview has no attempt on the server to pause, warn or end.
       if (!this.preview) {
-        this.heartbeat = setInterval(() => this.checkStatus(), HEARTBEAT_MS);
+        this.heartbeat = setInterval(() => this.checkStatus(), this.lowBandwidth.heartbeatMs());
       }
+    } else {
+      // The attempt is over: nothing more can be saved to it, so nothing is kept waiting.
+      this.sync?.discard();
     }
+  }
+
+  /**
+   * Shows the answers that are waiting to be sent over what the server said, and sends them. After a reload, or after the attempt was read
+   * again, the server may not have them yet, and a candidate must never see their own choice go missing.
+   */
+  private applyWaitingAnswers(): void {
+    const sync = this.sync;
+    if (sync === null) {
+      return;
+    }
+
+    const known = new Set(this.questions().map((question) => question.id));
+    for (const waiting of sync.entries().filter((entry) => known.has(entry.questionId))) {
+      this.setSelection(waiting.questionId, waiting.optionIds);
+    }
+    sync.flush();
   }
 
   /**
@@ -833,10 +858,34 @@ export class ExamAttempt {
       return;
     }
 
-    this.api.getAttempt(this.attemptId).subscribe({
+    this.api.getAttempt(this.attemptId, this.lowBandwidth.enabled()).subscribe({
       next: (attempt) => this.show(attempt),
       error: (error: unknown) => this.fail(error),
     });
+  }
+
+  /** Turns low-bandwidth mode on or off and reads the attempt again in the new mode, so the pictures come or go with it (FR-53). */
+  protected toggleLowBandwidth(): void {
+    this.lowBandwidth.set(!this.lowBandwidth.enabled());
+    this.reload();
+  }
+
+  /**
+   * What fetches the pictures of one question when the candidate asks for them; null when the page was sent them with the questions (a
+   * preview, which reads the exam itself). One for each question and always the same one, so the text is not redrawn.
+   */
+  protected pictureLoader(questionId: string): PictureLoader | null {
+    const attemptId = this.attemptId;
+    if (attemptId === null || this.preview) {
+      return null;
+    }
+
+    let loader = this.pictureLoaders.get(questionId);
+    if (loader === undefined) {
+      loader = (key) => this.api.getQuestionPicture(attemptId, questionId, key);
+      this.pictureLoaders.set(questionId, loader);
+    }
+    return loader;
   }
 
   private setSelection(questionId: string, optionIds: string[]): void {
