@@ -37,6 +37,12 @@ public interface IExamRepository
     /// <returns>One entry per question and exam it sits in; a question in no exam has none.</returns>
     Task<IReadOnlyList<ExamQuestionUse>> ListUsesOfQuestionsAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken = default);
 
+    /// <summary>Reads the published exams that start after <paramref name="afterUtc"/> and no later than <paramref name="untilUtc"/>, with their sections, untracked.</summary>
+    /// <param name="afterUtc">The earliest start, exclusive.</param>
+    /// <param name="untilUtc">The latest start, inclusive.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Exam>> ListPublishedStartingBetweenAsync(DateTime afterUtc, DateTime untilUtc, CancellationToken cancellationToken = default);
+
     /// <summary>Lists the most recently created exams, newest first, without their sections.</summary>
     /// <param name="take">How many to return at most.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

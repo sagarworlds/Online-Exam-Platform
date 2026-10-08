@@ -56,6 +56,11 @@ services:
       # WhatsApp__Enabled is not true; needs the WhatsApp settings above, and the operator's confirmation that those people agreed to WhatsApp notices (README, Invitations on WhatsApp).
       - key: Invite__WhatsApp__TemplateName
         sync: false
+      # Scheduled e-mails (exam reminders, released results, revised scores). The API sends them on a timer of its own while awake, and a
+      # free service sleeps when idle, so a GitHub workflow calls POST /v1/notifications/run with this key every ten minutes (docs/deploy-render.md,
+      # step 9). Unset, that route answers 404 and only the timer sends. At least 24 characters, random.
+      - key: Notifications__RunKey
+        sync: false
       # Free web services have no pre-deploy command, so the single instance migrates and seeds itself on start.
       - key: Database__MigrateAndSeedOnStartup
         value: "true"

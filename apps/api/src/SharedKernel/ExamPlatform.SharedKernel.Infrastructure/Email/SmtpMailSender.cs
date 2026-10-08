@@ -12,6 +12,9 @@ namespace ExamPlatform.SharedKernel.Infrastructure.Email;
 public sealed class SmtpMailSender(IOptions<SmtpOptions> options, ILogger<SmtpMailSender> logger) : IMailSender
 {
     /// <inheritdoc />
+    public bool IsConfigured => options.Value.IsConfigured;
+
+    /// <inheritdoc />
     public async Task<bool> SendAsync(OutgoingMail mail, CancellationToken cancellationToken)
     {
         var smtp = options.Value;

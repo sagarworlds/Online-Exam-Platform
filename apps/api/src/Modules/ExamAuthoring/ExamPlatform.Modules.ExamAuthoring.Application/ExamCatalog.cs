@@ -24,6 +24,10 @@ public sealed class ExamCatalog(IExamRepository repository) : IExamCatalog
         return exams.Where(e => e.Status == ExamStatus.Published).Select(ToSnapshot).ToList();
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ExamSnapshot>> FindPublishedStartingBetweenAsync(DateTime afterUtc, DateTime untilUtc, CancellationToken cancellationToken) =>
+        (await repository.ListPublishedStartingBetweenAsync(afterUtc, untilUtc, cancellationToken)).Select(ToSnapshot).ToList();
+
     private static ExamSnapshot ToSnapshot(Exam exam) =>
         new(
             exam.Id,

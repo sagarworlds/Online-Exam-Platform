@@ -12,6 +12,13 @@ public sealed record OutgoingMail(string To, string Subject, string Body);
 /// </summary>
 public interface IMailSender
 {
+    /// <summary>
+    /// Whether there is a mail server to hand mail to at all. A job that sends mail on a schedule (FR-39 reminders) asks first, so with
+    /// none configured it waits quietly and sends what is due once one is, instead of failing every message every minute. A sender
+    /// that cannot tell says yes, and the answer to <see cref="SendAsync"/> is then the only signal.
+    /// </summary>
+    bool IsConfigured => true;
+
     /// <summary>Tries to deliver the message.</summary>
     /// <param name="mail">What to send and where.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
