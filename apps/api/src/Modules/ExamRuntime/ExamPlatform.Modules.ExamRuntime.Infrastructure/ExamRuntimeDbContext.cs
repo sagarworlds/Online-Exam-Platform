@@ -25,6 +25,9 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
     /// <summary>The problems candidates reported from inside an exam (FR-42).</summary>
     public DbSet<IssueReport> IssueReports => Set<IssueReport>();
 
+    /// <summary>Which scheduled e-mails were already sent, so the notification run never sends one twice (FR-39).</summary>
+    public DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
+
     /// <summary>What administrators allow candidates because of a disability or other need (FR-49).</summary>
     public DbSet<Accommodation> Accommodations => Set<Accommodation>();
 
@@ -230,6 +233,17 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             b.HasIndex(x => new { x.Status, x.ReportedAtUtc });
             // An attempt may report only so many problems, which counts them by attempt.
             b.HasIndex(x => x.AttemptId);
+        });
+
+        modelBuilder.Entity<NotificationDelivery>(b =>
+        {
+            b.ToTable("NotificationDeliveries");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Kind).HasConversion<string>().HasMaxLength(30);
+
+            // The store, not the code, keeps one record per message: two passes of the notification run that overlap both try to start
+            // the same record, and only one insert survives. It also serves finding what was already sent about a subject.
+            b.HasIndex(x => new { x.Kind, x.SubjectId, x.RecipientId }).IsUnique();
         });
 
         modelBuilder.Entity<Accommodation>(b =>

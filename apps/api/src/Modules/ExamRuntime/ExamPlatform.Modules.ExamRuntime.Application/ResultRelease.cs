@@ -25,14 +25,21 @@ public static class ResultRelease
     /// <param name="exam">The exam.</param>
     /// <param name="attempt">The attempt.</param>
     /// <returns>The instant, or <see langword="null"/> while the attempt is open or its answers have no release time yet.</returns>
-    public static DateTime? ReleasedAtUtc(ExamSnapshot exam, Attempt attempt)
-    {
-        if (attempt.SubmittedAtUtc is not { } submittedAt)
-            return null;
-        if (exam.ResultRelease == ExamResultReleaseMode.Instant)
-            return submittedAt;
+    public static DateTime? ReleasedAtUtc(ExamSnapshot exam, Attempt attempt) =>
+        attempt.SubmittedAtUtc is { } submittedAt ? ReleasedAtUtc(exam, submittedAt) : null;
 
-        return exam.ResultReleaseTimeUtc is { } releaseAt ? (releaseAt > submittedAt ? releaseAt : submittedAt) : null;
+    /// <summary>
+    /// The same instant for an attempt known only by when it was submitted, which is all the notification run reads of it (FR-39).
+    /// </summary>
+    /// <param name="exam">The exam.</param>
+    /// <param name="submittedAtUtc">When the attempt was submitted.</param>
+    /// <returns>The instant, or <see langword="null"/> while the exam's answers have no release time yet.</returns>
+    public static DateTime? ReleasedAtUtc(ExamSnapshot exam, DateTime submittedAtUtc)
+    {
+        if (exam.ResultRelease == ExamResultReleaseMode.Instant)
+            return submittedAtUtc;
+
+        return exam.ResultReleaseTimeUtc is { } releaseAt ? (releaseAt > submittedAtUtc ? releaseAt : submittedAtUtc) : null;
     }
 
     /// <summary>What a candidate is told about the review: whether it is open, how it is decided, and from when if that is known.</summary>
