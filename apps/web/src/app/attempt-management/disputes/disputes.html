@@ -1,0 +1,110 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>Disputes</h1>
+    <div class="list-filter">
+      <label class="visually-hidden" for="dispute-status">Show disputes that are</label>
+      <select id="dispute-status" [value]="status()" (change)="onStatusChanged($any($event.target).value)">
+        @for (option of statuses; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+  @if (notice()) {
+    <p class="success-message" role="status">{{ notice() }}</p>
+  }
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (disputes().length === 0) {
+    <div class="card empty-state">{{ emptyMessage() }}</div>
+  } @else {
+    @for (group of groups(); track group.questionId) {
+      <section class="card" [attr.aria-labelledby]="'dispute-group-' + group.questionId">
+        <h3 class="card__title" [id]="'dispute-group-' + group.questionId">{{ heading(group) }}</h3>
+        <!-- The question as it is now, from the API's sanitized HTML, run through Angular's sanitizer again before it is shown. -->
+        @if (group.questionText) {
+          <div class="rich-text" [appMath]="group.questionText"></div>
+        } @else {
+          <p class="hint">(question no longer in the bank)</p>
+        }
+
+        <ul class="dispute-list">
+          @for (dispute of group.disputes; track dispute.id) {
+            <li class="dispute-row">
+              <p class="card__meta">
+                <strong>{{ dispute.candidateEmail ?? 'A candidate who is no longer enrolled' }}</strong>
+                ·
+                <a [routerLink]="['/exams', dispute.examId, 'attempts']">{{ dispute.examName ?? 'An exam that can no longer be read' }}</a>
+                @if (dispute.attemptNumber !== null) {
+                  · attempt {{ dispute.attemptNumber }}
+                }
+                · raised {{ dispute.raisedAtUtc | date: 'medium' }}
+              </p>
+              <blockquote class="dispute-row__reason">{{ dispute.reason }}</blockquote>
+
+              @if (dispute.status !== 'Open') {
+                <p class="card__meta">
+                  <span class="badge" [class.badge--active]="dispute.status === 'Accepted'" [class.badge--inactive]="dispute.status === 'Rejected'">{{ dispute.status }}</span>
+                  @if (dispute.resolvedAtUtc) {
+                    {{ dispute.resolvedAtUtc | date: 'medium' }}
+                  }
+                </p>
+                @if (dispute.resolutionNote) {
+                  <p>
+                    {{ dispute.status === 'Accepted' ? 'Reason for the correction' : 'Explanation given' }}: {{ dispute.resolutionNote }}
+                  </p>
+                }
+              }
+
+              @if (rowErrors()[dispute.id]) {
+                <p class="error-message" role="alert">{{ rowErrors()[dispute.id] }}</p>
+              }
+
+              @if (dispute.status === 'Open') {
+                @if (rejectingId() === dispute.id) {
+                  <form (submit)="$event.preventDefault(); confirmReject(dispute)" [attr.aria-label]="'Reject the dispute from ' + (dispute.candidateEmail ?? 'the candidate')">
+                    <div class="field">
+                      <label [for]="'reject-note-' + dispute.id">Explanation to show the candidate</label>
+                      <textarea
+                        [id]="'reject-note-' + dispute.id"
+                        rows="2"
+                        aria-required="true"
+                        [maxLength]="maxNoteLength"
+                        [value]="note()"
+                        (input)="note.set($any($event.target).value)"
+                        [disabled]="busyId() !== null"
+                      ></textarea>
+                    </div>
+                    <div class="actions">
+                      <button type="submit" class="btn--danger" [disabled]="busyId() !== null || note().trim() === ''">Reject dispute</button>
+                      <button type="button" (click)="cancelRejecting()" [disabled]="busyId() !== null">Cancel</button>
+                    </div>
+                  </form>
+                } @else {
+                  <div class="actions">
+                    <button type="button" (click)="startRejecting(dispute)" [disabled]="busyId() !== null">Reject…</button>
+                  </div>
+                }
+              }
+            </li>
+          }
+        </ul>
+
+        @if (status() === 'open' && canCorrectKey()) {
+          @if (correctingQuestionId() === group.questionId) {
+            <app-answer-key-correction [questionId]="group.questionId" (corrected)="onCorrected($event)" (cancelled)="cancelCorrecting()" />
+          } @else {
+            <div class="actions">
+              <button type="button" class="primary" (click)="startCorrecting(group)">Correct the answer key…</button>
+            </div>
+          }
+        }
+      </section>
+    }
+  }
+</div>

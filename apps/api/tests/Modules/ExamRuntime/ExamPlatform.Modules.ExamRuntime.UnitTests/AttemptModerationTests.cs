@@ -393,7 +393,7 @@ public class AttemptModerationTests
         var access = new AttemptAccess(_attempts, _catalog, Closer, _clock);
 
         await Assert.ThrowsAsync<AttemptInvalidatedError>(
-            () => new GetAttemptReviewHandler(access, new AttemptReviewBuilder(_bank, _clock)).HandleAsync(attempt.Id, _candidate, CancellationToken.None));
+            () => new GetAttemptReviewHandler(access, new AttemptReviewBuilder(_bank, _clock), Substitute.For<IDisputeRepository>(), new DisputePolicy(7), _clock).HandleAsync(attempt.Id, _candidate, CancellationToken.None));
     }
 
     [Fact]

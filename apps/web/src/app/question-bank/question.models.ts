@@ -144,6 +144,17 @@ export interface UpdateQuestionRequest {
   allowsMultiple: boolean;
 }
 
+/** The longest reason the API accepts for correcting an answer key; every candidate whose score moves is shown it. */
+export const MAX_KEY_CORRECTION_REASON = 500;
+
+/** What correcting an answer key did (FR-31). */
+export interface AnswerKeyCorrectionResult {
+  /** Whether the key differed from what was asked for; false means nothing was changed or rescored. */
+  keyChanged: boolean;
+  /** How many submitted attempts were scored again because of it. */
+  attemptsRescored: number;
+}
+
 /** The body of POST /v1/questions/placement: one question is a bulk of one. */
 export interface FileQuestionsRequest {
   questionIds: string[];

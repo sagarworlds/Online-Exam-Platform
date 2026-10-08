@@ -871,3 +871,33 @@ button.primary:hover:not(:disabled),
   color: var(--text);
   font-weight: 700;
 }
+
+/* The staff queue of answer-key disputes (FR-31): a question once, then a block for each candidate who disputes it. */
+.dispute-list {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dispute-row {
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+}
+
+/* What the candidate wrote: its own line breaks are kept, and a long word never widens the card. */
+.dispute-row__reason {
+  margin: 0.5rem 0;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 3px solid var(--border-strong);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The panel that corrects a question's answer key, set apart from the disputes it settles. */
+.key-correction {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}

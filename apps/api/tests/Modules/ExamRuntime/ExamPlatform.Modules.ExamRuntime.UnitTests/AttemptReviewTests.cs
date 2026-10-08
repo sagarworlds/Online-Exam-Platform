@@ -22,6 +22,7 @@ public class AttemptReviewTests
     private readonly IQuestionBank _bank = Substitute.For<IQuestionBank>();
     private readonly IAttemptRepository _attempts = Substitute.For<IAttemptRepository>();
     private readonly IExamRuntimeUnitOfWork _unitOfWork = Substitute.For<IExamRuntimeUnitOfWork>();
+    private readonly IDisputeRepository _disputes = Substitute.For<IDisputeRepository>();
 
     private readonly QuestionSnapshot _right = Fixtures.Question("Right one");
     private readonly QuestionSnapshot _wrong = Fixtures.Question("Wrong one");
@@ -58,12 +59,76 @@ public class AttemptReviewTests
 
     private AttemptReviewBuilder Builder => new(_bank, _clock);
     private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock);
-    private GetAttemptReviewHandler Handler => new(Access, Builder);
+    private GetAttemptReviewHandler Handler => new(Access, Builder, _disputes, new DisputePolicy(7), _clock);
 
     private static ReviewQuestionDto Question(AttemptReviewDto review, string text) =>
         review.Sections.SelectMany(s => s.Questions).Single(q => q.Text == text);
 
+    public AttemptReviewTests()
+    {
+        _disputes.ListForAttemptAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns([]);
+    }
+
     // ---- what the review says ---------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task AResultNeverRevised_IsVersionOne_WithNoRevisions()
+    {
+        var exam = ExamWith();
+        var attempt = Submitted(exam);
+
+        var review = await Handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+
+        Assert.Equal(1, review.ResultVersion);
+        Assert.Empty(review.Revisions!);
+    }
+
+    [Fact]
+    public async Task EachRevision_IsNumberedByTheVersionItProduced_AndTheResultIsTheLatest()
+    {
+        var exam = ExamWith();
+        var attempt = Submitted(exam);
+        attempt.ReviseScore(3.75m, 12m, "Q1's key was corrected", Fixtures.Now.AddDays(1));
+        attempt.ReviseScore(6.75m, 12m, "Q2's key was corrected", Fixtures.Now.AddDays(2));
+
+        var review = await Handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+
+        Assert.Equal(3, review.ResultVersion);
+        Assert.Equal([2, 3], review.Revisions!.Select(r => r.Version));
+        Assert.Equal(6.75m, review.Score);
+    }
+
+    [Fact]
+    public async Task TheReview_SaysWhetherTheKeyCanStillBeDisputed_AndUntilWhen()
+    {
+        var exam = ExamWith();
+        var attempt = Submitted(exam);
+
+        var review = await Handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+
+        Assert.NotNull(review.DisputeWindow);
+        Assert.True(review.DisputeWindow.Enabled);
+        Assert.True(review.DisputeWindow.Open);
+        Assert.Equal(attempt.SubmittedAtUtc!.Value.AddDays(7), review.DisputeWindow.ClosesAtUtc);
+    }
+
+    [Fact]
+    public async Task TheReview_ListsTheCandidatesOwnDisputes_WithHowStaffAnsweredEach()
+    {
+        var exam = ExamWith();
+        var attempt = Submitted(exam);
+        var open = Dispute.Raise(attempt.Id, exam.Id, _candidate, _wrong.Id, "Both options are right", Fixtures.Now.AddMinutes(11));
+        var answered = Dispute.Raise(attempt.Id, exam.Id, _candidate, _right.Id, "The key is wrong", Fixtures.Now.AddMinutes(12));
+        answered.Reject(Guid.NewGuid(), Fixtures.Now.AddHours(1), "The key stands");
+        _disputes.ListForAttemptAsync(attempt.Id, Arg.Any<CancellationToken>()).Returns([open, answered]);
+
+        var review = await Handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+
+        Assert.Equal(2, review.Disputes!.Count);
+        Assert.Equal((DisputeStatus.Open, _wrong.Id), (review.Disputes[0].Status, review.Disputes[0].QuestionId));
+        Assert.Equal(DisputeStatus.Rejected, review.Disputes[1].Status);
+        Assert.Equal("The key stands", review.Disputes[1].ResolutionNote);
+    }
 
     [Fact]
     public async Task TheReview_MarksEveryOption_AsRightAndAsChosen_AndEveryQuestionWithItsVerdictAndMarks()

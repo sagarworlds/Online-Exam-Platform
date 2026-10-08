@@ -408,6 +408,58 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
                     b.ToTable("AttemptWarnings", "examRuntime");
                 });
 
+            modelBuilder.Entity("ExamPlatform.Modules.ExamRuntime.Domain.Dispute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CandidateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ExamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("RaisedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ResolutionNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ResolvedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttemptId", "QuestionId")
+                        .IsUnique();
+
+                    b.HasIndex("QuestionId", "Status");
+
+                    b.HasIndex("Status", "RaisedAtUtc");
+
+                    b.ToTable("Disputes", "examRuntime");
+                });
+
             modelBuilder.Entity("ExamPlatform.Modules.ExamRuntime.Domain.ExtraAttemptGrant", b =>
                 {
                     b.Property<Guid>("Id")

@@ -9,10 +9,17 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 /// <summary>
 /// ExamRuntime's side of a question-bank answer-key correction (FR-31, ADR 0001): QuestionBank asks for this through
 /// <see cref="IAttemptRescorer"/> once it has saved the corrected key, and this is the one place that recomputes a
-/// submitted attempt's score from scratch outside the normal submit flow.
+/// submitted attempt's score from scratch outside the normal submit flow. A correction also settles the candidates' open disputes
+/// of that question: correcting the key is what accepting a dispute means.
 /// </summary>
 public sealed class AttemptRescorer(
-    IAttemptRepository attempts, IExamCatalog examCatalog, IQuestionBank questionBank, IExamRuntimeUnitOfWork unitOfWork, Clock clock)
+    IAttemptRepository attempts,
+    IExamCatalog examCatalog,
+    IQuestionBank questionBank,
+    IDisputeRepository disputes,
+    IExamRuntimeUnitOfWork unitOfWork,
+    IRequestContext requestContext,
+    Clock clock)
     : IAttemptRescorer
 {
     /// <inheritdoc />
@@ -54,8 +61,18 @@ public sealed class AttemptRescorer(
             }
         }
 
-        // Saved when a score moved, or when an attempt was only moved to the corrected version, which is part of what it shows.
-        if (changed > 0 || repinned)
+        // Everyone who disputed this question's key now has their answer: it was corrected. The staff user is whoever is making the
+        // correction, since this runs inside their request; outside a signed-in request there is none to name.
+        var settled = false;
+        foreach (var dispute in await disputes.ListOpenForQuestionAsync(questionId, cancellationToken))
+        {
+            dispute.Accept(requestContext.UserId, nowUtc, reason);
+            settled = true;
+        }
+
+        // Saved when a score moved, when an attempt was only moved to the corrected version (which is part of what it shows), or when a
+        // dispute was settled.
+        if (changed > 0 || repinned || settled)
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return changed;

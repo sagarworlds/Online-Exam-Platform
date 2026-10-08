@@ -485,6 +485,33 @@
   color: var(--danger);
 }
 
+/* A dispute of a question's answer key (FR-31), under the question it is about: the form that raises one, or the dispute with staff's answer. */
+.review-dispute {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.review-dispute__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* The status is a sentence, longer than a badge's usual word, so it may wrap on a narrow screen. */
+.review-dispute__status {
+  margin-inline-start: 0;
+  white-space: normal;
+}
+
+/* What the candidate wrote and what staff answered: their own line breaks are kept, and a long word never widens the card. */
+.review-dispute__text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* Text size for the question and its options only: the palette and timer keep their size so they never crowd the screen. */
 .exam-question {
   font-size: calc(1rem * var(--exam-zoom, 1));

@@ -282,6 +282,31 @@ public sealed class StartupGuardTests
         Assert.Contains($"Identity:RateLimits:{policy}", failure.Message);
     }
 
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("366")]
+    [InlineData("soon")]
+    public void ADisputeWindowOutsideZeroToAYear_FailsAtStartupNamingTheSetting(string value)
+    {
+        // A mistyped window must stop the boot, not fail the first candidate who tries to dispute a result.
+        using var factory = SmtpHostWith(("ExamRuntime:Disputes:WindowDays", value));
+
+        var failure = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+
+        Assert.Contains(SelfAndInnerExceptions(failure), e => e.Message.Contains("ExamRuntime:Disputes:WindowDays", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithDisputesSwitchedOff_Boots()
+    {
+        using var factory = SmtpHostWith(("ExamRuntime:Disputes:WindowDays", "0"));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     /// <summary>How many times to try again when the framework loses the startup failure (see <see cref="AssertStartupFails{TOptions}"/>).</summary>
     private const int StartupFailureAttempts = 5;
 

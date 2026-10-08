@@ -8,6 +8,8 @@ import {
   AttemptPaperDto,
   AttemptRequestFilterStatus,
   AttemptRequestRow,
+  DisputeFilterStatus,
+  DisputeRow,
   ExamAttemptsDto,
   ExamCandidateDto,
   SetAccommodationRequest,
@@ -19,6 +21,7 @@ export class AttemptAdminApiService {
   private readonly http = inject(HttpClient);
   private readonly examsUrl = `${environment.apiBaseUrl}/v1/exams`;
   private readonly requestsUrl = `${environment.apiBaseUrl}/v1/attempt-requests`;
+  private readonly disputesUrl = `${environment.apiBaseUrl}/v1/disputes`;
 
   getExamAttempts(examId: string): Observable<ExamAttemptsDto> {
     return this.http.get<ExamAttemptsDto>(`${this.examsUrl}/${examId}/attempts`);
@@ -47,6 +50,16 @@ export class AttemptAdminApiService {
   /** Turns the request down; the note, if any, is shown to the candidate. */
   declineAttemptRequest(requestId: string, note: string | null): Observable<AttemptRequestRow> {
     return this.http.post<AttemptRequestRow>(`${this.requestsUrl}/${requestId}/decline`, { note });
+  }
+
+  /** The candidates' disputes of an answer key with the given status, oldest first (open ones by default), at most 200 (FR-31). */
+  listDisputes(status: DisputeFilterStatus = 'open'): Observable<DisputeRow[]> {
+    return this.http.get<DisputeRow[]>(this.disputesUrl, { params: { status } });
+  }
+
+  /** Turns a dispute down; the explanation is shown to the candidate. Correcting the question's answer key accepts its disputes instead. */
+  rejectDispute(disputeId: string, note: string): Observable<DisputeRow> {
+    return this.http.post<DisputeRow>(`${this.disputesUrl}/${disputeId}/reject`, { note });
   }
 
   /** Sends the candidate a warning, which their exam page shows within seconds (FR-29). */

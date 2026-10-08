@@ -1,0 +1,56 @@
+<form class="key-correction" (submit)="$event.preventDefault(); save()" aria-label="Correct the answer key">
+  @if (loadError()) {
+    <p class="error-message" role="alert">{{ loadError() }}</p>
+    <div class="actions">
+      <button type="button" (click)="cancelled.emit()">Close</button>
+    </div>
+  } @else if (question(); as q) {
+    <p class="warning-note">
+      This changes the result of every candidate who answered this question: their scores are worked out again, and each of them is shown your reason.
+      The disputes about this question are accepted.
+    </p>
+
+    <fieldset class="field">
+      <legend>{{ q.allowsMultiple ? 'Correct options (tick every one)' : 'Correct option' }}</legend>
+      @for (option of q.options; track option.id; let i = $index) {
+        @if (q.allowsMultiple) {
+          <label class="inline-check">
+            <input type="checkbox" [checked]="chosen().has(option.id)" (change)="choose(option.id, $any($event.target).checked, true)" [disabled]="busy()" />
+            <span>{{ optionLetter(i) }}. {{ option.text }}</span>
+          </label>
+        } @else {
+          <label class="inline-check">
+            <input type="radio" [name]="'key-' + q.id" [checked]="chosen().has(option.id)" (change)="choose(option.id, true, false)" [disabled]="busy()" />
+            <span>{{ optionLetter(i) }}. {{ option.text }}</span>
+          </label>
+        }
+      }
+      @if (choiceProblem()) {
+        <p class="field-error">{{ choiceProblem() }}</p>
+      }
+    </fieldset>
+
+    <div class="field">
+      <label [for]="'key-reason-' + q.id">Reason (shown to every candidate whose score changes)</label>
+      <textarea
+        [id]="'key-reason-' + q.id"
+        rows="2"
+        aria-required="true"
+        [maxLength]="maxReason"
+        [value]="reason()"
+        (input)="reason.set($any($event.target).value)"
+        [disabled]="busy()"
+      ></textarea>
+    </div>
+
+    @if (error()) {
+      <p class="error-message" role="alert">{{ error() }}</p>
+    }
+    <div class="actions">
+      <button type="submit" class="primary" [disabled]="!canSave()">Correct the answer key</button>
+      <button type="button" (click)="cancelled.emit()" [disabled]="busy()">Cancel</button>
+    </div>
+  } @else {
+    <p class="hint">Loading…</p>
+  }
+</form>
