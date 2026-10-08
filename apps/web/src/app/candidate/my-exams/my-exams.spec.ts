@@ -82,12 +82,16 @@ describe('MyExams', () => {
     ]);
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const root = fixture.nativeElement as HTMLElement;
+    const text = root.textContent ?? '';
     expect(text).toContain('Maths Final');
-    expect(text).toContain('20 questions, 90 minutes');
     expect(text).toContain('Not open yet');
     expect(text).toContain('Closed');
-    expect(text).toContain('5 questions');
+    // Each fact is its own item, so a phone can wrap them without splitting one sentence across lines.
+    const facts = Array.from(root.querySelectorAll('.exam-facts')).map((list) =>
+      Array.from(list.querySelectorAll('li')).map((item) => item.textContent?.trim()),
+    );
+    expect(facts).toEqual([['20 questions', '90 minutes'], ['5 questions'], ['20 questions', '90 minutes']]);
   });
 
   it('is shown in the language the candidate chose, and changes with it', () => {
@@ -100,7 +104,8 @@ describe('MyExams', () => {
 
     const text = root.textContent ?? '';
     expect(text).toContain('मेरी परीक्षाएँ');
-    expect(text).toContain('20 प्रश्न, 90 मिनट');
+    expect(text).toContain('20 प्रश्न');
+    expect(text).toContain('90 मिनट');
     expect(text).toContain('उपयोग किए गए प्रयास: 1 में से 3');
     expect(text).toContain('आपका स्कोर:');
     expect(root.textContent).toContain('प्रयास 2 शुरू करें');
@@ -195,6 +200,29 @@ describe('MyExams', () => {
     const link = Array.from(root.querySelectorAll('a')).find((a) => a.textContent?.includes('View result'));
     expect(link?.getAttribute('href')).toBe('/attempt/a1');
   });
+  it('shows the one action above the attempt history, so the candidate reaches it first', () => {
+    const { root } = openWith([exam({ attemptsUsed: 1, canStartAttempt: true, attempts: [attempt(1, 'Submitted', 11)], attemptsAllowed: 2 })]);
+
+    const action = root.querySelector('.actions a.btn--primary') as HTMLElement;
+    const history = root.querySelector('.attempt-list') as HTMLElement;
+    expect(action.textContent).toContain('Start attempt 2');
+    expect(action.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('announces that the exams are loading, and a failure to load them as an alert', () => {
+    const fixture = TestBed.createComponent(MyExams);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('[role="status"]')?.textContent).toContain('Loading');
+
+    httpMock
+      .expectOne(isMyExams)
+      .flush({ detail: 'The exams could not be loaded. Try again later.' }, { status: 500, statusText: 'Internal Server Error' });
+    fixture.detectChanges();
+
+    expect(root.querySelector('[role="alert"]')?.textContent).toContain('The exams could not be loaded.');
+  });
+
   describe('several attempts', () => {
     const twoAttempts = (overrides: Record<string, unknown> = {}) =>
       exam({
@@ -264,8 +292,12 @@ describe('MyExams', () => {
       ]);
 
       expect(root.querySelector('a[href$="/start"]')).toBeNull();
+      // The open attempt is listed without a button of its own; the one action above the list carries it.
       expect(rows(root)[1].textContent).toContain('In progress');
-      expect(rows(root)[1].querySelector('a')?.textContent).toContain('Resume exam');
+      expect(rows(root)[1].querySelector('a')).toBeNull();
+      const resume = root.querySelector('.actions a.btn--primary');
+      expect(resume?.textContent).toContain('Resume exam');
+      expect(resume?.getAttribute('href')).toBe('/attempt/a2');
     });
 
     it('sends the candidate through the instructions page to start the next attempt', () => {
@@ -290,6 +322,8 @@ describe('MyExams', () => {
       buttonIn(root, 'Ask for another attempt')!.click();
       fixture.detectChanges();
       const box = root.querySelector('textarea') as HTMLTextAreaElement;
+      // The text box is named by its question, so a screen reader announces what it is for.
+      expect(box.labels?.[0]?.textContent).toContain('Why do you need another attempt?');
       box.value = '  Power cut  ';
       box.dispatchEvent(new Event('input'));
       fixture.detectChanges();
