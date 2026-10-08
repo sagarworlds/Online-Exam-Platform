@@ -330,4 +330,14 @@ export const MR: Messages = {
   'forbidden.reason': 'तुमच्या खात्यात या भागाची परवानगी नाही. ती हवी असल्यास प्रशासकाला विचारा.',
   'forbidden.home': 'माझ्या मुख्य पानावर जा',
   'forbidden.switchAccount': 'दुसऱ्या खात्याने साइन इन करा',
+
+  // ---- accepting an invitation ----
+  'invite.title': 'तुमचे परीक्षेचे आमंत्रण स्वीकारा',
+  'invite.linkIntro': 'हे आमंत्रण तुमच्या परीक्षांमध्ये एक परीक्षा जोडते. सुरू करण्यासाठी ते स्वीकारा.',
+  'invite.codeIntro': 'आमंत्रण ईमेलमधील कोड टाका, म्हणजे ती परीक्षा तुमच्या परीक्षांमध्ये जोडली जाईल.',
+  'invite.codeLabel': 'आमंत्रण कोड',
+  'invite.codeHint': 'कोड आमंत्रण ईमेलमध्ये आहे.',
+  'invite.codeRequired': 'आमंत्रण कोड टाका.',
+  'invite.accept': 'आमंत्रण स्वीकारा',
+  'invite.accepting': 'स्वीकारत आहे…',
 };

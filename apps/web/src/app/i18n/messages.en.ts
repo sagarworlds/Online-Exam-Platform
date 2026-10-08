@@ -336,6 +336,16 @@ export const EN = {
   'forbidden.reason': 'Your account doesn’t include permission for this area. If you need it, ask an administrator.',
   'forbidden.home': 'Go to my home page',
   'forbidden.switchAccount': 'Sign in with a different account',
+
+  // ---- accepting an invitation ----
+  'invite.title': 'Accept your exam invitation',
+  'invite.linkIntro': 'This invitation adds an exam to your exams. Accept it to get started.',
+  'invite.codeIntro': 'Enter the code from your invitation e-mail to add the exam to your exams.',
+  'invite.codeLabel': 'Invitation code',
+  'invite.codeHint': 'The code is in the invitation e-mail.',
+  'invite.codeRequired': 'Enter the invitation code.',
+  'invite.accept': 'Accept invitation',
+  'invite.accepting': 'Accepting…',
 } as const;
 
 /** The key of a message. */
