@@ -35,6 +35,29 @@ public sealed class NotificationApiFactory : ApiFactory
         base.ConfigureWebHost(builder);
         builder.ConfigureTestServices(services => services.AddSingleton<IMailSender>(Mail));
     }
+
+    /// <summary>
+    /// Enrolls a new candidate in the exam without leaving the invitation in the mail the test reads. An invitation that was e-mailed does
+    /// not hand its link back to the one who made it, and the helper that accepts it needs the link, so the mail server "refuses" while
+    /// the invitation is made; the invitation's own message is then taken out of what was sent, since it is not what is being tested.
+    /// </summary>
+    /// <param name="admin">A staff client.</param>
+    /// <param name="examId">The exam.</param>
+    public async Task<(HttpClient Client, SignedInTestUser User)> EnrollAsync(HttpClient admin, Guid examId)
+    {
+        var delivered = Mail.Delivers;
+        Mail.Delivers = false;
+        try
+        {
+            var (client, user) = await this.EnrollNewCandidateAsync(admin, examId);
+            Mail.Sent.RemoveAll(m => m.To == user.Email);
+            return (client, user);
+        }
+        finally
+        {
+            Mail.Delivers = delivered;
+        }
+    }
 }
 
 /// <summary>
@@ -71,7 +94,7 @@ public sealed class NotificationRunFlowTests(NotificationApiFactory factory) : I
         var questionId = await CreateQuestionAsync(admin, "Capital of France?", "Rome", "Paris");
         var name = $"Geography {Guid.NewGuid():N}";
         var examId = await CreateExamAsync(admin, name, [questionId], startsIn);
-        var (candidate, user) = await factory.EnrollNewCandidateAsync(admin, examId);
+        var (candidate, user) = await factory.EnrollAsync(admin, examId);
         return new Scheduled(admin, candidate, user.Email, examId, questionId, name);
     }
 
@@ -277,7 +300,7 @@ public sealed class NotificationRunEndpointTests(NotificationApiFactory factory)
         var admin = await factory.AdminClientAsync();
         var questionId = await CreateQuestionAsync(admin, "Capital of France?", "Rome", "Paris");
         var examId = await CreateExamAsync(admin, $"Geography {Guid.NewGuid():N}", [questionId], TimeSpan.FromHours(20));
-        var (candidate, user) = await factory.EnrollNewCandidateAsync(admin, examId);
+        var (candidate, user) = await factory.EnrollAsync(admin, examId);
         using var _a = admin;
         using var _c = candidate;
 
