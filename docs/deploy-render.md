@@ -123,6 +123,25 @@ Without this, a candidate who signs in with a phone number gets no code (e-mail 
 
 **Also send invitations' exam codes on WhatsApp (optional, after the above works).** Create a **Utility** template with the body in the README's [Invitations on WhatsApp](../README.md#invitations-on-whatsapp), wait for Meta to approve it, then set `Invite__WhatsApp__TemplateName` on `exam-platform-api` (WhatsApp itself must be switched on, `WhatsApp__Enabled` = `true`, or nothing is sent) (and `Invite__WhatsApp__TemplateLanguage` if it is not English). From then on, inviting an e-mail address that belongs to an account with a phone number also sends the code to that phone. Read the README's note on consent first: this is the operator's confirmation that those people agreed to WhatsApp notices.
 
+## Step 9 (optional). Send exam reminders and result e-mails on time
+
+The platform e-mails its candidates when an exam is about to start (once within a day, once within the hour), when their result can be seen, and when a score they saw is revised. This needs working e-mail (step 3): with none, nothing is sent and nothing is lost, and the e-mails that are due go out once e-mail works.
+
+The API has a timer that sends these every five minutes, **but a free Render service sleeps when it has had no traffic for about 15 minutes**, and the hours before an exam are usually quiet. So a GitHub workflow wakes the API and starts a pass every ten minutes:
+
+1. Make up a long random key (at least 24 characters). It is the password for starting a pass; nothing else can use it.
+2. On `exam-platform-api` > **Environment**, set `Notifications__RunKey` to that key and save. Until it is set, the route answers 404 as if it were not there.
+3. In the GitHub repository, open **Settings** > **Secrets and variables** > **Actions** and add two repository secrets: `NOTIFICATIONS_RUN_KEY` (the same key) and `NOTIFICATIONS_API_URL` (the API's real address, like `https://exam-platform-api-xxxx.onrender.com`). Until both are set the workflow does nothing.
+4. Open **Actions** > **Scheduled notifications** > **Run workflow** once to try it. The run's log ends with a line like `{"mailAvailable":true,"remindersSent":0,...}`. `"mailAvailable":false` means the API has no e-mail configured.
+
+Good to know:
+
+- A pass sends only what is due and writes down what it sent, so an extra, late or overlapping pass sends nothing twice. The API's own timer and the workflow can both run.
+- GitHub runs scheduled workflows on a best-effort basis and can be several minutes late, so the "within the hour" reminder may arrive a little later than that.
+- A result or revision more than a day old is never announced, so switching this on does not e-mail old results.
+- GitHub turns scheduled workflows off after 60 days without repository activity. If reminders stop, open **Actions** and enable the workflow again.
+- To stop all of it, delete `NOTIFICATIONS_RUN_KEY` and set `Notifications__Enabled` to `false` on the API.
+
 ## Updating later
 
 - Merging a pull request into `main` redeploys both services automatically.
