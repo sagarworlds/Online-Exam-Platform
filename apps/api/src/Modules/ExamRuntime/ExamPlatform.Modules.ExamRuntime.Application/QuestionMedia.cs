@@ -15,14 +15,16 @@ public sealed record QuestionPicture(string ContentType, byte[] Bytes);
 /// (<see cref="Find"/> serves it), so the words arrive first and a picture arrives when it is wanted. Only the question's text can hold
 /// pictures: an option is plain text.
 /// </summary>
-public static partial class QuestionMedia
+public static class QuestionMedia
 {
     private const string KeyPrefix = "q-";
 
     // The sanitizer allows exactly this and nothing else with a src (RichTextSanitizer): an embedded PNG, JPEG, GIF or WebP, written in
-    // double quotes. Anything else a question held was already removed when it was saved.
-    [GeneratedRegex(@"\bsrc=""data:(image/(?:png|jpeg|gif|webp));base64,([A-Za-z0-9+/=]+)""", RegexOptions.CultureInvariant)]
-    private static partial Regex InlinePicture();
+    // double quotes. Anything else a question held was already removed when it was saved. A plain Regex and not [GeneratedRegex], whose
+    // generated type sits outside the module's namespace, which the architecture rules refuse.
+    private static readonly Regex InlinePicture = new(
+        @"\bsrc=""data:(image/(?:png|jpeg|gif|webp));base64,([A-Za-z0-9+/=]+)""",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     /// <summary>
     /// Takes the pictures out of a question's text. Each picture's <c>src</c> becomes a class naming it (<c>lazy-media--q-{n}</c>, counting
@@ -37,7 +39,7 @@ public static partial class QuestionMedia
             return html;
 
         var index = 0;
-        return InlinePicture().Replace(html, match =>
+        return InlinePicture.Replace(html, match =>
             $"class=\"lazy-media lazy-media--{KeyPrefix}{index++} lazy-bytes--{DecodedLength(match.Groups[2].Value)}\"");
     }
 
@@ -51,7 +53,7 @@ public static partial class QuestionMedia
             return null;
 
         var seen = 0;
-        foreach (Match match in InlinePicture().Matches(html))
+        foreach (Match match in InlinePicture.Matches(html))
         {
             if (seen++ != index)
                 continue;
