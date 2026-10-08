@@ -919,13 +919,13 @@ describe('WhatsApp test route and navigation', () => {
   });
 
   it('is offered in the admin areas under the same permission and address as its route', () => {
-    const section = ADMIN_SECTIONS.find((s) => s.label === 'WhatsApp test')!;
+    const section = ADMIN_SECTIONS.find((s) => s.label === 'admin.area.whatsappTest.name')!;
 
     expect(section).toBeDefined();
     expect(section.permission).toBe(Permission.WhatsAppTest);
     expect(section.path).toBe('/admin/whatsapp');
     expect(section.path).toBe(`/${route.path}`);
     expect(section.icon).toBe('whatsapp');
-    expect(section.description).toBe('Check that WhatsApp can send, and see exactly why not if it cannot.');
+    expect(section.description).toBe('admin.area.whatsappTest.description');
   });
 });

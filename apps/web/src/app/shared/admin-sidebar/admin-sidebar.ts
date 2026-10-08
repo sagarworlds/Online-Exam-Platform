@@ -1,6 +1,7 @@
 import { Component, input, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AdminSection } from '../../auth/admin-sections';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { AdminIcon } from '../admin-icon/admin-icon';
 
 const COLLAPSED_STORAGE_KEY = 'exam-platform.admin-sidebar-collapsed';
@@ -14,7 +15,7 @@ const COLLAPSED_STORAGE_KEY = 'exam-platform.admin-sidebar-collapsed';
  */
 @Component({
   selector: 'app-admin-sidebar',
-  imports: [RouterLink, RouterLinkActive, AdminIcon],
+  imports: [RouterLink, RouterLinkActive, AdminIcon, TranslatePipe],
   templateUrl: './admin-sidebar.html',
   styleUrl: './admin-sidebar.css',
 })
