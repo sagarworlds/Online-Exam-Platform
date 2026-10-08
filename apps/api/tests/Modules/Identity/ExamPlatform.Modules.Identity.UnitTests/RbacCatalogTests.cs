@@ -74,6 +74,7 @@ public class RbacCatalogTests
             RbacCatalog.PermissionCodes.ConsentManage,
             RbacCatalog.PermissionCodes.RoleAssign,
             RbacCatalog.PermissionCodes.OtpRead,
+            RbacCatalog.PermissionCodes.WhatsAppTest,
         ];
 
         var holders = RbacCatalog.Roles

@@ -1,5 +1,6 @@
 using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Queries;
+using ExamPlatform.Modules.Identity.Domain.Rbac;
 using ExamPlatform.Modules.Identity.Endpoints.RateLimiting;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Application.Security;
@@ -120,6 +121,27 @@ public static class IdentityEndpoints
             })
             .WithTags("Identity")
             .RequireAuthorization("permission:identity.otp.read");
+
+        // The administrator's WhatsApp test: what is configured, a real message sent through the real connection, and what became of it.
+        // It sends to real numbers, so it has its own permission, held by SuperAdmin only, and every send is audited.
+        var whatsApp = endpoints.MapGroup("/v1/admin/whatsapp")
+            .WithTags("Identity")
+            .RequireAuthorization($"permission:{RbacCatalog.PermissionCodes.WhatsAppTest}");
+
+        whatsApp.MapGet("/status", (GetWhatsAppStatusHandler handler) => Results.Ok(handler.Handle()))
+            .WithName("GetWhatsAppStatus")
+            .WithDescription("Review the WhatsApp settings (no secret is shown) and say what is missing");
+
+        whatsApp.MapPost("/messages", async (
+                SendWhatsAppTestRequest request, HttpContext http, SendWhatsAppTestHandler handler, CancellationToken ct) =>
+            Results.Ok(await handler.HandleAsync(
+                new SendWhatsAppTestCommand(request.PhoneNumber, request.Mode, request.Message, http.User.GetUserId(), http.User.GetPrimaryRole()), ct)))
+            .WithName("SendWhatsAppTestMessage")
+            .WithDescription("Send a test message over WhatsApp; if it cannot be sent, the answer says exactly why");
+
+        whatsApp.MapGet("/messages/{messageId}", (string messageId, GetWhatsAppDeliveryHandler handler) => Results.Ok(handler.Handle(messageId)))
+            .WithName("GetWhatsAppDelivery")
+            .WithDescription("What Meta has reported about a test message: sent, delivered, read or failed, and why");
     }
 
     // Cleaned the same way for every flow, so a login cannot store more than an attempt would (FR-26).
