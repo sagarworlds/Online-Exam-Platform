@@ -101,6 +101,13 @@ describe('ExamAttempt preview', () => {
     expect(root(fixture).querySelector('app-report-issue')).toBeNull();
   });
 
+  it('offers no low-bandwidth switch and no picture loader, since a preview reads the whole exam itself (FR-53)', async () => {
+    const fixture = await open();
+
+    expect(Array.from(root(fixture).querySelectorAll('button')).some((b) => b.textContent?.includes('Low-bandwidth mode'))).toBe(false);
+    expect(root(fixture).querySelector('button.lazy-picture')).toBeNull();
+  });
+
   it('saves nothing: a choice, a mark and a clear all stay on the page', async () => {
     const fixture = await open();
 

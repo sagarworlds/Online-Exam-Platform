@@ -60,6 +60,15 @@
   border-radius: var(--radius-sm);
 }
 
+/* The button that stands in for a picture a question was sent without, in low-bandwidth mode (FR-53), until the candidate asks for it. */
+.rich-text .lazy-picture {
+  display: block;
+  max-width: 100%;
+  margin: 0.5rem 0;
+  text-align: start;
+  white-space: normal;
+}
+
 /* The editor box: it looks like the other form inputs, with a toolbar on top. */
 .rich-editor {
   background: var(--surface);

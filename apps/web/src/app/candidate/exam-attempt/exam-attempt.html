@@ -31,6 +31,10 @@
         <button type="button" [disabled]="!canZoomOut()" (click)="zoomOut()" [attr.aria-label]="'attempt.smallerText' | t">A&minus;</button>
         <span class="hint" aria-live="polite">{{ zoom() * 100 | number: '1.0-0' }}%</span>
         <button type="button" [disabled]="!canZoomIn()" (click)="zoomIn()" [attr.aria-label]="'attempt.largerText' | t">A+</button>
+        @if (!preview) {
+          <button type="button" [attr.aria-pressed]="lowBandwidth.enabled()" aria-describedby="low-bandwidth-hint" (click)="toggleLowBandwidth()">{{ 'attempt.lowBandwidth' | t }}</button>
+          <span id="low-bandwidth-hint" class="visually-hidden">{{ 'attempt.lowBandwidth.hint' | t }}</span>
+        }
       </div>
       <!-- Outside the paused branch below on purpose: a candidate who was stopped is the one most likely to have something to report. A preview has no real attempt to report from. -->
       @if (!preview) {
@@ -62,6 +66,8 @@
       }
       <!-- Always present, so what was just refused is announced politely instead of interrupting. -->
       <p class="exam-protection-notice" role="status" aria-live="polite">{{ protectionNotice() }}</p>
+      <!-- Always present for the same reason: answers kept on this device while the connection is down (FR-53). -->
+      <p class="exam-sync" role="status" aria-live="polite" [class.exam-sync--active]="syncMessage() !== ''">{{ syncMessage() }}</p>
 
       @if (paused()) {
         <div class="card exam-paused" role="status">
@@ -78,7 +84,7 @@
               <p class="question__meta">{{ 'attempt.position' | t: { section: currentSectionName(), number: position() + 1, total: questions().length } }}</p>
               <fieldset class="question" [attr.aria-labelledby]="'question-text-' + question.id">
                 <!-- The text is the API's sanitized HTML, rendered through Angular's own sanitizer as a second layer. -->
-                <div class="question__text rich-text" [id]="'question-text-' + question.id" [appMath]="question.text"></div>
+                <div class="question__text rich-text" [id]="'question-text-' + question.id" [appMath]="question.text" [appMathPicture]="pictureLoader(question.id)"></div>
                 @if (question.allowsMultiple) {
                   <p class="question__hint">{{ 'attempt.chooseAll' | t }}</p>
                 }
