@@ -65,6 +65,16 @@ public sealed record RaiseDisputeRequest(Guid QuestionId, string? Reason);
 /// <param name="Note">Why the answer key stands; required, at most 500 characters. The candidate sees it.</param>
 public sealed record RejectDisputeRequest(string? Note);
 
+/// <summary>Body of <c>POST /v1/me/attempts/{attemptId}/issues</c>.</summary>
+/// <param name="Category">What kind of problem it is: <c>Question</c>, <c>Technical</c> or <c>Other</c>, in any case.</param>
+/// <param name="Message">What is wrong; required, at most 1000 characters.</param>
+/// <param name="QuestionId">The question on screen, when the report is about one; optional.</param>
+public sealed record ReportIssueRequest(string? Category, string? Message, Guid? QuestionId);
+
+/// <summary>Body of <c>POST /v1/issue-reports/{issueReportId}/resolve</c>.</summary>
+/// <param name="Note">What was done; optional, at most 500 characters.</param>
+public sealed record ResolveIssueReportRequest(string? Note);
+
 /// <summary>Maps the ExamRuntime module's HTTP endpoints: the candidate's own (FR-16 to FR-21) and the staff's view of attempts.</summary>
 public static class ExamRuntimeEndpoints
 {
@@ -130,6 +140,16 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status409Conflict)
             .WithName("RaiseDispute")
             .WithDescription("Dispute the answer key of one question in a released result, within the dispute window; once per question per attempt");
+
+        me.MapPost("/attempts/{attemptId:guid}/issues", ReportIssue)
+            .Produces<MyIssueReportDto>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .WithName("ReportIssue")
+            .WithDescription("Report a problem from inside the exam being sat (FR-42): a question, something technical, or anything else; the attempt carries on");
 
         me.MapPut("/attempts/{attemptId:guid}/answers/{questionId:guid}", SaveAnswer)
             .Produces(StatusCodes.Status204NoContent)
@@ -350,6 +370,28 @@ public static class ExamRuntimeEndpoints
             .WithName("RejectDispute")
             .WithDescription("Leave the answer key as it is and tell the candidate why; correcting the key settles its disputes the other way");
 
+        var issueReports = endpoints.MapGroup("/v1/issue-reports").WithTags("ExamRuntime").RequireAuthorization();
+
+        issueReports.MapGet("/", ListIssueReports)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<IReadOnlyList<IssueReportDto>>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ListIssueReports")
+            .WithDescription("List the problems candidates reported from inside an exam, open ones unless a status is given, oldest first");
+
+        issueReports.MapPost("/{issueReportId:guid}/resolve", ResolveIssueReport)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<IssueReportDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("ResolveIssueReport")
+            .WithDescription("Mark a reported problem as dealt with, optionally saying what was done");
+
         var requests = endpoints.MapGroup("/v1/attempt-requests").WithTags("ExamRuntime").RequireAuthorization();
 
         requests.MapGet("/", ListAttemptRequests)
@@ -414,6 +456,35 @@ public static class ExamRuntimeEndpoints
     private static async Task<IResult> RejectDispute(
         Guid disputeId, RejectDisputeRequest? request, ClaimsPrincipal user, RejectDisputeHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(disputeId, user.GetUserId(), request?.Note, ct));
+
+    private static async Task<IResult> ReportIssue(
+        Guid attemptId, ReportIssueRequest request, ClaimsPrincipal user, ReportIssueHandler handler, CancellationToken ct)
+    {
+        // Parsed here, ignoring case, because the framework's own enum binding is case-sensitive; a category that is not one of ours is
+        // a mistake to report, not a reason to file it under something else.
+        if (!Enum.TryParse<IssueCategory>(request.Category?.Trim(), ignoreCase: true, out var category) || !Enum.IsDefined(category))
+            throw new InvalidAttemptError("Choose what kind of problem it is: Question, Technical or Other.");
+
+        var reported = await handler.HandleAsync(attemptId, user.GetUserId(), category, request.QuestionId, request.Message, ct);
+        return Results.Created($"/v1/me/attempts/{attemptId}", reported);
+    }
+
+    private static async Task<IResult> ListIssueReports(string? status, ListIssueReportsHandler handler, CancellationToken ct)
+    {
+        IssueReportStatus? parsed = null;
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<IssueReportStatus>(status.Trim(), ignoreCase: true, out var value) || !Enum.IsDefined(value))
+                throw new InvalidAttemptError("The status must be open or resolved.");
+            parsed = value;
+        }
+
+        return Results.Ok(await handler.HandleAsync(parsed, ct));
+    }
+
+    private static async Task<IResult> ResolveIssueReport(
+        Guid issueReportId, ResolveIssueReportRequest? request, ClaimsPrincipal user, ResolveIssueReportHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(issueReportId, user.GetUserId(), request?.Note, ct));
 
     private static async Task<IResult> ListAttemptRequests(string? status, ListAttemptRequestsHandler handler, CancellationToken ct)
     {

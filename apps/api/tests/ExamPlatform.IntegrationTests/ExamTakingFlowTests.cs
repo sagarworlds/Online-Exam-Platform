@@ -429,6 +429,7 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [InlineData("DELETE", "/v1/me/attempts/{id}/marks/{id}")]
     [InlineData("PUT", "/v1/me/attempts/{id}/section/{id}")]
     [InlineData("POST", "/v1/me/attempts/{id}/submit")]
+    [InlineData("POST", "/v1/me/attempts/{id}/issues")]
     public async Task EveryAttemptRoute_WithoutAuth_Returns401(string method, string pattern)
     {
         using var client = factory.CreateClient();
@@ -449,7 +450,7 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
             .Where(r => r.Pattern.StartsWith("/v1/me/exams", StringComparison.Ordinal) || r.Pattern.StartsWith("/v1/me/attempts", StringComparison.Ordinal))
             .ToList();
 
-        Assert.Equal(14, routes.Count);
+        Assert.Equal(15, routes.Count);
         Assert.All(routes, r => Assert.True(r.RequiresAuthorization, $"{r.Key} must require a signed-in caller."));
     }
 }

@@ -22,6 +22,9 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
     /// <summary>The disputes candidates raised of an answer key (FR-31).</summary>
     public DbSet<Dispute> Disputes => Set<Dispute>();
 
+    /// <summary>The problems candidates reported from inside an exam (FR-42).</summary>
+    public DbSet<IssueReport> IssueReports => Set<IssueReport>();
+
     /// <summary>What administrators allow candidates because of a disability or other need (FR-49).</summary>
     public DbSet<Accommodation> Accommodations => Set<Accommodation>();
 
@@ -211,6 +214,22 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             b.HasIndex(x => new { x.QuestionId, x.Status });
             // The staff queue lists by status, oldest first.
             b.HasIndex(x => new { x.Status, x.RaisedAtUtc });
+        });
+
+        modelBuilder.Entity<IssueReport>(b =>
+        {
+            b.ToTable("IssueReports");
+            b.HasKey(x => x.Id);
+            b.Ignore(x => x.DomainEvents);
+            b.Property(x => x.Message).IsRequired().HasMaxLength(IssueReport.MaxMessageLength);
+            b.Property(x => x.Category).HasConversion<string>().HasMaxLength(20);
+            b.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            b.Property(x => x.ResolutionNote).HasMaxLength(IssueReport.MaxNoteLength);
+
+            // The staff queue lists by status, oldest first.
+            b.HasIndex(x => new { x.Status, x.ReportedAtUtc });
+            // An attempt may report only so many problems, which counts them by attempt.
+            b.HasIndex(x => x.AttemptId);
         });
 
         modelBuilder.Entity<Accommodation>(b =>

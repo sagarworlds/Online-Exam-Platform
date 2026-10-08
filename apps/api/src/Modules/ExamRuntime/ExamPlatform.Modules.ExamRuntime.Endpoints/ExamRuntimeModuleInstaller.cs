@@ -38,6 +38,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<IAccommodationRepository, AccommodationRepository>();
         services.AddScoped<IAttemptRequestRepository, AttemptRequestRepository>();
         services.AddScoped<IDisputeRepository, DisputeRepository>();
+        services.AddScoped<IIssueReportRepository, IssueReportRepository>();
 
         // How long after a result is released a candidate may dispute its answer key; 0 switches disputes off (FR-31). Validated when the
         // host starts, so a mistyped window stops the application starting instead of failing the first candidate who disputes. It is
@@ -65,6 +66,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<AttemptAccess>();
         services.AddScoped<AttemptRequestDtoFactory>();
         services.AddScoped<DisputeDtoFactory>();
+        services.AddScoped<IssueReportDtoFactory>();
 
         services.AddScoped<MyExamsHandler>();
         services.AddScoped<PaperDrawer>();
@@ -100,6 +102,9 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<RaiseDisputeHandler>();
         services.AddScoped<ListDisputesHandler>();
         services.AddScoped<RejectDisputeHandler>();
+        services.AddScoped<ReportIssueHandler>();
+        services.AddScoped<ListIssueReportsHandler>();
+        services.AddScoped<ResolveIssueReportHandler>();
     }
 
     /// <inheritdoc />
