@@ -194,6 +194,8 @@ export const HI: Messages = {
   'attempt.failure.offlineSubmit': 'कनेक्शन बंद होने के कारण आपके सभी उत्तर भेजे नहीं जा सके। वे इस डिवाइस पर सुरक्षित हैं और कनेक्शन लौटने पर भेज दिए जाएँगे; तब फिर से जमा करें दबाएँ।',
   'attempt.report.region': 'समस्या की रिपोर्ट करें',
   'attempt.report.start': 'समस्या की रिपोर्ट करें',
+  'attempt.report.questionStart': 'इस प्रश्न में समस्या बताएँ',
+  'attempt.report.questionWhat': 'इस प्रश्न में क्या गलत है?',
   'attempt.report.formLabel': 'इस परीक्षा की किसी समस्या की रिपोर्ट करें',
   'attempt.report.category': 'यह किस तरह की समस्या है?',
   'attempt.report.category.Question': 'इस प्रश्न में कोई समस्या',

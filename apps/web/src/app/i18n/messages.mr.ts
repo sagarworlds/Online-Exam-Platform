@@ -194,6 +194,8 @@ export const MR: Messages = {
   'attempt.failure.offlineSubmit': 'कनेक्शन बंद असल्यामुळे तुमची सर्व उत्तरे पाठवता आली नाहीत. ती या डिव्हाइसवर सुरक्षित आहेत आणि कनेक्शन परत आल्यावर पाठवली जातील; तेव्हा पुन्हा सादर करा दाबा.',
   'attempt.report.region': 'समस्या कळवा',
   'attempt.report.start': 'समस्या कळवा',
+  'attempt.report.questionStart': 'या प्रश्नातील समस्या कळवा',
+  'attempt.report.questionWhat': 'या प्रश्नात काय चुकले आहे?',
   'attempt.report.formLabel': 'या परीक्षेतील समस्या कळवा',
   'attempt.report.category': 'ही कोणत्या प्रकारची समस्या आहे?',
   'attempt.report.category.Question': 'या प्रश्नात समस्या',

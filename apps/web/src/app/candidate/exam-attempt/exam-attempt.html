@@ -92,7 +92,7 @@
 
       <!-- Outside the paused branch below on purpose: a candidate who was stopped is the one most likely to have something to report. A preview has no real attempt to report from. -->
       @if (!preview) {
-        <app-report-issue [attemptId]="current.id" [questionId]="currentQuestion()?.id ?? null" />
+        <app-report-issue [attemptId]="current.id" />
       }
 
       <!-- Closed by default: the question is what a candidate came for. The contents are still in the page, so the shortcuts and the
@@ -151,6 +151,9 @@
               <div class="actions exam-tools">
                 <button type="button" [attr.aria-pressed]="question.markedForReview" (click)="toggleMark(question)">{{ 'attempt.markReview' | t }}</button>
                 <button type="button" [disabled]="!isAnswered(question)" (click)="clearResponse(question)">{{ 'attempt.clear' | t }}</button>
+                @if (!preview) {
+                  <app-report-issue [scope]="'question'" [attemptId]="current.id" [questionId]="question.id" />
+                }
               </div>
             </div>
 

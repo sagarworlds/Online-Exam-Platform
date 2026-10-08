@@ -199,6 +199,8 @@ export const EN = {
   'attempt.failure.offlineSubmit': 'Your answers could not all be sent because the connection is down. They are kept on this device and will be sent when it is back; press Submit again then.',
   'attempt.report.region': 'Report an issue',
   'attempt.report.start': 'Report an issue',
+  'attempt.report.questionStart': 'Report a problem with this question',
+  'attempt.report.questionWhat': 'What is wrong with this question?',
   'attempt.report.formLabel': 'Report an issue with this exam',
   'attempt.report.category': 'What kind of problem is it?',
   'attempt.report.category.Question': 'A problem with this question',

@@ -629,6 +629,11 @@
   font-size: calc(1rem * var(--exam-zoom, 1));
 }
 
+/* A question brought to the top by its report form stops short of the sticky bar, so its text is never hidden under the bar. */
+.exam-question .question__text {
+  scroll-margin-top: 9rem;
+}
+
 .exam-zoom {
   justify-content: flex-end;
   align-items: center;

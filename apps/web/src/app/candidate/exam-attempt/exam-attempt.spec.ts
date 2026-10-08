@@ -1405,11 +1405,14 @@ describe('ExamAttempt', () => {
       expect(textOf(fixture)).toContain('Question 1 of 2');
     });
 
-    it('offers to report an issue during a sitting, naming the attempt and the question on screen (FR-42)', async () => {
+    it('offers to report a problem with the question on screen, beside its buttons and naming that question (FR-42)', async () => {
       const fixture = await open(attempt());
 
-      const report = Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Report an issue') as HTMLButtonElement;
+      const report = Array.from(root(fixture).querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Report a problem with this question',
+      ) as HTMLButtonElement;
       expect(report).toBeTruthy();
+      expect(report.closest('.exam-tools')).not.toBeNull();
       report.click();
       fixture.detectChanges();
       const box = root(fixture).querySelector('textarea') as HTMLTextAreaElement;
@@ -1419,9 +1422,8 @@ describe('ExamAttempt', () => {
       (Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Send report') as HTMLButtonElement).click();
 
       const request = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/me/attempts/a1/issues'));
-      expect(request.request.body).toMatchObject({ category: 'Question', message: 'Option C is missing' });
-      expect((request.request.body as { questionId: string }).questionId).toBeTruthy();
-      request.flush({ id: 'r1', category: 'Question', questionId: null, message: 'Option C is missing', reportedAtUtc: '2026-10-05T04:31:00Z' });
+      expect(request.request.body).toEqual({ category: 'Question', message: 'Option C is missing', questionId: 'q1' });
+      request.flush({ id: 'r1', category: 'Question', questionId: 'q1', message: 'Option C is missing', reportedAtUtc: '2026-10-05T04:31:00Z' });
     });
 
     it('still offers to report an issue while an organiser has the attempt paused', async () => {
