@@ -661,6 +661,13 @@ export const EN = {
   'admin.issues.resolveFormLabel': 'Resolve the report from {who}',
   'admin.issues.resolvedResult': 'Marked the report from {who} as resolved.',
   'admin.issues.cancel': 'Cancel',
+
+  // ---- exam scope line (lists and the editor) ----
+  'exams.scope.any': 'Any question in the bank',
+  'exams.scope.noBook': 'a book that is no longer in the bank',
+  'exams.scope.noChapter': 'a chapter that is no longer in the bank',
+  'exams.scope.whole': 'The whole book {book}',
+  'exams.scope.chapters': '{book}: {titles}',
 } as const;
 
 /** The key of a message. */
