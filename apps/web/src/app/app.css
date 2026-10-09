@@ -1,3 +1,26 @@
+/* Hidden until a keyboard user tabs to it, then shown at the top of the page, over the header. */
+.skip-link {
+  position: absolute;
+  top: -10rem;
+  left: 1rem;
+  z-index: 10;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+/* The main content takes focus when the skip link is used. It is a region, not a control, so it shows no ring of its own. */
+#main-content:focus {
+  outline: none;
+}
+
 .nav {
   display: flex;
   flex-wrap: wrap;
