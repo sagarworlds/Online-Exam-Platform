@@ -1,0 +1,53 @@
+/* The reported issues queue. A resolved report keeps its place as one line: a ✓ and the words say what happened, so the line does not rely on
+   colour. The actions sit side by side, and on a phone each takes the full width so it is easy to reach. */
+.issue-queue__count {
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+}
+
+.issue-row__label {
+  margin: 0 0 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.issue-row__question {
+  margin: 0.5rem 0;
+}
+
+.issue-row--resolved {
+  padding-inline-start: 0.75rem;
+  border-inline-start: 4px solid var(--success);
+}
+
+.issue-result {
+  margin: 0;
+  font-weight: 600;
+}
+
+.issue-result__note {
+  margin: 0.25rem 0 0;
+}
+
+.issue-result:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.issue__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.issue__actions button {
+  min-height: 2.75rem;
+}
+
+@media (max-width: 40rem) {
+  .issue__actions button {
+    flex: 1 1 100%;
+  }
+}

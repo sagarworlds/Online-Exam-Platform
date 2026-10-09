@@ -1,98 +1,167 @@
 <div class="page page--wide">
   <div class="page-header">
-    <h1>Reported issues</h1>
+    <h1>{{ 'admin.issues.title' | t }}</h1>
     <div class="list-filter">
-      <label class="visually-hidden" for="issue-status">Show reports that are</label>
-      <select id="issue-status" [value]="status()" (change)="onStatusChanged($any($event.target).value)">
+      <label class="visually-hidden" for="issue-status">{{
+        'admin.issues.filter.label' | t
+      }}</label>
+      <select
+        id="issue-status"
+        [value]="status()"
+        (change)="onStatusChanged($any($event.target).value)"
+      >
         @for (option of statuses; track option.value) {
-          <option [value]="option.value">{{ option.label }}</option>
+          <option [value]="option.value">{{ option.label | t }}</option>
         }
       </select>
     </div>
   </div>
 
+  <p class="hint">{{ 'admin.issues.hint' | t }}</p>
+
   @if (errorMessage()) {
     <p class="error-message" role="alert">{{ errorMessage() }}</p>
   }
-  @if (notice()) {
-    <p class="success-message" role="status">{{ notice() }}</p>
-  }
 
   @if (loading()) {
-    <p>Loading…</p>
+    <p role="status">{{ 'common.loading' | t }}</p>
   } @else if (reports().length === 0) {
     <div class="card empty-state">{{ emptyMessage() }}</div>
   } @else {
+    @if (status() === 'open') {
+      <p class="issue-queue__count">{{ waitingText() }}</p>
+    }
+
     <ul class="issue-list">
       @for (report of reports(); track report.id) {
-        <li class="card issue-row">
-          <p class="card__meta">
-            <strong>{{ report.candidateEmail ?? 'A candidate who is no longer enrolled' }}</strong>
-            ·
-            <a [routerLink]="['/exams', report.examId, 'attempts']">{{ report.examName ?? 'An exam that can no longer be read' }}</a>
-            @if (report.attemptNumber !== null) {
-              · attempt {{ report.attemptNumber }}
-            }
-            · reported {{ report.reportedAtUtc | date: 'medium' }}
-            <span class="badge" [class.badge--warning]="report.category === 'Technical'">{{ categoryLabel(report.category) }}</span>
-          </p>
-
-          <blockquote class="issue-row__message">{{ report.message }}</blockquote>
-
-          <!-- The question as it is now, from the API's sanitized HTML, run through Angular's sanitizer again before it is shown. -->
-          @if (report.questionId !== null) {
-            @if (report.questionText) {
-              <details class="issue-row__question">
-                <summary>The question on screen</summary>
-                <div class="rich-text" [appMath]="report.questionText"></div>
-              </details>
-            } @else {
-              <p class="hint">(question no longer in the bank)</p>
-            }
-          }
-
-          @if (report.status === 'Resolved') {
-            <p class="card__meta">
-              <span class="badge badge--active">Resolved</span>
-              @if (report.resolvedAtUtc) {
-                {{ report.resolvedAtUtc | date: 'medium' }}
-              }
+        @if (resolutions()[report.id]) {
+          <li class="card issue-row issue-row--resolved">
+            <p
+              class="issue-result"
+              tabindex="-1"
+              #focusTarget
+              [attr.data-focus]="'result:' + report.id"
+            >
+              <span aria-hidden="true">✓</span>
+              {{ resolvedText(report) }}
             </p>
-            @if (report.resolutionNote) {
-              <p>What was done: {{ report.resolutionNote }}</p>
+            @if (resolutions()[report.id]?.note; as resolvedNote) {
+              <p class="issue-result__note">
+                {{ 'admin.issues.whatWasDone' | t: { note: resolvedNote } }}
+              </p>
             }
-          }
+          </li>
+        } @else {
+          <li class="card issue-row">
+            <p class="card__meta">
+              <strong>{{ report.candidateEmail ?? ('admin.issues.candidateGone' | t) }}</strong>
+              ·
+              <a [routerLink]="['/exams', report.examId, 'attempts']">{{
+                report.examName ?? ('admin.issues.examGone' | t)
+              }}</a>
+              @if (report.attemptNumber !== null) {
+                · {{ 'admin.issues.attempt' | t: { number: report.attemptNumber } }}
+              }
+              ·
+              {{
+                'admin.issues.reported' | t: { when: (report.reportedAtUtc | date: 'medium') ?? '' }
+              }}
+              <span class="badge" [class.badge--warning]="report.category === 'Technical'">{{
+                categoryLabel(report.category)
+              }}</span>
+            </p>
 
-          @if (rowErrors()[report.id]) {
-            <p class="error-message" role="alert">{{ rowErrors()[report.id] }}</p>
-          }
+            <blockquote class="issue-row__message">{{ report.message }}</blockquote>
 
-          @if (report.status === 'Open') {
-            @if (resolvingId() === report.id) {
-              <form (submit)="$event.preventDefault(); confirmResolve(report)" [attr.aria-label]="'Resolve the report from ' + (report.candidateEmail ?? 'the candidate')">
-                <div class="field">
-                  <label [for]="'resolve-note-' + report.id">What was done (optional)</label>
-                  <textarea
-                    [id]="'resolve-note-' + report.id"
-                    rows="2"
-                    [maxLength]="maxNoteLength"
-                    [value]="note()"
-                    (input)="note.set($any($event.target).value)"
+            <!-- The question as it is now, from the API's sanitized HTML, run through Angular's sanitizer again before it is shown. -->
+            @if (report.questionId !== null) {
+              <section
+                class="issue-row__question"
+                [attr.aria-label]="'admin.issues.questionOnScreen' | t"
+              >
+                <p class="issue-row__label">{{ 'admin.issues.questionOnScreen' | t }}</p>
+                @if (report.questionText) {
+                  <div class="rich-text" [appMath]="report.questionText"></div>
+                } @else {
+                  <p class="hint">{{ 'admin.issues.questionGone' | t }}</p>
+                }
+              </section>
+            }
+
+            @if (report.status === 'Resolved') {
+              <p class="card__meta">
+                <span class="badge badge--active">{{ statusLabel(report.status) }}</span>
+                @if (report.resolvedAtUtc) {
+                  {{ report.resolvedAtUtc | date: 'medium' }}
+                }
+              </p>
+              @if (report.resolutionNote) {
+                <p>{{ 'admin.issues.whatWasDone' | t: { note: report.resolutionNote } }}</p>
+              }
+            }
+
+            @if (rowErrors()[report.id]) {
+              <p class="error-message" role="alert">{{ rowErrors()[report.id] }}</p>
+            }
+
+            @if (report.status === 'Open') {
+              @if (resolvingId() === report.id) {
+                <form
+                  class="issue-row__resolve"
+                  novalidate
+                  (submit)="$event.preventDefault(); confirmResolve(report)"
+                  [attr.aria-label]="
+                    'admin.issues.resolveFormLabel' | t: { who: candidateName(report) }
+                  "
+                >
+                  <div class="field">
+                    <label [for]="'resolve-note-' + report.id">{{
+                      'admin.issues.whatWasDoneLabel' | t
+                    }}</label>
+                    <textarea
+                      [id]="'resolve-note-' + report.id"
+                      rows="2"
+                      [attr.aria-describedby]="'resolve-hint-' + report.id"
+                      [maxLength]="maxNoteLength"
+                      [value]="note()"
+                      (input)="note.set($any($event.target).value)"
+                      [disabled]="busyId() !== null"
+                      #focusTarget
+                      [attr.data-focus]="'note:' + report.id"
+                    ></textarea>
+                    <p class="field-hint" [id]="'resolve-hint-' + report.id">
+                      {{ 'admin.issues.resolveHint' | t }}
+                    </p>
+                  </div>
+                  <div class="issue__actions">
+                    <button type="submit" class="primary" [disabled]="busyId() !== null">
+                      {{ 'admin.issues.resolveSubmit' | t }}
+                    </button>
+                    <button
+                      type="button"
+                      (click)="cancelResolving(report)"
+                      [disabled]="busyId() !== null"
+                    >
+                      {{ 'admin.issues.cancel' | t }}
+                    </button>
+                  </div>
+                </form>
+              } @else {
+                <div class="issue__actions">
+                  <button
+                    type="button"
+                    #focusTarget
+                    [attr.data-focus]="'resolve:' + report.id"
+                    (click)="startResolving(report)"
                     [disabled]="busyId() !== null"
-                  ></textarea>
+                  >
+                    {{ 'admin.issues.resolve' | t }}
+                  </button>
                 </div>
-                <div class="actions">
-                  <button type="submit" class="primary" [disabled]="busyId() !== null">Mark resolved</button>
-                  <button type="button" (click)="cancelResolving()" [disabled]="busyId() !== null">Cancel</button>
-                </div>
-              </form>
-            } @else {
-              <div class="actions">
-                <button type="button" (click)="startResolving(report)" [disabled]="busyId() !== null">Resolve…</button>
-              </div>
+              }
             }
-          }
-        </li>
+          </li>
+        }
       }
     </ul>
   }
