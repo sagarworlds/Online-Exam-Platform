@@ -592,15 +592,20 @@ button.primary:hover:not(:disabled),
   white-space: nowrap;
 }
 
-/* The question list's filter: a book select, and a chapter select once a book is chosen. */
+/* The question list's filter: a book select, and a chapter select once a book is chosen. It may be narrower than its longest option
+   (min-width: 0), so it fits a phone: its page header is a wrapping flex row, which otherwise sizes it to that option. */
 .list-filter {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
+/* A select takes the width of its longest option, which can be wider than a phone: it is held to the row's width instead. */
 .list-filter select,
 .list-filter input[type='search'] {
+  max-width: 100%;
   padding: 0.4rem 0.6rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -857,8 +862,10 @@ button.primary:hover:not(:disabled),
 }
 
 @media (max-width: 40rem) {
-  .form-row--triple {
-    grid-template-columns: 1fr;
+  /* minmax(0, 1fr), not 1fr: a select's width is its longest option, which would otherwise widen its column past the screen. */
+  .form-row--triple,
+  .form-row--pair {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
