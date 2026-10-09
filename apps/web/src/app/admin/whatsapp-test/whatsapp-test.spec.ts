@@ -1,12 +1,30 @@
 import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  TestRequest,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRouteSnapshot, CanActivateFn, Router, RouterStateSnapshot } from '@angular/router';
+import {
+  ActivatedRouteSnapshot,
+  CanActivateFn,
+  Router,
+  RouterStateSnapshot,
+} from '@angular/router';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { routes } from '../../app.routes';
 import { ADMIN_SECTIONS, Permission } from '../../auth/admin-sections';
 import { AuthSessionService } from '../../auth/auth-session.service';
-import { WHATSAPP_MESSAGE_MAX_LENGTH, WHATSAPP_POLL_INTERVAL_MS, WHATSAPP_POLL_TIMEOUT_MS, WhatsAppTest } from './whatsapp-test';
+import { I18nService, englishTranslate } from '../../i18n/i18n.service';
+import { MessageKey } from '../../i18n/messages.en';
+import { HI } from '../../i18n/messages.hi';
+import { MR } from '../../i18n/messages.mr';
+import {
+  WHATSAPP_MESSAGE_MAX_LENGTH,
+  WHATSAPP_POLL_INTERVAL_MS,
+  WHATSAPP_POLL_TIMEOUT_MS,
+  WhatsAppTest,
+} from './whatsapp-test';
 import {
   WhatsAppDeliveryDto,
   WhatsAppFailureDto,
@@ -41,7 +59,8 @@ const status = (overrides: Partial<WhatsAppStatusDto> = {}): WhatsAppStatusDto =
 
 const failure = (overrides: Partial<WhatsAppFailureDto> = {}): WhatsAppFailureDto => ({
   kind: 'RecipientNotAllowed',
-  explanation: 'The number is not on the list of recipients allowed while the app is in development.',
+  explanation:
+    'The number is not on the list of recipients allowed while the app is in development.',
   metaCode: 131030,
   metaMessage: 'Recipient phone number not in allowed list',
   httpStatus: 400,
@@ -73,9 +92,12 @@ describe('WhatsAppTest', () => {
   let fixture: ComponentFixture<WhatsAppTest>;
   let root: HTMLElement;
 
-  const isStatus = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/admin/whatsapp/status');
-  const isSend = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/admin/whatsapp/messages');
-  const isDelivery = (r: { method: string; url: string }) => r.method === 'GET' && r.url.includes('/v1/admin/whatsapp/messages/');
+  const isStatus = (r: { method: string; url: string }) =>
+    r.method === 'GET' && r.url.endsWith('/v1/admin/whatsapp/status');
+  const isSend = (r: { method: string; url: string }) =>
+    r.method === 'POST' && r.url.endsWith('/v1/admin/whatsapp/messages');
+  const isDelivery = (r: { method: string; url: string }) =>
+    r.method === 'GET' && r.url.includes('/v1/admin/whatsapp/messages/');
 
   beforeEach(async () => {
     vi.useFakeTimers();
@@ -108,11 +130,14 @@ describe('WhatsAppTest', () => {
   const text = () => (root.textContent ?? '').replace(/\s+/g, ' ');
   const phoneInput = () => root.querySelector<HTMLInputElement>('#whatsapp-phone')!;
   const messageInput = () => root.querySelector<HTMLTextAreaElement>('#whatsapp-message');
-  const radio = (value: string) => root.querySelector<HTMLInputElement>(`input[type="radio"][value="${value}"]`)!;
+  const radio = (value: string) =>
+    root.querySelector<HTMLInputElement>(`input[type="radio"][value="${value}"]`)!;
   const sendButton = () => root.querySelector<HTMLButtonElement>('form button[type="submit"]')!;
   const resultArea = () => root.querySelector<HTMLElement>('[aria-live="polite"]')!;
   const buttonLabelled = (label: string) =>
-    Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find((b) => b.textContent?.trim() === label);
+    Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.trim() === label,
+    );
 
   function type(element: HTMLInputElement | HTMLTextAreaElement, value: string): void {
     element.value = value;
@@ -162,15 +187,24 @@ describe('WhatsAppTest', () => {
     respond(sendText(), sendResult({ deliveryTracking: true }));
   }
 
-  const stepLabels = () => Array.from(root.querySelectorAll('.whatsapp-steps__step')).map((s) => s.textContent?.replace(/\s+/g, ' ').trim());
-  const currentStep = () => root.querySelector('.whatsapp-steps li[aria-current="step"]')?.textContent?.replace(/\s+/g, ' ').trim();
+  const stepLabels = () =>
+    Array.from(root.querySelectorAll('.whatsapp-steps__step')).map((s) =>
+      s.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+  const currentStep = () =>
+    root
+      .querySelector('.whatsapp-steps li[aria-current="step"]')
+      ?.textContent?.replace(/\s+/g, ' ')
+      .trim();
 
   describe('the setup check', () => {
     it('opens with the heading and a sentence saying what the page is for', () => {
       open();
 
       expect(root.querySelector('h1')?.textContent).toBe('WhatsApp test');
-      expect(text()).toContain("Send a message to a phone number through the platform's WhatsApp connection to check that it works. If it does not, this page says why.");
+      expect(text()).toContain(
+        "Send a message to a phone number through the platform's WhatsApp connection to check that it works. If it does not, this page says why.",
+      );
     });
 
     it('asks for the setup when the page opens, and says it is loading until it arrives', () => {
@@ -202,9 +236,27 @@ describe('WhatsAppTest', () => {
       open(
         status({
           settings: [
-            setting({ setting: 'WhatsApp__Enabled', isSet: true, required: true, purpose: 'The master switch.', value: 'true' }),
-            setting({ setting: 'WhatsApp__AccessToken', isSet: false, required: true, purpose: 'Lets the platform call WhatsApp.', value: null }),
-            setting({ setting: 'WhatsApp__SignInTemplateName', isSet: false, required: false, purpose: 'The sign-in code template.', value: null }),
+            setting({
+              setting: 'WhatsApp__Enabled',
+              isSet: true,
+              required: true,
+              purpose: 'The master switch.',
+              value: 'true',
+            }),
+            setting({
+              setting: 'WhatsApp__AccessToken',
+              isSet: false,
+              required: true,
+              purpose: 'Lets the platform call WhatsApp.',
+              value: null,
+            }),
+            setting({
+              setting: 'WhatsApp__SignInTemplateName',
+              isSet: false,
+              required: false,
+              purpose: 'The sign-in code template.',
+              value: null,
+            }),
           ],
         }),
       );
@@ -216,9 +268,21 @@ describe('WhatsAppTest', () => {
         badges: Array.from(row.querySelectorAll('.badge')).map((b) => b.textContent?.trim()),
         purpose: row.querySelectorAll('td')[2].textContent?.replace(/\s+/g, ' ').trim(),
       });
-      expect(cells(rows[0])).toEqual({ name: 'WhatsApp__Enabled', badges: ['Set', 'required'], purpose: 'The master switch. Value: true' });
-      expect(cells(rows[1])).toEqual({ name: 'WhatsApp__AccessToken', badges: ['Not set', 'required'], purpose: 'Lets the platform call WhatsApp.' });
-      expect(cells(rows[2])).toEqual({ name: 'WhatsApp__SignInTemplateName', badges: ['Not set'], purpose: 'The sign-in code template.' });
+      expect(cells(rows[0])).toEqual({
+        name: 'WhatsApp__Enabled',
+        badges: ['Set', 'required'],
+        purpose: 'The master switch. Value: true',
+      });
+      expect(cells(rows[1])).toEqual({
+        name: 'WhatsApp__AccessToken',
+        badges: ['Not set', 'required'],
+        purpose: 'Lets the platform call WhatsApp.',
+      });
+      expect(cells(rows[2])).toEqual({
+        name: 'WhatsApp__SignInTemplateName',
+        badges: ['Not set'],
+        purpose: 'The sign-in code template.',
+      });
     });
 
     it('styles a missing required setting as a problem, a set one as fine and a missing optional one as neutral', () => {
@@ -232,7 +296,8 @@ describe('WhatsAppTest', () => {
         }),
       );
 
-      const badge = (row: number) => root.querySelectorAll('tbody tr')[row].querySelector('.badge')!;
+      const badge = (row: number) =>
+        root.querySelectorAll('tbody tr')[row].querySelector('.badge')!;
       expect(badge(0).classList).toContain('badge--active');
       expect(badge(1).classList).toContain('badge--danger');
       expect(badge(2).classList).not.toContain('badge--active');
@@ -249,7 +314,9 @@ describe('WhatsAppTest', () => {
         }),
       );
 
-      const values = Array.from(root.querySelectorAll('.whatsapp-value')).map((v) => v.textContent?.replace(/\s+/g, ' ').trim());
+      const values = Array.from(root.querySelectorAll('.whatsapp-value')).map((v) =>
+        v.textContent?.replace(/\s+/g, ' ').trim(),
+      );
       expect(values).toEqual(['Value: sign_in_code']);
     });
 
@@ -257,15 +324,21 @@ describe('WhatsAppTest', () => {
       open();
 
       expect(root.querySelector('table caption')?.textContent?.trim()).toBe('WhatsApp settings');
-      expect(Array.from(root.querySelectorAll('thead th')).map((h) => h.textContent?.trim())).toEqual(['Setting', 'Status', 'What it is for']);
+      expect(
+        Array.from(root.querySelectorAll('thead th')).map((h) => h.textContent?.trim()),
+      ).toEqual(['Setting', 'Status', 'What it is for']);
     });
 
     it('lists the problems prominently, in the error style, and does not say nothing is missing', () => {
-      open(status({ problems: ['The access token is not set.', 'The phone number id is not set.'] }));
+      open(
+        status({ problems: ['The access token is not set.', 'The phone number id is not set.'] }),
+      );
 
       const box = root.querySelector('.whatsapp-problems')!;
       expect(box.classList).toContain('error-message');
-      expect(box.querySelector('h3')?.textContent?.trim()).toBe('What is stopping WhatsApp from sending');
+      expect(box.querySelector('h3')?.textContent?.trim()).toBe(
+        'What is stopping WhatsApp from sending',
+      );
       expect(Array.from(box.querySelectorAll('li')).map((li) => li.textContent?.trim())).toEqual([
         'The access token is not set.',
         'The phone number id is not set.',
@@ -273,12 +346,54 @@ describe('WhatsAppTest', () => {
       expect(text()).not.toContain('Nothing is missing.');
     });
 
-    it('says nothing is missing, in the success style, when there are no problems', () => {
+    it('says how many things are stopping WhatsApp, beside the on or off badge, in the problem style', () => {
+      open(
+        status({
+          enabled: false,
+          problems: ['The access token is not set.', 'The phone number id is not set.'],
+        }),
+      );
+
+      const headline = root.querySelector('.whatsapp-headline')!;
+      expect(headline.querySelector('.whatsapp-pill')?.textContent?.trim()).toBe('WhatsApp is off');
+      const count = headline.querySelector('.whatsapp-headline__detail--problem')!;
+      expect(count.textContent?.trim()).toBe('2 things are stopping WhatsApp from sending.');
+      expect(headline.querySelector('.whatsapp-headline__detail--ok')).toBeNull();
+    });
+
+    it('says one thing, in the singular, when one problem is stopping WhatsApp', () => {
+      open(status({ problems: ['The access token is not set.'] }));
+
+      expect(root.querySelector('.whatsapp-headline__detail')?.textContent?.trim()).toBe(
+        '1 thing is stopping WhatsApp from sending.',
+      );
+    });
+
+    it('says nothing is missing, beside the badge and in the success style, when there are no problems', () => {
       open(status({ problems: [] }));
 
-      const message = root.querySelector('.success-message')!;
-      expect(message.textContent?.trim()).toBe('Nothing is missing.');
+      const detail = root.querySelector('.whatsapp-headline__detail--ok')!;
+      expect(detail.textContent?.trim()).toBe('Nothing is missing.');
+      expect(detail.classList).not.toContain('whatsapp-headline__detail--problem');
       expect(root.querySelector('.whatsapp-problems')).toBeNull();
+    });
+
+    it('keeps the status first, and folds the settings table into a disclosure that is closed until it is asked for', () => {
+      open(status({ problems: ['The access token is not set.'] }));
+
+      const card = root.querySelector('.whatsapp-status')!;
+      const details = card.querySelector<HTMLDetailsElement>('details.whatsapp-settings')!;
+      expect(details.open).toBe(false);
+      expect(details.querySelector('summary')?.textContent?.trim()).toBe('Settings in detail');
+      expect(details.querySelector('table')).not.toBeNull();
+      expect(
+        card.querySelector('.whatsapp-problems')!.compareDocumentPosition(details) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(
+        root.querySelector('form')!.compareDocumentPosition(card) &
+          Node.DOCUMENT_POSITION_PRECEDING,
+      ).toBeTruthy();
     });
 
     it('lists the notes quietly, apart from the problems', () => {
@@ -299,7 +414,10 @@ describe('WhatsAppTest', () => {
     });
 
     it("shows the API's reason, with a Retry, when the setup check cannot be loaded", () => {
-      open(null).flush({ title: 'forbidden', detail: 'No access.' }, { status: 403, statusText: 'Forbidden' });
+      open(null).flush(
+        { title: 'forbidden', detail: 'No access.' },
+        { status: 403, statusText: 'Forbidden' },
+      );
       fixture.detectChanges();
 
       expect(root.querySelector('[role="alert"]')?.textContent).toContain('No access.');
@@ -311,14 +429,18 @@ describe('WhatsAppTest', () => {
       open(null).flush(null, { status: 403, statusText: 'Forbidden' });
       fixture.detectChanges();
 
-      expect(root.querySelector('[role="alert"]')?.textContent).toContain('You are not allowed to use the WhatsApp test.');
+      expect(root.querySelector('[role="alert"]')?.textContent).toContain(
+        'You are not allowed to use the WhatsApp test.',
+      );
     });
 
     it('uses the usual message for any other failure', () => {
       open(null).flush(null, { status: 500, statusText: 'Server Error' });
       fixture.detectChanges();
 
-      expect(root.querySelector('[role="alert"]')?.textContent).toContain('Something went wrong. Please try again.');
+      expect(root.querySelector('[role="alert"]')?.textContent).toContain(
+        'Something went wrong. Please try again.',
+      );
     });
 
     it('tries again when Retry is pressed, and shows the setup once it loads', () => {
@@ -328,7 +450,9 @@ describe('WhatsAppTest', () => {
       buttonLabelled('Retry')!.click();
       fixture.detectChanges();
       expect(root.querySelector('[role="alert"]')).toBeNull();
-      httpMock.expectOne(isStatus).flush(status({ settings: [setting({ setting: 'WhatsApp__Enabled' })] }));
+      httpMock
+        .expectOne(isStatus)
+        .flush(status({ settings: [setting({ setting: 'WhatsApp__Enabled' })] }));
       fixture.detectChanges();
 
       expect(root.querySelector('[role="alert"]')).toBeNull();
@@ -366,13 +490,19 @@ describe('WhatsAppTest', () => {
     beforeEach(() => open());
 
     it('labels every control, and ties the hints to the controls they explain', () => {
-      expect(root.querySelector('label[for="whatsapp-phone"]')?.textContent?.trim()).toBe('Phone number');
-      expect(root.querySelector('label[for="whatsapp-message"]')?.textContent?.trim()).toBe('Message');
+      expect(root.querySelector('label[for="whatsapp-phone"]')?.textContent?.trim()).toBe(
+        'Phone number',
+      );
+      expect(root.querySelector('label[for="whatsapp-message"]')?.textContent?.trim()).toBe(
+        'Message',
+      );
       const hintId = phoneInput().getAttribute('aria-describedby')!;
       expect(root.querySelector(`#${hintId}`)?.textContent).toContain(
         "With the country code, for example 919876543210. Without one, the platform's default country code is added.",
       );
-      expect(root.querySelector('form')?.getAttribute('aria-labelledby')).toBe('whatsapp-send-heading');
+      expect(root.querySelector('form')?.getAttribute('aria-labelledby')).toBe(
+        'whatsapp-send-heading',
+      );
       expect(root.querySelector('#whatsapp-send-heading')?.textContent).toBe('Send a message');
     });
 
@@ -384,52 +514,94 @@ describe('WhatsAppTest', () => {
 
     it('offers the two things to send as a radio group, the message being the default', () => {
       expect(root.querySelector('fieldset legend')?.textContent?.trim()).toBe('What to send');
-      const radios = Array.from(root.querySelectorAll<HTMLInputElement>('fieldset input[type="radio"]'));
+      const radios = Array.from(
+        root.querySelectorAll<HTMLInputElement>('fieldset input[type="radio"]'),
+      );
       expect(radios.map((r) => r.value)).toEqual(['Text', 'SignInTemplate']);
       expect(new Set(radios.map((r) => r.name)).size).toBe(1);
       expect(radios.map((r) => r.checked)).toEqual([true, false]);
-      const choices = Array.from(root.querySelectorAll('fieldset label')).map((l) => l.textContent?.replace(/\s+/g, ' ').trim());
+      const choices = Array.from(root.querySelectorAll('fieldset label')).map((l) =>
+        l.textContent?.replace(/\s+/g, ' ').trim(),
+      );
       expect(choices).toEqual([
         'A message I write WhatsApp only delivers a free message to someone who messaged your WhatsApp number in the last 24 hours.',
         'The sign-in code template Works for anyone. Sends a test code that cannot be used to sign in.',
       ]);
     });
 
-    it('cannot send until there is a number and a message', () => {
-      expect(sendButton().disabled).toBe(true);
-
-      type(phoneInput(), '919876543210');
-      expect(sendButton().disabled).toBe(true);
-
-      type(messageInput()!, 'Hello');
+    it('leaves Send enabled while the form is empty, so pressing it is what says what is missing', () => {
       expect(sendButton().disabled).toBe(false);
+      expect(sendButton().textContent?.trim()).toBe('Send to WhatsApp');
     });
 
-    it('cannot send a blank number or a message of only spaces', () => {
-      type(messageInput()!, 'Hello');
-      type(phoneInput(), '   ');
-      expect(sendButton().disabled).toBe(true);
-
-      type(phoneInput(), '919876543210');
-      type(messageInput()!, '   \n ');
-      expect(sendButton().disabled).toBe(true);
-    });
-
-    it('sends nothing when submitted while the form is not valid', () => {
+    it('asks for the number and the message when Send is pressed with both empty, and sends nothing', () => {
       submit();
 
       httpMock.expectNone(isSend);
+      expect(root.querySelector('#whatsapp-phone-error')?.textContent?.trim()).toBe(
+        'Enter the phone number to send to.',
+      );
+      expect(root.querySelector('#whatsapp-message-error')?.textContent?.trim()).toBe(
+        'Write the message to send.',
+      );
+      expect(phoneInput().getAttribute('aria-invalid')).toBe('true');
+      expect(phoneInput().getAttribute('aria-describedby')).toBe(
+        'whatsapp-phone-hint whatsapp-phone-error',
+      );
+      expect(messageInput()!.getAttribute('aria-invalid')).toBe('true');
+      expect(messageInput()!.getAttribute('aria-describedby')).toBe(
+        'whatsapp-message-count whatsapp-message-error',
+      );
+    });
+
+    it('treats a number or message of only spaces as missing, and names it the same way', () => {
+      type(phoneInput(), '   ');
+      type(messageInput()!, '   \n ');
+      submit();
+
+      httpMock.expectNone(isSend);
+      expect(root.querySelector('#whatsapp-phone-error')?.textContent?.trim()).toBe(
+        'Enter the phone number to send to.',
+      );
+      expect(root.querySelector('#whatsapp-message-error')?.textContent?.trim()).toBe(
+        'Write the message to send.',
+      );
+    });
+
+    it('stops naming a field as soon as it is filled in, and keeps naming the one still empty', () => {
+      submit();
+
+      type(phoneInput(), '919876543210');
+
+      expect(root.querySelector('#whatsapp-phone-error')).toBeNull();
+      expect(phoneInput().getAttribute('aria-invalid')).toBeNull();
+      expect(phoneInput().getAttribute('aria-describedby')).toBe('whatsapp-phone-hint');
+      expect(root.querySelector('#whatsapp-message-error')).not.toBeNull();
+    });
+
+    it('does not name the fields before Send has been pressed', () => {
+      type(phoneInput(), '');
+      type(messageInput()!, '');
+
+      expect(root.querySelector('.field-error')).toBeNull();
+      expect(phoneInput().getAttribute('aria-invalid')).toBeNull();
     });
 
     it('needs only a number for the sign-in template, and hides the message box', () => {
       radio('SignInTemplate').click();
       fixture.detectChanges();
       expect(messageInput()).toBeNull();
-      expect(sendButton().disabled).toBe(true);
+
+      submit();
+      httpMock.expectNone(isSend);
+      expect(root.querySelector('#whatsapp-phone-error')).not.toBeNull();
+      expect(root.querySelector('#whatsapp-message-error')).toBeNull();
 
       type(phoneInput(), '919876543210');
+      submit();
 
-      expect(sendButton().disabled).toBe(false);
+      respond(httpMock.expectOne(isSend), sendResult({ mode: 'SignInTemplate' }));
+      expect(resultArea().querySelector('h2')?.textContent).toBe('Handed to WhatsApp');
     });
 
     it('brings back the message that was typed when switching back to a message', () => {
@@ -450,7 +622,9 @@ describe('WhatsAppTest', () => {
       type(messageInput()!, 'Hello');
 
       expect(counter.querySelector('[aria-hidden="true"]')?.textContent).toBe('5 / 1000');
-      expect(counter.querySelector('.visually-hidden')?.textContent).toBe('5 of 1000 characters used');
+      expect(counter.querySelector('.visually-hidden')?.textContent).toBe(
+        '5 of 1000 characters used',
+      );
       expect(messageInput()!.getAttribute('maxlength')).toBe('1000');
       expect(messageInput()!.getAttribute('aria-describedby')).toBe(counter.id);
     });
@@ -458,7 +632,11 @@ describe('WhatsAppTest', () => {
     it('sends the number and the message, both trimmed', () => {
       const request = sendText('  919876543210 ', '  Hello there \n');
 
-      expect(request.request.body).toEqual({ phoneNumber: '919876543210', mode: 'Text', message: 'Hello there' });
+      expect(request.request.body).toEqual({
+        phoneNumber: '919876543210',
+        mode: 'Text',
+        message: 'Hello there',
+      });
       request.flush(sendResult());
     });
 
@@ -496,10 +674,19 @@ describe('WhatsAppTest', () => {
     beforeEach(() => open());
 
     it('says it was handed to WhatsApp, to whom, with which id, and passes on the server note', () => {
-      respond(sendText(), sendResult({ to: '********10', messageId: 'wamid.XYZ', note: 'Sent with the default country code.' }));
+      respond(
+        sendText(),
+        sendResult({
+          to: '********10',
+          messageId: 'wamid.XYZ',
+          note: 'Sent with the default country code.',
+        }),
+      );
 
       expect(resultArea().querySelector('h2')?.textContent).toBe('Handed to WhatsApp');
-      expect(resultArea().textContent).toContain('********10');
+      expect(resultArea().querySelector('.whatsapp-result__to')?.textContent?.trim()).toBe(
+        'To ********10',
+      );
       expect(resultArea().querySelector('code')?.textContent).toBe('wamid.XYZ');
       expect(resultArea().textContent).toContain('Sent with the default country code.');
       expect(resultArea().querySelector('details')).toBeNull();
@@ -509,7 +696,7 @@ describe('WhatsAppTest', () => {
       respond(sendText(), sendResult({ to: null, messageId: null, note: null }));
 
       expect(resultArea().querySelector('h2')?.textContent).toBe('Handed to WhatsApp');
-      expect(resultArea().querySelector('strong')).toBeNull();
+      expect(resultArea().querySelector('.whatsapp-result__to')).toBeNull();
       expect(resultArea().querySelector('code')).toBeNull();
     });
 
@@ -527,7 +714,9 @@ describe('WhatsAppTest', () => {
     it('shows Sent, Delivered, Read with nothing marked until the first delivery report arrives', () => {
       sendTracked();
 
-      expect(root.querySelector('.whatsapp-steps')?.getAttribute('aria-label')).toBe('Delivery progress');
+      expect(root.querySelector('.whatsapp-steps')?.getAttribute('aria-label')).toBe(
+        'Delivery progress',
+      );
       expect(stepLabels()).toEqual(['○ Sent', '○ Delivered', '○ Read']);
       expect(currentStep()).toBeUndefined();
       expect(text()).toContain('Waiting for a delivery report…');
@@ -574,7 +763,11 @@ describe('WhatsAppTest', () => {
 
       report(nextPoll(), delivery({ status: 'read' }));
 
-      expect(stepLabels()).toEqual(['✓ Sent (done)', '✓ Delivered (done)', '● Read (current step)']);
+      expect(stepLabels()).toEqual([
+        '✓ Sent (done)',
+        '✓ Delivered (done)',
+        '● Read (current step)',
+      ]);
       vi.advanceTimersByTime(WHATSAPP_POLL_TIMEOUT_MS);
       httpMock.expectNone(isDelivery);
     });
@@ -605,7 +798,9 @@ describe('WhatsAppTest', () => {
         report(nextPoll(), delivery({ status: 'sent' }));
       }
 
-      expect(text()).toContain('WhatsApp reports the message as sent, but not yet as delivered. Check the phone.');
+      expect(text()).toContain(
+        'WhatsApp reports the message as sent, but not yet as delivered. Check the phone.',
+      );
       expect(text()).not.toContain('No delivery report yet');
     });
 
@@ -627,7 +822,13 @@ describe('WhatsAppTest', () => {
         nextPoll(),
         delivery({
           status: 'failed',
-          failure: failure({ kind: 'NotOnWhatsApp', explanation: 'That number has no WhatsApp account.', metaCode: 131026, httpStatus: null, metaMessage: 'Message undeliverable' }),
+          failure: failure({
+            kind: 'NotOnWhatsApp',
+            explanation: 'That number has no WhatsApp account.',
+            metaCode: 131026,
+            httpStatus: null,
+            metaMessage: 'Message undeliverable',
+          }),
         }),
       );
 
@@ -692,13 +893,22 @@ describe('WhatsAppTest', () => {
   describe('a message that could not be sent', () => {
     beforeEach(() => open());
 
-    const failed = (why: Partial<WhatsAppFailureDto> = {}) => sendResult({ sent: false, messageId: null, to: null, failure: failure(why) });
+    const failed = (why: Partial<WhatsAppFailureDto> = {}) =>
+      sendResult({ sent: false, messageId: null, to: null, failure: failure(why) });
 
     it('names the kind of failure in words, then says what is wrong', () => {
-      respond(sendText(), failed({ kind: 'RecipientNotAllowed', explanation: 'Add the number to the allowed recipients in Meta.' }));
+      respond(
+        sendText(),
+        failed({
+          kind: 'RecipientNotAllowed',
+          explanation: 'Add the number to the allowed recipients in Meta.',
+        }),
+      );
 
       expect(resultArea().querySelector('h2')?.textContent).toBe('Recipient not allowed');
-      expect(resultArea().querySelector('.whatsapp-result p')?.textContent).toBe('Add the number to the allowed recipients in Meta.');
+      expect(resultArea().querySelector('.whatsapp-result p')?.textContent).toBe(
+        'Add the number to the allowed recipients in Meta.',
+      );
       expect(resultArea().textContent).not.toContain('Handed to WhatsApp');
       expect(root.querySelector('.whatsapp-result--failed')).not.toBeNull();
       expect(root.querySelector('.whatsapp-steps')).toBeNull();
@@ -707,31 +917,59 @@ describe('WhatsAppTest', () => {
     });
 
     it('keeps what Meta said folded away until it is asked for, and lists all of it', () => {
-      respond(sendText(), failed({ metaCode: 131030, httpStatus: 400, metaMessage: 'Recipient phone number not in allowed list' }));
+      respond(
+        sendText(),
+        failed({
+          metaCode: 131030,
+          httpStatus: 400,
+          metaMessage: 'Recipient phone number not in allowed list',
+        }),
+      );
 
       const details = resultArea().querySelector<HTMLDetailsElement>('details')!;
       expect(details.open).toBe(false);
       expect(details.querySelector('summary')?.textContent?.trim()).toBe('What Meta said');
-      expect(Array.from(details.querySelectorAll('dt')).map((t) => t.textContent)).toEqual(['Meta code', 'HTTP status', 'Meta message']);
-      expect(Array.from(details.querySelectorAll('dd')).map((d) => d.textContent)).toEqual(['131030', '400', 'Recipient phone number not in allowed list']);
+      expect(Array.from(details.querySelectorAll('dt')).map((t) => t.textContent)).toEqual([
+        'Meta code',
+        'HTTP status',
+        'Meta message',
+      ]);
+      expect(Array.from(details.querySelectorAll('dd')).map((d) => d.textContent)).toEqual([
+        '131030',
+        '400',
+        'Recipient phone number not in allowed list',
+      ]);
     });
 
     it('lists only the details Meta gave', () => {
       respond(sendText(), failed({ metaCode: null, httpStatus: 503, metaMessage: null }));
 
       const details = resultArea().querySelector('details')!;
-      expect(Array.from(details.querySelectorAll('dt')).map((t) => t.textContent)).toEqual(['HTTP status']);
+      expect(Array.from(details.querySelectorAll('dt')).map((t) => t.textContent)).toEqual([
+        'HTTP status',
+      ]);
       expect(Array.from(details.querySelectorAll('dd')).map((d) => d.textContent)).toEqual(['503']);
     });
 
     it('shows a Meta code of zero, which is a code like any other', () => {
       respond(sendText(), failed({ metaCode: 0, httpStatus: null, metaMessage: null }));
 
-      expect(Array.from(resultArea().querySelectorAll('dd')).map((d) => d.textContent)).toEqual(['0']);
+      expect(Array.from(resultArea().querySelectorAll('dd')).map((d) => d.textContent)).toEqual([
+        '0',
+      ]);
     });
 
     it('has no Meta section when WhatsApp was never reached', () => {
-      respond(sendText(), failed({ kind: 'SwitchedOff', explanation: 'WhatsApp is switched off.', metaCode: null, httpStatus: null, metaMessage: null }));
+      respond(
+        sendText(),
+        failed({
+          kind: 'SwitchedOff',
+          explanation: 'WhatsApp is switched off.',
+          metaCode: null,
+          httpStatus: null,
+          metaMessage: null,
+        }),
+      );
 
       expect(resultArea().querySelector('h2')?.textContent).toBe('WhatsApp is switched off');
       expect(resultArea().querySelector('details')).toBeNull();
@@ -745,7 +983,16 @@ describe('WhatsAppTest', () => {
     });
 
     it('treats an unreachable number as a failure to show, not as an error in the request', () => {
-      respond(sendText('12', 'Hello'), failed({ kind: 'InvalidNumber', explanation: 'That is not a phone number WhatsApp can reach.', metaCode: null, httpStatus: null, metaMessage: null }));
+      respond(
+        sendText('12', 'Hello'),
+        failed({
+          kind: 'InvalidNumber',
+          explanation: 'That is not a phone number WhatsApp can reach.',
+          metaCode: null,
+          httpStatus: null,
+          metaMessage: null,
+        }),
+      );
 
       expect(resultArea().querySelector('h2')?.textContent).toBe('Invalid phone number');
       expect(resultArea().querySelector('.error-message')).toBeNull();
@@ -771,10 +1018,18 @@ describe('WhatsAppTest', () => {
       fixture.detectChanges();
     };
 
-    it("shows the reason for a request the API says is malformed, and lets the form be used again", () => {
-      bad({ title: 'invalid_whatsapp_message', detail: 'The message must be at most 1000 characters.' }, 400);
+    it('shows the reason for a request the API says is malformed, and lets the form be used again', () => {
+      bad(
+        {
+          title: 'invalid_whatsapp_message',
+          detail: 'The message must be at most 1000 characters.',
+        },
+        400,
+      );
 
-      expect(resultArea().querySelector('.error-message')?.textContent).toBe('The message must be at most 1000 characters.');
+      expect(resultArea().querySelector('.error-message')?.textContent).toBe(
+        'The message must be at most 1000 characters.',
+      );
       expect(resultArea().querySelector('.whatsapp-result')).toBeNull();
       expect(sendButton().disabled).toBe(false);
     });
@@ -782,25 +1037,33 @@ describe('WhatsAppTest', () => {
     it('still says something useful when a malformed request comes back with no detail', () => {
       bad({ title: 'invalid_whatsapp_message' }, 400);
 
-      expect(resultArea().querySelector('.error-message')?.textContent).toBe('Check the phone number and the message, then try again.');
+      expect(resultArea().querySelector('.error-message')?.textContent).toBe(
+        'Check the phone number and the message, then try again.',
+      );
     });
 
     it("shows the API's reason for any other HTTP error", () => {
       bad({ title: 'server_error', detail: 'The server could not take the message.' }, 500);
 
-      expect(resultArea().querySelector('.error-message')?.textContent).toBe('The server could not take the message.');
+      expect(resultArea().querySelector('.error-message')?.textContent).toBe(
+        'The server could not take the message.',
+      );
     });
 
     it('uses the usual message when the error carries no reason', () => {
       bad(null, 500);
 
-      expect(resultArea().querySelector('.error-message')?.textContent).toBe('Something went wrong. Please try again.');
+      expect(resultArea().querySelector('.error-message')?.textContent).toBe(
+        'Something went wrong. Please try again.',
+      );
     });
 
     it('says the user is not allowed, in the usual words, on a 403 with no reason', () => {
       bad(null, 403);
 
-      expect(resultArea().querySelector('.error-message')?.textContent).toBe('You are not allowed to use the WhatsApp test.');
+      expect(resultArea().querySelector('.error-message')?.textContent).toBe(
+        'You are not allowed to use the WhatsApp test.',
+      );
     });
 
     it('clears the error when the next message is sent', () => {
@@ -820,6 +1083,56 @@ describe('WhatsAppTest', () => {
     expect(resultArea()).not.toBeNull();
     expect(resultArea().textContent?.trim()).toBe('');
     expect(resultArea().getAttribute('aria-live')).toBe('polite');
+  });
+
+  describe('in another language', () => {
+    beforeEach(() => localStorage.clear());
+    afterEach(() => localStorage.clear());
+
+    it('shows the headings, labels and button in the language chosen, and leaves the server text as the server sent it', () => {
+      TestBed.inject(I18nService).setLanguage('hi');
+      open(status({ problems: ['The access token is not set.'] }));
+
+      expect(root.querySelector('h1')?.textContent).toBe(HI['whatsapp.title']);
+      expect(root.querySelector('#whatsapp-setup-heading')?.textContent).toBe(
+        HI['whatsapp.setup.heading'],
+      );
+      expect(root.querySelector('#whatsapp-send-heading')?.textContent).toBe(
+        HI['whatsapp.form.heading'],
+      );
+      expect(root.querySelector('label[for="whatsapp-phone"]')?.textContent?.trim()).toBe(
+        HI['whatsapp.form.phone'],
+      );
+      expect(sendButton().textContent?.trim()).toBe(HI['whatsapp.form.send']);
+      expect(text()).toContain('The access token is not set.');
+    });
+
+    it('shows the heading of a failure, and the steps of a delivery, in the language chosen', () => {
+      TestBed.inject(I18nService).setLanguage('mr');
+      open();
+
+      respond(sendText(), sendResult({ deliveryTracking: true, messageId: 'wamid.MR' }));
+      expect(stepLabels()).toEqual([
+        `○ ${MR['whatsapp.step.sent']}`,
+        `○ ${MR['whatsapp.step.delivered']}`,
+        `○ ${MR['whatsapp.step.read']}`,
+      ]);
+
+      report(
+        nextPoll(),
+        delivery({
+          status: 'failed',
+          failure: failure({
+            kind: 'NotOnWhatsApp',
+            explanation: 'That number has no WhatsApp account.',
+          }),
+        }),
+      );
+      expect(resultArea().querySelector('h2')?.textContent).toBe(
+        MR['whatsapp.failure.NotOnWhatsApp'],
+      );
+      expect(text()).toContain('That number has no WhatsApp account.');
+    });
   });
 });
 
@@ -850,13 +1163,28 @@ describe('failureTitle', () => {
     'Rejected',
   ];
 
-  it('gives every kind its own readable heading', () => {
-    const titles = kinds.map(failureTitle);
+  it('looks every kind up under its own message key, so each one can be translated', () => {
+    // A translator that hands back its key shows which key each heading was asked for.
+    const keyOf = (key: MessageKey) => key;
+
+    expect(kinds.map((kind) => failureTitle(kind, keyOf))).toEqual(
+      kinds.map((kind) => `whatsapp.failure.${kind}`),
+    );
+  });
+
+  it('gives every kind its own readable heading in English', () => {
+    const titles = kinds.map((kind) => failureTitle(kind, englishTranslate));
 
     expect(new Set(titles).size).toBe(kinds.length);
     for (const title of titles) {
       expect(title).toMatch(/^[A-Z]/);
     }
+  });
+
+  it('gives the heading in the language chosen, not in English', () => {
+    expect(failureTitle('NotOnWhatsApp', (key) => HI[key])).toBe(
+      HI['whatsapp.failure.NotOnWhatsApp'],
+    );
   });
 
   it.each([
@@ -868,13 +1196,22 @@ describe('failureTitle', () => {
     ['InvalidRequest', 'Invalid request'],
     ['InvalidRecipient', 'Invalid recipient'],
   ])('writes %s as "%s"', (kind, title) => {
-    expect(failureTitle(kind)).toBe(title);
+    expect(failureTitle(kind, englishTranslate)).toBe(title);
   });
 
   it('makes a readable heading from a kind this page has not heard of', () => {
-    expect(failureTitle('SomethingNewHappened')).toBe('Something new happened');
-    expect(failureTitle('quota_exceeded')).toBe('Quota exceeded');
-    expect(failureTitle('')).toBe('Not sent');
+    expect(failureTitle('SomethingNewHappened', englishTranslate)).toBe('Something new happened');
+    expect(failureTitle('quota_exceeded', englishTranslate)).toBe('Quota exceeded');
+  });
+
+  it('says the message was not sent when the kind is empty, in the language chosen', () => {
+    expect(failureTitle('', englishTranslate)).toBe('Not sent');
+    expect(failureTitle('', (key) => HI[key])).toBe(HI['whatsapp.failure.notSent']);
+  });
+
+  it('does not mistake a name the table inherits, such as constructor, for a known kind', () => {
+    expect(failureTitle('constructor', englishTranslate)).toBe('Constructor');
+    expect(failureTitle('toString', englishTranslate)).toBe('To string');
   });
 });
 
@@ -888,7 +1225,10 @@ describe('WhatsApp test route and navigation', () => {
       providers: [
         {
           provide: AuthSessionService,
-          useValue: { isAuthenticated: () => isAuthenticated, hasPermission: (code: string) => permissions.includes(code) },
+          useValue: {
+            isAuthenticated: () => isAuthenticated,
+            hasPermission: (code: string) => permissions.includes(code),
+          },
         },
         { provide: Router, useValue: { createUrlTree } },
       ],
@@ -907,7 +1247,9 @@ describe('WhatsApp test route and navigation', () => {
   });
 
   it('sends a signed-in user without the permission to /forbidden, whatever else they may do', () => {
-    expect(runGuard(true, ['identity.otp.read', 'exam.manage', 'question.manage'])).toBe('tree:/forbidden');
+    expect(runGuard(true, ['identity.otp.read', 'exam.manage', 'question.manage'])).toBe(
+      'tree:/forbidden',
+    );
   });
 
   it('sends a signed-out visitor to /login', () => {
