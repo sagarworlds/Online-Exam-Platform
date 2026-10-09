@@ -1,4 +1,6 @@
-import { Component, computed, effect, input, output, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { QUESTION_DIFFICULTIES, QuestionDifficulty, QuestionDto } from '../../question-bank/question.models';
 import { PlainTextPipe } from '../../shared/rich-text/plain-text.pipe';
 import { htmlToPlainText } from '../../shared/rich-text/html-to-text';
@@ -11,10 +13,12 @@ import { DrawQuestionsRequest, DrawRuleDto, ExamQuestionDto, ExamScopeType, Exam
  */
 @Component({
   selector: 'app-exam-section-card',
-  imports: [PlainTextPipe],
+  imports: [PlainTextPipe, TranslatePipe],
   templateUrl: './exam-section-card.html',
 })
 export class ExamSectionCard {
+  private readonly i18n = inject(I18nService);
+
   readonly section = input.required<ExamSectionDto>();
   /** Whether the section can be changed, which is only while the exam is a draft; a published exam is shown read-only. */
   readonly editable = input(false);
@@ -105,8 +109,27 @@ export class ExamSectionCard {
   /** A short description of what a rule draws, e.g. "5 easy questions on algebra". */
   protected describeRule(rule: DrawRuleDto): string {
     const level = rule.difficulty ? `${rule.difficulty} ` : '';
-    const topic = rule.topic ? ` on ${rule.topic}` : '';
-    return `${rule.count} ${level}${rule.count === 1 ? 'question' : 'questions'}${topic}`;
+    const topic = rule.topic ? ` ${this.i18n.t('exams.section.onTopic', { topic: rule.topic })}` : '';
+    return this.i18n.t('exams.section.ruleLine', {
+      count: rule.count,
+      level,
+      noun: this.i18n.plural('exams.section.questionNoun', rule.count),
+      topic,
+    });
+  }
+
+  /** The question asked before a section is removed; it says how many questions go with it. */
+  protected removeConfirmText(): string {
+    const count = this.section().questions.length;
+    const andItsQuestions = count > 0 ? ` ${this.i18n.plural('exams.section.andItsQuestions', count)}` : '';
+    return this.i18n.t('exams.section.removeConfirm', { andItsQuestions });
+  }
+
+  /** The draw's one-line explanation of where its questions come from: the bank, or this exam's book or chapters. */
+  protected drawScopeText(): string {
+    const inside =
+      this.scope() === 'Independent' ? '' : this.i18n.t(this.scope() === 'Book' ? 'exams.section.insideBook' : 'exams.section.insideChapters');
+    return this.i18n.t('exams.section.drawPicks', { inside });
   }
 
   protected confirmRemove(): void {
@@ -116,6 +139,7 @@ export class ExamSectionCard {
 
   /** What a screen reader says for a question's Remove button; the visible label is just "Remove". */
   protected removeLabel(question: ExamQuestionDto): string {
-    return `Remove ${question.text ? htmlToPlainText(question.text, 60) : 'a question that is no longer in the bank'} from the exam`;
+    const text = question.text ? htmlToPlainText(question.text, 60) : this.i18n.t('exams.section.questionGoneLong');
+    return this.i18n.t('exams.section.removeQuestionLabel', { question: text });
   }
 }

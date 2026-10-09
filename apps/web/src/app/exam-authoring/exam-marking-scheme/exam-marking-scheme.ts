@@ -1,4 +1,5 @@
 import { Component, effect, input, output, signal, untracked } from '@angular/core';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { MarkingSchemeDto } from '../exam.models';
 
 /** The largest mark one question can be worth or cost, and the finest step; mirrors what the API enforces. */
@@ -20,6 +21,7 @@ interface MarkDraft {
  */
 @Component({
   selector: 'app-exam-marking-scheme',
+  imports: [TranslatePipe],
   templateUrl: './exam-marking-scheme.html',
 })
 export class ExamMarkingScheme {

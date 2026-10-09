@@ -1,11 +1,11 @@
-<form class="card" (submit)="save($event)" aria-label="Exam name and description">
-  <h2>Name and description</h2>
+<form class="card" (submit)="save($event)" [attr.aria-label]="'exams.details.formLabel' | t">
+  <h2>{{ 'exams.details.title' | t }}</h2>
   <div class="field">
-    <label for="exam-name">Name</label>
+    <label for="exam-name">{{ 'exams.details.name' | t }}</label>
     <input id="exam-name" type="text" [value]="nameDraft()" (input)="nameDraft.set($any($event.target).value)" [attr.maxlength]="maxName" />
   </div>
   <div class="field">
-    <label for="exam-description">Description <span class="hint">(optional, shown to candidates)</span></label>
+    <label for="exam-description">{{ 'exams.details.description' | t }} <span class="hint">{{ 'exams.details.optional' | t }}</span></label>
     <textarea
       id="exam-description"
       rows="3"
@@ -15,7 +15,7 @@
     ></textarea>
   </div>
   <div class="actions">
-    <button type="submit" class="primary" [disabled]="busy() || nameDraft().trim() === ''">Save details</button>
-    <button type="button" (click)="cancelled.emit()" [disabled]="busy()">Cancel</button>
+    <button type="submit" class="primary" [disabled]="busy() || nameDraft().trim() === ''">{{ 'exams.details.save' | t }}</button>
+    <button type="button" (click)="cancelled.emit()" [disabled]="busy()">{{ 'common.cancel' | t }}</button>
   </div>
 </form>

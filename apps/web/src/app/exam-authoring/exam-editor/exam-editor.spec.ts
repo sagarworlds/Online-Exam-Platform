@@ -753,7 +753,7 @@ describe('ExamEditor', () => {
     it('takes a question out of its section and reads the exam again', () => {
       const { fixture, root } = open(withQuestions());
 
-      (root.querySelectorAll('li button')[1] as HTMLButtonElement).click();
+      (root.querySelectorAll('app-exam-section-card li button')[1] as HTMLButtonElement).click();
 
       httpMock.expectOne(isDelete('/sections/s1/questions/q2')).flush(null, { status: 204, statusText: 'No Content' });
       const after = withQuestions();
@@ -761,7 +761,7 @@ describe('ExamEditor', () => {
       httpMock.expectOne(isExam).flush(after);
       fixture.detectChanges();
 
-      expect(root.querySelectorAll('li').length).toBe(1);
+      expect(root.querySelectorAll('app-exam-section-card li').length).toBe(1);
       // It can be added again now: the picker offers it.
       expect(Array.from(root.querySelectorAll('select option')).map((o) => o.textContent?.trim())).toContain('Capital of France?');
     });
@@ -804,7 +804,7 @@ describe('ExamEditor', () => {
 
     it('shows why a change was refused and keeps the page', () => {
       const { fixture, root } = open(withQuestions());
-      (root.querySelectorAll('li button')[0] as HTMLButtonElement).click();
+      (root.querySelectorAll('app-exam-section-card li button')[0] as HTMLButtonElement).click();
 
       httpMock
         .expectOne(isDelete('/sections/s1/questions/q1'))
@@ -812,14 +812,14 @@ describe('ExamEditor', () => {
       fixture.detectChanges();
 
       expect(root.textContent).toContain('Only a draft exam can be changed');
-      expect(root.querySelectorAll('li').length).toBe(2);
+      expect(root.querySelectorAll('app-exam-section-card li').length).toBe(2);
     });
 
     it('offers none of this on a published exam', () => {
       const published = { ...withQuestions(), status: 'Published' };
       const { root } = open(published);
 
-      expect(root.querySelector('li button')).toBeNull();
+      expect(root.querySelector('app-exam-section-card li button')).toBeNull();
       expect(button(root, 'Rename')).toBeUndefined();
       expect(button(root, 'Remove section')).toBeUndefined();
       expect(button(root, 'Delete draft')).toBeUndefined();

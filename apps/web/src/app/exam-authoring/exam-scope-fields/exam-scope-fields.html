@@ -1,5 +1,5 @@
 <fieldset class="field scope-fields" [disabled]="disabled()">
-  <legend [class.visually-hidden]="hideLegend()">Questions come from</legend>
+  <legend [class.visually-hidden]="hideLegend()">{{ 'exams.field.scopeLegend' | t }}</legend>
 
   @for (type of types; track type.value) {
     <label class="inline-check">
@@ -10,32 +10,32 @@
         [checked]="scope().type === type.value"
         (change)="chooseType(type.value)"
       />
-      {{ type.label }}
+      {{ type.label | t }}
     </label>
   }
 
   @if (scope().type !== 'Independent') {
     @if (openBooks().length === 0) {
-      <p class="hint">There are no open books yet. Create one on the Books page, then file questions under its chapters.</p>
+      <p class="hint">{{ 'exams.field.noBooks' | t }}</p>
     } @else {
       @if (cascade.offered()) {
         <div class="field">
-          <label [for]="uid + '-class'">Class</label>
+          <label [for]="uid + '-class'">{{ 'exams.field.class' | t }}</label>
           <select [id]="uid + '-class'" (change)="chooseClass($any($event.target).value)">
-            <option [value]="anyClass" [selected]="cascade.key() === anyClass">Any class</option>
+            <option [value]="anyClass" [selected]="cascade.key() === anyClass">{{ 'exams.field.anyClass' | t }}</option>
             @for (item of cascade.classes(); track item.id) {
               <option [value]="item.id" [selected]="cascade.key() === item.id">{{ item.name }}</option>
             }
             @if (cascade.offersNoClass()) {
-              <option [value]="noClass" [selected]="cascade.key() === noClass">No class</option>
+              <option [value]="noClass" [selected]="cascade.key() === noClass">{{ 'exams.field.noClass' | t }}</option>
             }
           </select>
         </div>
       }
       <div class="field">
-        <label [for]="uid + '-book'">Book</label>
+        <label [for]="uid + '-book'">{{ 'exams.field.book' | t }}</label>
         <select [id]="uid + '-book'" [value]="scope().bookId" (change)="chooseBook($any($event.target).value)">
-          <option value="">Choose a book…</option>
+          <option value="">{{ 'exams.field.chooseBook' | t }}</option>
           @for (book of cascade.books(); track book.id) {
             <option [value]="book.id" [selected]="book.id === scope().bookId">{{ optionLabel(book, cascade.key()) }}</option>
           }
@@ -46,7 +46,7 @@
 
   @if (scope().type === 'Chapters' && scope().bookId) {
     <fieldset class="field scope-fields__chapters">
-      <legend>Chapters</legend>
+      <legend>{{ 'exams.field.chapters' | t }}</legend>
       @for (chapter of openChapters(); track chapter.id) {
         <label class="inline-check">
           <input
@@ -57,7 +57,7 @@
           {{ chapter.order }}. {{ chapter.title }}
         </label>
       } @empty {
-        <span class="hint">This book has no open chapters.</span>
+        <span class="hint">{{ 'exams.field.noChapters' | t }}</span>
       }
     </fieldset>
   }

@@ -1,4 +1,6 @@
 import { Component, input, model } from '@angular/core';
+import { MessageKey } from '../../i18n/messages.en';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { ResultReleaseMode } from '../exam.models';
 import { INSTANT_RELEASE, ReleaseSelection } from './exam-release';
 
@@ -11,6 +13,7 @@ let nextId = 0;
  */
 @Component({
   selector: 'app-exam-release-fields',
+  imports: [TranslatePipe],
   templateUrl: './exam-release-fields.html',
 })
 export class ExamReleaseFields {
@@ -19,10 +22,10 @@ export class ExamReleaseFields {
   readonly selection = model<ReleaseSelection>(INSTANT_RELEASE);
 
   protected readonly uid = `release-${nextId++}`;
-  protected readonly modes: readonly { value: ResultReleaseMode; label: string; hint: string }[] = [
-    { value: 'Instant', label: 'Right after they submit', hint: 'Each candidate sees their result as soon as they finish.' },
-    { value: 'Scheduled', label: 'From a set time', hint: 'For example once the whole exam window has closed.' },
-    { value: 'Manual', label: 'When I release them', hint: 'Held back until you press "Release answers now" on this page.' },
+  protected readonly modes: readonly { value: ResultReleaseMode; label: MessageKey; hint: MessageKey }[] = [
+    { value: 'Instant', label: 'exams.release.instant', hint: 'exams.release.instantHint' },
+    { value: 'Scheduled', label: 'exams.release.scheduled', hint: 'exams.release.scheduledHint' },
+    { value: 'Manual', label: 'exams.release.manual', hint: 'exams.release.manualHint' },
   ];
 
   protected chooseMode(mode: ResultReleaseMode): void {

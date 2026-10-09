@@ -1,5 +1,5 @@
 <fieldset class="field release-fields" [disabled]="disabled()">
-  <legend class="visually-hidden">When candidates may see which answers were right</legend>
+  <legend class="visually-hidden">{{ 'exams.release.legend' | t }}</legend>
 
   @for (mode of modes; track mode.value) {
     <label class="inline-check release-fields__choice">
@@ -11,15 +11,15 @@
         (change)="chooseMode(mode.value)"
       />
       <span>
-        {{ mode.label }}
-        <span class="hint release-fields__hint">{{ mode.hint }}</span>
+        {{ mode.label | t }}
+        <span class="hint release-fields__hint">{{ mode.hint | t }}</span>
       </span>
     </label>
   }
 
   @if (selection().mode === 'Scheduled') {
     <div class="field">
-      <label [for]="uid + '-time'">Show answers from</label>
+      <label [for]="uid + '-time'">{{ 'exams.release.showFrom' | t }}</label>
       <input
         [id]="uid + '-time'"
         type="datetime-local"
@@ -30,9 +30,6 @@
   }
 
   @if (selection().mode === 'Instant') {
-    <p class="hint">
-      Someone who finishes early can pass the correct answers to candidates who are still sitting the exam. Choose a later
-      time if that matters.
-    </p>
+    <p class="hint">{{ 'exams.release.instantNote' | t }}</p>
   }
 </fieldset>
