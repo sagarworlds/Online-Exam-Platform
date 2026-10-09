@@ -2,14 +2,18 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { Observable } from 'rxjs';
 
-/** What the answer queue needs of the API: the three ways an answer is saved. */
+/** What the answer queue needs of the API: the ways an answer is saved. */
 export interface AnswerSyncApi {
   saveAnswer(attemptId: string, questionId: string, optionId: string): Observable<void>;
   saveAnswers(attemptId: string, questionId: string, optionIds: string[]): Observable<void>;
+  saveText(attemptId: string, questionId: string, text: string): Observable<void>;
   clearAnswer(attemptId: string, questionId: string): Observable<void>;
 }
 
-/** What a candidate has chosen for one question and the server has not confirmed yet. */
+/**
+ * What a candidate has answered for one question and the server has not confirmed yet: a set of options, or for a text question the text
+ * typed (`text` is then not null, and `optionIds` is empty).
+ */
 export interface PendingAnswer {
   questionId: string;
   /** The whole set chosen; empty takes the answer back. */
@@ -18,15 +22,31 @@ export interface PendingAnswer {
   multiple: boolean;
   /** What the server last confirmed, so a refusal can put the page back to it. */
   confirmed: string[];
+  /** The text typed for a text question, or null for one answered by choosing options. Blank text takes the answer back. */
+  text: string | null;
+  /** The text the server last confirmed for a text question, so a refusal can put the page back to it. */
+  confirmedText: string | null;
 }
 
-/** How the page tells the queue about a choice. */
+/** How the page tells the queue about a choice: a set of options, or the text typed for a text question. */
 export interface AnswerChange {
   questionId: string;
   optionIds: string[];
   multiple: boolean;
   /** What the question showed just before this choice. */
   previous: string[];
+  /** The text typed for a text question; omitted or null for a choice of options. */
+  text?: string | null;
+  /** The text the question showed just before this typed answer. */
+  previousText?: string | null;
+}
+
+/**
+ * Whether a pending answer takes the answer back rather than saving one: nothing chosen, or for a text question nothing typed. The
+ * queue clears the answer on the server then, and the page says it could not clear it when that is refused.
+ */
+export function isEmptyAnswer(answer: Pick<PendingAnswer, 'optionIds' | 'text'>): boolean {
+  return answer.text === null ? answer.optionIds.length === 0 : answer.text.trim().length === 0;
 }
 
 export interface AnswerSyncOptions {
@@ -91,8 +111,10 @@ export class AnswerSync {
       questionId: change.questionId,
       optionIds: change.optionIds,
       multiple: change.multiple,
-      // The server's last word stays what it was across choices that never reached it.
+      text: change.text ?? null,
+      // The server's last word stays what it was across choices that never reached it, for options and for typed text alike.
       confirmed: waiting?.confirmed ?? change.previous,
+      confirmedText: waiting ? waiting.confirmedText : (change.previousText ?? null),
     });
     this.changed();
     this.flush();
@@ -171,6 +193,7 @@ export class AnswerSync {
       // A newer choice replaced this one while it was on its way. The server has this one now, so that is what a refusal of the
       // newer choice must put the question back to.
       current.confirmed = answer.optionIds;
+      current.confirmedText = answer.text;
       this.changed();
     }
 
@@ -199,8 +222,11 @@ export class AnswerSync {
 
   private send(answer: PendingAnswer): Observable<void> {
     const { api, attemptId } = this.options;
-    if (answer.optionIds.length === 0) {
+    if (isEmptyAnswer(answer)) {
       return api.clearAnswer(attemptId, answer.questionId);
+    }
+    if (answer.text !== null) {
+      return api.saveText(attemptId, answer.questionId, answer.text);
     }
 
     return answer.multiple ? api.saveAnswers(attemptId, answer.questionId, answer.optionIds) : api.saveAnswer(attemptId, answer.questionId, answer.optionIds[0]);
@@ -251,7 +277,8 @@ export class AnswerSync {
       const stored: unknown = JSON.parse(localStorage.getItem(storageKey(this.options.attemptId)) ?? '[]');
       for (const entry of Array.isArray(stored) ? stored : []) {
         if (isPendingAnswer(entry)) {
-          this.pending.set(entry.questionId, entry);
+          // Entries saved before text answers existed have no text, which is the same as none.
+          this.pending.set(entry.questionId, { ...entry, text: entry.text ?? null, confirmedText: entry.confirmedText ?? null });
         }
       }
     } catch {
@@ -274,6 +301,13 @@ function isPendingAnswer(value: unknown): value is PendingAnswer {
     typeof entry.questionId === 'string' &&
     typeof entry.multiple === 'boolean' &&
     isIdList(entry.optionIds) &&
-    isIdList(entry.confirmed)
+    isIdList(entry.confirmed) &&
+    isOptionalText(entry.text) &&
+    isOptionalText(entry.confirmedText)
   );
+}
+
+/** Text as a queue saved before text answers existed may lack; a missing text is no text. */
+function isOptionalText(value: unknown): value is string | null | undefined {
+  return value === undefined || value === null || typeof value === 'string';
 }

@@ -1,5 +1,6 @@
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.QuestionBank.Contracts;
+using ExamPlatform.SharedKernel.Domain;
 
 namespace ExamPlatform.Modules.ExamRuntime.Application;
 
@@ -27,16 +28,32 @@ public sealed class AttemptAnswerStatisticsSource(IAttemptRepository attempts, I
 
         // Two requests can come back as the same version (the current one asked for by number and as "current"), so keep the first.
         var correctByVersion = new Dictionary<int, HashSet<Guid>>();
+        var acceptedByVersion = new Dictionary<int, string[]>();
         foreach (var v in versions)
+        {
             correctByVersion.TryAdd(v.VersionNumber, v.Options.Where(o => o.IsCorrect).Select(o => o.Id).ToHashSet());
+            acceptedByVersion.TryAdd(v.VersionNumber, (v.AcceptedAnswers ?? []).ToArray());
+        }
         var correctNow = current?.Options.Where(o => o.IsCorrect).Select(o => o.Id).ToHashSet();
+        var acceptedNow = (current?.AcceptedAnswers ?? []).ToArray();
 
         var correct = 0;
         var chosen = new Dictionary<Guid, int>();
         foreach (var answer in answers)
         {
             // An attempt made before versions were recorded read the question as it was then; the current key is all that is left of it.
-            var key = answer.VersionNumber is { } number && correctByVersion.TryGetValue(number, out var atVersion) ? atVersion : correctNow;
+            var version = answer.VersionNumber;
+
+            // A typed answer is right when it matches an accepted answer of the version it was given against. It has no option to count.
+            if (answer.AnswerText is { } typed)
+            {
+                var accepted = version is { } acceptedVersion && acceptedByVersion.TryGetValue(acceptedVersion, out var known) ? known : acceptedNow;
+                if (TypedAnswer.Matches(typed, accepted))
+                    correct++;
+                continue;
+            }
+
+            var key = version is { } choiceVersion && correctByVersion.TryGetValue(choiceVersion, out var knownKey) ? knownKey : correctNow;
             if (key is not null && key.SetEquals(answer.SelectedOptionIds))
                 correct++;
 

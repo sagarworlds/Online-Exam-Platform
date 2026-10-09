@@ -67,9 +67,10 @@ export class QuestionApiService {
    * Corrects which options are right in a question candidates may already have answered (FR-31): the one change an answered question
    * allows. Every submitted attempt that held the question is scored again under the corrected key and its candidate is shown the reason,
    * and the open disputes of the question are accepted. Naming the options the key already has changes nothing.
+   * A text question has no options to name: its key is `acceptedAnswers`, which replaces the accepted answers it has.
    */
-  correctAnswerKey(id: string, correctOptionIds: string[], reason: string): Observable<AnswerKeyCorrectionResult> {
-    return this.http.post<AnswerKeyCorrectionResult>(`${this.baseUrl}/${id}/correct-answer-key`, { correctOptionIds, reason });
+  correctAnswerKey(id: string, correctOptionIds: string[], reason: string, acceptedAnswers?: string[]): Observable<AnswerKeyCorrectionResult> {
+    return this.http.post<AnswerKeyCorrectionResult>(`${this.baseUrl}/${id}/correct-answer-key`, { correctOptionIds, reason, acceptedAnswers });
   }
 
   /** Deletes a question that no exam holds; the API refuses one that is in use. */

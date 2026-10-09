@@ -65,7 +65,7 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock, 
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
         // In the language the candidate asked for where there is a translation (FR-51); the words only, never the options or the key.
         var questions = await questionBank.ReadForCandidateAsync(attempt, questionIds, language?.Preferred ?? [], cancellationToken);
-        var chosen = attempt.Answers.ToDictionary(a => a.QuestionId, a => a.SelectedOptionIds);
+        var answers = attempt.Answers.ToDictionary(a => a.QuestionId);
         var marked = attempt.Marks.Select(m => m.QuestionId).ToHashSet();
 
         return exam.Sections
@@ -78,15 +78,20 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock, 
                 AttemptOrdering.Arrange(section.QuestionIds, id => id, attempt.Id, attempt.Number, section.Id, exam.ShuffleQuestions).Select(id =>
                 {
                     var question = questions.GetValueOrDefault(id) ?? throw new ExamContentUnavailableError();
+                    // Only what the candidate may see is copied: a text question's accepted answers and an option's correctness never are.
+                    var answer = answers.GetValueOrDefault(id);
+                    var chosenIds = answer?.SelectedOptionIds ?? [];
                     return new AttemptQuestionDto(
                         question.Id,
                         lowBandwidth ? QuestionMedia.Detach(question.Text) : question.Text,
                         AttemptOrdering.Arrange(question.Options, o => o.Id, attempt.Id, attempt.Number, question.Id, exam.ShuffleOptions, o => o.IsPinned)
                             .Select(o => new AttemptOptionDto(o.Id, o.Text)).ToList(),
-                        chosen.TryGetValue(id, out var optionIds) ? optionIds[0] : null,
+                        chosenIds.Length > 0 ? chosenIds[0] : null,
                         marked.Contains(id),
                         question.AllowsMultiple,
-                        chosen.TryGetValue(id, out var allIds) ? allIds : []);
+                        chosenIds,
+                        question.IsTextAnswer,
+                        answer?.AnswerText);
                 }).ToList()))
             .ToList();
     }

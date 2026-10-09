@@ -10,6 +10,22 @@
       The disputes about this question are accepted.
     </p>
 
+    @if (q.isTextAnswer) {
+      <fieldset class="field">
+        <legend>Accepted answers</legend>
+        <p class="hint">A typed answer is right when it matches one of these, ignoring capital letters and extra spaces.</p>
+        @for (answer of answers(); track $index; let i = $index) {
+          <div class="option-row">
+            <input type="text" [value]="answer" (input)="setAnswer(i, $any($event.target).value)" [attr.aria-label]="'Accepted answer ' + (i + 1)" [disabled]="busy()" />
+            <button type="button" (click)="removeAnswer(i)" [disabled]="busy() || answers().length <= 1">Remove</button>
+          </div>
+        }
+        <button type="button" (click)="addAnswer()" [disabled]="busy() || answers().length >= limits.maxAcceptedAnswers">Add accepted answer</button>
+        @if (answersProblem()) {
+          <p class="field-error">{{ answersProblem() }}</p>
+        }
+      </fieldset>
+    } @else {
     <fieldset class="field">
       <legend>{{ q.allowsMultiple ? 'Correct options (tick every one)' : 'Correct option' }}</legend>
       @for (option of q.options; track option.id; let i = $index) {
@@ -29,6 +45,7 @@
         <p class="field-error">{{ choiceProblem() }}</p>
       }
     </fieldset>
+    }
 
     <div class="field">
       <label [for]="'key-reason-' + q.id">Reason (shown to every candidate whose score changes)</label>

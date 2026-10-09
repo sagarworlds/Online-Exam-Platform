@@ -33,7 +33,7 @@ public sealed class GetAttemptPaperHandler(IExamCatalog catalog, IAttemptReposit
 
         var ids = paper.Sections.SelectMany(s => s.QuestionIds).ToList();
         var questions = await questionBank.ReadAsync(attempt, ids, cancellationToken);
-        var chosen = attempt.Answers.ToDictionary(a => a.QuestionId, a => (IReadOnlyCollection<Guid>)a.SelectedOptionIds);
+        var answers = attempt.Answers.ToDictionary(a => a.QuestionId);
         var submitted = attempt.Status == AttemptStatus.Submitted;
 
         var sections = paper.Sections
@@ -42,7 +42,7 @@ public sealed class GetAttemptPaperHandler(IExamCatalog catalog, IAttemptReposit
                 s.Id,
                 s.Name,
                 AttemptOrdering.Arrange(s.QuestionIds, id => id, attempt.Id, attempt.Number, s.Id, paper.ShuffleQuestions)
-                    .Select(id => Question(attempt, paper, questions.GetValueOrDefault(id), id, !fixedIds.Contains(id), chosen, submitted))
+                    .Select(id => Question(attempt, paper, questions.GetValueOrDefault(id), id, !fixedIds.Contains(id), answers, submitted))
                     .ToList()))
             .ToList();
 
@@ -53,19 +53,26 @@ public sealed class GetAttemptPaperHandler(IExamCatalog catalog, IAttemptReposit
 
     private static AttemptPaperQuestionDto Question(
         Attempt attempt, ExamSnapshot paper, QuestionSnapshot? question, Guid id, bool drawn,
-        IReadOnlyDictionary<Guid, IReadOnlyCollection<Guid>> chosen, bool submitted)
+        IReadOnlyDictionary<Guid, AttemptAnswer> answers, bool submitted)
     {
         // The bank no longer has the question: say so rather than failing the whole paper.
         if (question is null)
             return new AttemptPaperQuestionDto(id, null, drawn);
 
-        var chosenIds = chosen.TryGetValue(id, out var optionIds) ? optionIds : [];
+        var answer = answers.GetValueOrDefault(id);
+        var chosenIds = answer?.SelectedOptionIds ?? [];
         var options = AttemptOrdering.Arrange(question.Options, o => o.Id, attempt.Id, attempt.Number, question.Id, paper.ShuffleOptions, o => o.IsPinned)
             .Select(o => new ReviewOptionDto(o.Id, o.Text, o.IsCorrect, chosenIds.Contains(o.Id))).ToList();
+        // Staff see the accepted answers of a text question, and what the candidate typed, beside the paper.
+        var accepted = question.IsTextAnswer ? question.AcceptedAnswers : null;
         if (!submitted)
-            return new AttemptPaperQuestionDto(id, question.Text, drawn, options, AllowsMultiple: question.AllowsMultiple);
+            return new AttemptPaperQuestionDto(
+                id, question.Text, drawn, options, AllowsMultiple: question.AllowsMultiple,
+                IsTextAnswer: question.IsTextAnswer, AnswerText: answer?.AnswerText, AcceptedAnswers: accepted);
 
-        var mark = AttemptScorer.Mark(paper, question, chosenIds);
-        return new AttemptPaperQuestionDto(id, question.Text, drawn, options, mark.Verdict, mark.Marks, question.AllowsMultiple);
+        var mark = AttemptScorer.Mark(paper, question, chosenIds, answer?.AnswerText);
+        return new AttemptPaperQuestionDto(
+            id, question.Text, drawn, options, mark.Verdict, mark.Marks, question.AllowsMultiple,
+            IsTextAnswer: question.IsTextAnswer, AnswerText: answer?.AnswerText, AcceptedAnswers: accepted);
     }
 }

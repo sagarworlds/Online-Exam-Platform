@@ -12,8 +12,10 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 /// <param name="Reason">Why the key is being corrected; shown to a candidate whose score moves because of it.</param>
 /// <param name="ActorUserId">The staff member making the correction, for the audit trail.</param>
 /// <param name="ActorRole">Their role name, for the audit trail.</param>
+/// <param name="AcceptedAnswers">For a text question, the accepted answers replacing the current list; null for a multiple-choice question, whose key is <paramref name="CorrectOptionIds"/>.</param>
 public sealed record CorrectAnswerKeyCommand(
-    Guid QuestionId, IReadOnlyCollection<Guid> CorrectOptionIds, string Reason, Guid ActorUserId, string ActorRole);
+    Guid QuestionId, IReadOnlyCollection<Guid> CorrectOptionIds, string Reason, Guid ActorUserId, string ActorRole,
+    IReadOnlyList<string?>? AcceptedAnswers = null);
 
 /// <summary>What a correction changed.</summary>
 /// <param name="KeyChanged">Whether the answer key actually differed from what was asked for; false means nothing happened.</param>
@@ -42,7 +44,9 @@ public sealed class CorrectAnswerKeyHandler(
     {
         var question = await repository.GetByIdAsync(command.QuestionId, cancellationToken) ?? throw new QuestionNotFoundError();
 
-        var changed = question.CorrectAnswerKey(command.CorrectOptionIds, clock.UtcNow);
+        var changed = command.AcceptedAnswers is not null
+            ? question.CorrectAcceptedAnswers(command.AcceptedAnswers, clock.UtcNow)
+            : question.CorrectAnswerKey(command.CorrectOptionIds, clock.UtcNow);
         if (!changed)
             return new AnswerKeyCorrectionResult(false, 0);
 

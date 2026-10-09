@@ -50,12 +50,15 @@ public sealed class ImportQuestionsHandler(
                 if (fields is null)
                     throw new InvalidQuestionError(error ?? "The row could not be read.");
 
-                var (text, options, allowsMultiple, difficulty, topics) = QuestionCsvRow.Parse(fields);
+                var (text, options, allowsMultiple, difficulty, topics, isTextAnswer, acceptedAnswers) = QuestionCsvRow.Parse(fields);
                 var cleaned = QuestionText.Clean(sanitizer, text);
+
+                // A text question is a repeat of another when its accepted answers are, so those stand in for its options here.
+                var answersForRepeats = isTextAnswer ? acceptedAnswers.Select(answer => new NewQuestionOption(answer, true)).ToList() : options;
 
                 // A repeat is left out rather than rejected: nothing is wrong with the row, the bank just has it. Rows that repeat an
                 // earlier row of the same file are caught here, since that row is not stored until the end.
-                if (duplicatePolicy.Refuse && !command.AllowDuplicates && (RepeatOfEarlierRow(cleaned.PlainText, options, seenInFile, line) ?? await FindStoredAsync(cleaned.PlainText, options, cancellationToken)) is { } reason)
+                if (duplicatePolicy.Refuse && !command.AllowDuplicates && (RepeatOfEarlierRow(cleaned.PlainText, answersForRepeats, seenInFile, line) ?? await FindStoredAsync(cleaned.PlainText, answersForRepeats, cancellationToken)) is { } reason)
                 {
                     skipped.Add(new DuplicateRowDto(line, reason));
                     continue;
@@ -63,7 +66,8 @@ public sealed class ImportQuestionsHandler(
 
                 var question = Question.Create(
                     cleaned.Html, options, command.CreatedBy, clock.UtcNow,
-                    chapterId: null, QuestionDifficultyText.Parse(difficulty), topics, allowsMultiple);
+                    chapterId: null, QuestionDifficultyText.Parse(difficulty), topics, allowsMultiple,
+                    isTextAnswer: isTextAnswer, acceptedAnswers: acceptedAnswers);
                 question.IndexText(cleaned.PlainText);
 
                 repository.Add(question);

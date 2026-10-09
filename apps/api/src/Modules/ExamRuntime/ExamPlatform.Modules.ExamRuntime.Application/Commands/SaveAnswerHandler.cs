@@ -1,3 +1,5 @@
+using ExamPlatform.Modules.ExamAuthoring.Contracts;
+using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
@@ -5,7 +7,11 @@ using ExamPlatform.SharedKernel.Domain.Exceptions;
 
 namespace ExamPlatform.Modules.ExamRuntime.Application.Commands;
 
-/// <summary>Saves the option, or the set of options, a candidate chose for one question, replacing an earlier choice (FR-18).</summary>
+/// <summary>
+/// Saves what a candidate answered for one question (FR-18): the option, or the set of options, they chose, or, for a text question, the
+/// answer they typed. The two kinds of question are checked differently, but both go through the same steps, so a save is refused or
+/// stored the same way whatever the question is.
+/// </summary>
 public sealed class SaveAnswerHandler(
     AttemptAccess access,
     IQuestionBank questionBank,
@@ -31,31 +37,21 @@ public sealed class SaveAnswerHandler(
     /// <exception cref="AttemptNotFoundError">No such attempt, or it is someone else's.</exception>
     /// <exception cref="AttemptNotInProgressError">The attempt is already submitted, or its time has just run out and it was closed.</exception>
     /// <exception cref="InvalidAnswerError">
-    /// The question is not in the exam, no option was chosen, an option is not one of the question's options, or several were chosen
-    /// for a question that takes one answer.
+    /// The question is not in the exam, is a text question (which takes a typed answer), no option was chosen, an option is not one of the
+    /// question's options, or several were chosen for a question that takes one answer.
     /// </exception>
     /// <exception cref="SectionLockedError">The exam locks sections and the question is in a section the candidate is not in.</exception>
     /// <exception cref="ConcurrencyConflictError">The same answer was saved twice at the same moment.</exception>
-    public async Task HandleAsync(
-        Guid attemptId, Guid candidateId, Guid questionId, IReadOnlyCollection<Guid> optionIds, CancellationToken cancellationToken)
-    {
-        // Shared with other answers being saved, but not with a submit: see IExamRuntimeUnitOfWork.LockAttemptAsync.
-        await using var hold = await unitOfWork.LockAttemptAsync(attemptId, exclusive: false, cancellationToken);
-        try
+    public Task HandleAsync(
+        Guid attemptId, Guid candidateId, Guid questionId, IReadOnlyCollection<Guid> optionIds, CancellationToken cancellationToken) =>
+        RecordAsync(attemptId, candidateId, questionId, (attempt, exam, question) =>
         {
-            var (attempt, exam) = await access.LoadOwnedAsync(attemptId, candidateId, cancellationToken);
-
-            // Every id comes from the client, so none is trusted: the question must be in this exam and each option on that question,
-            // or an answer could be filed against anything.
-            if (!exam.Includes(questionId))
-                throw new InvalidAnswerError();
-
             var chosen = optionIds.Distinct().ToList();
-            if (chosen.Count == 0)
+
+            // Every id comes from the client, so none is trusted: each option must be one of this question's.
+            if (chosen.Count == 0 || question.IsTextAnswer)
                 throw new InvalidAnswerError();
 
-            var question = (await questionBank.ReadAsync(attempt, [questionId], cancellationToken)).GetValueOrDefault(questionId)
-                ?? throw new ExamContentUnavailableError();
             var known = question.Options.Select(o => o.Id).ToHashSet();
             if (!chosen.All(known.Contains))
                 throw new InvalidAnswerError();
@@ -66,6 +62,49 @@ public sealed class SaveAnswerHandler(
 
             SectionLock.EnsureQuestionReachable(exam, attempt, questionId);
             attempt.RecordAnswer(questionId, chosen, clock.UtcNow);
+        }, cancellationToken);
+
+    /// <summary>
+    /// Checks the question is in the exam and is a text question, then records what the candidate typed for it, replacing any earlier answer.
+    /// A blank answer is refused: to take an answer back, the candidate clears it.
+    /// </summary>
+    /// <param name="attemptId">The attempt.</param>
+    /// <param name="candidateId">The signed-in candidate.</param>
+    /// <param name="questionId">The question answered.</param>
+    /// <param name="text">What the candidate typed.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="AttemptNotFoundError">No such attempt, or it is someone else's.</exception>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already submitted, or its time has just run out and it was closed.</exception>
+    /// <exception cref="InvalidAnswerError">The question is not in the exam, is not a text question, or the text is blank or too long.</exception>
+    /// <exception cref="SectionLockedError">The exam locks sections and the question is in a section the candidate is not in.</exception>
+    public Task HandleTextAsync(Guid attemptId, Guid candidateId, Guid questionId, string? text, CancellationToken cancellationToken) =>
+        RecordAsync(attemptId, candidateId, questionId, (attempt, exam, question) =>
+        {
+            if (!question.IsTextAnswer)
+                throw new InvalidAnswerError();
+
+            SectionLock.EnsureQuestionReachable(exam, attempt, questionId);
+            attempt.RecordTextAnswer(questionId, text, clock.UtcNow);
+        }, cancellationToken);
+
+    // The steps both kinds of answer share: lock the attempt, load it, check the question is in its exam, let the caller check and record
+    // the answer, then save. The lock is shared with other answers but not with a submit: see IExamRuntimeUnitOfWork.LockAttemptAsync.
+    private async Task RecordAsync(
+        Guid attemptId, Guid candidateId, Guid questionId, Action<Attempt, ExamSnapshot, QuestionSnapshot> record, CancellationToken cancellationToken)
+    {
+        await using var hold = await unitOfWork.LockAttemptAsync(attemptId, exclusive: false, cancellationToken);
+        try
+        {
+            var (attempt, exam) = await access.LoadOwnedAsync(attemptId, candidateId, cancellationToken);
+
+            // The question must be in this exam, or an answer could be filed against anything.
+            if (!exam.Includes(questionId))
+                throw new InvalidAnswerError();
+
+            var question = (await questionBank.ReadAsync(attempt, [questionId], cancellationToken)).GetValueOrDefault(questionId)
+                ?? throw new ExamContentUnavailableError();
+
+            record(attempt, exam, question);
             await unitOfWork.SaveChangesAsync(cancellationToken);
             await hold.CompleteAsync(cancellationToken);
         }

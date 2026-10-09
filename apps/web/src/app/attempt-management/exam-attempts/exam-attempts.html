@@ -201,7 +201,20 @@
                                 <span class="review-question__marks" aria-label="Marks">{{ formatMarks(question.marks) }}</span>
                               }
                             }
-                            @if (question.options) {
+                            @if (question.isTextAnswer) {
+                              <div class="review-typed">
+                                <p>
+                                  <span class="hint">Typed answer:</span>
+                                  @if (question.answerText) {
+                                    <strong>{{ question.answerText }}</strong>
+                                  } @else {
+                                    <span class="hint">Nothing typed</span>
+                                  }
+                                </p>
+                                <p><span class="hint">Accepted answers:</span> {{ (question.acceptedAnswers ?? []).join(', ') }}</p>
+                              </div>
+                            }
+                            @if (question.options && !question.isTextAnswer) {
                               <ul class="review-options">
                                 @for (option of question.options; track option.id; let i = $index) {
                                   <li

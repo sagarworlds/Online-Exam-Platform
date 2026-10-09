@@ -23,8 +23,12 @@ public sealed record ReviewOptionDto(Guid Id, string Text, bool IsCorrect, bool 
 /// <param name="Verdict">Whether the answer was correct, partly correct, wrong, or missing.</param>
 /// <param name="Marks">The marks this question earned, which may be negative.</param>
 /// <param name="AllowsMultiple">Whether more than one option may be correct, so the candidate had to choose exactly the correct ones.</param>
+/// <param name="IsTextAnswer">Whether the candidate typed the answer. Such a question has no options.</param>
+/// <param name="AnswerText">What the candidate typed, for a text question; null when they chose options or answered nothing.</param>
+/// <param name="AcceptedAnswers">The answers that were accepted, for a text question, so the candidate can see what counted as right.</param>
 public sealed record ReviewQuestionDto(
-    Guid Id, string Text, IReadOnlyList<ReviewOptionDto> Options, AnswerVerdict Verdict, decimal Marks, bool AllowsMultiple = false);
+    Guid Id, string Text, IReadOnlyList<ReviewOptionDto> Options, AnswerVerdict Verdict, decimal Marks, bool AllowsMultiple = false,
+    bool IsTextAnswer = false, string? AnswerText = null, IReadOnlyList<string>? AcceptedAnswers = null);
 
 /// <summary>One change to an attempt's score after it was first submitted (FR-31), most often an answer-key correction.</summary>
 /// <param name="PreviousScore">The score before this revision.</param>

@@ -33,7 +33,7 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
         // The same language the candidate sat the exam in (FR-51); marking below uses the ids and key, which a translation never changes.
         var questions = await questionBank.ReadForCandidateAsync(attempt, questionIds, language?.Preferred ?? [], cancellationToken);
-        var chosen = attempt.Answers.ToDictionary(a => a.QuestionId, a => (IReadOnlyCollection<Guid>)a.SelectedOptionIds);
+        var answers = attempt.Answers.ToDictionary(a => a.QuestionId);
 
         var sections = exam.Sections
             .OrderBy(s => s.Order)
@@ -42,7 +42,7 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
                 section.Name,
                 // In the order the candidate saw them, so "question 3" in the review is question 3 on the screen they sat.
                 AttemptOrdering.Arrange(section.QuestionIds, id => id, attempt.Id, attempt.Number, section.Id, exam.ShuffleQuestions)
-                    .Select(id => ReviewQuestion(attempt, exam, questions, id, chosen)).ToList()))
+                    .Select(id => ReviewQuestion(attempt, exam, questions, id, answers)).ToList()))
             .ToList();
 
         var marked = sections.SelectMany(s => s.Questions).ToList();
@@ -72,11 +72,12 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
         ExamSnapshot exam,
         IReadOnlyDictionary<Guid, QuestionSnapshot> questions,
         Guid questionId,
-        IReadOnlyDictionary<Guid, IReadOnlyCollection<Guid>> chosen)
+        IReadOnlyDictionary<Guid, AttemptAnswer> answers)
     {
         var question = questions.GetValueOrDefault(questionId) ?? throw new ExamContentUnavailableError();
-        var chosenIds = chosen.TryGetValue(questionId, out var optionIds) ? optionIds : [];
-        var mark = AttemptScorer.Mark(exam, question, chosenIds);
+        var answer = answers.GetValueOrDefault(questionId);
+        var chosenIds = answer?.SelectedOptionIds ?? [];
+        var mark = AttemptScorer.Mark(exam, question, chosenIds, answer?.AnswerText);
 
         return new ReviewQuestionDto(
             question.Id,
@@ -85,6 +86,9 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
                 .Select(o => new ReviewOptionDto(o.Id, o.Text, o.IsCorrect, chosenIds.Contains(o.Id))).ToList(),
             mark.Verdict,
             mark.Marks,
-            question.AllowsMultiple);
+            question.AllowsMultiple,
+            question.IsTextAnswer,
+            answer?.AnswerText,
+            question.IsTextAnswer ? question.AcceptedAnswers : null);
     }
 }

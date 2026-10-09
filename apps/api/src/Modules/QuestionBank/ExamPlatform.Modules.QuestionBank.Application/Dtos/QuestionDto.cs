@@ -19,6 +19,8 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Dtos;
 /// <param name="TranslationGroupId">Shared by this question and its translations, which are found by it (FR-10); a question with none is alone in its own group.</param>
 /// <param name="ClassId">The class the book belongs to, or null when the book has none or the question is not filed.</param>
 /// <param name="ClassName">That class's name, or null.</param>
+/// <param name="IsTextAnswer">Whether the candidate types the answer instead of choosing an option (a text question).</param>
+/// <param name="AcceptedAnswers">The answers a typed answer may be, for a text question; empty for a multiple-choice one.</param>
 public sealed record QuestionDto(
     Guid Id,
     string Text,
@@ -37,7 +39,9 @@ public sealed record QuestionDto(
     string Language = "en",
     Guid? TranslationGroupId = null,
     Guid? ClassId = null,
-    string? ClassName = null);
+    string? ClassName = null,
+    bool IsTextAnswer = false,
+    IReadOnlyList<string>? AcceptedAnswers = null);
 
 /// <summary>One option of a <see cref="QuestionDto"/>.</summary>
 /// <param name="Id">The option's id.</param>

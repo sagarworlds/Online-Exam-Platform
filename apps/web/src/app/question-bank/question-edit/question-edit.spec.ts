@@ -95,6 +95,8 @@ describe('QuestionEdit', () => {
       difficulty: null,
       topics: [],
       allowsMultiple: false,
+      isTextAnswer: false,
+      acceptedAnswers: [],
       options: [
         { id: 'o1', text: 'Paris, France', isCorrect: true, isPinned: false },
         { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false },

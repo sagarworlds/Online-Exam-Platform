@@ -81,12 +81,17 @@ export interface QuestionDto {
   allowsMultiple: boolean;
   /** The language it is written in; absent from an API that predates languages (FR-10). */
   language?: QuestionLanguage;
+  /** Whether the candidate types the answer instead of choosing options (a text question); absent from an API that predates it. */
+  isTextAnswer?: boolean;
+  /** The answers a typed answer may be, as the author wrote them; empty for a multiple-choice question. Absent from an API that predates it. */
+  acceptedAnswers?: string[];
 }
 
 /** The body of POST /v1/questions. The author is the caller, so it carries no user id. */
 export interface CreateQuestionRequest {
   /** The question as HTML from the editor; the API sanitizes it before storing. */
   text: string;
+  /** Empty for a text question, which has no options. */
   options: { text: string; isCorrect: boolean; isPinned: boolean }[];
   /** The chapter to file the question under; null leaves it unfiled. */
   chapterId: string | null;
@@ -98,6 +103,10 @@ export interface CreateQuestionRequest {
   allowDuplicate?: boolean;
   /** The language the question is written in; the same question in another language is added as a translation (FR-10). */
   language?: QuestionLanguage;
+  /** True for a text question, which the candidate answers by typing; its answer key is `acceptedAnswers`. */
+  isTextAnswer?: boolean;
+  /** The answers a typed answer may be, for a text question; empty for a multiple-choice one. */
+  acceptedAnswers?: string[];
 }
 
 /** A question already in the bank that repeats one being added (FR-9). */
@@ -142,6 +151,10 @@ export interface UpdateQuestionRequest {
   topics: string[];
   /** Like the options, this is part of the answer key: it cannot change once candidates have answered. */
   allowsMultiple: boolean;
+  /** Like the options, whether the candidate types the answer is part of the answer key, so it cannot change once they have answered. */
+  isTextAnswer?: boolean;
+  /** The accepted answers of a text question, which are part of its answer key like the options of another. */
+  acceptedAnswers?: string[];
 }
 
 /** The longest reason the API accepts for correcting an answer key; every candidate whose score moves is shown it. */
@@ -232,7 +245,23 @@ export interface ExportedFile {
 }
 
 /** The API's limits on one question, mirrored here so the form can refuse early. */
-export const QUESTION_LIMITS = { minOptions: 2, maxOptions: 6, maxTopics: 5, maxTopicLength: 40 } as const;
+export const QUESTION_LIMITS = {
+  minOptions: 2,
+  maxOptions: 6,
+  maxTopics: 5,
+  maxTopicLength: 40,
+  maxAcceptedAnswers: 10,
+  maxAcceptedAnswerLength: 200,
+} as const;
+
+/** The kinds of question an author writes: the candidate chooses options, or types the answer (a text question). */
+export type QuestionType = 'choice' | 'text';
+
+/** The question types in the order the type picker lists them, with the words an author reads. Multiple choice is the default. */
+export const QUESTION_TYPES: readonly { value: QuestionType; label: string }[] = [
+  { value: 'choice', label: 'Multiple choice' },
+  { value: 'text', label: 'Text answer' },
+];
 
 /** How many questions one listing returns at most, as the API sets it. A full page means there may be more to load. */
 export const QUESTION_LIST_PAGE_SIZE = 200;

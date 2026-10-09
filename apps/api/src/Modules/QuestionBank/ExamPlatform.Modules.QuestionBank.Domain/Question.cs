@@ -54,6 +54,12 @@ public sealed class Question : AggregateRoot
     /// <summary>The most options a question may have.</summary>
     public const int MaxOptions = 6;
 
+    /// <summary>The most accepted answers a text question may list.</summary>
+    public const int MaxAcceptedAnswers = 10;
+
+    /// <summary>The longest accepted answer, after trimming.</summary>
+    public const int MaxAcceptedAnswerLength = 200;
+
     private readonly List<QuestionOption> _options = [];
     private readonly List<QuestionVersion> _versions = [];
 
@@ -120,6 +126,19 @@ public sealed class Question : AggregateRoot
     /// </summary>
     public bool AllowsMultiple { get; private set; }
 
+    /// <summary>
+    /// Whether the candidate types the answer instead of choosing an option (a text question). Such a question has no options: a
+    /// typed answer is right when it matches one of <see cref="AcceptedAnswers"/>, compared as <see cref="TypedAnswer.Normalize"/> gives.
+    /// False for every multiple-choice question, which is every question written before text questions existed.
+    /// </summary>
+    public bool IsTextAnswer { get; private set; }
+
+    /// <summary>
+    /// The answers a typed answer may be, as the author wrote them, for a text question; empty for a multiple-choice one. They are the
+    /// answer key of a text question, so they are part of its versions and cannot change once candidates have answered.
+    /// </summary>
+    public string[] AcceptedAnswers { get; private set; } = [];
+
     /// <summary>How hard the author judges the question to be, or null when they have not said.</summary>
     public QuestionDifficulty? Difficulty { get; private set; }
 
@@ -177,6 +196,8 @@ public sealed class Question : AggregateRoot
     /// The group of the question this one translates (FR-10), or null to start a group of its own. The caller has already checked that
     /// the group exists and has no question in this language yet; this aggregate cannot, because it knows only itself.
     /// </param>
+    /// <param name="isTextAnswer">Whether the candidate types the answer instead of choosing options; such a question has no options.</param>
+    /// <param name="acceptedAnswers">For a text question, the answers a typed answer may be; must be empty for a multiple-choice one.</param>
     /// <exception cref="InvalidQuestionError">
     /// The text is blank or larger than <see cref="MaxHtmlLength"/>, the language is not supported, the number of options is outside <see cref="MinOptions"/> to
     /// <see cref="MaxOptions"/>, an option is blank or too long, the options do not have exactly one correct answer, or the topics
@@ -185,16 +206,19 @@ public sealed class Question : AggregateRoot
     public static Question Create(
         string? text, IReadOnlyList<NewQuestionOption>? options, Guid createdBy, DateTime nowUtc, Guid? chapterId = null,
         QuestionDifficulty? difficulty = null, IReadOnlyList<string?>? topics = null, bool allowsMultiple = false,
-        string? language = null, Guid? translationGroupId = null)
+        string? language = null, Guid? translationGroupId = null, bool isTextAnswer = false, IReadOnlyList<string?>? acceptedAnswers = null)
     {
         var trimmedText = RequireText(text);
         var code = QuestionLanguage.Parse(language);
-        RequireOptionShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0, allowsMultiple);
+        var answers = RequireAnswerShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0, allowsMultiple, isTextAnswer, acceptedAnswers);
 
-        var question = new Question(Guid.NewGuid(), trimmedText, chapterId, createdBy, nowUtc) { AllowsMultiple = allowsMultiple, Language = code };
+        var question = new Question(Guid.NewGuid(), trimmedText, chapterId, createdBy, nowUtc)
+        {
+            AllowsMultiple = allowsMultiple, Language = code, IsTextAnswer = isTextAnswer, AcceptedAnswers = answers,
+        };
         question.TranslationGroupId = translationGroupId ?? question.Id;
         question.Classify(difficulty, topics);
-        foreach (var option in options!)
+        foreach (var option in options ?? [])
         {
             var optionText = RequireOptionText(option?.Text);
             question._options.Add(new QuestionOption(question.Id, optionText, option!.IsCorrect, question._options.Count + 1, option.IsPinned));
@@ -223,16 +247,20 @@ public sealed class Question : AggregateRoot
     /// The current instant, recorded on the version this edit takes (FR-7). Defaults to <see cref="DateTime.UtcNow"/> so
     /// a caller that does not care about versioning's timestamp need not supply one.
     /// </param>
+    /// <param name="isTextAnswer">Whether the candidate types the answer after the edit. Once answered, it may not change.</param>
+    /// <param name="acceptedAnswers">The accepted answers after the edit, for a text question. Once answered, they may not change.</param>
     /// <exception cref="InvalidQuestionError">The edit breaks a rule of <see cref="Create"/>, or names an option this question does not have.</exception>
     /// <exception cref="QuestionLockedError">
     /// The question has been answered and the edit changes which option is correct, or adds, removes or reorders options.
     /// </exception>
-    public void Revise(string? text, IReadOnlyList<QuestionOptionEdit>? options, bool answered, bool allowsMultiple = false, DateTime? nowUtc = null)
+    public void Revise(
+        string? text, IReadOnlyList<QuestionOptionEdit>? options, bool answered, bool allowsMultiple = false, DateTime? nowUtc = null,
+        bool isTextAnswer = false, IReadOnlyList<string?>? acceptedAnswers = null)
     {
         var trimmedText = RequireText(text);
-        RequireOptionShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0, allowsMultiple);
+        var answers = RequireAnswerShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0, allowsMultiple, isTextAnswer, acceptedAnswers);
 
-        var edits = options!;
+        IReadOnlyList<QuestionOptionEdit> edits = options ?? [];
         var optionTexts = edits.Select(o => RequireOptionText(o?.Text)).ToList();
 
         var existing = _options.ToDictionary(o => o.Id);
@@ -243,11 +271,13 @@ public sealed class Question : AggregateRoot
             throw new InvalidQuestionError("An option appears more than once.");
 
         if (answered)
-            EnsureOnlyWordingChanges(edits, allowsMultiple);
+            EnsureOnlyWordingChanges(edits, allowsMultiple, isTextAnswer, answers);
 
         var before = ContentFingerprint();
         Text = trimmedText;
         AllowsMultiple = allowsMultiple;
+        IsTextAnswer = isTextAnswer;
+        AcceptedAnswers = answers;
 
         var revised = new List<QuestionOption>(edits.Count);
         for (var i = 0; i < edits.Count; i++)
@@ -275,7 +305,8 @@ public sealed class Question : AggregateRoot
     }
 
     private string ContentFingerprint() =>
-        Text + "|" + AllowsMultiple + "|" + string.Join(";", _options.OrderBy(o => o.Order).Select(o => $"{o.Id}:{o.Text}:{o.IsCorrect}:{o.IsPinned}:{o.Order}"));
+        Text + "|" + AllowsMultiple + "|" + IsTextAnswer + "|" + string.Join("\u001f", AcceptedAnswers) + "|"
+        + string.Join(";", _options.OrderBy(o => o.Order).Select(o => $"{o.Id}:{o.Text}:{o.IsCorrect}:{o.IsPinned}:{o.Order}"));
 
     /// <summary>Puts a draft forward for review (FR-8).</summary>
     /// <param name="byUserId">The author or other staff member putting it forward.</param>
@@ -400,6 +431,9 @@ public sealed class Question : AggregateRoot
     /// </exception>
     public bool CorrectAnswerKey(IReadOnlyCollection<Guid> correctOptionIds, DateTime nowUtc)
     {
+        if (IsTextAnswer)
+            throw new InvalidQuestionError("A text-answer question's key is its accepted answers, not its options.");
+
         var distinct = (correctOptionIds ?? []).Distinct().ToHashSet();
         var known = _options.Select(o => o.Id).ToHashSet();
         if (!distinct.IsSubsetOf(known))
@@ -414,6 +448,30 @@ public sealed class Question : AggregateRoot
         foreach (var option in _options)
             option.SetCorrect(distinct.Contains(option.Id));
 
+        AnswerKeyCorrectedAtUtc = nowUtc;
+        Snapshot(nowUtc);
+        return true;
+    }
+
+    /// <summary>
+    /// Corrects the accepted answers of a text question once candidates have answered it (FR-31): the text-question counterpart of
+    /// <see cref="CorrectAnswerKey"/>. An answer-key dispute can mean the list of accepted answers was wrong, which only a correction
+    /// can fix. Only the accepted answers change; the text, and whether it is a text question at all, stay as they are.
+    /// </summary>
+    /// <param name="answers">The answers that should be accepted, as the author wrote them; they replace the current list.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns><see langword="true"/> when the accepted answers changed; <see langword="false"/> when they already matched.</returns>
+    /// <exception cref="InvalidQuestionError">The question is not a text question, or the answers break the rules of <see cref="Create"/>.</exception>
+    public bool CorrectAcceptedAnswers(IReadOnlyList<string?> answers, DateTime nowUtc)
+    {
+        if (!IsTextAnswer)
+            throw new InvalidQuestionError("Only a text-answer question has accepted answers to correct.");
+
+        var corrected = RequireAcceptedAnswers(answers);
+        if (SameAnswers(corrected, AcceptedAnswers))
+            return false;
+
+        AcceptedAnswers = corrected;
         AnswerKeyCorrectedAtUtc = nowUtc;
         Snapshot(nowUtc);
         return true;
@@ -478,13 +536,13 @@ public sealed class Question : AggregateRoot
         var options = _options.OrderBy(o => o.Order)
             .Select(o => new QuestionVersionOption(o.Id, o.Text, o.IsCorrect, o.Order, o.IsPinned))
             .ToList();
-        _versions.Add(new QuestionVersion(Id, _versions.Count + 1, Text, AllowsMultiple, options, nowUtc));
+        _versions.Add(new QuestionVersion(Id, _versions.Count + 1, Text, AllowsMultiple, options, nowUtc, IsTextAnswer, AcceptedAnswers));
     }
 
     // Once candidates have answered, the key and the list of options are part of their results. Wording is the one thing
     // that can still be corrected without touching any of that: the same options, in the same order, with the same one correct and
     // the same ones pinned (a pin decides where an option lands in each candidate's shuffled order, which a review must reproduce).
-    private void EnsureOnlyWordingChanges(IReadOnlyList<QuestionOptionEdit> edits, bool allowsMultiple)
+    private void EnsureOnlyWordingChanges(IReadOnlyList<QuestionOptionEdit> edits, bool allowsMultiple, bool isTextAnswer, string[] answers)
     {
         var current = _options.OrderBy(o => o.Order).ToList();
 
@@ -492,9 +550,16 @@ public sealed class Question : AggregateRoot
         var unchanged = allowsMultiple == AllowsMultiple && edits.Count == current.Count
             && current.Select((option, i) => edits[i].Id == option.Id && edits[i].IsCorrect == option.IsCorrect && edits[i].IsPinned == option.IsPinned).All(same => same);
 
-        if (!unchanged)
+        // So is whether the candidate types the answer, and which answers are accepted: those decide what counts as right.
+        var sameKind = isTextAnswer == IsTextAnswer && SameAnswers(answers, AcceptedAnswers);
+
+        if (!unchanged || !sameKind)
             throw new QuestionLockedError();
     }
+
+    /// <summary>Whether two lists of accepted answers accept the same answers, comparing each in the form a typed answer is matched in.</summary>
+    private static bool SameAnswers(IEnumerable<string> first, IEnumerable<string> second) =>
+        first.Select(TypedAnswer.Normalize).ToHashSet().SetEquals(second.Select(TypedAnswer.Normalize));
 
     private static string RequireText(string? text)
     {
@@ -522,6 +587,51 @@ public sealed class Question : AggregateRoot
         {
             throw new InvalidQuestionError("Exactly one option must be marked correct.");
         }
+    }
+
+    /// <summary>
+    /// The rule for what a question's answers are, by its type. A text question has no options and takes one typed answer, so it
+    /// needs accepted answers; a multiple-choice question has options and no accepted answers, and keeps the option rule. Returns the
+    /// accepted answers to store, which is empty for a multiple-choice question.
+    /// </summary>
+    private static string[] RequireAnswerShape(
+        int? optionCount, int correctCount, bool allowsMultiple, bool isTextAnswer, IReadOnlyList<string?>? acceptedAnswers)
+    {
+        if (isTextAnswer)
+        {
+            if (optionCount is > 0)
+                throw new InvalidQuestionError("A text-answer question has no options; remove them, or make it a multiple-choice question.");
+            if (allowsMultiple)
+                throw new InvalidQuestionError("A text-answer question takes one typed answer, so it cannot allow several correct answers.");
+
+            return RequireAcceptedAnswers(acceptedAnswers);
+        }
+
+        if (acceptedAnswers is { Count: > 0 })
+            throw new InvalidQuestionError("Accepted answers belong to a text-answer question only.");
+
+        RequireOptionShape(optionCount, correctCount, allowsMultiple);
+        return [];
+    }
+
+    /// <summary>
+    /// The accepted answers of a text question, trimmed, with blank ones ignored. There must be at least one, no more than
+    /// <see cref="MaxAcceptedAnswers"/>, none longer than <see cref="MaxAcceptedAnswerLength"/>, and no two that mean the same
+    /// (see <see cref="TypedAnswer.Normalize"/>).
+    /// </summary>
+    private static string[] RequireAcceptedAnswers(IReadOnlyList<string?>? answers)
+    {
+        var trimmed = (answers ?? []).Select(answer => answer?.Trim() ?? string.Empty).Where(answer => answer.Length > 0).ToArray();
+        if (trimmed.Length == 0)
+            throw new InvalidQuestionError("A text-answer question needs at least one accepted answer.");
+        if (trimmed.Length > MaxAcceptedAnswers)
+            throw new InvalidQuestionError($"A text-answer question can have at most {MaxAcceptedAnswers} accepted answers.");
+        if (trimmed.Any(answer => answer.Length > MaxAcceptedAnswerLength))
+            throw new InvalidQuestionError($"An accepted answer must be at most {MaxAcceptedAnswerLength} characters.");
+        if (trimmed.Select(TypedAnswer.Normalize).Distinct().Count() != trimmed.Length)
+            throw new InvalidQuestionError("The same answer is listed more than once.");
+
+        return trimmed;
     }
 
     private static string RequireOptionText(string? text)

@@ -30,7 +30,9 @@ internal static class QuestionMapping
             question.Language,
             question.TranslationGroupId,
             filedUnder?.ClassId,
-            filedUnder?.ClassName);
+            filedUnder?.ClassName,
+            question.IsTextAnswer,
+            question.AcceptedAnswers);
 
     /// <summary>Maps a line of a question's review thread.</summary>
     public static QuestionReviewEntryDto ToDto(this QuestionReviewEntry entry) =>
@@ -50,5 +52,7 @@ internal static class QuestionMapping
             version.Text,
             version.Options.OrderBy(o => o.Order).Select(o => new QuestionOptionDto(o.OptionId, o.Text, o.IsCorrect, o.IsPinned)).ToList(),
             version.AllowsMultiple,
-            version.CreatedAtUtc);
+            version.CreatedAtUtc,
+            version.IsTextAnswer,
+            version.AcceptedAnswers);
 }

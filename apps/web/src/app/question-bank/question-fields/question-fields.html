@@ -3,6 +3,18 @@
   <app-rich-text-editor formControlName="text" inputId="question-text" labelledBy="question-text-label" />
 </div>
 
+<div class="field">
+  <label for="question-type">Question type</label>
+  <select id="question-type" formControlName="questionType" [attr.disabled]="wordingOnly() ? '' : null" aria-describedby="question-type-hint">
+    @for (type of questionTypes; track type.value) {
+      <option [value]="type.value">{{ type.label }}</option>
+    }
+  </select>
+  <p class="hint" id="question-type-hint">
+    Multiple choice: the candidate chooses from the options. Text answer: the candidate types the answer, and it is marked right when it matches one of the accepted answers.
+  </p>
+</div>
+
 <div class="field-row">
   <div class="field">
     <label for="question-difficulty">Difficulty</label>
@@ -31,6 +43,7 @@
   </div>
 </div>
 
+@if (!isText) {
 <fieldset class="field" formArrayName="options">
   <legend>Options ({{ form.controls.allowsMultiple.value ? 'tick every correct one' : 'pick the correct one' }})</legend>
   <label class="inline-check">
@@ -79,3 +92,35 @@
   }
   <button type="button" (click)="addOption()" [disabled]="wordingOnly() || options.length >= limits.maxOptions">Add option</button>
 </fieldset>
+}
+
+@if (isText) {
+  <fieldset class="field" formArrayName="acceptedAnswers">
+    <legend>Accepted answers</legend>
+    <p class="hint">
+      A typed answer is right when it matches one of these. Capital letters and extra spaces do not matter, so "Paris" also accepts "paris" and "  PARIS ".
+      List each spelling the candidate may type as its own row.
+    </p>
+    @if (wordingOnly()) {
+      <p class="hint question-lock-note" role="note">
+        Candidates have answered this question, so its accepted answers are locked, because their results were worked out against them. To change them, create a new question instead.
+      </p>
+    }
+    @for (answer of acceptedAnswers.controls; track $index; let i = $index) {
+      <div class="option-row">
+        <input type="text" [formControlName]="i" [attr.disabled]="wordingOnly() ? '' : null" [attr.aria-label]="'Accepted answer ' + (i + 1)" />
+        <button type="button" (click)="removeAcceptedAnswer(i)" [disabled]="wordingOnly() || acceptedAnswers.length <= 1">Remove</button>
+      </div>
+    }
+    <button type="button" (click)="addAcceptedAnswer()" [disabled]="wordingOnly() || acceptedAnswers.length >= limits.maxAcceptedAnswers">Add accepted answer</button>
+    @if (form.errors?.['noAcceptedAnswer']) {
+      <p class="error-message" role="alert">Add at least one accepted answer.</p>
+    }
+    @if (form.errors?.['tooManyAcceptedAnswers']) {
+      <p class="error-message" role="alert">Use at most {{ limits.maxAcceptedAnswers }} accepted answers.</p>
+    }
+    @if (form.errors?.['duplicateAcceptedAnswer']) {
+      <p class="error-message" role="alert">Two accepted answers match the same typed answer. Keep only one of them.</p>
+    }
+  </fieldset>
+}

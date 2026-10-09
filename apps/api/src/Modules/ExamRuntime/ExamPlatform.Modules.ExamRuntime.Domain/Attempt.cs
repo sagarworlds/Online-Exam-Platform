@@ -338,6 +338,33 @@ public sealed class Attempt : AggregateRoot
     }
 
     /// <summary>
+    /// Saves the answer a candidate typed to a text question, replacing any earlier answer to the question, typed or chosen. The caller has
+    /// already checked that the question belongs to the exam and that it is a text question.
+    /// </summary>
+    /// <param name="questionId">The question answered.</param>
+    /// <param name="text">What the candidate typed; surrounding spaces are removed. It must not be blank and must fit <see cref="TypedAnswer.MaxLength"/>.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="InvalidAttemptError">The answer is blank or longer than <see cref="TypedAnswer.MaxLength"/>.</exception>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
+    /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
+    public void RecordTextAnswer(Guid questionId, string? text, DateTime nowUtc)
+    {
+        EnsureOpen(nowUtc);
+
+        var typed = text?.Trim() ?? string.Empty;
+        if (typed.Length == 0)
+            throw new InvalidAttemptError("A typed answer needs some text; to take an answer back, clear it.");
+        if (typed.Length > TypedAnswer.MaxLength)
+            throw new InvalidAttemptError($"A typed answer must be at most {TypedAnswer.MaxLength} characters.");
+
+        var existing = _answers.FirstOrDefault(a => a.QuestionId == questionId);
+        if (existing is null)
+            _answers.Add(new AttemptAnswer(Id, questionId, [], nowUtc, typed));
+        else
+            existing.Change([], nowUtc, typed);
+    }
+
+    /// <summary>
     /// Takes back the option a candidate chose for a question, so it counts as unanswered again ("clear response", FR-18).
     /// Clearing a question with no answer does nothing: the candidate asked for "no answer" and that is what they have.
     /// </summary>

@@ -12,7 +12,7 @@ import { BLOCKED_MESSAGE_KEYS, BlockedAction, ContentGuard } from './content-gua
 import { shortcutFor } from './exam-shortcuts';
 import { FocusMonitor } from './focus-monitor';
 import { ReportIssue } from './report-issue';
-import { AnswerSync, PendingAnswer } from './answer-sync';
+import { AnswerSync, isEmptyAnswer, PendingAnswer } from './answer-sync';
 import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-store';
 import { PictureLoader } from '../../shared/rich-text/lazy-pictures';
 import { MathDirective } from '../../shared/rich-text/math.directive';
@@ -86,6 +86,14 @@ function loadZoomLevel(): number {
 /** The options chosen for a question, whichever shape the response came in. */
 export function chosenOptionIds(question: AttemptQuestionDto): string[] {
   return question.selectedOptionIds ?? (question.selectedOptionId ? [question.selectedOptionId] : []);
+}
+
+/**
+ * Whether the candidate has answered the question: chosen an option, or typed something for a text question. A text answer that is only
+ * spaces is not an answer, as the server would take it back.
+ */
+export function hasAnswer(question: AttemptQuestionDto): boolean {
+  return chosenOptionIds(question).length > 0 || (question.answerText ?? '').trim().length > 0;
 }
 
 function paletteStatus(answered: boolean, marked: boolean, seen: boolean, t: Translate): string {
@@ -164,7 +172,7 @@ export class ExamAttempt {
   protected readonly canZoomIn = computed(() => this.zoom() < ZOOM_LEVELS[ZOOM_LEVELS.length - 1]);
 
   protected readonly questions = computed(() => this.attempt()?.sections.flatMap((s) => s.questions) ?? []);
-  protected readonly answeredCount = computed(() => this.questions().filter((q) => chosenOptionIds(q).length > 0).length);
+  protected readonly answeredCount = computed(() => this.questions().filter((q) => hasAnswer(q)).length);
   protected readonly markedCount = computed(() => this.questions().filter((q) => q.markedForReview).length);
   protected readonly isOpen = computed(() => this.attempt()?.status === 'InProgress');
 
@@ -288,7 +296,7 @@ export class ExamAttempt {
     const active = this.activeRange();
     return (this.attempt()?.sections ?? []).map((section) => {
       const items = section.questions.map((question, i) => {
-        const answered = chosenOptionIds(question).length > 0;
+        const answered = hasAnswer(question);
         const marked = question.markedForReview;
         const seen = !answered && !marked && visited.has(question.id);
         return {
@@ -584,10 +592,48 @@ export class ExamAttempt {
     this.sync?.enqueue({ questionId: question.id, optionIds, multiple: question.allowsMultiple === true, previous });
   }
 
-  /** Puts a question back as the server last had it, when the server refused the choice, and says why. */
+  /**
+   * Records what the candidate typed for a text question, and shows it at once. It is saved in the background like a choice; blank text
+   * takes the answer back, as clearing it does.
+   */
+  private changeText(question: AttemptQuestionDto, text: string): void {
+    this.setText(question.id, text);
+    this.errorMessage.set(null);
+    this.sync?.enqueue({
+      questionId: question.id,
+      optionIds: [],
+      multiple: false,
+      previous: chosenOptionIds(question),
+      text,
+      previousText: question.answerText ?? null,
+    });
+  }
+
+  /** Puts a question back as the server last had it, when the server refused the change, and says why. */
   private refuse(answer: PendingAnswer, error: unknown): void {
-    this.setSelection(answer.questionId, answer.confirmed);
-    this.explainFailure(error, this.i18n.t(answer.optionIds.length === 0 ? 'attempt.failure.clear' : 'attempt.failure.save'));
+    if (answer.text === null) {
+      this.setSelection(answer.questionId, answer.confirmed);
+    } else {
+      this.setText(answer.questionId, answer.confirmedText);
+    }
+    this.explainFailure(error, this.i18n.t(isEmptyAnswer(answer) ? 'attempt.failure.clear' : 'attempt.failure.save'));
+  }
+
+  /**
+   * Saves what the candidate typed for a text question. It is called when the field loses focus or Enter is pressed, not on every key,
+   * so a half-typed answer is not sent. Unchanged text, spaces around it aside, is not sent again.
+   */
+  protected saveTyped(question: AttemptQuestionDto, text: string): void {
+    const attempt = this.attempt();
+    if (attempt === null || !this.isOpen()) {
+      return;
+    }
+
+    const typed = text.trim();
+    if (typed === (question.answerText ?? '').trim()) {
+      return;
+    }
+    this.changeText(question, typed);
   }
 
   /** Records a choice. It shows at once and is saved in the background, and kept and sent again if the connection fails. */
@@ -612,7 +658,7 @@ export class ExamAttempt {
 
   /** Whether the question has any answer to clear. */
   protected isAnswered(question: AttemptQuestionDto): boolean {
-    return chosenOptionIds(question).length > 0;
+    return hasAnswer(question);
   }
 
   /** Whether the option is one of those chosen for the question; what a radio or a checkbox shows as ticked. */
@@ -631,12 +677,15 @@ export class ExamAttempt {
 
   /** Takes back the question's answer. It shows at once and is saved in the background; if the server refuses, the answer comes back. */
   protected clearResponse(question: AttemptQuestionDto): void {
-    const previous = chosenOptionIds(question);
-    if (this.attempt() === null || !this.isOpen() || previous.length === 0) {
+    if (this.attempt() === null || !this.isOpen() || !hasAnswer(question)) {
       return;
     }
 
-    this.changeAnswer(question, [], previous);
+    if (question.isTextAnswer) {
+      this.changeText(question, '');
+      return;
+    }
+    this.changeAnswer(question, [], chosenOptionIds(question));
   }
 
   /** Marks the question for review, or takes the mark off. It shows at once; if the save fails the mark goes back as it was. */
@@ -780,7 +829,11 @@ export class ExamAttempt {
 
     const known = new Set(this.questions().map((question) => question.id));
     for (const waiting of sync.entries().filter((entry) => known.has(entry.questionId))) {
-      this.setSelection(waiting.questionId, waiting.optionIds);
+      if (waiting.text === null) {
+        this.setSelection(waiting.questionId, waiting.optionIds);
+      } else {
+        this.setText(waiting.questionId, waiting.text);
+      }
     }
     sync.flush();
   }
@@ -900,6 +953,11 @@ export class ExamAttempt {
 
   private setSelection(questionId: string, optionIds: string[]): void {
     this.changeQuestion(questionId, { selectedOptionId: optionIds[0] ?? null, selectedOptionIds: optionIds });
+  }
+
+  /** Shows what the candidate typed for a text question; null or blank is no answer. */
+  private setText(questionId: string, text: string | null): void {
+    this.changeQuestion(questionId, { answerText: text });
   }
 
   private setMarked(questionId: string, marked: boolean): void {

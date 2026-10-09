@@ -206,6 +206,22 @@
   font-size: 0.9rem;
 }
 
+/* The field a text question is typed into: a full-width line, tall enough to tap on a phone. */
+.question__answer-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+}
+
+.question__answer-input {
+  display: block;
+  width: 100%;
+  max-width: 40rem;
+  min-height: 44px;
+  padding: 0.6rem 0.8rem;
+  font: inherit;
+}
+
 .question__text {
   margin-bottom: 1rem;
   font-size: 1.15rem;
@@ -528,6 +544,12 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* What a candidate typed for a text question, beside the accepted answers it was marked against. */
+.review-typed p {
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
 }
 
 .review-option {

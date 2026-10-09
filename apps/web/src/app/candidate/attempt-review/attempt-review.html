@@ -116,6 +116,22 @@
               </li>
             }
           </ul>
+          @if (question.isTextAnswer) {
+            <div class="review-typed">
+              <p>
+                <span class="hint">{{ 'attempt.typedAnswer' | t }}:</span>
+                @if (question.answerText) {
+                  <strong>{{ question.answerText }}</strong>
+                } @else {
+                  <span class="hint">{{ 'review.typed.none' | t }}</span>
+                }
+              </p>
+              <p>
+                <span class="hint">{{ 'review.typed.accepted' | t }}:</span>
+                {{ (question.acceptedAnswers ?? []).join(', ') }}
+              </p>
+            </div>
+          }
           @if (question.verdict === 'Unanswered') {
             <p class="hint">{{ 'review.notAnswered' | t }}</p>
           }

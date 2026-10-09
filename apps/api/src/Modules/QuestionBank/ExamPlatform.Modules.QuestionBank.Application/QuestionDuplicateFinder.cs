@@ -37,7 +37,8 @@ public sealed class QuestionDuplicateFinder(IQuestionRepository repository)
 
         var optionsKey = QuestionFingerprint.OptionsKeyOf(optionTexts);
         return sameWording
-            .Select(q => new DuplicateMatch(q, QuestionFingerprint.OptionsKeyOf(q.Options.Select(o => o.Text)) == optionsKey))
+            // A text question's answers are its accepted answers, so two of them are the same when those are.
+            .Select(q => new DuplicateMatch(q, QuestionFingerprint.OptionsKeyOf(q.IsTextAnswer ? q.AcceptedAnswers : q.Options.Select(o => o.Text)) == optionsKey))
             .OrderByDescending(m => m.SameOptions)
             .ToList();
     }
