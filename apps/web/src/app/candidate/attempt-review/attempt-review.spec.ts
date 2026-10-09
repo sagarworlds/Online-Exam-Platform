@@ -104,7 +104,7 @@ describe('AttemptReview', () => {
     localStorage.clear();
     const fixture = await open(review());
 
-    TestBed.inject(I18nService).setLanguage('hi');
+    await TestBed.inject(I18nService).setLanguage('hi');
     fixture.detectChanges();
 
     const text = textOf(fixture);
@@ -631,7 +631,7 @@ describe('AttemptReview', () => {
           }),
         );
 
-        TestBed.inject(I18nService).setLanguage('hi');
+        await TestBed.inject(I18nService).setLanguage('hi');
         fixture.detectChanges();
 
         const text = textOf(fixture);
@@ -648,7 +648,7 @@ describe('AttemptReview', () => {
         localStorage.clear();
         const fixture = await open(review({ disputeWindow: windowOf() }));
 
-        TestBed.inject(I18nService).setLanguage('mr');
+        await TestBed.inject(I18nService).setLanguage('mr');
         fixture.detectChanges();
         buttonIn(card(fixture, 2), 'या उत्तरतालिकेवर आक्षेप नोंदवा').click();
         fixture.detectChanges();

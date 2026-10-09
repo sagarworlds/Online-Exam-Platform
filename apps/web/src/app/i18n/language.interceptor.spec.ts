@@ -23,19 +23,19 @@ describe('languageInterceptor', () => {
     localStorage.clear();
   });
 
-  it('tells the API the language the user chose, so questions come back in it', () => {
-    TestBed.inject(I18nService).setLanguage('hi');
+  it('tells the API the language the user chose, so questions come back in it', async () => {
+    await TestBed.inject(I18nService).setLanguage('hi');
 
     http.get(`${environment.apiBaseUrl}/v1/me/exams`).subscribe();
 
     expect(httpMock.expectOne(`${environment.apiBaseUrl}/v1/me/exams`).request.headers.get('Accept-Language')).toBe('hi');
   });
 
-  it('follows a change of language on the very next request', () => {
+  it('follows a change of language on the very next request', async () => {
     const i18n = TestBed.inject(I18nService);
-    i18n.setLanguage('hi');
+    await i18n.setLanguage('hi');
     http.get(`${environment.apiBaseUrl}/a`).subscribe();
-    i18n.setLanguage('mr');
+    await i18n.setLanguage('mr');
     http.get(`${environment.apiBaseUrl}/b`).subscribe();
 
     const languages = httpMock.match(() => true).map((r) => r.request.headers.get('Accept-Language'));
@@ -43,8 +43,8 @@ describe('languageInterceptor', () => {
     expect(languages).toEqual(['hi', 'mr']);
   });
 
-  it('does not hand the choice to any other site', () => {
-    TestBed.inject(I18nService).setLanguage('hi');
+  it('does not hand the choice to any other site', async () => {
+    await TestBed.inject(I18nService).setLanguage('hi');
 
     http.get('https://example.com/data').subscribe();
 

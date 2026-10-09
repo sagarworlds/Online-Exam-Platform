@@ -229,7 +229,7 @@ describe('ReportIssue (FR-42)', () => {
     it('is read in the language the candidate chose', async () => {
       const fixture = await open();
 
-      TestBed.inject(I18nService).setLanguage('hi');
+      await TestBed.inject(I18nService).setLanguage('hi');
       fixture.detectChanges();
       expect(button(fixture, 'समस्या की रिपोर्ट करें')).toBeTruthy();
 

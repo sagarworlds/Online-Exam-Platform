@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { AuthSessionService } from '../../auth/auth-session.service';
-import { LANGUAGE_STORAGE_KEY } from '../../i18n/i18n.service';
+import { I18nService, LANGUAGE_STORAGE_KEY } from '../../i18n/i18n.service';
 import { HI } from '../../i18n/messages.hi';
 import { MR } from '../../i18n/messages.mr';
 import { QuestionDto } from '../../question-bank/question.models';
@@ -82,6 +82,7 @@ describe('Disputes', () => {
         },
       ],
     }).compileComponents();
+    await TestBed.inject(I18nService).ready();
     httpMock = TestBed.inject(HttpTestingController);
 
     fixture = TestBed.createComponent(Disputes);

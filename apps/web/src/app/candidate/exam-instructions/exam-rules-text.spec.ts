@@ -165,14 +165,14 @@ describe('instructionLines', () => {
       expect(lines[saving + 1]).toContain('30 minutes of extra time');
     });
 
-    it('is stated in Hindi and Marathi too, with the time filled in', () => {
+    it('is stated in Hindi and Marathi too, with the time filled in', async () => {
       localStorage.clear();
       const i18n = TestBed.inject(I18nService);
       const given = { extraTimeSeconds: 2700, readerScribe: true, alternateFormats: ['screen_reader' as const] };
 
-      i18n.setLanguage('hi');
+      await i18n.setLanguage('hi');
       const hindi = accommodationLines(given, i18n);
-      i18n.setLanguage('mr');
+      await i18n.setLanguage('mr');
       const marathi = accommodationLines(given, i18n);
 
       expect(hindi).toHaveLength(3);
@@ -186,15 +186,15 @@ describe('instructionLines', () => {
   describe('in another language (FR-51)', () => {
     afterEach(() => localStorage.clear());
 
-    const inLanguage = (language: 'hi' | 'mr') => {
+    const inLanguage = async (language: 'hi' | 'mr') => {
       localStorage.clear();
       const i18n = TestBed.inject(I18nService);
-      i18n.setLanguage(language);
+      await i18n.setLanguage(language);
       return i18n;
     };
 
-    it('states the marking in Hindi, with the amounts filled in', () => {
-      const words = inLanguage('hi');
+    it('states the marking in Hindi, with the amounts filled in', async () => {
+      const words = await inLanguage('hi');
 
       expect(markingRules(RULES, words)).toEqual([
         'हर सही उत्तर पर 4 अंक मिलते हैं।',
@@ -203,28 +203,28 @@ describe('instructionLines', () => {
       ]);
     });
 
-    it('states the time and the attempts in Marathi', () => {
-      const words = inLanguage('mr');
+    it('states the time and the attempts in Marathi', async () => {
+      const words = await inLanguage('mr');
 
       expect(timeAllowed(exam({ durationSeconds: 5400 }), words)).toBe('90 मिनिटे');
       expect(timeAllowed(exam({ durationSeconds: null }), words)).toBe('परीक्षा बंद होईपर्यंत');
       expect(instructionLines(exam({ attemptsAllowed: 3, attemptsUsed: 1 }), words).at(-1)).toContain('3');
     });
 
-    it('chooses the singular form of a section count by the count', () => {
-      const words = inLanguage('hi');
+    it('chooses the singular form of a section count by the count', async () => {
+      const words = await inLanguage('hi');
 
       const lines = instructionLines(exam({ rules: { ...RULES, sectionLock: true, sectionCount: 1 } }), words);
 
       expect(lines.some((l) => l.includes('1 खंड है'))).toBe(true);
     });
 
-    it('is the same sentences as the English ones in number, so no rule is lost in translation', () => {
+    it('is the same sentences as the English ones in number, so no rule is lost in translation', async () => {
       const english = instructionLines(exam({ rules: { ...RULES, partialCredit: true, sectionLock: true, sectionCount: 3 }, attemptsAllowed: 2 }));
 
-      expect(instructionLines(exam({ rules: { ...RULES, partialCredit: true, sectionLock: true, sectionCount: 3 }, attemptsAllowed: 2 }), inLanguage('hi')))
+      expect(instructionLines(exam({ rules: { ...RULES, partialCredit: true, sectionLock: true, sectionCount: 3 }, attemptsAllowed: 2 }), await inLanguage('hi')))
         .toHaveLength(english.length);
-      expect(instructionLines(exam({ rules: { ...RULES, partialCredit: true, sectionLock: true, sectionCount: 3 }, attemptsAllowed: 2 }), inLanguage('mr')))
+      expect(instructionLines(exam({ rules: { ...RULES, partialCredit: true, sectionLock: true, sectionCount: 3 }, attemptsAllowed: 2 }), await inLanguage('mr')))
         .toHaveLength(english.length);
     });
   });

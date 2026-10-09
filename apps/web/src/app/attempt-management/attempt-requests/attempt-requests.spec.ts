@@ -251,8 +251,8 @@ describe('AttemptRequests', () => {
   });
 
   describe('in another language', () => {
-    it('shows the page in the language chosen, with the decision line in that language too', () => {
-      TestBed.inject(I18nService).setLanguage('mr');
+    it('shows the page in the language chosen, with the decision line in that language too', async () => {
+      await TestBed.inject(I18nService).setLanguage('mr');
       open([row('amy')]);
 
       expect(root.querySelector('h1')?.textContent).toBe(MR['admin.requests.title']);
@@ -267,8 +267,8 @@ describe('AttemptRequests', () => {
       );
     });
 
-    it('shows the title and the count in Hindi, the count in the plural when more than one waits', () => {
-      TestBed.inject(I18nService).setLanguage('hi');
+    it('shows the title and the count in Hindi, the count in the plural when more than one waits', async () => {
+      await TestBed.inject(I18nService).setLanguage('hi');
       open([row('amy'), row('ben')]);
 
       expect(root.querySelector('h1')?.textContent).toBe(HI['admin.requests.title']);

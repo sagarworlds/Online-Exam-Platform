@@ -93,7 +93,7 @@ describe('AdminHome', () => {
     expect(rows.every((a) => a.querySelector('app-admin-icon') !== null)).toBe(true);
   });
 
-  it('reads the page and the areas in the language the admin chose', () => {
+  it('reads the page and the areas in the language the admin chose', async () => {
     TestBed.configureTestingModule({
       imports: [AdminHome],
       providers: [provideRouter([]), { provide: AuthSessionService, useValue: { hasPermission: () => true } }],
@@ -101,7 +101,7 @@ describe('AdminHome', () => {
     const fixture = TestBed.createComponent(AdminHome);
     fixture.detectChanges();
 
-    TestBed.inject(I18nService).setLanguage('hi');
+    await TestBed.inject(I18nService).setLanguage('hi');
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
