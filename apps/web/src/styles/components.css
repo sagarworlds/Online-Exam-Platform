@@ -1188,6 +1188,17 @@ button.primary:hover:not(:disabled),
   min-height: 2.75rem;
 }
 
+/* A question is also written on a phone, so the controls of its form are as tall as a touch target. The rich-text toolbar is left
+   out, so its formatting buttons keep their compact size. */
+.question-form select,
+.question-form input[type='text'],
+.question-form > button,
+.question-form .actions button,
+.question-form fieldset > button,
+.question-form .option-row button {
+  min-height: 2.75rem;
+}
+
 .editor-settings {
   margin-top: 1.5rem;
 }
