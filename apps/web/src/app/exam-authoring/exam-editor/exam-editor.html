@@ -1,22 +1,22 @@
 <div class="page page--wide">
-  <a routerLink="/exams" class="back-link">&larr; All exams</a>
+  <a routerLink="/exams" class="back-link">&larr; {{ 'exams.editor.back' | t }}</a>
 
   @if (errorMessage()) {
     <p class="error-message">{{ errorMessage() }}</p>
   }
 
   @if (loading()) {
-    <p>Loading…</p>
+    <p>{{ 'common.loading' | t }}</p>
   } @else if (exam(); as e) {
     <div class="page-header">
       <h1>
         {{ e.name }}
-        <span class="badge" [class.badge--active]="e.status === 'Published'" [class.badge--inactive]="e.status !== 'Published'">{{ e.status }}</span>
+        <span class="badge" [class.badge--active]="e.status === 'Published'" [class.badge--inactive]="e.status !== 'Published'">{{ statusLabel(e.status) }}</span>
       </h1>
       @if (canChangeDetails() && !changingDetails()) {
-        <button type="button" (click)="startChangingDetails()" [disabled]="busy()">Edit details</button>
+        <button type="button" (click)="startChangingDetails()" [disabled]="busy()">{{ 'exams.editor.editDetails' | t }}</button>
       }
-      <a [routerLink]="['/exams', e.id, 'preview']" class="btn">Preview as a candidate</a>
+      <a [routerLink]="['/exams', e.id, 'preview']" class="btn">{{ 'exams.editor.preview' | t }}</a>
     </div>
     @if (changingDetails()) {
       <app-exam-details-form [name]="e.name" [description]="e.description" [busy]="busy()" (saved)="saveDetails($event)" (cancelled)="cancelChangingDetails()" />
@@ -24,195 +24,287 @@
       <p class="hint">{{ e.description }}</p>
     }
 
-    <div class="card">
-      <h2>Schedule</h2>
-      @if (e.isScheduled) {
-        <p>
-          <strong>Opens:</strong> {{ e.scheduledStartTime | date: 'medium' }}<br />
-          <strong>Closes:</strong> {{ e.scheduledEndTime | date: 'medium' }}<br />
-          @if (e.lateEntryDeadline) {
-            <strong>Late entry until:</strong> {{ e.lateEntryDeadline | date: 'medium' }}<br />
-          }
-          <strong>Time per attempt:</strong>
-          {{ e.config.totalTimeSeconds ? e.config.totalTimeSeconds / 60 + ' minutes' : 'until the window closes' }}
-        </p>
-      } @else {
-        <p>Not scheduled yet.</p>
-      }
-      @if (isDraft()) {
-        <div class="actions">
-          <a [routerLink]="['/exams', e.id, 'schedule']" class="btn">{{ e.isScheduled ? 'Change schedule' : 'Set schedule' }}</a>
-        </div>
-      }
-    </div>
-
-    <div class="card">
-      <h2>Questions come from</h2>
-      @if (changingScope()) {
-        @if (booksState() === 'loading') {
-          <p>Loading books…</p>
-        } @else if (booksState() === 'unavailable') {
-          <p class="hint">Choosing a book needs access to the question bank, which your account does not have.</p>
-        } @else {
-          <app-exam-scope-fields [books]="books()" [(scope)]="scopeDraft" [disabled]="busy()" [hideLegend]="true" />
-        }
-        <div class="actions">
-          <button type="button" class="primary" (click)="saveScope()" [disabled]="!scopeDraftComplete() || busy() || booksState() !== 'ready'">Save scope</button>
-          <button type="button" (click)="cancelChangingScope()" [disabled]="busy()">Cancel</button>
-        </div>
-      } @else {
-        <p>{{ scopeSummary() }}</p>
-        @if (isDraft()) {
-          <div class="actions">
-            <button type="button" (click)="startChangingScope()">Change</button>
-          </div>
-        }
-      }
-    </div>
-
-    <div class="card">
-      <h2>Answer review</h2>
-      @if (changingRelease()) {
-        <app-exam-release-fields [(selection)]="releaseDraft" [disabled]="busy()" />
-        <div class="actions">
-          <button type="button" class="primary" (click)="saveRelease()" [disabled]="!releaseDraftComplete() || busy()">Save</button>
-          <button type="button" (click)="cancelChangingRelease()" [disabled]="busy()">Cancel</button>
-        </div>
-      } @else {
-        @switch (e.config.resultReleaseMode) {
-          @case ('Scheduled') {
-            <p>Candidates see which of their answers were right from {{ e.config.resultReleaseTime | date: 'medium' }}.</p>
-          }
-          @case ('Manual') {
-            @if (e.config.resultReleaseTime) {
-              <p>Released on {{ e.config.resultReleaseTime | date: 'medium' }}. Candidates can see which of their answers were right.</p>
-            } @else if (isDraft()) {
-              <p>Held back until you release them. You can do that once the exam is published.</p>
-            } @else {
-              <p>Held back until you release them.</p>
-            }
-          }
-          @default {
-            <p>Candidates see which of their answers were right as soon as they submit.</p>
-          }
-        }
-        <div class="actions">
-          @if (canChangeRelease()) {
-            <button type="button" (click)="startChangingRelease()" aria-label="Edit when answers are shown">Edit</button>
-          }
-          @if (canReleaseNow()) {
-            <button type="button" class="primary" (click)="releaseNow()" [disabled]="busy()">Release answers now</button>
+    <!-- What must happen before the exam can be published, first, so the author sees what is still missing without scrolling. -->
+    @if (isDraft()) {
+      <section class="card editor-ready" aria-labelledby="ready-title">
+        <h2 id="ready-title">{{ 'exams.editor.readyTitle' | t }}</h2>
+        <ul class="editor-ready__list">
+          <li class="editor-ready__row">
+            <span class="editor-ready__mark" [class.editor-ready__mark--done]="e.isScheduled" aria-hidden="true">{{ e.isScheduled ? '✓' : '○' }}</span>
+            <div class="editor-ready__text">
+              <strong>{{ 'exams.editor.scheduleRow' | t }}</strong>
+              @if (e.isScheduled) {
+                <span>{{ 'exams.editor.opensCloses' | t: { start: (e.scheduledStartTime | date: 'medium') ?? '', end: (e.scheduledEndTime | date: 'medium') ?? '' } }}</span>
+              } @else {
+                <span>{{ 'exams.editor.notScheduled' | t }}</span>
+              }
+            </div>
+            <a [routerLink]="['/exams', e.id, 'schedule']" class="btn btn--small">{{ (e.isScheduled ? 'exams.editor.changeSchedule' : 'exams.editor.setSchedule') | t }}</a>
+          </li>
+          <li class="editor-ready__row">
+            <span class="editor-ready__mark" [class.editor-ready__mark--done]="questionCount() > 0" aria-hidden="true">{{ questionCount() > 0 ? '✓' : '○' }}</span>
+            <div class="editor-ready__text">
+              <strong>{{ 'exams.editor.questionsRow' | t }}</strong>
+              <span>{{ questionLine() }}</span>
+            </div>
+            <button type="button" class="btn--small" (click)="showSections()">{{ 'exams.editor.addQuestions' | t }}</button>
+          </li>
+        </ul>
+        <div class="editor-ready__publish">
+          <button type="button" class="primary" (click)="publish()" [disabled]="!canPublish() || busy()">{{ 'exams.editor.publish' | t }}</button>
+          @if (!canPublish()) {
+            <p class="hint">{{ publishHint() }}</p>
           }
         </div>
-      }
-    </div>
-
-    <app-exam-shuffle
-      [shuffleQuestions]="e.config.shuffleQuestions"
-      [shuffleOptions]="e.config.shuffleOptions"
-      [editable]="isDraft()"
-      [busy]="busy()"
-      (changed)="saveShuffle($event)"
-    />
-
-    <app-exam-marking-scheme
-      [scheme]="e.config.markingScheme"
-      [editable]="isDraft()"
-      [busy]="busy()"
-      (changed)="saveMarkingScheme($event)"
-    />
-
-    <app-exam-attempt-limit
-      [attempts]="e.config.maxAttempts"
-      [editable]="canChangeRelease()"
-      [busy]="busy()"
-      [releaseMode]="e.config.resultReleaseMode"
-      (changed)="saveAttemptLimit($event)"
-    />
-
-    <app-exam-proctoring-profile
-      [proctoring]="e.proctoring"
-      [editable]="canChangeRelease()"
-      [busy]="busy()"
-      (applied)="saveProctoringProfile($event)"
-    />
-
-    <app-exam-content-protection
-      [enabled]="e.config.contentProtection !== false"
-      [editable]="canChangeRelease()"
-      [busy]="busy()"
-      (changed)="saveContentProtection($event)"
-    />
-
-    <app-exam-focus-violation-limit
-      [limit]="e.config.focusViolationLimit ?? 0"
-      [editable]="canChangeRelease()"
-      [busy]="busy()"
-      (changed)="saveFocusViolationLimit($event)"
-    />
-
-    <h2>Sections and questions</h2>
-    @for (section of e.sections ?? []; track section.id) {
-      <app-exam-section-card
-        [section]="section"
-        [editable]="isDraft()"
-        [busy]="busy()"
-        [choices]="availableQuestions()"
-        [scope]="e.scope.type"
-        [topics]="topics()"
-        (renameRequested)="renameSection($event)"
-        (removeConfirmed)="removeSection($event)"
-        (addRequested)="addQuestion($event.sectionId, $event.questionId)"
-        (drawRequested)="drawQuestions($event.sectionId, $event.request)"
-        (drawRuleRequested)="addDrawRule($event.sectionId, $event.request)"
-        (drawRuleRemoveRequested)="removeDrawRule($event)"
-        (takeOutRequested)="removeQuestion($event)"
-      />
-    } @empty {
-      <p>No sections yet.</p>
+      </section>
+    } @else {
+      <p class="hint">{{ 'exams.editor.publishedNote' | t }}</p>
+      <div class="card">
+        <h2>{{ 'exams.editor.candidatesTitle' | t }}</h2>
+        <p>{{ 'exams.editor.candidatesBody' | t }}</p>
+        <div class="actions">
+          <a [routerLink]="['/exams', e.id, 'attempts']" class="btn">{{ 'exams.editor.candidatesLink' | t }}</a>
+        </div>
+      </div>
     }
 
-    @if (isDraft()) {
-      <form class="card" [formGroup]="sectionForm" (ngSubmit)="addSection()" aria-label="New section">
-        <div class="field">
-          <label for="section-name">New section name</label>
-          <input id="section-name" type="text" formControlName="name" />
+    <section class="editor-sections" aria-labelledby="sections-title">
+      <h2 id="sections-title" tabindex="-1" #sectionsTitle>{{ 'exams.editor.sectionsTitle' | t }}</h2>
+      @for (section of e.sections ?? []; track section.id) {
+        <app-exam-section-card
+          [section]="section"
+          [editable]="isDraft()"
+          [busy]="busy()"
+          [choices]="availableQuestions()"
+          [scope]="e.scope.type"
+          [topics]="topics()"
+          (renameRequested)="renameSection($event)"
+          (removeConfirmed)="removeSection($event)"
+          (addRequested)="addQuestion($event.sectionId, $event.questionId)"
+          (drawRequested)="drawQuestions($event.sectionId, $event.request)"
+          (drawRuleRequested)="addDrawRule($event.sectionId, $event.request)"
+          (drawRuleRemoveRequested)="removeDrawRule($event)"
+          (takeOutRequested)="removeQuestion($event)"
+        />
+      } @empty {
+        <p>{{ 'exams.editor.noSections' | t }}</p>
+      }
+
+      @if (isDraft()) {
+        <form class="card" [formGroup]="sectionForm" (ngSubmit)="addSection()" [attr.aria-label]="'exams.editor.newSectionLabel' | t">
+          <div class="field">
+            <label for="section-name">{{ 'exams.editor.newSectionName' | t }}</label>
+            <input id="section-name" type="text" formControlName="name" />
+          </div>
+          <button type="submit" class="primary" [disabled]="sectionForm.invalid || busy()">{{ 'exams.editor.addSection' | t }}</button>
+        </form>
+      }
+    </section>
+
+    <section class="editor-settings" aria-labelledby="settings-title">
+      <h2 id="settings-title">{{ 'exams.editor.settingsTitle' | t }}</h2>
+      <p class="hint">{{ 'exams.editor.settingsHint' | t }}</p>
+
+      <details class="setting">
+        <summary>
+          <h3 class="setting__name">{{ 'exams.setting.schedule' | t }}</h3>
+          <span class="setting__value">
+            @if (e.isScheduled) {
+              {{ 'exams.editor.opensAt' | t: { start: (e.scheduledStartTime | date: 'medium') ?? '' } }}
+            } @else {
+              {{ 'exams.editor.notScheduled' | t }}
+            }
+          </span>
+        </summary>
+        <div class="setting__body">
+          @if (e.isScheduled) {
+            <p>
+              <strong>{{ 'exams.editor.opens' | t }}</strong> {{ e.scheduledStartTime | date: 'medium' }}<br />
+              <strong>{{ 'exams.editor.closes' | t }}</strong> {{ e.scheduledEndTime | date: 'medium' }}<br />
+              @if (e.lateEntryDeadline) {
+                <strong>{{ 'exams.editor.lateEntry' | t }}</strong> {{ e.lateEntryDeadline | date: 'medium' }}<br />
+              }
+              <strong>{{ 'exams.editor.timePerAttempt' | t }}</strong>
+              {{ e.config.totalTimeSeconds ? e.config.totalTimeSeconds / 60 + ' ' + ('exams.editor.minutes' | t) : ('exams.editor.untilClosed' | t) }}
+            </p>
+          }
         </div>
-        <button type="submit" class="primary" [disabled]="sectionForm.invalid || busy()">Add section</button>
-      </form>
+      </details>
 
-      <div class="card">
-        <h2>Publish</h2>
-        @if (!canPublish()) {
-          <p class="hint">
-            To publish: {{ e.isScheduled ? 'schedule is set' : 'set a schedule' }}, and
-            {{ questionCount() > 0 ? 'questions added' : 'add at least one question' }}.
-          </p>
-        }
-        <button type="button" class="primary" (click)="publish()" [disabled]="!canPublish() || busy()">Publish exam</button>
-      </div>
+      <details class="setting">
+        <summary>
+          <h3 class="setting__name">{{ 'exams.setting.scope' | t }}</h3>
+          <span class="setting__value">{{ scopeSummary() }}</span>
+        </summary>
+        <div class="setting__body">
+          @if (changingScope()) {
+            @if (booksState() === 'loading') {
+              <p>{{ 'exams.editor.loadingBooks' | t }}</p>
+            } @else if (booksState() === 'unavailable') {
+              <p class="hint">{{ 'exams.editor.booksUnavailable' | t }}</p>
+            } @else {
+              <app-exam-scope-fields [books]="books()" [(scope)]="scopeDraft" [disabled]="busy()" [hideLegend]="true" />
+            }
+            <div class="actions">
+              <button type="button" class="primary" (click)="saveScope()" [disabled]="!scopeDraftComplete() || busy() || booksState() !== 'ready'">{{ 'exams.editor.saveScope' | t }}</button>
+              <button type="button" (click)="cancelChangingScope()" [disabled]="busy()">{{ 'common.cancel' | t }}</button>
+            </div>
+          } @else if (isDraft()) {
+            <div class="actions">
+              <button type="button" (click)="startChangingScope()">{{ 'common.change' | t }}</button>
+            </div>
+          }
+        </div>
+      </details>
 
+      <details class="setting">
+        <summary>
+          <h3 class="setting__name">{{ 'exams.setting.release' | t }}</h3>
+          <span class="setting__value">{{ summary.release(e.config) }}</span>
+        </summary>
+        <div class="setting__body">
+          @if (changingRelease()) {
+            <app-exam-release-fields [(selection)]="releaseDraft" [disabled]="busy()" />
+            <div class="actions">
+              <button type="button" class="primary" (click)="saveRelease()" [disabled]="!releaseDraftComplete() || busy()">{{ 'common.save' | t }}</button>
+              <button type="button" (click)="cancelChangingRelease()" [disabled]="busy()">{{ 'common.cancel' | t }}</button>
+            </div>
+          } @else {
+            @switch (e.config.resultReleaseMode) {
+              @case ('Scheduled') {
+                <p>{{ 'exams.editor.releaseScheduled' | t: { time: (e.config.resultReleaseTime | date: 'medium') ?? '' } }}</p>
+              }
+              @case ('Manual') {
+                @if (e.config.resultReleaseTime) {
+                  <p>{{ 'exams.editor.releasedOn' | t: { time: (e.config.resultReleaseTime | date: 'medium') ?? '' } }}</p>
+                } @else if (isDraft()) {
+                  <p>{{ 'exams.editor.heldDraft' | t }}</p>
+                } @else {
+                  <p>{{ 'exams.editor.heldBack' | t }}</p>
+                }
+              }
+              @default {
+                <p>{{ 'exams.editor.releaseInstant' | t }}</p>
+              }
+            }
+            <div class="actions">
+              @if (canChangeRelease()) {
+                <button type="button" (click)="startChangingRelease()" [attr.aria-label]="'exams.editor.editReleaseLabel' | t">{{ 'common.edit' | t }}</button>
+              }
+              @if (canReleaseNow()) {
+                <button type="button" class="primary" (click)="releaseNow()" [disabled]="busy()">{{ 'exams.editor.releaseNow' | t }}</button>
+              }
+            </div>
+          }
+        </div>
+      </details>
+
+      <details class="setting">
+        <summary>
+          <h3 class="setting__name">{{ 'exams.setting.shuffle' | t }}</h3>
+          <span class="setting__value">{{ summary.shuffle(e.config) }}</span>
+        </summary>
+        <div class="setting__body">
+          <app-exam-shuffle
+            [shuffleQuestions]="e.config.shuffleQuestions"
+            [shuffleOptions]="e.config.shuffleOptions"
+            [editable]="isDraft()"
+            [busy]="busy()"
+            (changed)="saveShuffle($event)"
+          />
+        </div>
+      </details>
+
+      <details class="setting">
+        <summary>
+          <h3 class="setting__name">{{ 'exams.setting.marking' | t }}</h3>
+          <span class="setting__value">{{ summary.marks(e.config) }}</span>
+        </summary>
+        <div class="setting__body">
+          <app-exam-marking-scheme
+            [scheme]="e.config.markingScheme"
+            [editable]="isDraft()"
+            [busy]="busy()"
+            (changed)="saveMarkingScheme($event)"
+          />
+        </div>
+      </details>
+
+      <details class="setting">
+        <summary>
+          <h3 class="setting__name">{{ 'exams.setting.attempts' | t }}</h3>
+          <span class="setting__value">{{ summary.attempts(e.config) }}</span>
+        </summary>
+        <div class="setting__body">
+          <app-exam-attempt-limit
+            [attempts]="e.config.maxAttempts"
+            [editable]="canChangeRelease()"
+            [busy]="busy()"
+            [releaseMode]="e.config.resultReleaseMode"
+            (changed)="saveAttemptLimit($event)"
+          />
+        </div>
+      </details>
+
+      <details class="setting">
+        <summary>
+          <h3 class="setting__name">{{ 'exams.setting.proctoring' | t }}</h3>
+          <span class="setting__value">{{ e.proctoring?.profileName ?? '' }}</span>
+        </summary>
+        <div class="setting__body">
+          <app-exam-proctoring-profile
+            [proctoring]="e.proctoring"
+            [editable]="canChangeRelease()"
+            [busy]="busy()"
+            (applied)="saveProctoringProfile($event)"
+          />
+        </div>
+      </details>
+
+      <details class="setting">
+        <summary>
+          <h3 class="setting__name">{{ 'exams.setting.copying' | t }}</h3>
+          <span class="setting__value">{{ summary.copying(e.config) }}</span>
+        </summary>
+        <div class="setting__body">
+          <app-exam-content-protection
+            [enabled]="e.config.contentProtection !== false"
+            [editable]="canChangeRelease()"
+            [busy]="busy()"
+            (changed)="saveContentProtection($event)"
+          />
+        </div>
+      </details>
+
+      <details class="setting">
+        <summary>
+          <h3 class="setting__name">{{ 'exams.setting.leaving' | t }}</h3>
+          <span class="setting__value">{{ summary.leaving(e.config) }}</span>
+        </summary>
+        <div class="setting__body">
+          <app-exam-focus-violation-limit
+            [limit]="e.config.focusViolationLimit ?? 0"
+            [editable]="canChangeRelease()"
+            [busy]="busy()"
+            (changed)="saveFocusViolationLimit($event)"
+          />
+        </div>
+      </details>
+    </section>
+
+    @if (isDraft()) {
       <div class="card">
-        <h2>Delete this draft</h2>
-        <p class="hint">A draft that was started by mistake can be deleted. Its questions stay in the question bank. It cannot be deleted once candidates have been invited to it.</p>
+        <h2>{{ 'exams.editor.deleteTitle' | t }}</h2>
+        <p class="hint">{{ 'exams.editor.deleteHint' | t }}</p>
         @if (confirmingDelete()) {
-          <span class="inline-confirm" role="alertdialog" aria-label="Delete this draft exam?">
-            Delete “{{ e.name }}” for good?
-            <button type="button" class="btn--danger" (click)="deleteDraft()" [disabled]="busy()">Delete draft</button>
-            <button type="button" (click)="confirmingDelete.set(false)">Cancel</button>
+          <span class="inline-confirm" role="alertdialog" [attr.aria-label]="deleteQuestion()">
+            {{ deleteQuestion() }}
+            <button type="button" class="btn--danger" (click)="deleteDraft()" [disabled]="busy()">{{ 'exams.editor.deleteDraft' | t }}</button>
+            <button type="button" (click)="confirmingDelete.set(false)">{{ 'common.cancel' | t }}</button>
           </span>
         } @else {
-          <button type="button" (click)="confirmingDelete.set(true)" [disabled]="busy()">Delete draft</button>
+          <button type="button" (click)="confirmingDelete.set(true)" [disabled]="busy()">{{ 'exams.editor.deleteDraft' | t }}</button>
         }
-      </div>
-    } @else {
-      <p class="hint">This exam is published, so its questions and schedule can no longer be edited.</p>
-      <div class="card">
-        <h2>Candidates</h2>
-        <p>See who has taken the exam, how each attempt went, and give a candidate another attempt if they ask for one.</p>
-        <div class="actions">
-          <a [routerLink]="['/exams', e.id, 'attempts']" class="btn">Candidates and attempts</a>
-        </div>
       </div>
     }
   }

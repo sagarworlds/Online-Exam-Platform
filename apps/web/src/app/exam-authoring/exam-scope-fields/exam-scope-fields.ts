@@ -1,5 +1,7 @@
 import { Component, computed, input, model } from '@angular/core';
 import { ANY_CLASS, ClassCascade, NO_CLASS, bookOptionLabel } from '../../book-management/book-class';
+import { MessageKey } from '../../i18n/messages.en';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { BookDto } from '../../book-management/book.models';
 import { ExamScopeType } from '../exam.models';
 import { NO_SCOPE, ScopeSelection } from './exam-scope';
@@ -15,6 +17,7 @@ let nextId = 0;
  */
 @Component({
   selector: 'app-exam-scope-fields',
+  imports: [TranslatePipe],
   templateUrl: './exam-scope-fields.html',
 })
 export class ExamScopeFields {
@@ -30,10 +33,10 @@ export class ExamScopeFields {
   readonly scope = model<ScopeSelection>(NO_SCOPE);
 
   protected readonly uid = `scope-${nextId++}`;
-  protected readonly types: readonly { value: ExamScopeType; label: string }[] = [
-    { value: 'Independent', label: 'Anywhere in the question bank' },
-    { value: 'Book', label: 'One whole book' },
-    { value: 'Chapters', label: 'Chosen chapters of a book' },
+  protected readonly types: readonly { value: ExamScopeType; label: MessageKey }[] = [
+    { value: 'Independent', label: 'exams.field.anywhere' },
+    { value: 'Book', label: 'exams.field.wholeBook' },
+    { value: 'Chapters', label: 'exams.field.chosenChapters' },
   ];
 
   protected readonly openBooks = computed(() => this.books().filter((book) => !book.isArchived));

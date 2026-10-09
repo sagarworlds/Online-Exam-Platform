@@ -1,15 +1,18 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { BookApiService } from '../../book-management/book-api.service';
 import { BookDto } from '../../book-management/book.models';
+import { I18nService } from '../../i18n/i18n.service';
+import { MessageKey } from '../../i18n/messages.en';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { QuestionApiService } from '../../question-bank/question-api.service';
 import { QuestionDto } from '../../question-bank/question.models';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { ExamApiService } from '../exam-api.service';
-import { ContentProtectionRequest, DrawQuestionsRequest, ExamDto, ExamScopeDto, FocusViolationLimitRequest, MarkingSchemeDto, ShuffleRequest, UpdateExamDetailsRequest } from '../exam.models';
+import { ContentProtectionRequest, DrawQuestionsRequest, ExamDto, ExamScopeDto, ExamStatus, FocusViolationLimitRequest, MarkingSchemeDto, ShuffleRequest, UpdateExamDetailsRequest } from '../exam.models';
 import { ExamMarkingScheme } from '../exam-marking-scheme/exam-marking-scheme';
 import { ExamContentProtection } from '../exam-content-protection/exam-content-protection';
 import { ExamFocusViolationLimit } from '../exam-focus-violation-limit/exam-focus-violation-limit';
@@ -22,6 +25,14 @@ import { ExamScopeFields } from '../exam-scope-fields/exam-scope-fields';
 import { INSTANT_RELEASE, ReleaseSelection, isReleaseComplete, selectionOfRelease, toReleaseRequest } from '../exam-release-fields/exam-release';
 import { ExamReleaseFields } from '../exam-release-fields/exam-release-fields';
 import { ExamSectionCard } from '../exam-section-card/exam-section-card';
+import { ExamSettingsSummary } from './exam-settings-summary';
+
+/** The word each exam status is shown as; the API's own word is kept for the checks that compare it. */
+const STATUS_KEYS: Readonly<Record<ExamStatus, MessageKey>> = {
+  Draft: 'exams.status.Draft',
+  Published: 'exams.status.Published',
+  Archived: 'exams.status.Archived',
+};
 
 /** Whether a question may go into an exam with this scope; mirrors the rule the API enforces. */
 function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): boolean {
@@ -43,7 +54,7 @@ function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): bool
  */
 @Component({
   selector: 'app-exam-editor',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamProctoringProfile, ExamSectionCard],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, TranslatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamProctoringProfile, ExamSectionCard],
   templateUrl: './exam-editor.html',
 })
 export class ExamEditor {
@@ -53,6 +64,11 @@ export class ExamEditor {
   private readonly bookApi = inject(BookApiService);
   private readonly router = inject(Router);
   private readonly examId = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
+  private readonly i18n = inject(I18nService);
+  /** One value line per setting, in words, for the rows the page shows closed. */
+  protected readonly summary = new ExamSettingsSummary(this.i18n);
+  /** The sections heading, which the readiness list moves focus to so the author can add questions. */
+  private readonly sectionsTitle = viewChild<ElementRef<HTMLElement>>('sectionsTitle');
 
   protected readonly exam = signal<ExamDto | null>(null);
   protected readonly bank = signal<QuestionDto[]>([]);
@@ -62,8 +78,11 @@ export class ExamEditor {
   protected readonly busy = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
 
-  /** What the exam's questions come from, in words. */
-  protected readonly scopeSummary = computed(() => describeScope(this.exam()?.scope));
+  /** What the exam's questions come from, in words, in the language on screen. */
+  protected scopeSummary(): string {
+    return describeScope(this.exam()?.scope, this.i18n.t);
+  }
+
   protected readonly isScoped = computed(() => (this.exam()?.scope.type ?? 'Independent') !== 'Independent');
 
   /** Changing the scope: the books to choose from are read only when the author asks to change it. */
@@ -130,6 +149,34 @@ export class ExamEditor {
       next: (topics) => this.topics.set(topics),
       error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
     });
+  }
+
+  /** The status word the header shows, in the language on screen. */
+  protected statusLabel(status: ExamStatus): string {
+    return this.i18n.t(STATUS_KEYS[status]);
+  }
+
+  /** How many questions the exam has, in words: none yet, or the count. */
+  protected questionLine(): string {
+    const count = this.questionCount();
+    return count === 0 ? this.i18n.t('exams.editor.noQuestions') : this.i18n.plural('exams.editor.questionsCount', count);
+  }
+
+  /** What still stops the exam being published, in one sentence. The two parts are the ones the publish rule checks. */
+  protected publishHint(): string {
+    const schedule: MessageKey = this.exam()?.isScheduled ? 'exams.editor.hint.scheduled' : 'exams.editor.hint.schedule';
+    const questions: MessageKey = this.questionCount() > 0 ? 'exams.editor.hint.questions' : 'exams.editor.hint.addQuestion';
+    return this.i18n.t('exams.editor.publishHint', { schedule: this.i18n.t(schedule), questions: this.i18n.t(questions) });
+  }
+
+  /** Moves focus to the sections from the readiness list, so the author lands where the questions are added. */
+  protected showSections(): void {
+    this.sectionsTitle()?.nativeElement.focus();
+  }
+
+  /** The question asked before a draft is deleted, naming it so the author sees which draft it is. */
+  protected deleteQuestion(): string {
+    return this.i18n.t('exams.editor.deleteQuestion', { name: this.exam()?.name ?? '' });
   }
 
   protected startChangingScope(): void {

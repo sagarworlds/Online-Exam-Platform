@@ -1,4 +1,6 @@
-import { Component, effect, input, output, signal, untracked } from '@angular/core';
+import { Component, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { ResultReleaseMode } from '../exam.models';
 
 /** The fewest and most attempts an exam can give each candidate; mirrors the range the API enforces. */
@@ -13,9 +15,12 @@ const MOST_ATTEMPTS = 10;
  */
 @Component({
   selector: 'app-exam-attempt-limit',
+  imports: [TranslatePipe],
   templateUrl: './exam-attempt-limit.html',
 })
 export class ExamAttemptLimit {
+  private readonly i18n = inject(I18nService);
+
   /** The attempts every candidate has now. */
   readonly attempts = input.required<number>();
   /** Whether the number can be changed; false for an archived exam. */
@@ -48,6 +53,11 @@ export class ExamAttemptLimit {
         }
       });
     });
+  }
+
+  /** How many times the exam can be sat, in words: once, or the number of times. */
+  protected timesText(attempts: number): string {
+    return attempts === 1 ? this.i18n.t('exams.attempts.once') : this.i18n.t('exams.attempts.times', { count: attempts });
   }
 
   /** The draft as a whole number in range, or null while it is not one. */

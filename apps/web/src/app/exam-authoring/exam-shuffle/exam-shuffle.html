@@ -1,29 +1,26 @@
 <div class="card">
-  <h2>Shuffling</h2>
+  <h2>{{ 'exams.shuffle.title' | t }}</h2>
   @if (editable()) {
-    <form (submit)="$event.preventDefault(); save()" aria-label="Shuffling">
+    <form (submit)="$event.preventDefault(); save()" [attr.aria-label]="'exams.shuffle.title' | t">
       <label class="inline-check">
         <input type="checkbox" [checked]="questionsTicked()" (change)="toggleQuestions($any($event.target).checked)" />
-        Shuffle the questions within each section
+        {{ 'exams.shuffle.questions' | t }}
       </label>
       <label class="inline-check">
         <input type="checkbox" [checked]="optionsTicked()" (change)="toggleOptions($any($event.target).checked)" />
-        Shuffle the options of each question
+        {{ 'exams.shuffle.options' | t }}
       </label>
-      <p class="hint">
-        Each candidate sees their own order, and the same order every time they reload. Without this, only a candidate's second and
-        later attempts are shuffled. Sections keep their order.
-      </p>
+      <p class="hint">{{ 'exams.shuffle.hint' | t }}</p>
       @if (dirty()) {
         <div class="actions">
-          <button type="submit" class="primary" [disabled]="busy()">Save</button>
-          <button type="button" (click)="discard()" [disabled]="busy()">Cancel</button>
+          <button type="submit" class="primary" [disabled]="busy()">{{ 'common.save' | t }}</button>
+          <button type="button" (click)="discard()" [disabled]="busy()">{{ 'common.cancel' | t }}</button>
         </div>
       }
     </form>
   } @else {
-    <p>Questions: {{ shuffleQuestions() ? 'shuffled' : 'in the written order' }}</p>
-    <p>Options: {{ shuffleOptions() ? 'shuffled' : 'in the written order' }}</p>
-    <p class="hint">This is fixed once an exam is published, so every candidate's order stays the same when they reload or review.</p>
+    <p>{{ 'exams.shuffle.questionsRead' | t: { state: shuffleQuestions() ? ('exams.shuffle.shuffled' | t) : ('exams.shuffle.written' | t) } }}</p>
+    <p>{{ 'exams.shuffle.optionsRead' | t: { state: shuffleOptions() ? ('exams.shuffle.shuffled' | t) : ('exams.shuffle.written' | t) } }}</p>
+    <p class="hint">{{ 'exams.shuffle.fixed' | t }}</p>
   }
 </div>

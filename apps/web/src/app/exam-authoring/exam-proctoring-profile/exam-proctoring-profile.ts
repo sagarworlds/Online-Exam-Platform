@@ -1,4 +1,6 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { ExamApiService } from '../exam-api.service';
 import { ProctoringDto, ProctoringProfileDto } from '../exam.models';
@@ -11,10 +13,12 @@ import { ProctoringDto, ProctoringProfileDto } from '../exam.models';
  */
 @Component({
   selector: 'app-exam-proctoring-profile',
+  imports: [TranslatePipe],
   templateUrl: './exam-proctoring-profile.html',
 })
 export class ExamProctoringProfile {
   private readonly api = inject(ExamApiService);
+  private readonly i18n = inject(I18nService);
 
   /** The exam's proctoring as it stands: its profile and the notice written from its settings. Absent from an older API. */
   readonly proctoring = input<ProctoringDto | undefined>(undefined);
@@ -48,7 +52,7 @@ export class ExamProctoringProfile {
     if (this.profiles() === null) {
       this.api.listProctoringProfiles().subscribe({
         next: (profiles) => this.profiles.set(profiles),
-        error: (error: unknown) => this.loadError.set(extractErrorMessage(error, 'The profiles could not be loaded. Please try again.')),
+        error: (error: unknown) => this.loadError.set(extractErrorMessage(error, this.i18n.t('exams.proctoring.loadFailed'))),
       });
     }
   }

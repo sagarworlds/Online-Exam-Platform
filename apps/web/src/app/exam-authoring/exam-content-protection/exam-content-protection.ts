@@ -1,4 +1,5 @@
 import { Component, computed, input, output, signal } from '@angular/core';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { ContentProtectionRequest } from '../exam.models';
 
 /**
@@ -8,6 +9,7 @@ import { ContentProtectionRequest } from '../exam.models';
  */
 @Component({
   selector: 'app-exam-content-protection',
+  imports: [TranslatePipe],
   templateUrl: './exam-content-protection.html',
 })
 export class ExamContentProtection {

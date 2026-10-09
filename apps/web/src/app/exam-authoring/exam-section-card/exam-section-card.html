@@ -1,21 +1,21 @@
 <div class="card section-card">
   @if (renaming()) {
-    <form class="option-row" (submit)="saveName($event)" [attr.aria-label]="'Rename section ' + section().name">
-      <input type="text" [value]="nameDraft()" (input)="nameDraft.set($any($event.target).value)" aria-label="Section name" />
-      <button type="submit" class="primary btn--small" [disabled]="busy() || nameDraft().trim() === ''">Save name</button>
-      <button type="button" class="btn--small" (click)="renaming.set(false)" [disabled]="busy()">Cancel</button>
+    <form class="option-row" (submit)="saveName($event)" [attr.aria-label]="'exams.section.renameLabel' | t: { name: section().name }">
+      <input type="text" [value]="nameDraft()" (input)="nameDraft.set($any($event.target).value)" [attr.aria-label]="'exams.section.nameField' | t" />
+      <button type="submit" class="primary btn--small" [disabled]="busy() || nameDraft().trim() === ''">{{ 'exams.section.saveName' | t }}</button>
+      <button type="button" class="btn--small" (click)="renaming.set(false)" [disabled]="busy()">{{ 'common.cancel' | t }}</button>
     </form>
   } @else {
     <h3>{{ section().order }}. {{ section().name }}</h3>
   }
 
   @if (section().questions.length === 0) {
-    <p class="hint">No questions yet.</p>
+    <p class="hint">{{ 'exams.section.noQuestions' | t }}</p>
   } @else {
     <ol>
       @for (question of section().questions; track question.id) {
         <li>
-          {{ question.text ? (question.text | plainText: 160) : '(question no longer in the bank)' }}
+          {{ question.text ? (question.text | plainText: 160) : ('exams.section.questionGone' | t) }}
           @if (editable()) {
             <button
               type="button"
@@ -24,7 +24,7 @@
               [disabled]="busy()"
               [attr.aria-label]="removeLabel(question)"
             >
-              Remove
+              {{ 'exams.section.remove' | t }}
             </button>
           }
         </li>
@@ -33,7 +33,7 @@
   }
 
   @if ((section().drawRules ?? []).length > 0) {
-    <p class="hint">Drawn for each candidate when they start, on top of the questions above:</p>
+    <p class="hint">{{ 'exams.section.drawnHint' | t }}</p>
     <ul>
       @for (rule of section().drawRules; track rule.id) {
         <li>
@@ -44,9 +44,9 @@
               class="btn--small"
               (click)="drawRuleRemoveRequested.emit({ sectionId: section().id, ruleId: rule.id })"
               [disabled]="busy()"
-              [attr.aria-label]="'Remove the rule drawing ' + describeRule(rule)"
+              [attr.aria-label]="'exams.section.removeRuleLabel' | t: { rule: describeRule(rule) }"
             >
-              Remove rule
+              {{ 'exams.section.removeRule' | t }}
             </button>
           }
         </li>
@@ -56,37 +56,37 @@
 
   @if (editable()) {
     <div class="option-row">
-      <select #pick [attr.aria-label]="'Question to add to ' + section().name">
-        <option value="">Choose a question…</option>
+      <select #pick [attr.aria-label]="'exams.section.pickLabel' | t: { name: section().name }">
+        <option value="">{{ 'exams.section.choose' | t }}</option>
         @for (question of choices(); track question.id) {
           <option [value]="question.id">{{ question.text | plainText: 100 }}</option>
         }
       </select>
-      <button type="button" (click)="addRequested.emit({ sectionId: section().id, questionId: pick.value })" [disabled]="busy()">Add question</button>
+      <button type="button" (click)="addRequested.emit({ sectionId: section().id, questionId: pick.value })" [disabled]="busy()">{{ 'exams.section.addQuestion' | t }}</button>
     </div>
     <div class="section-card__draw">
       <button type="button" class="btn--small" (click)="drawing.set(!drawing())" [attr.aria-expanded]="drawing()" [disabled]="busy()">
-        Add random questions…
+        {{ 'exams.section.drawOpen' | t }}
       </button>
       @if (drawing()) {
-        <form class="option-row" (submit)="$event.preventDefault(); draw()" [attr.aria-label]="'Draw random questions into ' + section().name">
+        <form class="option-row" (submit)="$event.preventDefault(); draw()" [attr.aria-label]="'exams.section.drawLabel' | t: { name: section().name }">
           <label>
-            How many
+            {{ 'exams.section.howMany' | t }}
             <input type="number" min="1" [max]="maxDrawCount" [value]="drawCount()" (input)="drawCount.set($any($event.target).valueAsNumber)" />
           </label>
           <label>
-            Difficulty
+            {{ 'exams.section.difficulty' | t }}
             <select [value]="drawDifficulty()" (change)="drawDifficulty.set($any($event.target).value)">
-              <option value="">Any</option>
+              <option value="">{{ 'exams.section.any' | t }}</option>
               @for (level of difficulties; track level.value) {
                 <option [value]="level.value">{{ level.label }}</option>
               }
             </select>
           </label>
           <label>
-            Topic
+            {{ 'exams.section.topic' | t }}
             <select [value]="drawTopic()" (change)="drawTopic.set($any($event.target).value)">
-              <option value="">Any</option>
+              <option value="">{{ 'exams.section.any' | t }}</option>
               @for (topic of topics(); track topic) {
                 <option [value]="topic">{{ topic }}</option>
               }
@@ -94,50 +94,47 @@
           </label>
           <label>
             <input type="checkbox" [checked]="drawPerCandidate()" (change)="drawPerCandidate.set($any($event.target).checked)" />
-            Draw again for each candidate
+            {{ 'exams.section.drawAgain' | t }}
           </label>
           <button type="submit" class="primary btn--small" [disabled]="busy() || !drawCountValid()">
-            {{ drawPerCandidate() ? 'Add rule' : 'Draw' }}
+            {{ (drawPerCandidate() ? 'exams.section.addRule' : 'exams.section.draw') | t }}
           </button>
         </form>
         @if (!drawCountValid()) {
-          <p class="error-message" role="alert">Draw between 1 and {{ maxDrawCount }} questions.</p>
+          <p class="error-message" role="alert">{{ 'exams.section.drawRange' | t: { max: maxDrawCount } }}</p>
         }
         <p class="hint">
-          Picks at random from the bank{{ scope() === 'Independent' ? '' : ', inside this exam’s ' + (scope() === 'Book' ? 'book' : 'chapters') }},
-          skipping questions already in the exam.
+          {{ drawScopeText() }}
           @if (drawPerCandidate()) {
-            Nothing is picked now: every candidate gets their own random questions when they start, and the exam cannot be published
-            or started unless the bank has enough.
+            {{ 'exams.section.drawEach' | t }}
           } @else {
-            The exam keeps the questions drawn; every candidate gets the same ones.
+            {{ 'exams.section.drawFixed' | t }}
           }
         </p>
       }
     </div>
     @if (scope() !== 'Independent') {
       <p class="hint">
-        Only questions from this exam's {{ scope() === 'Book' ? 'book' : 'chapters' }} are offered.
+        {{ (scope() === 'Book' ? 'exams.section.onlyBook' : 'exams.section.onlyChapters') | t }}
         @if (choices().length === 0) {
-          There are none left to add: file more questions under {{ scope() === 'Book' ? 'its chapters' : 'these chapters' }} on the Questions page.
+          {{ (scope() === 'Book' ? 'exams.section.noneLeftBook' : 'exams.section.noneLeftChapters') | t }}
         }
       </p>
     }
 
     <div class="actions section-card__actions">
       @if (!renaming()) {
-        <button type="button" class="btn--small" (click)="startRenaming()" [disabled]="busy()" [attr.aria-label]="'Rename section ' + section().name">Rename</button>
+        <button type="button" class="btn--small" (click)="startRenaming()" [disabled]="busy()" [attr.aria-label]="'exams.section.renameLabel' | t: { name: section().name }">{{ 'exams.section.rename' | t }}</button>
       }
 
       @if (confirmingRemove()) {
-        <span class="inline-confirm" role="alertdialog" [attr.aria-label]="'Remove section ' + section().name + '?'">
-          Remove this section{{ section().questions.length > 0 ? ' and its ' + section().questions.length + (section().questions.length === 1 ? ' question' : ' questions') : '' }}
-          from the exam? They stay in the question bank.
-          <button type="button" class="btn--danger btn--small" (click)="confirmRemove()" [disabled]="busy()">Remove section</button>
-          <button type="button" class="btn--small" (click)="confirmingRemove.set(false)">Cancel</button>
+        <span class="inline-confirm" role="alertdialog" [attr.aria-label]="'exams.section.removeAria' | t: { name: section().name }">
+          {{ removeConfirmText() }}
+          <button type="button" class="btn--danger btn--small" (click)="confirmRemove()" [disabled]="busy()">{{ 'exams.section.removeSection' | t }}</button>
+          <button type="button" class="btn--small" (click)="confirmingRemove.set(false)">{{ 'common.cancel' | t }}</button>
         </span>
       } @else {
-        <button type="button" class="btn--small" (click)="confirmingRemove.set(true)" [disabled]="busy()">Remove section</button>
+        <button type="button" class="btn--small" (click)="confirmingRemove.set(true)" [disabled]="busy()">{{ 'exams.section.removeSection' | t }}</button>
       }
     </div>
   }

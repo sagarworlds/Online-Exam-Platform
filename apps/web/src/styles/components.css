@@ -1129,3 +1129,126 @@ button.primary:hover:not(:disabled),
   border-radius: var(--radius-sm);
   background: var(--surface-muted);
 }
+
+/* Exam editor. The readiness list comes first on a draft: each row says what is still missing and offers the one action that fixes it,
+   and Publish sits beside it with the reason it is off. The settings are closed rows that show their value in words, so the author
+   reads them without opening any; a row's own card loses its border and heading, because the row's summary is the heading. */
+.editor-ready__list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.editor-ready__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.6rem 0.75rem;
+}
+
+.editor-ready__mark {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.editor-ready__mark--done {
+  color: var(--success);
+}
+
+.editor-ready__text {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.editor-ready__publish {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.editor-ready__publish .hint {
+  margin: 0;
+}
+
+/* The question picker in a section takes the room left beside its button, so its choices are readable on a phone. */
+.section-card .option-row select {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+/* Touch targets: the readiness actions and the buttons inside a setting are at least 44px tall at every width. */
+.editor-ready__row > .btn,
+.editor-ready__row > button,
+.editor-ready__publish button,
+.setting__body button {
+  min-height: 2.75rem;
+}
+
+.editor-settings {
+  margin-top: 1.5rem;
+}
+
+.editor-sections {
+  margin-top: 1.5rem;
+}
+
+.setting {
+  margin-top: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.setting > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  min-height: 2.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+}
+
+.setting__name {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.setting__value {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.setting__body {
+  padding: 0 1rem 1rem;
+}
+
+/* The settings cards are component hosts, so their card sits one element down from the body. */
+.setting__body .card {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.setting__body .card > h2 {
+  display: none;
+}
+
+@media (max-width: 40rem) {
+  .editor-ready__row {
+    grid-template-columns: auto 1fr;
+  }
+
+  .editor-ready__row > .btn,
+  .editor-ready__row > button {
+    grid-column: 2;
+    justify-self: start;
+  }
+}

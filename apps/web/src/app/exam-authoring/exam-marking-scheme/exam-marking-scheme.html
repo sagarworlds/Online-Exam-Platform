@@ -1,55 +1,49 @@
 <div class="card">
-  <h2>Marking scheme</h2>
+  <h2>{{ 'exams.marks.title' | t }}</h2>
   @if (editing()) {
-    <form (submit)="save($event)" aria-label="Marking scheme" novalidate>
+    <form (submit)="save($event)" [attr.aria-label]="'exams.marks.title' | t" novalidate>
       <div class="field">
-        <label for="marks-correct">Marks for a correct answer</label>
+        <label for="marks-correct">{{ 'exams.marks.correct' | t }}</label>
         <input id="marks-correct" type="number" inputmode="decimal" step="0.01" min="0.01" [attr.max]="largest" [value]="draft().correct"
           (input)="setField('correct', $any($event.target).value)" />
       </div>
       <div class="field">
-        <label for="marks-incorrect">Marks for an incorrect answer</label>
+        <label for="marks-incorrect">{{ 'exams.marks.incorrect' | t }}</label>
         <input id="marks-incorrect" type="number" inputmode="decimal" step="0.01" [attr.min]="-largest" max="0" [value]="draft().incorrect"
           (input)="setField('incorrect', $any($event.target).value)" />
       </div>
       <div class="field">
-        <label for="marks-unattempted">Marks for a question left unanswered</label>
+        <label for="marks-unattempted">{{ 'exams.marks.unattempted' | t }}</label>
         <input id="marks-unattempted" type="number" inputmode="decimal" step="0.01" [attr.min]="-largest" max="0" [value]="draft().unattempted"
           (input)="setField('unattempted', $any($event.target).value)" aria-describedby="marks-hint" />
-        <p id="marks-hint" class="hint">
-          A correct answer must earn more than 0, at most {{ largest }}. An incorrect or unanswered question earns 0 or a negative
-          number (negative marking), down to -{{ largest }}. Use at most two decimal places.
-        </p>
+        <p id="marks-hint" class="hint">{{ 'exams.marks.rangeHint' | t: { largest: largest } }}</p>
       </div>
       <div class="field">
         <label>
           <input type="checkbox" [checked]="draft().partialCredit" (change)="setPartialCredit($any($event.target).checked)" />
-          Give partial credit on multiple-answer questions
+          {{ 'exams.marks.partial' | t }}
         </label>
-        <p class="hint">
-          Each correct option chosen earns its share of the marks and each wrong option chosen takes one share away, so an answer
-          that is mostly right still earns something. Without it, only exactly the right set earns marks. Single-answer questions are not affected.
-        </p>
+        <p class="hint">{{ 'exams.marks.partialHint' | t }}</p>
       </div>
       @if (parsedDraft() === null) {
-        <p class="warning-note" role="note">Check the marks: they are out of range or have the wrong sign.</p>
+        <p class="warning-note" role="note">{{ 'exams.marks.check' | t }}</p>
       }
       <div class="actions">
-        <button type="submit" class="primary" [disabled]="busy() || parsedDraft() === null">Save</button>
-        <button type="button" (click)="editing.set(false)" [disabled]="busy()">Cancel</button>
+        <button type="submit" class="primary" [disabled]="busy() || parsedDraft() === null">{{ 'common.save' | t }}</button>
+        <button type="button" (click)="editing.set(false)" [disabled]="busy()">{{ 'common.cancel' | t }}</button>
       </div>
     </form>
   } @else {
-    <p>Correct answer: {{ scheme().correctMarks }}</p>
-    <p>Incorrect answer: {{ scheme().incorrectMarks }}</p>
-    <p>Left unanswered: {{ scheme().unattemptedMarks }}</p>
-    <p>Multiple-answer questions: {{ scheme().partialCredit ? 'partial credit' : 'all or nothing' }}</p>
+    <p>{{ 'exams.marks.readCorrect' | t: { value: scheme().correctMarks } }}</p>
+    <p>{{ 'exams.marks.readIncorrect' | t: { value: scheme().incorrectMarks } }}</p>
+    <p>{{ 'exams.marks.readUnattempted' | t: { value: scheme().unattemptedMarks } }}</p>
+    <p>{{ 'exams.marks.readPartial' | t: { state: scheme().partialCredit ? ('exams.marks.partialCredit' | t) : ('exams.marks.allOrNothing' | t) } }}</p>
     @if (editable()) {
       <div class="actions">
-        <button type="button" (click)="startEditing()" [disabled]="busy()" aria-label="Edit marking scheme">Edit</button>
+        <button type="button" (click)="startEditing()" [disabled]="busy()" [attr.aria-label]="'exams.marks.editLabel' | t">{{ 'common.edit' | t }}</button>
       </div>
     } @else {
-      <p class="hint">The marks are fixed once an exam is published, so every attempt is scored the same way.</p>
+      <p class="hint">{{ 'exams.marks.fixed' | t }}</p>
     }
   }
 </div>

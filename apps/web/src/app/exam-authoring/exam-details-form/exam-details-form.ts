@@ -1,4 +1,5 @@
 import { Component, OnInit, input, output, signal } from '@angular/core';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { UpdateExamDetailsRequest } from '../exam.models';
 
 /** The longest an exam name and description may be; the API refuses more, so the fields stop the typing instead. */
@@ -12,6 +13,7 @@ const MAX_DESCRIPTION_LENGTH = 1000;
  */
 @Component({
   selector: 'app-exam-details-form',
+  imports: [TranslatePipe],
   templateUrl: './exam-details-form.html',
 })
 export class ExamDetailsForm implements OnInit {

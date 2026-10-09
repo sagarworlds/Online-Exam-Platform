@@ -1,4 +1,6 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { FocusViolationLimitRequest } from '../exam.models';
 
 /** The fewest and most times a candidate may leave the exam page when the exam watches for it; mirrors the range the API enforces (0 turns it off). */
@@ -15,9 +17,12 @@ const SUGGESTED_LIMIT = 3;
  */
 @Component({
   selector: 'app-exam-focus-violation-limit',
+  imports: [TranslatePipe],
   templateUrl: './exam-focus-violation-limit.html',
 })
 export class ExamFocusViolationLimit {
+  private readonly i18n = inject(I18nService);
+
   /** The limit now: 0 when the exam does not watch. */
   readonly limit = input.required<number>();
   /** Whether the choice can be changed; false only for an archived exam. */
@@ -49,6 +54,11 @@ export class ExamFocusViolationLimit {
   });
 
   protected readonly dirty = computed(() => this.parsed() !== this.limit());
+
+  /** What the page is set to, in words: the attempt ends after some number of leavings, or the page is not watched. */
+  protected readState(): string {
+    return this.limit() > 0 ? this.i18n.plural('exams.leaving.readEnds', this.limit()) : this.i18n.t('exams.leaving.readNotWatched');
+  }
 
   protected toggle(watching: boolean): void {
     this.pendingWatching.set(watching);

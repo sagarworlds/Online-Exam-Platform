@@ -1,4 +1,5 @@
 import { Component, computed, input, output, signal } from '@angular/core';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { ShuffleRequest } from '../exam.models';
 
 /**
@@ -9,6 +10,7 @@ import { ShuffleRequest } from '../exam.models';
  */
 @Component({
   selector: 'app-exam-shuffle',
+  imports: [TranslatePipe],
   templateUrl: './exam-shuffle.html',
 })
 export class ExamShuffle {
