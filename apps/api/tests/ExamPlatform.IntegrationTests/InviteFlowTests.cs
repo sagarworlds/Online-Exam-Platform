@@ -250,8 +250,8 @@ public sealed class InviteFlowTests(ApiFactory factory) : IClassFixture<ApiFacto
         var email = UniqueEmail();
         var invite = await InviteAsync(admin, examId, email);
         var code = CodeFromLink(invite.GetProperty("inviteLink").GetString()!);
-        (await admin.PostAsync($"/v1/invites/{invite.GetProperty("id").GetGuid()}/decline", null)).EnsureSuccessStatusCode();
         var (candidate, _) = await factory.CandidateClientAsync(email);
+        (await candidate.PostAsync($"/v1/invites/{invite.GetProperty("id").GetGuid()}/decline", null)).EnsureSuccessStatusCode();
 
         await AssertProblemAsync(
             await candidate.PostAsJsonAsync("/v1/invites/accept", new { code }), HttpStatusCode.Conflict, "invite_state_invalid");

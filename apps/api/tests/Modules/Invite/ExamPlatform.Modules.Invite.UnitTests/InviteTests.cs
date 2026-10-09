@@ -174,7 +174,7 @@ public class InviteTests
     {
         var invite = NewInvite();
         var code = invite.GenerateCode(72, Now);
-        invite.Decline(Now);
+        invite.Decline(Email, Now);
 
         var error = Assert.Throws<InviteStateError>(() => invite.Accept(code.Code, UserId, Email, Now));
         Assert.Equal(409, error.HttpStatusCode);
@@ -187,7 +187,7 @@ public class InviteTests
     {
         var invite = NewInvite();
 
-        invite.Decline(Now);
+        invite.Decline(Email, Now);
 
         Assert.Equal(InviteStatus.Declined, invite.Status);
         Assert.Equal(Now, invite.DeclinedAt);
@@ -197,9 +197,48 @@ public class InviteTests
     public void Decline_ANonPendingInvite_ThrowsStateError()
     {
         var invite = NewInvite();
-        invite.Decline(Now);
+        invite.Decline(Email, Now);
 
-        Assert.Throws<InviteStateError>(() => invite.Decline(Now));
+        Assert.Throws<InviteStateError>(() => invite.Decline(Email, Now));
+    }
+
+    [Fact]
+    public void Decline_ByAnotherAddress_ThrowsMismatch_AndLeavesTheInvitePending()
+    {
+        var invite = NewInvite();
+
+        Assert.Throws<InviteEmailMismatchError>(() => invite.Decline("someone.else@example.com", Now));
+
+        Assert.Equal(InviteStatus.Pending, invite.Status);
+        Assert.Null(invite.DeclinedAt);
+    }
+
+    [Fact]
+    public void Decline_WithoutAVerifiedAddress_ThrowsMismatch()
+    {
+        var invite = NewInvite();
+
+        Assert.Throws<InviteEmailMismatchError>(() => invite.Decline(null, Now));
+    }
+
+    [Fact]
+    public void Decline_ByTheInvitedAddress_IgnoresCase()
+    {
+        var invite = NewInvite();
+
+        invite.Decline(Email.ToUpperInvariant(), Now);
+
+        Assert.Equal(InviteStatus.Declined, invite.Status);
+    }
+
+    [Fact]
+    public void Decline_OfANonPendingInviteByAnotherAddress_ReportsTheMismatch_NotTheState()
+    {
+        // A stranger learns nothing about an invite they were not sent, not even whether it is still open.
+        var invite = NewInvite();
+        invite.Decline(Email, Now);
+
+        Assert.Throws<InviteEmailMismatchError>(() => invite.Decline("someone.else@example.com", Now));
     }
 
     [Fact]
@@ -297,7 +336,7 @@ public class InviteTests
                 invite.Accept(first.Code, UserId, Email, Now);
                 break;
             case InviteStatus.Declined:
-                invite.Decline(Now);
+                invite.Decline(Email, Now);
                 break;
             default:
                 invite.Revoke(Now);

@@ -141,11 +141,17 @@ public class Invite : AggregateRoot
         AddDomainEvent(new InviteAcceptedEvent(Id, ExamId, Email));
     }
 
-    /// <summary>Declines a pending invite.</summary>
+    /// <summary>Declines a pending invite. Only the invited address may decline it, as only it may accept.</summary>
+    /// <param name="declinedByEmail">The declining account's verified e-mail address, if it has one.</param>
     /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="InviteEmailMismatchError">The declining account's address is not the invited one.</exception>
     /// <exception cref="InviteStateError">The invite is no longer pending.</exception>
-    public void Decline(DateTime nowUtc)
+    public void Decline(string? declinedByEmail, DateTime nowUtc)
     {
+        // The address is checked before the status, so a stranger learns nothing about an invite they were not sent.
+        if (!string.Equals(Email.Trim(), declinedByEmail?.Trim(), StringComparison.OrdinalIgnoreCase))
+            throw new InviteEmailMismatchError();
+
         if (Status != InviteStatus.Pending)
             throw new InviteStateError("Only a pending invitation can be declined.");
 
