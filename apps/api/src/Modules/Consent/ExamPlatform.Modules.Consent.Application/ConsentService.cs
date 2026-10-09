@@ -27,8 +27,10 @@ public sealed class ConsentService(
     }
 
     /// <inheritdoc />
-    public async Task<ConsentStatusDto> GetStatusAsync(Guid subjectId, ConsentPurpose purpose, CancellationToken cancellationToken)
+    public async Task<ConsentStatusDto> GetStatusAsync(Guid subjectId, ConsentPurpose purpose, Guid requestedById, CancellationToken cancellationToken)
     {
+        EnsureOwnConsent(subjectId, requestedById);
+
         var domainPurpose = ToDomain(purpose);
         var record = await consentRecordRepository.GetActiveAsync(subjectId, domainPurpose, cancellationToken);
         var currentNotice = await noticeVersionRepository.GetCurrentAsync(domainPurpose, cancellationToken);
@@ -38,6 +40,8 @@ public sealed class ConsentService(
     /// <inheritdoc />
     public async Task<ConsentRecordDto> RecordConsentAsync(RecordConsentRequest request, CancellationToken cancellationToken)
     {
+        EnsureOwnConsent(request.SubjectId, request.GivenById);
+
         _ = await noticeVersionRepository.GetByIdAsync(request.NoticeVersionId, cancellationToken)
             ?? throw new NoticeVersionNotFoundError();
 
@@ -53,8 +57,13 @@ public sealed class ConsentService(
     /// <inheritdoc />
     public async Task WithdrawConsentAsync(Guid consentRecordId, Guid withdrawnById, CancellationToken cancellationToken)
     {
-        var record = await consentRecordRepository.GetByIdAsync(consentRecordId, cancellationToken)
-            ?? throw new ConsentRecordNotFoundError();
+        var record = await consentRecordRepository.GetByIdAsync(consentRecordId, cancellationToken);
+
+        // Someone else's record is reported exactly as a missing one, so a caller learns nothing about which ids exist.
+        if (record is null || record.SubjectId != withdrawnById)
+        {
+            throw new ConsentRecordNotFoundError();
+        }
 
         record.Withdraw(withdrawnById, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -77,6 +86,16 @@ public sealed class ConsentService(
         if (!await HasActiveConsentAsync(subjectId, purpose, cancellationToken))
         {
             throw new ConsentRequiredError();
+        }
+    }
+
+    // Why only the subject: a guardian acting for a minor would need the caller to be proven as that guardian, and
+    // nothing binds a guardian record to an account yet. Until it does, the strict rule is the only safe one.
+    private static void EnsureOwnConsent(Guid subjectId, Guid requestedById)
+    {
+        if (subjectId != requestedById)
+        {
+            throw new ConsentAccessDeniedError();
         }
     }
 

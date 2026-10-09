@@ -133,6 +133,19 @@ public sealed class AuthConsentAuditFlowTests(ApiFactory factory) : IClassFixtur
             $"/v1/consent/status?subjectId={subjectId}&purpose=PrivacyNotice", JsonOptions);
         Assert.False(statusAfterWithdraw!.IsActive);
 
+        // A signed-in person cannot read, or grant, consent that belongs to someone else (FR-44).
+        var otherPersonStatus = await client.GetAsync(
+            $"/v1/consent/status?subjectId={Guid.NewGuid()}&purpose=PrivacyNotice");
+        Assert.Equal(HttpStatusCode.Forbidden, otherPersonStatus.StatusCode);
+
+        var otherPersonGrant = await client.PostAsJsonAsync("/v1/consent/", new
+        {
+            subjectId = Guid.NewGuid(),
+            purpose = "PrivacyNotice",
+            noticeVersionId,
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, otherPersonGrant.StatusCode);
+
         // 5. RBAC denies a candidate calling the admin audit log.
         var deniedAuditResponse = await client.GetAsync("/v1/admin/audit-logs");
         Assert.Equal(HttpStatusCode.Forbidden, deniedAuditResponse.StatusCode);
