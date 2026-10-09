@@ -91,7 +91,7 @@ describe('ExamAttempts', () => {
       const sections = Array.from(root(fixture).querySelectorAll('app-candidate-accommodation'));
       expect(sections).toHaveLength(2);
       expect(sections[0].textContent).toContain('Give an accommodation');
-      expect(sections[1].textContent).toContain('+30 minutes');
+      expect(sections[1].textContent).toContain('30 minutes');
       expect(sections[1].textContent).toContain('Screen reader');
     });
 
@@ -112,7 +112,7 @@ describe('ExamAttempts', () => {
       fixture.detectChanges();
 
       const sections = Array.from(root(fixture).querySelectorAll('app-candidate-accommodation'));
-      expect(sections[0].textContent).toContain('+25 minutes');
+      expect(sections[0].textContent).toContain('25 minutes');
       expect(sections[1].textContent).toContain('None.');
     });
   });

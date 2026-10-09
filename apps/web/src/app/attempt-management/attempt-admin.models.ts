@@ -7,6 +7,7 @@ import {
   IssueCategory,
   ReviewOptionDto,
 } from '../candidate/candidate.models';
+import { MessageKey } from '../i18n/messages.en';
 
 /** One enrolled candidate of an exam, with their attempts and whether another can be given, as staff see them. */
 export interface ExamCandidateDto {
@@ -29,14 +30,29 @@ export interface ExamCandidateDto {
 /** An alternate format of the exam page an accommodation can give (FR-49). */
 export type AccommodationFormat = 'large_text' | 'high_contrast' | 'screen_reader';
 
-/** The formats staff can choose, in the order they are offered, with what each does. */
-export const ACCOMMODATION_FORMATS: readonly { value: AccommodationFormat; label: string; hint: string }[] = [
-  { value: 'large_text', label: 'Large text', hint: 'The exam page starts at its largest text size. The candidate can still change it.' },
-  { value: 'high_contrast', label: 'High contrast', hint: 'The exam page starts in high contrast. The candidate can still change it.' },
+/**
+ * The formats staff can choose, in the order they are offered, with the message keys of what each is called and what it does, so the
+ * choices read in the language the staff member chose.
+ */
+export const ACCOMMODATION_FORMATS: readonly {
+  value: AccommodationFormat;
+  label: MessageKey;
+  hint: MessageKey;
+}[] = [
+  {
+    value: 'large_text',
+    label: 'admin.accommodation.format.large_text',
+    hint: 'admin.accommodation.formatHint.large_text',
+  },
+  {
+    value: 'high_contrast',
+    label: 'admin.accommodation.format.high_contrast',
+    hint: 'admin.accommodation.formatHint.high_contrast',
+  },
   {
     value: 'screen_reader',
-    label: 'Screen reader',
-    hint: 'The candidate uses a screen reader, so leaving the exam page is not counted against them.',
+    label: 'admin.accommodation.format.screen_reader',
+    hint: 'admin.accommodation.formatHint.screen_reader',
   },
 ];
 
