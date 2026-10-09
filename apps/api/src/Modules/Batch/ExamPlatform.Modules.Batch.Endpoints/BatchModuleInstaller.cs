@@ -1,6 +1,7 @@
 using ExamPlatform.Modules.Batch.Application;
 using ExamPlatform.Modules.Batch.Application.Commands;
 using ExamPlatform.Modules.Batch.Application.Ports;
+using ExamPlatform.Modules.Batch.Application.Queries;
 using ExamPlatform.Modules.Batch.Infrastructure;
 using ExamPlatform.Modules.Batch.Infrastructure.Repositories;
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
@@ -34,6 +35,8 @@ public sealed class BatchModuleInstaller : IModuleInstaller
         services.AddScoped<AddBatchMemberHandler>();
         services.AddScoped<ActivateBatchHandler>();
         services.AddScoped<CloseBatchHandler>();
+        services.AddScoped<ListBatchesHandler>();
+        services.AddScoped<ListBatchMembersHandler>();
         services.AddDomainEventHandlers(typeof(BatchAuditTrail).Assembly);
     }
 
