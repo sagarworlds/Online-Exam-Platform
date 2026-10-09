@@ -142,6 +142,8 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             new { email = "member@example.com" }),
         new("POST", "/v1/batches/{batchId}/activate", RbacCatalog.PermissionCodes.BatchManage, null),
         new("POST", "/v1/batches/{batchId}/close", RbacCatalog.PermissionCodes.BatchManage, null),
+        new("GET", "/v1/batches", RbacCatalog.PermissionCodes.BatchRead, null),
+        new("GET", "/v1/batches/{batchId}/members", RbacCatalog.PermissionCodes.BatchRead, null),
 
         new("POST", "/v1/invites", RbacCatalog.PermissionCodes.InviteManage,
             new { examId = Guid.NewGuid(), email = "invitee@example.com" }),
@@ -156,6 +158,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             new { candidateId = Guid.NewGuid(), candidateEmail = "candidate@example.com" }),
         new("DELETE", "/v1/guardians/{guardianId}/links/{candidateId}", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
         new("DELETE", "/v1/guardians/{guardianId}/candidates/{candidateId}", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
+        new("GET", "/v1/guardians/{guardianId}/links", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
     ];
 
     // Routes under the module prefixes that deliberately ask for a signed-in caller only: accepting and declining

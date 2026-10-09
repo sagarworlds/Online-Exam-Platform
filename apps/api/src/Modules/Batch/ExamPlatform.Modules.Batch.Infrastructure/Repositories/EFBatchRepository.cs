@@ -27,6 +27,14 @@ public class EFBatchRepository(BatchDbContext context) : IBatchRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<BatchAggregate>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        return await Loaded()
+            .AsNoTracking()
+            .OrderByDescending(b => b.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
     // Without its members every rule sees an empty batch: nothing is ever a duplicate, the capacity
     // never fills, and a batch with seats refuses to activate for having none.
     private IQueryable<BatchAggregate> Loaded() => context.Batches.Include(b => b.Members);

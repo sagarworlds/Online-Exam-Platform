@@ -11,4 +11,7 @@ internal static class BatchPermissions
 {
     /// <summary>Create batches, manage their rosters and open or close them (<c>batch.manage</c>).</summary>
     public const string Manage = "permission:batch.manage";
+
+    /// <summary>View batches and their rosters (<c>batch.read</c>).</summary>
+    public const string Read = "permission:batch.read";
 }

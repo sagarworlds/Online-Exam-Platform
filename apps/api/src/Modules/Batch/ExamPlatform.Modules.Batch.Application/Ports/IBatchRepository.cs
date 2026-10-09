@@ -11,4 +11,8 @@ public interface IBatchRepository
     Task<BatchAggregate?> GetByIdAsync(Guid batchId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<BatchAggregate>> ListByExamAsync(Guid examId, CancellationToken cancellationToken = default);
+
+    /// <summary>Lists every batch, newest first, with its members so that the seat counts are right.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<BatchAggregate>> ListAsync(CancellationToken cancellationToken = default);
 }

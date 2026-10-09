@@ -28,22 +28,8 @@ public sealed class CreateBatchHandler(IBatchRepository repository, IBatchUnitOf
         repository.Add(batch);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return MapToDto(batch);
+        return BatchDto.From(batch);
     }
-
-    private static BatchDto MapToDto(BatchAggregate batch) =>
-        new(
-            batch.Id,
-            batch.ExamId,
-            batch.Name,
-            batch.Description,
-            batch.Status,
-            batch.MaxMembers,
-            batch.GetActiveMemberCount(),
-            batch.CreatedBy,
-            batch.CreatedAt,
-            batch.UpdatedAt
-        );
 }
 
 /// <summary>Handles <see cref="AddBatchMemberCommand"/>: adds a member to an existing batch.</summary>

@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.Guardian.Application.Commands;
+using ExamPlatform.Modules.Guardian.Application.Queries;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -47,6 +48,13 @@ public static class GuardianEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("UnlinkCandidate")
             .WithDescription("Unlink a candidate from a guardian");
+
+        guardians.MapGet("/{guardianId}/links", ListGuardianLinks)
+            .RequireAuthorization(GuardianPermissions.LinkManage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ListGuardianLinks")
+            .WithDescription("List a guardian's candidate links, revoked ones included");
     }
 
     private static async Task<IResult> CreateGuardian(
@@ -99,6 +107,12 @@ public static class GuardianEndpoints
         await handler.HandleAsync(command, ct);
         return Results.NoContent();
     }
+
+    private static async Task<IResult> ListGuardianLinks(
+        Guid guardianId,
+        ListGuardianLinksHandler handler,
+        CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(guardianId, ct));
 }
 
 /// <summary>Request DTO for creating a guardian.</summary>

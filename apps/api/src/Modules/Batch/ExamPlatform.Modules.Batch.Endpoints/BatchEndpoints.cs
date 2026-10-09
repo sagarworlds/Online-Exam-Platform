@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using ExamPlatform.Modules.Batch.Application.Commands;
+using ExamPlatform.Modules.Batch.Application.Queries;
 using ExamPlatform.SharedKernel.Application.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -47,6 +48,20 @@ public static class BatchEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("CloseBatch")
             .WithDescription("Close a batch");
+
+        batches.MapGet("/", ListBatches)
+            .RequireAuthorization(BatchPermissions.Read)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ListBatches")
+            .WithDescription("List every batch, newest first");
+
+        batches.MapGet("/{batchId}/members", ListBatchMembers)
+            .RequireAuthorization(BatchPermissions.Read)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ListBatchMembers")
+            .WithDescription("List the members who still hold a seat in a batch");
     }
 
     private static async Task<IResult> CreateBatch(
@@ -66,6 +81,12 @@ public static class BatchEndpoints
         var result = await handler.HandleAsync(command, ct);
         return Results.Created($"/v1/batches/{result.Id}", result);
     }
+
+    private static async Task<IResult> ListBatches(ListBatchesHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(ct));
+
+    private static async Task<IResult> ListBatchMembers(Guid batchId, ListBatchMembersHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(batchId, ct));
 
     private static async Task<IResult> AddBatchMember(
         Guid batchId,
