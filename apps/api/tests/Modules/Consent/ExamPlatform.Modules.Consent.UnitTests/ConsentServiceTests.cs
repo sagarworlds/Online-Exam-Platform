@@ -1,5 +1,6 @@
 using ExamPlatform.Modules.Admin.Contracts;
 using ExamPlatform.Modules.Consent.Application;
+using ExamPlatform.Modules.Consent.Application.Exceptions;
 using ExamPlatform.Modules.Consent.Application.Ports;
 using ExamPlatform.Modules.Consent.Contracts;
 using ExamPlatform.SharedKernel.Application;
@@ -68,7 +69,8 @@ public class ConsentServiceTests
         var service = CreateService(recordRepository: recordRepository, noticeVersionRepository: noticeVersionRepository, unitOfWork: unitOfWork);
 
         var subjectId = Guid.NewGuid();
-        var givenById = Guid.NewGuid();
+        // A person grants their own consent; a grant on someone else's behalf is refused (see the tests below).
+        var givenById = subjectId;
         var result = await service.RecordConsentAsync(
             new RecordConsentRequest(subjectId, ConsentPurpose.PrivacyNotice, noticeVersionId, givenById),
             CancellationToken.None);
@@ -80,6 +82,94 @@ public class ConsentServiceTests
             Arg.Is<DomainConsent.ConsentRecord>(r =>
                 r.SubjectId == subjectId && r.DomainEvents.OfType<DomainConsent.Events.ConsentGrantedEvent>().Any()),
             Arg.Any<CancellationToken>());
+        await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RecordConsentAsync_GivenForAnotherPerson_ThrowsAndSavesNothing()
+    {
+        var recordRepository = Substitute.For<IConsentRecordRepository>();
+        var unitOfWork = Substitute.For<IConsentUnitOfWork>();
+        var service = CreateService(recordRepository: recordRepository, unitOfWork: unitOfWork);
+
+        await Assert.ThrowsAsync<ConsentAccessDeniedError>(() =>
+            service.RecordConsentAsync(
+                new RecordConsentRequest(Guid.NewGuid(), ConsentPurpose.PrivacyNotice, Guid.NewGuid(), Guid.NewGuid()),
+                CancellationToken.None));
+
+        await recordRepository.DidNotReceive().AddAsync(Arg.Any<DomainConsent.ConsentRecord>(), Arg.Any<CancellationToken>());
+        await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetStatusAsync_RequestedByAnotherPerson_ThrowsWithoutReadingAnything()
+    {
+        var recordRepository = Substitute.For<IConsentRecordRepository>();
+        var service = CreateService(recordRepository: recordRepository);
+
+        await Assert.ThrowsAsync<ConsentAccessDeniedError>(() =>
+            service.GetStatusAsync(Guid.NewGuid(), ConsentPurpose.PrivacyNotice, Guid.NewGuid(), CancellationToken.None));
+
+        await recordRepository.DidNotReceive().GetActiveAsync(Arg.Any<Guid>(), Arg.Any<DomainConsent.ConsentPurpose>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetStatusAsync_RequestedBySubject_ReportsTheActiveRecord()
+    {
+        var subjectId = Guid.NewGuid();
+        var record = DomainConsent.ConsentRecord.Grant(
+            subjectId, DomainConsent.ConsentPurpose.PrivacyNotice, Guid.NewGuid(), subjectId, DateTime.UtcNow);
+
+        var recordRepository = Substitute.For<IConsentRecordRepository>();
+        recordRepository
+            .GetActiveAsync(subjectId, DomainConsent.ConsentPurpose.PrivacyNotice, Arg.Any<CancellationToken>())
+            .Returns(record);
+        var noticeVersionRepository = Substitute.For<INoticeVersionRepository>();
+        noticeVersionRepository
+            .GetCurrentAsync(DomainConsent.ConsentPurpose.PrivacyNotice, Arg.Any<CancellationToken>())
+            .Returns((DomainConsent.NoticeVersion?)null);
+        var service = CreateService(recordRepository: recordRepository, noticeVersionRepository: noticeVersionRepository);
+
+        var status = await service.GetStatusAsync(subjectId, ConsentPurpose.PrivacyNotice, subjectId, CancellationToken.None);
+
+        Assert.True(status.IsActive);
+        Assert.Equal(record.Id, status.ConsentRecordId);
+    }
+
+    [Fact]
+    public async Task WithdrawConsentAsync_ByAnotherPerson_ReportsNotFoundAndKeepsTheConsent()
+    {
+        var subjectId = Guid.NewGuid();
+        var record = DomainConsent.ConsentRecord.Grant(
+            subjectId, DomainConsent.ConsentPurpose.PrivacyNotice, Guid.NewGuid(), subjectId, DateTime.UtcNow);
+
+        var recordRepository = Substitute.For<IConsentRecordRepository>();
+        recordRepository.GetByIdAsync(record.Id, Arg.Any<CancellationToken>()).Returns(record);
+        var unitOfWork = Substitute.For<IConsentUnitOfWork>();
+        var service = CreateService(recordRepository: recordRepository, unitOfWork: unitOfWork);
+
+        await Assert.ThrowsAsync<ConsentRecordNotFoundError>(() =>
+            service.WithdrawConsentAsync(record.Id, Guid.NewGuid(), CancellationToken.None));
+
+        Assert.Null(record.WithdrawnAtUtc);
+        await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task WithdrawConsentAsync_ByTheSubject_WithdrawsTheRecord()
+    {
+        var subjectId = Guid.NewGuid();
+        var record = DomainConsent.ConsentRecord.Grant(
+            subjectId, DomainConsent.ConsentPurpose.PrivacyNotice, Guid.NewGuid(), subjectId, DateTime.UtcNow);
+
+        var recordRepository = Substitute.For<IConsentRecordRepository>();
+        recordRepository.GetByIdAsync(record.Id, Arg.Any<CancellationToken>()).Returns(record);
+        var unitOfWork = Substitute.For<IConsentUnitOfWork>();
+        var service = CreateService(recordRepository: recordRepository, unitOfWork: unitOfWork);
+
+        await service.WithdrawConsentAsync(record.Id, subjectId, CancellationToken.None);
+
+        Assert.NotNull(record.WithdrawnAtUtc);
         await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

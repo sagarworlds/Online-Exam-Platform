@@ -15,9 +15,9 @@ public static class ConsentEndpoints
     {
         var group = endpoints.MapGroup("/v1/consent").WithTags("Consent").RequireAuthorization();
 
-        group.MapGet("/status", async (Guid subjectId, ConsentPurpose purpose, IConsentService service, CancellationToken ct) =>
+        group.MapGet("/status", async (Guid subjectId, ConsentPurpose purpose, HttpContext http, IConsentService service, CancellationToken ct) =>
         {
-            var status = await service.GetStatusAsync(subjectId, purpose, ct);
+            var status = await service.GetStatusAsync(subjectId, purpose, http.User.GetUserId(), ct);
             return Results.Ok(status);
         });
 
