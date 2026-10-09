@@ -85,7 +85,7 @@ describe('App', () => {
     });
   });
 
-  it('shows the navigation in the language the user picks, with no reload', () => {
+  it('shows the navigation in the language the user picks, with no reload', async () => {
     localStorage.clear();
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
@@ -95,9 +95,10 @@ describe('App', () => {
 
     picker.value = 'hi';
     picker.dispatchEvent(new Event('change'));
-    fixture.detectChanges();
-
-    expect(compiled.querySelector('header.nav nav')?.textContent).toContain('लॉग इन');
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(compiled.querySelector('header.nav nav')?.textContent).toContain('लॉग इन');
+    });
     expect(compiled.querySelector('header.nav nav')?.textContent).not.toContain('Log in');
     expect(document.documentElement.lang).toBe('hi');
     localStorage.clear();

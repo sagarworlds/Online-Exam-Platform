@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { LANGUAGE_STORAGE_KEY } from '../../i18n/i18n.service';
+import { I18nService, LANGUAGE_STORAGE_KEY } from '../../i18n/i18n.service';
 import { HI } from '../../i18n/messages.hi';
 import { MR } from '../../i18n/messages.mr';
 import { Accommodation, ExamCandidateDto } from '../attempt-admin.models';
@@ -378,8 +378,9 @@ describe('CandidateAccommodation', () => {
     expect(root.querySelector('#accommodation-c1-minutes')).toBeNull();
   });
 
-  it('gives its labels, facts and results in the language chosen', () => {
+  it('gives its labels, facts and results in the language chosen', async () => {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, 'hi');
+    await TestBed.inject(I18nService).ready();
     show(
       row(given({ extraTimeMinutes: 15, readerScribe: false, alternateFormats: [], notes: null })),
     );
@@ -401,6 +402,7 @@ describe('CandidateAccommodation', () => {
 
   it('names a format and its result in Marathi, with the candidate’s own note as typed', async () => {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, 'mr');
+    await TestBed.inject(I18nService).ready();
     show(row());
     press(MR['admin.accommodation.give']);
     tick(MR['admin.accommodation.format.large_text']);

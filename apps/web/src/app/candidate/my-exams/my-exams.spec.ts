@@ -94,12 +94,12 @@ describe('MyExams', () => {
     expect(facts).toEqual([['20 questions', '90 minutes'], ['5 questions'], ['20 questions', '90 minutes']]);
   });
 
-  it('is shown in the language the candidate chose, and changes with it', () => {
+  it('is shown in the language the candidate chose, and changes with it', async () => {
     localStorage.clear();
     const { fixture, root } = openWith([exam({ attemptsAllowed: 3, attemptsUsed: 1, attempts: [attempt(1, 'Submitted', 15)] })]);
     const i18n = TestBed.inject(I18nService);
 
-    i18n.setLanguage('hi');
+    await i18n.setLanguage('hi');
     fixture.detectChanges();
 
     const text = root.textContent ?? '';
@@ -111,7 +111,7 @@ describe('MyExams', () => {
     expect(root.textContent).toContain('प्रयास 2 शुरू करें');
     expect(root.textContent).not.toContain('My exams');
 
-    i18n.setLanguage('mr');
+    await i18n.setLanguage('mr');
     fixture.detectChanges();
     expect(root.textContent).toContain('माझ्या परीक्षा');
     expect(root.textContent).toContain('प्रयत्न 2 सुरू करा');

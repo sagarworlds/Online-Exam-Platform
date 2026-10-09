@@ -1089,8 +1089,8 @@ describe('WhatsAppTest', () => {
     beforeEach(() => localStorage.clear());
     afterEach(() => localStorage.clear());
 
-    it('shows the headings, labels and button in the language chosen, and leaves the server text as the server sent it', () => {
-      TestBed.inject(I18nService).setLanguage('hi');
+    it('shows the headings, labels and button in the language chosen, and leaves the server text as the server sent it', async () => {
+      await TestBed.inject(I18nService).setLanguage('hi');
       open(status({ problems: ['The access token is not set.'] }));
 
       expect(root.querySelector('h1')?.textContent).toBe(HI['whatsapp.title']);
@@ -1107,8 +1107,8 @@ describe('WhatsAppTest', () => {
       expect(text()).toContain('The access token is not set.');
     });
 
-    it('shows the heading of a failure, and the steps of a delivery, in the language chosen', () => {
-      TestBed.inject(I18nService).setLanguage('mr');
+    it('shows the heading of a failure, and the steps of a delivery, in the language chosen', async () => {
+      await TestBed.inject(I18nService).setLanguage('mr');
       open();
 
       respond(sendText(), sendResult({ deliveryTracking: true, messageId: 'wamid.MR' }));

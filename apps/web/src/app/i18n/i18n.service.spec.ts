@@ -41,34 +41,65 @@ describe('I18nService', () => {
     expect(service().language()).toBe('en');
   });
 
-  it('remembers a chosen language, and tells the page what language it is in', () => {
+  it('remembers a chosen language, and tells the page what language it is in', async () => {
     const i18n = service();
 
-    i18n.setLanguage('hi');
+    await i18n.setLanguage('hi');
 
     expect(i18n.language()).toBe('hi');
     expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('hi');
     expect(document.documentElement.lang).toBe('hi');
   });
 
-  it('still switches for this visit when the browser will not store the choice', () => {
+  it('still switches for this visit when the browser will not store the choice', async () => {
     const i18n = service();
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('blocked');
     });
 
-    i18n.setLanguage('mr');
+    await i18n.setLanguage('mr');
 
     expect(i18n.language()).toBe('mr');
   });
 
-  it('looks a message up in the current language, and follows a change of language', () => {
+  it('has the chosen language ready once the start-up fetch has run, so the first screen is not in English', async () => {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, 'hi');
+    browserLanguages('en-US');
+
+    await service().ready();
+
+    expect(service().t('nav.myExams')).toBe('मेरी परीक्षाएँ');
+  });
+
+  it('stays in English, and logs the cause, when the chosen language cannot be fetched at start-up', async () => {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, 'hi');
+    browserLanguages('en-US');
+    const error = new Error('offline');
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(service() as unknown as { load: () => Promise<void> }, 'load').mockRejectedValue(error);
+
+    await service().ready();
+
+    expect(service().language()).toBe('en');
+    expect(service().t('nav.myExams')).toBe('My exams');
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining('could not be loaded'), error);
+  });
+
+  it('rejects, and keeps the language in use, when a chosen language cannot be fetched', async () => {
+    const i18n = service();
+    vi.spyOn(i18n as unknown as { load: () => Promise<void> }, 'load').mockRejectedValue(new Error('offline'));
+
+    await expect(i18n.setLanguage('mr')).rejects.toThrow('offline');
+    expect(i18n.language()).toBe('en');
+  });
+
+  it('looks a message up in the current language, and follows a change of language', async () => {
     const i18n = service();
 
     expect(i18n.t('nav.myExams')).toBe('My exams');
-    i18n.setLanguage('hi');
+    await i18n.setLanguage('hi');
     expect(i18n.t('nav.myExams')).toBe('मेरी परीक्षाएँ');
-    i18n.setLanguage('mr');
+    await i18n.setLanguage('mr');
     expect(i18n.t('nav.myExams')).toBe('माझ्या परीक्षा');
   });
 
@@ -89,9 +120,9 @@ describe('I18nService', () => {
     expect(i18n.plural('time.minutes', 1)).toBe('1 minute');
   });
 
-  it('builds plurals in the current language', () => {
+  it('builds plurals in the current language', async () => {
     const i18n = service();
-    i18n.setLanguage('hi');
+    await i18n.setLanguage('hi');
 
     expect(i18n.plural('time.minutes', 30)).toBe('30 मिनट');
   });

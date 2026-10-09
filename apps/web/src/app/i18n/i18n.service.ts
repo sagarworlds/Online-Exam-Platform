@@ -2,14 +2,19 @@ import { DOCUMENT } from '@angular/common';
 import { Injectable, inject, signal } from '@angular/core';
 import { DEFAULT_LANGUAGE, UI_LANGUAGES, UiLanguage, isUiLanguage } from './languages';
 import { EN, MessageKey, Messages, PluralKey } from './messages.en';
-import { HI } from './messages.hi';
-import { MR } from './messages.mr';
 
 /** Where the chosen language is remembered, so it is the same after a reload and on the next visit. Browser-only. */
 export const LANGUAGE_STORAGE_KEY = 'exam-platform.language';
 
-/** Every language's messages. A language is not offered until it is here, and the type makes each one complete. */
-const MESSAGES: Record<UiLanguage, Messages> = { en: EN, hi: HI, mr: MR };
+/**
+ * How each language's messages are fetched. English is in the main bundle, since it is the fallback and every page may need it. Hindi and
+ * Marathi are about 70 KiB of text each, so each is fetched only when a visitor chooses it. Each one is typed as {@link Messages}, so a
+ * missing or extra key is still a compile error.
+ */
+const LOADERS: Record<Exclude<UiLanguage, 'en'>, () => Promise<Messages>> = {
+  hi: () => import('./messages.hi').then((module) => module.HI),
+  mr: () => import('./messages.mr').then((module) => module.MR),
+};
 
 /** Values that can fill a `{name}` in a message. */
 export type MessageParams = Record<string, string | number>;
@@ -51,6 +56,9 @@ export const englishWords: Words = {
 export class I18nService implements Words {
   private readonly document = inject(DOCUMENT);
 
+  /** The messages of each language fetched so far. English is here from the start. */
+  private readonly tables = signal<Partial<Record<UiLanguage, Messages>>>({ en: EN });
+
   /** The language in use. */
   readonly language = signal<UiLanguage>(this.initialLanguage());
 
@@ -61,8 +69,27 @@ export class I18nService implements Words {
     this.document.documentElement.lang = this.language();
   }
 
-  /** Switches the language, remembers it, and tells the page (and so screen readers and the browser's own translation) what it is now. */
-  setLanguage(language: UiLanguage): void {
+  /**
+   * Fetches the messages of the language in use before the first screen is drawn, so a visitor who chose Hindi does not see English first.
+   * If that fetch fails, the interface stays in English and the cause is logged: a visitor is never left with no interface at all.
+   */
+  async ready(): Promise<void> {
+    try {
+      await this.load(this.language());
+    } catch (error) {
+      console.error('The messages for the chosen language could not be loaded, so the interface is in English.', error);
+      this.language.set(DEFAULT_LANGUAGE);
+      this.document.documentElement.lang = DEFAULT_LANGUAGE;
+    }
+  }
+
+  /**
+   * Switches the language, fetching its messages first if they are not here yet, then remembers it and tells the page (and so screen readers
+   * and the browser's own translation) what it is now. It resolves once the new language can be shown. If the messages cannot be fetched it
+   * rejects and changes nothing, so the caller can say so.
+   */
+  async setLanguage(language: UiLanguage): Promise<void> {
+    await this.load(language);
     this.language.set(language);
     this.document.documentElement.lang = language;
     try {
@@ -72,11 +99,20 @@ export class I18nService implements Words {
     }
   }
 
+  /** Fetches a language's messages the first time they are needed. A language already fetched is not fetched again. */
+  private async load(language: UiLanguage): Promise<void> {
+    if (language === 'en' || this.tables()[language] !== undefined) {
+      return;
+    }
+    const messages = await LOADERS[language]();
+    this.tables.update((tables) => ({ ...tables, [language]: messages }));
+  }
+
   /**
    * A message in the current language. A message missing from it (only possible for a key added after a language was written, which the
    * types prevent) falls back to English rather than showing a key.
    */
-  readonly t: Translate = (key, params) => fill(MESSAGES[this.language()][key] ?? EN[key], params);
+  readonly t: Translate = (key, params) => fill((this.tables()[this.language()] ?? EN)[key] ?? EN[key], params);
 
   /**
    * A message whose wording depends on a count: `base.one` for exactly one, `base.other` for anything else. The count is also passed
