@@ -32,11 +32,13 @@ export function optionalGuid(control: AbstractControl): ValidationErrors | null 
       <form class="card" [formGroup]="form" (ngSubmit)="onSubmit()">
         <div class="field">
           <label for="name">Exam Name *</label>
+          <!-- The limits are the API's (255 and 1000 characters): the browser stops typing at them, so a longer name is never sent. -->
           <input
             type="text"
             id="name"
             formControlName="name"
             placeholder="Enter exam name"
+            maxlength="255"
           />
           @if (form.get('name')?.invalid && form.get('name')?.touched) {
             <div class="field-error">Exam name is required</div>
@@ -49,6 +51,7 @@ export function optionalGuid(control: AbstractControl): ValidationErrors | null 
             id="description"
             formControlName="description"
             placeholder="Enter exam description"
+            maxlength="1000"
             rows="4"
           ></textarea>
         </div>

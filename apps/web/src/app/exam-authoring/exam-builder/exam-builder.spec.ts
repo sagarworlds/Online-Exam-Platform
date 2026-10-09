@@ -170,6 +170,20 @@ describe('ExamBuilder', () => {
     expect('createdBy' in req.request.body).toBe(false);
   });
 
+  it('stops the name at the 255 characters the API accepts, so a longer name is never refused', () => {
+    const fixture = open();
+    const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('#name');
+
+    expect(input?.maxLength).toBe(255);
+  });
+
+  it('stops the description at the 1000 characters the API accepts', () => {
+    const fixture = open();
+    const textarea = (fixture.nativeElement as HTMLElement).querySelector<HTMLTextAreaElement>('#description');
+
+    expect(textarea?.maxLength).toBe(1000);
+  });
+
   it('refuses a series id that is not a GUID, says so, and sends nothing', () => {
     const fixture = open();
     fixture.componentInstance.form.patchValue({ name: 'Maths Final', seriesId: 'series-1' });
