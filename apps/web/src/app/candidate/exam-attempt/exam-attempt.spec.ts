@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { afterEach, beforeEach, vi } from 'vitest';
 import { AttemptDto, AttemptStatusDto } from '../candidate.models';
 import { ExamAttempt } from './exam-attempt';
+import { FakeResizeObserver } from './fake-resize-observer';
 
 describe('ExamAttempt', () => {
   const NOW = Date.parse('2026-10-05T04:30:00Z');
@@ -85,6 +86,15 @@ describe('ExamAttempt', () => {
     localStorage.clear();
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
+  });
+
+  beforeEach(() => {
+    FakeResizeObserver.instances = [];
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   afterEach(() => {
@@ -1761,6 +1771,26 @@ describe('ExamAttempt', () => {
       expect(submitInBar(fixture)?.textContent?.trim()).toBe('Submit exam');
       expect(root(fixture).querySelector('.exam-top')?.contains(submitInBar(fixture))).toBe(true);
       expect(root(fixture).querySelector('.exam-side')?.textContent).not.toContain('Submit exam');
+    });
+
+    it('leaves the title above the pinned bar, so only the time and Submit are pinned', async () => {
+      const fixture = await open(attempt());
+
+      expect(root(fixture).querySelector('.exam-top .exam-bar__title')).toBeNull();
+      expect(root(fixture).querySelector('h1.exam-bar__title')?.textContent?.trim()).toBe('Maths Final');
+      expect(root(fixture).querySelector('.exam-top .exam-bar__timer')).not.toBeNull();
+    });
+
+    it('sets the page clearance from the pinned block, follows its resizes, and clears it when the page is left', async () => {
+      const fixture = await open(attempt());
+      const block = root(fixture).querySelector('.exam-top') as HTMLElement;
+      Object.defineProperty(block, 'offsetHeight', { configurable: true, value: 60 });
+
+      FakeResizeObserver.instances.forEach((observer) => observer.report());
+      expect(document.documentElement.style.getPropertyValue('--exam-pinned-clearance')).toBe('76px');
+
+      fixture.destroy();
+      expect(document.documentElement.style.getPropertyValue('--exam-pinned-clearance')).toBe('');
     });
 
     it('opens the confirmation under the bar, with the same summary, and moves focus to it', async () => {
