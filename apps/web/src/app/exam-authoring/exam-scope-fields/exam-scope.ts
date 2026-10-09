@@ -1,3 +1,4 @@
+import { Translate, englishTranslate } from '../../i18n/i18n.service';
 import { ExamScopeDto, ExamScopeRequest, ExamScopeType } from '../exam.models';
 
 /** What the author has chosen in the scope fields, before it is sent: ids are strings, '' means "none chosen". */
@@ -47,19 +48,23 @@ export function selectionOf(scope: ExamScopeDto | null | undefined): ScopeSelect
   return { type: scope.type, bookId: scope.bookId ?? '', chapterIds: scope.chapters.map((chapter) => chapter.id) };
 }
 
-/** One line saying what an exam's questions come from, for lists and the editor. */
-export function describeScope(scope: ExamScopeDto | null | undefined): string {
+/**
+ * One line saying what an exam's questions come from, for lists and the editor. The words are English unless a translator is given, so
+ * a page that has not been translated yet reads exactly as before.
+ */
+export function describeScope(scope: ExamScopeDto | null | undefined, t: Translate = englishTranslate): string {
   if (!scope || scope.type === 'Independent') {
-    return 'Any question in the bank';
+    return t('exams.scope.any');
   }
 
-  // The class is shown beside the book, since the same book name can exist under several classes.
-  const bookName = scope.bookName ?? 'a book that is no longer in the bank';
+  // The class is shown beside the book, since the same book name can exist under several classes. The brackets read the same in
+  // every language, so they are not a message of their own.
+  const bookName = scope.bookName ?? t('exams.scope.noBook');
   const book = scope.className ? `${bookName} (${scope.className})` : bookName;
   if (scope.type === 'Book') {
-    return `The whole book ${book}`;
+    return t('exams.scope.whole', { book });
   }
 
-  const titles = scope.chapters.map((chapter) => chapter.title ?? 'a chapter that is no longer in the bank').join(', ');
-  return `${book}: ${titles}`;
+  const titles = scope.chapters.map((chapter) => chapter.title ?? t('exams.scope.noChapter')).join(', ');
+  return t('exams.scope.chapters', { book, titles });
 }

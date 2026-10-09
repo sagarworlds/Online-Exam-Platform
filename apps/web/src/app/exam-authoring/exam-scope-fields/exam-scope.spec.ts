@@ -1,4 +1,5 @@
 import { ExamScopeDto } from '../exam.models';
+import { Translate } from '../../i18n/i18n.service';
 import { NO_SCOPE, describeScope, isScopeComplete, selectionOf, toScopeRequest } from './exam-scope';
 
 describe('exam scope helpers', () => {
@@ -56,5 +57,18 @@ describe('exam scope helpers', () => {
   it('says so, rather than showing a blank, when the bank no longer has the book or a chapter', () => {
     expect(describeScope({ type: 'Book', bookId: 'b1', bookName: null, className: null, chapters: [] })).toContain('no longer in the bank');
     expect(describeScope({ type: 'Chapters', bookId: 'b1', bookName: 'Maths', className: null, chapters: [{ id: 'c1', title: null }] })).toContain('no longer in the bank');
+  });
+
+  it('takes every word from the translator it is given, so the line can be shown in another language', () => {
+    const asked: string[] = [];
+    const echo: Translate = (key) => {
+      asked.push(key);
+      return `[${key}]`;
+    };
+
+    const line = describeScope({ type: 'Chapters', bookId: 'b1', bookName: 'Maths', className: '5th', chapters: [{ id: 'c1', title: null }] }, echo);
+
+    expect(line).toBe('[exams.scope.chapters]');
+    expect(asked).toEqual(['exams.scope.noChapter', 'exams.scope.chapters']);
   });
 });

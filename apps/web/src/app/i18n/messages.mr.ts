@@ -655,4 +655,11 @@ export const MR: Messages = {
   'admin.issues.resolveFormLabel': '{who} चा अहवाल सोडवा',
   'admin.issues.resolvedResult': '{who} चा अहवाल सोडवला म्हणून चिन्हांकित केला.',
   'admin.issues.cancel': 'रद्द करा',
+
+  // ---- exam scope line (lists and the editor) ----
+  'exams.scope.any': 'बँकेतील कोणताही प्रश्न',
+  'exams.scope.noBook': 'ती पुस्तक जी आता बँकेत नाही',
+  'exams.scope.noChapter': 'तो धडा जो आता बँकेत नाही',
+  'exams.scope.whole': 'संपूर्ण पुस्तक {book}',
+  'exams.scope.chapters': '{book}: {titles}',
 };

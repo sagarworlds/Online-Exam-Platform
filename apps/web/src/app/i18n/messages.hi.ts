@@ -655,4 +655,11 @@ export const HI: Messages = {
   'admin.issues.resolveFormLabel': '{who} की रिपोर्ट हल करें',
   'admin.issues.resolvedResult': '{who} की रिपोर्ट हल के रूप में चिह्नित की गई।',
   'admin.issues.cancel': 'रद्द करें',
+
+  // ---- exam scope line (lists and the editor) ----
+  'exams.scope.any': 'बैंक का कोई भी प्रश्न',
+  'exams.scope.noBook': 'वह पुस्तक जो अब बैंक में नहीं है',
+  'exams.scope.noChapter': 'वह अध्याय जो अब बैंक में नहीं है',
+  'exams.scope.whole': 'पूरी पुस्तक {book}',
+  'exams.scope.chapters': '{book}: {titles}',
 };
