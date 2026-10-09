@@ -76,6 +76,12 @@
   display: none;
 }
 
+/* A long section name wraps within the column rather than being clipped at the sidebar's edge ("Attempt requests" at 1280px). */
+.admin-sidebar__label {
+  min-width: 0;
+  white-space: normal;
+}
+
 /* A phone has no width to spare for a column; the same links become a horizontal, scrollable strip
    above the page content instead, and the collapse toggle (nothing left to collapse into) is hidden. */
 @media (max-width: 40rem) {
@@ -100,5 +106,14 @@
 
   .admin-sidebar--collapsed .admin-sidebar__label {
     display: inline;
+  }
+
+  /* The links scroll sideways, so a link keeps its label rather than shrinking to its icon, and a label stays on one line. */
+  .admin-sidebar__link {
+    flex-shrink: 0;
+  }
+
+  .admin-sidebar__label {
+    white-space: nowrap;
   }
 }
