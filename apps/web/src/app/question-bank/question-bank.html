@@ -26,7 +26,7 @@
     </section>
   }
 
-  <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="New question">
+  <form class="card question-form" [formGroup]="form" (ngSubmit)="submit()" aria-label="New question">
     <h2>New question</h2>
 
     <app-book-chapter-picker [books]="books()" idPrefix="question" [(value)]="placement" />

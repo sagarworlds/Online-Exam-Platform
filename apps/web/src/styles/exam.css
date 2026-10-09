@@ -552,6 +552,11 @@
   overflow-wrap: anywhere;
 }
 
+/* The template puts the answer straight after its label, and Angular drops whitespace between elements, so the gap is added here. */
+.review-typed .hint + strong {
+  margin-inline-start: 0.35rem;
+}
+
 .review-option {
   display: flex;
   align-items: center;
