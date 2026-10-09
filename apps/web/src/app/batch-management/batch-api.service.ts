@@ -18,10 +18,6 @@ export class BatchApiService {
     return this.http.get<BatchDto[]>(this.apiUrl);
   }
 
-  getBatchById(id: string) {
-    return this.http.get<BatchDto>(`${this.apiUrl}/${id}`);
-  }
-
   addMember(batchId: string, request: AddBatchMemberRequest) {
     return this.http.post<void>(`${this.apiUrl}/${batchId}/members`, request);
   }
