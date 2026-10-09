@@ -2,6 +2,8 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { InviteApiService } from '../../invite-management/invite-api.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
+import { MessageKey } from '../../i18n/messages.en';
 import { extractErrorMessage } from '../../shared/problem-details';
 
 /**
@@ -10,7 +12,7 @@ import { extractErrorMessage } from '../../shared/problem-details';
  */
 @Component({
   selector: 'app-invite-accept',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, TranslatePipe],
   templateUrl: './invite-accept.html',
 })
 export class InviteAccept {
@@ -23,10 +25,23 @@ export class InviteAccept {
 
   protected readonly accepting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+  /** Whether the candidate has pressed Accept with the code typed in; a blank code is named only from then on. */
+  protected readonly attempted = signal(false);
 
   protected readonly form = this.formBuilder.nonNullable.group({
     code: ['', Validators.required],
   });
+
+  /** A code made only of spaces passes `Validators.required`, so it is judged on its trimmed value. */
+  protected codeError(): MessageKey | null {
+    return this.attempted() && this.form.controls.code.value.trim() === '' ? 'invite.codeRequired' : null;
+  }
+
+  /** Pressing Accept on the typed code: names a blank code on the field, and otherwise accepts what was typed. */
+  protected submitCode(): void {
+    this.attempted.set(true);
+    this.accept(null);
+  }
 
   protected accept(code: string | null): void {
     const value = (code ?? this.form.getRawValue().code).trim();

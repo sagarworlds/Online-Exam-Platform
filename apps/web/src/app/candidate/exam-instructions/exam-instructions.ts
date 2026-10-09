@@ -67,6 +67,26 @@ export class ExamInstructions {
     () => this.exam()?.canStartAttempt === true && this.checks() !== null && !this.hasProblem() && this.acknowledged() && !this.starting(),
   );
 
+  /**
+   * The one line beside Start that says what is still needed, in the order the candidate would meet it: the check, then any
+   * problem, then the box. Empty while the start request is in flight, since the button already says it is starting.
+   */
+  protected readonly startReason = computed(() => {
+    if (this.starting()) {
+      return '';
+    }
+
+    if (this.checks() === null) {
+      return this.i18n.t('instructions.checking');
+    }
+
+    if (this.hasProblem()) {
+      return this.i18n.t('instructions.bar.problem');
+    }
+
+    return this.acknowledged() ? this.i18n.t('instructions.bar.ready') : this.i18n.t('instructions.bar.tick');
+  });
+
   /** Why a new attempt cannot be started from here, or null when one can. */
   protected readonly cannotStartReason = computed(() => {
     const exam = this.exam();

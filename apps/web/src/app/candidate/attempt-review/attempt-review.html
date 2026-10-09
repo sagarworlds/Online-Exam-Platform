@@ -24,52 +24,55 @@
           <li class="badge badge--inactive">{{ 'review.unanswered' | t: { count: r.unansweredCount } }}</li>
         </ul>
       </div>
-      @if (r.autoSubmitted) {
-        <p class="hint">{{ 'common.autoSubmitted' | t }}</p>
-      }
-      @if ((r.resultVersion ?? 1) > 1) {
-        <p class="hint">{{ 'review.version' | t: { version: r.resultVersion ?? 1 } }}</p>
-      }
-      @if (r.disputeWindow; as disputeWindow) {
-        @if (disputeWindow.enabled) {
-          <p class="hint">
-            {{ disputeWindow.open ? ('review.dispute.windowOpen' | t: { date: (disputeWindow.closesAtUtc | date: 'medium') ?? '' }) : ('review.dispute.windowClosed' | t) }}
-          </p>
-        }
-      }
-      @if (r.revisions && r.revisions.length > 0) {
-        <div class="warning-note" role="status">
-          <p><strong>{{ 'review.revised' | t }}</strong></p>
-          <ul>
-            @for (revision of r.revisions; track revision.revisedAtUtc) {
-              <li>
-                @if (revision.version) {
-                  <strong>{{ 'review.revisionVersion' | t: { version: revision.version } }}</strong>
-                }
-                {{ 'review.revisionLine' | t: { previous: revision.previousScore, previousMax: revision.previousMaxScore, next: revision.newScore, nextMax: revision.newMaxScore, date: (revision.revisedAtUtc | date: 'medium') ?? '', reason: revision.reason } }}
-              </li>
-            }
-          </ul>
-        </div>
-      }
+    </div>
 
-      <div class="review-strip" role="group" [attr.aria-label]="'review.jump' | t">
-        @for (section of sections(r); track section.id) {
-          @for (question of section.questions; track question.id) {
-            <button
-              type="button"
-              class="review-strip__item"
-              [class.review-strip__item--correct]="question.verdict === 'Correct'"
-              [class.review-strip__item--partial]="question.verdict === 'Partial'"
-              [class.review-strip__item--wrong]="question.verdict === 'Wrong'"
-              [attr.aria-label]="'review.questionAria' | t: { number: question.number, verdict: verdictLabel(question.verdict) }"
-              (click)="scrollTo(question.number)"
-            >
-              {{ question.number }}
-            </button>
+    <!-- Under the summary, not inside it, so the summary stays short and the answers start higher up the page. -->
+    @if (r.autoSubmitted) {
+      <p class="hint">{{ 'common.autoSubmitted' | t }}</p>
+    }
+    @if ((r.resultVersion ?? 1) > 1) {
+      <p class="hint">{{ 'review.version' | t: { version: r.resultVersion ?? 1 } }}</p>
+    }
+    @if (r.disputeWindow; as disputeWindow) {
+      @if (disputeWindow.enabled) {
+        <p class="hint">
+          {{ disputeWindow.open ? ('review.dispute.windowOpen' | t: { date: (disputeWindow.closesAtUtc | date: 'medium') ?? '' }) : ('review.dispute.windowClosed' | t) }}
+        </p>
+      }
+    }
+    @if (r.revisions && r.revisions.length > 0) {
+      <div class="warning-note" role="status">
+        <p><strong>{{ 'review.revised' | t }}</strong></p>
+        <ul>
+          @for (revision of r.revisions; track revision.revisedAtUtc) {
+            <li>
+              @if (revision.version) {
+                <strong>{{ 'review.revisionVersion' | t: { version: revision.version } }}</strong>
+              }
+              {{ 'review.revisionLine' | t: { previous: revision.previousScore, previousMax: revision.previousMaxScore, next: revision.newScore, nextMax: revision.newMaxScore, date: (revision.revisedAtUtc | date: 'medium') ?? '', reason: revision.reason } }}
+            </li>
           }
-        }
+        </ul>
       </div>
+    }
+
+    <!-- Stays at the top of the screen while the answers are read, so any question is one tap away. -->
+    <div class="review-strip" role="group" [attr.aria-label]="'review.jump' | t">
+      @for (section of sections(r); track section.id) {
+        @for (question of section.questions; track question.id) {
+          <button
+            type="button"
+            class="review-strip__item"
+            [class.review-strip__item--correct]="question.verdict === 'Correct'"
+            [class.review-strip__item--partial]="question.verdict === 'Partial'"
+            [class.review-strip__item--wrong]="question.verdict === 'Wrong'"
+            [attr.aria-label]="'review.questionAria' | t: { number: question.number, verdict: verdictLabel(question.verdict) }"
+            (click)="scrollTo(question.number)"
+          >
+            {{ question.number }}
+          </button>
+        }
+      }
     </div>
 
     @for (section of sections(r); track section.id) {

@@ -1,41 +1,64 @@
 <div class="page">
-  <h1>Profile</h1>
+  <h1>{{ 'profile.title' | t }}</h1>
 
   @if (loading()) {
-    <p>Loading…</p>
+    <p role="status">{{ 'common.loading' | t }}</p>
   } @else {
     @if (errorMessage()) {
-      <p class="error-message">{{ errorMessage() }}</p>
-    }
-    @if (saved()) {
-      <p class="success-message">Saved.</p>
+      <p class="error-message" role="alert">{{ errorMessage() }}</p>
     }
 
     @if (profile(); as p) {
-      <div class="card">
-        <p><strong>Email:</strong> {{ p.email ?? '—' }}</p>
-        <p><strong>Phone:</strong> {{ p.phoneNumber ?? '—' }}</p>
-        <p><strong>Status:</strong> {{ p.status }}</p>
-        <p><strong>Roles:</strong> {{ p.roles.join(', ') }}</p>
-      </div>
-
-      <form class="card" [formGroup]="form" (ngSubmit)="submit()">
+      <form class="card" [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="saving()" novalidate>
+        <h2 class="card__title">{{ 'profile.nameHeading' | t }}</h2>
         <div class="field">
-          <label for="profile-display-name">Display name</label>
+          <label for="profile-display-name">{{ 'profile.displayName' | t }}</label>
           <input
             id="profile-display-name"
             type="text"
             formControlName="displayName"
             autocomplete="name"
-            [attr.aria-invalid]="displayNameError() ? 'true' : null"
-            [attr.aria-describedby]="displayNameError() ? 'profile-display-name-error' : null"
+            [attr.aria-invalid]="nameError() ? 'true' : null"
+            [attr.aria-describedby]="nameError() ? 'profile-name-hint profile-name-error' : 'profile-name-hint'"
           />
-          @if (displayNameError(); as message) {
-            <p id="profile-display-name-error" class="field-error">{{ message }}</p>
+          <p id="profile-name-hint" class="field-hint">{{ 'profile.nameLimit' | t: { max: maxNameLength } }}</p>
+          @if (nameError(); as key) {
+            <p id="profile-name-error" class="field-error">{{ key | t: { max: maxNameLength } }}</p>
           }
         </div>
-        <button type="submit" class="primary" [disabled]="form.invalid || saving()">Save</button>
+        @if (saveError()) {
+          <p class="error-message" role="alert">{{ saveError() }}</p>
+        }
+        @if (saved()) {
+          <p class="success-message" role="status">{{ 'profile.saved' | t }}</p>
+        }
+        <button type="submit" class="primary auth-submit" [disabled]="saving()">
+          {{ (saving() ? 'profile.saving' : 'profile.save') | t }}
+        </button>
       </form>
+
+      <section class="card" aria-labelledby="account-heading">
+        <h2 id="account-heading" class="card__title">{{ 'profile.accountHeading' | t }}</h2>
+        <dl class="account-facts">
+          <div>
+            <dt>{{ 'profile.label.email' | t }}</dt>
+            <dd>{{ p.email ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'profile.label.phone' | t }}</dt>
+            <dd>{{ p.phoneNumber ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'profile.label.status' | t }}</dt>
+            <dd>{{ statusLabel(p.status) }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'profile.label.roles' | t }}</dt>
+            <dd>{{ roleLabels(p.roles) }}</dd>
+          </div>
+        </dl>
+        <p class="hint">{{ 'profile.accountHint' | t }}</p>
+      </section>
     }
   }
 </div>

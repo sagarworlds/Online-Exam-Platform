@@ -1,3 +1,6 @@
+import { Translate } from '../../i18n/i18n.service';
+import { MessageKey } from '../../i18n/messages.en';
+
 /** One setting the WhatsApp connection reads, and whether it is filled in (secrets are never sent, only whether they are set). */
 export interface WhatsAppSettingDto {
   /** The configuration key, for example `WhatsApp__AccessToken`. */
@@ -100,41 +103,50 @@ export interface WhatsAppDeliveryDto {
   failure: WhatsAppFailureDto | null;
 }
 
-/** The heading for each failure, in words an administrator would use. Typed so a new kind cannot be forgotten. */
-const FAILURE_TITLES: Record<WhatsAppFailureKind, string> = {
-  SwitchedOff: 'WhatsApp is switched off',
-  NotConfigured: 'WhatsApp is not set up',
-  InvalidNumber: 'Invalid phone number',
-  InvalidToken: 'Access token rejected',
-  PermissionDenied: 'Permission denied',
-  WrongPhoneNumberId: 'Wrong phone number ID',
-  WrongApiAddress: 'Wrong WhatsApp address',
-  InvalidRequest: 'Invalid request',
-  InvalidRecipient: 'Invalid recipient',
-  TemplateNotFound: 'Template not found',
-  TemplateUnavailable: 'Template unavailable',
-  TemplateMismatch: 'Template does not match',
-  RecipientNotAllowed: 'Recipient not allowed',
-  ReEngagementRequired: 'Re-engagement required',
-  NotOnWhatsApp: 'Not on WhatsApp',
-  NumberNotRegistered: 'Sender number not registered',
-  PaymentProblem: 'Payment problem',
-  AccountRestricted: 'Account restricted',
-  RateLimited: 'Rate limited',
-  ServiceUnavailable: 'WhatsApp service unavailable',
-  Unreachable: 'WhatsApp unreachable',
-  TimedOut: 'Timed out',
-  Rejected: 'Rejected by WhatsApp',
+/**
+ * The message key of the heading for each failure kind, in words an administrator would use. Typed so a new kind cannot be
+ * forgotten, and each key has its wording in every language.
+ */
+const FAILURE_TITLE_KEYS: Record<WhatsAppFailureKind, MessageKey> = {
+  SwitchedOff: 'whatsapp.failure.SwitchedOff',
+  NotConfigured: 'whatsapp.failure.NotConfigured',
+  InvalidNumber: 'whatsapp.failure.InvalidNumber',
+  InvalidToken: 'whatsapp.failure.InvalidToken',
+  PermissionDenied: 'whatsapp.failure.PermissionDenied',
+  WrongPhoneNumberId: 'whatsapp.failure.WrongPhoneNumberId',
+  WrongApiAddress: 'whatsapp.failure.WrongApiAddress',
+  InvalidRequest: 'whatsapp.failure.InvalidRequest',
+  InvalidRecipient: 'whatsapp.failure.InvalidRecipient',
+  TemplateNotFound: 'whatsapp.failure.TemplateNotFound',
+  TemplateUnavailable: 'whatsapp.failure.TemplateUnavailable',
+  TemplateMismatch: 'whatsapp.failure.TemplateMismatch',
+  RecipientNotAllowed: 'whatsapp.failure.RecipientNotAllowed',
+  ReEngagementRequired: 'whatsapp.failure.ReEngagementRequired',
+  NotOnWhatsApp: 'whatsapp.failure.NotOnWhatsApp',
+  NumberNotRegistered: 'whatsapp.failure.NumberNotRegistered',
+  PaymentProblem: 'whatsapp.failure.PaymentProblem',
+  AccountRestricted: 'whatsapp.failure.AccountRestricted',
+  RateLimited: 'whatsapp.failure.RateLimited',
+  ServiceUnavailable: 'whatsapp.failure.ServiceUnavailable',
+  Unreachable: 'whatsapp.failure.Unreachable',
+  TimedOut: 'whatsapp.failure.TimedOut',
+  Rejected: 'whatsapp.failure.Rejected',
 };
 
 /**
- * The heading to show for a failure kind. A kind this build does not know (the server may be newer than the page) is
- * still shown readably, by splitting its name into words ("SomeNewKind" becomes "Some new kind").
+ * The heading for a failure kind, in the language the administrator chose.
+ *
+ * A kind this build does not know is still shown readably: the server may be newer than the page, so its name is split into
+ * words ("SomeNewKind" becomes "Some new kind"). An empty kind says the message was not sent. `Object.hasOwn` keeps a name such
+ * as `constructor` from matching a property the table inherits.
+ *
+ * @param kind The failure kind the server sent.
+ * @param t The translator for the current language.
+ * @returns The heading to show; never empty.
  */
-export function failureTitle(kind: string): string {
-  const known = (FAILURE_TITLES as Record<string, string | undefined>)[kind];
-  if (known) {
-    return known;
+export function failureTitle(kind: string, t: Translate): string {
+  if (Object.hasOwn(FAILURE_TITLE_KEYS, kind)) {
+    return t(FAILURE_TITLE_KEYS[kind as WhatsAppFailureKind]);
   }
 
   const words = kind
@@ -142,5 +154,5 @@ export function failureTitle(kind: string): string {
     .replace(/[_-]+/g, ' ')
     .trim()
     .toLowerCase();
-  return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'Not sent';
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : t('whatsapp.failure.notSent');
 }

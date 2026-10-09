@@ -2,6 +2,9 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EMPTY, Subscription, catchError, exhaustMap, take, takeWhile, timer } from 'rxjs';
+import { I18nService } from '../../i18n/i18n.service';
+import { MessageKey } from '../../i18n/messages.en';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage, extractProblemCode } from '../../shared/problem-details';
 import { WhatsAppTestApiService } from './whatsapp-test-api.service';
 import {
@@ -22,23 +25,11 @@ export const WHATSAPP_POLL_INTERVAL_MS = 3000;
 /** How long to wait for a delivery report before telling the administrator to check the phone. */
 export const WHATSAPP_POLL_TIMEOUT_MS = 90_000;
 
-const NOT_ALLOWED = 'You are not allowed to use the WhatsApp test.';
-const BAD_REQUEST = 'Check the phone number and the message, then try again.';
-
-/** Shown when the server says a message failed but not why, so the page never shows a blank failure. */
-const UNEXPLAINED_FAILURE: WhatsAppFailureDto = {
-  kind: 'Rejected',
-  explanation: 'WhatsApp did not deliver the message, and gave no reason. Check the phone, and check the setup above.',
-  metaCode: null,
-  metaMessage: null,
-  httpStatus: null,
-};
-
-/** The steps of a delivery, in the order WhatsApp reports them. */
-const DELIVERY_STEPS: readonly { status: WhatsAppDeliveryStatus; label: string }[] = [
-  { status: 'sent', label: 'Sent' },
-  { status: 'delivered', label: 'Delivered' },
-  { status: 'read', label: 'Read' },
+/** The steps of a delivery, in the order WhatsApp reports them, each with the key of its word. */
+const DELIVERY_STEPS: readonly { status: WhatsAppDeliveryStatus; label: MessageKey }[] = [
+  { status: 'sent', label: 'whatsapp.step.sent' },
+  { status: 'delivered', label: 'whatsapp.step.delivered' },
+  { status: 'read', label: 'whatsapp.step.read' },
 ];
 
 /** One step of the progress line: a symbol and, for the steps not still ahead, words, so colour is never the only cue. */
@@ -54,22 +45,23 @@ const isFinal = (status: WhatsAppDeliveryStatus | undefined): boolean =>
   status === 'delivered' || status === 'read' || status === 'failed';
 
 /**
- * Admin page: send one message through the platform's WhatsApp connection to check that WhatsApp works. The setup check
- * shows which settings are filled in; when a send does not work, the page shows the server's accurate reason, and after a
- * send it follows the delivery report (sent, delivered, read, or failed) because WhatsApp accepts a message long before it
- * reaches the phone.
+ * Admin page: send one message through the platform's WhatsApp connection to check that WhatsApp works. The status card at the
+ * top says whether WhatsApp is on and what, if anything, is stopping it; the settings are one tap away. When a send does not
+ * work, the page shows the server's accurate reason, and after a send it follows the delivery report (sent, delivered, read, or
+ * failed) because WhatsApp accepts a message long before it reaches the phone.
  */
 @Component({
   selector: 'app-whatsapp-test',
+  imports: [TranslatePipe],
   templateUrl: './whatsapp-test.html',
 })
 export class WhatsAppTest implements OnInit {
   private readonly api = inject(WhatsAppTestApiService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly i18n = inject(I18nService);
   private polling: Subscription | null = null;
 
   protected readonly maxLength = WHATSAPP_MESSAGE_MAX_LENGTH;
-  protected readonly failureTitle = failureTitle;
 
   protected readonly status = signal<WhatsAppStatusDto | null>(null);
   protected readonly statusLoading = signal(false);
@@ -78,6 +70,8 @@ export class WhatsAppTest implements OnInit {
   protected readonly phone = signal('');
   protected readonly mode = signal<WhatsAppSendMode>('Text');
   protected readonly message = signal('');
+  /** Whether Send has been pressed. The fields are judged only from then on, as on the other forms, so nothing is named before it is tried. */
+  protected readonly attempted = signal(false);
   protected readonly sending = signal(false);
 
   protected readonly sendError = signal<string | null>(null);
@@ -85,8 +79,16 @@ export class WhatsAppTest implements OnInit {
   protected readonly delivery = signal<WhatsAppDeliveryDto | null>(null);
   protected readonly timedOut = signal(false);
 
-  protected readonly canSend = computed(
-    () => !this.sending() && this.phone().trim() !== '' && (this.mode() === 'SignInTemplate' || this.message().trim() !== ''),
+  /** The phone number's problem, named once Send has been pressed. Spaces alone are no number. */
+  protected readonly phoneError = computed<MessageKey | null>(() =>
+    this.attempted() && this.phone().trim() === '' ? 'whatsapp.form.phoneRequired' : null,
+  );
+
+  /** The message's problem, named once Send has been pressed. Only a text message needs one: the sign-in template sends its own words. */
+  protected readonly messageError = computed<MessageKey | null>(() =>
+    this.attempted() && this.mode() === 'Text' && this.message().trim() === ''
+      ? 'whatsapp.form.messageRequired'
+      : null,
   );
 
   /** Why nothing arrived: the send itself failed, or a delivery report later said the message failed. */
@@ -96,11 +98,11 @@ export class WhatsAppTest implements OnInit {
       return null;
     }
     if (!result.sent) {
-      return result.failure ?? UNEXPLAINED_FAILURE;
+      return result.failure ?? this.unexplainedFailure();
     }
 
     const delivery = this.delivery();
-    return delivery?.status === 'failed' ? (delivery.failure ?? UNEXPLAINED_FAILURE) : null;
+    return delivery?.status === 'failed' ? (delivery.failure ?? this.unexplainedFailure()) : null;
   });
 
   /** True when delivery reports can be followed for the message that was handed over. */
@@ -113,24 +115,27 @@ export class WhatsAppTest implements OnInit {
   protected readonly steps = computed<DeliveryStepView[]>(() => {
     const current = DELIVERY_STEPS.findIndex((step) => step.status === this.delivery()?.status);
     return DELIVERY_STEPS.map((step, index): DeliveryStepView => {
+      const label = this.i18n.t(step.label);
       if (index < current) {
-        return { label: step.label, state: 'done', mark: '✓', spoken: 'done' };
+        return { label, state: 'done', mark: '✓', spoken: this.i18n.t('whatsapp.step.done') };
       }
       return index === current
-        ? { label: step.label, state: 'current', mark: '●', spoken: 'current step' }
-        : { label: step.label, state: 'todo', mark: '○', spoken: '' };
+        ? { label, state: 'current', mark: '●', spoken: this.i18n.t('whatsapp.step.current') }
+        : { label, state: 'todo', mark: '○', spoken: '' };
     });
   });
 
-  protected readonly awaitingReport = computed(() => this.tracking() && !isFinal(this.delivery()?.status) && !this.timedOut());
+  protected readonly awaitingReport = computed(
+    () => this.tracking() && !isFinal(this.delivery()?.status) && !this.timedOut(),
+  );
 
-  protected readonly timeoutNote = computed(() => {
+  protected readonly timeoutNote = computed<string | null>(() => {
     if (!this.timedOut()) {
       return null;
     }
-    return this.delivery()?.status === 'sent'
-      ? 'WhatsApp reports the message as sent, but not yet as delivered. Check the phone.'
-      : 'No delivery report yet. Check the phone.';
+    return this.i18n.t(
+      this.delivery()?.status === 'sent' ? 'whatsapp.timeout.sentOnly' : 'whatsapp.timeout.none',
+    );
   });
 
   constructor() {
@@ -139,6 +144,16 @@ export class WhatsAppTest implements OnInit {
 
   ngOnInit(): void {
     this.loadStatus();
+  }
+
+  /** The heading for a failure kind, in the language chosen; see {@link failureTitle} for kinds this build does not know. */
+  protected failureHeading(kind: string): string {
+    return failureTitle(kind, this.i18n.t);
+  }
+
+  /** How many things are stopping WhatsApp, in words, such as "2 things are stopping WhatsApp from sending." */
+  protected problemCount(count: number): string {
+    return this.i18n.plural('whatsapp.status.problems', count);
   }
 
   protected loadStatus(): void {
@@ -162,7 +177,8 @@ export class WhatsAppTest implements OnInit {
   }
 
   protected send(): void {
-    if (!this.canSend()) {
+    this.attempted.set(true);
+    if (this.phoneError() !== null || this.messageError() !== null || this.sending()) {
       return;
     }
 
@@ -171,7 +187,9 @@ export class WhatsAppTest implements OnInit {
 
     const phoneNumber = this.phone().trim();
     const request: WhatsAppSendRequest =
-      this.mode() === 'Text' ? { phoneNumber, mode: 'Text', message: this.message().trim() } : { phoneNumber, mode: 'SignInTemplate' };
+      this.mode() === 'Text'
+        ? { phoneNumber, mode: 'Text', message: this.message().trim() }
+        : { phoneNumber, mode: 'SignInTemplate' };
 
     this.api
       .send(request)
@@ -223,17 +241,28 @@ export class WhatsAppTest implements OnInit {
     this.timedOut.set(false);
   }
 
+  /** What to show when the server says a message failed but gives no reason, so the page never shows a blank failure. */
+  private unexplainedFailure(): WhatsAppFailureDto {
+    return {
+      kind: 'Rejected',
+      explanation: this.i18n.t('whatsapp.failure.unexplained'),
+      metaCode: null,
+      metaMessage: null,
+      httpStatus: null,
+    };
+  }
+
   /** The API's own sentence when it gave one; for the two cases a person can act on, a fallback that says what to do. */
   private describe(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
       if (error.status === 403) {
-        return extractErrorMessage(error, NOT_ALLOWED);
+        return extractErrorMessage(error, this.i18n.t('whatsapp.error.notAllowed'));
       }
       if (extractProblemCode(error) === 'invalid_whatsapp_message') {
-        return extractErrorMessage(error, BAD_REQUEST);
+        return extractErrorMessage(error, this.i18n.t('whatsapp.error.badRequest'));
       }
     }
 
-    return extractErrorMessage(error);
+    return extractErrorMessage(error, this.i18n.t('common.somethingWrong'));
   }
 }

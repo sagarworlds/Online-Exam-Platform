@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { AuthSessionService } from '../../auth/auth-session.service';
+import { I18nService } from '../../i18n/i18n.service';
 import { AdminHome } from './admin-home';
 
 function render(permissions: string[]): HTMLElement {
@@ -82,5 +83,30 @@ describe('AdminHome', () => {
 
   it('says so when no area is open to the user', () => {
     expect(render([]).textContent).toContain('no admin areas');
+  });
+
+  it('shows each open area as a whole-row link, with the icon the sidebar uses for it', () => {
+    const page = render(['question.read', 'invite.manage']);
+    const rows = Array.from(page.querySelectorAll<HTMLAnchorElement>('a.admin-area'));
+
+    expect(rows.map((a) => a.getAttribute('href'))).toEqual(['/admin/questions', '/invites']);
+    expect(rows.every((a) => a.querySelector('app-admin-icon') !== null)).toBe(true);
+  });
+
+  it('reads the page and the areas in the language the admin chose', () => {
+    TestBed.configureTestingModule({
+      imports: [AdminHome],
+      providers: [provideRouter([]), { provide: AuthSessionService, useValue: { hasPermission: () => true } }],
+    });
+    const fixture = TestBed.createComponent(AdminHome);
+    fixture.detectChanges();
+
+    TestBed.inject(I18nService).setLanguage('hi');
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('प्रशासन');
+    expect(text).toContain('प्रश्न');
+    localStorage.clear();
   });
 });

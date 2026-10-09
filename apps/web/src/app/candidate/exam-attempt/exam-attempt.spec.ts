@@ -1405,11 +1405,14 @@ describe('ExamAttempt', () => {
       expect(textOf(fixture)).toContain('Question 1 of 2');
     });
 
-    it('offers to report an issue during a sitting, naming the attempt and the question on screen (FR-42)', async () => {
+    it('offers to report a problem with the question on screen, beside its buttons and naming that question (FR-42)', async () => {
       const fixture = await open(attempt());
 
-      const report = Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Report an issue') as HTMLButtonElement;
+      const report = Array.from(root(fixture).querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Report a problem with this question',
+      ) as HTMLButtonElement;
       expect(report).toBeTruthy();
+      expect(report.closest('.exam-tools')).not.toBeNull();
       report.click();
       fixture.detectChanges();
       const box = root(fixture).querySelector('textarea') as HTMLTextAreaElement;
@@ -1419,9 +1422,8 @@ describe('ExamAttempt', () => {
       (Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Send report') as HTMLButtonElement).click();
 
       const request = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/me/attempts/a1/issues'));
-      expect(request.request.body).toMatchObject({ category: 'Question', message: 'Option C is missing' });
-      expect((request.request.body as { questionId: string }).questionId).toBeTruthy();
-      request.flush({ id: 'r1', category: 'Question', questionId: null, message: 'Option C is missing', reportedAtUtc: '2026-10-05T04:31:00Z' });
+      expect(request.request.body).toEqual({ category: 'Question', message: 'Option C is missing', questionId: 'q1' });
+      request.flush({ id: 'r1', category: 'Question', questionId: 'q1', message: 'Option C is missing', reportedAtUtc: '2026-10-05T04:31:00Z' });
     });
 
     it('still offers to report an issue while an organiser has the attempt paused', async () => {
@@ -1682,6 +1684,59 @@ describe('ExamAttempt', () => {
       vi.advanceTimersByTime(20_000);
 
       httpMock.expectOne(isStatus).flush({ status: 'InProgress', pausedAtUtc: null, deadlineUtc: '2026-10-05T05:00:00Z', serverTimeUtc: new Date(Date.now()).toISOString(), warnings: [] });
+    });
+  });
+
+  describe('the layout', () => {
+    const submitInBar = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector('.exam-bar .exam-bar__submit') as HTMLButtonElement | null;
+    const confirmation = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector('.exam-top .exam-submit-confirm') as HTMLElement | null;
+
+    it('keeps Submit in the timer bar, so it is in reach from anywhere on the page, and not at the foot of the palette', async () => {
+      const fixture = await open(attempt());
+
+      expect(submitInBar(fixture)?.textContent?.trim()).toBe('Submit exam');
+      expect(root(fixture).querySelector('.exam-top')?.contains(submitInBar(fixture))).toBe(true);
+      expect(root(fixture).querySelector('.exam-side')?.textContent).not.toContain('Submit exam');
+    });
+
+    it('opens the confirmation under the bar, with the same summary, and moves focus to it', async () => {
+      const fixture = await open(attempt());
+
+      submitInBar(fixture)?.click();
+      fixture.detectChanges();
+
+      expect(confirmation(fixture)?.textContent).toContain('Submit now? 1 of 2 questions are answered.');
+      expect(root(fixture).querySelector('.exam-side .submit-confirm')).toBeNull();
+      expect(document.activeElement).toBe(confirmation(fixture)?.querySelector('p'));
+    });
+
+    it('gives focus back to Submit when the candidate chooses to keep working', async () => {
+      const fixture = await open(attempt());
+      submitInBar(fixture)?.click();
+      fixture.detectChanges();
+
+      buttonLabelled(fixture, 'Keep working')?.click();
+      fixture.detectChanges();
+
+      expect(confirmation(fixture)).toBeNull();
+      expect(document.activeElement).toBe(submitInBar(fixture));
+    });
+
+    it('keeps the display settings and the shortcut note in a "Display and help" section that starts closed', async () => {
+      const fixture = await open(attempt());
+      const help = root(fixture).querySelector('details.exam-help') as HTMLDetailsElement;
+
+      expect(help.open).toBe(false);
+      expect(help.querySelector('summary')?.textContent?.trim()).toBe('Display and help');
+      expect(help.querySelector('.exam-zoom')?.textContent).toContain('High contrast');
+      expect(help.textContent).toContain('Keyboard: N next');
+    });
+
+    it('still offers the report button while the attempt is paused, outside the paused message', async () => {
+      const fixture = await open(attempt({ pausedAtUtc: '2026-10-05T04:35:00Z' }));
+
+      expect(root(fixture).querySelector('.exam-paused')).not.toBeNull();
+      expect(root(fixture).querySelector('app-report-issue')).not.toBeNull();
     });
   });
 });

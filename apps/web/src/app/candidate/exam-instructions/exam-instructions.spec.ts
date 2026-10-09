@@ -256,4 +256,51 @@ describe('ExamInstructions', () => {
 
     expect(root(fixture).querySelector('[role="alert"]')?.textContent).toContain('Server unavailable.');
   });
+
+  describe('the start bar', () => {
+    const reason = (fixture: ComponentFixture<ExamInstructions>) => root(fixture).querySelector('#start-reason')?.textContent?.trim();
+
+    it('says what is still needed beside Start: the check, then a problem, then the box, then ready', async () => {
+      let finish!: (results: CheckResult[]) => void;
+      run.mockReturnValueOnce(new Promise<CheckResult[]>((resolve) => (finish = resolve)));
+      const fixture = await open();
+      expect(reason(fixture)).toBe('Checking your browser and connection…');
+
+      finish(PASSING);
+      await tick(fixture, () => undefined);
+      expect(reason(fixture)).toBe('Tick the box above to start.');
+
+      await tick(fixture, () => checkbox(fixture).click());
+      expect(reason(fixture)).toBe('Ready to start.');
+
+      run.mockResolvedValueOnce([{ id: 'server', label: 'Exam server', status: 'fail', detail: 'The exam server could not be reached.' }]);
+      await tick(fixture, () => Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes('Run the check again'))?.click());
+      expect(reason(fixture)).toBe('Fix the problem in the system check first.');
+    });
+
+    it('connects that reason to the Start button, so a screen reader hears why Start is off', async () => {
+      const fixture = await open();
+
+      expect(startButton(fixture).getAttribute('aria-describedby')).toBe('start-reason');
+      expect(startButton(fixture).disabled).toBe(true);
+      expect(reason(fixture)).toBe('Tick the box above to start.');
+    });
+
+    it('keeps the time warning in view before the box is ticked, since that is when it matters', async () => {
+      const fixture = await open();
+
+      expect(root(fixture).textContent).toContain('The time begins as soon as you press Start exam.');
+    });
+
+    it('comes after the rules and the acknowledgment, so Start is the last thing read', async () => {
+      const fixture = await open();
+      const el = (selector: string) => root(fixture).querySelector(selector) as HTMLElement;
+      const follows = (earlier: HTMLElement, later: HTMLElement) => !!(earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+      expect(follows(el('#check-heading'), el('#rules-heading'))).toBe(true);
+      expect(follows(el('#rules-heading'), el('#ack-heading'))).toBe(true);
+      expect(follows(el('#ack-heading'), el('.start-bar'))).toBe(true);
+      expect(el('.start-bar').contains(startButton(fixture))).toBe(true);
+    });
+  });
 });

@@ -1,31 +1,38 @@
-<section class="report-issue" [attr.aria-label]="'attempt.report.region' | t">
+<section class="report-issue" [attr.aria-label]="(scope() === 'question' ? 'attempt.report.questionStart' : 'attempt.report.region') | t">
   @if (sent()) {
     <p class="success-message" role="status">{{ 'attempt.report.sent' | t }}</p>
   }
 
   @if (open()) {
-    <form class="card" (submit)="$event.preventDefault(); send()" [attr.aria-label]="'attempt.report.formLabel' | t">
+    <form
+      class="card report-issue__form"
+      (submit)="$event.preventDefault(); send()"
+      [attr.aria-label]="(scope() === 'question' ? 'attempt.report.questionStart' : 'attempt.report.formLabel') | t"
+    >
+      @if (scope() === 'attempt') {
+        <div class="field">
+          <label [attr.for]="idPrefix() + '-category'">{{ 'attempt.report.category' | t }}</label>
+          <select [id]="idPrefix() + '-category'" [value]="category()" (change)="category.set($any($event.target).value)" [disabled]="busy()">
+            @for (option of attemptCategories; track option) {
+              <option [value]="option" [selected]="option === category()">{{ categoryLabel(option) }}</option>
+            }
+          </select>
+        </div>
+      }
       <div class="field">
-        <label for="report-issue-category">{{ 'attempt.report.category' | t }}</label>
-        <select id="report-issue-category" [value]="category()" (change)="category.set($any($event.target).value)" [disabled]="busy()">
-          @for (option of categories; track option) {
-            <option [value]="option" [selected]="option === category()">{{ categoryLabel(option) }}</option>
-          }
-        </select>
-      </div>
-      <div class="field">
-        <label for="report-issue-message">{{ 'attempt.report.what' | t }}</label>
+        <label [attr.for]="idPrefix() + '-message'">{{ (scope() === 'question' ? 'attempt.report.questionWhat' : 'attempt.report.what') | t }}</label>
         <textarea
-          id="report-issue-message"
+          #messageBox
+          [id]="idPrefix() + '-message'"
           rows="3"
           aria-required="true"
-          aria-describedby="report-issue-hint"
+          [attr.aria-describedby]="idPrefix() + '-hint'"
           [maxLength]="maxMessage"
           [value]="message()"
           (input)="message.set($any($event.target).value)"
           [disabled]="busy()"
         ></textarea>
-        <p class="hint" id="report-issue-hint">{{ 'attempt.report.hint' | t: { max: maxMessage } }}</p>
+        <p class="hint" [id]="idPrefix() + '-hint'">{{ 'attempt.report.hint' | t: { max: maxMessage } }}</p>
       </div>
       @if (error()) {
         <p class="error-message" role="alert">{{ error() }}</p>
@@ -36,8 +43,8 @@
       </div>
     </form>
   } @else {
-    <div class="actions">
-      <button type="button" (click)="start()">{{ 'attempt.report.start' | t }}</button>
+    <div class="report-issue__start">
+      <button #openButton type="button" (click)="start()">{{ (scope() === 'question' ? 'attempt.report.questionStart' : 'attempt.report.start') | t }}</button>
     </div>
   }
 </section>

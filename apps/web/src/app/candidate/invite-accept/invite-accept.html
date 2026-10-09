@@ -1,23 +1,42 @@
 <div class="page">
-  <h1>Exam invitation</h1>
-
-  @if (errorMessage()) {
-    <p class="error-message">{{ errorMessage() }}</p>
-  }
+  <h1>{{ 'invite.title' | t }}</h1>
 
   @if (linkCode) {
-    <div class="card">
-      <p>You have been invited to take an exam. Accept the invitation to add it to your exams.</p>
-      <button type="button" class="primary" (click)="accept(linkCode)" [disabled]="accepting()">Accept invitation</button>
-    </div>
+    <section class="card" [attr.aria-busy]="accepting()">
+      <p>{{ 'invite.linkIntro' | t }}</p>
+      @if (errorMessage()) {
+        <p class="error-message" role="alert">{{ errorMessage() }}</p>
+      }
+      <button type="button" class="primary auth-submit" [disabled]="accepting()" (click)="accept(linkCode)">
+        {{ (accepting() ? 'invite.accepting' : 'invite.accept') | t }}
+      </button>
+    </section>
   } @else {
-    <form class="card" [formGroup]="form" (ngSubmit)="accept(null)" aria-label="Invitation code">
-      <p>Enter the code from your invitation.</p>
+    <form class="card" [formGroup]="form" (ngSubmit)="submitCode()" [attr.aria-busy]="accepting()" novalidate>
+      <p>{{ 'invite.codeIntro' | t }}</p>
       <div class="field">
-        <label for="invite-code">Invitation code</label>
-        <input id="invite-code" type="text" formControlName="code" autocomplete="off" />
+        <label for="invite-code">{{ 'invite.codeLabel' | t }}</label>
+        <input
+          id="invite-code"
+          type="text"
+          formControlName="code"
+          autocomplete="off"
+          spellcheck="false"
+          autocapitalize="characters"
+          [attr.aria-invalid]="codeError() ? 'true' : null"
+          [attr.aria-describedby]="codeError() ? 'invite-code-hint invite-code-error' : 'invite-code-hint'"
+        />
+        <p id="invite-code-hint" class="field-hint">{{ 'invite.codeHint' | t }}</p>
+        @if (codeError(); as key) {
+          <p id="invite-code-error" class="field-error">{{ key | t }}</p>
+        }
       </div>
-      <button type="submit" class="primary" [disabled]="form.invalid || accepting()">Accept invitation</button>
+      @if (errorMessage()) {
+        <p class="error-message" role="alert">{{ errorMessage() }}</p>
+      }
+      <button type="submit" class="primary auth-submit" [disabled]="accepting()">
+        {{ (accepting() ? 'invite.accepting' : 'invite.accept') | t }}
+      </button>
     </form>
   }
 </div>

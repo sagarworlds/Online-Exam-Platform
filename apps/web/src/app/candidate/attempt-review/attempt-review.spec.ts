@@ -662,4 +662,20 @@ describe('AttemptReview', () => {
       });
     });
   });
+
+  describe('the layout', () => {
+    it('keeps the summary to the score and counts, with the notes and the number strip after it, so the answers start higher up', async () => {
+      const fixture = await open(
+        review({ autoSubmitted: true, disputeWindow: { enabled: true, open: true, closesAtUtc: '2026-10-12T04:50:00Z' } }),
+      );
+      const summary = root(fixture).querySelector('.review-summary')?.closest('.card') as HTMLElement;
+      const note = root(fixture).querySelector('.hint') as HTMLElement;
+      const strip = root(fixture).querySelector('.review-strip') as HTMLElement;
+
+      expect(summary.contains(note)).toBe(false);
+      expect(summary.contains(strip)).toBe(false);
+      expect(summary.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(note.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+  });
 });

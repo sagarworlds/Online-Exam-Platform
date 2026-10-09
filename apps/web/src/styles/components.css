@@ -884,6 +884,28 @@ button.primary:hover:not(:disabled),
   font-size: 0.9rem;
 }
 
+/* The answer to "is WhatsApp working": the on or off pill, and beside it the count of what is stopping it, or that nothing is. */
+.whatsapp-headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.whatsapp-headline__detail {
+  margin: 0;
+  font-weight: 600;
+}
+
+.whatsapp-headline__detail--problem {
+  color: var(--danger);
+}
+
+.whatsapp-headline__detail--ok {
+  color: var(--success);
+}
+
 /* A setting name is read and copied whole, so beside the sidebar it never breaks mid-word and the table scrolls instead. On a
    phone the page is as wide as its widest content (see .shell), so there the name wraps to keep the table on screen. */
 @media (min-width: 40.01rem) {
@@ -935,10 +957,71 @@ button.primary:hover:not(:disabled),
   border-inline-start-color: var(--danger);
 }
 
-.whatsapp-meta summary {
+.whatsapp-meta summary,
+.whatsapp-settings summary {
   cursor: pointer;
   font-weight: 600;
   font-size: 0.9rem;
+}
+
+.whatsapp-settings {
+  margin-top: 1rem;
+}
+
+.whatsapp-settings summary {
+  margin-bottom: 0.75rem;
+}
+
+/* On a phone the settings table has no room for three columns, so each setting becomes a block that names its own fields
+   (the cell's label comes from data-label). The header row stays for screen readers, hidden as a visually-hidden row. */
+@media (max-width: 40rem) {
+  .whatsapp-settings .table,
+  .whatsapp-settings .table tbody {
+    display: block;
+  }
+
+  .whatsapp-settings .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .whatsapp-settings .table tr {
+    display: block;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .whatsapp-settings .table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .whatsapp-settings .table td {
+    display: block;
+    padding: 0.2rem 1rem;
+    border: 0;
+  }
+
+  .whatsapp-settings .table td:first-child {
+    padding-top: 0.75rem;
+  }
+
+  .whatsapp-settings .table td:last-child {
+    padding-bottom: 0.75rem;
+  }
+
+  .whatsapp-settings .table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .whatsapp-settings .whatsapp-setting {
+    overflow-wrap: anywhere;
+  }
 }
 
 .whatsapp-meta__list {
