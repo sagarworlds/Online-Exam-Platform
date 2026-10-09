@@ -49,12 +49,13 @@ public static class InviteEndpoints
             .WithName("AcceptInvite")
             .WithDescription("Accept an invitation with its code; the signed-in account must hold the invited e-mail address");
 
+        // Declining is the invited candidate's action, like accepting, so it asks for a signed-in caller and the
+        // invited address. Staff have no reason to decline on a candidate's behalf, so no permission is named.
         invites.MapPost("/{inviteId}/decline", DeclineInvite)
-            .RequireAuthorization(InvitePermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("DeclineInvite")
-            .WithDescription("Decline an invite");
+            .WithDescription("Decline an invitation; the signed-in account must hold the invited e-mail address");
 
         invites.MapPost("/{inviteId}/revoke", RevokeInvite)
             .RequireAuthorization(InvitePermissions.Manage)
@@ -100,9 +101,9 @@ public static class InviteEndpoints
         return Results.Ok(await handler.HandleAsync(command, ct));
     }
 
-    private static async Task<IResult> DeclineInvite(Guid inviteId, DeclineInviteHandler handler, CancellationToken ct)
+    private static async Task<IResult> DeclineInvite(Guid inviteId, ClaimsPrincipal user, DeclineInviteHandler handler, CancellationToken ct)
     {
-        await handler.HandleAsync(new DeclineInviteCommand(inviteId), ct);
+        await handler.HandleAsync(new DeclineInviteCommand(inviteId, user.GetEmail()), ct);
         return Results.NoContent();
     }
 

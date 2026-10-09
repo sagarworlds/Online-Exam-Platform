@@ -90,7 +90,7 @@ public class GenerateInviteCodeHandlerTests
                 _invite.Accept(_invite.Codes.Single().Code, Guid.NewGuid(), Email, Now);
                 break;
             case InviteStatus.Declined:
-                _invite.Decline(Now);
+                _invite.Decline(Email, Now);
                 break;
             default:
                 _invite.Revoke(Now);

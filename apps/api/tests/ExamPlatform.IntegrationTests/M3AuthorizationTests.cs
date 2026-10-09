@@ -148,7 +148,6 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("GET", "/v1/invites", RbacCatalog.PermissionCodes.InviteManage, null),
         new("POST", "/v1/invites/{inviteId}/codes", RbacCatalog.PermissionCodes.InviteManage,
             new { expiryHours = 24 }),
-        new("POST", "/v1/invites/{inviteId}/decline", RbacCatalog.PermissionCodes.InviteManage, null),
         new("POST", "/v1/invites/{inviteId}/revoke", RbacCatalog.PermissionCodes.InviteManage, null),
 
         new("POST", "/v1/guardians", RbacCatalog.PermissionCodes.GuardianLinkManage,
@@ -159,9 +158,9 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("DELETE", "/v1/guardians/{guardianId}/candidates/{candidateId}", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
     ];
 
-    // Routes under the module prefixes that deliberately ask for a signed-in caller only: redeeming an invite
-    // is the invitee's own action, so it cannot demand a staff permission.
-    private static readonly string[] SelfServiceRoutes = ["POST /v1/invites/accept"];
+    // Routes under the module prefixes that deliberately ask for a signed-in caller only: accepting and declining
+    // an invite are the invitee's own actions, so they cannot demand a staff permission. The invited address is checked.
+    private static readonly string[] SelfServiceRoutes = ["POST /v1/invites/accept", "POST /v1/invites/{inviteId}/decline"];
 
     private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles"];
 
@@ -337,6 +336,21 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         using var client = AuthorizedClient(await factory.SignInAsAsync(RbacCatalog.RoleNames.Candidate));
 
         var response = await client.PostAsJsonAsync("/v1/invites/accept", new { code });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Candidate_DeclineSomeoneElsesInvite_Returns403()
+    {
+        // Declining follows the same rule as accepting: only the account holding the invited address may do it.
+        using var admin = await factory.AdminClientAsync();
+        var question = await ExamScenarios.CreateQuestionAsync(admin, "Q?", "A", "B");
+        var examId = await ExamScenarios.CreateExamAsync(admin, "Someone Else's Exam", [question], TimeSpan.FromHours(-1));
+        var inviteId = (await ExamScenarios.InviteAsync(admin, examId, ExamScenarios.UniqueEmail())).GetProperty("id").GetGuid();
+        using var client = AuthorizedClient(await factory.SignInAsAsync(RbacCatalog.RoleNames.Candidate));
+
+        var response = await client.PostAsync($"/v1/invites/{inviteId}/decline", null);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }

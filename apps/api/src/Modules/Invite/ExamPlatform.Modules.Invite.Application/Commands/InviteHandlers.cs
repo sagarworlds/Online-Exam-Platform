@@ -149,15 +149,16 @@ public sealed class AcceptInviteHandler(IInviteRepository repository, IInviteUni
 /// <summary>Handles <see cref="DeclineInviteCommand"/>: declines a pending invite.</summary>
 public sealed class DeclineInviteHandler(IInviteRepository repository, IInviteUnitOfWork unitOfWork, Clock clock)
 {
-    /// <summary>Declines the invite and stores the change.</summary>
-    /// <param name="command">The invite to decline.</param>
+    /// <summary>Declines the invite on behalf of the invited address and stores the change.</summary>
+    /// <param name="command">The invite to decline, and the declining account's e-mail address.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="InviteNotFoundError">No invite has that id.</exception>
+    /// <exception cref="InviteEmailMismatchError">The declining account's address is not the invited one.</exception>
     /// <exception cref="InviteStateError">The invite is no longer pending.</exception>
     public async Task HandleAsync(DeclineInviteCommand command, CancellationToken cancellationToken)
     {
         var invite = await repository.GetByIdOrThrowAsync(command.InviteId, cancellationToken);
-        invite.Decline(clock.UtcNow);
+        invite.Decline(command.Email, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

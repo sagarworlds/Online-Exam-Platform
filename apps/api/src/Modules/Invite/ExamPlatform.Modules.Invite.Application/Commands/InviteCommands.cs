@@ -20,7 +20,8 @@ public sealed record AcceptInviteCommand(string? Code, Guid UserId, string? Emai
 
 /// <summary>Declines an invite.</summary>
 /// <param name="InviteId">The invite to decline.</param>
-public sealed record DeclineInviteCommand(Guid InviteId);
+/// <param name="Email">The declining account's verified e-mail address, if it has one; it must be the invited address.</param>
+public sealed record DeclineInviteCommand(Guid InviteId, string? Email);
 
 /// <summary>Revokes an invite and all of its codes.</summary>
 /// <param name="InviteId">The invite to revoke.</param>
