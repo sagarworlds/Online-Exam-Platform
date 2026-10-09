@@ -21,4 +21,18 @@ public record GuardianLinkDto(
     GuardianLinkStatus Status,
     DateTime? VerifiedAt,
     DateTime? RevokedAt
-);
+)
+{
+    /// <summary>Maps a link to its DTO. A revoked link maps too, since its status is part of what is shown.</summary>
+    /// <param name="link">The link to map.</param>
+    public static GuardianLinkDto From(GuardianLink link) =>
+        new(
+            link.Id,
+            link.GuardianId,
+            link.CandidateId,
+            link.CandidateEmail,
+            link.Status,
+            link.VerifiedAt,
+            link.RevokedAt
+        );
+}

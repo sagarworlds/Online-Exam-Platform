@@ -42,15 +42,7 @@ public sealed class LinkCandidateHandler(IGuardianRepository repository, IGuardi
         var link = guardian.LinkCandidate(command.CandidateId, command.CandidateEmail, verificationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return new GuardianLinkDto(
-            link.Id,
-            link.GuardianId,
-            link.CandidateId,
-            link.CandidateEmail,
-            link.Status,
-            link.VerifiedAt,
-            link.RevokedAt
-        );
+        return GuardianLinkDto.From(link);
     }
 }
 
