@@ -95,8 +95,10 @@
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
+/* A formatting button is a touch target too, so it is as tall as the other buttons (44px). */
 .rich-editor__toolbar button {
   min-width: 2rem;
+  min-height: 2.75rem;
   padding: 0.2rem 0.55rem;
   font-size: 0.85rem;
 }
