@@ -78,8 +78,13 @@ No candidate data. Exams, sections, marking schemes, proctoring profiles (config
 |---|---|---|---|
 | Render (API and website hosting) | Every request and response; application logs | Region not set in `render.yaml` | Pin to an Indian region, or record why not |
 | Neon (Postgres) | All personal data at rest | Region chosen by the operator ("the region nearest your users", `docs/deploy-render.md`) | Must be an Indian region (section 7.3). Not enforced in the repository |
-| Brevo (transactional e-mail, HTTPS API; SMTP is also supported) | E-mail addresses, sign-in codes, invitations | Set by the provider; to confirm | Confirm location, and sign a data-processing agreement |
-| Meta WhatsApp Cloud API (`https://graph.facebook.com` by default) | Phone numbers, sign-in codes, invitations | Set by the provider; to confirm | Used when WhatsApp delivery is configured. Cross-border transfer question for counsel |
+| Brevo (transactional e-mail, HTTPS API; SMTP is also supported) | E-mail addresses, sign-in codes, invitations | EU. Brevo's help article places its database servers in the EU: primary hosting in France and Germany, cloud storage in Belgium (source 1) | Sign the data-processing agreement from the Brevo account, and check the subprocessor list |
+| Meta WhatsApp Cloud API (`https://graph.facebook.com` by default) | Phone numbers, sign-in codes, invitations | United States by default. Local storage in India can be enabled per business phone number. Data in use can still be processed in Meta data centres elsewhere for up to 60 minutes (source 2) | Enable local storage for the Indian number before candidate data is sent. Cross-border processing is a question for counsel |
+
+**Sources** (from web search results; the contracts and Meta's current terms have not been read, so check them before relying on these)
+
+1. Brevo, "Data storage location": https://help.brevo.com/hc/en-us/articles/360001005510
+2. Meta, WhatsApp Business Platform, local storage: https://developers.facebook.com/documentation/business-messaging/whatsapp/local-storage/ (Meta lists India among the supported local storage locations, and says local storage is not available for COEX numbers.)
 
 ## 9. Gaps the map exposes
 
@@ -88,7 +93,7 @@ No candidate data. Exams, sections, marking schemes, proctoring profiles (config
 3. **Guardian verification token** is stored as given and compared directly. It is not hashed and is not marked single-use.
 4. **Staff can reveal login and registration codes.** `OtpPurposeExtensions.IsRevealableToStaff` allows this for `Login` and `Registration`. Who may do it, and whether each reveal is logged, needs confirming.
 5. **Minors' data.** Client sightings, focus violations and accommodation notes are kept for every candidate, including under-18s. Counsel's opinion (issue #11) decides whether they may be kept, and for how long, for a child.
-6. **Data residency.** The repository does not pin any region. The database region is the operator's choice, and the WhatsApp and possibly the e-mail processors are outside India. Section 7.3 asks for Indian cloud regions with the region configurable.
+6. **Data residency.** The repository does not pin any region. The database region is the operator's choice. WhatsApp stores data in the United States unless local storage is enabled for the Indian number, and Brevo stores data in the EU. Section 7.3 asks for Indian cloud regions with the region configurable.
 7. **Logs.** The WhatsApp OTP sender logs a masked destination and never the code. Hosting logs and exception messages have not been checked for e-mail addresses or codes.
 
 ## 10. Not covered
