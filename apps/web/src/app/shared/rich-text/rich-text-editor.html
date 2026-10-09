@@ -5,7 +5,7 @@
       <button
         type="button"
         [attr.aria-pressed]="isActive(action)"
-        [attr.aria-label]="action.label"
+        [attr.aria-label]="accessibleName(action)"
         [title]="action.label"
         [disabled]="disabled()"
         (mousedown)="$event.preventDefault()"

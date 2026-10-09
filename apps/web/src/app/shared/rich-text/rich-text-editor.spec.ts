@@ -42,7 +42,8 @@ describe('RichTextEditor', () => {
     return { fixture, root: fixture.nativeElement as HTMLElement, host: fixture.componentInstance, editor };
   }
 
-  const button = (root: HTMLElement, label: string) => root.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement;
+  /** The button whose accessible name contains the label (the name also carries the glyph the button shows, before the label). */
+  const button = (root: HTMLElement, label: string) => root.querySelector(`button[aria-label*="${label}"]`) as HTMLButtonElement;
 
   /** Chooses a file in the toolbar's picker the way the browser would, then lets the async work finish. */
   async function pick(fixture: ComponentFixture<Host>, root: HTMLElement, file = new File(['x'], 'p.png', { type: 'image/png' })): Promise<void> {
@@ -58,9 +59,20 @@ describe('RichTextEditor', () => {
 
     // The formatting buttons are toggles and report whether they apply; the image button is an action, not a toggle.
     const toggles = Array.from(root.querySelectorAll('[role="toolbar"] button[aria-pressed]'));
-    expect(toggles.map((b) => b.getAttribute('aria-label'))).toEqual(['Bold', 'Italic', 'Underline', 'Subscript', 'Superscript', 'Bulleted list', 'Numbered list', 'Inline code', 'Code block', 'Insert formula (LaTeX)']);
+    expect(toggles.map((b) => b.getAttribute('aria-label'))).toEqual(['B Bold', 'I Italic', 'U Underline', 'x₂ Subscript', 'x² Superscript', '• List Bulleted list', '1. List Numbered list', '</> Inline code', '{ } Code block', 'Σ Insert formula (LaTeX)']);
     expect(toggles.every((b) => b.getAttribute('aria-pressed') === 'false')).toBe(true);
     expect(button(root, 'Insert image').hasAttribute('aria-pressed')).toBe(false);
+  });
+
+  it('names each toolbar button with the glyph it shows, so a screen reader hears the text a sighted user sees', async () => {
+    const { root } = await open();
+
+    // WCAG 2.5.3 (label in name): the visible glyph must appear in the accessible name. Compared case-insensitively, as "Image" is "image" in its name.
+    const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('[role="toolbar"] button'));
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const b of buttons) {
+      expect(b.getAttribute('aria-label')?.toLowerCase()).toContain((b.textContent ?? '').trim().toLowerCase());
+    }
   });
 
   it('makes a code block, which the API keeps as pre and code', async () => {
