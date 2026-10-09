@@ -81,7 +81,7 @@ No candidate data. Exams, sections, marking schemes, proctoring profiles (config
 | Brevo (transactional e-mail, HTTPS API; SMTP is also supported) | E-mail addresses, sign-in codes, invitations | EU. Brevo's help article places its database servers in the EU: primary hosting in France and Germany, cloud storage in Belgium (source 1) | Sign the data-processing agreement from the Brevo account, and check the subprocessor list |
 | Meta WhatsApp Cloud API (`https://graph.facebook.com` by default) | Phone numbers, sign-in codes, invitations | United States by default. Local storage in India can be enabled per business phone number. Data in use can still be processed in Meta data centres elsewhere for up to 60 minutes (source 2) | Enable local storage for the Indian number before candidate data is sent. Cross-border processing is a question for counsel |
 
-**Sources** (from web search results; the contracts and Meta's current terms have not been read, so check them before relying on these)
+**Sources** (taken from web search summaries. The two pages below could not be opened from the drafting environment, and the contracts and Meta's current terms have not been read. Check all of them before relying on these facts.)
 
 1. Brevo, "Data storage location": https://help.brevo.com/hc/en-us/articles/360001005510
 2. Meta, WhatsApp Business Platform, local storage: https://developers.facebook.com/documentation/business-messaging/whatsapp/local-storage/ (Meta lists India among the supported local storage locations, and says local storage is not available for COEX numbers.)
