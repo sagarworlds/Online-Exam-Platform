@@ -104,7 +104,9 @@ namespace ExamPlatform.Modules.Batch.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BatchId");
+                    b.HasIndex(new[] { "BatchId", "Email" }, "IX_BatchMembers_BatchId_Email")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
 
                     b.ToTable("BatchMembers", "batch");
                 });

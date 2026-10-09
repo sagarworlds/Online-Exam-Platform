@@ -1,0 +1,298 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>{{ 'whatsapp.title' | t }}</h1>
+  </div>
+
+  <p class="hint">{{ 'whatsapp.intro' | t }}</p>
+
+  <section
+    class="card whatsapp-status"
+    aria-labelledby="whatsapp-setup-heading"
+    [attr.aria-busy]="statusLoading()"
+  >
+    <div class="whatsapp-card-head">
+      <h2 id="whatsapp-setup-heading">{{ 'whatsapp.setup.heading' | t }}</h2>
+      <button type="button" (click)="loadStatus()" [disabled]="statusLoading()">
+        {{ 'whatsapp.setup.refresh' | t }}
+      </button>
+    </div>
+
+    @if (statusError(); as error) {
+      <p class="error-message" role="alert">{{ error }}</p>
+      <button type="button" (click)="loadStatus()" [disabled]="statusLoading()">
+        {{ 'whatsapp.setup.retry' | t }}
+      </button>
+    } @else if (status(); as setup) {
+      <div class="whatsapp-headline">
+        <span
+          class="badge whatsapp-pill"
+          [class.badge--active]="setup.enabled"
+          [class.badge--inactive]="!setup.enabled"
+        >
+          {{ (setup.enabled ? 'whatsapp.status.on' : 'whatsapp.status.off') | t }}
+        </span>
+        @if (setup.problems.length > 0) {
+          <p class="whatsapp-headline__detail whatsapp-headline__detail--problem">
+            {{ problemCount(setup.problems.length) }}
+          </p>
+        } @else {
+          <p class="whatsapp-headline__detail whatsapp-headline__detail--ok">
+            {{ 'whatsapp.status.nothingMissing' | t }}
+          </p>
+        }
+      </div>
+
+      @if (setup.problems.length > 0) {
+        <div class="error-message whatsapp-problems">
+          <h3>{{ 'whatsapp.problems.heading' | t }}</h3>
+          <ul>
+            @for (problem of setup.problems; track $index) {
+              <li>{{ problem }}</li>
+            }
+          </ul>
+        </div>
+      }
+
+      @if (setup.notes.length > 0) {
+        <h3 class="whatsapp-notes__title">{{ 'whatsapp.notes.heading' | t }}</h3>
+        <ul class="hint whatsapp-notes">
+          @for (note of setup.notes; track $index) {
+            <li>{{ note }}</li>
+          }
+        </ul>
+      }
+
+      <details class="whatsapp-settings">
+        <summary>{{ 'whatsapp.settings.summary' | t }}</summary>
+        <div class="table-wrap">
+          <table class="table">
+            <caption class="visually-hidden">
+              {{
+                'whatsapp.settings.caption' | t
+              }}
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">{{ 'whatsapp.settings.setting' | t }}</th>
+                <th scope="col">{{ 'whatsapp.settings.status' | t }}</th>
+                <th scope="col">{{ 'whatsapp.settings.purpose' | t }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of setup.settings; track item.setting) {
+                <tr>
+                  <td [attr.data-label]="'whatsapp.settings.setting' | t">
+                    <code class="whatsapp-setting">{{ item.setting }}</code>
+                  </td>
+                  <td [attr.data-label]="'whatsapp.settings.status' | t">
+                    <span
+                      class="badge whatsapp-tag"
+                      [class.badge--active]="item.isSet"
+                      [class.badge--danger]="!item.isSet && item.required"
+                    >
+                      {{ (item.isSet ? 'whatsapp.settings.set' : 'whatsapp.settings.notSet') | t }}
+                    </span>
+                    @if (item.required) {
+                      <span class="badge whatsapp-tag">{{ 'whatsapp.settings.required' | t }}</span>
+                    }
+                  </td>
+                  <td class="whatsapp-purpose" [attr.data-label]="'whatsapp.settings.purpose' | t">
+                    {{ item.purpose }}
+                    @if (item.value !== null && item.value !== '') {
+                      <span class="hint whatsapp-value"
+                        >{{ 'whatsapp.settings.value' | t }} <code>{{ item.value }}</code></span
+                      >
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </details>
+    } @else {
+      <p role="status">{{ 'common.loading' | t }}</p>
+    }
+  </section>
+
+  <form
+    class="card"
+    (submit)="$event.preventDefault(); send()"
+    novalidate
+    aria-labelledby="whatsapp-send-heading"
+    [attr.aria-busy]="sending()"
+  >
+    <h2 id="whatsapp-send-heading">{{ 'whatsapp.form.heading' | t }}</h2>
+
+    <div class="field">
+      <label for="whatsapp-phone">{{ 'whatsapp.form.phone' | t }}</label>
+      <input
+        id="whatsapp-phone"
+        type="tel"
+        required
+        autocomplete="off"
+        [attr.aria-invalid]="phoneError() ? 'true' : null"
+        [attr.aria-describedby]="
+          phoneError() ? 'whatsapp-phone-hint whatsapp-phone-error' : 'whatsapp-phone-hint'
+        "
+        [value]="phone()"
+        (input)="phone.set($any($event.target).value)"
+      />
+      <p class="field-hint" id="whatsapp-phone-hint">{{ 'whatsapp.form.phoneHint' | t }}</p>
+      @if (phoneError(); as key) {
+        <p class="field-error" id="whatsapp-phone-error" role="alert">{{ key | t }}</p>
+      }
+    </div>
+
+    <fieldset class="field release-fields">
+      <legend>{{ 'whatsapp.form.what' | t }}</legend>
+      <label class="inline-check release-fields__choice">
+        <input
+          type="radio"
+          name="whatsapp-mode"
+          value="Text"
+          [checked]="mode() === 'Text'"
+          (change)="mode.set('Text')"
+        />
+        <span>
+          {{ 'whatsapp.form.textChoice' | t }}
+          <span class="hint release-fields__hint">{{ 'whatsapp.form.textHint' | t }}</span>
+        </span>
+      </label>
+      <label class="inline-check release-fields__choice">
+        <input
+          type="radio"
+          name="whatsapp-mode"
+          value="SignInTemplate"
+          [checked]="mode() === 'SignInTemplate'"
+          (change)="mode.set('SignInTemplate')"
+        />
+        <span>
+          {{ 'whatsapp.form.templateChoice' | t }}
+          <span class="hint release-fields__hint">{{ 'whatsapp.form.templateHint' | t }}</span>
+        </span>
+      </label>
+    </fieldset>
+
+    @if (mode() === 'Text') {
+      <div class="field">
+        <label for="whatsapp-message">{{ 'whatsapp.form.message' | t }}</label>
+        <textarea
+          id="whatsapp-message"
+          rows="4"
+          required
+          [attr.aria-invalid]="messageError() ? 'true' : null"
+          [attr.aria-describedby]="
+            messageError()
+              ? 'whatsapp-message-count whatsapp-message-error'
+              : 'whatsapp-message-count'
+          "
+          [attr.maxlength]="maxLength"
+          [value]="message()"
+          (input)="message.set($any($event.target).value)"
+        ></textarea>
+        <p class="field-hint whatsapp-counter" id="whatsapp-message-count">
+          <span aria-hidden="true">{{
+            'whatsapp.form.counter' | t: { used: message().length, max: maxLength }
+          }}</span>
+          <span class="visually-hidden">{{
+            'whatsapp.form.counterSpoken' | t: { used: message().length, max: maxLength }
+          }}</span>
+        </p>
+        @if (messageError(); as key) {
+          <p class="field-error" id="whatsapp-message-error" role="alert">{{ key | t }}</p>
+        }
+      </div>
+    }
+
+    <div class="actions">
+      <button type="submit" class="primary" [disabled]="sending()">
+        {{ (sending() ? 'whatsapp.form.sending' : 'whatsapp.form.send') | t }}
+      </button>
+    </div>
+  </form>
+
+  <div aria-live="polite">
+    @if (sendError(); as error) {
+      <p class="error-message">{{ error }}</p>
+    }
+
+    @if (failure(); as why) {
+      <section
+        class="card whatsapp-result whatsapp-result--failed"
+        aria-labelledby="whatsapp-result-heading"
+      >
+        <h2 id="whatsapp-result-heading">{{ failureHeading(why.kind) }}</h2>
+        @if (sendResult()?.sent) {
+          <p class="card__meta">{{ 'whatsapp.result.notDelivered' | t }}</p>
+        }
+        <p>{{ why.explanation }}</p>
+        @if (hasMetaDetails(why)) {
+          <details class="whatsapp-meta">
+            <summary>{{ 'whatsapp.result.metaSummary' | t }}</summary>
+            <dl class="whatsapp-meta__list">
+              @if (why.metaCode !== null) {
+                <dt>{{ 'whatsapp.result.metaCode' | t }}</dt>
+                <dd>{{ why.metaCode }}</dd>
+              }
+              @if (why.httpStatus !== null) {
+                <dt>{{ 'whatsapp.result.httpStatus' | t }}</dt>
+                <dd>{{ why.httpStatus }}</dd>
+              }
+              @if (why.metaMessage) {
+                <dt>{{ 'whatsapp.result.metaMessage' | t }}</dt>
+                <dd>{{ why.metaMessage }}</dd>
+              }
+            </dl>
+          </details>
+        }
+      </section>
+    } @else if (sendResult(); as result) {
+      <section class="card whatsapp-result" aria-labelledby="whatsapp-result-heading">
+        <h2 id="whatsapp-result-heading">{{ 'whatsapp.result.handed' | t }}</h2>
+        @if (result.to) {
+          <p class="whatsapp-result__to">{{ 'whatsapp.result.to' | t: { to: result.to } }}</p>
+        }
+        @if (result.messageId) {
+          <p class="card__meta">
+            {{ 'whatsapp.result.messageId' | t }} <code>{{ result.messageId }}</code>
+          </p>
+        }
+        @if (result.note) {
+          <p>{{ result.note }}</p>
+        }
+
+        @if (tracking()) {
+          <ol class="whatsapp-steps" [attr.aria-label]="'whatsapp.progress.label' | t">
+            @for (step of steps(); track step.label) {
+              <li [attr.aria-current]="step.state === 'current' ? 'step' : null">
+                @if (!$first) {
+                  <span class="whatsapp-steps__arrow" aria-hidden="true">→</span>
+                }
+                <span
+                  class="whatsapp-steps__step"
+                  [class.whatsapp-steps__step--done]="step.state === 'done'"
+                  [class.whatsapp-steps__step--current]="step.state === 'current'"
+                >
+                  <span aria-hidden="true">{{ step.mark }}</span>
+                  {{ step.label }}
+                  @if (step.spoken) {
+                    <span class="visually-hidden">({{ step.spoken }})</span>
+                  }
+                </span>
+              </li>
+            }
+          </ol>
+          @if (awaitingReport()) {
+            <p class="hint">{{ 'whatsapp.result.waiting' | t }}</p>
+          }
+          @if (timeoutNote(); as note) {
+            <p class="hint">{{ note }}</p>
+          }
+        } @else {
+          <p class="hint">{{ 'whatsapp.result.noTracking' | t }}</p>
+        }
+      </section>
+    }
+  </div>
+</div>

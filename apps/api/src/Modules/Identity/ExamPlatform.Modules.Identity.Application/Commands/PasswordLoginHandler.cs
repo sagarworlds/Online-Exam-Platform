@@ -13,6 +13,7 @@ public sealed class PasswordLoginHandler(
     LoginEligibilityPolicy eligibilityPolicy,
     OtpChallengeIssuer otpChallengeIssuer,
     LoginSessionIssuer sessionIssuer,
+    ISignInDiagnostics diagnostics,
     IIdentityUnitOfWork unitOfWork)
 {
     /// <summary>
@@ -26,11 +27,23 @@ public sealed class PasswordLoginHandler(
     /// <exception cref="AccountLockedError">The account is suspended or deactivated.</exception>
     public async Task<AuthResult> HandleAsync(PasswordLoginCommand command, CancellationToken cancellationToken)
     {
-        var user = await userRepository.GetByEmailAsync(command.Email, cancellationToken)
-            ?? throw new InvalidCredentialsError();
-
-        if (user.PasswordHash is null || !passwordHasher.Verify(command.Password, user.PasswordHash))
+        // All three refusals answer the same way, so the caller learns nothing about which it was; a developer's terminal does.
+        var user = await userRepository.GetByEmailAsync(command.Email, cancellationToken);
+        if (user is null)
         {
+            diagnostics.Explain(SignInHint.NoAccountForAddress, OtpChannel.Email, command.Email);
+            throw new InvalidCredentialsError();
+        }
+
+        if (user.PasswordHash is null)
+        {
+            diagnostics.Explain(SignInHint.CandidateHasNoPassword, OtpChannel.Email, command.Email);
+            throw new InvalidCredentialsError();
+        }
+
+        if (!passwordHasher.Verify(command.Password, user.PasswordHash))
+        {
+            diagnostics.Explain(SignInHint.WrongPassword, OtpChannel.Email, command.Email);
             throw new InvalidCredentialsError();
         }
 

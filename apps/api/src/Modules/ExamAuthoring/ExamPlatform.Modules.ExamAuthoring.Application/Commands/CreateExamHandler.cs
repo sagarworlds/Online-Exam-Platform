@@ -1,59 +1,51 @@
-using MediatR;
-using ExamPlatform.Modules.ExamAuthoring.Domain;
 using ExamPlatform.Modules.ExamAuthoring.Application.Dtos;
 using ExamPlatform.Modules.ExamAuthoring.Application.Ports;
+using ExamPlatform.Modules.ExamAuthoring.Domain;
+using ExamPlatform.Modules.ExamAuthoring.Domain.Exceptions;
 
 namespace ExamPlatform.Modules.ExamAuthoring.Application.Commands;
 
-/// Handler for CreateExamCommand. Creates a new exam aggregate with default config.
-public class CreateExamHandler(IExamRepository examRepository, IExamAuthoringUnitOfWork unitOfWork) : IRequestHandler<CreateExamCommand, ExamDto>
+/// <summary>Handles <see cref="CreateExamCommand"/>: creates a new exam aggregate with the default configuration.</summary>
+public sealed class CreateExamHandler(
+    IExamRepository examRepository,
+    IExamAuthoringUnitOfWork unitOfWork,
+    ExamScopeResolver scopeResolver,
+    ExamDtoFactory dtos)
 {
-    public async Task<ExamDto> Handle(CreateExamCommand command, CancellationToken cancellationToken)
+    /// <summary>Creates the exam and persists it.</summary>
+    /// <param name="command">The exam to create.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The created exam.</returns>
+    /// <exception cref="InvalidExamConfigError">
+    /// <see cref="CreateExamCommand.SeriesId"/> is the empty GUID, the name is blank or too long, the description is too long,
+    /// or the scope names a book or chapters that cannot be used.
+    /// </exception>
+    public async Task<ExamDto> HandleAsync(CreateExamCommand command, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(command.Name))
-            throw new ArgumentException("Name cannot be empty or whitespace", nameof(command.Name));
+        // A blank series is "no series" (null). The empty GUID is what a form posts when it
+        // converts a blank field, and it would be stored as a series that does not exist,
+        // so it is refused with a 400 instead of being accepted silently.
+        if (command.SeriesId == Guid.Empty)
+            throw new InvalidExamConfigError("SeriesId must be omitted or a non-empty GUID.");
+
+        // Resolved before anything is created, so a bad scope leaves nothing behind.
+        var scope = await scopeResolver.ResolveAsync(command.Scope, cancellationToken);
 
         var exam = new Exam(
             command.SeriesId,
             command.Name,
             command.Description,
-            DateTime.MinValue, // Scheduling is set via separate ScheduleExamCommand
-            DateTime.MinValue,
+            Exam.NotScheduledAt, // Scheduling is set afterwards, by ScheduleExamHandler
+            Exam.NotScheduledAt,
             command.CreatedBy
         );
+
+        // A new exam holds no questions yet, so there is nothing for the scope to leave outside it.
+        exam.SetScope(scope, new Dictionary<Guid, QuestionPlacement>());
 
         examRepository.Add(exam);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return MapToDto(exam);
+        return await dtos.ToDtoAsync(exam, cancellationToken);
     }
-
-    private static ExamDto MapToDto(Exam exam) =>
-        new(
-            exam.Id,
-            exam.SeriesId,
-            exam.Name,
-            exam.Description,
-            exam.Status,
-            new ExamConfigDto(
-                exam.Config.TotalTimeSeconds,
-                exam.Config.ShuffleQuestions,
-                exam.Config.ShuffleOptions,
-                exam.Config.SectionLockEnabled,
-                exam.Config.CalculatorAllowed,
-                exam.Config.ScratchpadAllowed,
-                exam.Config.MaxAttempts,
-                exam.Config.MaxRetakes,
-                exam.Config.ResultReleaseMode,
-                exam.Config.ResultReleaseTime,
-                exam.Config.MarkingScheme
-            ),
-            exam.ScheduledStartTime,
-            exam.ScheduledEndTime,
-            exam.LateEntryDeadline,
-            exam.TimeZone,
-            exam.CreatedBy,
-            exam.CreatedAt,
-            exam.UpdatedAt
-        );
 }

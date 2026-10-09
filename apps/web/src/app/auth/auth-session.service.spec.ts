@@ -68,4 +68,20 @@ describe('AuthSessionService', () => {
     expect(service.isAuthenticated()).toBe(false);
     expect(localStorage.getItem(AUTH_TOKEN_STORAGE_KEY)).toBeNull();
   });
+
+  it('answers permission questions from the signed-in token, and "no" when signed out', () => {
+    const service = createService();
+    expect(service.hasPermission('exam.read')).toBe(false);
+
+    service.login(buildFakeJwt({ sub: 'user-1', exp: futureExp(), perm: ['exam.read', 'exam.manage'] }));
+
+    expect(service.hasPermission('exam.read')).toBe(true);
+    expect(service.hasPermission('invite.manage')).toBe(false);
+    expect(service.hasAnyPermission(['invite.manage', 'exam.manage'])).toBe(true);
+    expect(service.hasAnyPermission(['invite.manage'])).toBe(false);
+    expect(service.hasAnyPermission([])).toBe(false);
+
+    service.logout();
+    expect(service.hasPermission('exam.read')).toBe(false);
+  });
 });

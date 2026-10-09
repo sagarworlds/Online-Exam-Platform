@@ -1,8 +1,10 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { FormBuilder, ReactiveFormsModule, ValidationErrors, Validators, AbstractControl } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AuthApiService } from '../auth-api.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
+import { MessageKey } from '../../i18n/messages.en';
 import { OtpChannel, VerifyOtpNavigationState } from '../auth.models';
 import {
   MAX_DISPLAY_NAME_LENGTH,
@@ -17,16 +19,19 @@ import {
 
 @Component({
   selector: 'app-register',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, TranslatePipe],
   templateUrl: './register.html',
 })
 export class Register {
   private readonly formBuilder = inject(FormBuilder);
   private readonly authApi = inject(AuthApiService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly submitting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+  /** Whether the user has pressed submit; field problems are shown from then on, not only once a field was touched. */
+  protected readonly attempted = signal(false);
 
   /** Upper bound for the date picker; dateOfBirthValidator is what actually enforces the rule. */
   protected readonly maxDateOfBirth = toLocalIsoDate(new Date());
@@ -38,17 +43,23 @@ export class Register {
     dateOfBirth: ['', dateOfBirthValidator()],
   });
 
-  /** Inline message for the display name field, once the user has interacted with it. */
+  /** Inline message for the display name field, once the user has interacted with it or tried to submit. */
   protected displayNameError(): string | null {
-    return visibleErrorMessage(this.form.controls.displayName, displayNameErrorMessage);
+    return this.fieldError(this.form.controls.displayName, displayNameErrorMessage);
   }
 
-  /** Inline message for the date of birth field, once the user has interacted with it. */
+  /** Inline message for the date of birth field, once the user has interacted with it or tried to submit. */
   protected dateOfBirthError(): string | null {
-    return visibleErrorMessage(this.form.controls.dateOfBirth, dateOfBirthErrorMessage);
+    return this.fieldError(this.form.controls.dateOfBirth, dateOfBirthErrorMessage);
+  }
+
+  /** Message key for the contact field, once the user has tried to submit with it empty. */
+  protected destinationError(): MessageKey | null {
+    return this.attempted() && this.form.controls.destination.invalid ? 'register.destinationRequired' : null;
   }
 
   protected submit(): void {
+    this.attempted.set(true);
     if (this.form.invalid || this.submitting()) {
       return;
     }
@@ -69,7 +80,7 @@ export class Register {
         next: ({ otpChallengeId }) => {
           const state: VerifyOtpNavigationState = { destination };
           this.router.navigate(['/verify-otp'], {
-            queryParams: { challengeId: otpChallengeId, purpose: 'Registration' },
+            queryParams: { challengeId: otpChallengeId, purpose: 'Registration', ...this.returnUrlParam() },
             state,
           });
         },
@@ -81,5 +92,15 @@ export class Register {
           this.errorMessage.set(extractErrorMessage(error));
         },
       });
+  }
+
+  private fieldError(control: AbstractControl, describe: (errors: ValidationErrors | null) => string | null): string | null {
+    return this.attempted() && control.invalid ? describe(control.errors) : visibleErrorMessage(control, describe);
+  }
+
+  // Where the user was heading before being asked to sign in (e.g. an invitation link), so registering does not lose it.
+  private returnUrlParam(): Record<string, string> {
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+    return returnUrl ? { returnUrl } : {};
   }
 }

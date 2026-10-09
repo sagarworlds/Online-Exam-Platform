@@ -4,7 +4,10 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AuthApiService } from '../auth-api.service';
 import { AuthSessionService } from '../auth-session.service';
+import { landingRoute } from '../landing-route';
 import { AuthResult, OtpChannel, VerifyOtpNavigationState } from '../auth.models';
+import { TranslatePipe } from '../../i18n/translate.pipe';
+import { MessageKey } from '../../i18n/messages.en';
 import { SessionEndReason, isSessionEndReason } from '../session-end-reason';
 
 /** Banner copy for each reason the API gives when it refuses a session (see authInterceptor). */
@@ -20,7 +23,7 @@ const SESSION_END_MESSAGES: Record<SessionEndReason, string> = {
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, TranslatePipe],
   templateUrl: './login.html',
 })
 export class Login {
@@ -33,6 +36,9 @@ export class Login {
   protected readonly mode = signal<'password' | 'otp'>('password');
   protected readonly submitting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+  /** Whether the user has pressed submit on the current form; field problems are shown only after that. */
+  protected readonly attempted = signal(false);
+  protected readonly passwordVisible = signal(false);
 
   /** Why the user was signed out, when the interceptor redirected here with a known `?reason=`. */
   protected readonly sessionEndedMessage = describeSessionEnd(this.route.snapshot.queryParamMap.get('reason'));
@@ -49,9 +55,33 @@ export class Login {
   protected setMode(mode: 'password' | 'otp'): void {
     this.mode.set(mode);
     this.errorMessage.set(null);
+    this.attempted.set(false);
+  }
+
+  protected togglePasswordVisibility(): void {
+    this.passwordVisible.update((visible) => !visible);
+  }
+
+  /** What is wrong with the email, once the user has tried to submit; the button stays enabled so it can say so. */
+  protected emailError(): MessageKey | null {
+    const control = this.passwordForm.controls.email;
+    if (!this.attempted() || control.valid) {
+      return null;
+    }
+
+    return control.hasError('required') ? 'login.emailRequired' : 'login.emailInvalid';
+  }
+
+  protected passwordError(): MessageKey | null {
+    return this.attempted() && this.passwordForm.controls.password.invalid ? 'login.passwordRequired' : null;
+  }
+
+  protected destinationError(): MessageKey | null {
+    return this.attempted() && this.otpForm.controls.destination.invalid ? 'login.destinationRequired' : null;
   }
 
   protected submitPassword(): void {
+    this.attempted.set(true);
     if (this.passwordForm.invalid || this.submitting()) {
       return;
     }
@@ -70,6 +100,7 @@ export class Login {
   }
 
   protected submitOtpRequest(): void {
+    this.attempted.set(true);
     if (this.otpForm.invalid || this.submitting()) {
       return;
     }
@@ -104,12 +135,17 @@ export class Login {
 
     if (result.accessToken) {
       this.authSession.login(result.accessToken);
-      this.router.navigateByUrl(this.route.snapshot.queryParamMap.get('returnUrl') ?? '/profile');
+      this.router.navigateByUrl(this.route.snapshot.queryParamMap.get('returnUrl') ?? landingRoute(this.authSession));
       return;
     }
 
     this.submitting.set(false);
     this.errorMessage.set('Unexpected response from the server.');
+  }
+
+  /** The query the register link carries, so signing up does not lose the page the user was heading to. */
+  protected get registerQueryParams(): Record<string, string> {
+    return this.returnUrlParam();
   }
 
   private returnUrlParam(): Record<string, string> {

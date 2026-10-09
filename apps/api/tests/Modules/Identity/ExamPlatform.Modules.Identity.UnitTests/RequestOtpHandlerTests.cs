@@ -18,6 +18,7 @@ public class RequestOtpHandlerTests
     private readonly IOtpChallengeRepository _challengeRepository = Substitute.For<IOtpChallengeRepository>();
     private readonly IOtpCodeGenerator _codeGenerator = Substitute.For<IOtpCodeGenerator>();
     private readonly IOtpSender _sender = Substitute.For<IOtpSender>();
+    private readonly ISignInDiagnostics _diagnostics = Substitute.For<ISignInDiagnostics>();
     private readonly IIdentityUnitOfWork _unitOfWork = Substitute.For<IIdentityUnitOfWork>();
     private readonly RequestOtpHandler _handler;
 
@@ -30,7 +31,7 @@ public class RequestOtpHandlerTests
         _codeGenerator.Hash(Arg.Any<string>()).Returns(call => "hashed-" + call.Arg<string>());
 
         var issuer = new OtpChallengeIssuer(_challengeRepository, _codeGenerator, _sender, new FakeClock(Now));
-        _handler = new RequestOtpHandler(_userRepository, new LoginEligibilityPolicy(), issuer, _unitOfWork);
+        _handler = new RequestOtpHandler(_userRepository, new LoginEligibilityPolicy(), issuer, _diagnostics, _unitOfWork);
     }
 
     private static RequestOtpCommand Command() => new(OtpChannel.Email, Destination);
@@ -98,6 +99,7 @@ public class RequestOtpHandlerTests
 
         Assert.NotEqual(Guid.Empty, challengeId);
         await AssertDecoyIssuedAsync(challengeId);
+        _diagnostics.Received(1).Explain(SignInHint.NoAccountForAddress, OtpChannel.Email, Destination);
     }
 
     [Fact]
@@ -108,6 +110,7 @@ public class RequestOtpHandlerTests
         var challengeId = await _handler.HandleAsync(Command(), CancellationToken.None);
 
         await AssertDecoyIssuedAsync(challengeId);
+        _diagnostics.Received(1).Explain(SignInHint.AccountLocked, OtpChannel.Email, Destination);
     }
 
     [Fact]
@@ -123,6 +126,7 @@ public class RequestOtpHandlerTests
 
         // Staff must sign in with password + 2FA, so this path never sends them a code.
         await AssertDecoyIssuedAsync(challengeId);
+        _diagnostics.Received(1).Explain(SignInHint.StaffMustUsePasswordAndCode, OtpChannel.Email, Destination);
     }
 
     [Fact]
@@ -135,6 +139,7 @@ public class RequestOtpHandlerTests
         var challengeId = await _handler.HandleAsync(Command(), CancellationToken.None);
 
         await AssertDecoyIssuedAsync(challengeId);
+        _diagnostics.Received(1).Explain(SignInHint.StaffMustUsePasswordAndCode, OtpChannel.Email, Destination);
         await _challengeRepository.Received(1).AddAsync(
             Arg.Is<OtpChallenge>(c => c.Id == challengeId && c.Purpose == OtpPurpose.Registration),
             Arg.Any<CancellationToken>());
@@ -152,6 +157,8 @@ public class RequestOtpHandlerTests
             Arg.Is<OtpChallenge>(c => c.Id == challengeId && c.UserId == user.Id && c.Purpose == OtpPurpose.Registration),
             Arg.Any<CancellationToken>());
         await _sender.Received(1).SendAsync(OtpChannel.Email, Destination, Code, Arg.Any<CancellationToken>());
+        // A code was sent, so there is nothing to explain.
+        _diagnostics.DidNotReceiveWithAnyArgs().Explain(default, default, default!);
     }
 
     [Fact]
@@ -168,5 +175,6 @@ public class RequestOtpHandlerTests
             Arg.Any<CancellationToken>());
         await _sender.Received(1).SendAsync(OtpChannel.Email, Destination, Code, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        _diagnostics.DidNotReceiveWithAnyArgs().Explain(default, default, default!);
     }
 }

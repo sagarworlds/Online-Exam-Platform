@@ -1,0 +1,53 @@
+<div class="question-review">
+  <button type="button" class="btn--small" (click)="toggle()" [attr.aria-expanded]="open()">
+    Review: {{ statusLabels[status()] }}
+  </button>
+
+  @if (open()) {
+    <div class="question-review__panel" role="region" aria-label="Review of this question">
+      @if (loadError()) {
+        <p class="error-message" role="alert">{{ loadError() }}</p>
+      } @else if (entries() === null) {
+        <p class="hint">Loading…</p>
+      } @else if (entries()!.length === 0) {
+        <p class="hint">Nothing has been said about this question yet.</p>
+      } @else {
+        <ul class="question-review__thread">
+          @for (entry of entries(); track entry.id) {
+            <li>
+              <strong>{{ entry.byLabel }}</strong> {{ kindLabel(entry.kind) }}
+              <span class="hint">(version {{ entry.versionNumber }}, {{ entry.createdAtUtc | date: 'medium' }})</span>
+              @if (entry.comment) {
+                <span class="question-review__comment">: {{ entry.comment }}</span>
+              }
+            </li>
+          }
+        </ul>
+      }
+
+      @if (error()) {
+        <p class="error-message" role="alert">{{ error() }}</p>
+      }
+
+      @if (canComment() || steps().length > 0) {
+        <label class="visually-hidden" [for]="'review-comment-' + questionId()">Comment</label>
+        <textarea
+          [id]="'review-comment-' + questionId()"
+          rows="2"
+          maxlength="2000"
+          placeholder="Comment (required to send a question back)"
+          [value]="comment()"
+          (input)="onCommentInput($any($event.target).value)"
+        ></textarea>
+        <div class="actions">
+          @if (canComment()) {
+            <button type="button" class="btn--small" (click)="addComment()" [disabled]="busy() || comment().trim() === ''">Add comment</button>
+          }
+          @for (step of steps(); track step.step) {
+            <button type="button" class="btn--small" (click)="take(step)" [disabled]="blocked(step)">{{ step.label }}</button>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

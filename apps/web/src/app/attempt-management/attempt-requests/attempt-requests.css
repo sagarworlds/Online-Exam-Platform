@@ -1,0 +1,43 @@
+/* The attempt requests queue. A request's actions sit side by side, and on a phone each one takes the full width so it is easy to
+   reach. A decided request keeps its place as one line: its edge colour is repeated by a symbol and by the words, so colour is
+   never the only cue. */
+.request-queue__count {
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+}
+
+.request__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.request__actions button {
+  min-height: 2.75rem;
+}
+
+@media (max-width: 40rem) {
+  .request__actions button {
+    flex: 1 1 100%;
+  }
+}
+
+.request--given {
+  border-inline-start: 4px solid var(--success);
+}
+
+.request--declined {
+  border-inline-start: 4px solid var(--danger);
+}
+
+.request__result {
+  margin: 0;
+  font-weight: 600;
+}
+
+.request__result:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}

@@ -1,0 +1,258 @@
+<div class="page page--exam" [class.page--contrast]="highContrast()">
+  @if (loading()) {
+    <p>{{ 'common.loading' | t }}</p>
+  }
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+
+  @if (attempt(); as current) {
+    @if (current.status === 'InProgress') {
+      @if (preview) {
+        <p class="info-message preview-banner" role="note">
+          <strong>{{ 'attempt.preview.title' | t }}</strong> {{ 'attempt.preview.body' | t }}
+          <a [routerLink]="['/exams', examIdForLinks]">{{ 'attempt.preview.back' | t }}</a>
+        </p>
+      }
+
+      <!-- Sticky as one block, so the time and Submit stay in reach, and the confirmation sits right under them when it is open. -->
+      <div class="exam-top">
+        <header class="exam-bar card">
+          <div class="exam-bar__heading">
+            <p class="exam-bar__label">{{ 'attempt.exam' | t }}@if (current.number && current.number > 1) { · {{ 'common.attempt' | t: { number: current.number } }} }</p>
+            <h1 class="exam-bar__title">{{ current.examName }}</h1>
+          </div>
+          <div class="exam-bar__status">
+            <div class="exam-bar__timer" role="timer" [attr.aria-label]="'attempt.timeLeft' | t">
+              <span class="exam-bar__label">{{ 'attempt.timeLeft' | t }}</span>
+              <strong class="countdown" [class.countdown--low]="remainingSeconds() <= 60">{{ formatRemaining(remainingSeconds()) }}</strong>
+            </div>
+            <button type="button" #submitButton class="primary exam-bar__submit" (click)="askToSubmit()">{{ 'attempt.submit.ask' | t }}</button>
+          </div>
+        </header>
+
+        @if (confirmingSubmit()) {
+          <div class="submit-confirm exam-submit-confirm" role="alertdialog" [attr.aria-label]="'attempt.submit.aria' | t">
+            <p #confirmText tabindex="-1">
+              {{ 'attempt.submit.summary' | t: { answered: answeredCount(), total: questions().length } }}
+              @if (markedCount() === 1) {
+                {{ 'attempt.submit.marked.one' | t }}
+              } @else if (markedCount() > 1) {
+                {{ 'attempt.submit.marked.other' | t: { count: markedCount() } }}
+              }
+              @if (submitSummary().notVisited === 1) {
+                {{ 'attempt.submit.unseen.one' | t }}
+              } @else if (submitSummary().notVisited > 1) {
+                {{ 'attempt.submit.unseen.other' | t: { count: submitSummary().notVisited } }}
+              }
+              {{ 'attempt.submit.final' | t }}
+            </p>
+            @if (submitSummary().sections.length > 1) {
+              <ul class="submit-summary" [attr.aria-label]="'attempt.submit.bySection' | t">
+                @for (section of submitSummary().sections; track section.id) {
+                  <li>
+                    <strong>{{ section.name }}</strong>: {{ 'attempt.submit.sectionAnswered' | t: { answered: section.answered, total: section.total } }}@if (section.marked > 0) {{{ 'attempt.submit.sectionMarked' | t: { count: section.marked } }}}@if (section.notVisited > 0) {{{ 'attempt.submit.sectionNotVisited' | t: { count: section.notVisited } }}}
+                  </li>
+                }
+              </ul>
+            }
+            <div class="actions">
+              <button type="button" class="primary" [disabled]="submitting()" (click)="submit()">{{ 'attempt.submit.yes' | t }}</button>
+              <button type="button" [disabled]="submitting()" (click)="cancelSubmit()">{{ 'attempt.submit.keep' | t }}</button>
+            </div>
+          </div>
+        }
+      </div>
+
+      @if (focusWarning(); as warning) {
+        <p class="exam-focus-warning" role="alert">
+          {{ warning }}
+          <button type="button" (click)="dismissFocusWarning()">{{ 'common.ok' | t }}</button>
+        </p>
+      }
+      @for (warning of unreadWarnings(); track warning.id) {
+        <p class="exam-focus-warning" role="alert">
+          <strong>{{ 'attempt.organiserMessage' | t }}</strong> {{ warning.message }}
+          <button type="button" (click)="dismissWarning(warning)">{{ 'common.ok' | t }}</button>
+        </p>
+      }
+      @if (watchFocus()) {
+        <p class="hint exam-focus">
+          {{ 'attempt.focus' | t: { violations: focusViolations(), limit: focusLimit() } }}
+          @if (canOfferFullscreen()) {
+            <button type="button" (click)="goFullscreen()">{{ 'attempt.fullscreen' | t }}</button>
+          }
+        </p>
+      }
+      <!-- Always present, so what was just refused is announced politely instead of interrupting. -->
+      <p class="exam-protection-notice" role="status" aria-live="polite">{{ protectionNotice() }}</p>
+      <!-- Always present for the same reason: answers kept on this device while the connection is down (FR-53). -->
+      <p class="exam-sync" role="status" aria-live="polite" [class.exam-sync--active]="syncMessage() !== ''">{{ syncMessage() }}</p>
+
+      <!-- Outside the paused branch below on purpose: a candidate who was stopped is the one most likely to have something to report. A preview has no real attempt to report from. -->
+      @if (!preview) {
+        <app-report-issue [attemptId]="current.id" />
+      }
+
+      <!-- Closed by default: the question is what a candidate came for. The contents are still in the page, so the shortcuts and the
+           display settings work whether or not this is open. -->
+      <details class="exam-help">
+        <summary>{{ 'attempt.helpSummary' | t }}</summary>
+        <div class="exam-zoom actions" role="group" [attr.aria-label]="'attempt.display' | t">
+          <button type="button" [attr.aria-pressed]="highContrast()" (click)="toggleHighContrast()">{{ 'attempt.highContrast' | t }}</button>
+          <button type="button" [disabled]="!canZoomOut()" (click)="zoomOut()" [attr.aria-label]="'attempt.smallerText' | t">A&minus;</button>
+          <span class="hint" aria-live="polite">{{ zoom() * 100 | number: '1.0-0' }}%</span>
+          <button type="button" [disabled]="!canZoomIn()" (click)="zoomIn()" [attr.aria-label]="'attempt.largerText' | t">A+</button>
+          @if (!preview) {
+            <button type="button" [attr.aria-pressed]="lowBandwidth.enabled()" aria-describedby="low-bandwidth-hint" (click)="toggleLowBandwidth()">{{ 'attempt.lowBandwidth' | t }}</button>
+            <span id="low-bandwidth-hint" class="visually-hidden">{{ 'attempt.lowBandwidth.hint' | t }}</span>
+          }
+        </div>
+        <p class="hint exam-shortcuts">{{ 'attempt.shortcuts' | t }}</p>
+        @if (protectContent()) {
+          <p class="hint exam-protection">{{ 'attempt.protect' | t }}</p>
+        }
+      </details>
+
+      @if (paused()) {
+        <div class="card exam-paused" role="status">
+          <h2>{{ 'attempt.paused.title' | t }}</h2>
+          <p>
+            {{ 'attempt.paused.body' | t }}
+          </p>
+        </div>
+      } @else {
+      <div class="exam-layout">
+        <section [attr.aria-label]="'attempt.questionRegion' | t">
+          @if (currentQuestion(); as question) {
+            <div class="card exam-question" [style.--exam-zoom]="zoom()">
+              <p class="question__meta">{{ 'attempt.position' | t: { section: currentSectionName(), number: position() + 1, total: questions().length } }}</p>
+              <fieldset class="question" [attr.aria-labelledby]="'question-text-' + question.id">
+                <!-- The text is the API's sanitized HTML, rendered through Angular's own sanitizer as a second layer. -->
+                <div class="question__text rich-text" [id]="'question-text-' + question.id" [appMath]="question.text" [appMathPicture]="pictureLoader(question.id)"></div>
+                @if (question.allowsMultiple) {
+                  <p class="question__hint">{{ 'attempt.chooseAll' | t }}</p>
+                }
+                @for (option of question.options; track option.id; let i = $index) {
+                  <label class="option-choice">
+                    <input
+                      [type]="question.allowsMultiple ? 'checkbox' : 'radio'"
+                      [name]="'q-' + question.id"
+                      [checked]="isChosen(question, option.id)"
+                      (change)="choose(question, option.id)"
+                    />
+                    <span class="option-choice__marker" aria-hidden="true">{{ optionLetter(i) }}</span>
+                    <span>{{ option.text }}</span>
+                  </label>
+                }
+              </fieldset>
+
+              <div class="actions exam-tools">
+                <button type="button" [attr.aria-pressed]="question.markedForReview" (click)="toggleMark(question)">{{ 'attempt.markReview' | t }}</button>
+                <button type="button" [disabled]="!isAnswered(question)" (click)="clearResponse(question)">{{ 'attempt.clear' | t }}</button>
+                @if (!preview) {
+                  <app-report-issue [scope]="'question'" [attemptId]="current.id" [questionId]="question.id" />
+                }
+              </div>
+            </div>
+
+            <div class="exam-pager">
+              <button type="button" [disabled]="isFirst()" (click)="previous()">&larr; {{ 'attempt.previous' | t }}</button>
+              <button type="button" [disabled]="isLast()" (click)="next()">{{ 'attempt.next' | t }} &rarr;</button>
+              <button type="button" class="primary" [disabled]="isLast()" (click)="saveAndNext()">{{ nextLeavesSection() ? ('attempt.saveNextSection' | t) : ('attempt.saveNext' | t) }}</button>
+            </div>
+
+            @if (leavingTo(); as target) {
+              <div class="submit-confirm" role="alertdialog" [attr.aria-label]="'attempt.leave.aria' | t">
+                <p>{{ 'attempt.leave.body' | t: { name: target.name } }}</p>
+                <div class="actions">
+                  <button type="button" class="primary" (click)="confirmLeaveSection()">{{ 'attempt.leave.yes' | t }}</button>
+                  <button type="button" (click)="stayInSection()">{{ 'attempt.leave.stay' | t }}</button>
+                </div>
+              </div>
+            }
+          }
+        </section>
+
+        <aside class="card exam-side" [attr.aria-label]="'attempt.palette' | t">
+          <h2>{{ 'attempt.questions' | t }}</h2>
+          <p class="hint">
+            {{ 'attempt.answeredOf' | t: { answered: answeredCount(), total: questions().length } }}@if (markedCount() > 0) { · {{ 'attempt.markedCount' | t: { count: markedCount() } }} }
+          </p>
+
+          @for (section of palette(); track section.id) {
+            <h3 class="palette__section">{{ section.name }}</h3>
+            <div class="palette">
+              @for (item of section.items; track item.index) {
+                <button
+                  type="button"
+                  class="palette__item"
+                  [class.palette__item--answered]="item.answered"
+                  [class.palette__item--marked]="item.marked"
+                  [class.palette__item--seen]="item.seen"
+                  [class.palette__item--current]="item.index === position()"
+                  [attr.aria-current]="item.index === position() ? 'true' : null"
+                  [attr.aria-label]="'attempt.paletteItem' | t: { number: item.number, status: item.status }"
+                  [disabled]="item.closed"
+                  (click)="goTo(item.index)"
+                >
+                  {{ item.number }}
+                </button>
+              }
+            </div>
+          }
+
+          <ul class="palette-legend" aria-hidden="true">
+            <li class="legend--answered">{{ 'attempt.legend.answered' | t }}</li>
+            <li class="legend--seen">{{ 'attempt.legend.notAnswered' | t }}</li>
+            <li>{{ 'attempt.legend.notVisited' | t }}</li>
+            <li class="legend--marked">{{ 'attempt.legend.marked' | t }}</li>
+            <li class="legend--current">{{ 'attempt.legend.current' | t }}</li>
+          </ul>
+        </aside>
+      </div>
+      }
+    } @else {
+      <div class="card result">
+        <p class="exam-bar__label">{{ 'result.title' | t }}@if (current.number && current.number > 1) { · {{ 'common.attempt' | t: { number: current.number } }} }</p>
+        <h1>{{ current.examName }}</h1>
+        @if (current.invalidated) {
+          <p class="error-message" role="alert">
+            {{ 'result.invalidated' | t: { reason: current.invalidationReason ?? '' } }}
+          </p>
+        } @else {
+          <p class="score">{{ current.score }} / {{ current.maxScore }}</p>
+        }
+        @if (current.terminatedByAdmin) {
+          <p class="hint">{{ 'result.terminated' | t: { reason: current.terminationReason ?? '' } }}</p>
+        } @else if (current.endedByViolations) {
+          <p class="hint">{{ 'result.endedByViolations' | t }}</p>
+        } @else if (current.autoSubmitted) {
+          <p class="hint">{{ 'common.autoSubmitted' | t }}</p>
+        }
+        @if (current.invalidated) {
+          <!-- No answer review for a result that no longer counts. -->
+        } @else if (current.review?.available) {
+          <p class="hint">{{ 'result.reviewAvailable' | t }}</p>
+        } @else if (current.review) {
+          <p class="hint">
+            @if (current.review.availableFromUtc) {
+              {{ 'result.reviewFrom' | t: { date: (current.review.availableFromUtc | date: 'medium') ?? '' } }}
+            } @else {
+              {{ 'result.reviewWhenReleased' | t }}
+            }
+          </p>
+        }
+        <div class="actions">
+          @if (current.review?.available && !current.invalidated) {
+            <a [routerLink]="['/attempt', current.id, 'review']" class="btn btn--primary">{{ 'result.reviewAnswers' | t }}</a>
+            <a routerLink="/my-exams" class="btn">{{ 'common.backToMyExams' | t }}</a>
+          } @else {
+            <a routerLink="/my-exams" class="btn btn--primary">{{ 'common.backToMyExams' | t }}</a>
+          }
+        </div>
+      </div>
+    }
+  }
+</div>

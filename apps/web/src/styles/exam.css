@@ -1,0 +1,708 @@
+/*
+ * The exam-taking screen, laid out like an online test portal: a sticky bar with the exam name and the time left,
+ * one question at a time with large answer choices, and a palette of numbered buttons showing what is answered.
+ */
+
+/* What was just turned off (FR-23): a quiet line, with its space always reserved so the page does not jump when it appears. */
+.exam-protection-notice {
+  min-height: 1.4em;
+  margin: 0 0 0.5rem;
+  color: var(--primary);
+  font-size: 0.9rem;
+}
+
+/* Leaving the exam page (FR-22): shown until dismissed, because the candidate has just come back and must see it. */
+.exam-focus-warning {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--warning, #b45309);
+  border-radius: 6px;
+  background: var(--warning-bg, #fffbeb);
+  color: var(--warning-text, #78350f);
+}
+
+.exam-focus-warning button {
+  margin-left: 0.5rem;
+}
+
+/* Answers kept on this device while the connection is down (FR-53). Always on the page so it is announced, and takes no room while empty. */
+.exam-sync {
+  margin: 0;
+}
+
+.exam-sync--active {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--warning, #b45309);
+  border-radius: 6px;
+  background: var(--warning-bg, #fffbeb);
+  color: var(--warning-text, #78350f);
+}
+
+/*
+ * A browser's own Print menu cannot be cancelled from the page, so while the exam is protected the printout is blank
+ * except for a sentence saying why. The body class is set by the exam page's content guard and removed when it leaves.
+ */
+@media print {
+  body.exam-protected > * {
+    display: none !important;
+  }
+
+  body.exam-protected::before {
+    content: 'Printing is turned off during this exam.';
+    display: block;
+    padding: 2rem;
+    font: 1.1rem system-ui, sans-serif;
+  }
+}
+
+/* The bar and the confirmation under it are one sticky block, so the time and Submit stay in reach wherever the candidate has scrolled. */
+.exam-top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+}
+
+.exam-top .exam-bar {
+  margin-bottom: 0.75rem;
+}
+
+.exam-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding: 0.75rem 1.25rem;
+}
+
+.exam-bar__heading {
+  min-width: 0;
+}
+
+.exam-bar__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* A touch target of the usual height, so Submit is easy to hit beside the timer. */
+.exam-bar__submit {
+  min-height: 2.75rem;
+}
+
+/* On a phone the title takes a line of its own, and the time and Submit share the next, so they are sized to fit that line. */
+@media (max-width: 40rem) {
+  .exam-bar {
+    padding: 0.6rem 1rem;
+  }
+
+  .exam-bar__heading {
+    flex-basis: 100%;
+  }
+
+  .exam-bar__status {
+    gap: 0.5rem;
+  }
+
+  .exam-bar__timer {
+    padding: 0.25rem 0.5rem;
+    gap: 0.35rem;
+  }
+
+  .exam-bar .countdown {
+    font-size: 1.1rem;
+  }
+
+  .exam-bar__submit {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* The confirmation hangs from the bar as one panel with it, not a card of its own. */
+.exam-top .exam-submit-confirm {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.exam-bar__title {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.exam-bar__label {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.exam-bar__timer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+/* "Time left" is read beside the countdown, so it is set in sentence case: the capitals take width a phone does not have to spare. */
+.exam-bar__timer .exam-bar__label {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.countdown {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown--low {
+  color: var(--danger);
+}
+
+.exam-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 52rem) {
+  .exam-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.question {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.question__meta {
+  margin: 0 0 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Under a multiple-answer question's text: how to answer it, or how it was marked. */
+.question__hint {
+  margin: -0.5rem 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.question__text {
+  margin-bottom: 1rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+/* A choice is a whole clickable row; the radio input stays in the page for keyboards and screen readers. */
+.option-choice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.option-choice:hover {
+  background: var(--surface-muted);
+}
+
+.option-choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.option-choice__marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.option-choice:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.option-choice:has(input:checked) .option-choice__marker {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
+.option-choice:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+
+.exam-tools {
+  margin-top: 1rem;
+}
+
+/* "Mark for review" is a switch: pressed means this question is marked. */
+.exam-tools button[aria-pressed='true'] {
+  background: var(--warning-soft);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.exam-pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.exam-side {
+  position: sticky;
+  top: 5.5rem;
+}
+
+.exam-side h2 {
+  font-size: 1rem;
+}
+
+.palette__section {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.palette {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
+  gap: 0.4rem;
+}
+
+.palette__item {
+  position: relative;
+  padding: 0;
+  height: 2.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Seen but not answered: a dashed edge, so it is told apart from a question not yet visited without depending on colour. */
+.palette__item--seen {
+  border-style: dashed;
+  border-color: var(--text-muted);
+}
+
+/* Marked for review. The corner dot is what says "marked", so it shows on an answered question too (green, with a dot). */
+.palette__item--marked {
+  background: var(--warning-soft);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.palette__item--marked::after {
+  content: '';
+  position: absolute;
+  top: 0.2rem;
+  inset-inline-end: 0.2rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--warning);
+}
+
+/* After the marked rule on purpose: answered wins the fill, and the dot still says it is marked too. */
+.palette__item--answered {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.palette__item--current {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.palette-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin: 1rem 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.palette-legend li::before {
+  content: '';
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-inline-end: 0.35rem;
+  vertical-align: -0.1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.2rem;
+}
+
+.palette-legend .legend--answered::before {
+  background: var(--success-soft);
+  border-color: var(--success);
+}
+
+.palette-legend .legend--seen::before {
+  border-style: dashed;
+  border-color: var(--text-muted);
+}
+
+.palette-legend .legend--marked::before {
+  background: var(--warning-soft);
+  border-color: var(--warning);
+}
+
+.palette-legend .legend--current::before {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.submit-confirm {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.submit-confirm .actions {
+  margin-top: 0.75rem;
+}
+
+.result {
+  max-width: 32rem;
+  margin-inline: auto;
+  text-align: center;
+  padding: 2rem 1.25rem;
+}
+
+.result .actions {
+  justify-content: center;
+}
+
+.score {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0.5rem 0;
+  color: var(--primary);
+}
+
+/*
+ * The answer review: the same cards as the exam screen, with each option marked as the right one and as the one chosen.
+ * Meaning is carried by words ("Your answer", "Correct answer") as well as colour, so it survives colour-blindness.
+ */
+.review-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+}
+
+.review-summary__score {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.review-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Stays at the top of the screen while the answers are read, so any question is one tap away. It is one row that scrolls sideways,
+   rather than a grid that grows taller with every question. */
+.review-strip {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0;
+  overflow-x: auto;
+  background: var(--bg);
+}
+
+.review-strip__item {
+  flex: none;
+}
+
+/* A question opened from the strip starts below the strip, not under it. */
+.review-question {
+  scroll-margin-top: 4rem;
+}
+
+.review-strip__item {
+  min-width: 2.2rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.review-strip__item--correct {
+  border-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.review-strip__item--partial {
+  border-color: var(--warning);
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.review-strip__item--wrong {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.review-question__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.review-question__meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.review-question__marks {
+  margin-inline-start: 0.5rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.review-options {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-option {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.65rem 1rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.review-option__marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.review-option__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-option__tag {
+  flex: none;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.review-option--correct {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
+
+.review-option--correct .review-option__marker,
+.review-option--correct .review-option__tag {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.review-option--wrong {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.review-option--wrong .review-option__marker,
+.review-option--wrong .review-option__tag {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* A dispute of a question's answer key (FR-31), under the question it is about: the form that raises one, or the dispute with staff's answer. */
+.review-dispute {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.review-dispute__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* The status is a sentence, longer than a badge's usual word, so it may wrap on a narrow screen. */
+.review-dispute__status {
+  margin-inline-start: 0;
+  white-space: normal;
+}
+
+/* What the candidate wrote and what staff answered: their own line breaks are kept, and a long word never widens the card. */
+.review-dispute__text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The "report an issue" button of the exam page (FR-42) and the form that opens in its place; it sits above the questions, so it stays reachable while paused. */
+.report-issue {
+  margin-block: 0.75rem;
+}
+
+.report-issue .card {
+  margin-top: 0.5rem;
+}
+
+/* Text size for the question and its options only: the palette and timer keep their size so they never crowd the screen. */
+.exam-question {
+  font-size: calc(1rem * var(--exam-zoom, 1));
+}
+
+/* A question brought to the top by its report form stops short of the sticky bar, so its text is never hidden under the bar. */
+.exam-question .question__text {
+  scroll-margin-top: 9rem;
+}
+
+.exam-zoom {
+  justify-content: flex-end;
+  align-items: center;
+}
+
+/* "Display and help" opens from one line, so the question is not pushed down by settings most candidates never change. */
+.exam-help {
+  margin: 0.75rem 0 1rem;
+}
+
+.exam-help > summary {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.25rem 0;
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Opened, the settings and notes read from the left, as the rest of the text does, rather than pushed to the right edge. */
+.exam-help .exam-zoom {
+  justify-content: flex-start;
+  margin-top: 0.5rem;
+}
+
+.exam-help .exam-shortcuts {
+  text-align: left;
+}
+
+.exam-shortcuts {
+  text-align: right;
+}
+
+/*
+ * High contrast: a black-and-white scheme chosen by the candidate, whatever the system theme. It only redefines the
+ * colour tokens, so every exam component picks it up; state is still told apart by border style and the corner dot,
+ * never by colour alone.
+ */
+.page--contrast {
+  --bg: #000000;
+  --surface: #000000;
+  --surface-muted: #000000;
+  --border: #ffffff;
+  --border-strong: #ffffff;
+  --text: #ffffff;
+  --text-muted: #ffffff;
+  --primary: #ffe600;
+  --primary-hover: #fff27a;
+  --primary-soft: #000000;
+  --on-primary: #000000;
+  --success: #00ff7f;
+  --success-soft: #000000;
+  --danger: #ff6b6b;
+  --danger-soft: #000000;
+  --warning: #ffe600;
+  --warning-soft: #000000;
+  --focus-ring: 0 0 0 3px #ffe600;
+
+  background: var(--bg);
+  color: var(--text);
+}
+
+.page--contrast .card {
+  border: 2px solid var(--border);
+}
+
+/* The per-section lines of the pre-submit confirmation: plain, so a screen reader reads them as a list. */
+.submit-summary {
+  margin: 0.5rem 0 0.75rem;
+  padding-left: 1.25rem;
+}

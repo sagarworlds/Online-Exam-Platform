@@ -3,6 +3,7 @@ using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Application.Queries;
 using ExamPlatform.Modules.Identity.Application.Sessions;
+using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Identity.Endpoints.Authentication;
 using ExamPlatform.Modules.Identity.Endpoints.Authorization;
 using ExamPlatform.Modules.Identity.Endpoints.OtpDelivery;
@@ -18,6 +19,8 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace ExamPlatform.Modules.Identity.Endpoints;
@@ -35,11 +38,16 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
             .UseNpgsql(configuration.GetConnectionString("Postgres"))
             .AddInterceptors(sp.GetRequiredService<DomainEventsSaveChangesInterceptor>()));
 
+        // A second sign-in that ends an earlier session is audited from the event the user raises (FR-26).
+        services.AddDomainEventHandlers(typeof(IdentityAuditTrail).Assembly);
+
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IOtpChallengeRepository, OtpChallengeRepository>();
         services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
         services.AddScoped<ISessionLookup, SessionLookup>();
+        services.AddScoped<IStaffDirectory, StaffDirectory>();
+        services.AddScoped<IContactDirectory, ContactDirectory>();
         services.AddScoped<IIdentityUnitOfWork, IdentityUnitOfWork>();
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
@@ -62,6 +70,18 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<LogoutHandler>();
         services.AddScoped<UpdateProfileHandler>();
         services.AddScoped<GetProfileHandler>();
+        services.AddScoped<ListRolesHandler>();
+        services.AddScoped<ListOutstandingOtpsHandler>();
+        services.AddScoped<IWhatsAppDiagnostics, WhatsAppDiagnostics>();
+        services.AddScoped<GetWhatsAppStatusHandler>();
+        services.AddScoped<SendWhatsAppTestHandler>();
+        services.AddScoped<GetWhatsAppDeliveryHandler>();
+
+        // Development-only first administrator (see IdentityBootstrapOptions). Bound in every
+        // environment so MigrateAndSeedAsync can tell that it was asked for and refuse it
+        // outside Development; the options are read when the seed step runs, not captured here.
+        services.AddOptions<IdentityBootstrapOptions>()
+            .Bind(configuration.GetSection(IdentityBootstrapOptions.SectionName));
 
         // Registered here, not in the Host, because Identity owns what a token's "sid" claim
         // means (FR-4); the Host keeps referencing only Identity.Endpoints (ADR 0001). The
@@ -91,16 +111,32 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<OtpDeliveryOptions>, OtpDeliveryOptionsValidator>();
 
+        // The development log that prints the codes also says why a sign-in got none; any other adapter says nothing.
+        services.AddScoped<ISignInDiagnostics>(sp =>
+            sp.GetRequiredService<IOptions<OtpDeliveryOptions>>().Value.Provider == OtpDeliveryOptions.DevelopmentLog
+                ? ActivatorUtilities.CreateInstance<LoggingSignInDiagnostics>(sp)
+                : new NoSignInDiagnostics());
+
         services.AddScoped<IOtpSender>(sp =>
-            sp.GetRequiredService<IOptions<OtpDeliveryOptions>>().Value.Provider switch
+        {
+            var delivery = sp.GetRequiredService<IOptions<OtpDeliveryOptions>>().Value;
+            IOtpSender sender = delivery.Provider switch
             {
                 OtpDeliveryOptions.DevelopmentLog => ActivatorUtilities.CreateInstance<LoggingOtpSender>(sp),
+                OtpDeliveryOptions.Smtp => ActivatorUtilities.CreateInstance<SmtpOtpSender>(sp),
 
                 // Unreachable once the host has started: OtpDeliveryOptionsValidator refuses
                 // any other provider at startup.
                 var provider => throw new InvalidOperationException(
                     $"No IOtpSender adapter exists for {OtpDeliveryOptions.SectionName}:Provider '{provider}'."),
-            });
+            };
+
+            // Codes for phone numbers go over WhatsApp when the host says so; the adapter above keeps every other
+            // channel. Without it the one adapter takes both channels, as it did before WhatsApp existed.
+            return delivery.PhoneProvider == OtpDeliveryOptions.WhatsApp
+                ? new ChannelRoutingOtpSender(sender, ActivatorUtilities.CreateInstance<WhatsAppOtpSender>(sp))
+                : sender;
+        });
     }
 
     // Adds Identity's named rate-limit policies (NFR-5) onto the Host's rate limiter, which
@@ -139,5 +175,48 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         var db = services.GetRequiredService<IdentityDbContext>();
         await db.Database.MigrateAsync(cancellationToken);
         await IdentitySeeder.SeedAsync(db, cancellationToken);
+        await SeedBootstrapAdminAsync(services, db, cancellationToken);
+    }
+
+    // Creates the configured first administrator, in Development only. In any other environment
+    // the settings are ignored (with a warning, so a deployment that sets them is told why no
+    // administrator appeared): an account created from configuration is a convenience for a
+    // developer's empty database, never a way to provision staff on a real one.
+    private static async Task SeedBootstrapAdminAsync(
+        IServiceProvider services, IdentityDbContext db, CancellationToken cancellationToken)
+    {
+        var options = services.GetRequiredService<IOptions<IdentityBootstrapOptions>>().Value;
+        var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger<IdentityModuleInstaller>();
+
+        if (!services.GetRequiredService<IHostEnvironment>().IsDevelopment())
+        {
+            if (options.IsRequested)
+            {
+                logger.LogWarning(
+                    "{Section} is set but is only honoured in the Development environment; no administrator was created.",
+                    IdentityBootstrapOptions.SectionName);
+            }
+
+            return;
+        }
+
+        var outcome = await IdentityBootstrapSeeder.SeedAdminAsync(
+            db,
+            options,
+            services.GetRequiredService<IPasswordHasher>(),
+            services.GetRequiredService<IPasswordPolicy>(),
+            services.GetRequiredService<Clock>().UtcNow,
+            cancellationToken);
+
+        // The email is personal data (NFR-6), so only the outcome is logged.
+        switch (outcome)
+        {
+            case BootstrapAdminOutcome.Created:
+                logger.LogInformation("Created the development administrator configured in {Section}.", IdentityBootstrapOptions.SectionName);
+                break;
+            case BootstrapAdminOutcome.AlreadyExists:
+                logger.LogInformation("The development administrator configured in {Section} already exists; left unchanged.", IdentityBootstrapOptions.SectionName);
+                break;
+        }
     }
 }

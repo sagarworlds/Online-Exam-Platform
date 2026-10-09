@@ -146,30 +146,6 @@ export function displayNameErrorMessage(errors: ValidationErrors | null): string
 }
 
 /**
- * Message for the first problem with a new password validated by
- * `Validators.required`, `Validators.minLength(MIN_PASSWORD_LENGTH)` and
- * `Validators.maxLength(MAX_PASSWORD_LENGTH)`.
- *
- * @param errors The control's current errors.
- * @returns A sentence to show under the field, or null when there is nothing to report.
- */
-export function newPasswordErrorMessage(errors: ValidationErrors | null): string | null {
-  if (errors === null) {
-    return null;
-  }
-  if (errors['required']) {
-    return 'Enter a new password.';
-  }
-  if (errors['minlength']) {
-    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
-  }
-  if (errors['maxlength']) {
-    return `Password must be ${MAX_PASSWORD_LENGTH} characters or fewer.`;
-  }
-  return null;
-}
-
-/**
  * A control's error message, shown only once the user has edited or left the
  * field, so an untouched form doesn't open covered in errors.
  *

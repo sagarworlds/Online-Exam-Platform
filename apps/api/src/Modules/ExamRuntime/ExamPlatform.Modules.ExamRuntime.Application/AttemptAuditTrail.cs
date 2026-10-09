@@ -1,0 +1,129 @@
+using ExamPlatform.Modules.Admin.Contracts;
+using ExamPlatform.Modules.ExamRuntime.Domain.Events;
+using ExamPlatform.SharedKernel.Application;
+
+namespace ExamPlatform.Modules.ExamRuntime.Application;
+
+/// <summary>
+/// Records what administrators do to a candidate's attempt in the audit trail (FR-29, FR-40). It reacts to the events the attempt
+/// raises, so the aggregate and its handlers know nothing about auditing; the actor comes from the request, since an event says what
+/// happened and not who did it.
+/// </summary>
+public sealed class AttemptAuditTrail(IAuditLogger auditLogger, IRequestContext requestContext)
+    : IDomainEventHandler<AttemptWarnedEvent>,
+        IDomainEventHandler<AttemptPausedEvent>,
+        IDomainEventHandler<AttemptResumedEvent>,
+        IDomainEventHandler<AttemptTerminatedEvent>,
+        IDomainEventHandler<AttemptInvalidatedEvent>,
+        IDomainEventHandler<AttemptClientChangedEvent>,
+        IDomainEventHandler<DisputeRaisedEvent>,
+        IDomainEventHandler<DisputeResolvedEvent>,
+        IDomainEventHandler<IssueReportedEvent>,
+        IDomainEventHandler<IssueResolvedEvent>
+{
+    /// <inheritdoc />
+    public Task HandleAsync(AttemptWarnedEvent domainEvent, CancellationToken cancellationToken) =>
+        RecordAsync("ExamRuntime.AttemptWarned", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
+            new Dictionary<string, string> { ["message"] = domainEvent.Message }, cancellationToken);
+
+    /// <inheritdoc />
+    public Task HandleAsync(AttemptPausedEvent domainEvent, CancellationToken cancellationToken) =>
+        RecordAsync("ExamRuntime.AttemptPaused", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId, null, cancellationToken);
+
+    /// <inheritdoc />
+    public Task HandleAsync(AttemptResumedEvent domainEvent, CancellationToken cancellationToken) =>
+        RecordAsync("ExamRuntime.AttemptResumed", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
+            new Dictionary<string, string> { ["pausedSeconds"] = domainEvent.PausedSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) },
+            cancellationToken);
+
+    /// <inheritdoc />
+    public Task HandleAsync(AttemptTerminatedEvent domainEvent, CancellationToken cancellationToken) =>
+        RecordAsync("ExamRuntime.AttemptTerminated", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
+            new Dictionary<string, string> { ["reason"] = domainEvent.Reason }, cancellationToken);
+
+    /// <inheritdoc />
+    public Task HandleAsync(AttemptInvalidatedEvent domainEvent, CancellationToken cancellationToken) =>
+        RecordAsync("ExamRuntime.AttemptInvalidated", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
+            new Dictionary<string, string> { ["reason"] = domainEvent.Reason }, cancellationToken);
+
+    /// <inheritdoc />
+    public Task HandleAsync(AttemptClientChangedEvent domainEvent, CancellationToken cancellationToken)
+    {
+        // The address and device signature are the point of this entry (FR-26): where the attempt was, and where it is now.
+        var extra = new Dictionary<string, string>();
+        void Add(string key, string? value)
+        {
+            if (!string.IsNullOrEmpty(value))
+                extra[key] = value;
+        }
+
+        Add("previousIp", domainEvent.PreviousIpAddress);
+        Add("previousDevice", domainEvent.PreviousDeviceFingerprint);
+        Add("ip", domainEvent.IpAddress);
+        Add("device", domainEvent.DeviceFingerprint);
+        return RecordAsync("ExamRuntime.AttemptClientChanged", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId, extra, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task HandleAsync(DisputeRaisedEvent domainEvent, CancellationToken cancellationToken) =>
+        // The candidate's reason stays on the dispute; the trail records that it was raised, about which question.
+        RecordAsync("ExamRuntime.DisputeRaised", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
+            new Dictionary<string, string>
+            {
+                ["disputeId"] = domainEvent.DisputeId.ToString(),
+                ["questionId"] = domainEvent.QuestionId.ToString(),
+            },
+            cancellationToken);
+
+    /// <inheritdoc />
+    public Task HandleAsync(DisputeResolvedEvent domainEvent, CancellationToken cancellationToken) =>
+        RecordAsync(domainEvent.Accepted ? "ExamRuntime.DisputeAccepted" : "ExamRuntime.DisputeRejected",
+            domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
+            new Dictionary<string, string>
+            {
+                ["disputeId"] = domainEvent.DisputeId.ToString(),
+                ["questionId"] = domainEvent.QuestionId.ToString(),
+            },
+            cancellationToken);
+
+    /// <inheritdoc />
+    public Task HandleAsync(IssueReportedEvent domainEvent, CancellationToken cancellationToken) =>
+        // What the candidate wrote stays on the report; the trail records that one was made, and of what kind.
+        RecordAsync("ExamRuntime.IssueReported", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
+            new Dictionary<string, string>
+            {
+                ["issueReportId"] = domainEvent.IssueReportId.ToString(),
+                ["category"] = domainEvent.Category.ToString(),
+            },
+            cancellationToken);
+
+    /// <inheritdoc />
+    public Task HandleAsync(IssueResolvedEvent domainEvent, CancellationToken cancellationToken) =>
+        RecordAsync("ExamRuntime.IssueResolved", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
+            new Dictionary<string, string> { ["issueReportId"] = domainEvent.IssueReportId.ToString() },
+            cancellationToken);
+
+    private Task RecordAsync(
+        string action, Guid attemptId, Guid examId, Guid candidateId, Dictionary<string, string>? extra, CancellationToken cancellationToken)
+    {
+        var metadata = new Dictionary<string, string>
+        {
+            ["examId"] = examId.ToString(),
+            ["candidateId"] = candidateId.ToString(),
+        };
+        if (extra is not null)
+            foreach (var (key, value) in extra)
+                metadata[key] = value;
+
+        return auditLogger.RecordAsync(
+            new AuditEntry(
+                ActorUserId: requestContext.UserId,
+                ActorRole: requestContext.Role,
+                Action: action,
+                EntityType: "Attempt",
+                EntityId: attemptId.ToString(),
+                Metadata: metadata,
+                CorrelationId: requestContext.CorrelationId),
+            cancellationToken);
+    }
+}

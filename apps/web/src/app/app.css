@@ -1,62 +1,105 @@
 .nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #e2e2e2;
+  gap: 0.5rem 1rem;
+  padding: 0.65rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
 .nav .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
   font-weight: 700;
   text-decoration: none;
-  color: inherit;
+  color: var(--text);
+}
+
+.nav .brand svg {
+  width: 1.7rem;
+  height: 1.7rem;
+  color: var(--primary);
 }
 
 .nav nav {
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.1rem;
   align-items: center;
 }
 
 .nav nav a {
-  color: inherit;
+  padding: 0.4rem 0.55rem;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.95rem;
   text-decoration: none;
 }
 
-.nav nav button {
-  font: inherit;
-  cursor: pointer;
-  padding: 0.4rem 0.8rem;
-  border: 1px solid #ccc;
-  border-radius: 0.4rem;
-  background: #fff;
+.nav nav a:hover {
+  background: var(--surface-muted);
 }
 
-.health-widget {
-  position: fixed;
-  bottom: 0.75rem;
-  right: 0.75rem;
-  font-size: 0.8rem;
-}
-
-.status {
-  display: inline-block;
-  padding: 0.4rem 0.8rem;
-  border-radius: 0.5rem;
+.nav nav a.active {
+  background: var(--primary-soft);
+  color: var(--primary);
   font-weight: 600;
 }
 
-.status--checking {
-  background: #eee;
-  color: #444;
+.nav nav button {
+  margin-inline-start: 0.5rem;
 }
 
-.status--healthy {
-  background: #e6f7ec;
-  color: #1a7f37;
+/* Holds the admin sidebar (when the signed-in user has an admin area open) beside the routed page. */
+.shell {
+  display: flex;
+  align-items: flex-start;
 }
 
-.status--unhealthy {
-  background: #fdecea;
-  color: #b3261e;
+.shell__content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The API dot sits at the foot of the page, in the flow, so it never covers a form, a button or a question. */
+.health-widget {
+  display: flex;
+  justify-content: center;
+  padding: 0 1rem 1rem;
+  font-size: 0.8rem;
+}
+
+/* The dot is small, but its hover and touch target is larger (the padding), so it is easy to point at. */
+.health-dot {
+  display: block;
+  box-sizing: content-box;
+  width: 0.65rem;
+  height: 0.65rem;
+  padding: 0.35rem;
+  border-radius: 50%;
+  background-clip: content-box;
+  cursor: help;
+}
+
+.health-dot--checking {
+  background-color: var(--border-strong);
+}
+
+.health-dot--healthy {
+  background-color: var(--success);
+}
+
+.health-dot--unhealthy {
+  background-color: var(--danger);
+}
+
+/* On a phone the sidebar stacks above the routed page (see admin-sidebar.css) rather than sitting beside it. */
+@media (max-width: 40rem) {
+  .shell {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

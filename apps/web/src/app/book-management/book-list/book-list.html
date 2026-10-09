@@ -1,0 +1,80 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>Books</h1>
+    <label class="inline-check">
+      <input type="checkbox" [checked]="showArchived()" (change)="toggleArchived()" />
+      Show archived books
+    </label>
+  </div>
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+
+  <app-class-manager [classes]="classes()" (changed)="onClassesChanged()" />
+
+  <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="New book">
+    <h2>New book</h2>
+    <div class="form-row form-row--pair">
+      <div class="field">
+        <label for="book-class">Class (optional)</label>
+        <select id="book-class" formControlName="classId">
+          <option value="">No class</option>
+          @for (item of openClasses(); track item.id) {
+            <option [value]="item.id">{{ item.name }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="book-name">Name</label>
+        <input id="book-name" type="text" formControlName="name" [attr.maxlength]="limits.name" />
+      </div>
+    </div>
+    <div class="form-row form-row--pair">
+      <div class="field">
+        <label for="book-subject">Subject (optional)</label>
+        <input id="book-subject" type="text" formControlName="subject" placeholder="Maths, Physics…" [attr.maxlength]="limits.subject" />
+      </div>
+      <div class="field">
+        <label for="book-description">Description (optional)</label>
+        <input id="book-description" type="text" formControlName="description" [attr.maxlength]="limits.description" />
+      </div>
+    </div>
+    <button type="submit" class="primary" [disabled]="form.invalid || saving()">Create book</button>
+  </form>
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (books().length === 0) {
+    <div class="card empty-state">No books yet. Create one above, then add its chapters.</div>
+  } @else {
+    @for (group of groups(); track group.classId) {
+      @if (grouped()) {
+        <h2 class="book-group__title">
+          {{ group.name ?? 'No class' }}
+          @if (group.archived) {
+            <span class="badge badge--inactive">Archived</span>
+          }
+        </h2>
+      }
+      @for (book of group.books; track book.id) {
+        <div class="card book-card">
+          <h3 class="card__title">
+            <a [routerLink]="['/admin/books', book.id]">{{ book.name }}</a>
+            @if (book.isArchived) {
+              <span class="badge badge--inactive">Archived</span>
+            } @else if (book.subject) {
+              <span class="badge">{{ book.subject }}</span>
+            }
+          </h3>
+          @if (book.description) {
+            <p>{{ book.description }}</p>
+          }
+          <p class="card__meta">
+            {{ book.chapters.length }} {{ book.chapters.length === 1 ? 'chapter' : 'chapters' }}
+          </p>
+        </div>
+      }
+    }
+  }
+</div>

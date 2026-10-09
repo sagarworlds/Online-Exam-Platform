@@ -1,0 +1,52 @@
+<div class="card">
+  <h2>Attempts allowed</h2>
+  @if (editing()) {
+    <form (submit)="save($event)" aria-label="Attempts allowed">
+      <div class="field">
+        <label for="attempt-limit">Attempts for every candidate</label>
+        <input
+          id="attempt-limit"
+          type="number"
+          inputmode="numeric"
+          step="1"
+          [attr.min]="fewest"
+          [attr.max]="most"
+          [value]="draft()"
+          (input)="draft.set($any($event.target).value)"
+          [attr.aria-invalid]="parsedDraft() === null"
+          aria-describedby="attempt-limit-hint"
+        />
+        <p id="attempt-limit-hint" class="hint">
+          From {{ fewest }} to {{ most }}. Lowering it never takes back an attempt a candidate has already made; it only stops
+          further ones. Raising it opens more attempts at once.
+        </p>
+      </div>
+      @if (warns(parsedDraft())) {
+        <p class="warning-note" role="note">
+          Answers are shown right after each attempt is submitted, so candidates will see the correct answers before their next
+          attempt. Change the answer review above if that is not what you want.
+        </p>
+      }
+      <div class="actions">
+        <button type="submit" class="primary" [disabled]="busy() || parsedDraft() === null">Save</button>
+        <button type="button" (click)="editing.set(false)" [disabled]="busy()">Cancel</button>
+      </div>
+    </form>
+  } @else {
+    <p>
+      Every candidate can sit this exam {{ attempts() === 1 ? 'once' : attempts() + ' times' }}. An administrator can still give one
+      candidate another attempt after they have used theirs.
+    </p>
+    @if (warns(attempts())) {
+      <p class="warning-note" role="note">
+        Answers are shown right after each attempt is submitted, so candidates see the correct answers before their next attempt.
+        Change the answer review above if that is not what you want.
+      </p>
+    }
+    @if (editable()) {
+      <div class="actions">
+        <button type="button" (click)="startEditing()" [disabled]="busy()" aria-label="Edit attempts allowed">Edit</button>
+      </div>
+    }
+  }
+</div>

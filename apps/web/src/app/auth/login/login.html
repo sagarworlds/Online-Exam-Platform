@@ -1,52 +1,105 @@
 <div class="page">
-  <h1>Log in</h1>
+  <h1>{{ 'login.title' | t }}</h1>
 
   @if (sessionEndedMessage) {
     <p class="info-message" role="status">{{ sessionEndedMessage }}</p>
   }
 
-  <div class="mode-toggle">
-    <button type="button" [class.active]="mode() === 'password'" (click)="setMode('password')">Password</button>
-    <button type="button" [class.active]="mode() === 'otp'" (click)="setMode('otp')">One-time code</button>
-  </div>
+  <section class="card">
+    <div class="mode-toggle" role="group" [attr.aria-label]="'login.title' | t">
+      <button
+        type="button"
+        [class.active]="mode() === 'password'"
+        [attr.aria-pressed]="mode() === 'password'"
+        (click)="setMode('password')"
+      >
+        {{ 'login.mode.password' | t }}
+      </button>
+      <button
+        type="button"
+        [class.active]="mode() === 'otp'"
+        [attr.aria-pressed]="mode() === 'otp'"
+        (click)="setMode('otp')"
+      >
+        {{ 'login.mode.otp' | t }}
+      </button>
+    </div>
 
-  @if (errorMessage()) {
-    <p class="error-message">{{ errorMessage() }}</p>
-  }
+    @if (mode() === 'password') {
+      <form [formGroup]="passwordForm" (ngSubmit)="submitPassword()" [attr.aria-busy]="submitting()" novalidate>
+        <div class="field">
+          <label for="login-email">{{ 'login.email' | t }}</label>
+          <input
+            id="login-email"
+            type="email"
+            formControlName="email"
+            autocomplete="email"
+            [attr.aria-invalid]="emailError() ? 'true' : null"
+            [attr.aria-describedby]="emailError() ? 'login-email-error' : null"
+          />
+          @if (emailError(); as key) {
+            <p id="login-email-error" class="field-error">{{ key | t }}</p>
+          }
+        </div>
 
-  @if (mode() === 'password') {
-    <form [formGroup]="passwordForm" (ngSubmit)="submitPassword()">
-      <div class="field">
-        <label for="login-email">Email</label>
-        <input id="login-email" type="email" formControlName="email" autocomplete="email" />
-      </div>
-      <div class="field">
-        <label for="login-password">Password</label>
-        <input id="login-password" type="password" formControlName="password" autocomplete="current-password" />
-      </div>
-      <button type="submit" class="primary" [disabled]="passwordForm.invalid || submitting()">Log in</button>
-    </form>
-  } @else {
-    <form [formGroup]="otpForm" (ngSubmit)="submitOtpRequest()">
-      <div class="field">
-        <label for="login-otp-destination">Email or phone number</label>
-        <input
-          id="login-otp-destination"
-          type="text"
-          formControlName="destination"
-          autocomplete="username"
-          aria-describedby="login-otp-staff-hint"
-        />
-        <p id="login-otp-staff-hint" class="field-hint">
-          Staff and admin accounts sign in with a password and a one-time code.
-        </p>
-      </div>
-      <button type="submit" class="primary" [disabled]="otpForm.invalid || submitting()">Send code</button>
-    </form>
-  }
+        <div class="field">
+          <div class="field-label-row">
+            <label for="login-password">{{ 'login.password' | t }}</label>
+            <a class="field-link" routerLink="/password-reset/request">{{ 'login.forgot' | t }}</a>
+          </div>
+          <div class="password-input">
+            <input
+              id="login-password"
+              [type]="passwordVisible() ? 'text' : 'password'"
+              formControlName="password"
+              autocomplete="current-password"
+              [attr.aria-invalid]="passwordError() ? 'true' : null"
+              [attr.aria-describedby]="passwordError() ? 'login-password-error' : null"
+            />
+            <button type="button" class="password-toggle" aria-controls="login-password" (click)="togglePasswordVisibility()">
+              {{ (passwordVisible() ? 'login.hidePassword' : 'login.showPassword') | t }}
+            </button>
+          </div>
+          @if (passwordError(); as key) {
+            <p id="login-password-error" class="field-error">{{ key | t }}</p>
+          }
+        </div>
+
+        @if (errorMessage()) {
+          <p class="error-message" role="alert">{{ errorMessage() }}</p>
+        }
+        <button type="submit" class="primary auth-submit" [disabled]="submitting()">{{ 'login.submit' | t }}</button>
+      </form>
+    } @else {
+      <form [formGroup]="otpForm" (ngSubmit)="submitOtpRequest()" [attr.aria-busy]="submitting()" novalidate>
+        <div class="field">
+          <label for="login-otp-destination">{{ 'login.destination' | t }}</label>
+          <input
+            id="login-otp-destination"
+            type="text"
+            formControlName="destination"
+            autocomplete="username"
+            [attr.aria-invalid]="destinationError() ? 'true' : null"
+            [attr.aria-describedby]="destinationError() ? 'login-otp-staff-hint login-otp-error' : 'login-otp-staff-hint'"
+          />
+          <p id="login-otp-staff-hint" class="field-hint">{{ 'login.staffHint' | t }}</p>
+          @if (destinationError(); as key) {
+            <p id="login-otp-error" class="field-error">{{ key | t }}</p>
+          }
+        </div>
+
+        @if (errorMessage()) {
+          <p class="error-message" role="alert">{{ errorMessage() }}</p>
+        }
+        <button type="submit" class="primary auth-submit" [disabled]="submitting()">{{ 'login.sendCode' | t }}</button>
+      </form>
+    }
+  </section>
 
   <p class="link-row">
-    <a routerLink="/register">Create an account</a>
-    <a routerLink="/password-reset/request">Forgot password?</a>
+    <a routerLink="/register" [queryParams]="registerQueryParams">{{ 'login.createAccount' | t }}</a>
+  </p>
+  <p class="link-row">
+    <a href="/privacy.html" target="_blank" rel="noopener">{{ 'common.privacy' | t }}</a>
   </p>
 </div>

@@ -1,26 +1,72 @@
-using Microsoft.EntityFrameworkCore;
-using ExamPlatform.Modules.ExamAuthoring.Domain;
 using ExamPlatform.Modules.ExamAuthoring.Application.Ports;
+using ExamPlatform.Modules.ExamAuthoring.Domain;
+using ExamPlatform.Modules.ExamAuthoring.Domain.Exceptions;
+using Microsoft.EntityFrameworkCore;
 
 namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Repositories;
 
-/// EF Core implementation of IExamRepository.
-public class EFExamRepository(ExamAuthoringDbContext context) : IExamRepository
+/// <summary>EF Core-backed <see cref="IExamRepository"/>.</summary>
+public sealed class EFExamRepository(ExamAuthoringDbContext context) : IExamRepository
 {
+    /// <inheritdoc />
     public void Add(Exam exam) => context.Exams.Add(exam);
 
-    // Tracked on purpose: handlers mutate the aggregate and rely on the unit of work's change
-    // tracking to INSERT new children; an explicit DbSet.Update would flag them Modified instead.
+    // Tracked, with children loaded, on purpose: the aggregate's rules read its sections and questions,
+    // and handlers rely on change tracking to INSERT new children; an explicit DbSet.Update would flag
+    // them Modified instead.
+    /// <inheritdoc />
     public async Task<Exam?> GetByIdAsync(Guid examId, CancellationToken cancellationToken = default) =>
-        await context.Exams.FirstOrDefaultAsync(e => e.Id == examId, cancellationToken);
+        await context.Exams
+            // Two sibling collections off Sections (Questions and DrawRules): a single SQL query would
+            // join both and return the cartesian product of a section's questions and its draw rules.
+            // A split query issues one SQL statement per collection instead (EF Core's own advice for
+            // this shape), so row counts grow with each collection's size, not their product.
+            .AsSplitQuery()
+            .Include(e => e.Sections).ThenInclude(s => s.Questions)
+            .Include(e => e.Sections).ThenInclude(s => s.DrawRules)
+            .FirstOrDefaultAsync(e => e.Id == examId, cancellationToken);
 
-    public async Task<Exam> GetByIdOrThrowAsync(Guid examId, CancellationToken cancellationToken = default)
-    {
-        var exam = await GetByIdAsync(examId, cancellationToken);
-        if (exam == null) throw new InvalidOperationException($"Exam with ID {examId} not found.");
-        return exam;
-    }
+    /// <inheritdoc />
+    public async Task<Exam> GetByIdOrThrowAsync(Guid examId, CancellationToken cancellationToken = default) =>
+        await GetByIdAsync(examId, cancellationToken) ?? throw new ExamNotFoundError(examId);
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Exam>> ListBySeriesAsync(Guid seriesId, CancellationToken cancellationToken = default) =>
         await context.Exams.AsNoTracking().Where(e => e.SeriesId == seriesId).ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Exam>> ListByIdsAsync(IReadOnlyCollection<Guid> examIds, CancellationToken cancellationToken = default) =>
+        await context.Exams.AsNoTracking()
+            // Same split as GetByIdAsync, and more worth it here: this can load several exams at once,
+            // so an unsplit query's cartesian product compounds across every exam, not just one.
+            .AsSplitQuery()
+            .Include(e => e.Sections).ThenInclude(s => s.Questions)
+            .Include(e => e.Sections).ThenInclude(s => s.DrawRules)
+            .Where(e => examIds.Contains(e.Id))
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Exam>> ListPublishedStartingBetweenAsync(DateTime afterUtc, DateTime untilUtc, CancellationToken cancellationToken = default) =>
+        await context.Exams.AsNoTracking()
+            .AsSplitQuery()
+            .Include(e => e.Sections).ThenInclude(s => s.Questions)
+            .Include(e => e.Sections).ThenInclude(s => s.DrawRules)
+            .Where(e => e.Status == ExamStatus.Published && e.ScheduledStartTime > afterUtc && e.ScheduledStartTime <= untilUtc)
+            .OrderBy(e => e.ScheduledStartTime)
+            .ToListAsync(cancellationToken);
+
+    // A projection over the question rows, not a load of whole exams: a page of 200 questions can sit in many exams,
+    // and only the exam's name and status are wanted. Exams marked deleted are left out by the context's query filter.
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ExamQuestionUse>> ListUsesOfQuestionsAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken = default) =>
+        await (from exam in context.Exams.AsNoTracking()
+               from section in exam.Sections
+               from question in section.Questions
+               where questionIds.Contains(question.QuestionVersionId)
+               select new ExamQuestionUse(question.QuestionVersionId, exam.Id, exam.Name, exam.Status))
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Exam>> ListNewestAsync(int take, CancellationToken cancellationToken = default) =>
+        await context.Exams.AsNoTracking().OrderByDescending(e => e.CreatedAt).Take(take).ToListAsync(cancellationToken);
 }

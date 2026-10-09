@@ -1,104 +1,35 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterLink, RouterModule } from '@angular/router';
+import { DatePipe } from '@angular/common';
+import { Component, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { extractErrorMessage } from '../../shared/problem-details';
 import { ExamApiService } from '../exam-api.service';
 import { ExamDto } from '../exam.models';
+import { describeScope } from '../exam-scope-fields/exam-scope';
 
+/** Admin page: the newest exams, each linking to its editor. */
 @Component({
   selector: 'app-exam-list',
-  standalone: true,
-  imports: [CommonModule, RouterLink, RouterModule],
-  template: `
-    <div class="exam-list-container">
-      <h2>Exams</h2>
-
-      <div class="actions">
-        <a routerLink="/exams/create" class="btn btn-primary">Create New Exam</a>
-      </div>
-
-      @if (loading) {
-        <div class="loading">Loading exams...</div>
-      }
-      @if (error) {
-        <div class="error">{{ error }}</div>
-      }
-
-      @if (!loading && exams.length === 0) {
-        <div class="empty">
-          No exams found. <a routerLink="/exams/create">Create one now</a>
-        </div>
-      }
-
-      @if (!loading && exams.length > 0) {
-        <div class="exam-grid">
-          @for (exam of exams; track exam.id) {
-            <div class="exam-card">
-              <h3>{{ exam.name }}</h3>
-              <p>{{ exam.description }}</p>
-              <div class="exam-info">
-                <span class="status" [class]="'status-' + exam.status">{{ exam.status }}</span>
-                <span class="date">Created: {{ exam.createdAt | date: 'short' }}</span>
-              </div>
-              <div class="actions">
-                <a [routerLink]="['/exams', exam.id, 'schedule']" class="btn btn-secondary">Schedule</a>
-                <button class="btn btn-tertiary" (click)="viewExam(exam.id)">View</button>
-              </div>
-            </div>
-          }
-        </div>
-      }
-    </div>
-  `,
-  styles: [`
-    .exam-list-container { padding: 2rem; }
-    .actions { margin: 1rem 0; }
-    .btn { padding: 0.5rem 1rem; margin-right: 0.5rem; text-decoration: none; display: inline-block; border: none; cursor: pointer; border-radius: 4px; }
-    .btn-primary { background: #007bff; color: white; }
-    .btn-secondary { background: #6c757d; color: white; font-size: 0.875rem; padding: 0.25rem 0.5rem; }
-    .btn-tertiary { background: #f0f0f0; color: #333; font-size: 0.875rem; padding: 0.25rem 0.5rem; }
-    .exam-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin-top: 2rem; }
-    .exam-card { border: 1px solid #ddd; padding: 1rem; border-radius: 8px; }
-    .exam-card h3 { margin-top: 0; }
-    .exam-info { display: flex; gap: 1rem; font-size: 0.875rem; margin: 0.5rem 0; }
-    .status { padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: bold; }
-    .status-Draft { background: #ffc107; }
-    .status-Published { background: #28a745; color: white; }
-    .status-Active { background: #007bff; color: white; }
-    .status-Closed { background: #6c757d; color: white; }
-    .exam-card .actions { margin-top: 1rem; display: flex; gap: 0.5rem; }
-    .loading, .error, .empty { padding: 2rem; text-align: center; }
-    .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; }
-  `]
+  imports: [RouterLink, DatePipe],
+  templateUrl: './exam-list.html',
 })
-export class ExamList implements OnInit {
-  private examApi = inject(ExamApiService);
+export class ExamList {
+  private readonly examApi = inject(ExamApiService);
 
-  exams: ExamDto[] = [];
-  loading = true;
-  error = '';
+  protected readonly exams = signal<ExamDto[]>([]);
+  protected readonly loading = signal(true);
+  protected readonly errorMessage = signal<string | null>(null);
+  protected readonly describeScope = describeScope;
 
-  ngOnInit() {
-    this.loadExams();
-  }
-
-  loadExams() {
-    this.loading = true;
-    this.error = '';
+  constructor() {
     this.examApi.getExams().subscribe({
-      next: (data) => {
-        this.exams = data;
-        this.loading = false;
+      next: (exams) => {
+        this.exams.set(exams);
+        this.loading.set(false);
       },
-      error: (err) => {
-        this.error = 'Failed to load exams';
-        this.loading = false;
-        console.error(err);
+      error: (error: unknown) => {
+        this.loading.set(false);
+        this.errorMessage.set(extractErrorMessage(error));
       },
     });
-  }
-
-  viewExam(id: string) {
-    // Navigate to exam details page when implemented
-    console.log('View exam:', id);
   }
 }

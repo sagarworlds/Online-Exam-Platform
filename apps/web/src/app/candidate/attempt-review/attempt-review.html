@@ -1,0 +1,183 @@
+<div class="page page--exam">
+  <a [routerLink]="attemptId ? ['/attempt', attemptId] : ['/my-exams']" class="back-link">&larr; {{ 'review.back' | t }}</a>
+
+  @if (loading()) {
+    <p>{{ 'common.loading' | t }}</p>
+  }
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+
+  @if (review(); as r) {
+    <div class="card">
+      <p class="exam-bar__label">{{ 'review.title' | t }}@if (r.number > 1) { · {{ 'common.attempt' | t: { number: r.number } }} }</p>
+      <h1>{{ r.examName }}</h1>
+      <div class="review-summary">
+        <p class="review-summary__score">{{ r.score }} / {{ r.maxScore }}</p>
+        <ul class="review-counts" [attr.aria-label]="'review.summaryAria' | t">
+          <li class="badge badge--active">{{ 'review.correct' | t: { count: r.correctCount } }}</li>
+          @if (r.partialCount) {
+            <li class="badge badge--warning">{{ 'review.partial' | t: { count: r.partialCount } }}</li>
+          }
+          <li class="badge badge--danger">{{ 'review.wrong' | t: { count: r.wrongCount } }}</li>
+          <li class="badge badge--inactive">{{ 'review.unanswered' | t: { count: r.unansweredCount } }}</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Under the summary, not inside it, so the summary stays short and the answers start higher up the page. -->
+    @if (r.autoSubmitted) {
+      <p class="hint">{{ 'common.autoSubmitted' | t }}</p>
+    }
+    @if ((r.resultVersion ?? 1) > 1) {
+      <p class="hint">{{ 'review.version' | t: { version: r.resultVersion ?? 1 } }}</p>
+    }
+    @if (r.disputeWindow; as disputeWindow) {
+      @if (disputeWindow.enabled) {
+        <p class="hint">
+          {{ disputeWindow.open ? ('review.dispute.windowOpen' | t: { date: (disputeWindow.closesAtUtc | date: 'medium') ?? '' }) : ('review.dispute.windowClosed' | t) }}
+        </p>
+      }
+    }
+    @if (r.revisions && r.revisions.length > 0) {
+      <div class="warning-note" role="status">
+        <p><strong>{{ 'review.revised' | t }}</strong></p>
+        <ul>
+          @for (revision of r.revisions; track revision.revisedAtUtc) {
+            <li>
+              @if (revision.version) {
+                <strong>{{ 'review.revisionVersion' | t: { version: revision.version } }}</strong>
+              }
+              {{ 'review.revisionLine' | t: { previous: revision.previousScore, previousMax: revision.previousMaxScore, next: revision.newScore, nextMax: revision.newMaxScore, date: (revision.revisedAtUtc | date: 'medium') ?? '', reason: revision.reason } }}
+            </li>
+          }
+        </ul>
+      </div>
+    }
+
+    <!-- Stays at the top of the screen while the answers are read, so any question is one tap away. -->
+    <div class="review-strip" role="group" [attr.aria-label]="'review.jump' | t">
+      @for (section of sections(r); track section.id) {
+        @for (question of section.questions; track question.id) {
+          <button
+            type="button"
+            class="review-strip__item"
+            [class.review-strip__item--correct]="question.verdict === 'Correct'"
+            [class.review-strip__item--partial]="question.verdict === 'Partial'"
+            [class.review-strip__item--wrong]="question.verdict === 'Wrong'"
+            [attr.aria-label]="'review.questionAria' | t: { number: question.number, verdict: verdictLabel(question.verdict) }"
+            (click)="scrollTo(question.number)"
+          >
+            {{ question.number }}
+          </button>
+        }
+      }
+    </div>
+
+    @for (section of sections(r); track section.id) {
+      <h2 class="palette__section">{{ section.name }}</h2>
+      @for (question of section.questions; track question.id) {
+        <div class="card review-question" [id]="'review-question-' + question.number">
+          <div class="review-question__head">
+            <p class="review-question__meta">{{ 'review.question' | t: { number: question.number } }}</p>
+            <span>
+              <span
+                class="badge"
+                [class.badge--active]="question.verdict === 'Correct'"
+                [class.badge--warning]="question.verdict === 'Partial'"
+                [class.badge--danger]="question.verdict === 'Wrong'"
+                [class.badge--inactive]="question.verdict === 'Unanswered'"
+              >{{ verdictLabel(question.verdict) }}</span>
+              <span class="review-question__marks" [attr.aria-label]="'review.marks' | t">{{ formatMarks(question.marks) }}</span>
+            </span>
+          </div>
+          <!-- The text is the API's sanitized HTML, rendered through Angular's own sanitizer as a second layer. -->
+          <div class="question__text rich-text" [appMath]="question.text"></div>
+          @if (question.allowsMultiple) {
+            <p class="question__hint">{{ 'review.multipleNote' | t }}</p>
+          }
+          <ul class="review-options">
+            @for (option of question.options; track option.id; let i = $index) {
+              <li
+                class="review-option"
+                [class.review-option--correct]="option.isCorrect"
+                [class.review-option--wrong]="option.wasChosen && !option.isCorrect"
+              >
+                <span class="review-option__marker" aria-hidden="true">{{ optionLetter(i) }}</span>
+                <span class="review-option__text">{{ option.text }}</span>
+                @if (option.wasChosen && option.isCorrect) {
+                  <span class="review-option__tag">{{ 'review.tag.yourCorrect' | t }}</span>
+                } @else if (option.wasChosen) {
+                  <span class="review-option__tag">{{ 'review.tag.your' | t }}</span>
+                } @else if (option.isCorrect) {
+                  <span class="review-option__tag">{{ 'review.tag.correct' | t }}</span>
+                }
+              </li>
+            }
+          </ul>
+          @if (question.verdict === 'Unanswered') {
+            <p class="hint">{{ 'review.notAnswered' | t }}</p>
+          }
+
+          @if (disputeFor(question.id); as dispute) {
+            <section class="review-dispute" [attr.aria-label]="'review.dispute.yours' | t">
+              @if (disputeSentId() === question.id) {
+                <p class="success-message" role="status">{{ 'review.dispute.sent' | t }}</p>
+              }
+              <p class="review-dispute__head">
+                <strong>{{ 'review.dispute.yours' | t }}</strong>
+                <span
+                  class="badge review-dispute__status"
+                  [class.badge--warning]="dispute.status === 'Open'"
+                  [class.badge--active]="dispute.status === 'Accepted'"
+                  [class.badge--inactive]="dispute.status === 'Rejected'"
+                >{{ disputeStatusLabel(dispute.status) }}</span>
+              </p>
+              <p class="review-dispute__text">{{ dispute.reason }}</p>
+              @if (dispute.resolutionNote) {
+                <p class="review-dispute__text">
+                  {{ (dispute.status === 'Accepted' ? 'review.dispute.noteAccepted' : 'review.dispute.noteRejected') | t: { note: dispute.resolutionNote } }}
+                </p>
+              }
+            </section>
+          } @else if (r.disputeWindow?.open) {
+            @if (disputingId() === question.id) {
+              <form class="review-dispute" (submit)="$event.preventDefault(); sendDispute(question.id)" [attr.aria-label]="'review.dispute.formLabel' | t: { number: question.number }">
+                <div class="field">
+                  <label [for]="'dispute-reason-' + question.number">{{ 'review.dispute.why' | t }}</label>
+                  <textarea
+                    [id]="'dispute-reason-' + question.number"
+                    rows="3"
+                    aria-required="true"
+                    [maxLength]="maxDisputeReason"
+                    [attr.aria-describedby]="'dispute-hint-' + question.number"
+                    [value]="disputeReason()"
+                    (input)="disputeReason.set($any($event.target).value)"
+                    [disabled]="disputeBusy()"
+                  ></textarea>
+                  <p class="hint" [id]="'dispute-hint-' + question.number">{{ 'review.dispute.hint' | t: { max: maxDisputeReason } }}</p>
+                </div>
+                @if (disputeError()) {
+                  <p class="error-message" role="alert">{{ disputeError() }}</p>
+                }
+                <div class="actions">
+                  <button type="submit" class="primary" [disabled]="disputeBusy() || disputeReason().trim() === ''">{{ 'review.dispute.send' | t }}</button>
+                  <button type="button" (click)="cancelDispute()" [disabled]="disputeBusy()">{{ 'common.cancel' | t }}</button>
+                </div>
+              </form>
+            } @else {
+              <div class="actions">
+                <button type="button" (click)="startDispute(question.id)">{{ 'review.dispute.start' | t }}</button>
+              </div>
+            }
+          }
+        </div>
+      }
+    }
+
+    <div class="actions">
+      <a routerLink="/my-exams" class="btn btn--primary">{{ 'common.backToMyExams' | t }}</a>
+    </div>
+  }
+</div>

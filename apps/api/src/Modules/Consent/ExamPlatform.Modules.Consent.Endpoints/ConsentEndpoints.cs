@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.Consent.Contracts;
+using ExamPlatform.SharedKernel.Application.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -23,21 +24,17 @@ public static class ConsentEndpoints
         group.MapPost("/", async (RecordConsentHttpRequest request, HttpContext http, IConsentService service, CancellationToken ct) =>
         {
             var record = await service.RecordConsentAsync(
-                new RecordConsentRequest(request.SubjectId, request.Purpose, request.NoticeVersionId, CallerId(http)),
+                new RecordConsentRequest(request.SubjectId, request.Purpose, request.NoticeVersionId, http.User.GetUserId()),
                 ct);
             return Results.Ok(record);
         });
 
         group.MapDelete("/{id:guid}", async (Guid id, HttpContext http, IConsentService service, CancellationToken ct) =>
         {
-            await service.WithdrawConsentAsync(id, CallerId(http), ct);
+            await service.WithdrawConsentAsync(id, http.User.GetUserId(), ct);
             return Results.NoContent();
         });
     }
-
-    // "sub" (not a package-provided constant, to avoid this project taking a JWT-library
-    // dependency just for a claim type name) matches JwtTokenGenerator's JwtRegisteredClaimNames.Sub.
-    private static Guid CallerId(HttpContext http) => Guid.Parse(http.User.FindFirst("sub")!.Value);
 }
 
 /// <summary>Request body for <c>POST /v1/consent</c> — <c>GivenById</c> is taken from the caller's token, not the body.</summary>

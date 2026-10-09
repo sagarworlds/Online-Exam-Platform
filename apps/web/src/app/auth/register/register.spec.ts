@@ -35,33 +35,85 @@ describe('Register', () => {
     expect(compiled.textContent).toContain('Register');
   });
 
-  it('submit is disabled while the date of birth is in the future', () => {
+  it('offers a phone number as WhatsApp, and still sends it on the phone channel', () => {
+    const { compiled } = render();
+
+    const options = Array.from(compiled.querySelectorAll<HTMLInputElement>('input[type="radio"]'));
+
+    // The channel value is the API's word for "a phone number"; how a code reaches it is the host's choice (WhatsApp).
+    expect(options.map((o) => [o.value, o.closest('label')?.textContent?.trim()])).toEqual([
+      ['Email', 'Email'],
+      ['Sms', 'WhatsApp'],
+    ]);
+  });
+
+  it('asks for a phone number, with the phone keyboard, once WhatsApp is chosen', () => {
+    const { fixture, compiled } = render();
+
+    (compiled.querySelector('input[type="radio"][value="Sms"]') as HTMLInputElement).click();
+    fixture.detectChanges();
+
+    const destination = compiled.querySelector('#register-destination') as HTMLInputElement;
+    expect(destination.type).toBe('tel');
+    expect(destination.getAttribute('autocomplete')).toBe('tel');
+    expect(compiled.querySelector('label[for="register-destination"]')?.textContent).toContain('Phone number');
+  });
+
+  it('links to the privacy policy where personal data is collected, opening it in a new tab', () => {
+    const fixture = TestBed.createComponent(Register);
+    fixture.detectChanges();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector('a[href="/privacy.html"]') as HTMLAnchorElement;
+
+    expect(link.textContent?.trim()).toBe('Privacy policy');
+    expect(link.target).toBe('_blank');
+    expect(link.rel).toContain('noopener');
+  });
+
+  it('refuses a date of birth in the future on submit, names the problem beside the field, and sends nothing', () => {
     const { fixture, compiled, submitButton } = render();
     const inFiveDays = new Date();
     inFiveDays.setDate(inFiveDays.getDate() + 5);
 
-    const form = fixture.componentInstance['form'];
-    form.patchValue({ displayName: 'Ada', destination: 'ada@example.com', dateOfBirth: toLocalIsoDate(inFiveDays) });
-    form.controls.dateOfBirth.markAsTouched();
+    fixture.componentInstance['form'].patchValue({
+      displayName: 'Ada',
+      destination: 'ada@example.com',
+      dateOfBirth: toLocalIsoDate(inFiveDays),
+    });
+    fixture.detectChanges();
+    submitButton.click();
     fixture.detectChanges();
 
-    expect(submitButton.disabled).toBe(true);
+    expect(submitButton.disabled).toBe(false);
     const dobInput = compiled.querySelector('#register-dob') as HTMLInputElement;
     expect(dobInput.getAttribute('aria-describedby')).toBe('register-dob-error');
     expect(dobInput.getAttribute('aria-invalid')).toBe('true');
     expect(compiled.querySelector('#register-dob-error')?.textContent).toContain('cannot be in the future');
   });
 
-  it('shows an inline error for a whitespace-only display name', () => {
+  it('explains a whitespace-only display name once the user tries to submit', () => {
     const { fixture, compiled, submitButton } = render();
 
-    const form = fixture.componentInstance['form'];
-    form.patchValue({ displayName: '   ', destination: 'ada@example.com', dateOfBirth: '2000-01-01' });
-    form.controls.displayName.markAsDirty();
+    fixture.componentInstance['form'].patchValue({ displayName: '   ', destination: 'ada@example.com', dateOfBirth: '2000-01-01' });
+    fixture.detectChanges();
+    submitButton.click();
     fixture.detectChanges();
 
-    expect(submitButton.disabled).toBe(true);
     expect(compiled.querySelector('#register-display-name-error')?.textContent).toContain('Enter a display name.');
+  });
+
+  it('asks for a contact on submit when it is left empty', () => {
+    const { fixture, compiled, submitButton } = render();
+
+    fixture.componentInstance['form'].patchValue({ displayName: 'Ada', dateOfBirth: '2000-01-01' });
+    fixture.detectChanges();
+    submitButton.click();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('#register-destination-error')?.textContent).toContain(
+      'Enter your email address or phone number.',
+    );
+    expect(compiled.querySelector('#register-destination')?.getAttribute('aria-invalid')).toBe('true');
   });
 
   it('passes the destination to verify-otp as navigation state, not in the URL', () => {

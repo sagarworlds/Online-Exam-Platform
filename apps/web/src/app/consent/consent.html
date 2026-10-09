@@ -1,33 +1,39 @@
 <div class="page page--wide">
-  <h1>Consent</h1>
+  <h1>{{ 'consent.title' | t }}</h1>
+  <p>{{ 'consent.intro' | t }}</p>
 
-  <div class="card">
-    @for (row of rows(); track row.purpose) {
-      <div class="consent-row">
-        <div>
-          <strong>{{ row.label }}</strong>
-          @if (row.status) {
-            <span
-              class="badge"
-              [class.badge--active]="row.status.isActive"
-              [class.badge--inactive]="!row.status.isActive"
-            >
-              {{ row.status.isActive ? 'Active' : 'Not granted' }}
-            </span>
-          }
-          @if (row.error) {
-            <p class="error-message">{{ row.error }}</p>
-          }
-        </div>
+  @for (row of rows(); track row.purpose) {
+    <section class="card consent-card" [attr.aria-labelledby]="'consent-name-' + row.purpose" [attr.aria-busy]="row.busy">
+      <h2 class="card__title" [id]="'consent-name-' + row.purpose">{{ copy[row.purpose].name | t }}</h2>
+      <p>{{ copy[row.purpose].explain | t }}</p>
+      @if (row.purpose === 'PrivacyNotice') {
+        <p class="consent-card__link">
+          <a href="/privacy.html" target="_blank" rel="noopener">{{ 'consent.privacyLink' | t }}</a>
+        </p>
+      }
 
-        @if (row.busy) {
-          <span>…</span>
-        } @else if (row.status?.isActive) {
-          <button type="button" class="primary" (click)="withdraw(row.purpose)">Withdraw</button>
+      @if (row.status) {
+        <p class="consent-card__status">
+          <span class="badge" [class.badge--active]="row.status.isActive" [class.badge--inactive]="!row.status.isActive">
+            {{ (row.status.isActive ? 'consent.agreed' : 'consent.notAgreed') | t }}
+          </span>
+        </p>
+        @if (row.status.isActive) {
+          <button type="button" [disabled]="row.busy" (click)="withdraw(row.purpose)">
+            {{ (row.busy ? 'consent.saving' : 'consent.withdraw') | t }}
+          </button>
         } @else {
-          <button type="button" class="primary" (click)="grant(row.purpose)">Grant</button>
+          <button type="button" class="primary" [disabled]="row.busy" (click)="grant(row.purpose)">
+            {{ (row.busy ? 'consent.saving' : 'consent.agree') | t }}
+          </button>
         }
-      </div>
-    }
-  </div>
+      } @else if (row.busy) {
+        <p role="status">{{ 'common.loading' | t }}</p>
+      }
+
+      @if (row.error) {
+        <p class="error-message" role="alert">{{ row.error }}</p>
+      }
+    </section>
+  }
 </div>

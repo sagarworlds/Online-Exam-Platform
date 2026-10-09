@@ -1,0 +1,134 @@
+<div class="page page--wide">
+  <a routerLink="/admin/books" class="back-link">&larr; All books</a>
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+  @if (saved()) {
+    <p class="success-message">Saved.</p>
+  }
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (book(); as b) {
+    <div class="page-header">
+      <h1>
+        {{ b.name }}
+        @if (b.isArchived) {
+          <span class="badge badge--inactive">Archived</span>
+        }
+      </h1>
+      @if (b.isArchived) {
+        <button type="button" (click)="setBookArchived(false)" [disabled]="busy()">Restore book</button>
+      } @else {
+        <button type="button" (click)="setBookArchived(true)" [disabled]="busy()">Archive book</button>
+      }
+    </div>
+    @if (b.className) {
+      <p class="hint book-class">Class: <strong>{{ b.className }}</strong></p>
+    }
+    @if (b.isArchived) {
+      <p class="hint">
+        This book is archived. Its {{ totalQuestions() }} questions are kept, but no chapters can be added and it is hidden
+        from pickers until it is restored.
+      </p>
+    }
+
+    <form class="card" [formGroup]="detailsForm" (ngSubmit)="saveDetails()" aria-label="Book details">
+      <h2>Details</h2>
+      <div class="form-row form-row--pair">
+        <div class="field">
+          <label for="detail-class">Class (optional)</label>
+          <select id="detail-class" formControlName="classId">
+            <option value="">No class</option>
+            @for (option of classOptions(); track option.id) {
+              <option [value]="option.id">{{ option.label }}</option>
+            }
+          </select>
+        </div>
+        <div class="field">
+          <label for="detail-name">Name</label>
+          <input id="detail-name" type="text" formControlName="name" [attr.maxlength]="limits.name" />
+        </div>
+      </div>
+      <div class="form-row form-row--pair">
+        <div class="field">
+          <label for="detail-subject">Subject (optional)</label>
+          <input id="detail-subject" type="text" formControlName="subject" [attr.maxlength]="limits.subject" />
+        </div>
+        <div class="field">
+          <label for="detail-description">Description (optional)</label>
+          <input id="detail-description" type="text" formControlName="description" [attr.maxlength]="limits.description" />
+        </div>
+      </div>
+      <button type="submit" class="primary" [disabled]="detailsForm.invalid || detailsForm.pristine || busy()">Save details</button>
+    </form>
+
+    <h2>Chapters</h2>
+    @if (b.chapters.length === 0) {
+      <div class="card empty-state">No chapters yet. Add the first one below.</div>
+    } @else {
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Chapter</th>
+              <th>Questions</th>
+              <th>Status</th>
+              <th><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (chapter of b.chapters; track chapter.id) {
+              <tr>
+                <td>{{ chapter.order }}</td>
+                <td>
+                  @if (renamingId() === chapter.id) {
+                    <form class="inline-edit" [formGroup]="renameForm" (ngSubmit)="saveRename(chapter)" aria-label="Rename chapter">
+                      <input type="text" formControlName="title" [attr.aria-label]="'New title for ' + chapter.title" [attr.maxlength]="limits.chapterTitle" />
+                      <button type="submit" class="primary btn--small" [disabled]="renameForm.invalid || busy()">Save</button>
+                      <button type="button" class="btn--small" (click)="cancelRename()">Cancel</button>
+                    </form>
+                  } @else {
+                    <strong>{{ chapter.title }}</strong>
+                  }
+                </td>
+                <td>{{ chapter.questionCount }}</td>
+                <td>
+                  @if (chapter.isArchived) {
+                    <span class="badge badge--inactive">Archived</span>
+                  } @else {
+                    <span class="badge badge--active">Open</span>
+                  }
+                </td>
+                <td>
+                  <div class="actions">
+                    @if (renamingId() !== chapter.id) {
+                      <button type="button" class="btn--small" (click)="startRename(chapter)" [disabled]="busy()">Rename</button>
+                    }
+                    @if (chapter.isArchived) {
+                      <button type="button" class="btn--small" (click)="setChapterArchived(chapter, false)" [disabled]="busy()">Restore</button>
+                    } @else {
+                      <button type="button" class="btn--small" (click)="setChapterArchived(chapter, true)" [disabled]="busy()">Archive</button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    @if (!b.isArchived) {
+      <form class="card add-chapter" [formGroup]="chapterForm" (ngSubmit)="addChapter()" aria-label="New chapter">
+        <div class="field">
+          <label for="chapter-title">New chapter title</label>
+          <input id="chapter-title" type="text" formControlName="title" [attr.maxlength]="limits.chapterTitle" />
+        </div>
+        <button type="submit" class="primary" [disabled]="chapterForm.invalid || busy()">Add chapter</button>
+      </form>
+    }
+  }
+</div>

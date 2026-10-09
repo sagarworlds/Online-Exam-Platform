@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\src\Modules\Invite\ExamPlatform.Modules.Invite.Domain\ExamPlatform.Modules.Invite.Domain.csproj" />
     <ProjectReference Include="..\..\..\..\src\Modules\Invite\ExamPlatform.Modules.Invite.Application\ExamPlatform.Modules.Invite.Application.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Modules\Invite\ExamPlatform.Modules.Invite.Infrastructure\ExamPlatform.Modules.Invite.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\..\src\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
   </ItemGroup>
 

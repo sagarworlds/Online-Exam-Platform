@@ -1,8 +1,10 @@
+using ExamPlatform.SharedKernel.Application;
+
 namespace ExamPlatform.Modules.Batch.Application;
 
-/// Unit of Work for coordinating batch changes.
-public interface IBatchUnitOfWork
-{
-    /// Persist all changes in a single transaction.
-    Task SaveChangesAsync(CancellationToken cancellationToken = default);
-}
+/// <summary>
+/// The Batch module's unit of work. A distinct interface per module (see
+/// <c>Identity.Application.IIdentityUnitOfWork</c> for the rationale) so DI cannot
+/// resolve another module's <c>DbContext</c>-backed implementation.
+/// </summary>
+public interface IBatchUnitOfWork : IUnitOfWork;

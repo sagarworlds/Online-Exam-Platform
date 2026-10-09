@@ -9,7 +9,8 @@ apps/api/**/TestResults/
 # Node / Angular
 apps/web/node_modules/
 apps/web/dist/
-apps/web/.angular/
+# Angular CLI build cache. Unanchored so it is also ignored when ng runs from another folder.
+.angular/
 npm-debug.log*
 
 # Editors / OS

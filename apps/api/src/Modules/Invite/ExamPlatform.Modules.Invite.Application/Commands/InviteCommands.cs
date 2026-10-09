@@ -1,34 +1,27 @@
-using MediatR;
-using ExamPlatform.Modules.Invite.Application.Dtos;
-
 namespace ExamPlatform.Modules.Invite.Application.Commands;
 
-/// Command to create a new invite.
-public record CreateInviteCommand(
-    Guid ExamId,
-    Guid BatchMemberId,
-    string Email,
-    Guid CreatedByUserId
-) : IRequest<InviteDto>;
+/// <summary>Invites an e-mail address to an exam and e-mails it a link.</summary>
+/// <param name="ExamId">The exam the address is invited to; it must exist.</param>
+/// <param name="BatchMemberId">The roster entry it came from, if any.</param>
+/// <param name="Email">The invited address.</param>
+/// <param name="CreatedByUserId">The staff user inviting.</param>
+public sealed record CreateInviteCommand(Guid ExamId, Guid? BatchMemberId, string Email, Guid CreatedByUserId);
 
-/// Command to generate an invite code.
-public record GenerateInviteCodeCommand(
-    Guid InviteId,
-    int ExpiryHours = 72
-) : IRequest<InviteCodeDto>;
+/// <summary>Adds another code to an invite.</summary>
+/// <param name="InviteId">The invite.</param>
+/// <param name="ExpiryHours">How long the code stays valid, in hours.</param>
+public sealed record GenerateInviteCodeCommand(Guid InviteId, int ExpiryHours = 72);
 
-/// Command to accept an invite with a code.
-public record AcceptInviteCommand(
-    Guid InviteId,
-    Guid InviteCodeId
-) : IRequest;
+/// <summary>Redeems an invite code for the signed-in user.</summary>
+/// <param name="Code">The code from the invitation link.</param>
+/// <param name="UserId">The accepting account.</param>
+/// <param name="Email">The accepting account's verified e-mail address, if it has one.</param>
+public sealed record AcceptInviteCommand(string? Code, Guid UserId, string? Email);
 
-/// Command to decline an invite.
-public record DeclineInviteCommand(
-    Guid InviteId
-) : IRequest;
+/// <summary>Declines an invite.</summary>
+/// <param name="InviteId">The invite to decline.</param>
+public sealed record DeclineInviteCommand(Guid InviteId);
 
-/// Command to revoke an invite and all its codes.
-public record RevokeInviteCommand(
-    Guid InviteId
-) : IRequest;
+/// <summary>Revokes an invite and all of its codes.</summary>
+/// <param name="InviteId">The invite to revoke.</param>
+public sealed record RevokeInviteCommand(Guid InviteId);

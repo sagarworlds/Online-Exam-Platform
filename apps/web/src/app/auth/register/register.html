@@ -1,13 +1,9 @@
 <div class="page">
-  <h1>Register</h1>
+  <h1>{{ 'register.title' | t }}</h1>
 
-  @if (errorMessage()) {
-    <p class="error-message">{{ errorMessage() }}</p>
-  }
-
-  <form [formGroup]="form" (ngSubmit)="submit()">
+  <form class="card" [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="submitting()" novalidate>
     <div class="field">
-      <label for="register-display-name">Display name</label>
+      <label for="register-display-name">{{ 'register.displayName' | t }}</label>
       <input
         id="register-display-name"
         type="text"
@@ -22,7 +18,7 @@
     </div>
 
     <div class="field">
-      <label for="register-dob">Date of birth</label>
+      <label for="register-dob">{{ 'register.dob' | t }}</label>
       <input
         id="register-dob"
         type="date"
@@ -37,25 +33,48 @@
       }
     </div>
 
-    <div class="field">
-      <label for="register-channel">Verify by</label>
-      <select id="register-channel" formControlName="channel">
-        <option value="Email">Email</option>
-        <option value="Sms">SMS</option>
-      </select>
-    </div>
+    <fieldset class="field">
+      <legend>{{ 'register.verifyBy' | t }}</legend>
+      <!-- The wire value stays "Sms", the channel for a phone number: the host decides how a code reaches a phone, and WhatsApp is how. -->
+      <div class="segmented">
+        <label class="segmented__option">
+          <input class="visually-hidden" type="radio" formControlName="channel" value="Email" />
+          {{ 'common.email' | t }}
+        </label>
+        <label class="segmented__option">
+          <input class="visually-hidden" type="radio" formControlName="channel" value="Sms" />
+          {{ 'register.whatsapp' | t }}
+        </label>
+      </div>
+    </fieldset>
 
     <div class="field">
       <label for="register-destination">
-        {{ form.value.channel === 'Sms' ? 'Phone number' : 'Email address' }}
+        {{ form.value.channel === 'Sms' ? ('register.phone' | t) : ('register.emailAddress' | t) }}
       </label>
-      <input id="register-destination" type="text" formControlName="destination" />
+      <input
+        id="register-destination"
+        [type]="form.value.channel === 'Sms' ? 'tel' : 'email'"
+        formControlName="destination"
+        [attr.autocomplete]="form.value.channel === 'Sms' ? 'tel' : 'email'"
+        [attr.aria-invalid]="destinationError() ? 'true' : null"
+        [attr.aria-describedby]="destinationError() ? 'register-destination-error' : null"
+      />
+      @if (destinationError(); as key) {
+        <p id="register-destination-error" class="field-error">{{ key | t }}</p>
+      }
     </div>
 
-    <button type="submit" class="primary" [disabled]="form.invalid || submitting()">Create account</button>
+    @if (errorMessage()) {
+      <p class="error-message" role="alert">{{ errorMessage() }}</p>
+    }
+    <button type="submit" class="primary auth-submit" [disabled]="submitting()">{{ 'register.submit' | t }}</button>
   </form>
 
   <p class="link-row">
-    <a routerLink="/login">Already have an account? Log in</a>
+    <a routerLink="/login">{{ 'register.haveAccount' | t }}</a>
+  </p>
+  <p class="link-row">
+    <a href="/privacy.html" target="_blank" rel="noopener">{{ 'common.privacy' | t }}</a>
   </p>
 </div>

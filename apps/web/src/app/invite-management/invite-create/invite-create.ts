@@ -1,136 +1,96 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Component, inject, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { ExamApiService } from '../../exam-authoring/exam-api.service';
+import { ExamDto } from '../../exam-authoring/exam.models';
+import { extractErrorMessage } from '../../shared/problem-details';
 import { InviteApiService } from '../invite-api.service';
-import { AuthSessionService } from '../../auth/auth-session.service';
+import { InviteHandover } from '../invite-handover/invite-handover';
+import { InviteCodeDto, InviteDto } from '../invite.models';
 
+/**
+ * Staff page: invite an e-mail address to a published exam (FR-14). The invitation e-mail carries a link; when nothing could be sent
+ * the API gives the link and its code back so they can be passed on by hand, and when something was, staff can still ask for a code
+ * of their own to hand over (read out, pasted into a chat).
+ */
 @Component({
   selector: 'app-invite-create',
-  standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
-  template: `
-    <div class="invite-create-container">
-      <h2>Create New Invitation</h2>
-
-      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="invite-form">
-        <div class="form-group">
-          <label for="examId">Exam ID *</label>
-          <input
-            type="text"
-            id="examId"
-            formControlName="examId"
-            placeholder="Enter exam ID"
-            class="form-control"
-          />
-          @if (form.get('examId')?.invalid && form.get('examId')?.touched) {
-            <div class="error-text">Exam ID is required</div>
-          }
-        </div>
-
-        <div class="form-group">
-          <label for="batchMemberId">Batch Member ID *</label>
-          <input
-            type="text"
-            id="batchMemberId"
-            formControlName="batchMemberId"
-            placeholder="Enter batch member ID"
-            class="form-control"
-          />
-          @if (form.get('batchMemberId')?.invalid && form.get('batchMemberId')?.touched) {
-            <div class="error-text">Batch member ID is required</div>
-          }
-        </div>
-
-        <div class="form-group">
-          <label for="email">Email *</label>
-          <input
-            type="email"
-            id="email"
-            formControlName="email"
-            placeholder="candidate@example.com"
-            class="form-control"
-          />
-          @if (form.get('email')?.invalid && form.get('email')?.touched) {
-            <div class="error-text">Valid email is required</div>
-          }
-        </div>
-
-        <div class="actions">
-          <button type="submit" [disabled]="!form.valid || loading" class="btn btn-primary">
-            {{ loading ? 'Creating...' : 'Create Invitation' }}
-          </button>
-          <a routerLink="/invites" class="btn btn-secondary">Cancel</a>
-        </div>
-
-        @if (error) {
-          <div class="error-message">{{ error }}</div>
-        }
-      </form>
-    </div>
-  `,
-  styles: [`
-    .invite-create-container { max-width: 600px; margin: 0 auto; padding: 2rem; }
-    .invite-form { background: white; padding: 2rem; border-radius: 8px; border: 1px solid #ddd; }
-    .form-group { margin-bottom: 1.5rem; }
-    .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
-    .form-control { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; }
-    .form-control:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); }
-    .error-text { color: #dc3545; font-size: 0.875rem; margin-top: 0.25rem; }
-    .actions { display: flex; gap: 1rem; margin-top: 2rem; }
-    .btn { padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
-    .btn-primary { background: #007bff; color: white; }
-    .btn-primary:disabled { background: #6c757d; cursor: not-allowed; }
-    .btn-secondary { background: #6c757d; color: white; }
-    .error-message { color: #dc3545; background: #f8d7da; padding: 1rem; border-radius: 4px; border: 1px solid #f5c6cb; margin-top: 1rem; }
-  `]
+  imports: [ReactiveFormsModule, RouterLink, InviteHandover],
+  templateUrl: './invite-create.html',
 })
-export class InviteCreate implements OnInit {
-  private fb = inject(FormBuilder);
-  private inviteApi = inject(InviteApiService);
-  private authSession = inject(AuthSessionService);
-  private router = inject(Router);
+export class InviteCreate {
+  private readonly formBuilder = inject(FormBuilder);
+  private readonly inviteApi = inject(InviteApiService);
+  private readonly examApi = inject(ExamApiService);
 
-  form!: FormGroup;
-  loading = false;
-  error = '';
+  protected readonly exams = signal<ExamDto[]>([]);
+  protected readonly loading = signal(true);
+  protected readonly saving = signal(false);
+  protected readonly errorMessage = signal<string | null>(null);
+  protected readonly created = signal<InviteDto | null>(null);
 
-  ngOnInit() {
-    this.form = this.fb.group({
-      examId: ['', Validators.required],
-      batchMemberId: ['', Validators.required],
-      email: ['', [Validators.required, Validators.email]],
+  /** A code staff asked for to hand over, for the invitation just made. */
+  protected readonly handover = signal<InviteCodeDto | null>(null);
+  protected readonly generating = signal(false);
+
+  protected readonly form = this.formBuilder.nonNullable.group({
+    examId: ['', Validators.required],
+    email: ['', [Validators.required, Validators.email]],
+  });
+
+  constructor() {
+    this.examApi.getExams().subscribe({
+      next: (exams) => {
+        // Only a published exam can be taken, so only those can be invited to.
+        this.exams.set(exams.filter((exam) => exam.status === 'Published'));
+        this.loading.set(false);
+      },
+      error: (error: unknown) => {
+        this.loading.set(false);
+        this.errorMessage.set(extractErrorMessage(error));
+      },
     });
   }
 
-  onSubmit() {
-    if (!this.form.valid) return;
-
-    this.loading = true;
-    this.error = '';
-
-    const session = this.authSession.session();
-    if (!session?.userId) {
-      this.error = 'Not authenticated';
-      this.loading = false;
+  protected copyCode(invite: InviteDto): void {
+    if (this.generating()) {
       return;
     }
 
-    const request = {
-      examId: this.form.value.examId,
-      batchMemberId: this.form.value.batchMemberId,
-      email: this.form.value.email,
-    };
-
-    this.inviteApi.createInvite(request, session.userId).subscribe({
-      next: () => {
-        this.loading = false;
-        this.router.navigate(['/invites']);
+    this.errorMessage.set(null);
+    this.generating.set(true);
+    this.handover.set(null);
+    this.inviteApi.generateCode(invite.id).subscribe({
+      next: (code) => {
+        this.generating.set(false);
+        this.handover.set(code);
       },
-      error: (err) => {
-        this.error = 'Failed to create invitation';
-        this.loading = false;
-        console.error(err);
+      error: (error: unknown) => {
+        this.generating.set(false);
+        this.errorMessage.set(extractErrorMessage(error));
+      },
+    });
+  }
+
+  protected submit(): void {
+    if (this.form.invalid || this.saving()) {
+      return;
+    }
+
+    this.saving.set(true);
+    this.errorMessage.set(null);
+    this.created.set(null);
+    this.handover.set(null);
+
+    this.inviteApi.createInvite(this.form.getRawValue()).subscribe({
+      next: (invite) => {
+        this.saving.set(false);
+        this.created.set(invite);
+        this.form.controls.email.reset('');
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.errorMessage.set(extractErrorMessage(error));
       },
     });
   }

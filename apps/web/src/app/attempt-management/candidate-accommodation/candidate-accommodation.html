@@ -1,0 +1,166 @@
+<section
+  class="accommodation"
+  [attr.aria-label]="'admin.accommodation.sectionLabel' | t: { who: candidate().email }"
+>
+  <h4 class="accommodation__title">{{ 'admin.accommodation.title' | t }}</h4>
+
+  @if (notice(); as key) {
+    <p class="success-message accommodation__notice" tabindex="-1" #noticeLine>{{ key | t }}</p>
+  }
+  @if (error() && !editing()) {
+    <p class="error-message" role="alert">{{ error() }}</p>
+  }
+
+  @if (!editing()) {
+    @if (candidate().accommodation; as given) {
+      <dl class="accommodation__facts">
+        <div class="accommodation__fact">
+          <dt>{{ 'admin.accommodation.factExtraTime' | t }}</dt>
+          <dd>{{ minutesText(given.extraTimeMinutes) }}</dd>
+        </div>
+        <div class="accommodation__fact">
+          <dt>{{ 'admin.accommodation.factReader' | t }}</dt>
+          <dd>
+            {{
+              (given.readerScribe ? 'admin.accommodation.allowed' : 'admin.accommodation.notGiven')
+                | t
+            }}
+          </dd>
+        </div>
+        <div class="accommodation__fact">
+          <dt>{{ 'admin.accommodation.factFormats' | t }}</dt>
+          <dd>{{ formatsText(given) }}</dd>
+        </div>
+      </dl>
+      @if (given.notes) {
+        <p class="hint">{{ 'admin.accommodation.noteLine' | t: { note: given.notes } }}</p>
+      }
+
+      <div class="accommodation__actions">
+        <button type="button" #changeButton (click)="edit()" [disabled]="busy()">
+          {{ 'admin.accommodation.change' | t }}
+        </button>
+        @if (confirmingRemove()) {
+          <div
+            class="accommodation__confirm"
+            role="group"
+            tabindex="-1"
+            #confirmBox
+            [attr.aria-label]="'admin.accommodation.removeAsk' | t"
+          >
+            <p>{{ 'admin.accommodation.removeAsk' | t }}</p>
+            <div class="accommodation__actions">
+              <button type="button" class="btn--danger" (click)="remove()" [disabled]="busy()">
+                {{ 'admin.accommodation.remove' | t }}
+              </button>
+              <button type="button" (click)="keep()" [disabled]="busy()">
+                {{ 'admin.accommodation.keep' | t }}
+              </button>
+            </div>
+          </div>
+        } @else {
+          <button type="button" #removeButton (click)="askRemove()" [disabled]="busy()">
+            {{ 'admin.accommodation.remove' | t }}
+          </button>
+        }
+      </div>
+    } @else {
+      <p class="accommodation__none">{{ 'admin.accommodation.none' | t }}</p>
+      <div class="accommodation__actions">
+        <button type="button" #giveButton (click)="edit()">
+          {{ 'admin.accommodation.give' | t }}
+        </button>
+      </div>
+    }
+  } @else {
+    <form
+      class="accommodation__form"
+      novalidate
+      (submit)="$event.preventDefault(); save()"
+      [attr.aria-label]="'admin.accommodation.sectionLabel' | t: { who: candidate().email }"
+      [attr.aria-busy]="busy()"
+    >
+      <div class="field">
+        <label [for]="id('minutes')">{{ 'admin.accommodation.minutesLabel' | t }}</label>
+        <input
+          [id]="id('minutes')"
+          #minutesBox
+          type="number"
+          min="0"
+          [max]="maxMinutes"
+          step="5"
+          [value]="minutes()"
+          (input)="setMinutes($any($event.target).value)"
+          [disabled]="busy()"
+          [attr.aria-invalid]="minutesError() ? 'true' : null"
+          [attr.aria-describedby]="
+            minutesError() ? id('minutes-hint') + ' ' + id('minutes-error') : id('minutes-hint')
+          "
+        />
+        <p [id]="id('minutes-hint')" class="field-hint">
+          {{ 'admin.accommodation.minutesHint' | t: { max: maxMinutes } }}
+        </p>
+        @if (minutesError(); as key) {
+          <p [id]="id('minutes-error')" class="field-error" role="alert">
+            {{ key | t: { max: maxMinutes } }}
+          </p>
+        }
+      </div>
+
+      <label class="inline-check">
+        <input
+          type="checkbox"
+          [checked]="readerScribe()"
+          (change)="readerScribe.set($any($event.target).checked)"
+          [disabled]="busy()"
+        />
+        {{ 'admin.accommodation.readerCheck' | t }}
+      </label>
+
+      <fieldset class="field">
+        <legend>{{ 'admin.accommodation.formatsLegend' | t }}</legend>
+        @for (format of formats; track format.value) {
+          <label class="inline-check">
+            <input
+              type="checkbox"
+              [checked]="chosen().has(format.value)"
+              (change)="toggleFormat(format.value, $any($event.target).checked)"
+              [disabled]="busy()"
+            />
+            {{ format.label | t }}
+          </label>
+          <p class="hint">{{ format.hint | t }}</p>
+        }
+      </fieldset>
+
+      <div class="field">
+        <label [for]="id('notes')">{{ 'admin.accommodation.noteLabel' | t }}</label>
+        <textarea
+          [id]="id('notes')"
+          rows="2"
+          [maxLength]="maxNotes"
+          [value]="notes()"
+          (input)="notes.set($any($event.target).value)"
+          [disabled]="busy()"
+          [attr.aria-describedby]="id('notes-hint')"
+        ></textarea>
+        <p [id]="id('notes-hint')" class="hint">{{ 'admin.accommodation.noteHint' | t }}</p>
+      </div>
+
+      @if (givesNothingError()) {
+        <p class="error-message" role="alert">{{ 'admin.accommodation.givesNothing' | t }}</p>
+      }
+      @if (error()) {
+        <p class="error-message" role="alert">{{ error() }}</p>
+      }
+      <div class="accommodation__actions">
+        <button type="submit" class="primary" [disabled]="busy()">
+          {{ 'admin.accommodation.save' | t }}
+        </button>
+        <button type="button" (click)="cancel()" [disabled]="busy()">
+          {{ 'admin.accommodation.cancel' | t }}
+        </button>
+      </div>
+    </form>
+  }
+</section>

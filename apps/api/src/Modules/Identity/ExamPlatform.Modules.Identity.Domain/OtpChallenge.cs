@@ -33,6 +33,14 @@ public sealed class OtpChallenge : AggregateRoot
     /// <summary>Hash of the code, never the raw code.</summary>
     public string CodeHash { get; private set; }
 
+    /// <summary>
+    /// The plaintext code, kept only so an administrator can read it out to a candidate who
+    /// cannot receive it (see <see cref="OtpPurposeExtensions.IsRevealableToStaff"/>). Null for
+    /// purposes that must never be readable, for decoys, and once the challenge is consumed
+    /// or superseded: the code lives only as long as it can still be used.
+    /// </summary>
+    public string? RevealableCode { get; private set; }
+
     /// <summary>What this challenge authorizes.</summary>
     public OtpPurpose Purpose { get; private set; }
 
@@ -62,7 +70,8 @@ public sealed class OtpChallenge : AggregateRoot
         string codeHash,
         OtpPurpose purpose,
         DateTime expiresAtUtc,
-        int maxAttempts) : base(id)
+        int maxAttempts,
+        string? revealableCode) : base(id)
     {
         UserId = userId;
         Channel = channel;
@@ -71,6 +80,7 @@ public sealed class OtpChallenge : AggregateRoot
         Purpose = purpose;
         ExpiresAtUtc = expiresAtUtc;
         MaxAttempts = maxAttempts;
+        RevealableCode = revealableCode;
     }
 
     /// <summary>Issues a new OTP challenge.</summary>
@@ -82,6 +92,11 @@ public sealed class OtpChallenge : AggregateRoot
     /// <param name="nowUtc">The current instant.</param>
     /// <param name="validity">How long the code remains acceptable.</param>
     /// <param name="maxAttempts">How many incorrect attempts are allowed before lockout.</param>
+    /// <param name="revealableCode">
+    /// The plaintext code to keep for staff to read, or null to keep none. Ignored for a purpose
+    /// that is not <see cref="OtpPurposeExtensions.IsRevealableToStaff">revealable</see>, so no
+    /// caller can store a readable second factor by mistake.
+    /// </param>
     public static OtpChallenge Issue(
         Guid? userId,
         OtpChannel channel,
@@ -90,8 +105,10 @@ public sealed class OtpChallenge : AggregateRoot
         OtpPurpose purpose,
         DateTime nowUtc,
         TimeSpan validity,
-        int maxAttempts = 5) =>
-        new(Guid.NewGuid(), userId, channel, destination, codeHash, purpose, nowUtc.Add(validity), maxAttempts);
+        int maxAttempts = 5,
+        string? revealableCode = null) =>
+        new(Guid.NewGuid(), userId, channel, destination, codeHash, purpose, nowUtc.Add(validity), maxAttempts,
+            purpose.IsRevealableToStaff() ? revealableCode : null);
 
     /// <summary>
     /// Checks a supplied code against this challenge and returns a structured
@@ -144,6 +161,7 @@ public sealed class OtpChallenge : AggregateRoot
         }
 
         ConsumedAtUtc = nowUtc;
+        RevealableCode = null;
         return OtpVerificationOutcome.Verified;
     }
 
@@ -162,6 +180,7 @@ public sealed class OtpChallenge : AggregateRoot
         }
 
         SupersededAtUtc = nowUtc;
+        RevealableCode = null;
     }
 
     /// <summary>Whether this challenge has already been successfully verified.</summary>

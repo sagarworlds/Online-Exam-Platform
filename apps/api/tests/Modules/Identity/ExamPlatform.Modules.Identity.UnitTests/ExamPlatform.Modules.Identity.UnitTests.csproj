@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\src\Modules\Identity\ExamPlatform.Modules.Identity.Domain\ExamPlatform.Modules.Identity.Domain.csproj" />
     <ProjectReference Include="..\..\..\..\src\Modules\Identity\ExamPlatform.Modules.Identity.Application\ExamPlatform.Modules.Identity.Application.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Modules\Identity\ExamPlatform.Modules.Identity.Infrastructure\ExamPlatform.Modules.Identity.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\..\src\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
   </ItemGroup>
 

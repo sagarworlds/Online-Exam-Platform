@@ -1,0 +1,194 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>{{ 'admin.disputes.title' | t }}</h1>
+    <div class="list-filter">
+      <label class="visually-hidden" for="dispute-status">{{
+        'admin.disputes.filter.label' | t
+      }}</label>
+      <select
+        id="dispute-status"
+        [value]="status()"
+        (change)="onStatusChanged($any($event.target).value)"
+      >
+        @for (option of statuses; track option.value) {
+          <option [value]="option.value">{{ option.label | t }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <p class="hint">{{ 'admin.disputes.hint' | t }}</p>
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+
+  @if (loading()) {
+    <p role="status">{{ 'common.loading' | t }}</p>
+  } @else if (disputes().length === 0) {
+    <div class="card empty-state">{{ emptyMessage() }}</div>
+  } @else {
+    @for (group of groups(); track group.questionId) {
+      <section class="card" [attr.aria-labelledby]="'dispute-group-' + group.questionId">
+        <h3 class="card__title" [id]="'dispute-group-' + group.questionId">{{ heading(group) }}</h3>
+        <!-- The question as it is now, from the API's sanitized HTML, run through Angular's sanitizer again before it is shown. -->
+        @if (group.questionText) {
+          <div class="rich-text" [appMath]="group.questionText"></div>
+        } @else {
+          <p class="hint">{{ 'admin.disputes.questionGone' | t }}</p>
+        }
+
+        @if (corrections()[group.questionId]; as correction) {
+          <p
+            class="dispute-result dispute-result--correction"
+            tabindex="-1"
+            #focusTarget
+            [attr.data-focus]="'correction:' + group.questionId"
+          >
+            <span aria-hidden="true">{{ correction.keyChanged ? '✓' : '–' }}</span>
+            {{ correctionText(correction) }}
+          </p>
+        }
+
+        <ul class="dispute-list">
+          @for (dispute of group.disputes; track dispute.id) {
+            <li class="dispute-row">
+              @if (decisions()[dispute.id]; as decided) {
+                <p
+                  class="dispute-result"
+                  [class.dispute-result--rejected]="decided === 'Rejected'"
+                  tabindex="-1"
+                  #focusTarget
+                  [attr.data-focus]="'result:' + dispute.id"
+                >
+                  <span aria-hidden="true">{{ decided === 'Accepted' ? '✓' : '✗' }}</span>
+                  {{ decisionText(dispute, decided) }}
+                </p>
+              } @else {
+                <p class="card__meta">
+                  <strong>{{
+                    dispute.candidateEmail ?? ('admin.disputes.candidateGone' | t)
+                  }}</strong>
+                  ·
+                  <a [routerLink]="['/exams', dispute.examId, 'attempts']">{{
+                    dispute.examName ?? ('admin.disputes.examGone' | t)
+                  }}</a>
+                  @if (dispute.attemptNumber !== null) {
+                    · {{ 'admin.disputes.attempt' | t: { number: dispute.attemptNumber } }}
+                  }
+                  ·
+                  {{
+                    'admin.disputes.raised'
+                      | t: { when: (dispute.raisedAtUtc | date: 'medium') ?? '' }
+                  }}
+                </p>
+                <blockquote class="dispute-row__reason">{{ dispute.reason }}</blockquote>
+
+                @if (dispute.status !== 'Open') {
+                  <p class="card__meta">
+                    <span
+                      class="badge"
+                      [class.badge--active]="dispute.status === 'Accepted'"
+                      [class.badge--inactive]="dispute.status === 'Rejected'"
+                      >{{ statusLabel(dispute.status) }}</span
+                    >
+                    @if (dispute.resolvedAtUtc) {
+                      {{ dispute.resolvedAtUtc | date: 'medium' }}
+                    }
+                  </p>
+                  @if (dispute.resolutionNote) {
+                    <p>{{ resolutionLine(dispute) }}</p>
+                  }
+                }
+
+                @if (rowErrors()[dispute.id]) {
+                  <p class="error-message" role="alert">{{ rowErrors()[dispute.id] }}</p>
+                }
+
+                @if (dispute.status === 'Open') {
+                  @if (rejectingId() === dispute.id) {
+                    <form
+                      class="dispute-reject"
+                      novalidate
+                      (submit)="$event.preventDefault(); confirmReject(dispute)"
+                      [attr.aria-label]="
+                        'admin.disputes.rejectFormLabel' | t: { who: candidateName(dispute) }
+                      "
+                    >
+                      <div class="field">
+                        <label [for]="'reject-note-' + dispute.id">{{
+                          'admin.disputes.explanationLabel' | t
+                        }}</label>
+                        <textarea
+                          [id]="'reject-note-' + dispute.id"
+                          rows="2"
+                          aria-required="true"
+                          [maxLength]="maxNoteLength"
+                          [value]="note()"
+                          (input)="note.set($any($event.target).value)"
+                          [disabled]="busyId() !== null"
+                          #focusTarget
+                          [attr.data-focus]="'reason:' + dispute.id"
+                        ></textarea>
+                      </div>
+                      <div class="dispute__actions">
+                        <button
+                          type="submit"
+                          class="btn--danger"
+                          [disabled]="busyId() !== null || note().trim() === ''"
+                        >
+                          {{ 'admin.disputes.rejectSubmit' | t }}
+                        </button>
+                        <button
+                          type="button"
+                          (click)="cancelRejecting(dispute)"
+                          [disabled]="busyId() !== null"
+                        >
+                          {{ 'admin.disputes.cancel' | t }}
+                        </button>
+                      </div>
+                    </form>
+                  } @else {
+                    <div class="dispute__actions">
+                      <button
+                        type="button"
+                        #focusTarget
+                        [attr.data-focus]="'reject:' + dispute.id"
+                        (click)="startRejecting(dispute)"
+                        [disabled]="busyId() !== null"
+                      >
+                        {{ 'admin.disputes.rejectOpen' | t }}
+                      </button>
+                    </div>
+                  }
+                }
+              }
+            </li>
+          }
+        </ul>
+
+        @if (status() === 'open' && canCorrectKey() && group.open > 0) {
+          @if (correctingQuestionId() === group.questionId) {
+            <app-answer-key-correction
+              [questionId]="group.questionId"
+              (corrected)="onCorrected($event)"
+              (cancelled)="cancelCorrecting()"
+            />
+          } @else {
+            <div class="dispute__actions">
+              <button
+                type="button"
+                class="primary"
+                #focusTarget
+                [attr.data-focus]="'correct:' + group.questionId"
+                (click)="startCorrecting(group)"
+              >
+                {{ correctButton(group) }}
+              </button>
+            </div>
+          }
+        }
+      </section>
+    }
+  }
+</div>

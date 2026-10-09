@@ -1,10 +1,12 @@
 namespace ExamPlatform.Modules.Invite.Domain;
 
-/// Single-use invite code with expiry and revocation tracking.
+/// <summary>A single-use invite code with an expiry and revocation tracking.</summary>
 public class InviteCode
 {
     public Guid Id { get; set; }
     public Guid InviteId { get; set; }
+
+    /// <summary>The code, stored in upper case.</summary>
     public string Code { get; set; } = null!;
     public DateTime ExpiresAt { get; set; }
     public DateTime? UsedAt { get; set; }
@@ -13,35 +15,20 @@ public class InviteCode
 
     private InviteCode() { }
 
-    public InviteCode(Guid inviteId, string code, int expiryHours = 72)
+    public InviteCode(Guid inviteId, string code, int expiryHours, DateTime nowUtc)
     {
         Id = Guid.NewGuid();
         InviteId = inviteId;
         Code = code;
-        ExpiresAt = DateTime.UtcNow.AddHours(expiryHours);
-        CreatedAt = DateTime.UtcNow;
+        ExpiresAt = nowUtc.AddHours(expiryHours);
+        CreatedAt = nowUtc;
     }
 
-    public bool IsValid()
-    {
-        if (UsedAt.HasValue)
-            return false;
+    /// <summary>Whether the code can still be redeemed at <paramref name="nowUtc"/>: unused, not revoked, not past its expiry.</summary>
+    /// <param name="nowUtc">The current instant.</param>
+    public bool IsValid(DateTime nowUtc) => UsedAt is null && RevokedAt is null && nowUtc <= ExpiresAt;
 
-        if (RevokedAt.HasValue)
-            return false;
+    public void MarkAsUsed(DateTime nowUtc) => UsedAt = nowUtc;
 
-        return DateTime.UtcNow <= ExpiresAt;
-    }
-
-    public bool IsExpired() => DateTime.UtcNow > ExpiresAt;
-
-    public void MarkAsUsed()
-    {
-        UsedAt = DateTime.UtcNow;
-    }
-
-    public void Revoke()
-    {
-        RevokedAt = DateTime.UtcNow;
-    }
+    public void Revoke(DateTime nowUtc) => RevokedAt = nowUtc;
 }

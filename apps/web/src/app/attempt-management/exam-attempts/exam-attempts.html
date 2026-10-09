@@ -1,0 +1,269 @@
+<div class="page page--wide">
+  <a [routerLink]="['/exams', examId]" class="back-link">&larr; Back to the exam</a>
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+  @if (notice()) {
+    <p class="success-message" role="status">{{ notice() }}</p>
+  }
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (data(); as d) {
+    <div class="page-header">
+      <h1>Candidates and attempts</h1>
+    </div>
+    <p class="hint">
+      {{ d.examName }}. Every candidate has {{ d.attemptsPerCandidate === 1 ? 'one attempt' : d.attemptsPerCandidate + ' attempts' }}; you can
+      change that on the exam's page. If a candidate asks for another (a power cut, a dropped connection), you can give them one
+      once they have used the attempts they have. Each attempt is scored and reviewed on its own.
+    </p>
+    @if (d.windowClosed) {
+      <p class="hint">The exam can no longer be started, so another attempt cannot be given now.</p>
+    }
+
+    @for (candidate of d.candidates; track candidate.candidateId) {
+      <div class="card">
+        <h3 class="card__title">
+          {{ candidate.email }}
+          <span class="badge" [class.badge--active]="candidate.attemptsUsed > 0" [class.badge--inactive]="candidate.attemptsUsed === 0">
+            {{ candidate.attemptsUsed }} of {{ candidate.attemptsAllowed }} {{ candidate.attemptsAllowed === 1 ? 'attempt' : 'attempts' }} used
+          </span>
+        </h3>
+
+        @if (candidate.attempts.length === 0) {
+          <p class="hint">Has not started the exam yet.</p>
+        } @else {
+          <ul class="attempt-list">
+            @for (attempt of candidate.attempts; track attempt.id) {
+              <li class="attempt-row">
+                <span class="attempt-row__label">
+                  <strong>Attempt {{ attempt.number }}</strong> ·
+                  @if (attempt.status === 'Submitted') {
+                    {{ attempt.score }} / {{ attempt.maxScore }}{{ attempt.terminatedByAdmin ? ' (ended by an administrator)' : attempt.autoSubmitted ? ' (ended automatically)' : '' }}
+                  } @else if (attempt.paused) {
+                    Paused
+                  } @else {
+                    In progress
+                  }
+                  <span class="hint">, started {{ attempt.startedAtUtc | date: 'medium' }}</span>
+                  @if (attempt.invalidated) {
+                    <span class="badge badge--inactive">Invalidated</span>
+                  }
+                  @if ((attempt.focusViolations ?? 0) > 0) {
+                    <span class="badge badge--inactive">Left the page {{ attempt.focusViolations }} {{ attempt.focusViolations === 1 ? 'time' : 'times' }}</span>
+                  }
+                  @if ((attempt.devices ?? 0) > 1) {
+                    <span class="badge badge--inactive">Used on {{ attempt.devices }} devices</span>
+                  } @else if ((attempt.clientChanges ?? 0) > 0) {
+                    <span class="badge badge--inactive">Address changed {{ attempt.clientChanges }} {{ attempt.clientChanges === 1 ? 'time' : 'times' }}</span>
+                  }
+                  @if ((attempt.warnings ?? 0) > 0) {
+                    <span class="badge badge--inactive">{{ attempt.warnings }} {{ attempt.warnings === 1 ? 'warning' : 'warnings' }}</span>
+                  }
+                </span>
+                <span class="attempt-row__actions">
+                  @if (attempt.status === 'InProgress') {
+                    <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'warn')" [disabled]="busy()">Warn</button>
+                    @if (attempt.paused) {
+                      <button type="button" class="btn--small" (click)="resume(candidate, attempt)" [disabled]="busy()">Resume</button>
+                    } @else {
+                      <button type="button" class="btn--small" (click)="pause(candidate, attempt)" [disabled]="busy()">Pause</button>
+                    }
+                    <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'terminate')" [disabled]="busy()">End attempt</button>
+                  } @else if (!attempt.invalidated) {
+                    <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'invalidate')" [disabled]="busy()">Invalidate result</button>
+                  }
+                  @if (attempt.status === 'Submitted') {
+                    <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'rescore')" [disabled]="busy()">Rescore</button>
+                  }
+                  <button type="button" class="btn--small" (click)="toggleClients(attempt.id)" [attr.aria-expanded]="clientsFor() === attempt.id">
+                    {{ clientsFor() === attempt.id ? 'Hide sign-in details' : 'Sign-in details' }}
+                  </button>
+                  <button type="button" class="btn--small" (click)="togglePaper(attempt.id)" [attr.aria-expanded]="paperFor() === attempt.id">
+                    {{ paperFor() === attempt.id ? 'Hide paper' : 'Show paper' }}
+                  </button>
+                </span>
+              </li>
+              @if (clientsFor() === attempt.id) {
+                <li class="attempt-paper">
+                  @if (clients(); as rows) {
+                    @if (rows.length === 0) {
+                      <p class="hint">
+                        Nothing was recorded for this attempt. It was most likely started before the address and device were kept, so there
+                        is nothing to compare.
+                      </p>
+                    } @else {
+                    <p class="hint">
+                      Where this attempt was sat from, as the server saw it. A change is evidence to weigh, not proof: a phone moving between
+                      wifi and mobile data changes its address, and a browser update changes its signature.
+                    </p>
+                    <table class="data-table">
+                      <thead>
+                        <tr><th scope="col">When</th><th scope="col">IP address</th><th scope="col">Device</th><th scope="col"></th></tr>
+                      </thead>
+                      <tbody>
+                        @for (row of rows; track row.seenAtUtc) {
+                          <tr>
+                            <td>{{ row.seenAtUtc | date: 'medium' }}</td>
+                            <td>{{ row.ipAddress ?? 'unknown' }}</td>
+                            <td><code>{{ shortDevice(row.deviceFingerprint) }}</code></td>
+                            <td>{{ row.reason === 'Started' ? 'Started here' : 'Changed' }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                    }
+                  } @else {
+                    <p>Loading…</p>
+                  }
+                </li>
+              }
+              @if (acting(); as a) {
+                @if (a.attemptId === attempt.id) {
+                  <li class="attempt-paper">
+                    <div class="field">
+                      <label [for]="'action-' + attempt.id">{{ actions[a.kind].label }}</label>
+                      <textarea
+                        [id]="'action-' + attempt.id"
+                        rows="2"
+                        [maxLength]="maxReasonLength"
+                        [value]="actionText()"
+                        (input)="setActionText($any($event.target).value)"
+                        [disabled]="busy()"
+                        [attr.aria-describedby]="'action-hint-' + attempt.id"
+                      ></textarea>
+                      <p [id]="'action-hint-' + attempt.id" class="hint">{{ actions[a.kind].hint }}</p>
+                    </div>
+                    <div class="actions">
+                      <button type="button" class="primary" (click)="confirmAction(candidate, attempt)" [disabled]="busy() || actionText().trim() === ''">
+                        {{ actions[a.kind].button }}
+                      </button>
+                      <button type="button" (click)="cancelAction()" [disabled]="busy()">Cancel</button>
+                    </div>
+                  </li>
+                }
+              }
+              @if (paperFor() === attempt.id) {
+                <li class="attempt-paper">
+                  @if (paper(); as p) {
+                    @if (p.status === 'Submitted') {
+                      <div class="review-summary">
+                        <p class="review-summary__score">{{ p.score }} / {{ p.maxScore }}</p>
+                        <ul class="review-counts" aria-label="Summary">
+                          <li class="badge badge--active">{{ verdictCount(p, 'Correct') }} correct</li>
+                          @if (verdictCount(p, 'Partial')) {
+                            <li class="badge badge--warning">{{ verdictCount(p, 'Partial') }} partly correct</li>
+                          }
+                          <li class="badge badge--danger">{{ verdictCount(p, 'Wrong') }} wrong</li>
+                          <li class="badge badge--inactive">{{ verdictCount(p, 'Unanswered') }} not answered</li>
+                        </ul>
+                      </div>
+                      @if (scoreDisagrees(p)) {
+                        <p class="warning-note" role="alert">
+                          The stored score is {{ p.score }}, but the questions on this paper add up to {{ paperTotal(p) }}. Something was saved or
+                          changed after the score was worked out.
+                          <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'rescore')" [disabled]="busy()">Rescore this attempt</button>
+                        </p>
+                      }
+                      @if (p.isInvalidated) {
+                        <p class="hint">This attempt was invalidated, so the candidate is not shown this score.</p>
+                      }
+                    } @else if (p.status === 'InProgress') {
+                      <p class="hint">Still in progress: what the candidate has chosen so far is marked, and nothing is scored until it is submitted.</p>
+                    }
+                    @if (p.hasDrawnQuestions) {
+                      <p class="hint">Some questions were drawn for this candidate, so other candidates' papers may differ.</p>
+                    }
+                    @for (section of p.sections; track section.id) {
+                      <h4>{{ section.name }}</h4>
+                      <ol class="attempt-paper__questions">
+                        @for (question of section.questions; track question.id) {
+                          <li class="attempt-paper__question">
+                            @if (question.text) {
+                              <div class="rich-text" [appMath]="question.text"></div>
+                            } @else {
+                              <p>(question no longer in the bank)</p>
+                            }
+                            @if (question.drawn) {
+                              <span class="badge badge--inactive">drawn</span>
+                            }
+                            @if (question.verdict) {
+                              <span
+                                class="badge"
+                                [class.badge--active]="question.verdict === 'Correct'"
+                                [class.badge--warning]="question.verdict === 'Partial'"
+                                [class.badge--danger]="question.verdict === 'Wrong'"
+                                [class.badge--inactive]="question.verdict === 'Unanswered'"
+                              >{{ verdictLabel(question.verdict) }}</span>
+                              @if (question.marks !== null && question.marks !== undefined) {
+                                <span class="review-question__marks" aria-label="Marks">{{ formatMarks(question.marks) }}</span>
+                              }
+                            }
+                            @if (question.options) {
+                              <ul class="review-options">
+                                @for (option of question.options; track option.id; let i = $index) {
+                                  <li
+                                    class="review-option"
+                                    [class.review-option--correct]="option.isCorrect"
+                                    [class.review-option--wrong]="option.wasChosen && !option.isCorrect"
+                                  >
+                                    <span class="review-option__marker" aria-hidden="true">{{ optionLetter(i) }}</span>
+                                    <span class="review-option__text">{{ option.text }}</span>
+                                    @if (option.wasChosen && option.isCorrect) {
+                                      <span class="review-option__tag">Chosen · Correct</span>
+                                    } @else if (option.wasChosen) {
+                                      <span class="review-option__tag">Chosen</span>
+                                    } @else if (option.isCorrect) {
+                                      <span class="review-option__tag">Correct answer</span>
+                                    }
+                                  </li>
+                                }
+                              </ul>
+                            }
+                          </li>
+                        }
+                      </ol>
+                    }
+                  } @else {
+                    <p>Loading…</p>
+                  }
+                </li>
+              }
+            }
+          </ul>
+        }
+
+        <app-candidate-accommodation [examId]="examId" [candidate]="candidate" (changed)="onCandidateChanged($event)" />
+
+        @if (grantingFor() === candidate.candidateId) {
+          <div class="field">
+            <label [for]="'reason-' + candidate.candidateId">Why? (optional, kept on record)</label>
+            <input
+              [id]="'reason-' + candidate.candidateId"
+              type="text"
+              [maxLength]="maxReasonLength"
+              [value]="reason()"
+              (input)="setReason($any($event.target).value)"
+              [disabled]="busy()"
+            />
+          </div>
+          <div class="actions">
+            <button type="button" class="primary" (click)="confirmGrant(candidate)" [disabled]="busy()">Give another attempt</button>
+            <button type="button" (click)="cancelGranting()" [disabled]="busy()">Cancel</button>
+          </div>
+        } @else {
+          <div class="actions">
+            <button type="button" (click)="startGranting(candidate)" [disabled]="!candidate.canGrant || busy()">Give another attempt</button>
+            @if (whyNot(candidate); as why) {
+              <span class="hint">{{ why }}</span>
+            }
+          </div>
+        }
+      </div>
+    } @empty {
+      <div class="card empty-state">Nobody has accepted an invitation to this exam yet.</div>
+    }
+  }
+</div>

@@ -1,0 +1,67 @@
+<div class="card">
+  <h2>Proctoring</h2>
+  @if (proctoring(); as p) {
+    <p>
+      <strong>{{ p.profileName }}</strong>
+      @if (p.profile === 'CUSTOM') {
+        <span class="hint"> — the two settings below were set one by one, so they match no preset.</span>
+      }
+    </p>
+  }
+
+  @if (choosing()) {
+    @if (loadError()) {
+      <p class="error-message" role="alert">{{ loadError() }}</p>
+    }
+    @if (profiles(); as list) {
+      <fieldset class="option-group">
+        <legend>Choose a profile</legend>
+        @for (profile of list; track profile.id) {
+          <label class="inline-check">
+            <input
+              type="radio"
+              name="proctoring-profile"
+              [value]="profile.id"
+              [checked]="selectedId() === profile.id"
+              [disabled]="!profile.available || busy()"
+              (change)="choose(profile)"
+            />
+            <span>
+              <strong>{{ profile.name }}</strong> — {{ profile.description }}
+              @if (!profile.available) {
+                <span class="hint"> {{ profile.unavailableReason }}</span>
+              }
+            </span>
+          </label>
+        }
+      </fieldset>
+      <p class="hint">
+        Applying a profile sets the copy block and the page-leaving limit together; you can still change either one below, and the exam then
+        reads as custom.
+      </p>
+    } @else if (!loadError()) {
+      <p>Loading…</p>
+    }
+    <div class="actions">
+      <button type="button" class="primary" (click)="apply()" [disabled]="!canApply() || busy()">Apply profile</button>
+      <button type="button" (click)="cancel()" [disabled]="busy()">Cancel</button>
+    </div>
+  } @else if (editable()) {
+    <div class="actions">
+      <button type="button" (click)="startChoosing()" [disabled]="busy()">Choose a profile</button>
+    </div>
+  }
+
+  <p class="card__subtitle"><strong>What candidates are told before they start</strong></p>
+  <p class="hint">
+    Written from the exam's settings, so it always matches what is collected. Candidates see it on the instructions page, and the attempt
+    keeps the text they acknowledged.
+  </p>
+  <div class="notice-list">
+    @for (line of notice(); track $index) {
+      <p class="notice-line">{{ line }}</p>
+    } @empty {
+      <p class="hint">This exam's notice is not available.</p>
+    }
+  </div>
+</div>

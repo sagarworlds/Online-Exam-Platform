@@ -1,0 +1,93 @@
+# Render Blueprint: the .NET API and the Angular site. The database is a free Neon Postgres, outside Render.
+# Both services deploy from main; a merge to main redeploys them.
+# See docs/deploy-render.md for the one-time steps (loading existing data, secrets marked sync: false).
+services:
+  - type: web
+    name: exam-platform-api
+    runtime: docker
+    plan: free
+    branch: main
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    healthCheckPath: /v1/health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      # The Neon database as an Npgsql connection string (not a postgres:// URL); see docs/deploy-render.md.
+      - key: ConnectionStrings__Postgres
+        sync: false
+      - key: Jwt__SigningKey
+        generateValue: true
+      # The site's address, so the browser may call the API.
+      - key: Cors__AllowedOrigins__0
+        sync: false
+      # Codes are e-mailed. Render's free plan blocks outbound SMTP, so mail goes out over
+      # HTTPS through Brevo's API (Mail:Provider=BrevoApi) instead of Smtp:*; see docs/deploy-render.md.
+      - key: Identity__OtpDelivery__Provider
+        value: Smtp
+      - key: Mail__Provider
+        value: BrevoApi
+      - key: Brevo__ApiKey
+        sync: false
+      - key: Brevo__SenderEmail
+        sync: false
+      - key: Invite__LinkBaseUrl
+        sync: false
+      # WhatsApp (Meta's Cloud API) for codes sent to phone numbers. All optional and unset until docs/deploy-render.md step 8:
+      # with Identity__OtpDelivery__PhoneProvider unset (or blank), phone numbers get no code, as before. Set it to WhatsApp
+      # only once the other values below are filled in, or the API refuses to start and names what is missing.
+      # The master switch for everything sent through WhatsApp. Leave it unset (off) until the values below are in place, then set it to
+      # true; setting it back to false stops all WhatsApp messages at once, whatever else is configured.
+      - key: WhatsApp__Enabled
+        sync: false
+      - key: Identity__OtpDelivery__PhoneProvider
+        sync: false
+      - key: WhatsApp__AccessToken
+        sync: false
+      - key: WhatsApp__PhoneNumberId
+        sync: false
+      - key: WhatsApp__OtpTemplateName
+        sync: false
+      - key: WhatsApp__AppSecret
+        sync: false
+      - key: WhatsApp__WebhookVerifyToken
+        sync: false
+      # Also send an invitation's exam code to the invited account's phone on WhatsApp. Off while unset or blank, and whenever
+      # WhatsApp__Enabled is not true; needs the WhatsApp settings above, and the operator's confirmation that those people agreed to WhatsApp notices (README, Invitations on WhatsApp).
+      - key: Invite__WhatsApp__TemplateName
+        sync: false
+      # Scheduled e-mails (exam reminders, released results, revised scores). The API sends them on a timer of its own while awake, and a
+      # free service sleeps when idle, so a GitHub workflow calls POST /v1/notifications/run with this key every ten minutes (docs/deploy-render.md,
+      # step 9). Unset, that route answers 404 and only the timer sends. At least 24 characters, random.
+      - key: Notifications__RunKey
+        sync: false
+      # Free web services have no pre-deploy command, so the single instance migrates and seeds itself on start.
+      - key: Database__MigrateAndSeedOnStartup
+        value: "true"
+      # Render's proxy sits in a private range; trusting it is what gives each caller their own rate-limit bucket.
+      - key: ForwardedHeaders__KnownNetworks__0
+        value: 10.0.0.0/8
+      - key: ForwardedHeaders__KnownNetworks__1
+        value: 172.16.0.0/12
+
+  - type: web
+    name: exam-platform-web
+    runtime: static
+    branch: main
+    buildCommand: >-
+      cd apps/web && npm ci &&
+      sed -i "s|apiBaseUrl: '/api'|apiBaseUrl: '${API_BASE_URL}'|" src/environments/environment.ts &&
+      npm run build
+    staticPublishPath: apps/web/dist/web/browser
+    envVars:
+      # Where the browser finds the API. Render appends a random suffix to a service's name
+      # when the plain one is taken (e.g. exam-platform-api-es17.onrender.com rather than
+      # exam-platform-api.onrender.com), so this is never assumed: read the API service's
+      # actual URL from its page and set it here. See docs/deploy-render.md step 5.
+      - key: API_BASE_URL
+        sync: false
+    routes:
+      # A deep link such as /exams/123 is an Angular route, not a file.
+      - type: rewrite
+        source: /*
+        destination: /index.html

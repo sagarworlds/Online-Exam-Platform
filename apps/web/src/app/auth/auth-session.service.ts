@@ -16,6 +16,16 @@ export class AuthSessionService {
   readonly session = this.sessionSignal.asReadonly();
   readonly isAuthenticated = computed(() => this.sessionSignal() !== null);
 
+  /** Whether the token carries the permission. Decides what the UI offers; the API re-checks every call. */
+  hasPermission(code: string): boolean {
+    return this.sessionSignal()?.permissions.includes(code) ?? false;
+  }
+
+  /** Whether the token carries at least one of the permissions. */
+  hasAnyPermission(codes: readonly string[]): boolean {
+    return codes.some((code) => this.hasPermission(code));
+  }
+
   /** The raw bearer token to attach to authenticated requests, if signed in. */
   get accessToken(): string | null {
     return this.sessionSignal() === null ? null : localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);

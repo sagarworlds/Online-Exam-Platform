@@ -1,0 +1,115 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>{{ 'myExams.title' | t }}</h1>
+  </div>
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+
+  @if (loading()) {
+    <p role="status">{{ 'common.loading' | t }}</p>
+  } @else if (exams().length === 0) {
+    <div class="card empty-state">
+      {{ 'myExams.empty' | t }}
+    </div>
+  } @else {
+    @for (exam of exams(); track exam.examId) {
+      <article class="card">
+        <h3 class="card__title">
+          {{ exam.name }}
+          <span class="badge" [class.badge--active]="exam.state === 'Open'" [class.badge--inactive]="exam.state !== 'Open'">
+            {{ exam.state === 'NotOpen' ? ('myExams.state.notOpen' | t) : exam.state === 'Open' ? ('myExams.state.open' | t) : ('myExams.state.closed' | t) }}
+          </span>
+        </h3>
+        @if (exam.description) {
+          <p>{{ exam.description }}</p>
+        }
+        <p class="exam-card__window">
+          {{ 'myExams.window' | t: { start: (exam.startUtc | date: 'medium') ?? '', end: (exam.endUtc | date: 'medium') ?? '' } }}
+        </p>
+        <ul class="exam-facts">
+          <li>{{ 'myExams.questionCount' | t: { count: exam.questionCount } }}</li>
+          @if (exam.durationSeconds) {
+            <li>{{ 'myExams.minutes' | t: { count: exam.durationSeconds / 60 } }}</li>
+          }
+          @if (showNumbers(exam)) {
+            <li>{{ 'myExams.attemptsUsed' | t: { used: exam.attemptsUsed, allowed: exam.attemptsAllowed } }}</li>
+          }
+        </ul>
+        @if (extraTime(exam); as extra) {
+          <p class="card__meta">{{ 'myExams.extraTime' | t: { time: extra } }}</p>
+        }
+
+        @if (hasActions(exam)) {
+          <div class="actions">
+            @if (resumableAttemptId(exam); as attemptId) {
+              <a class="btn btn--primary" [routerLink]="['/attempt', attemptId]">{{ 'myExams.resume' | t }}</a>
+            } @else if (exam.canStartAttempt) {
+              <a class="btn btn--primary" [routerLink]="['/my-exams', exam.examId, 'start']">{{ startLabel(exam) }}</a>
+            }
+            @if (canAskForAttempt(exam)) {
+              <button type="button" (click)="openRequestForm(exam)">{{ 'myExams.request.ask' | t }}</button>
+            }
+          </div>
+        }
+
+        @if (exam.attemptRequest?.status === 'Pending') {
+          <p class="hint" role="status">
+            {{ 'myExams.request.pending' | t }}
+          </p>
+        } @else if (exam.attemptRequest?.status === 'Declined' && !exam.canStartAttempt) {
+          <p class="hint" role="status">
+            {{ exam.attemptRequest?.decisionNote ? ('myExams.request.declinedWithNote' | t: { note: exam.attemptRequest?.decisionNote ?? '' }) : ('myExams.request.declined' | t) }}
+          </p>
+        }
+        @if (exam.canRequestAttempt && requestingFor() === exam.examId) {
+          <form class="request-form" (submit)="$event.preventDefault(); sendRequest(exam)" [attr.aria-label]="'myExams.request.formLabel' | t: { exam: exam.name }">
+            <div class="field">
+              <label [attr.for]="'request-message-' + exam.examId">{{ 'myExams.request.why' | t }}</label>
+              <textarea
+                [attr.id]="'request-message-' + exam.examId"
+                rows="3"
+                [maxLength]="maxRequestText"
+                [value]="requestMessage()"
+                (input)="requestMessage.set($any($event.target).value)"
+              ></textarea>
+            </div>
+            @if (requestError()) {
+              <p class="error-message" role="alert">{{ requestError() }}</p>
+            }
+            <div class="actions">
+              <button type="submit" class="primary" [disabled]="requestBusy()">{{ 'myExams.request.send' | t }}</button>
+              <button type="button" (click)="closeRequestForm()" [disabled]="requestBusy()">{{ 'common.cancel' | t }}</button>
+            </div>
+          </form>
+        }
+
+        @if (exam.attempts.length > 0) {
+          <ul class="attempt-list">
+            @for (attempt of exam.attempts; track attempt.id) {
+              <li class="attempt-row">
+                <span class="attempt-row__label">
+                  @if (showNumbers(exam)) {
+                    <strong>{{ 'common.attempt' | t: { number: attempt.number } }}</strong> ·
+                  }
+                  @if (attempt.status === 'Submitted') {
+                    {{ 'myExams.yourScore' | t }} <strong>{{ attempt.score }} / {{ attempt.maxScore }}</strong>
+                  } @else {
+                    {{ 'myExams.inProgress' | t }}
+                  }
+                </span>
+                @if (attempt.id === bestAttemptId(exam.attempts)) {
+                  <span class="badge badge--active">{{ 'myExams.best' | t }}</span>
+                }
+                @if (attempt.status === 'Submitted') {
+                  <a [routerLink]="['/attempt', attempt.id]" class="btn">{{ 'myExams.viewResult' | t }}</a>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </article>
+    }
+  }
+</div>

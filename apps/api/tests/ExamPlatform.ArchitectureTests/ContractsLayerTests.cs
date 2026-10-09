@@ -1,41 +1,34 @@
-using System.Reflection;
-using ExamPlatform.Modules.Admin.Contracts;
-using ExamPlatform.Modules.Consent.Contracts;
-using NetArchTest.Rules;
-
 namespace ExamPlatform.ArchitectureTests;
 
 /// <summary>
 /// Enforces ADR 0001's rule that a module's <c>Contracts</c> project stays
 /// dependency-free (only <c>SharedKernel.Domain</c>), so any other module can
 /// reference it cheaply — no EF Core, no ASP.NET Core, no other module, and not
-/// even its own module's Domain/Application/Infrastructure.
+/// even its own module's Domain/Application/Infrastructure/Endpoints. Runs once
+/// per discovered module that has a Contracts project.
 /// </summary>
 public class ContractsLayerTests
 {
-    public static IEnumerable<object[]> ContractsAssemblies =>
-        [
-            [typeof(IAuditLogger).Assembly, "Admin", "Admin.Contracts"],
-            [typeof(IConsentService).Assembly, "Consent", "Consent.Contracts"],
-        ];
+    /// <summary>xUnit theory data: the modules that have a Contracts project.</summary>
+    public static IEnumerable<object[]> ModulesWithContracts() => ModuleCatalog.ModuleNamesWithLayer("Contracts");
 
     [Theory]
-    [MemberData(nameof(ContractsAssemblies))]
-    public void Contracts_ShouldNotDependOnFrameworksOrOtherProjects(Assembly assembly, string ownModule, string moduleName)
+    [MemberData(nameof(ModulesWithContracts))]
+    public void Contracts_ShouldStayDependencyFree(string moduleName)
     {
-        var otherModules = new[] { "Identity", "Consent", "Admin" }.Where(m => m != ownModule);
+        var module = ModuleCatalog.Get(moduleName);
 
-        var disallowed = new List<string> { "Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore" };
-        disallowed.AddRange(otherModules.Select(m => $"ExamPlatform.Modules.{m}"));
-        disallowed.Add($"ExamPlatform.Modules.{ownModule}.Domain");
-        disallowed.Add($"ExamPlatform.Modules.{ownModule}.Application");
-        disallowed.Add($"ExamPlatform.Modules.{ownModule}.Infrastructure");
+        var disallowed = new[] { "Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore" }
+            .Concat(ModuleCatalog.Others(moduleName).Select(m => m.Namespace))
+            .Concat(new[] { "Domain", "Application", "Infrastructure", "Endpoints" }.Select(module.NamespaceOf));
 
-        var result = Types.InAssembly(assembly)
-            .ShouldNot()
-            .HaveDependencyOnAny(disallowed.Distinct().ToArray())
-            .GetResult();
+        DependencyRules.AssertNoDependency(module.Layer("Contracts"), $"{moduleName}.Contracts", disallowed);
+    }
 
-        Assert.True(result.IsSuccessful, $"{moduleName}: {string.Join(", ", result.FailingTypeNames ?? [])}");
+    [Fact]
+    public void AtLeastOneModuleHasContracts()
+    {
+        // Guards the theory above against running zero cases.
+        Assert.NotEmpty(ModuleCatalog.ModuleNamesWithLayer("Contracts"));
     }
 }

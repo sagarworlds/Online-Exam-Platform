@@ -1,0 +1,175 @@
+<div class="page page--wide">
+  <h1>Question bank</h1>
+
+  @if (errorMessage()) {
+    <p class="error-message">{{ errorMessage() }}</p>
+  }
+  @if (saved()) {
+    <p class="success-message">Question saved.</p>
+  }
+
+  @if (repeat(); as pending) {
+    <section class="card" role="alert" aria-label="Question already in the bank">
+      <h2>This question is already in the bank</h2>
+      <p>The bank has a question with this wording and these options:</p>
+      <ul>
+        @for (match of pending.matches; track match.id) {
+          @if (match.sameOptions) {
+            <li>{{ match.preview }} <span class="badge">{{ match.status }}</span></li>
+          }
+        }
+      </ul>
+      <div class="actions">
+        <button type="button" (click)="addAnyway()" [disabled]="saving()">Add it anyway</button>
+        <button type="button" class="primary" (click)="dismissRepeat()">Don't add it</button>
+      </div>
+    </section>
+  }
+
+  <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="New question">
+    <h2>New question</h2>
+
+    <app-book-chapter-picker [books]="books()" idPrefix="question" [(value)]="placement" />
+
+    <div class="field">
+      <label for="question-language">Language</label>
+      <select id="question-language" formControlName="language">
+        @for (language of languages; track language.code) {
+          <option [value]="language.code">{{ language.label }}</option>
+        }
+      </select>
+    </div>
+
+    <app-question-fields [topicSuggestions]="topics()" />
+
+    <button type="submit" class="primary" [disabled]="form.invalid || !placementComplete() || saving()">Save question</button>
+  </form>
+
+  <app-question-transfer [filter]="exportFilter()" (imported)="onImported()" />
+
+  <div class="page-header">
+    <h2>Newest questions</h2>
+    <div class="list-filter">
+      @if (filterClasses().length > 0) {
+        <label class="visually-hidden" for="filter-class">Class</label>
+        <select id="filter-class" [value]="filterClass()" (change)="onFilterClassChanged($any($event.target).value)">
+          <option value="">Any class</option>
+          @for (item of filterClasses(); track item.id) {
+            <option [value]="item.id">{{ item.name }}</option>
+          }
+        </select>
+      }
+      <label class="visually-hidden" for="filter-book">Show questions from</label>
+      <select id="filter-book" [value]="filterBook()" (change)="onFilterBookChanged($any($event.target).value)">
+        <option value="">{{ filterClass() ? 'All books of this class' : 'All questions' }}</option>
+        @if (!filterClass()) {
+          <option [value]="unfiled">Not filed under a chapter</option>
+        }
+        @for (book of filterBooks(); track book.id) {
+          <option [value]="book.id">{{ optionLabel(book, filterClass()) }}{{ book.isArchived ? ' (archived)' : '' }}</option>
+        }
+      </select>
+      <label class="visually-hidden" for="filter-search">Search questions</label>
+      <input
+        id="filter-search"
+        type="search"
+        placeholder="Search questions"
+        [value]="filterSearch()"
+        (keydown.enter)="onSearch($any($event.target).value)"
+        (change)="onSearch($any($event.target).value)"
+      />
+      <label class="visually-hidden" for="filter-difficulty">Difficulty</label>
+      <select id="filter-difficulty" [value]="filterDifficulty()" (change)="onFilterDifficultyChanged($any($event.target).value)">
+        <option value="">Any difficulty</option>
+        @for (level of difficulties; track level.value) {
+          <option [value]="level.value">{{ level.label }}</option>
+        }
+      </select>
+      <label class="visually-hidden" for="filter-status">Review status</label>
+      <select id="filter-status" [value]="filterStatus()" (change)="onFilterStatusChanged($any($event.target).value)">
+        <option value="">Any status</option>
+        @for (status of statuses; track status.value) {
+          <option [value]="status.value">{{ status.label }}</option>
+        }
+      </select>
+      <label class="visually-hidden" for="filter-language">Language</label>
+      <select id="filter-language" [value]="filterLanguage()" (change)="onFilterLanguageChanged($any($event.target).value)">
+        <option value="">Any language</option>
+        @for (language of languages; track language.code) {
+          <option [value]="language.code">{{ language.label }}</option>
+        }
+      </select>
+      <label class="visually-hidden" for="filter-topic">Topic</label>
+      <select id="filter-topic" [value]="filterTopic()" (change)="onFilterTopicChanged($any($event.target).value)">
+        <option value="">Any topic</option>
+        @for (topic of topics(); track topic) {
+          <option [value]="topic">{{ topic }}</option>
+        }
+      </select>
+      @if (filterBook() && filterBook() !== unfiled) {
+        <label class="visually-hidden" for="filter-chapter">Chapter</label>
+        <select id="filter-chapter" [value]="filterChapter()" (change)="onFilterChapterChanged($any($event.target).value)">
+          <option value="">All chapters</option>
+          @for (chapter of filterChapters(); track chapter.id) {
+            <option [value]="chapter.id">{{ chapter.order }}. {{ chapter.title }}{{ chapter.isArchived ? ' (archived)' : '' }}</option>
+          }
+        </select>
+      }
+    </div>
+  </div>
+  @if (notice()) {
+    <p class="success-message" role="status">{{ notice() }}</p>
+  }
+  @if (selectedIds().size > 0) {
+    <div class="card bulk-bar" role="region" aria-label="File the selected questions">
+      <p class="bulk-bar__count">{{ selectedIds().size }} selected</p>
+      <app-book-chapter-picker
+        [books]="books()"
+        idPrefix="bulk"
+        bookLabel="File under book"
+        noBookLabel="Choose a book…"
+        [(value)]="bulkPlacement"
+      />
+      @if (bulkError()) {
+        <p class="error-message" role="alert">{{ bulkError() }}</p>
+      }
+      <div class="actions">
+        <button type="button" class="primary" (click)="fileSelected()" [disabled]="!bulkPlacement().chapterId || bulkBusy()">
+          File {{ selectedIds().size === 1 ? 'the question' : 'the ' + selectedIds().size + ' questions' }}
+        </button>
+        <button type="button" (click)="toggleAll(false)" [disabled]="bulkBusy()">Clear selection</button>
+      </div>
+    </div>
+  }
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (questions().length === 0) {
+    <p>{{ filterClass() || filterBook() || filterDifficulty() || filterTopic() || filterSearch() || filterStatus() || filterLanguage() ? 'No questions match this filter.' : 'No questions yet.' }}</p>
+  } @else {
+    <label class="inline-check select-all">
+      <input type="checkbox" [checked]="allSelected()" (change)="toggleAll($any($event.target).checked)" />
+      Select all {{ questions().length }} shown
+    </label>
+    @for (question of questions(); track question.id) {
+      <app-question-card
+        [question]="question"
+        [books]="books()"
+        [selected]="selectedIds().has(question.id)"
+        [busy]="busyId() === question.id"
+        [error]="cardErrors()[question.id] ?? null"
+        (selectionChanged)="toggleSelected(question.id, $event)"
+        [statistics]="statistics()[question.id] ?? null"
+        (statisticsRequested)="onStatisticsRequested($event)"
+        (translationAdded)="onTranslationAdded()"
+        (statusChanged)="onStatusChanged($event)"
+        (fileRequested)="fileQuestion($event.questionId, $event.chapterId)"
+        (deleteConfirmed)="deleteQuestion($event)"
+      />
+    }
+    @if (mayHaveMore()) {
+      <div class="actions">
+        <button type="button" (click)="loadMore()" [disabled]="loadingMore()">{{ loadingMore() ? 'Loading…' : 'Load older questions' }}</button>
+      </div>
+    }
+  }
+</div>

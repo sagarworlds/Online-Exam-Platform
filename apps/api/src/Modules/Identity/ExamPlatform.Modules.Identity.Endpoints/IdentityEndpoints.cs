@@ -1,6 +1,9 @@
 using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Queries;
+using ExamPlatform.Modules.Identity.Domain.Rbac;
 using ExamPlatform.Modules.Identity.Endpoints.RateLimiting;
+using ExamPlatform.SharedKernel.Application;
+using ExamPlatform.SharedKernel.Application.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
@@ -11,7 +14,7 @@ namespace ExamPlatform.Modules.Identity.Endpoints;
 /// <summary>Maps the Identity module's HTTP endpoints (FR-1, FR-2, FR-3, FR-4).</summary>
 public static class IdentityEndpoints
 {
-    /// <summary>Maps <c>/v1/auth/*</c>, <c>/v1/me/*</c>, and the role-assignment admin endpoint.</summary>
+    /// <summary>Maps <c>/v1/auth/*</c>, <c>/v1/me/*</c>, and the role-assignment admin endpoints.</summary>
     /// <param name="endpoints">The endpoint route builder to map onto.</param>
     public static void MapIdentityEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -97,10 +100,53 @@ public static class IdentityEndpoints
             })
             .WithTags("Identity")
             .RequireAuthorization("permission:identity.role.assign");
+
+        // The same permission as assigning a role: the list exists so an administrator can find the
+        // id that route takes, and anyone who may assign roles may see what there is to assign.
+        endpoints.MapGet("/v1/admin/roles", async (ListRolesHandler handler, CancellationToken ct) =>
+            {
+                var roles = await handler.HandleAsync(ct);
+                return Results.Ok(roles);
+            })
+            .WithTags("Identity")
+            .RequireAuthorization("permission:identity.role.assign");
+
+        // Reveals live candidate codes, so it has its own permission, held by SuperAdmin only, and
+        // every call is audited by the handler.
+        endpoints.MapGet("/v1/admin/otp-codes", async (
+                string? destination, HttpContext http, ListOutstandingOtpsHandler handler, CancellationToken ct) =>
+            {
+                var query = new ListOutstandingOtpsQuery(destination, http.User.GetUserId(), http.User.GetPrimaryRole());
+                return Results.Ok(await handler.HandleAsync(query, ct));
+            })
+            .WithTags("Identity")
+            .RequireAuthorization("permission:identity.otp.read");
+
+        // The administrator's WhatsApp test: what is configured, a real message sent through the real connection, and what became of it.
+        // It sends to real numbers, so it has its own permission, held by SuperAdmin only, and every send is audited.
+        var whatsApp = endpoints.MapGroup("/v1/admin/whatsapp")
+            .WithTags("Identity")
+            .RequireAuthorization($"permission:{RbacCatalog.PermissionCodes.WhatsAppTest}");
+
+        whatsApp.MapGet("/status", (GetWhatsAppStatusHandler handler) => Results.Ok(handler.Handle()))
+            .WithName("GetWhatsAppStatus")
+            .WithDescription("Review the WhatsApp settings (no secret is shown) and say what is missing");
+
+        whatsApp.MapPost("/messages", async (
+                SendWhatsAppTestRequest request, HttpContext http, SendWhatsAppTestHandler handler, CancellationToken ct) =>
+            Results.Ok(await handler.HandleAsync(
+                new SendWhatsAppTestCommand(request.PhoneNumber, request.Mode, request.Message, http.User.GetUserId(), http.User.GetPrimaryRole()), ct)))
+            .WithName("SendWhatsAppTestMessage")
+            .WithDescription("Send a test message over WhatsApp; if it cannot be sent, the answer says exactly why");
+
+        whatsApp.MapGet("/messages/{messageId}", (string messageId, GetWhatsAppDeliveryHandler handler) => Results.Ok(handler.Handle(messageId)))
+            .WithName("GetWhatsAppDelivery")
+            .WithDescription("What Meta has reported about a test message: sent, delivered, read or failed, and why");
     }
 
+    // Cleaned the same way for every flow, so a login cannot store more than an attempt would (FR-26).
     private static string? DeviceFingerprint(HttpContext http) =>
-        http.Request.Headers.TryGetValue("X-Device-Fingerprint", out var value) ? value.ToString() : null;
+        http.Request.Headers.TryGetValue(ClientInfo.FingerprintHeader, out var value) ? ClientInfo.CleanFingerprint(value.ToString()) : null;
 
-    private static string? ClientIp(HttpContext http) => http.Connection.RemoteIpAddress?.ToString();
+    private static string? ClientIp(HttpContext http) => ClientInfo.CleanIp(http.Connection.RemoteIpAddress?.ToString());
 }

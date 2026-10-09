@@ -2,18 +2,24 @@ using System.Text;
 using System.Threading.RateLimiting;
 using ExamPlatform.Api;
 using ExamPlatform.Api.RateLimiting;
+using ExamPlatform.Api.WhatsApp;
 using ExamPlatform.Modules.Admin.Endpoints;
 using ExamPlatform.Modules.Batch.Endpoints;
 using ExamPlatform.Modules.Consent.Endpoints;
 using ExamPlatform.Modules.ExamAuthoring.Endpoints;
+using ExamPlatform.Modules.ExamRuntime.Endpoints;
 using ExamPlatform.Modules.Guardian.Endpoints;
 using ExamPlatform.Modules.Identity.Endpoints;
 using ExamPlatform.Modules.Invite.Endpoints;
+using ExamPlatform.Modules.QuestionBank.Endpoints;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
+using ExamPlatform.SharedKernel.Infrastructure.Email;
+using ExamPlatform.SharedKernel.Infrastructure.WhatsApp;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -24,6 +30,33 @@ var builder = WebApplication.CreateBuilder(args);
 // registered once here, before any module's AddModule, so every module resolves
 // the same singleton Clock/dispatcher instead of each registering its own.
 builder.Services.AddSharedKernel();
+
+// Who is acting in the current request, so code that reacts to a domain event can name the actor in the audit trail.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IRequestContext, HttpRequestContext>();
+builder.Services.AddScoped<IClientInfo, HttpClientInfo>();
+builder.Services.AddScoped<IRequestLanguage, HttpRequestLanguage>();
+
+// One mail sender for everything the platform sends (invitations, OTP codes, answers to attempt requests). Mail:Provider
+// picks the transport: Smtp (the default, unchanged behaviour) or BrevoApi, which sends over HTTPS for a host (e.g.
+// Render's free plan) that blocks outbound SMTP ports. With neither configured nothing is sent, and each caller says
+// so to the person who needs to pass the message on by hand.
+var mailProvider = builder.Configuration.GetSection(MailOptions.SectionName).Get<MailOptions>()?.Provider ?? MailOptions.Smtp;
+if (mailProvider == MailOptions.BrevoApi)
+{
+    builder.Services.AddOptions<BrevoOptions>().Bind(builder.Configuration.GetSection(BrevoOptions.SectionName));
+    builder.Services.AddBrevoApiMailer();
+}
+else
+{
+    builder.Services.AddOptions<SmtpOptions>().Bind(builder.Configuration.GetSection(SmtpOptions.SectionName));
+    builder.Services.AddSmtpMailer();
+}
+
+// WhatsApp (Meta's Cloud API): one sender for whatever the platform sends there (sign-in codes now). It sends nothing, and says
+// so, until the WhatsApp section is filled in; Identity:OtpDelivery:PhoneProvider decides whether phone codes use it.
+builder.Services.AddOptions<WhatsAppOptions>().Bind(builder.Configuration.GetSection(WhatsAppOptions.SectionName));
+builder.Services.AddWhatsAppCloudApi();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -107,6 +140,17 @@ builder.Services.AddSingleton<IConfigureOptions<ForwardedHeadersOptions>, Forwar
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 
+// Compressed responses for a candidate on a slow connection (FR-53): an exam's questions are the largest thing the API sends, and text
+// compresses well. Brotli where the browser asks for it, gzip otherwise. TLS ends at the proxy, so a response is compressed whatever
+// the scheme the request claims to have used (EnableForHttps), except for the sign-in routes (see below).
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["application/problem+json"]);
+});
+
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
 builder.Services.AddExceptionHandler<DomainExceptionHandler>();
@@ -124,6 +168,8 @@ IModuleInstaller[] modules =
     new BatchModuleInstaller(),
     new InviteModuleInstaller(),
     new GuardianModuleInstaller(),
+    new QuestionBankModuleInstaller(),
+    new ExamRuntimeModuleInstaller(),
 ];
 
 foreach (var module in modules)
@@ -150,6 +196,13 @@ if (!app.Environment.IsDevelopment())
 // and exempts the UI from the Content-Security-Policy, so the two cannot drift apart.
 var apiReferenceEnabled = app.Environment.IsDevelopment();
 
+// Outside everything that writes a body, so each response is compressed on its way out. Not for the sign-in routes: their answers carry
+// tokens, and compressing a secret next to text a caller can influence is what the BREACH attack on compressed HTTPS needs. They are
+// small, so nothing is lost.
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/v1/auth", StringComparison.OrdinalIgnoreCase),
+    branch => branch.UseResponseCompression());
+
 // Before the exception handler, so error responses carry the headers too.
 app.UseMiddleware<SecurityHeadersMiddleware>(apiReferenceEnabled);
 app.UseExceptionHandler();
@@ -165,24 +218,43 @@ if (apiReferenceEnabled)
 }
 
 app.MapHealthChecks("/v1/health");
+app.MapWhatsAppWebhook();
 
 foreach (var module in modules)
 {
     module.MapEndpoints(app);
 }
 
-// Development-only convenience: migrate and seed every module's schema on startup so
-// `dotnet run` gives a ready-to-use database without a separate migration step. A real
-// deployment pipeline runs migrations explicitly instead (see README quickstart).
+// Schema and reference data (roles, permissions, notice versions) are applied by each module's
+// own idempotent MigrateAndSeedAsync, never by EF migration bundles, which would apply the
+// schema but skip the seeders and leave a database where registration fails (ADR 0002).
+// There are two ways in:
+//  - `ExamPlatform.Api.dll --migrate-and-seed` runs every module once and exits without
+//    starting the web host. A deployment runs it as ONE pre-deploy job or init container, so
+//    two replicas never race to insert the same role or permission.
+//  - Database:MigrateAndSeedOnStartup=true does the same at the start of a normal run. It is
+//    on in Development, so `dotnet run` gives a ready-to-use database, and off elsewhere.
 // Routed through each module's own MigrateAndSeedAsync rather than the Host resolving
 // a DbContext directly, so the Host never references a module's Infrastructure project.
-if (app.Environment.IsDevelopment())
+var migrateAndSeedOnly = args.Contains("--migrate-and-seed", StringComparer.Ordinal);
+var migrateAndSeedOnStartup = app.Configuration.GetValue(
+    "Database:MigrateAndSeedOnStartup", defaultValue: app.Environment.IsDevelopment());
+if (migrateAndSeedOnly || migrateAndSeedOnStartup)
 {
     using var scope = app.Services.CreateScope();
     foreach (var module in modules)
     {
         await module.MigrateAndSeedAsync(scope.ServiceProvider, CancellationToken.None);
+        app.Logger.LogInformation("Migrated and seeded {ModuleName}", module.ModuleName);
     }
+}
+
+// Returns before app.Run(): the web host is never started, so a deployment job ends as soon as
+// the database is ready, and the startup checks that belong to a serving host (such as the
+// OTP delivery options' ValidateOnStart) are not run by it.
+if (migrateAndSeedOnly)
+{
+    return;
 }
 
 app.Run();

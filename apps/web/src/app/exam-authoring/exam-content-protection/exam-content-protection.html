@@ -1,0 +1,24 @@
+<div class="card">
+  <h2>Copying and printing</h2>
+  @if (editable()) {
+    <form (submit)="$event.preventDefault(); save()" aria-label="Copying and printing">
+      <label class="inline-check">
+        <input type="checkbox" [checked]="ticked()" (change)="toggle($any($event.target).checked)" />
+        Turn off copying, pasting, right-click and printing while candidates sit the exam
+      </label>
+      <p class="hint">
+        On by default. Candidates are told it applies, and can still select text, so screen readers and magnifiers keep working.
+        It stops the ordinary ways of carrying a question out of the exam page; it cannot stop a photograph of the screen. Turn it off
+        for practice and chapter tests. You can change it after publishing.
+      </p>
+      @if (dirty()) {
+        <div class="actions">
+          <button type="submit" class="primary" [disabled]="busy()">Save</button>
+          <button type="button" (click)="discard()" [disabled]="busy()">Cancel</button>
+        </div>
+      }
+    </form>
+  } @else {
+    <p>Copying, pasting, right-click and printing: {{ enabled() ? 'turned off during the exam' : 'allowed' }}</p>
+  }
+</div>

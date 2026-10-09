@@ -1,14 +1,18 @@
 using ExamPlatform.Modules.ExamAuthoring.Application;
 using ExamPlatform.Modules.ExamAuthoring.Application.Commands;
 using ExamPlatform.Modules.ExamAuthoring.Application.Ports;
+using ExamPlatform.Modules.ExamAuthoring.Application.Queries;
+using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.ExamAuthoring.Infrastructure;
 using ExamPlatform.Modules.ExamAuthoring.Infrastructure.Repositories;
+using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ExamPlatform.Modules.ExamAuthoring.Endpoints;
 
@@ -27,8 +31,41 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
 
         services.AddScoped<IExamRepository, EFExamRepository>();
         services.AddScoped<IExamAuthoringUnitOfWork, ExamAuthoringUnitOfWork>();
+        services.AddScoped<IExamCatalog, ExamCatalog>();
+        services.AddScoped<IQuestionUsageSource, ExamQuestionUsageSource>();
+        services.AddScoped<IQuestionPlacementGuard, ExamScopePlacementGuard>();
+
+        services.AddScoped<ExamScopeResolver>();
+        services.AddScoped<ExamDtoFactory>();
 
         services.AddScoped<CreateExamHandler>();
+        services.AddDomainEventHandlers(typeof(ExamAuditTrail).Assembly);
+        services.AddScoped<ListExamsHandler>();
+        services.AddScoped<GetExamHandler>();
+        services.AddScoped<ScheduleExamHandler>();
+        services.AddScoped<AddSectionHandler>();
+        services.AddScoped<AddExamQuestionHandler>();
+        services.AddScoped<RemoveExamQuestionHandler>();
+        services.AddScoped<DrawExamQuestionsHandler>();
+        services.AddScoped<AddDrawRuleHandler>();
+        services.AddScoped<RemoveDrawRuleHandler>();
+        services.AddScoped<DrawPoolChecker>();
+        services.TryAddSingleton<IQuestionPicker, RandomQuestionPicker>();
+        services.AddScoped<RemoveSectionHandler>();
+        services.AddScoped<UpdateExamDetailsHandler>();
+        services.AddScoped<DeleteExamHandler>();
+        services.AddScoped<EditSectionHandler>();
+        services.AddScoped<PublishExamHandler>();
+        services.AddScoped<SetExamScopeHandler>();
+        services.AddScoped<SetResultReleaseHandler>();
+        services.AddScoped<SetMarkingSchemeHandler>();
+        services.AddScoped<SetMaxAttemptsHandler>();
+        services.AddScoped<SetContentProtectionHandler>();
+        services.AddScoped<SetFocusViolationLimitHandler>();
+        services.AddScoped<SetProctoringProfileHandler>();
+        services.AddSingleton<ListProctoringProfilesHandler>();
+        services.AddScoped<SetShuffleHandler>();
+        services.AddScoped<ReleaseResultsHandler>();
     }
 
     /// <inheritdoc />

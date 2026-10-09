@@ -1,0 +1,1131 @@
+/* Reusable building blocks: card, form field, button, alert, badge, table, grid. */
+
+/* ---------- Card ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.card > :last-child {
+  margin-bottom: 0;
+}
+
+.card h2,
+.card h3 {
+  margin-top: 0;
+}
+
+.card h3 a {
+  text-decoration: none;
+}
+
+.card h3 a:hover {
+  text-decoration: underline;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+}
+
+.card-grid .card {
+  margin-bottom: 0;
+}
+
+/* The title row of a list card: name on the left, status on the right. */
+.card__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.5rem;
+}
+
+.card__meta {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ---------- Form ---------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0 0 1rem;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.field label,
+.field legend {
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0;
+}
+
+.field input:not([type='radio']):not([type='checkbox']),
+.field select,
+.field textarea,
+.option-row input[type='text'],
+.option-row select {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus,
+.option-row input:focus,
+.option-row select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--focus-ring);
+}
+
+.field-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.field-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+/* A one-time code: six boxes drawn over one real input, so typing, pasting and phone autofill all reach a single field.
+   The input is invisible but still focusable, and taps on the boxes land on it. */
+.code-entry {
+  position: relative;
+}
+
+.code-entry__boxes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.code-entry__box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 3.25rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.code-entry:focus-within .code-entry__box--next {
+  border-color: var(--primary);
+  box-shadow: var(--focus-ring);
+}
+
+.field .code-entry input.code-entry__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  opacity: 0;
+  font-size: 16px;
+}
+
+.option-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.option-row input[type='text'],
+.option-row select {
+  flex: 1;
+}
+
+/* A two-way choice drawn as one track, so its options read as a pair: buttons for the sign-in method, radio buttons for the
+   contact channel. The selected option must stay primary when hovered, which the global button hover would otherwise override. */
+.mode-toggle,
+.segmented {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.mode-toggle {
+  margin-bottom: 1.25rem;
+}
+
+.mode-toggle button,
+.segmented__option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding-inline: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+.mode-toggle button.active,
+.mode-toggle button.active:hover:not(:disabled),
+.segmented__option:has(input:checked) {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
+.segmented__option:has(input:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.auth-submit {
+  width: 100%;
+  min-height: 3rem;
+  font-size: 1rem;
+}
+
+.field-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.field-link {
+  font-size: 0.85rem;
+}
+
+/* The show/hide control sits inside the password field's right edge, so the field keeps one visual box. */
+.password-input {
+  position: relative;
+}
+
+.field .password-input input[type] {
+  padding-inline-end: 4.75rem;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 0.25rem;
+  transform: translateY(-50%);
+  min-height: 2.25rem;
+  padding: 0 0.6rem;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.field input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+/* A disabled primary action reads as unavailable, not as a faded version of the live button. */
+button.primary:disabled {
+  opacity: 1;
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
+  color: var(--text-muted);
+}
+
+/* ---------- Button ---------- */
+button,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled),
+.btn:hover {
+  background: var(--surface-muted);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button.primary,
+.btn--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+  font-weight: 600;
+}
+
+button.primary:hover:not(:disabled),
+.btn--primary:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.btn--danger {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn--small {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+/* ---------- Alert ---------- */
+.error-message,
+.success-message {
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.error-message {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+.success-message {
+  color: var(--success);
+  background: var(--success-soft);
+  border-color: var(--success);
+}
+
+.info-message {
+  color: var(--primary);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* ---------- Badge ---------- */
+.badge {
+  display: inline-block;
+  margin-inline-start: 0.5rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.card__title .badge {
+  margin-inline-start: 0;
+}
+
+.badge--active,
+.badge--status-approved,
+.status-Active,
+.status-Verified {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.badge--danger {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.badge--inactive,
+.badge--status-retired,
+.status-Closed,
+.status-Revoked {
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
+  color: var(--text-muted);
+}
+
+.badge--warning,
+.status-Draft,
+.status-Pending {
+  background: var(--warning-soft);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.status-Registered {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ---------- Table ---------- */
+.table-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 1.25rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.75rem 1rem;
+  text-align: start;
+  border-bottom: 1px solid var(--border);
+}
+
+.table th {
+  background: var(--surface-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table .actions {
+  margin: 0;
+}
+
+/* ---------- Stat tile ---------- */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.stat-label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* ---------- Feature rows ---------- */
+.consent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.consent-row:last-child {
+  border-bottom: 0;
+}
+
+.correct-option {
+  font-weight: 600;
+}
+
+.invite-link {
+  display: block;
+  padding: 0.5rem 0.7rem;
+}
+
+/* A code, and the link that carries it, for staff to copy and hand to someone by hand. One click on the text selects all of it,
+   so when the browser will not let the page copy, selecting and copying by hand is still one gesture. */
+.handover {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.handover__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.handover__name {
+  min-width: 5.5rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.handover__value {
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+.handover__value--code {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+.handover__status {
+  min-height: 1.5rem;
+  margin: 0.25rem 0 0.5rem;
+  color: var(--success);
+  font-size: 0.9rem;
+}
+
+/* Fields laid out side by side with their submit button (the batch roster's "add member" form). */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 1rem;
+  align-items: end;
+}
+
+.form-row .field {
+  margin-bottom: 0;
+}
+
+@media (max-width: 40rem) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-row--pair {
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+}
+
+.form-row--pair .field {
+  margin-bottom: 1rem;
+}
+
+.inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.inline-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.inline-edit input {
+  flex: 1;
+  min-width: 10rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The question list's filter: a book select, and a chapter select once a book is chosen. */
+.list-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.list-filter select,
+.list-filter input[type='search'] {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.question-card__where {
+  margin: 0 0 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Where a question is in use, under its options; the badges carry their own spacing. */
+.question-card__usage {
+  margin: 0.5rem 0 0;
+}
+
+.question-card__usage .badge:first-child {
+  margin-inline-start: 0;
+}
+
+.question-card__actions {
+  margin-top: 0.75rem;
+}
+
+/* The tick box sits at the end of the line that says where the question is filed. */
+.question-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.question-card__filing {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+/* The bar that appears above the list while questions are ticked: where to file them, and the button. */
+.bulk-bar {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 1;
+  border-color: var(--primary);
+}
+
+.bulk-bar__count {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.select-all {
+  display: flex;
+  margin-bottom: 0.75rem;
+}
+
+/* The inline "are you sure?" that replaces a Delete or Remove button; no dialog to open, nothing to lose focus into. */
+.question-card__confirm,
+.inline-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+/* A heads-up the author should read before saving, set apart from the hints around it; the words carry the meaning, not the colour. */
+.warning-note {
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: var(--warning-soft);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+/* A section card's own actions sit under its questions, apart from the Add question row. */
+.section-card__actions {
+  margin-top: 0.75rem;
+}
+
+/* The exam scope choice: radios stacked, and the chosen book's chapters as a checklist. */
+.scope-fields {
+  gap: 0.5rem;
+}
+
+.scope-fields .inline-check {
+  display: flex;
+}
+
+.scope-fields__chapters {
+  padding-inline-start: 1rem;
+}
+
+/* The answer-review choice (the WhatsApp test's "What to send" too): a radio per option, with a one-line explanation under its label. */
+.release-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.release-fields__choice {
+  display: flex;
+  align-items: flex-start;
+}
+
+.release-fields__hint {
+  display: block;
+  margin: 0;
+}
+
+/* A candidate's attempts at one exam: a row each, with its score and what can be done with it. */
+.attempt-list {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attempt-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.attempt-row:first-child {
+  border-top: 0;
+}
+
+.attempt-row__label {
+  flex: 1;
+  min-width: 10rem;
+}
+
+/* Difficulty and topics of a question, between where it is filed and its text. */
+.question-card__labels {
+  margin: 0 0 0.5rem;
+}
+
+.question-card__labels .badge:first-child {
+  margin-inline-start: 0;
+}
+
+.badge--difficulty-easy {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.badge--difficulty-medium {
+  background: var(--warning-soft);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.badge--difficulty-hard {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Two form fields side by side, stacking on a narrow screen. */
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.field-row > .field {
+  flex: 1 1 14rem;
+}
+
+/* A one-time code an administrator reads out: large, spaced and monospaced so digits are not misread over a call. */
+.otp-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.75rem;
+  letter-spacing: 0.25em;
+  margin: 0.25rem 0 0;
+}
+
+/* The review panel of a question (FR-8): a thread of comments and decisions under a button that opens it. */
+.question-review__panel {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.question-review__thread {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+/* The classes books are filed under: a row each with its book count and actions, and a one-field form to add one. */
+.class-list {
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.class-list__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.class-list__name {
+  flex: 1;
+  min-width: 8rem;
+}
+
+.class-list__item .actions {
+  margin: 0;
+}
+
+.class-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.class-add .field {
+  flex: 1;
+  min-width: 12rem;
+  margin-bottom: 0;
+}
+
+/* The books page lists books under a heading per class. */
+.book-group__title {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 1.1rem;
+}
+
+/* Class, book and chapter side by side in the pickers; stacked on a narrow screen. */
+.form-row--triple {
+  grid-template-columns: repeat(3, 1fr);
+  align-items: start;
+}
+
+.form-row--triple .field {
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 40rem) {
+  .form-row--triple {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The WhatsApp test page: a card's title with its Refresh button, the setup table's tags, the problem and note lists, the
+   message counter, the result, and the Sent, Delivered, Read progress line. Colours are tokens only, so dark mode follows;
+   every state also has words or a symbol, so none of it relies on colour alone. */
+.whatsapp-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.whatsapp-card-head h2 {
+  margin: 0;
+}
+
+.whatsapp-pill {
+  margin-inline-start: 0;
+  padding: 0.25rem 0.8rem;
+  font-size: 0.9rem;
+}
+
+/* The answer to "is WhatsApp working": the on or off pill, and beside it the count of what is stopping it, or that nothing is. */
+.whatsapp-headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.whatsapp-headline__detail {
+  margin: 0;
+  font-weight: 600;
+}
+
+.whatsapp-headline__detail--problem {
+  color: var(--danger);
+}
+
+.whatsapp-headline__detail--ok {
+  color: var(--success);
+}
+
+/* A setting name is read and copied whole, so beside the sidebar it never breaks mid-word and the table scrolls instead. On a
+   phone the page is as wide as its widest content (see .shell), so there the name wraps to keep the table on screen. */
+@media (min-width: 40.01rem) {
+  .whatsapp-setting {
+    white-space: nowrap;
+    word-break: normal;
+  }
+
+  .whatsapp-purpose {
+    min-width: 14rem;
+  }
+}
+
+.whatsapp-tag {
+  margin-inline-start: 0;
+  margin-inline-end: 0.35rem;
+}
+
+.whatsapp-value {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.whatsapp-problems h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.whatsapp-problems ul,
+.whatsapp-notes {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
+.whatsapp-notes__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.whatsapp-counter {
+  text-align: end;
+}
+
+.whatsapp-result {
+  border-inline-start: 4px solid var(--success);
+}
+
+.whatsapp-result--failed {
+  border-inline-start-color: var(--danger);
+}
+
+.whatsapp-meta summary,
+.whatsapp-settings summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.whatsapp-settings {
+  margin-top: 1rem;
+}
+
+.whatsapp-settings summary {
+  margin-bottom: 0.75rem;
+}
+
+/* On a phone the settings table has no room for three columns, so each setting becomes a block that names its own fields
+   (the cell's label comes from data-label). The header row stays for screen readers, hidden as a visually-hidden row. */
+@media (max-width: 40rem) {
+  .whatsapp-settings .table,
+  .whatsapp-settings .table tbody {
+    display: block;
+  }
+
+  .whatsapp-settings .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .whatsapp-settings .table tr {
+    display: block;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .whatsapp-settings .table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .whatsapp-settings .table td {
+    display: block;
+    padding: 0.2rem 1rem;
+    border: 0;
+  }
+
+  .whatsapp-settings .table td:first-child {
+    padding-top: 0.75rem;
+  }
+
+  .whatsapp-settings .table td:last-child {
+    padding-bottom: 0.75rem;
+  }
+
+  .whatsapp-settings .table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .whatsapp-settings .whatsapp-setting {
+    overflow-wrap: anywhere;
+  }
+}
+
+.whatsapp-meta__list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+}
+
+.whatsapp-meta__list dt {
+  color: var(--text-muted);
+}
+
+.whatsapp-meta__list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.whatsapp-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.whatsapp-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.whatsapp-steps__step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.whatsapp-steps__step--done {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.whatsapp-steps__step--current {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* The staff queue of answer-key disputes (FR-31): a question once, then a block for each candidate who disputes it. */
+.dispute-list {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dispute-row {
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+}
+
+/* What the candidate wrote: its own line breaks are kept, and a long word never widens the card. */
+.dispute-row__reason {
+  margin: 0.5rem 0;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 3px solid var(--border-strong);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The staff queue of problems candidates reported from inside an exam (FR-42): one card for each report, oldest first. */
+.issue-list {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* What the candidate wrote: its own line breaks are kept, and a long word never widens the card. */
+.issue-row__message {
+  margin: 0.5rem 0;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 3px solid var(--border-strong);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.issue-row__question {
+  margin: 0.5rem 0;
+}
+
+/* The panel that corrects a question's answer key, set apart from the disputes it settles. */
+.key-correction {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}

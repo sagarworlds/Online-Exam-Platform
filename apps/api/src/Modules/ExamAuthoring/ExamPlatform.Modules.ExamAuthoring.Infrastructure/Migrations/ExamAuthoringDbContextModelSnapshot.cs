@@ -93,6 +93,8 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("QuestionVersionId");
+
                     b.HasIndex("SectionId");
 
                     b.ToTable("ExamQuestions", "examAuthoring");
@@ -130,6 +132,44 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
                     b.ToTable("ExamSections", "examAuthoring");
                 });
 
+            modelBuilder.Entity("ExamPlatform.Modules.ExamAuthoring.Domain.SectionDrawRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BookId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ChapterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Difficulty")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Topic")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SectionId");
+
+                    b.ToTable("SectionDrawRules", "examAuthoring");
+                });
+
             modelBuilder.Entity("ExamPlatform.Modules.ExamAuthoring.Domain.Exam", b =>
                 {
                     b.OwnsOne("ExamPlatform.Modules.ExamAuthoring.Domain.ExamConfig", "Config", b1 =>
@@ -139,6 +179,12 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
 
                             b1.Property<bool>("CalculatorAllowed")
                                 .HasColumnType("boolean");
+
+                            b1.Property<bool>("ContentProtection")
+                                .HasColumnType("boolean");
+
+                            b1.Property<int>("FocusViolationLimit")
+                                .HasColumnType("integer");
 
                             b1.Property<int>("MaxAttempts")
                                 .HasColumnType("integer");
@@ -186,6 +232,9 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
                                     b2.Property<decimal>("IncorrectMarks")
                                         .HasColumnType("numeric");
 
+                                    b2.Property<bool>("PartialCredit")
+                                        .HasColumnType("boolean");
+
                                     b2.Property<decimal>("UnattemptedMarks")
                                         .HasColumnType("numeric");
 
@@ -201,7 +250,38 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
                                 .IsRequired();
                         });
 
+                    b.OwnsOne("ExamPlatform.Modules.ExamAuthoring.Domain.ExamScope", "Scope", b1 =>
+                        {
+                            b1.Property<Guid>("ExamId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid?>("BookId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("ScopeBookId");
+
+                            b1.PrimitiveCollection<Guid[]>("ChapterIds")
+                                .IsRequired()
+                                .HasColumnType("uuid[]")
+                                .HasColumnName("ScopeChapterIds");
+
+                            b1.Property<string>("Type")
+                                .IsRequired()
+                                .HasMaxLength(20)
+                                .HasColumnType("character varying(20)")
+                                .HasColumnName("ScopeType");
+
+                            b1.HasKey("ExamId");
+
+                            b1.ToTable("Exams", "examAuthoring");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ExamId");
+                        });
+
                     b.Navigation("Config")
+                        .IsRequired();
+
+                    b.Navigation("Scope")
                         .IsRequired();
                 });
 
@@ -223,6 +303,15 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ExamPlatform.Modules.ExamAuthoring.Domain.SectionDrawRule", b =>
+                {
+                    b.HasOne("ExamPlatform.Modules.ExamAuthoring.Domain.ExamSection", null)
+                        .WithMany("DrawRules")
+                        .HasForeignKey("SectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ExamPlatform.Modules.ExamAuthoring.Domain.Exam", b =>
                 {
                     b.Navigation("Sections");
@@ -230,6 +319,8 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
 
             modelBuilder.Entity("ExamPlatform.Modules.ExamAuthoring.Domain.ExamSection", b =>
                 {
+                    b.Navigation("DrawRules");
+
                     b.Navigation("Questions");
                 });
 #pragma warning restore 612, 618

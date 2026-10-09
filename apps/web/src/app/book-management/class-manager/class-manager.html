@@ -1,0 +1,55 @@
+<section class="card class-manager" aria-labelledby="class-manager-title">
+  <h2 id="class-manager-title">Classes</h2>
+  <p class="hint">
+    A class, such as 4th, groups books: the question bank and the exam form can then be narrowed from class to book to chapter. A
+    book does not need one.
+  </p>
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+
+  @if (sorted().length === 0) {
+    <p class="hint">No classes yet. Add the first one below.</p>
+  } @else {
+    <ul class="class-list">
+      @for (item of sorted(); track item.id) {
+        <li class="class-list__item">
+          <div class="class-list__name">
+            @if (renamingId() === item.id) {
+              <form class="inline-edit" [formGroup]="renameForm" (ngSubmit)="saveRename(item)" aria-label="Rename class">
+                <input type="text" formControlName="name" [attr.aria-label]="'New name for ' + item.name" [attr.maxlength]="limits.name" />
+                <button type="submit" class="primary btn--small" [disabled]="renameForm.invalid || busy()">Save</button>
+                <button type="button" class="btn--small" (click)="cancelRename()">Cancel</button>
+              </form>
+            } @else {
+              <strong>{{ item.name }}</strong>
+              @if (item.isArchived) {
+                <span class="badge badge--inactive">Archived</span>
+              }
+            }
+          </div>
+          <span class="card__meta">{{ item.bookCount }} {{ item.bookCount === 1 ? 'book' : 'books' }}</span>
+          <div class="actions">
+            @if (renamingId() !== item.id) {
+              <button type="button" class="btn--small" (click)="startRename(item)" [disabled]="busy()">Rename</button>
+            }
+            @if (item.isArchived) {
+              <button type="button" class="btn--small" (click)="setArchived(item, false)" [disabled]="busy()">Restore</button>
+            } @else {
+              <button type="button" class="btn--small" (click)="setArchived(item, true)" [disabled]="busy()">Archive</button>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  }
+
+  <form class="class-add" [formGroup]="addForm" (ngSubmit)="add()" aria-label="New class">
+    <div class="field">
+      <label for="class-name">New class name</label>
+      <input id="class-name" type="text" formControlName="name" placeholder="4th, Grade 10…" [attr.maxlength]="limits.name" />
+    </div>
+    <button type="submit" class="primary" [disabled]="addForm.invalid || busy()">Add class</button>
+  </form>
+</section>

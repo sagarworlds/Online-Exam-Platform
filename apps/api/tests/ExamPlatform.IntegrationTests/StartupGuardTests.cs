@@ -2,6 +2,7 @@ using System.Net;
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Endpoints.OtpDelivery;
 using ExamPlatform.Modules.Identity.Endpoints.RateLimiting;
+using ExamPlatform.Modules.Invite.Infrastructure.WhatsApp;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -106,6 +107,150 @@ public sealed class StartupGuardTests
     }
 
     [Fact]
+    public async Task NonDevelopment_WithSmtpSender_Boots()
+    {
+        using var factory = new ProductionHostFactory(OtpDeliveryOptions.Smtp);
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static ProductionHostFactory SmtpHostWith(params (string Key, string? Value)[] settings) =>
+        new(
+            OtpDeliveryOptions.Smtp,
+            extraSettings: settings.ToDictionary(setting => setting.Key, setting => setting.Value));
+
+    [Fact]
+    public void NonDevelopment_WithWhatsAppForPhonesButNothingConfiguredForWhatsApp_FailsAtStartupNamingWhatIsMissing()
+    {
+        // Told to send codes over WhatsApp with no way to, the host must stop here, not fail the first phone sign-in.
+        using var factory = SmtpHostWith(("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp), ("WhatsApp:Enabled", "true"));
+
+        var failure = AssertStartupFails<OtpDeliveryOptions>(factory);
+
+        Assert.Contains("WhatsApp:AccessToken, WhatsApp:PhoneNumberId, WhatsApp:OtpTemplateName are not set", failure.Message);
+    }
+
+    [Fact]
+    public void NonDevelopment_WithWhatsAppForPhonesButNoCodeTemplate_FailsAtStartupNamingOnlyThat()
+    {
+        using var factory = SmtpHostWith(
+            ("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp),
+            ("WhatsApp:Enabled", "true"),
+            ("WhatsApp:AccessToken", "token"),
+            ("WhatsApp:PhoneNumberId", "1234567890"));
+
+        var failure = AssertStartupFails<OtpDeliveryOptions>(factory);
+
+        Assert.Contains("WhatsApp:OtpTemplateName is not set", failure.Message);
+        Assert.DoesNotContain("AccessToken", failure.Message);
+    }
+
+    [Fact]
+    public void NonDevelopment_WithAnUnknownPhoneProvider_FailsAtStartup()
+    {
+        using var factory = SmtpHostWith(("Identity:OtpDelivery:PhoneProvider", "Carrier-Pigeon"));
+
+        var failure = AssertStartupFails<OtpDeliveryOptions>(factory);
+
+        Assert.Contains("Carrier-Pigeon", failure.Message);
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithWhatsAppForPhonesButSwitchedOff_BootsWithoutItsSettings()
+    {
+        // The master switch is off unless turned on: nothing is sent, so nothing else is demanded of the host. Turning it on is what
+        // checks the settings (the tests above), and turning it off again in an emergency must not stop the host starting.
+        using var factory = SmtpHostWith(("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithWhatsAppForPhonesAndItsSettings_Boots()
+    {
+        using var factory = SmtpHostWith(
+            ("Identity:OtpDelivery:PhoneProvider", OtpDeliveryOptions.WhatsApp),
+            ("WhatsApp:Enabled", "true"),
+            ("WhatsApp:AccessToken", "token"),
+            ("WhatsApp:PhoneNumberId", "1234567890"),
+            ("WhatsApp:OtpTemplateName", "exam_login_code"));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public void NonDevelopment_WithAnInviteTemplateButNothingConfiguredForWhatsApp_FailsAtStartupNamingWhatIsMissing()
+    {
+        // Told to send invitations on WhatsApp with no way to, the host must stop here, not skip WhatsApp on every invitation.
+        using var factory = SmtpHostWith(("Invite:WhatsApp:TemplateName", "exam_invitation"), ("WhatsApp:Enabled", "true"));
+
+        var failure = AssertStartupFails<InviteWhatsAppOptions>(factory);
+
+        Assert.Contains(
+            "Invite:WhatsApp:TemplateName is set and WhatsApp is switched on, but WhatsApp:AccessToken, WhatsApp:PhoneNumberId are not set",
+            failure.Message);
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithAnInviteTemplateButWhatsAppSwitchedOff_BootsWithoutItsSettings()
+    {
+        // Nothing is sent while the master switch is off, so nothing else is demanded; turning it on is what checks the settings.
+        using var factory = SmtpHostWith(("Invite:WhatsApp:TemplateName", "exam_invitation"));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithAnInviteTemplateAndWhatsAppConfigured_Boots()
+    {
+        using var factory = SmtpHostWith(
+            ("Invite:WhatsApp:TemplateName", "exam_invitation"),
+            ("WhatsApp:Enabled", "true"),
+            ("WhatsApp:AccessToken", "token"),
+            ("WhatsApp:PhoneNumberId", "1234567890"));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithABlankInviteTemplate_BootsAsIfItWereUnset()
+    {
+        using var factory = SmtpHostWith(("Invite:WhatsApp:TemplateName", ""));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithABlankPhoneProvider_BootsAsIfItWereUnset()
+    {
+        // A platform that lets an operator clear a variable can hand over an empty string rather than nothing.
+        using var factory = SmtpHostWith(("Identity:OtpDelivery:PhoneProvider", ""));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task NonDevelopment_WithValidatorOverriddenAndSenderReplaced_Boots()
     {
         // The recipe documented on OtpDeliveryOptionsValidator for tests that need a
@@ -137,9 +282,48 @@ public sealed class StartupGuardTests
         Assert.Contains($"Identity:RateLimits:{policy}", failure.Message);
     }
 
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("366")]
+    [InlineData("soon")]
+    public void ADisputeWindowOutsideZeroToAYear_FailsAtStartupNamingTheSetting(string value)
+    {
+        // A mistyped window must stop the boot, not fail the first candidate who tries to dispute a result.
+        using var factory = SmtpHostWith(("ExamRuntime:Disputes:WindowDays", value));
+
+        var failure = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+
+        Assert.Contains(SelfAndInnerExceptions(failure), e => e.Message.Contains("ExamRuntime:Disputes:WindowDays", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task NonDevelopment_WithDisputesSwitchedOff_Boots()
+    {
+        using var factory = SmtpHostWith(("ExamRuntime:Disputes:WindowDays", "0"));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    /// <summary>How many times to try again when the framework loses the startup failure (see <see cref="AssertStartupFails{TOptions}"/>).</summary>
+    private const int StartupFailureAttempts = 5;
+
     private static OptionsValidationException AssertStartupFails<TOptions>(ProductionHostFactory factory)
     {
-        var failure = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+        // WebApplicationFactory runs the host's entry point on another thread and, when startup throws, races to report it:
+        // sometimes the caller sees the real OptionsValidationException, and sometimes only an ObjectDisposedException from the
+        // already-disposed service provider, with the real one lost. Under a loaded CI machine the second happens now and then.
+        // That outcome says nothing about the code under test, so it alone is retried; any other failure is judged at once.
+        Exception failure;
+        var attempt = 0;
+        do
+        {
+            attempt++;
+            failure = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+        }
+        while (attempt < StartupFailureAttempts && IsLostStartupFailure(failure));
 
         // The host may surface the validation failure directly or wrapped (e.g. in an
         // AggregateException), so look for it anywhere in the exception chain.
@@ -147,6 +331,12 @@ public sealed class StartupGuardTests
         Assert.True(validationFailure is not null, $"Expected an OptionsValidationException, got: {failure}");
         Assert.Equal(typeof(TOptions), validationFailure.OptionsType);
         return validationFailure;
+    }
+
+    private static bool IsLostStartupFailure(Exception failure)
+    {
+        var chain = SelfAndInnerExceptions(failure).ToList();
+        return chain.OfType<ObjectDisposedException>().Any() && !chain.OfType<OptionsValidationException>().Any();
     }
 
     private static IEnumerable<Exception> SelfAndInnerExceptions(Exception exception)

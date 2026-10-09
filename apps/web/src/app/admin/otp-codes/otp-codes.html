@@ -1,0 +1,60 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>{{ 'admin.codes.title' | t }}</h1>
+  </div>
+
+  <p class="hint">{{ 'admin.codes.hint' | t }}</p>
+
+  <form (submit)="$event.preventDefault(); find()" [attr.aria-label]="'admin.codes.searchLabel' | t" novalidate>
+    <div class="field">
+      <label for="otp-search">{{ 'admin.codes.searchField' | t }}</label>
+      <input
+        id="otp-search"
+        type="search"
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+        [placeholder]="'admin.codes.searchPlaceholder' | t"
+        autocomplete="off"
+        [attr.aria-invalid]="needsSearch() ? 'true' : null"
+        [attr.aria-describedby]="needsSearch() ? 'otp-search-needed' : null"
+      />
+    </div>
+    <button type="submit" class="primary auth-submit" [disabled]="loading()">{{ 'admin.codes.find' | t }}</button>
+  </form>
+
+  @if (needsSearch()) {
+    <p id="otp-search-needed" class="field-error" role="alert">{{ 'admin.codes.needSearch' | t }}</p>
+  }
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+
+  @if (loading()) {
+    <p role="status">{{ 'common.loading' | t }}</p>
+  } @else if (codes() !== null) {
+    @if (codes()!.length === 0) {
+      <div class="card empty-state">{{ 'admin.codes.none' | t }}</div>
+    } @else {
+      <p class="hint">{{ 'admin.codes.revealNote' | t }}</p>
+      @for (item of codes(); track item.challengeId) {
+        <div class="card">
+          <h3 class="card__title">{{ item.destination }}</h3>
+          <p class="card__meta">
+            {{ 'admin.codes.sentence' | t: { purpose: purposeKeys[item.purpose] | t, channel: channelKeys[item.channel] | t, time: (item.expiresAtUtc | date: 'shortTime') ?? '' } }}
+          </p>
+          @if (isRevealed(item.challengeId)) {
+            <p class="otp-code" [id]="'otp-code-' + item.challengeId">{{ groupedCode(item.code) }}</p>
+            <button type="button" [attr.aria-expanded]="true" [attr.aria-controls]="'otp-code-' + item.challengeId" (click)="hide(item.challengeId)">
+              {{ 'admin.codes.hide' | t }}
+            </button>
+          } @else {
+            <button type="button" [attr.aria-expanded]="false" (click)="reveal(item.challengeId)">
+              {{ 'admin.codes.show' | t }}
+            </button>
+          }
+        </div>
+      }
+    }
+  }
+</div>

@@ -1,29 +1,53 @@
+<app-api-activity />
+
 <header class="nav">
-  <a class="brand" routerLink="/">Online Exam Platform</a>
+  <a class="brand" routerLink="/">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <path d="m8 12.5 2.8 2.8L16.5 9.5" />
+    </svg>
+    Online Exam Platform
+  </a>
   <nav>
     @if (authSession.isAuthenticated()) {
-      <a routerLink="/profile">Profile</a>
-      <a routerLink="/consent">Consent</a>
-      <button type="button" (click)="logout()">Log out</button>
+      <a routerLink="/my-exams" routerLinkActive="active">{{ 'nav.myExams' | t }}</a>
+      <a routerLink="/invite" routerLinkActive="active">{{ 'nav.redeemInvite' | t }}</a>
+      <a routerLink="/profile" routerLinkActive="active">{{ 'nav.profile' | t }}</a>
+      <a routerLink="/consent" routerLinkActive="active">{{ 'nav.consent' | t }}</a>
+      <button type="button" (click)="logout()">{{ 'nav.logout' | t }}</button>
     } @else {
-      <a routerLink="/login">Log in</a>
-      <a routerLink="/register">Register</a>
+      <a routerLink="/login" routerLinkActive="active">{{ 'nav.login' | t }}</a>
+      <a routerLink="/register" routerLinkActive="active">{{ 'nav.register' | t }}</a>
     }
+    <app-language-switcher />
   </nav>
 </header>
 
-<router-outlet />
+<div class="shell">
+  @if (adminSections().length > 0) {
+    <app-admin-sidebar [sections]="adminSections()" />
+  }
+  <main class="shell__content">
+    <router-outlet />
+  </main>
+</div>
 
+<!-- A dot, not a sentence: green or red at a glance, with the words in the hover tooltip and as the accessible name. -->
 <footer class="health-widget">
   @switch (health().state) {
     @case ('checking') {
-      <span class="status status--checking">Checking API…</span>
+      <span class="health-dot health-dot--checking" role="img" title="Checking API…" aria-label="Checking API…"></span>
     }
     @case ('healthy') {
-      <span class="status status--healthy">API is healthy.</span>
+      <span class="health-dot health-dot--healthy" role="img" title="API is healthy." aria-label="API is healthy."></span>
     }
     @case ('unhealthy') {
-      <span class="status status--unhealthy">API is unreachable: {{ health().reason }}</span>
+      <span
+        class="health-dot health-dot--unhealthy"
+        role="img"
+        [title]="'API is unreachable: ' + health().reason"
+        [attr.aria-label]="'API is unreachable: ' + health().reason"
+      ></span>
     }
   }
 </footer>

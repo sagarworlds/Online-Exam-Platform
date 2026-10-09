@@ -10,7 +10,11 @@ public sealed class UserRepository(IdentityDbContext context) : IUserRepository
     // ThenInclude(Permissions) matters: without it, every role loads with an empty
     // Permissions collection, so RBAC and JwtTokenGenerator's "perm" claims would
     // silently see no permissions at all for any user, however their roles are configured.
+    // Split, since Roles->Permissions and Sessions are independent collections: joined in one
+    // query they'd return the cartesian product of a user's permissions and their sessions,
+    // on the hot path every sign-in and token validation runs.
     private IQueryable<User> Loaded() => context.Users
+        .AsSplitQuery()
         .Include(u => u.Roles).ThenInclude(r => r.Permissions)
         .Include(u => u.Sessions);
 
@@ -25,6 +29,17 @@ public sealed class UserRepository(IdentityDbContext context) : IUserRepository
     /// <inheritdoc />
     public Task<User?> GetByPhoneAsync(string phoneNumber, CancellationToken cancellationToken) =>
         Loaded().FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> ListActiveEmailsWithPermissionAsync(string permissionCode, CancellationToken cancellationToken) =>
+        await context.Users.AsNoTracking()
+            .Where(u => u.Status == UserStatus.Active
+                && u.Email != null
+                && u.Roles.Any(r => r.Permissions.Any(p => p.Code == permissionCode)))
+            .Select(u => u.Email!)
+            .Distinct()
+            .OrderBy(email => email)
+            .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
     public async Task AddAsync(User user, CancellationToken cancellationToken) =>

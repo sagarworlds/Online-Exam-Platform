@@ -1,0 +1,37 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>Exams</h1>
+    <a routerLink="/exams/create" class="btn btn--primary">Create a new exam</a>
+  </div>
+
+  @if (errorMessage()) {
+    <p class="error-message">{{ errorMessage() }}</p>
+  }
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else if (exams().length === 0) {
+    <div class="card empty-state">No exams yet.</div>
+  } @else {
+    @for (exam of exams(); track exam.id) {
+      <div class="card">
+        <h3 class="card__title">
+          <a [routerLink]="['/exams', exam.id]">{{ exam.name }}</a>
+          <span class="badge" [class.badge--active]="exam.status === 'Published'" [class.badge--inactive]="exam.status !== 'Published'">{{ exam.status }}</span>
+        </h3>
+        @if (exam.description) {
+          <p>{{ exam.description }}</p>
+        }
+        <p class="card__meta">
+          @if (exam.isScheduled) {
+            Opens {{ exam.scheduledStartTime | date: 'medium' }}
+          } @else {
+            Not scheduled yet
+          }
+          <br />
+          Questions from: {{ describeScope(exam.scope) }}
+        </p>
+      </div>
+    }
+  }
+</div>

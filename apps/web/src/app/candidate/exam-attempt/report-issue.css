@@ -1,0 +1,19 @@
+/* The attempt-wide control sits on its own line, as it always has. */
+:host {
+  display: block;
+  margin: 1rem 0;
+}
+
+/* A question's control is one more button in that question's row of tools, beside Mark for review and Clear. Once its form, or its note
+   that a report went through, is open it takes the next full line, so the question above stays in view while the candidate writes. */
+:host(.report-issue--question) {
+  margin: 0;
+}
+
+:host(.report-issue--question.report-issue--expanded) {
+  flex-basis: 100%;
+}
+
+.report-issue__form {
+  margin: 0.75rem 0 0;
+}

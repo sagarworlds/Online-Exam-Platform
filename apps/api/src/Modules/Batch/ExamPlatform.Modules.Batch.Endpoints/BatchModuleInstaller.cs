@@ -3,6 +3,7 @@ using ExamPlatform.Modules.Batch.Application.Commands;
 using ExamPlatform.Modules.Batch.Application.Ports;
 using ExamPlatform.Modules.Batch.Infrastructure;
 using ExamPlatform.Modules.Batch.Infrastructure.Repositories;
+using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Routing;
@@ -27,11 +28,13 @@ public sealed class BatchModuleInstaller : IModuleInstaller
 
         services.AddScoped<IBatchRepository, EFBatchRepository>();
         services.AddScoped<IBatchUnitOfWork, BatchUnitOfWork>();
+        services.AddScoped<IExamDeletionGuard, BatchExamDeletionGuard>();
 
         services.AddScoped<CreateBatchHandler>();
         services.AddScoped<AddBatchMemberHandler>();
         services.AddScoped<ActivateBatchHandler>();
         services.AddScoped<CloseBatchHandler>();
+        services.AddDomainEventHandlers(typeof(BatchAuditTrail).Assembly);
     }
 
     /// <inheritdoc />

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ExamPlatform.Modules.ExamAuthoring.Domain;
+using ExamPlatform.SharedKernel.Infrastructure;
 
 namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure;
 
@@ -33,6 +34,16 @@ public class ExamAuthoringDbContext(DbContextOptions<ExamAuthoringDbContext> opt
                 c.OwnsOne(x => x.MarkingScheme);
             });
 
+            // What the exam's questions may be drawn from. Flattened into the Exams table; the chapter ids are a Postgres
+            // uuid[] because they are ids into another module's schema, where no foreign key can reach.
+            e.OwnsOne(x => x.Scope, s =>
+            {
+                s.Property(x => x.Type).HasConversion<string>().HasColumnName("ScopeType").HasMaxLength(20);
+                s.Property(x => x.BookId).HasColumnName("ScopeBookId");
+                s.Property(x => x.ChapterIds).HasColumnName("ScopeChapterIds");
+            });
+            e.Navigation(x => x.Scope).IsRequired();
+
             e.HasMany(x => x.Sections)
                 .WithOne()
                 .HasForeignKey("ExamId")
@@ -54,6 +65,11 @@ public class ExamAuthoringDbContext(DbContextOptions<ExamAuthoringDbContext> opt
                 .HasForeignKey(q => q.SectionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            s.HasMany(x => x.DrawRules)
+                .WithOne()
+                .HasForeignKey(r => r.SectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             s.ToTable("ExamSections", "examAuthoring");
         });
 
@@ -63,7 +79,23 @@ public class ExamAuthoringDbContext(DbContextOptions<ExamAuthoringDbContext> opt
         {
             q.HasKey(x => x.Id);
             q.Property(x => x.Id).ValueGeneratedNever();
+
+            // The question bank asks "which exams hold this question?" before it lets a question be deleted or its answers
+            // changed. Without this the answer would be a scan of every exam question.
+            q.HasIndex(x => x.QuestionVersionId);
             q.ToTable("ExamQuestions", "examAuthoring");
         });
+
+        modelBuilder.Entity<SectionDrawRule>(r =>
+        {
+            r.HasKey(x => x.Id);
+            r.Property(x => x.Id).ValueGeneratedNever();
+            r.Property(x => x.Difficulty).HasMaxLength(10);
+            r.Property(x => x.Topic).HasMaxLength(SectionDrawRule.MaxTopicLength);
+            r.ToTable("SectionDrawRules", "examAuthoring");
+        });
+
+        modelBuilder.ApplyUtcDateTimeConversion();
+        modelBuilder.ApplyClientGeneratedGuidKeys();
     }
 }

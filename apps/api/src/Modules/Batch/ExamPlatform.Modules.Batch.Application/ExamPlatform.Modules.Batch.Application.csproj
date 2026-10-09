@@ -1,9 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
+    <ProjectReference Include="..\..\Admin\ExamPlatform.Modules.Admin.Contracts\ExamPlatform.Modules.Admin.Contracts.csproj" />
     <ProjectReference Include="..\ExamPlatform.Modules.Batch.Domain\ExamPlatform.Modules.Batch.Domain.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="MediatR" />
+    <ProjectReference Include="..\..\ExamAuthoring\ExamPlatform.Modules.ExamAuthoring.Contracts\ExamPlatform.Modules.ExamAuthoring.Contracts.csproj" />
   </ItemGroup>
 </Project>

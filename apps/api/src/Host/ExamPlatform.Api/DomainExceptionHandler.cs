@@ -28,16 +28,18 @@ public sealed class DomainExceptionHandler(ILogger<DomainExceptionHandler> logge
             domainException.ErrorCode,
             domainException.HttpStatusCode);
 
+        var problem = new ProblemDetails
+        {
+            Status = domainException.HttpStatusCode,
+            Title = domainException.ErrorCode,
+            Detail = domainException.Message,
+            Instance = httpContext.Request.Path,
+        };
+        // The same trace id the request's logs carry, so a caller can quote it when reporting a failure.
+        problem.Extensions["traceId"] = httpContext.TraceIdentifier;
+
         httpContext.Response.StatusCode = domainException.HttpStatusCode;
-        await httpContext.Response.WriteAsJsonAsync(
-            new ProblemDetails
-            {
-                Status = domainException.HttpStatusCode,
-                Title = domainException.ErrorCode,
-                Detail = domainException.Message,
-                Instance = httpContext.Request.Path,
-            },
-            cancellationToken);
+        await httpContext.Response.WriteAsJsonAsync(problem, options: null, contentType: "application/problem+json", cancellationToken);
 
         return true;
     }

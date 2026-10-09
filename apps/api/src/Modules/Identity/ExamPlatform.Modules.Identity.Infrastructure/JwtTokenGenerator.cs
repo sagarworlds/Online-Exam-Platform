@@ -29,6 +29,13 @@ public sealed class JwtTokenGenerator(IConfiguration configuration) : ITokenGene
             new(JwtRegisteredClaimNames.Name, user.DisplayName),
         };
 
+        // Lets other modules tie an action to the account's verified address (an invitation is accepted by
+        // the address it was sent to) without calling into Identity.
+        if (!string.IsNullOrWhiteSpace(user.Email))
+        {
+            claims.Add(new Claim(JwtRegisteredClaimNames.Email, user.Email));
+        }
+
         claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role.Name)));
         claims.AddRange(user.Roles
             .SelectMany(role => role.Permissions)

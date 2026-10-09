@@ -1,0 +1,23 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>{{ 'admin.title' | t }}</h1>
+  </div>
+
+  @if (sections().length === 0) {
+    <p class="hint">{{ 'admin.noAreas' | t }}</p>
+  } @else {
+    <ul class="admin-areas">
+      @for (section of sections(); track section.path) {
+        <li>
+          <a class="admin-area" [routerLink]="section.path">
+            <app-admin-icon [name]="section.icon" class="admin-area__icon" />
+            <span class="admin-area__text">
+              <strong class="admin-area__name">{{ section.label | t }}</strong>
+              <span class="hint">{{ section.description | t }}</span>
+            </span>
+          </a>
+        </li>
+      }
+    </ul>
+  }
+</div>

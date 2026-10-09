@@ -1,0 +1,124 @@
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem 1.5rem;
+  margin: 0;
+}
+
+.facts dt {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.facts dd {
+  margin: 0.1rem 0 0;
+  font-weight: 600;
+}
+
+.rules {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.checks {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.check {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+/* A coloured dot; the word beside it carries the meaning, so colour is never the only signal. */
+.check__mark {
+  flex: none;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-top: 0.4rem;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.check--pass .check__mark {
+  background: var(--success);
+}
+
+.check--warn .check__mark {
+  background: var(--warning);
+}
+
+.check--fail .check__mark {
+  background: var(--danger);
+}
+
+.check__body {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.check__status {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.check__detail {
+  color: var(--text-muted);
+}
+
+.acknowledge {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  cursor: pointer;
+}
+
+.acknowledge input {
+  margin-top: 0.25rem;
+}
+
+/* The start line and its button: the one place the candidate acts, and the one place the reason for a disabled Start is written. */
+.start-bar {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  padding: 0.75rem 0 0;
+}
+
+.start-bar__reason {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.start-bar__start {
+  min-width: 12rem;
+  min-height: 3rem;
+  font-size: 1rem;
+}
+
+/* On a phone the bar stays at the foot of the screen, so Start and the reason for any delay are always in view while the rules are read.
+   The safe-area inset keeps it clear of the home indicator on phones that have one. */
+@media (max-width: 40rem) {
+  .start-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    margin: 0 -1rem;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    justify-items: stretch;
+  }
+
+  .start-bar__start {
+    width: 100%;
+  }
+}

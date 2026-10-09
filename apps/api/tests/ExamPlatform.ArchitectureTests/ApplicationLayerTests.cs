@@ -1,64 +1,43 @@
-using ExamPlatform.Modules.Admin.Application;
-using ExamPlatform.Modules.Consent.Application;
-using ExamPlatform.Modules.Identity.Application;
-using NetArchTest.Rules;
-
 namespace ExamPlatform.ArchitectureTests;
 
 /// <summary>
 /// Enforces ADR 0001's rule that a module's Application layer may depend on
 /// another module only through its <c>Contracts</c> project — never its
-/// Domain, Application, or Infrastructure directly.
+/// Domain, Application, Infrastructure or Endpoints directly. Runs once per
+/// discovered module.
 /// </summary>
 public class ApplicationLayerTests
 {
-    [Fact]
-    public void IdentityApplication_ShouldNotDependOnConsentOrAdminInternals()
-    {
-        var result = Types.InAssembly(typeof(OtpChallengeIssuer).Assembly)
-            .ShouldNot()
-            .HaveDependencyOnAny(
-                "ExamPlatform.Modules.Consent.Domain",
-                "ExamPlatform.Modules.Consent.Application",
-                "ExamPlatform.Modules.Consent.Infrastructure",
-                "ExamPlatform.Modules.Admin.Domain",
-                "ExamPlatform.Modules.Admin.Application",
-                "ExamPlatform.Modules.Admin.Infrastructure")
-            .GetResult();
+    /// <summary>xUnit theory data: every discovered module name.</summary>
+    public static IEnumerable<object[]> Modules() => ModuleCatalog.ModuleNames();
 
-        Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? []));
+    [Theory]
+    [MemberData(nameof(Modules))]
+    public void Application_ShouldReachOtherModulesOnlyThroughContracts(string moduleName)
+    {
+        var module = ModuleCatalog.Get(moduleName);
+
+        // Every layer of another module except Contracts, plus the module's own outer layers.
+        var disallowed = ModuleCatalog.Others(moduleName)
+            .SelectMany(other => ModuleCatalog.KnownLayers
+                .Where(layer => layer != "Contracts")
+                .Select(other.NamespaceOf))
+            .Concat(new[] { "Infrastructure", "Endpoints" }.Select(module.NamespaceOf));
+
+        DependencyRules.AssertNoDependency(module.Layer("Application"), $"{moduleName}.Application", disallowed);
     }
 
     [Fact]
-    public void ConsentApplication_ShouldNotDependOnIdentityOrAdminInternals()
+    public void AdminApplication_ShouldNotDependOnAnyOtherModuleAtAll()
     {
-        var result = Types.InAssembly(typeof(ConsentService).Assembly)
-            .ShouldNot()
-            .HaveDependencyOnAny(
-                "ExamPlatform.Modules.Identity.Domain",
-                "ExamPlatform.Modules.Identity.Application",
-                "ExamPlatform.Modules.Identity.Infrastructure",
-                "ExamPlatform.Modules.Admin.Domain",
-                "ExamPlatform.Modules.Admin.Application",
-                "ExamPlatform.Modules.Admin.Infrastructure")
-            .GetResult();
+        // Admin is the audit sink every other module calls into. It depends on nothing from any
+        // other module — not even their Contracts — since nothing in it needs to call out.
+        var admin = ModuleCatalog.Get("Admin");
 
-        Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? []));
-    }
-
-    [Fact]
-    public void AdminApplication_ShouldNotDependOnIdentityOrConsentAtAll()
-    {
-        // Admin depends on nothing from Identity or Consent — not even their Contracts —
-        // since nothing in this slice needs to call from Admin into either of them.
-        var result = Types.InAssembly(typeof(AuditLogger).Assembly)
-            .ShouldNot()
-            .HaveDependencyOnAny(
-                "ExamPlatform.Modules.Identity",
-                "ExamPlatform.Modules.Consent")
-            .GetResult();
-
-        Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? []));
+        DependencyRules.AssertNoDependency(
+            admin.Layer("Application"),
+            "Admin.Application",
+            ModuleCatalog.Others("Admin").Select(m => m.Namespace));
     }
 
     [Fact]
@@ -67,10 +46,13 @@ public class ApplicationLayerTests
         // Positive control: proves the negative-assertion tests above aren't vacuously
         // true because the reference doesn't exist — Identity.Application does call
         // Admin.Contracts.IAuditLogger (see AssignRoleHandler), and must be allowed to.
-        var result = Types.InAssembly(typeof(OtpChallengeIssuer).Assembly)
-            .That().HaveDependencyOn("ExamPlatform.Modules.Admin.Contracts")
-            .GetTypes();
+        var identity = ModuleCatalog.Get("Identity");
+        var admin = ModuleCatalog.Get("Admin");
 
-        Assert.NotEmpty(result);
+        var dependents = DependencyRules.TypesDependingOn(
+            identity.Layer("Application"),
+            [admin.NamespaceOf("Contracts")]);
+
+        Assert.NotEmpty(dependents);
     }
 }
