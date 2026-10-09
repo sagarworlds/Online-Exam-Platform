@@ -1,3 +1,6 @@
+<!-- The first stop for a keyboard user: it jumps over the header's links to the page, and is seen only when it has the focus. -->
+<a class="skip-link" href="#main-content">{{ 'common.skipToContent' | t }}</a>
+
 <app-api-activity />
 
 <header class="nav">
@@ -27,7 +30,7 @@
   @if (adminSections().length > 0) {
     <app-admin-sidebar [sections]="adminSections()" />
   }
-  <main class="shell__content">
+  <main class="shell__content" id="main-content" tabindex="-1">
     <router-outlet />
   </main>
 </div>

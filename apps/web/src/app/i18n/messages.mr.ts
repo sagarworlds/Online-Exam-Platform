@@ -8,6 +8,7 @@ export const MR: Messages = {
   'common.backToMyExams': 'माझ्या परीक्षांकडे परत जा',
   'common.cancel': 'रद्द करा',
   'common.ok': 'ठीक आहे',
+  'common.skipToContent': 'मुख्य मजकुरावर जा',
   'common.email': 'ईमेल',
   'common.privacy': 'गोपनीयता धोरण',
   'common.attempt': 'प्रयत्न {number}',

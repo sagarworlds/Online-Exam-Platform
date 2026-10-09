@@ -30,6 +30,21 @@ describe('App', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
+  describe('skip link', () => {
+    it('is the first stop for a keyboard, and jumps to the main content', () => {
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      httpMock.expectOne(() => true).flush('Healthy');
+      const root = fixture.nativeElement as HTMLElement;
+
+      const skip = root.querySelector<HTMLAnchorElement>('a.skip-link');
+      expect(root.querySelector('a, button')).toBe(skip);
+      expect(skip?.textContent?.trim()).toBe('Skip to main content');
+      expect(skip?.getAttribute('href')).toBe('#main-content');
+      expect(root.querySelector('main#main-content')?.getAttribute('tabindex')).toBe('-1');
+    });
+  });
+
   describe('API status dot', () => {
     function dot(fixture: { nativeElement: unknown }): HTMLElement {
       return (fixture.nativeElement as HTMLElement).querySelector('.health-dot') as HTMLElement;
