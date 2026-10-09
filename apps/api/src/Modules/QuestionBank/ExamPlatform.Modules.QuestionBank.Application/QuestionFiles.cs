@@ -161,6 +161,10 @@ public static class QuestionFiles
         if (element.TryGetProperty("topics", out var topics) && topics.ValueKind == JsonValueKind.Array)
             fields[15] = string.Join(';', topics.EnumerateArray().Where(t => t.ValueKind == JsonValueKind.String).Select(t => t.GetString()));
 
+        fields[16] = IsTrue(element, "isTextAnswer") ? "true" : "false";
+        if (element.TryGetProperty("acceptedAnswers", out var accepted) && accepted.ValueKind == JsonValueKind.Array)
+            fields[17] = string.Join('|', accepted.EnumerateArray().Where(a => a.ValueKind == JsonValueKind.String).Select(a => a.GetString()));
+
         return new(line, fields);
     }
 
@@ -171,6 +175,8 @@ public static class QuestionFiles
         allowsMultiple = question.AllowsMultiple,
         difficulty = QuestionDifficultyText.Format(question.Difficulty),
         topics = question.Topics,
+        isTextAnswer = question.IsTextAnswer,
+        acceptedAnswers = question.AcceptedAnswers,
     };
 
     private static string Text(JsonElement element, string name) =>

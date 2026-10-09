@@ -15,13 +15,16 @@
       <span class="visually-hidden">Select this question</span>
     </label>
   </div>
-  @if (languageLabel() || question().allowsMultiple || question().difficulty || question().topics.length > 0 || question().status) {
+  @if (languageLabel() || question().allowsMultiple || question().isTextAnswer || question().difficulty || question().topics.length > 0 || question().status) {
     <p class="question-card__labels">
       @if (languageLabel(); as language) {
         <span class="badge badge--language">{{ language }}</span>
       }
       @if (question().status; as status) {
         <span class="badge badge--status-{{ status }}">{{ statusLabels[status] }}</span>
+      }
+      @if (question().isTextAnswer) {
+        <span class="badge">Text answer</span>
       }
       @if (question().allowsMultiple) {
         <span class="badge">Several answers</span>
@@ -35,18 +38,27 @@
     </p>
   }
   <div class="rich-text question-card__text" [appMath]="question().text"></div>
-  <ol>
-    @for (option of question().options; track option.id) {
-      <li [class.correct-option]="option.isCorrect">
-        {{ option.text }}@if (option.isCorrect) {
-          <span class="badge badge--active">correct</span>
-        }
-        @if (option.isPinned) {
-          <span class="badge">stays in place</span>
-        }
-      </li>
-    }
-  </ol>
+  @if (question().isTextAnswer) {
+    <p class="question-card__accepted">
+      <span class="hint">Accepted answers:</span>
+      @for (answer of question().acceptedAnswers ?? []; track $index) {
+        <span class="badge badge--active">{{ answer }}</span>
+      }
+    </p>
+  } @else {
+    <ol>
+      @for (option of question().options; track option.id) {
+        <li [class.correct-option]="option.isCorrect">
+          {{ option.text }}@if (option.isCorrect) {
+            <span class="badge badge--active">correct</span>
+          }
+          @if (option.isPinned) {
+            <span class="badge">stays in place</span>
+          }
+        </li>
+      }
+    </ol>
+  }
 
   @if (inExam() || question().usage.answered) {
     <p class="question-card__usage">

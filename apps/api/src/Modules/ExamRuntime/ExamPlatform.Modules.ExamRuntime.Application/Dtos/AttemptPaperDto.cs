@@ -10,9 +10,12 @@ namespace ExamPlatform.Modules.ExamRuntime.Application.Dtos;
 /// <param name="Verdict">Whether the answer was correct, partly correct, wrong or missing; null until the attempt is submitted.</param>
 /// <param name="Marks">The marks the answer earned, which may be negative; null until the attempt is submitted.</param>
 /// <param name="AllowsMultiple">Whether more than one option may be correct.</param>
+/// <param name="IsTextAnswer">Whether the candidate typed the answer, rather than choosing options.</param>
+/// <param name="AnswerText">What the candidate typed, for a text question.</param>
+/// <param name="AcceptedAnswers">The answers accepted for a text question, which staff see beside the paper.</param>
 public sealed record AttemptPaperQuestionDto(
     Guid Id, string? Text, bool Drawn, IReadOnlyList<ReviewOptionDto>? Options = null, AnswerVerdict? Verdict = null, decimal? Marks = null,
-    bool AllowsMultiple = false);
+    bool AllowsMultiple = false, bool IsTextAnswer = false, string? AnswerText = null, IReadOnlyList<string>? AcceptedAnswers = null);
 
 /// <summary>A section of a candidate's paper.</summary>
 /// <param name="Id">The section's id.</param>

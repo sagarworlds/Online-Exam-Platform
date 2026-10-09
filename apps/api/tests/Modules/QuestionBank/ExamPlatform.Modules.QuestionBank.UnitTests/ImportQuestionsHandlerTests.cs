@@ -87,6 +87,46 @@ public class ImportQuestionsHandlerTests
         Assert.Equal(1, result.Rejected.Count);
     }
 
+    // The 18-column shape a file exported now has: a text question leaves its option columns blank, sets IsTextAnswer, and lists its
+    // accepted answers in the last column, separated by |.
+    private static readonly string[] TextHeader = [.. Header, "IsTextAnswer", "AcceptedAnswers"];
+
+    private static string TextRow(string text, string acceptedAnswers) =>
+        Csv.WriteRow([text, .. Enumerable.Repeat("", 12), "false", "", "", "true", acceptedAnswers]);
+
+    [Fact]
+    public async Task Import_WithATextQuestionRow_CreatesATextQuestionWithItsAcceptedAnswers()
+    {
+        var file = Csv.WriteRow(TextHeader) + TextRow("Capital of France?", "Paris|City of Paris");
+
+        var result = await handler.HandleAsync(new ImportQuestionsCommand(file, Author), CancellationToken.None);
+
+        Assert.Empty(result.Rejected);
+        repository.Received(1).Add(Arg.Is<Question>(q =>
+            q.IsTextAnswer && q.Options.Count == 0 && q.AcceptedAnswers.SequenceEqual(new[] { "Paris", "City of Paris" })));
+    }
+
+    [Fact]
+    public async Task Import_WithATextQuestionThatHasNoAcceptedAnswers_RejectsTheRow()
+    {
+        var file = Csv.WriteRow(TextHeader) + TextRow("Capital of France?", "");
+
+        var result = await handler.HandleAsync(new ImportQuestionsCommand(file, Author), CancellationToken.None);
+
+        Assert.Empty(result.Created);
+        Assert.Single(result.Rejected);
+        repository.DidNotReceive().Add(Arg.Any<Question>());
+    }
+
+    [Fact]
+    public async Task Import_WithAFileFromBeforeTextQuestions_ReadsEveryRowAsMultipleChoice()
+    {
+        var result = await handler.HandleAsync(new ImportQuestionsCommand(FileOf(Row("Capital of France?")), Author), CancellationToken.None);
+
+        Assert.Empty(result.Rejected);
+        repository.Received(1).Add(Arg.Is<Question>(q => !q.IsTextAnswer && q.AcceptedAnswers.Length == 0));
+    }
+
     [Fact]
     public async Task Import_WithMoreRowsThanTheLimit_IsRefusedOutright()
     {

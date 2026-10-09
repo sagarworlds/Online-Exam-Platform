@@ -18,7 +18,8 @@ public sealed record StartAttemptRequest(bool InstructionsAcknowledged = false);
 /// <summary>Body of <c>PUT /v1/me/attempts/{attemptId}/answers/{questionId}</c>.</summary>
 /// <param name="OptionId">The option the candidate chose, for a question that takes one answer.</param>
 /// <param name="OptionIds">The options the candidate chose, for a multiple-answer question; when given, it is used instead of <paramref name="OptionId"/>.</param>
-public sealed record SaveAnswerRequest(Guid? OptionId = null, IReadOnlyList<Guid>? OptionIds = null);
+/// <param name="Text">The answer the candidate typed, for a text question. When given, it is the answer and the options are ignored.</param>
+public sealed record SaveAnswerRequest(Guid? OptionId = null, IReadOnlyList<Guid>? OptionIds = null, string? Text = null);
 
 /// <summary>Body of <c>POST /v1/exams/{examId}/candidates/{candidateId}/extra-attempts</c>.</summary>
 /// <param name="Reason">Why the candidate is being given another attempt; optional, at most 500 characters.</param>
@@ -600,6 +601,13 @@ public static class ExamRuntimeEndpoints
     private static async Task<IResult> SaveAnswer(
         Guid attemptId, Guid questionId, SaveAnswerRequest request, ClaimsPrincipal user, SaveAnswerHandler handler, CancellationToken ct)
     {
+        // A typed answer, for a text question, is the whole answer; it is checked there, so a blank one is refused.
+        if (request.Text is not null)
+        {
+            await handler.HandleTextAsync(attemptId, user.GetUserId(), questionId, request.Text, ct);
+            return Results.NoContent();
+        }
+
         // Both shapes are accepted: clients written before multiple-answer questions send one optionId. Neither is an invalid answer.
         IReadOnlyCollection<Guid> chosen = request.OptionIds is { Count: > 0 } ids ? ids
             : request.OptionId is { } id ? new[] { id }

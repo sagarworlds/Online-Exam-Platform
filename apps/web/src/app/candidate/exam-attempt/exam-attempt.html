@@ -146,6 +146,20 @@
                     <span>{{ option.text }}</span>
                   </label>
                 }
+                @if (question.isTextAnswer) {
+                  <label class="question__answer-label" [attr.for]="'answer-' + question.id">{{ 'attempt.typedAnswer' | t }}</label>
+                  <p class="question__hint" [id]="'answer-hint-' + question.id">{{ 'attempt.typeHint' | t }}</p>
+                  <input
+                    class="question__answer-input"
+                    type="text"
+                    maxlength="1000"
+                    autocomplete="off"
+                    [id]="'answer-' + question.id"
+                    [attr.aria-describedby]="'answer-hint-' + question.id"
+                    [value]="question.answerText ?? ''"
+                    (change)="saveTyped(question, $any($event.target).value)"
+                  />
+                }
               </fieldset>
 
               <div class="actions exam-tools">

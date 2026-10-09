@@ -91,6 +91,11 @@ export class CandidateApiService {
     return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { optionIds }, CandidateApiService.background());
   }
 
+  /** Saves what the candidate typed for a text question, replacing any earlier answer. A blank one is refused: to take it back, clear it. */
+  saveText(attemptId: string, questionId: string, text: string): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { text }, CandidateApiService.background());
+  }
+
   /** Takes back the option chosen for one question, so it counts as unanswered again. Safe to repeat. */
   clearAnswer(attemptId: string, questionId: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, CandidateApiService.background());

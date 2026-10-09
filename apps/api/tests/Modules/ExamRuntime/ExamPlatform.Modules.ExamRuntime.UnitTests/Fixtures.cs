@@ -27,6 +27,10 @@ internal static class Fixtures
             new QuestionOptionSnapshot(Guid.NewGuid(), "6", IsCorrect: false),
         ], AllowsMultiple: true);
 
+    /// <summary>A text question: it has no options, and a typed answer is right when it matches one of the accepted answers.</summary>
+    public static QuestionSnapshot TextQuestion(params string[] acceptedAnswers) =>
+        new(Guid.NewGuid(), "Capital of France?", [], IsTextAnswer: true, AcceptedAnswers: acceptedAnswers);
+
     /// <summary>Every correct option of the question, for a multiple-answer one.</summary>
     public static Guid[] CorrectSet(this QuestionSnapshot question) => question.Options.Where(o => o.IsCorrect).Select(o => o.Id).ToArray();
 

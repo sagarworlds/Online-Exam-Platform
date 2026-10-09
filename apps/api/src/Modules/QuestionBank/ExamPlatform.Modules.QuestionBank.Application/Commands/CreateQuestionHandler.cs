@@ -16,10 +16,12 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 /// <param name="AllowsMultiple">Whether more than one option may be correct.</param>
 /// <param name="AllowDuplicate">Add the question even though the bank already holds one with the same wording and options (FR-9).</param>
 /// <param name="Language">The language it is written in (FR-10): "en", "hi" or "mr"; null means English. To write the same question in another language, add a translation instead.</param>
+/// <param name="IsTextAnswer">True for a text question: the candidate types the answer, and it is marked against <paramref name="AcceptedAnswers"/>. Then there are no options.</param>
+/// <param name="AcceptedAnswers">The answers a typed answer may be, for a text question; null or empty for a multiple-choice one.</param>
 public sealed record CreateQuestionCommand(
     string? Text, IReadOnlyList<NewQuestionOption>? Options, Guid CreatedBy, Guid? ChapterId = null,
     string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false, bool AllowDuplicate = false,
-    string? Language = null);
+    string? Language = null, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null);
 
 /// <summary>Handles <see cref="CreateQuestionCommand"/>.</summary>
 public sealed class CreateQuestionHandler(
@@ -43,15 +45,19 @@ public sealed class CreateQuestionHandler(
     {
         var cleaned = QuestionText.Clean(sanitizer, command.Text);
 
-        var optionTexts = command.Options is null ? [] : command.Options.Select(o => o?.Text ?? string.Empty).ToList();
-        if (duplicatePolicy.Refuse && !command.AllowDuplicate && (await duplicates.FindAsync(cleaned.PlainText, optionTexts, null, cancellationToken)).Any(m => m.SameOptions))
+        // A text question is the same as another when its accepted answers are; a multiple-choice one when its option texts are.
+        var answerTexts = command.IsTextAnswer
+            ? (command.AcceptedAnswers ?? []).Select(a => a?.Trim() ?? string.Empty).ToList()
+            : command.Options is null ? [] : command.Options.Select(o => o?.Text ?? string.Empty).ToList();
+        if (duplicatePolicy.Refuse && !command.AllowDuplicate && (await duplicates.FindAsync(cleaned.PlainText, answerTexts, null, cancellationToken)).Any(m => m.SameOptions))
             throw new DuplicateQuestionError();
 
         var filedUnder = command.ChapterId is { } chapterId ? await chapters.ResolveAsync(chapterId, cancellationToken) : null;
 
         var question = Question.Create(
             cleaned.Html, command.Options, command.CreatedBy, clock.UtcNow, filedUnder?.ChapterId,
-            QuestionDifficultyText.Parse(command.Difficulty), command.Topics, command.AllowsMultiple, command.Language);
+            QuestionDifficultyText.Parse(command.Difficulty), command.Topics, command.AllowsMultiple, command.Language,
+            translationGroupId: null, isTextAnswer: command.IsTextAnswer, acceptedAnswers: command.AcceptedAnswers);
         question.IndexText(cleaned.PlainText);
 
         repository.Add(question);

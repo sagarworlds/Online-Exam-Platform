@@ -1,13 +1,13 @@
 import { Component, inject, input } from '@angular/core';
 import { ControlContainer, FormBuilder, FormGroupDirective, ReactiveFormsModule } from '@angular/forms';
 import { RichTextEditor } from '../../shared/rich-text/rich-text-editor';
-import { newOption, QuestionForm } from '../question-form';
-import { QUESTION_DIFFICULTIES, QUESTION_LIMITS } from '../question.models';
+import { newAcceptedAnswer, newOption, QuestionForm } from '../question-form';
+import { QUESTION_DIFFICULTIES, QUESTION_LIMITS, QUESTION_TYPES } from '../question.models';
 
 /**
- * The question text and its options with the choice of the correct one: the part of the question form that creating
- * and editing share. It lives inside the page's `<form [formGroup]>` and works on that form directly, so the page keeps
- * owning the form, the buttons and what happens on submit.
+ * The question text, its type, and either its options with the choice of the correct one or its accepted answers: the part of the
+ * question form that creating and editing share. It lives inside the page's `<form [formGroup]>` and works on that form directly, so the
+ * page keeps owning the form, the buttons and what happens on submit.
  */
 @Component({
   selector: 'app-question-fields',
@@ -31,6 +31,7 @@ export class QuestionFields {
 
   protected readonly limits = QUESTION_LIMITS;
   protected readonly difficulties = QUESTION_DIFFICULTIES;
+  protected readonly questionTypes = QUESTION_TYPES;
 
   protected get form(): QuestionForm {
     return this.container.control as unknown as QuestionForm;
@@ -38,6 +39,29 @@ export class QuestionFields {
 
   protected get options() {
     return this.form.controls.options;
+  }
+
+  /** The accepted answers of a text question; the form keeps them even while a multiple-choice question is chosen. */
+  protected get acceptedAnswers() {
+    return this.form.controls.acceptedAnswers;
+  }
+
+  /** Whether the question is a text question, which asks for accepted answers rather than options. */
+  protected get isText(): boolean {
+    return this.form.controls.questionType.value === 'text';
+  }
+
+  protected addAcceptedAnswer(): void {
+    if (this.acceptedAnswers.length < QUESTION_LIMITS.maxAcceptedAnswers) {
+      this.acceptedAnswers.push(newAcceptedAnswer(this.formBuilder));
+    }
+  }
+
+  /** A text question keeps at least one row, so there is always a field to type into. */
+  protected removeAcceptedAnswer(index: number): void {
+    if (this.acceptedAnswers.length > 1) {
+      this.acceptedAnswers.removeAt(index);
+    }
   }
 
   /**

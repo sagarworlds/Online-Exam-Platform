@@ -7,7 +7,16 @@ import { extractErrorMessage, extractProblemCode } from '../shared/problem-detai
 import { BookChapterPicker, isCompletePlacement, NO_PLACEMENT, Placement } from './book-chapter-picker/book-chapter-picker';
 import { QuestionApiService } from './question-api.service';
 import { QuestionCard } from './question-card/question-card';
-import { createQuestionForm, newOption, toAllowsMultiple, toLabels, toNewOptions } from './question-form';
+import {
+  createQuestionForm,
+  newOption,
+  setAcceptedAnswers,
+  toAcceptedAnswers,
+  toAllowsMultiple,
+  toIsTextAnswer,
+  toLabels,
+  toNewOptions,
+} from './question-form';
 import { QuestionFields } from './question-fields/question-fields';
 import {
   CreateQuestionRequest,
@@ -199,6 +208,8 @@ export class QuestionBank {
       ...toLabels(this.form),
       allowsMultiple: toAllowsMultiple(this.form),
       language: this.form.getRawValue().language,
+      isTextAnswer: toIsTextAnswer(this.form),
+      acceptedAnswers: toAcceptedAnswers(this.form),
     };
 
     this.send(request);
@@ -432,9 +443,18 @@ export class QuestionBank {
 
   private resetForm(): void {
     // The language stays as it was: an author enters many questions in one language in a row.
-    this.form.reset({ text: '', allowsMultiple: false, correctIndex: -1, difficulty: '', topics: '', language: this.form.getRawValue().language });
+    this.form.reset({
+      text: '',
+      questionType: 'choice',
+      allowsMultiple: false,
+      correctIndex: -1,
+      difficulty: '',
+      topics: '',
+      language: this.form.getRawValue().language,
+    });
     this.form.controls.options.clear();
     this.form.controls.options.push(newOption(this.formBuilder));
     this.form.controls.options.push(newOption(this.formBuilder));
+    setAcceptedAnswers(this.form, this.formBuilder);
   }
 }

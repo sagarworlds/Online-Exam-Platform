@@ -5,7 +5,8 @@ namespace ExamPlatform.Modules.ExamRuntime.Application.Ports;
 /// <summary>One answer in a finished attempt.</summary>
 /// <param name="SelectedOptionIds">The options the candidate chose.</param>
 /// <param name="VersionNumber">The version of the question the attempt sat, or null for an attempt made before versions were recorded.</param>
-public sealed record SubmittedAnswer(IReadOnlyCollection<Guid> SelectedOptionIds, int? VersionNumber);
+/// <param name="AnswerText">What the candidate typed, for a text question; null for an answer made by choosing options.</param>
+public sealed record SubmittedAnswer(IReadOnlyCollection<Guid> SelectedOptionIds, int? VersionNumber, string? AnswerText = null);
 
 /// <summary>Persistence port for <see cref="Attempt"/>.</summary>
 public interface IAttemptRepository

@@ -28,6 +28,10 @@ export class PreviewCandidateApiService extends CandidateApiService {
     return of(undefined);
   }
 
+  override saveText(): Observable<void> {
+    return of(undefined);
+  }
+
   override clearAnswer(): Observable<void> {
     return of(undefined);
   }

@@ -15,6 +15,8 @@ public sealed record AttemptOptionDto(Guid Id, string Text);
 /// <param name="MarkedForReview">Whether the candidate has marked the question to come back to. It has no effect on the score.</param>
 /// <param name="AllowsMultiple">Whether more than one option may be correct, so the candidate chooses a set and is marked right only for exactly the correct ones.</param>
 /// <param name="SelectedOptionIds">Every option the candidate chose; empty when unanswered.</param>
+/// <param name="IsTextAnswer">Whether the candidate types the answer instead of choosing an option. Such a question has no options.</param>
+/// <param name="AnswerText">What the candidate typed, for a text question; null when unanswered or when the question takes options.</param>
 public sealed record AttemptQuestionDto(
     Guid Id,
     string Text,
@@ -22,7 +24,9 @@ public sealed record AttemptQuestionDto(
     Guid? SelectedOptionId,
     bool MarkedForReview = false,
     bool AllowsMultiple = false,
-    IReadOnlyList<Guid>? SelectedOptionIds = null);
+    IReadOnlyList<Guid>? SelectedOptionIds = null,
+    bool IsTextAnswer = false,
+    string? AnswerText = null);
 
 /// <summary>A section of the exam as a candidate sees it.</summary>
 /// <param name="Id">The section's id.</param>

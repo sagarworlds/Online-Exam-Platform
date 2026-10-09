@@ -200,6 +200,8 @@ describe('QuestionBank', () => {
       topics: [],
       allowsMultiple: false,
       language: 'en',
+      isTextAnswer: false,
+      acceptedAnswers: [],
       options: [
         { text: 'Rome', isCorrect: false, isPinned: false },
         { text: 'Paris', isCorrect: true, isPinned: false },

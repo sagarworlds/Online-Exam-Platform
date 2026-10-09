@@ -118,6 +118,8 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             b.HasKey(x => x.Id);
             // A Postgres uuid[]: the chosen options travel with the answer, so reading an attempt is still one row per answer.
             b.PrimitiveCollection(x => x.SelectedOptionIds).HasColumnType("uuid[]");
+            // What a candidate typed to a text question, null for one answered by choosing options; bounded by the same limit the domain enforces.
+            b.Property(x => x.AnswerText).HasMaxLength(ExamPlatform.SharedKernel.Domain.TypedAnswer.MaxLength);
             // The first chosen option, derived for readers that only know single answers.
             b.Ignore(x => x.SelectedOptionId);
 

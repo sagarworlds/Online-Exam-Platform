@@ -101,4 +101,25 @@ public class AttemptAnswerStatisticsSourceTests
 
         Assert.Equal((1, 1), (stats.Answered, stats.Correct));
     }
+
+    [Fact]
+    public async Task ATypedAnswer_IsCorrectWhenItMatchesAnAcceptedAnswer_AndHasNoOptionToCount()
+    {
+        var capital = Fixtures.TextQuestion("Paris", "City of Paris");
+        _attempts.ListSubmittedAnswersAsync(capital.Id, Arg.Any<CancellationToken>()).Returns(
+        [
+            new SubmittedAnswer([], 1, "paris"),
+            new SubmittedAnswer([], 1, "  city of PARIS "),
+            new SubmittedAnswer([], 1, "Lyon"),
+        ]);
+        _bank.GetVersionsAsync(Arg.Any<IReadOnlyCollection<QuestionVersionRef>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<QuestionSnapshot>>([capital]));
+        _bank.GetAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<QuestionSnapshot>>([capital]));
+
+        var stats = await Source.ReadAsync(capital.Id, CancellationToken.None);
+
+        Assert.Equal((3, 2), (stats.Answered, stats.Correct));
+        Assert.Empty(stats.Chosen);
+    }
 }

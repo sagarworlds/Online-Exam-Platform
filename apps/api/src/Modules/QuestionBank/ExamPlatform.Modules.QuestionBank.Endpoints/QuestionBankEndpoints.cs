@@ -172,7 +172,8 @@ public static class QuestionBankEndpoints
     private static async Task<IResult> AddTranslation(
         Guid questionId, AddTranslationRequest request, ClaimsPrincipal user, AddTranslationHandler handler, CancellationToken ct)
     {
-        var result = await handler.HandleAsync(new AddTranslationCommand(questionId, request.Language, request.Text, request.Options, user.GetUserId()), ct);
+        var result = await handler.HandleAsync(
+            new AddTranslationCommand(questionId, request.Language, request.Text, request.Options, user.GetUserId(), request.AcceptedAnswers), ct);
         return Results.Created($"/v1/questions/{result.Id}", result);
     }
 
@@ -195,14 +196,18 @@ public static class QuestionBankEndpoints
         Guid questionId, EditQuestionRequest request, EditQuestionHandler handler, CancellationToken ct)
     {
         var options = request.Options?.Select(o => new QuestionOptionEdit(o?.Id, o?.Text, o?.IsCorrect ?? false, o?.IsPinned ?? false)).ToList();
-        return Results.Ok(await handler.HandleAsync(new EditQuestionCommand(questionId, request.Text, options, request.Difficulty, request.Topics, request.AllowsMultiple), ct));
+        return Results.Ok(await handler.HandleAsync(
+            new EditQuestionCommand(questionId, request.Text, options, request.Difficulty, request.Topics, request.AllowsMultiple, request.IsTextAnswer, request.AcceptedAnswers), ct));
     }
 
     private static async Task<IResult> CreateQuestion(
         CreateQuestionRequest request, ClaimsPrincipal user, CreateQuestionHandler handler, CancellationToken ct)
     {
         var options = request.Options?.Select(o => new NewQuestionOption(o?.Text, o?.IsCorrect ?? false, o?.IsPinned ?? false)).ToList();
-        var result = await handler.HandleAsync(new CreateQuestionCommand(request.Text, options, user.GetUserId(), request.ChapterId, request.Difficulty, request.Topics, request.AllowsMultiple, request.AllowDuplicate, request.Language), ct);
+        var result = await handler.HandleAsync(
+            new CreateQuestionCommand(
+                request.Text, options, user.GetUserId(), request.ChapterId, request.Difficulty, request.Topics, request.AllowsMultiple,
+                request.AllowDuplicate, request.Language, request.IsTextAnswer, request.AcceptedAnswers), ct);
         return Results.Created($"/v1/questions/{result.Id}", result);
     }
 
@@ -254,7 +259,7 @@ public static class QuestionBankEndpoints
         Guid questionId, CorrectAnswerKeyRequest request, ClaimsPrincipal user, CorrectAnswerKeyHandler handler, CancellationToken ct)
     {
         var command = new CorrectAnswerKeyCommand(
-            questionId, request.CorrectOptionIds ?? [], request.Reason ?? string.Empty, user.GetUserId(), user.GetPrimaryRole());
+            questionId, request.CorrectOptionIds ?? [], request.Reason ?? string.Empty, user.GetUserId(), user.GetPrimaryRole(), request.AcceptedAnswers);
         return Results.Ok(await handler.HandleAsync(command, ct));
     }
 
@@ -286,16 +291,20 @@ public static class QuestionBankEndpoints
 /// <param name="AllowsMultiple">True when more than one option is correct and a candidate must choose all of them; omitted means a single correct option.</param>
 /// <param name="AllowDuplicate">True to add the question even when the bank already has the same wording and options; omitted means a repeat is refused.</param>
 /// <param name="Language">"en", "hi" or "mr"; omitted means English. The same question in another language is added as a translation (FR-10).</param>
+/// <param name="IsTextAnswer">True for a text question, where the candidate types the answer; omit it for a multiple-choice question.</param>
+/// <param name="AcceptedAnswers">For a text question, the answers a typed answer may be (at least one); omit it for a multiple-choice question.</param>
 public sealed record CreateQuestionRequest(
     string? Text, IReadOnlyList<CreateQuestionOptionRequest?>? Options, Guid? ChapterId = null,
     string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false, bool AllowDuplicate = false,
-    string? Language = null);
+    string? Language = null, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null);
 
 /// <summary>Request body for adding a translation of a question (FR-10).</summary>
 /// <param name="Language">The language of the translation, "en", "hi" or "mr"; required, and not one the question's group already has.</param>
 /// <param name="Text">The translated question text; HTML from the author's editor, which the server sanitizes before storing it.</param>
 /// <param name="Options">The translated option texts, one for each option of the question being translated, in the same order. Which is correct is copied, not sent.</param>
-public sealed record AddTranslationRequest(string? Language, string? Text, IReadOnlyList<string?>? Options);
+/// <param name="AcceptedAnswers">For a text question, the answers accepted in this language; omit it to use the question's own answers.</param>
+public sealed record AddTranslationRequest(
+    string? Language, string? Text, IReadOnlyList<string?>? Options, IReadOnlyList<string?>? AcceptedAnswers = null);
 
 /// <summary>Asks which questions already repeat one that is about to be added (FR-9).</summary>
 /// <param name="Text">The question text as the editor produced it (HTML).</param>
@@ -314,9 +323,11 @@ public sealed record FileQuestionsRequest(IReadOnlyList<Guid>? QuestionIds, Guid
 /// <param name="Difficulty">"easy", "medium" or "hard"; omitting it clears the difficulty, as the body is the whole new content.</param>
 /// <param name="Topics">The topics after the edit; omitting them clears the topics. Allowed even once candidates have answered.</param>
 /// <param name="AllowsMultiple">Whether more than one option is correct; omitting it means a single correct option. Locked once candidates have answered.</param>
+/// <param name="IsTextAnswer">True for a text question; omit it for a multiple-choice one. Like the answer key it is locked once candidates have answered.</param>
+/// <param name="AcceptedAnswers">For a text question, the accepted answers after the edit (at least one); omit it for a multiple-choice one.</param>
 public sealed record EditQuestionRequest(
     string? Text, IReadOnlyList<EditQuestionOptionRequest?>? Options, string? Difficulty = null, IReadOnlyList<string?>? Topics = null,
-    bool AllowsMultiple = false);
+    bool AllowsMultiple = false, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null);
 
 /// <summary>One option in an <see cref="EditQuestionRequest"/>.</summary>
 /// <param name="Id">The id of the existing option being edited; omit it for a new option.</param>
@@ -334,7 +345,9 @@ public sealed record CreateQuestionOptionRequest(string? Text, bool IsCorrect, b
 /// <summary>Request body for correcting a question's answer key.</summary>
 /// <param name="CorrectOptionIds">The ids of the options that are actually correct, replacing the current key.</param>
 /// <param name="Reason">Why the key is being corrected; shown to a candidate whose score moves because of it.</param>
-public sealed record CorrectAnswerKeyRequest(IReadOnlyCollection<Guid>? CorrectOptionIds, string? Reason);
+/// <param name="AcceptedAnswers">For a text question, the answers that should be accepted, replacing the current list; leave it out for a multiple-choice question.</param>
+public sealed record CorrectAnswerKeyRequest(
+    IReadOnlyCollection<Guid>? CorrectOptionIds, string? Reason, IReadOnlyList<string?>? AcceptedAnswers = null);
 
 /// <summary>Request body for a review step or comment (FR-8).</summary>
 /// <param name="Comment">The comment: required to send a question back or to comment, optional for the other steps.</param>

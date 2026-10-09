@@ -12,8 +12,10 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 /// <param name="Text">The translated question text as the author's editor produced it (HTML); it is sanitized before it is stored.</param>
 /// <param name="OptionTexts">The translated options, one for each option of the source, in the same order.</param>
 /// <param name="CreatedBy">The authoring user, taken from the caller's token.</param>
+/// <param name="AcceptedAnswers">For a text source, the answers accepted in this language; when left out they are the source's own answers. Ignored for a multiple-choice source.</param>
 public sealed record AddTranslationCommand(
-    Guid SourceQuestionId, string? Language, string? Text, IReadOnlyList<string?>? OptionTexts, Guid CreatedBy);
+    Guid SourceQuestionId, string? Language, string? Text, IReadOnlyList<string?>? OptionTexts, Guid CreatedBy,
+    IReadOnlyList<string?>? AcceptedAnswers = null);
 
 /// <summary>Handles <see cref="AddTranslationCommand"/>.</summary>
 public sealed class AddTranslationHandler(
@@ -52,13 +54,21 @@ public sealed class AddTranslationHandler(
         var cleaned = QuestionText.Clean(sanitizer, command.Text);
 
         var sourceOptions = source.Options.OrderBy(o => o.Order).ToList();
-        if (command.OptionTexts is null || command.OptionTexts.Count != sourceOptions.Count)
+        // A text question has no options to translate, so there is nothing to count.
+        if (!source.IsTextAnswer && (command.OptionTexts is null || command.OptionTexts.Count != sourceOptions.Count))
             throw new InvalidQuestionError($"A translation needs {sourceOptions.Count} options, one for each option of the question it translates, in the same order.");
 
-        var options = sourceOptions.Select((o, i) => new NewQuestionOption(command.OptionTexts[i], o.IsCorrect, o.IsPinned)).ToList();
+        // Checked above for a multiple-choice source; a text source has no options, so the list is never indexed.
+        var optionTexts = command.OptionTexts ?? [];
+        var options = sourceOptions.Select((o, i) => new NewQuestionOption(optionTexts[i], o.IsCorrect, o.IsPinned)).ToList();
+        // A typed answer is marked against the accepted answers, so a translation of a text question takes the answers its translator
+        // gives, or the source's own when none are given, so it can be marked as soon as it is saved.
+        IReadOnlyList<string?>? acceptedAnswers = source.IsTextAnswer
+            ? command.AcceptedAnswers is { Count: > 0 } given ? given : source.AcceptedAnswers
+            : null;
         var translation = Question.Create(
             cleaned.Html, options, command.CreatedBy, clock.UtcNow, source.ChapterId, source.Difficulty, source.Topics,
-            source.AllowsMultiple, language, source.TranslationGroupId);
+            source.AllowsMultiple, language, source.TranslationGroupId, isTextAnswer: source.IsTextAnswer, acceptedAnswers: acceptedAnswers);
         translation.IndexText(cleaned.PlainText);
 
         repository.Add(translation);

@@ -52,6 +52,9 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
             b.HasIndex(q => q.Status);
             // A Postgres text[]; topics are filtered with "= ANY(...)" and listed with unnest, which a delimited string could not do.
             b.PrimitiveCollection(q => q.Topics).HasColumnType("text[]");
+            // A text question: whether the candidate types the answer, and the answers a typed one may be (also a text[]).
+            b.Property(q => q.IsTextAnswer).HasDefaultValue(false);
+            b.PrimitiveCollection(q => q.AcceptedAnswers).HasColumnType("text[]");
             b.Ignore(q => q.DomainEvents);
             b.HasIndex(q => q.CreatedAtUtc);
             b.HasIndex(q => q.ChapterId);
@@ -130,6 +133,8 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
             b.HasKey(v => v.Id);
             b.Property(v => v.Text).IsRequired().HasColumnType("text");
             b.Property(v => v.Options).HasConversion(versionOptionsConverter, versionOptionsComparer).HasColumnType("jsonb");
+            b.Property(v => v.IsTextAnswer).HasDefaultValue(false);
+            b.PrimitiveCollection(v => v.AcceptedAnswers).HasColumnType("text[]");
             // A question's versions are always listed in order, and never looked up any other way.
             b.HasIndex(v => new { v.QuestionId, v.VersionNumber }).IsUnique();
         });

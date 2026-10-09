@@ -190,6 +190,70 @@ describe('ExamAttempt', () => {
     expect(textOf(fixture)).toContain('2 of 2 answered');
   });
 
+  describe('a typed answer to a text question', () => {
+    const typedAttempt = (answerText: string | null = null) =>
+      attempt({
+        sections: [
+          {
+            id: 's1',
+            name: 'Section A',
+            questions: [
+              { id: 'q3', text: 'Capital of France?', options: [], selectedOptionId: null, markedForReview: false, isTextAnswer: true, answerText },
+            ],
+          },
+        ],
+      });
+
+    const answerBox = (fixture: ComponentFixture<ExamAttempt>) =>
+      root(fixture).querySelector<HTMLInputElement>('input.question__answer-input') as HTMLInputElement;
+
+    /** Types into the box and leaves it, which is how the candidate saves what they typed. */
+    const typeAndLeave = (fixture: ComponentFixture<ExamAttempt>, text: string) => {
+      const box = answerBox(fixture);
+      box.value = text;
+      box.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    };
+
+    it('shows a box to type into, and saves what is typed when the candidate leaves it', async () => {
+      const fixture = await open(typedAttempt());
+
+      typeAndLeave(fixture, 'Paris');
+
+      const save = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q3'));
+      expect(save.request.method).toBe('PUT');
+      expect(save.request.body).toEqual({ text: 'Paris' });
+      save.flush(null);
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('1 of 1 answered');
+    });
+
+    it('does not send text that is unchanged, and takes the answer back with Clear response', async () => {
+      const fixture = await open(typedAttempt('Paris'));
+
+      typeAndLeave(fixture, '  Paris ');
+      (buttonLabelled(fixture, 'Clear response') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const call = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q3'));
+      expect(call.request.method).toBe('DELETE');
+      call.flush(null, { status: 204, statusText: 'No Content' });
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('0 of 1 answered');
+    });
+
+    it('puts the typed answer back and says so when the server refuses it', async () => {
+      const fixture = await open(typedAttempt('Paris'));
+
+      typeAndLeave(fixture, 'Lyon');
+      httpMock.expectOne((r) => r.url.endsWith('/answers/q3')).flush(null, { status: 400, statusText: 'Bad Request' });
+      fixture.detectChanges();
+
+      expect(answerBox(fixture).value).toBe('Paris');
+      expect(textOf(fixture)).toContain('could not be saved');
+    });
+  });
+
   it('puts the previous choice back and says so when the server refuses the save', async () => {
     const fixture = await open(attempt());
 

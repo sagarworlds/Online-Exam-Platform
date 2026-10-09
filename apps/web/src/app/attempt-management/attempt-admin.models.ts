@@ -105,6 +105,12 @@ export interface AttemptPaperQuestionDto {
   /** The marks the answer earned, which may be negative; null until the attempt is submitted. */
   marks?: number | null;
   allowsMultiple?: boolean;
+  /** Whether the candidate typed the answer; such a question has no options. Absent from a paper from before text questions. */
+  isTextAnswer?: boolean;
+  /** What the candidate typed for a text question, or null when they typed nothing. */
+  answerText?: string | null;
+  /** The answers accepted for a text question, so staff can read the typed answer against them. */
+  acceptedAnswers?: string[];
 }
 
 export interface AttemptPaperSectionDto {

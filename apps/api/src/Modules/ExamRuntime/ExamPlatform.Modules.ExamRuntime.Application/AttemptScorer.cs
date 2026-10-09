@@ -2,6 +2,7 @@ using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
 using ExamPlatform.Modules.QuestionBank.Contracts;
+using ExamPlatform.SharedKernel.Domain;
 
 namespace ExamPlatform.Modules.ExamRuntime.Application;
 
@@ -43,8 +44,24 @@ public static class AttemptScorer
     /// <param name="question">The question from the question bank, answer key included.</param>
     /// <param name="chosenOptionIds">The options the candidate chose; empty when they chose none.</param>
     /// <exception cref="ExamContentUnavailableError">A chosen option is not one of the question's options.</exception>
-    public static QuestionMark Mark(ExamSnapshot exam, QuestionSnapshot question, IReadOnlyCollection<Guid> chosenOptionIds)
+    public static QuestionMark Mark(ExamSnapshot exam, QuestionSnapshot question, IReadOnlyCollection<Guid> chosenOptionIds) =>
+        Mark(exam, question, chosenOptionIds, answerText: null);
+
+    /// <summary>
+    /// Marks one question against what the candidate answered: the options they chose, or, for a text question, the answer they typed.
+    /// A typed answer is right when it matches one of the question's accepted answers (<see cref="TypedAnswer.Matches"/>), and there is no
+    /// partial credit for it: it is right or wrong, and a blank one is unanswered.
+    /// </summary>
+    /// <param name="exam">The exam, which holds the marking scheme.</param>
+    /// <param name="question">The question from the question bank, answer key included.</param>
+    /// <param name="chosenOptionIds">The options the candidate chose; empty for a text question or when they chose none.</param>
+    /// <param name="answerText">What the candidate typed to a text question; null for one answered by choosing options.</param>
+    /// <exception cref="ExamContentUnavailableError">A chosen option is not one of the question's options.</exception>
+    public static QuestionMark Mark(ExamSnapshot exam, QuestionSnapshot question, IReadOnlyCollection<Guid> chosenOptionIds, string? answerText)
     {
+        if (question.IsTextAnswer)
+            return MarkTyped(exam, question, answerText);
+
         if (chosenOptionIds.Count == 0)
             return new QuestionMark(AnswerVerdict.Unanswered, exam.UnattemptedMarks);
 
@@ -72,6 +89,17 @@ public static class AttemptScorer
         return new QuestionMark(AnswerVerdict.Wrong, exam.IncorrectMarks);
     }
 
+    /// <summary>A typed answer is right or wrong, never partly right: a blank one is unanswered, and every other is compared with the accepted answers.</summary>
+    private static QuestionMark MarkTyped(ExamSnapshot exam, QuestionSnapshot question, string? answerText)
+    {
+        if (string.IsNullOrWhiteSpace(answerText))
+            return new QuestionMark(AnswerVerdict.Unanswered, exam.UnattemptedMarks);
+
+        return TypedAnswer.Matches(answerText, question.AcceptedAnswers ?? [])
+            ? new QuestionMark(AnswerVerdict.Correct, exam.CorrectMarks)
+            : new QuestionMark(AnswerVerdict.Wrong, exam.IncorrectMarks);
+    }
+
     /// <summary>Scores every question of the exam: correct, wrong and unanswered each carry the exam's own marks.</summary>
     /// <param name="exam">The exam, with its marking scheme and the questions in it.</param>
     /// <param name="questions">The questions of the exam from the question bank, answer key included.</param>
@@ -83,7 +111,7 @@ public static class AttemptScorer
         IReadOnlyDictionary<Guid, QuestionSnapshot> questions,
         IReadOnlyCollection<AttemptAnswer> answers)
     {
-        var chosen = answers.ToDictionary(a => a.QuestionId, a => (IReadOnlyCollection<Guid>)a.SelectedOptionIds);
+        var byQuestion = answers.ToDictionary(a => a.QuestionId);
         decimal score = 0;
         decimal max = 0;
 
@@ -95,7 +123,8 @@ public static class AttemptScorer
                 throw new ExamContentUnavailableError();
 
             max += exam.CorrectMarks;
-            score += Mark(exam, question, chosen.TryGetValue(questionId, out var optionIds) ? optionIds : []).Marks;
+            var answer = byQuestion.GetValueOrDefault(questionId);
+            score += Mark(exam, question, answer?.SelectedOptionIds ?? [], answer?.AnswerText).Marks;
         }
 
         return new AttemptScore(score, max);

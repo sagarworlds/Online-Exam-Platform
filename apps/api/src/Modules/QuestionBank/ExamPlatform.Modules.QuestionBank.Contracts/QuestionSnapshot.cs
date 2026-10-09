@@ -9,6 +9,8 @@ namespace ExamPlatform.Modules.QuestionBank.Contracts;
 /// <param name="AllowsMultiple">Whether more than one option may be correct, so a candidate chooses a set and must choose exactly the correct ones.</param>
 /// <param name="UnusableReason">Why the question cannot be added to an exam (it is retired, or exams need approved questions and it is not), or null when it can (FR-8).</param>
 /// <param name="VersionNumber">The version of the question this is the content of (FR-7): the current one from <see cref="IQuestionBank.GetAsync"/>, or the one asked for from <see cref="IQuestionBank.GetVersionsAsync"/>.</param>
+/// <param name="IsTextAnswer">Whether the candidate types the answer instead of choosing an option. Such a question has no options.</param>
+/// <param name="AcceptedAnswers">For a text question, the answers a typed answer may be. Never to be sent to a candidate.</param>
 public sealed record QuestionSnapshot(
     Guid Id,
     string Text,
@@ -17,7 +19,9 @@ public sealed record QuestionSnapshot(
     Guid? BookId = null,
     bool AllowsMultiple = false,
     int VersionNumber = 1,
-    string? UnusableReason = null);
+    string? UnusableReason = null,
+    bool IsTextAnswer = false,
+    IReadOnlyList<string>? AcceptedAnswers = null);
 
 /// <summary>One question, and which version of it to read.</summary>
 /// <param name="QuestionId">The question's id.</param>

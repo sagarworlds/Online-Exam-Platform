@@ -4,9 +4,11 @@ import { afterEach, beforeEach, vi } from 'vitest';
 import { AnswerSync, AnswerSyncApi, PendingAnswer, RETRY_DELAYS_MS, isRefusal } from './answer-sync';
 
 interface Call {
-  kind: 'save' | 'saveSet' | 'clear';
+  kind: 'save' | 'saveSet' | 'saveText' | 'clear';
   questionId: string;
   optionIds: string[];
+  /** The typed answer, for a `saveText` call. */
+  text?: string;
   reply: Subject<void>;
 }
 
@@ -22,13 +24,17 @@ class FakeApi implements AnswerSyncApi {
     return this.record('saveSet', questionId, optionIds);
   }
 
+  saveText(_attemptId: string, questionId: string, text: string) {
+    return this.record('saveText', questionId, [], text);
+  }
+
   clearAnswer(_attemptId: string, questionId: string) {
     return this.record('clear', questionId, []);
   }
 
-  private record(kind: Call['kind'], questionId: string, optionIds: string[]) {
+  private record(kind: Call['kind'], questionId: string, optionIds: string[], text?: string) {
     const reply = new Subject<void>();
-    this.calls.push({ kind, questionId, optionIds, reply });
+    this.calls.push({ kind, questionId, optionIds, text, reply });
     return reply;
   }
 }
@@ -123,6 +129,70 @@ describe('AnswerSync (FR-53 resumable autosave)', () => {
     expect(sync.pendingCount()).toBe(0);
   });
 
+  describe('a typed answer to a text question', () => {
+    const typed = (questionId: string, text: string, previousText: string | null = null) => ({
+      questionId,
+      optionIds: [],
+      multiple: false,
+      previous: [],
+      text,
+      previousText,
+    });
+
+    it('is sent as the text typed, and nothing is waiting once the server has it', async () => {
+      const sync = create();
+
+      sync.enqueue(typed('q1', 'Paris'));
+
+      expect(api.calls).toMatchObject([{ kind: 'saveText', questionId: 'q1', text: 'Paris' }]);
+      await succeed(api.calls[0]);
+      expect(sync.pendingCount()).toBe(0);
+    });
+
+    it('takes the answer back when the text is blank, as clearing it does', () => {
+      const sync = create();
+
+      sync.enqueue(typed('q1', '   ', 'Paris'));
+
+      expect(api.calls).toMatchObject([{ kind: 'clear', questionId: 'q1' }]);
+    });
+
+    it('puts the text back to what the server last had when it refuses it', async () => {
+      const sync = create();
+      sync.enqueue(typed('q1', 'Lyon', 'Paris'));
+
+      await fail(api.calls[0], 409);
+
+      expect(refused).toMatchObject([{ questionId: 'q1', text: 'Lyon', confirmedText: 'Paris' }]);
+      expect(sync.pendingCount()).toBe(0);
+    });
+
+    it('keeps the typed text and sends it again when the connection is down', async () => {
+      const sync = create();
+      sync.enqueue(typed('q1', 'Paris'));
+
+      await fail(api.calls[0], 0);
+      await settle(RETRY_DELAYS_MS[0]);
+
+      expect(api.calls.map((c) => c.text)).toEqual(['Paris', 'Paris']);
+      expect(sync.pendingCount()).toBe(1);
+    });
+
+    it('remembers a typed answer on this device until the server has it', () => {
+      const sync = create(true);
+      sync.enqueue(typed('q1', 'Paris'));
+
+      expect(create(true).entries()).toMatchObject([{ questionId: 'q1', text: 'Paris' }]);
+      expect(sync.entries()).toHaveLength(1);
+    });
+
+    it('reads an entry saved before text answers existed as a choice', () => {
+      localStorage.setItem('exam.pendingAnswers.a1', JSON.stringify([{ questionId: 'q1', optionIds: ['o1'], multiple: false, confirmed: [] }]));
+
+      expect(create(true).entries()).toEqual([{ questionId: 'q1', optionIds: ['o1'], multiple: false, confirmed: [], text: null, confirmedText: null }]);
+    });
+  });
+
   describe('when the server cannot be reached', () => {
     it.each([0, 500, 502, 503, 408, 429, 401])('keeps the answer and tries again, for a %d', async (status) => {
       const sync = create();
@@ -194,7 +264,7 @@ describe('AnswerSync (FR-53 resumable autosave)', () => {
 
       await fail(api.calls[0], status);
 
-      expect(refused).toEqual([{ questionId: 'q1', optionIds: ['o2'], multiple: false, confirmed: ['o1'] }]);
+      expect(refused).toEqual([{ questionId: 'q1', optionIds: ['o2'], multiple: false, confirmed: ['o1'], text: null, confirmedText: null }]);
       expect(sync.pendingCount()).toBe(1);
       expect(sync.waiting()).toBe(false);
       expect(api.calls.map((c) => c.questionId)).toEqual(['q1', 'q2']);
@@ -234,7 +304,7 @@ describe('AnswerSync (FR-53 resumable autosave)', () => {
       const reloaded = create(true);
 
       expect(reloaded.pendingCount()).toBe(1);
-      expect(reloaded.entries()).toEqual([{ questionId: 'q1', optionIds: ['o1'], multiple: false, confirmed: ['o0'] }]);
+      expect(reloaded.entries()).toEqual([{ questionId: 'q1', optionIds: ['o1'], multiple: false, confirmed: ['o0'], text: null, confirmedText: null }]);
       reloaded.flush();
       expect(api.calls).toHaveLength(2);
       await succeed(api.calls[1]);

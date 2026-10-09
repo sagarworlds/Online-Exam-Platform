@@ -69,7 +69,9 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
             BookOf(q, chapters),
             q.AllowsMultiple,
             current.GetValueOrDefault(q.Id, 1),
-            approval.UnusableReason(q.Status));
+            approval.UnusableReason(q.Status),
+            q.IsTextAnswer,
+            q.AcceptedAnswers);
 
     private static QuestionSnapshot AsOf(Question q, QuestionVersion v, IReadOnlyDictionary<Guid, ChapterRef> chapters) =>
         new(
@@ -79,7 +81,9 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
             q.ChapterId,
             BookOf(q, chapters),
             v.AllowsMultiple,
-            v.VersionNumber);
+            v.VersionNumber,
+            IsTextAnswer: v.IsTextAnswer,
+            AcceptedAnswers: v.AcceptedAnswers);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<QuestionTranslationSnapshot>> GetTranslationsAsync(

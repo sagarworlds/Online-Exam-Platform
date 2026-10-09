@@ -65,6 +65,26 @@ public class QuestionFilesTests
         Assert.Equal(["europe", "geography"], question.Topics.Order(StringComparer.Ordinal));
     }
 
+    [Theory]
+    [InlineData(QuestionFileFormat.Csv)]
+    [InlineData(QuestionFileFormat.Json)]
+    [InlineData(QuestionFileFormat.Xlsx)]
+    public async Task ATextQuestion_ExportsAndImportsBackWithItsAcceptedAnswers(QuestionFileFormat format)
+    {
+        var typed = Question.Create("<p>Capital of France?</p>", null, Author, Now, isTextAnswer: true, acceptedAnswers: ["Paris", "City of Paris"]);
+        var file = QuestionFiles.Write(format, [typed]);
+        var content = format == QuestionFileFormat.Xlsx ? Convert.ToBase64String(file.Bytes) : Encoding.UTF8.GetString(file.Bytes);
+        var (handler, added) = Importer();
+
+        var result = await handler.HandleAsync(new ImportQuestionsCommand(content, Author, format), CancellationToken.None);
+
+        Assert.Empty(result.Rejected);
+        var question = Assert.Single(added);
+        Assert.True(question.IsTextAnswer);
+        Assert.Empty(question.Options);
+        Assert.Equal(new[] { "Paris", "City of Paris" }, question.AcceptedAnswers);
+    }
+
     [Fact]
     public void Write_ReportsTheContentTypeAndFileNameOfEachFormat()
     {

@@ -151,6 +151,13 @@ export interface AttemptQuestionDto {
   allowsMultiple?: boolean;
   /** Every option chosen; empty when unanswered. Absent in an older response, where `selectedOptionId` is the whole answer. */
   selectedOptionIds?: string[];
+  /**
+   * Whether the candidate types the answer instead of choosing options. Such a question has no options, and `answerText` is its answer.
+   * Absent in a response from before text questions existed, which means false.
+   */
+  isTextAnswer?: boolean;
+  /** What the candidate typed for a text question, or null when they have not typed anything. */
+  answerText?: string | null;
 }
 
 /** A section of the exam. */
@@ -262,6 +269,12 @@ export interface ReviewQuestionDto {
   marks: number;
   /** Whether the candidate had to choose exactly the correct options, of which there may be several. Absent means false. */
   allowsMultiple?: boolean;
+  /** Whether the candidate typed the answer. Such a question has no options; absent means false. */
+  isTextAnswer?: boolean;
+  /** What the candidate typed for a text question; null when they answered by choosing options or did not answer. */
+  answerText?: string | null;
+  /** The answers that were accepted for a text question, so the candidate can see what counted as right. */
+  acceptedAnswers?: string[];
 }
 
 export interface ReviewSectionDto {
