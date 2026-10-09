@@ -92,6 +92,14 @@ export class RichTextEditor implements ControlValueAccessor {
     return this.tiptap?.isActive(action.name) ?? false;
   }
 
+  /**
+   * The name a screen reader announces for a formatting button: the glyph it shows, then its label, so the visible text is in the name
+   * (WCAG 2.5.3). The glyph is not wrapped in brackets: axe does not match a bracketed glyph (such as "Subscript (x₂)") to the visible text.
+   */
+  protected accessibleName(action: ToolbarAction): string {
+    return `${action.glyph} ${action.label}`;
+  }
+
   protected run(action: ToolbarAction): void {
     if (this.tiptap !== null) {
       action.run(this.tiptap.chain().focus()).run();
