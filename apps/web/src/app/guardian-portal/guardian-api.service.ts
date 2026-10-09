@@ -12,10 +12,6 @@ export class GuardianApiService {
     return this.http.post<GuardianDto>(this.apiUrl, request);
   }
 
-  getGuardian(id: string) {
-    return this.http.get<GuardianDto>(`${this.apiUrl}/${id}`);
-  }
-
   linkCandidate(guardianId: string, request: LinkCandidateRequest) {
     return this.http.post<GuardianLinkDto>(`${this.apiUrl}/${guardianId}/links`, request);
   }
