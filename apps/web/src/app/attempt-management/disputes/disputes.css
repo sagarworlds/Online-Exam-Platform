@@ -1,0 +1,39 @@
+/* The disputes queue. A decision keeps its place as one line: its edge colour is repeated by a symbol and by the words, so colour is never
+   the only cue. The actions sit side by side, and on a phone each takes the full width so it is easy to reach. */
+.dispute-result {
+  margin: 0;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 4px solid var(--success);
+  font-weight: 600;
+}
+
+.dispute-result--rejected {
+  border-inline-start-color: var(--danger);
+}
+
+.dispute-result--correction {
+  margin-bottom: 0.75rem;
+}
+
+.dispute-result:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.dispute__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.dispute__actions button {
+  min-height: 2.75rem;
+}
+
+@media (max-width: 40rem) {
+  .dispute__actions button {
+    flex: 1 1 100%;
+  }
+}
