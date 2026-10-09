@@ -6,6 +6,7 @@ import { afterEach, beforeEach, vi } from 'vitest';
 import { CandidateApiService } from '../candidate-api.service';
 import { AttemptDto } from '../candidate.models';
 import { ExamAttempt } from './exam-attempt';
+import { FakeResizeObserver } from './fake-resize-observer';
 import { PreviewCandidateApiService } from './preview-candidate-api.service';
 
 /** The exam page as staff see it on the preview route (FR-15): the same page, over an API that saves nothing. */
@@ -77,6 +78,15 @@ describe('ExamAttempt preview', () => {
     localStorage.clear();
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
+  });
+
+  beforeEach(() => {
+    FakeResizeObserver.instances = [];
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   afterEach(() => {

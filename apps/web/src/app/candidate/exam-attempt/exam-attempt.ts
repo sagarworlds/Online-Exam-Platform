@@ -1,6 +1,6 @@
 import { DOCUMENT, DatePipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, ElementRef, HostListener, Injector, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, HostListener, Injector, afterNextRender, afterRenderEffect, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
@@ -53,6 +53,12 @@ const ZOOM_STORAGE_KEY = 'exam.textZoom';
 
 /** Where the high contrast choice is remembered. Browser-only, like the text size. */
 const CONTRAST_STORAGE_KEY = 'exam.highContrast';
+
+/**
+ * The room kept between the pinned block and a control brought into view, so the control is never left touching the block's edge.
+ * Added to the block's measured height to give the page's scroll clearance.
+ */
+const PINNED_GAP_PX = 16;
 
 /** Whether the candidate has ever chosen this setting on this device; a blocked store counts as never. */
 function hasStoredChoice(key: string): boolean {
@@ -142,6 +148,28 @@ export class ExamAttempt {
   private readonly submitButton = viewChild<ElementRef<HTMLButtonElement>>('submitButton');
   /** The sentence that opens the confirmation: focus goes there so a screen reader reads what is being asked. */
   private readonly confirmText = viewChild<ElementRef<HTMLElement>>('confirmText');
+  /** The pinned block: the time bar, and the submit confirmation under it when it is open. */
+  private readonly pinnedBlock = viewChild<ElementRef<HTMLElement>>('pinnedBlock');
+  private readonly doc = inject(DOCUMENT);
+  /**
+   * Keeps the page's scroll clearance level with the pinned block, so a control brought into view (by focus, the keyboard or the report
+   * form) is scrolled to just below the block and never under it. The block's height changes with its width, with the timer's wording
+   * (an hour or more adds a digit, which can push Submit onto a second row) and with the submit confirmation, so a ResizeObserver
+   * follows it. The clearance is removed when the page is left, so no other page scrolls with it.
+   */
+  private readonly keepClearOfPinnedBlock = afterRenderEffect((onCleanup) => {
+    const block = this.pinnedBlock()?.nativeElement;
+    if (!block) return;
+    const page = this.doc.documentElement;
+    const update = () => page.style.setProperty('--exam-pinned-clearance', `${block.offsetHeight + PINNED_GAP_PX}px`);
+    const observer = new ResizeObserver(update);
+    observer.observe(block);
+    update();
+    onCleanup(() => {
+      observer.disconnect();
+      page.style.removeProperty('--exam-pinned-clearance');
+    });
+  });
   private readonly injector = inject(Injector);
 
   /** Low-bandwidth mode (FR-53): the attempt is read without its pictures, which are fetched when asked for, and checked on less often. */

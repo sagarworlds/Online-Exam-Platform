@@ -16,13 +16,15 @@
         </p>
       }
 
+      <!-- The title scrolls away with the page, so only the time and Submit are pinned, and the pinned part stays one short row. -->
+      <div class="exam-bar__heading">
+        <p class="exam-bar__label">{{ 'attempt.exam' | t }}@if (current.number && current.number > 1) { · {{ 'common.attempt' | t: { number: current.number } }} }</p>
+        <h1 class="exam-bar__title">{{ current.examName }}</h1>
+      </div>
+
       <!-- Sticky as one block, so the time and Submit stay in reach, and the confirmation sits right under them when it is open. -->
-      <div class="exam-top">
+      <div class="exam-top" #pinnedBlock>
         <header class="exam-bar card">
-          <div class="exam-bar__heading">
-            <p class="exam-bar__label">{{ 'attempt.exam' | t }}@if (current.number && current.number > 1) { · {{ 'common.attempt' | t: { number: current.number } }} }</p>
-            <h1 class="exam-bar__title">{{ current.examName }}</h1>
-          </div>
           <div class="exam-bar__status">
             <div class="exam-bar__timer" role="timer" [attr.aria-label]="'attempt.timeLeft' | t">
               <span class="exam-bar__label">{{ 'attempt.timeLeft' | t }}</span>
