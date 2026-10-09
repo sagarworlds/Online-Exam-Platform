@@ -1,54 +1,123 @@
 <div class="page page--wide">
   <div class="page-header">
-    <h1>Attempt requests</h1>
+    <h1>{{ 'admin.requests.title' | t }}</h1>
   </div>
+
+  <p class="hint">{{ 'admin.requests.hint' | t }}</p>
 
   @if (errorMessage()) {
     <p class="error-message" role="alert">{{ errorMessage() }}</p>
   }
-  @if (notice()) {
-    <p class="success-message" role="status">{{ notice() }}</p>
-  }
 
   @if (loading()) {
-    <p>Loading…</p>
-  } @else if (requests().length === 0) {
-    <div class="card empty-state">No candidates are waiting for another attempt.</div>
+    <p role="status">{{ 'common.loading' | t }}</p>
+  } @else if (entries().length === 0) {
+    <div class="card empty-state">{{ 'admin.requests.none' | t }}</div>
   } @else {
-    @for (request of requests(); track request.id) {
-      <div class="card">
-        <h3 class="card__title">{{ request.candidateEmail ?? 'A candidate who is no longer enrolled' }}</h3>
-        <p class="card__meta">
-          <a [routerLink]="['/exams', request.examId, 'attempts']">{{ request.examName ?? 'An exam that can no longer be read' }}</a>
-          · asked {{ request.requestedAtUtc | date: 'medium' }}
-        </p>
-        @if (request.message) {
-          <blockquote>{{ request.message }}</blockquote>
-        } @else {
-          <p class="hint">They gave no reason.</p>
-        }
-        @if (rowErrors()[request.id]) {
-          <p class="error-message" role="alert">{{ rowErrors()[request.id] }}</p>
-        }
+    <p class="request-queue__count">{{ waitingText() }}</p>
 
-        @if (decliningId() === request.id) {
-          <form (submit)="$event.preventDefault(); confirmDecline(request)" [attr.aria-label]="'Decline the request from ' + request.candidateEmail">
-            <label>
-              Reason to show the candidate (optional)
-              <textarea rows="2" [maxLength]="maxNoteLength" [value]="note()" (input)="note.set($any($event.target).value)"></textarea>
-            </label>
-            <div class="actions">
-              <button type="submit" class="btn--danger" [disabled]="busyId() !== null">Decline request</button>
-              <button type="button" (click)="cancelDeclining()" [disabled]="busyId() !== null">Cancel</button>
+    @for (entry of entries(); track entry.request.id) {
+      @if (entry.decision; as decision) {
+        <div
+          class="card request"
+          [class.request--given]="decision.outcome === 'given'"
+          [class.request--declined]="decision.outcome === 'declined'"
+        >
+          <p
+            class="request__result"
+            tabindex="-1"
+            #focusTarget
+            [attr.data-focus]="'result:' + entry.request.id"
+          >
+            <span aria-hidden="true">{{ decision.outcome === 'given' ? '✓' : '✗' }}</span>
+            {{ resultText(decision, entry.request) }}
+          </p>
+        </div>
+      } @else {
+        <div class="card request">
+          <h3 class="card__title">{{ candidateTitle(entry.request) }}</h3>
+          <p class="card__meta">
+            <a [routerLink]="['/exams', entry.request.examId, 'attempts']">{{
+              entry.request.examName ?? ('admin.requests.examGone' | t)
+            }}</a>
+            ·
+            {{
+              'admin.requests.asked'
+                | t: { when: (entry.request.requestedAtUtc | date: 'medium') ?? '' }
+            }}
+          </p>
+          @if (entry.request.message) {
+            <blockquote>{{ entry.request.message }}</blockquote>
+          } @else {
+            <p class="hint">{{ 'admin.requests.noReason' | t }}</p>
+          }
+          @if (rowErrors()[entry.request.id]; as rowError) {
+            <p class="error-message" role="alert">{{ rowError }}</p>
+          }
+
+          @if (decliningId() === entry.request.id) {
+            <form
+              class="request__decline"
+              novalidate
+              (submit)="$event.preventDefault(); confirmDecline(entry.request)"
+              [attr.aria-label]="
+                'admin.requests.declineFormLabel' | t: { who: candidateName(entry.request) }
+              "
+            >
+              <div class="field">
+                <label [attr.for]="'attempt-request-reason-' + entry.request.id">{{
+                  'admin.requests.reasonLabel' | t
+                }}</label>
+                <textarea
+                  [id]="'attempt-request-reason-' + entry.request.id"
+                  rows="2"
+                  [attr.aria-describedby]="'attempt-request-reason-hint-' + entry.request.id"
+                  [maxLength]="maxNoteLength"
+                  [value]="note()"
+                  (input)="note.set($any($event.target).value)"
+                  #focusTarget
+                  [attr.data-focus]="'reason:' + entry.request.id"
+                ></textarea>
+                <p class="field-hint" [id]="'attempt-request-reason-hint-' + entry.request.id">
+                  {{ 'admin.requests.reasonHint' | t }}
+                </p>
+              </div>
+              <div class="request__actions">
+                <button type="submit" class="btn--danger" [disabled]="busyId() !== null">
+                  {{ 'admin.requests.declineSubmit' | t }}
+                </button>
+                <button
+                  type="button"
+                  (click)="cancelDeclining(entry.request)"
+                  [disabled]="busyId() !== null"
+                >
+                  {{ 'admin.requests.cancel' | t }}
+                </button>
+              </div>
+            </form>
+          } @else {
+            <div class="request__actions">
+              <button
+                type="button"
+                class="primary"
+                (click)="approve(entry.request)"
+                [disabled]="busyId() !== null"
+              >
+                {{ 'admin.requests.give' | t }}
+              </button>
+              <button
+                type="button"
+                #focusTarget
+                [attr.data-focus]="'decline:' + entry.request.id"
+                (click)="startDeclining(entry.request)"
+                [disabled]="busyId() !== null"
+              >
+                {{ 'admin.requests.declineOpen' | t }}
+              </button>
             </div>
-          </form>
-        } @else {
-          <div class="actions">
-            <button type="button" class="primary" (click)="approve(request)" [disabled]="busyId() !== null">Give another attempt</button>
-            <button type="button" (click)="startDeclining(request)" [disabled]="busyId() !== null">Decline…</button>
-          </div>
-        }
-      </div>
+          }
+        </div>
+      }
     }
   }
 </div>

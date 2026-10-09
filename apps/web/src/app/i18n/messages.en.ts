@@ -525,6 +525,30 @@ export const EN = {
   'whatsapp.failure.Unreachable': 'WhatsApp unreachable',
   'whatsapp.failure.TimedOut': 'Timed out',
   'whatsapp.failure.Rejected': 'Rejected by WhatsApp',
+
+  // ---- attempt requests ----
+  'admin.requests.title': 'Attempt requests',
+  'admin.requests.hint': 'Candidates who want another attempt ask here. Your decisions stay on this page until you leave it or reload it, so you can check them.',
+  'admin.requests.none': 'No candidates are waiting for another attempt.',
+  'admin.requests.noneWaiting': 'No requests are waiting now.',
+  'admin.requests.waiting.one': '{count} request is waiting.',
+  'admin.requests.waiting.other': '{count} requests are waiting.',
+  'admin.requests.asked': 'asked {when}',
+  'admin.requests.examGone': 'An exam that can no longer be read',
+  'admin.requests.candidateGone': 'A candidate who is no longer enrolled',
+  'admin.requests.candidateFallback': 'the candidate',
+  'admin.requests.noReason': 'They gave no reason.',
+  'admin.requests.give': 'Give another attempt',
+  'admin.requests.declineOpen': 'Decline…',
+  'admin.requests.declineSubmit': 'Decline request',
+  'admin.requests.cancel': 'Cancel',
+  'admin.requests.reasonLabel': 'Reason to show the candidate (optional)',
+  'admin.requests.reasonHint': 'The candidate sees this reason with the decision.',
+  'admin.requests.declineFormLabel': 'Decline the request from {who}',
+  'admin.requests.givenResult': 'Gave {who} another attempt.',
+  'admin.requests.declinedResult': 'Declined the request from {who}.',
+  'admin.requests.emailed': 'They were e-mailed.',
+  'admin.requests.notEmailed': 'They could not be e-mailed, so let them know yourself.',
 } as const;
 
 /** The key of a message. */
