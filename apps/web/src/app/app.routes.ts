@@ -213,6 +213,12 @@ export const routes: Routes = [
     loadComponent: () => import('./guardian-portal/guardian-link/guardian-link').then((m) => m.GuardianLink),
   },
   {
+    // Staff review the risk flags of an exam's attempts (FR-27). Nothing on the page changes a candidate's attempt.
+    path: 'exams/:id/risk-flags',
+    canActivate: [permissionGuard(Permission.ProctoringReview)],
+    loadComponent: () => import('./proctoring/risk-flag-queue/risk-flag-queue').then((m) => m.RiskFlagQueue),
+  },
+  {
     // The candidate's own performance across the exams they sat (FR-36): released results only, and only their own.
     path: 'analytics',
     canActivate: [authGuard],

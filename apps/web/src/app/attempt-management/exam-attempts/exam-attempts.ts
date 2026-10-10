@@ -8,6 +8,7 @@ import { CandidateAccommodation } from '../candidate-accommodation/candidate-acc
 import { AttemptSummaryDto } from '../../candidate/candidate.models';
 import { AttemptClientDto, AttemptPaperDto, ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
 import { MathDirective } from '../../shared/rich-text/math.directive';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { AnswerVerdict } from '../../candidate/candidate.models';
 
 /** The longest reason the API accepts. */
@@ -51,7 +52,7 @@ const ACTIONS: Record<ActionKind, { label: string; hint: string; button: string;
  */
 @Component({
   selector: 'app-exam-attempts',
-  imports: [RouterLink, DatePipe, MathDirective, CandidateAccommodation],
+  imports: [RouterLink, DatePipe, MathDirective, CandidateAccommodation, TranslatePipe],
   templateUrl: './exam-attempts.html',
 })
 export class ExamAttempts {

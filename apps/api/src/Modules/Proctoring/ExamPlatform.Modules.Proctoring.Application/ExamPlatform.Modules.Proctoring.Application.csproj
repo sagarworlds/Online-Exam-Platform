@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\ExamPlatform.Modules.Proctoring.Domain\ExamPlatform.Modules.Proctoring.Domain.csproj" />
+    <ProjectReference Include="..\ExamPlatform.Modules.Proctoring.Contracts\ExamPlatform.Modules.Proctoring.Contracts.csproj" />
+    <ProjectReference Include="..\..\Admin\ExamPlatform.Modules.Admin.Contracts\ExamPlatform.Modules.Admin.Contracts.csproj" />
+    <ProjectReference Include="..\..\ExamAuthoring\ExamPlatform.Modules.ExamAuthoring.Contracts\ExamPlatform.Modules.ExamAuthoring.Contracts.csproj" />
+    <ProjectReference Include="..\..\ExamRuntime\ExamPlatform.Modules.ExamRuntime.Contracts\ExamPlatform.Modules.ExamRuntime.Contracts.csproj" />
+    <ProjectReference Include="..\..\Invite\ExamPlatform.Modules.Invite.Contracts\ExamPlatform.Modules.Invite.Contracts.csproj" />
+    <ProjectReference Include="..\..\Identity\ExamPlatform.Modules.Identity.Contracts\ExamPlatform.Modules.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
+  </ItemGroup>
+</Project>
