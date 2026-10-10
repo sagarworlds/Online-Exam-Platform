@@ -248,7 +248,7 @@ public sealed class NotificationRunFlowTests(NotificationApiFactory factory) : I
     }
 
     [Fact]
-    public async Task WithNoMailServerConfigured_NothingIsSentOrRecorded_AndWhatIsDueGoesOnceThereIsOne()
+    public async Task WithNoMailServerConfigured_NoMailIsSentOrRecorded_ButTheFeedIsFilled_AndWhatIsDueGoesOnceThereIsOne()
     {
         var s = await ScheduledAsync(TimeSpan.FromHours(20));
         using var _a = s.Admin;
@@ -261,6 +261,12 @@ public sealed class NotificationRunFlowTests(NotificationApiFactory factory) : I
 
             Assert.False(idle.MailAvailable);
             Assert.Empty(await DeliveriesAboutAsync(s.ExamId));
+
+            // The feed needs no mail server: the reminder is in the candidate's own feed all the same.
+            var feed = await s.Candidate.GetFromJsonAsync<JsonElement>("/v1/me/notifications");
+            Assert.Contains(
+                feed.GetProperty("items").EnumerateArray(),
+                item => item.GetProperty("kind").GetString() == "ExamReminder24Hours" && item.GetProperty("subjectId").GetGuid() == s.ExamId);
         }
         finally
         {
@@ -269,6 +275,32 @@ public sealed class NotificationRunFlowTests(NotificationApiFactory factory) : I
 
         await RunAsync();
         Assert.Single(MailTo(s.Email));
+    }
+    [Fact]
+    public async Task TheCandidateReadsTheirReminder_MarksItRead_AndMarkingAllThenFindsNothingUnread()
+    {
+        var s = await ScheduledAsync(TimeSpan.FromHours(20));
+        using var _a = s.Admin;
+        using var _c = s.Candidate;
+        await RunAsync();
+
+        var feed = await s.Candidate.GetFromJsonAsync<JsonElement>("/v1/me/notifications");
+        var reminder = Assert.Single(
+            feed.GetProperty("items").EnumerateArray(),
+            item => item.GetProperty("subjectId").GetGuid() == s.ExamId);
+        Assert.Equal("ExamReminder24Hours", reminder.GetProperty("kind").GetString());
+        Assert.False(reminder.GetProperty("isRead").GetBoolean());
+
+        var marked = await s.Candidate.PostAsync($"/v1/me/notifications/{reminder.GetProperty("id").GetString()}/read", content: null);
+        marked.EnsureSuccessStatusCode();
+        Assert.True((await JsonAsync(marked)).GetProperty("isRead").GetBoolean());
+
+        var all = await s.Candidate.PostAsync("/v1/me/notifications/read-all", content: null);
+        all.EnsureSuccessStatusCode();
+        Assert.Equal(0, (await JsonAsync(all)).GetProperty("marked").GetInt32());
+
+        var count = await s.Candidate.GetFromJsonAsync<JsonElement>("/v1/me/notifications/unread-count");
+        Assert.Equal(0, count.GetProperty("unreadCount").GetInt32());
     }
 }
 

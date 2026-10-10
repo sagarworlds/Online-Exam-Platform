@@ -18,4 +18,16 @@ public sealed class ContactDirectory(IUserRepository users) : IContactDirectory
         var user = await users.GetByEmailAsync(email.Trim(), cancellationToken);
         return user is { Status: UserStatus.Active } && !string.IsNullOrWhiteSpace(user.PhoneNumber) ? user.PhoneNumber : null;
     }
+
+    /// <inheritdoc />
+    public async Task<Guid?> FindActiveAccountIdByEmailAsync(string email, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return null;
+        }
+
+        var user = await users.GetByEmailAsync(email.Trim(), cancellationToken);
+        return user is { Status: UserStatus.Active } ? user.Id : null;
+    }
 }

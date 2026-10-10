@@ -77,6 +77,8 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<GetQuestionPictureHandler>();
         services.AddScoped<GetAttemptReviewHandler>();
         services.AddScoped<GetAttemptResultHandler>();
+        services.AddScoped<SubjectMarks>();
+        services.AddScoped<GetLeaderboardHandler>();
         services.AddScoped<SaveAnswerHandler>();
         services.AddScoped<ClearAnswerHandler>();
         services.AddScoped<MarkQuestionHandler>();
