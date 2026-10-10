@@ -51,7 +51,7 @@ describe('GuardianLink', () => {
     submit(fixture).flush({ link: LINK, consentRequestSent: true });
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('A request to confirm the link has been e-mailed to the guardian.');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('The guardian has been e-mailed a request to confirm the link.');
     expect((fixture.nativeElement as HTMLElement).querySelector('#confirmLink')).toBeNull();
     vi.advanceTimersByTime(2000);
     expect(navigate).toHaveBeenCalledWith(['/guardian']);
@@ -64,8 +64,8 @@ describe('GuardianLink', () => {
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.textContent).toContain('could not be e-mailed');
-    expect((root.querySelector('#confirmLink') as HTMLInputElement).value).toBe('https://app.example/guardian/confirm-link?token=abc');
+    expect(root.querySelector('.warning-message')?.textContent).toContain('could not be sent');
+    expect((root.querySelector('#confirmLink') as HTMLTextAreaElement).value).toBe('https://app.example/guardian/confirm-link?token=abc');
     vi.advanceTimersByTime(2000);
     expect(navigate).not.toHaveBeenCalled();
   });

@@ -292,7 +292,10 @@ button.primary,
   font-weight: 600;
 }
 
+/* The `button:hover` rule above is more specific than `.btn--primary:hover`, so a primary button would turn pale on hover
+   and lose its white label. These selectors match its specificity, so the primary colour wins. */
 button.primary:hover:not(:disabled),
+button.btn--primary:hover:not(:disabled),
 .btn--primary:hover {
   background: var(--primary-hover);
   border-color: var(--primary-hover);
@@ -328,6 +331,16 @@ button.primary:hover:not(:disabled),
   color: var(--success);
   background: var(--success-soft);
   border-color: var(--success);
+}
+
+/* Something that needs the person's attention but did not fail: a request that was not sent, for example. */
+.warning-message {
+  color: var(--warning);
+  background: var(--warning-soft);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 1rem;
 }
 
 .info-message {

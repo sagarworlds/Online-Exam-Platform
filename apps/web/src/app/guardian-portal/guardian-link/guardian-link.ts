@@ -12,7 +12,7 @@ import { AuthSessionService } from '../../auth/auth-session.service';
   template: `
     <div class="page">
       <h1>Link Candidate</h1>
-      <p class="hint">Link a candidate to your guardian account for consent management.</p>
+      <p class="hint">Link a candidate to a guardian. The guardian is e-mailed a request to confirm the link.</p>
 
       <form class="card" [formGroup]="form" (ngSubmit)="onSubmit()">
         <div class="field">
@@ -48,27 +48,32 @@ import { AuthSessionService } from '../../auth/auth-session.service';
           <a routerLink="/guardian" class="btn">Cancel</a>
         </div>
 
-        @if (error()) {
-          <div class="error-message">{{ error() }}</div>
-        }
-        @if (success()) {
-          <div class="success-message" role="status">
-            Candidate linked. A request to confirm the link has been e-mailed to the guardian.
-          </div>
-        }
-        @if (confirmLink(); as link) {
-          <div class="field">
-            <p class="hint" role="status">
-              The request could not be e-mailed, so the candidate is linked but not yet confirmed.
-              Pass this confirmation link to the guardian yourself. It works once and expires in 14 days.
-            </p>
-            <label for="confirmLink">Confirmation link</label>
-            <input type="text" id="confirmLink" readonly [value]="link" />
-          </div>
-        }
+        <div class="outcome">
+          @if (error()) {
+            <div class="error-message" role="alert">{{ error() }}</div>
+          }
+          @if (success()) {
+            <div class="success-message" role="status">
+              Candidate linked. The guardian has been e-mailed a request to confirm the link.
+            </div>
+          }
+          @if (confirmLink(); as link) {
+            <div class="warning-message" role="status">
+              The candidate is linked, but the e-mail to the guardian could not be sent, so the link is not confirmed yet.
+              Pass the confirmation link below to the guardian yourself. It works once and expires in 14 days.
+            </div>
+            <div class="field">
+              <label for="confirmLink">Confirmation link</label>
+              <!-- Selected on focus so the whole link can be copied in one step; a textarea wraps where a one-line input would cut it off. -->
+              <textarea id="confirmLink" rows="3" readonly [value]="link" (focus)="$any($event.target).select()"></textarea>
+              <p class="field-hint">Select the link and copy it.</p>
+            </div>
+          }
+        </div>
       </form>
     </div>
-  `
+  `,
+  styles: ['.outcome { margin-top: 1rem; }', '.actions .btn { min-height: 2.75rem; }'],
 })
 export class GuardianLink implements OnInit {
   private fb = inject(FormBuilder);

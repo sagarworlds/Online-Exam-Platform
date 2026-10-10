@@ -33,12 +33,16 @@ import { GuardianLinkDto } from '../guardian.models';
             {{ loading() ? 'Confirming...' : 'Confirm guardianship' }}
           </button>
         </div>
-        @if (error(); as message) {
-          <div class="error-message" role="alert">{{ message }}</div>
-        }
+        <div class="outcome">
+          @if (error(); as message) {
+            <div class="error-message" role="alert">{{ message }}</div>
+          }
+        </div>
       }
     </div>
   `,
+  // The button is the one action on a public page, so it meets the 44px touch target the other pages use.
+  styles: ['.outcome { margin-top: 1rem; }', '.actions .btn { min-height: 2.75rem; }'],
 })
 export class GuardianConfirmLink {
   private guardianApi = inject(GuardianApiService);
