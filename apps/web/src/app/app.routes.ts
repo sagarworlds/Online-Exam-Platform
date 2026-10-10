@@ -188,6 +188,11 @@ export const routes: Routes = [
     loadComponent: () => import('./guardian-portal/guardian-register/guardian-register').then((m) => m.GuardianRegister),
   },
   {
+    // Public: the guardian opens this from the e-mail. It has no account, so the code in the link is the only proof.
+    path: 'guardian/confirm-link',
+    loadComponent: () => import('./guardian-portal/guardian-confirm-link/guardian-confirm-link').then((m) => m.GuardianConfirmLink),
+  },
+  {
     path: 'guardian/link-candidate',
     canActivate: [permissionGuard(Permission.GuardianLinkManage)],
     loadComponent: () => import('./guardian-portal/guardian-link/guardian-link').then((m) => m.GuardianLink),

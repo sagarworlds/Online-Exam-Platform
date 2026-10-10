@@ -165,7 +165,11 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
     // an invite are the invitee's own actions, so they cannot demand a staff permission. The invited address is checked.
     private static readonly string[] SelfServiceRoutes = ["POST /v1/invites/accept", "POST /v1/invites/{inviteId}/decline"];
 
-    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles"];
+    // Routes that need no sign-in at all: a guardian has no account, so the one-time code e-mailed to them is the only proof.
+    // They are listed here so that adding one is a decision, and the test checks that they really are open.
+    private static readonly string[] PublicRoutes = ["POST /v1/guardian-links/verify"];
+
+    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles"];
 
     public static TheoryData<string> StaffRouteKeys => [.. StaffRoutes.Select(r => r.Key)];
 
@@ -184,7 +188,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             .ToList();
 
         // A route added without being listed here fails: whoever adds it must decide who may call it.
-        var expectedKeys = StaffRoutes.Select(r => r.Key).Concat(SelfServiceRoutes).Order(StringComparer.Ordinal);
+        var expectedKeys = StaffRoutes.Select(r => r.Key).Concat(SelfServiceRoutes).Concat(PublicRoutes).Order(StringComparer.Ordinal);
         Assert.Equal(expectedKeys, routes.Select(r => r.Key).Order(StringComparer.Ordinal));
 
         foreach (var staffRoute in StaffRoutes)
@@ -198,6 +202,12 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             var route = routes.Single(r => r.Key == key);
             Assert.True(route.RequiresAuthorization, $"{key} must at least require a signed-in caller.");
             Assert.Empty(route.PermissionCodes);
+        }
+
+        foreach (var key in PublicRoutes)
+        {
+            var route = routes.Single(r => r.Key == key);
+            Assert.False(route.RequiresAuthorization, $"{key} is public and must not require a sign-in.");
         }
     }
 

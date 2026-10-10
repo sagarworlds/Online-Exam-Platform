@@ -15,8 +15,9 @@ public class GuardianQueryHandlerTests
         var guardian = new GuardianAggregate("guardian@example.com", "Asha Rao");
         var revokedCandidate = Guid.NewGuid();
         var unlinkedCandidate = Guid.NewGuid();
-        guardian.LinkCandidate(revokedCandidate, "revoked@example.com", "token-1");
-        guardian.LinkCandidate(unlinkedCandidate, "unlinked@example.com", "token-2");
+        var expiry = DateTime.UtcNow.Add(GuardianLinkToken.Lifetime);
+        guardian.LinkCandidate(revokedCandidate, "revoked@example.com", GuardianLinkToken.Hash("code-1"), expiry);
+        guardian.LinkCandidate(unlinkedCandidate, "unlinked@example.com", GuardianLinkToken.Hash("code-2"), expiry);
         guardian.RevokeCandidateLink(revokedCandidate);
         guardian.UnlinkCandidate(unlinkedCandidate);
         var repository = Substitute.For<IGuardianRepository>();

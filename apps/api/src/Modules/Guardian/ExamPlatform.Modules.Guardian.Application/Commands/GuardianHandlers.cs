@@ -1,6 +1,8 @@
 using ExamPlatform.Modules.Guardian.Application.Dtos;
 using ExamPlatform.Modules.Guardian.Application.Ports;
+using ExamPlatform.Modules.Guardian.Domain;
 using ExamPlatform.Modules.Guardian.Domain.Exceptions;
+using ExamPlatform.SharedKernel.Application;
 using GuardianAggregate = ExamPlatform.Modules.Guardian.Domain.Guardian;
 
 namespace ExamPlatform.Modules.Guardian.Application.Commands;
@@ -25,24 +27,46 @@ public sealed class CreateGuardianHandler(IGuardianRepository repository, IGuard
         new(guardian.Id, guardian.Email, guardian.Phone, guardian.FullName, guardian.CreatedAt, guardian.UpdatedAt);
 }
 
-/// <summary>Handles <see cref="LinkCandidateCommand"/>: links a guardian to a candidate.</summary>
-public sealed class LinkCandidateHandler(IGuardianRepository repository, IGuardianUnitOfWork unitOfWork)
+/// <summary>
+/// Handles <see cref="LinkCandidateCommand"/>: links a guardian to a candidate and asks the guardian to confirm it (FR-39).
+/// </summary>
+/// <param name="repository">Finds the guardian.</param>
+/// <param name="unitOfWork">Saves the link.</param>
+/// <param name="notifier">E-mails the guardian the confirmation request.</param>
+/// <param name="linkBuilder">Builds the page the guardian opens to confirm.</param>
+/// <param name="clock">Stamps when the code is issued, so its lifetime starts there.</param>
+public sealed class LinkCandidateHandler(
+    IGuardianRepository repository,
+    IGuardianUnitOfWork unitOfWork,
+    IGuardianConsentNotifier notifier,
+    IGuardianConsentLinkBuilder linkBuilder,
+    Clock clock)
 {
-    /// <summary>Creates the pending link and persists it.</summary>
+    /// <summary>
+    /// Creates the pending link, saves it, and e-mails the guardian a code to confirm it. The link is saved before the e-mail goes out,
+    /// so a mail server that is down does not lose the request. When no e-mail is sent, the confirmation link is handed back so staff
+    /// can pass it on.
+    /// </summary>
     /// <param name="command">The guardian and the candidate to link.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The pending link.</returns>
+    /// <returns>The pending link, and whether the guardian was e-mailed.</returns>
     /// <exception cref="GuardianNotFoundError">No guardian has that id.</exception>
     /// <exception cref="GuardianAlreadyLinkedError">The guardian already has a link to the candidate.</exception>
-    public async Task<GuardianLinkDto> HandleAsync(LinkCandidateCommand command, CancellationToken cancellationToken)
+    public async Task<LinkCandidateResult> HandleAsync(LinkCandidateCommand command, CancellationToken cancellationToken)
     {
         var guardian = await repository.GetByIdAsync(command.GuardianId, cancellationToken)
             ?? throw new GuardianNotFoundError(command.GuardianId);
-        var verificationToken = Guid.NewGuid().ToString("N");
-        var link = guardian.LinkCandidate(command.CandidateId, command.CandidateEmail, verificationToken);
+        var token = GuardianLinkToken.Issue(clock.UtcNow);
+        var link = guardian.LinkCandidate(command.CandidateId, command.CandidateEmail, token.Hash, token.ExpiresAtUtc);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return GuardianLinkDto.From(link);
+        var confirmLink = linkBuilder.Build(token.Raw);
+        var request = new GuardianConsentRequest(guardian.Email, guardian.FullName, command.CandidateEmail, confirmLink, token.ExpiresAtUtc);
+        var sent = await notifier.SendAsync(request, cancellationToken);
+
+        // The confirmation link carries the code, a credential. It is handed back only when nothing was e-mailed, and then only to
+        // the staff member who made the link, the same way an invitation link is handed back.
+        return new LinkCandidateResult(GuardianLinkDto.From(link), sent, sent ? null : confirmLink);
     }
 }
 

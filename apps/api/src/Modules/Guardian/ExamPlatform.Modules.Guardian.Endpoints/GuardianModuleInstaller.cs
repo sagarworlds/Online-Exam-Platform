@@ -3,6 +3,7 @@ using ExamPlatform.Modules.Guardian.Application.Commands;
 using ExamPlatform.Modules.Guardian.Application.Ports;
 using ExamPlatform.Modules.Guardian.Application.Queries;
 using ExamPlatform.Modules.Guardian.Infrastructure;
+using ExamPlatform.Modules.Guardian.Infrastructure.Email;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Routing;
@@ -29,7 +30,11 @@ public sealed class GuardianModuleInstaller : IModuleInstaller
         services.AddScoped<IGuardianUnitOfWork, GuardianUnitOfWork>();
 
         services.AddScoped<CreateGuardianHandler>();
+        services.AddScoped<IGuardianConsentNotifier, SmtpGuardianConsentNotifier>();
+        services.AddScoped<IGuardianConsentLinkBuilder, ConfigurationGuardianConsentLinkBuilder>();
+
         services.AddScoped<LinkCandidateHandler>();
+        services.AddScoped<VerifyGuardianLinkHandler>();
         services.AddScoped<RevokeGuardianLinkHandler>();
         services.AddScoped<UnlinkCandidateHandler>();
         services.AddScoped<ListGuardianLinksHandler>();

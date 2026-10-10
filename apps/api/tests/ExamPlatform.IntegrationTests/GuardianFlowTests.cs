@@ -126,6 +126,40 @@ public class GuardianFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_guardian");
     }
 
+    [Fact]
+    public async Task VerifyGuardianLink_WithTheCodeFromTheRequest_ConfirmsTheLink_AndTheCodeWorksOnce()
+    {
+        using var client = await StaffClientAsync();
+        var guardianId = await CreateGuardianAsync(client);
+
+        var linkResponse = await LinkAsync(client, guardianId, Guid.NewGuid());
+        Assert.Equal(HttpStatusCode.Created, linkResponse.StatusCode);
+        var body = await linkResponse.Content.ReadFromJsonAsync<JsonElement>();
+        // The test host configures no mail server, so the confirmation link is handed back to staff, as it is when mail is down.
+        Assert.False(body.GetProperty("consentRequestSent").GetBoolean());
+        var code = CodeFrom(body.GetProperty("consentLink").GetString()!);
+
+        using var anonymous = factory.CreateClient();
+        var confirmed = await anonymous.PostAsJsonAsync("/v1/guardian-links/verify", new VerifyGuardianLinkRequest(code));
+        Assert.Equal(HttpStatusCode.OK, confirmed.StatusCode);
+        Assert.Equal("Verified", (await confirmed.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+
+        await AssertProblemAsync(
+            await anonymous.PostAsJsonAsync("/v1/guardian-links/verify", new VerifyGuardianLinkRequest(code)),
+            HttpStatusCode.Conflict,
+            "guardian_link_not_pending");
+    }
+
+    [Fact]
+    public async Task VerifyGuardianLink_WithAnUnknownCode_Returns400()
+    {
+        using var anonymous = factory.CreateClient();
+
+        var response = await anonymous.PostAsJsonAsync("/v1/guardian-links/verify", new VerifyGuardianLinkRequest("not-a-real-code"));
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_link_token");
+    }
+
     private async Task<HttpClient> StaffClientAsync()
     {
         var client = factory.CreateClient();
@@ -142,6 +176,10 @@ public class GuardianFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
     private static Task<HttpResponseMessage> LinkAsync(HttpClient client, Guid guardianId, Guid candidateId) =>
         client.PostAsJsonAsync($"/v1/guardians/{guardianId}/links", new LinkCandidateRequest(candidateId, "candidate@example.com"));
+
+    /// <summary>The one-time code carried by a confirmation link, as the guardian's browser would send it back.</summary>
+    private static string CodeFrom(string confirmLink) =>
+        Uri.UnescapeDataString(new Uri(confirmLink).Query["?token=".Length..]);
 
     private static async Task AssertProblemAsync(HttpResponseMessage response, HttpStatusCode status, string errorCode)
     {

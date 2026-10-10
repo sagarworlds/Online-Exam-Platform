@@ -41,6 +41,14 @@ describe('GuardianApiService', () => {
     expect(req.request.method).toBe('POST');
   });
 
+  it('should confirm a link with the code from the e-mail, without a sign-in', () => {
+    service.verifyLink('code-from-email').subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/guardian-links/verify`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ token: 'code-from-email' });
+  });
+
   it('should revoke a link', () => {
     const guardianId = 'guardian-123';
     const candidateId = 'candidate-123';

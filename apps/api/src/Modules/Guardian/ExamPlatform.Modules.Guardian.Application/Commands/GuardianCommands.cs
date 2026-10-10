@@ -1,5 +1,9 @@
 namespace ExamPlatform.Modules.Guardian.Application.Commands;
 
+/// <summary>Confirms a candidate link with the one-time code e-mailed to the guardian.</summary>
+/// <param name="Token">The code as the guardian presented it; may be missing from a malformed request.</param>
+public sealed record VerifyGuardianLinkCommand(string? Token);
+
 /// <summary>Registers a new guardian.</summary>
 /// <param name="Email">E-mail address of the guardian.</param>
 /// <param name="FullName">Full name of the guardian; must not be blank.</param>

@@ -16,6 +16,9 @@ public class EFGuardianRepository(GuardianDbContext context) : IGuardianReposito
         await Loaded().AsNoTracking().FirstOrDefaultAsync(g => g.Email == email, cancellationToken);
     public async Task<IReadOnlyList<GuardianAggregate>> ListByCandidateAsync(Guid candidateId, CancellationToken cancellationToken = default) =>
         await Loaded().AsNoTracking().Where(g => g.CandidateLinks.Any(l => l.CandidateId == candidateId)).ToListAsync(cancellationToken);
+    // Tracked, like GetByIdAsync: confirming a link changes it, and the unit of work saves that change.
+    public async Task<GuardianAggregate?> GetByVerificationTokenHashAsync(string verificationTokenHash, CancellationToken cancellationToken = default) =>
+        await Loaded().FirstOrDefaultAsync(g => g.CandidateLinks.Any(l => l.VerificationTokenHash == verificationTokenHash), cancellationToken);
 
     // Without its links every rule sees a guardian with none: a second link to the same candidate is
     // accepted, and a revoke finds nothing to revoke.

@@ -46,15 +46,19 @@ public class Guardian : AggregateRoot
         AddDomainEvent(new GuardianCreatedEvent(Id, Email, FullName));
     }
 
-    /// <summary>Starts a pending link to a candidate.</summary>
+    /// <summary>Starts a pending link to a candidate, awaiting the guardian's confirmation with the code whose hash is given.</summary>
+    /// <param name="candidateId">The candidate to link.</param>
+    /// <param name="candidateEmail">The candidate's address, as staff entered it.</param>
+    /// <param name="verificationTokenHash">The hash of the one-time code e-mailed to the guardian; the code itself is not kept.</param>
+    /// <param name="verificationExpiresAt">When that code stops working.</param>
     /// <exception cref="GuardianAlreadyLinkedError">The guardian already has a link to the candidate.</exception>
-    public GuardianLink LinkCandidate(Guid candidateId, string candidateEmail, string verificationToken)
+    public GuardianLink LinkCandidate(Guid candidateId, string candidateEmail, string verificationTokenHash, DateTime verificationExpiresAt)
     {
         var existingLink = _candidateLinks.FirstOrDefault(l => l.CandidateId == candidateId && !l.IsDeleted);
         if (existingLink != null)
             throw new GuardianAlreadyLinkedError();
 
-        var link = new GuardianLink(Id, candidateId, candidateEmail, verificationToken);
+        var link = new GuardianLink(Id, candidateId, candidateEmail, verificationTokenHash, verificationExpiresAt);
         _candidateLinks.Add(link);
         UpdatedAt = DateTime.UtcNow;
 
@@ -64,8 +68,22 @@ public class Guardian : AggregateRoot
     public GuardianLink? GetCandidateLink(Guid candidateId) =>
         _candidateLinks.FirstOrDefault(l => l.CandidateId == candidateId && !l.IsDeleted);
 
-    public GuardianLink? GetCandidateLinkByVerificationToken(string token) =>
-        _candidateLinks.FirstOrDefault(l => l.VerificationToken == token && !l.IsDeleted);
+    /// <summary>Confirms the link that the given code was issued for, and raises <see cref="GuardianLinkVerifiedEvent"/>.</summary>
+    /// <param name="verificationTokenHash">The hash of the code the guardian presented.</param>
+    /// <param name="nowUtc">The moment of confirmation.</param>
+    /// <returns>The confirmed link.</returns>
+    /// <exception cref="InvalidLinkTokenError">No link of this guardian was issued that code, or the code has expired.</exception>
+    /// <exception cref="GuardianLinkNotPendingError">The link was already confirmed or revoked.</exception>
+    public GuardianLink VerifyCandidateLink(string verificationTokenHash, DateTime nowUtc)
+    {
+        var link = _candidateLinks.FirstOrDefault(l => l.VerificationTokenHash == verificationTokenHash && !l.IsDeleted)
+            ?? throw new InvalidLinkTokenError("it is not recognised");
+
+        link.Verify(nowUtc);
+        UpdatedAt = nowUtc;
+        AddDomainEvent(new GuardianLinkVerifiedEvent(link.Id, Id, link.CandidateId));
+        return link;
+    }
 
     /// <summary>Revokes the link to a candidate, keeping it on record as revoked.</summary>
     /// <exception cref="GuardianLinkNotFoundError">The guardian has no link to the candidate.</exception>
