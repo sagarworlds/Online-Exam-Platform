@@ -44,4 +44,6 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { label: 'admin.area.guardians.name', description: 'admin.area.guardians.description', path: '/guardian/link-candidate', permission: Permission.GuardianLinkManage, icon: 'guardian' },
   { label: 'admin.area.candidateCodes.name', description: 'admin.area.candidateCodes.description', path: '/admin/otp-codes', permission: Permission.OtpRead, icon: 'otp' },
   { label: 'admin.area.whatsappTest.name', description: 'admin.area.whatsappTest.description', path: '/admin/whatsapp', permission: Permission.WhatsAppTest, icon: 'whatsapp' },
+  { label: 'admin.area.branding.name', description: 'admin.area.branding.description', path: '/admin/branding', permission: Permission.ExamManage, icon: 'brand' },
+  { label: 'admin.area.instructionTemplates.name', description: 'admin.area.instructionTemplates.description', path: '/admin/instruction-templates', permission: Permission.ExamManage, icon: 'template' },
 ];

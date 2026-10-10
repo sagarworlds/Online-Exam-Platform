@@ -1,0 +1,60 @@
+<div class="instructions">
+  <p class="hint">{{ 'exams.instructions.hint' | t }}</p>
+
+  @if (editable()) {
+    <form class="instructions__form" novalidate (submit)="$event.preventDefault(); save()">
+      <div class="field">
+        <label for="exam-instructions-text">{{ 'exams.instructions.label' | t }}</label>
+        <textarea
+          id="exam-instructions-text"
+          rows="7"
+          [maxLength]="maxLength"
+          [value]="draft()"
+          (input)="edit($any($event.target).value)"
+          aria-describedby="exam-instructions-count"
+        ></textarea>
+        <p class="field-hint" id="exam-instructions-count">
+          {{ 'exams.instructions.count' | t: { count: draft().length, max: maxLength } }}
+        </p>
+      </div>
+      <div class="actions">
+        <button type="submit" class="primary" [disabled]="!dirty() || busy()">{{ 'common.save' | t }}</button>
+      </div>
+    </form>
+
+    <div class="instructions__template">
+      <h3 class="instructions__heading">{{ 'exams.instructions.fromTemplate' | t }}</h3>
+
+      @if (templatesLoading()) {
+        <p role="status">{{ 'common.loading' | t }}</p>
+      } @else if (templatesError(); as errorText) {
+        <p class="error-message" role="alert">{{ errorText }}</p>
+      } @else if (templates().length === 0) {
+        <p class="hint">{{ 'exams.instructions.noTemplates' | t }}</p>
+      } @else {
+        <div class="field">
+          <label for="exam-instructions-template">{{ 'exams.instructions.pickTemplate' | t }}</label>
+          <select id="exam-instructions-template" (change)="chooseTemplate($any($event.target).value)">
+            <option value="" [selected]="pickedTemplate() === ''">{{ 'exams.instructions.choose' | t }}</option>
+            @for (item of templates(); track item.id) {
+              <option [value]="item.id" [selected]="item.id === pickedTemplate()">{{ item.title }}</option>
+            }
+          </select>
+        </div>
+        <p class="hint">{{ 'exams.instructions.replaceWarning' | t }}</p>
+        <div class="actions">
+          <button type="button" [disabled]="pickedTemplate() === '' || busy()" (click)="copyTemplate()">
+            {{ 'exams.instructions.apply' | t }}
+          </button>
+        </div>
+      }
+    </div>
+  } @else {
+    @if (instructions(); as text) {
+      <p class="instructions__text">{{ text }}</p>
+    } @else {
+      <p>{{ 'exams.instructions.none' | t }}</p>
+    }
+    <p class="hint">{{ 'exams.instructions.readOnly' | t }}</p>
+  }
+</div>
