@@ -41,12 +41,12 @@ Requirements context: section 7 (India compliance) and section 8 (configurable p
 ### E. Data-principal rights, processors and location
 
 13. Name the grievance officer the notices need, and state what the officer must answer and within how long.
-14. The data goes to Render (hosting), Neon (database), Brevo (e-mail) and Meta WhatsApp. Which of these need a data-processing agreement? Is any cross-border transfer allowed for each? Brevo stores data in the EU. WhatsApp stores data in the United States unless India local storage is enabled, and data in use can be processed elsewhere for up to 60 minutes (data map, section 8).
+14. The data goes to Render (hosting), Neon (database), Brevo (e-mail) and Meta WhatsApp. Which of these need a data-processing agreement? Is any cross-border transfer allowed for each? Earlier drafts say that Brevo stores data in the EU, and that WhatsApp stores data in the United States unless India local storage is enabled. Neither was verified (data map, section 4).
 15. Section 7.3 asks for Indian cloud regions. Must the database, the backups and the logs stay in India, and does the CERT-In 180-day log rule apply to the application logs?
 
 ### F. The notices
 
-16. Review the three draft notices in [consent-notices-draft.md](consent-notices-draft.md): terms of service, privacy notice, and proctoring data processing. Note any text that is not accurate for this platform.
+16. Review the draft notices in [consent-notices.json](consent-notices.json): terms of use, privacy notice and proctoring data processing, plus two proposed notices (WhatsApp messages, and guardian consent for a candidate under 18). Note any text that is not accurate for this platform, and the open points listed at the top of that file.
 
 ## What the engineering team does with the answers
 
