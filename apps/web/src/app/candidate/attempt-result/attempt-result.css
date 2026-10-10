@@ -1,53 +1,39 @@
 /*
- * The result page's own layout. Each figure is a label and a value in a definition list, so the pairs wrap onto new lines at a phone's
- * width instead of a table that scrolls sideways.
+ * The result page's own layout, on top of the shared stat tiles and cards. The figures are label and value pairs in a definition list, so
+ * they wrap onto new lines at a phone's width instead of a table that scrolls sideways.
  */
-.result-score {
-  margin: 0.25rem 0 0;
-  font-size: 2rem;
-  font-weight: 700;
+
+/* A long figure such as "37.75 / 80" shrinks a little on a phone rather than forcing the tile wider than the screen. */
+.result-headline .stat-value {
+  font-size: clamp(1.4rem, 5vw, 2rem);
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
-.result-standing,
+.result-counts {
+  margin: 0.75rem 0 0;
+}
+
+.result-locked {
+  max-width: 40rem;
+}
+
 .result-section dl {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
   gap: 0.75rem 1.5rem;
   margin: 1rem 0 0;
 }
 
-.result-standing dt,
 .result-section dt {
   color: var(--text-muted);
   font-size: 0.9rem;
 }
 
-.result-standing dd,
 .result-section dd {
   margin: 0.15rem 0 0;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-}
-
-.result-percentile {
-  margin: 0.75rem 0 0;
-}
-
-.result-counts {
-  margin-top: 0.75rem;
-}
-
-.result-section dl {
-  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
-}
-
-/* Every control is at least 44px tall, so it can be tapped on a phone. The back link is text, so it is given the same height. */
-.back-link,
-.actions .btn {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
 }
 
 .result-sections {
@@ -61,4 +47,16 @@
 .result-section h3 {
   margin: 0;
   font-size: 1.05rem;
+}
+
+/* Every control is at least 44px tall, so it can be tapped on a phone. The back link is text, so it is given the same height. */
+.back-link,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.empty-state .btn {
+  margin-top: 0.75rem;
 }
