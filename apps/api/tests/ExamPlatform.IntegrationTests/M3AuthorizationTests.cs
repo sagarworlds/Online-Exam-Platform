@@ -189,6 +189,11 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             new { note = "Authorization test" }),
         new("POST", "/v1/proctoring/risk-flags/{assessmentId:guid}/dismiss", RbacCatalog.PermissionCodes.ProctoringReview,
             new { note = "Authorization test" }),
+        new("POST", "/v1/incidents", RbacCatalog.PermissionCodes.IncidentManage,
+            new { description = "Authorization test", detectedAtUtc = DateTime.UtcNow, category = "Other", affectedData = "None known" }),
+        new("GET", "/v1/incidents/open", RbacCatalog.PermissionCodes.IncidentManage, null),
+        new("POST", "/v1/incidents/{incidentId:guid}/status", RbacCatalog.PermissionCodes.IncidentManage,
+            new { status = "Reported", note = "Authorization test" }),
     ];
 
     // Routes under the module prefixes that deliberately ask for a signed-in caller only: accepting and declining
@@ -211,7 +216,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
     // They are listed here so that adding one is a decision, and the test checks that they really are open.
     private static readonly string[] PublicRoutes = ["POST /v1/guardian-links/verify", "GET /v1/branding", "GET /v1/branding/logo"];
 
-    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/proctoring", "/v1/me/notifications", "/v1/me/analytics", "/v1/me/data-requests", "/v1/data-requests", "/v1/branding", "/v1/instruction-templates"];
+    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/proctoring", "/v1/me/notifications", "/v1/me/analytics", "/v1/me/data-requests", "/v1/data-requests", "/v1/branding", "/v1/instruction-templates", "/v1/incidents"];
 
     public static TheoryData<string> StaffRouteKeys => [.. StaffRoutes.Select(r => r.Key)];
 
