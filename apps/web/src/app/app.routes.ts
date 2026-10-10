@@ -219,5 +219,11 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./analytics/candidate-analytics/candidate-analytics').then((m) => m.CandidateAnalytics),
   },
+  {
+    // Staff see how each question of an exam performed (FR-37): difficulty and discrimination, once enough candidates had the question.
+    path: 'exams/:id/item-analysis',
+    canActivate: [permissionGuard(Permission.ExamManage)],
+    loadComponent: () => import('./analytics/item-analysis/item-analysis').then((m) => m.ItemAnalysis),
+  },
   { path: '**', redirectTo: 'login' },
 ];

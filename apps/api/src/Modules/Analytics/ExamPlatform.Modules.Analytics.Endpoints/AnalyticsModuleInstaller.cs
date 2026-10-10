@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace ExamPlatform.Modules.Analytics.Endpoints;
 
@@ -25,6 +26,18 @@ public sealed class AnalyticsModuleInstaller : IModuleInstaller
 
         services.AddScoped<IAnalyticsUnitOfWork, AnalyticsUnitOfWork>();
         services.AddScoped<ICandidateAnalytics, CandidateAnalyticsService>();
+
+        // The item analysis threshold (FR-37) is bound as options and checked when the host starts, so a value below the floor stops the
+        // application starting instead of showing indices that mean nothing. It is bound rather than read here because a test host layers its
+        // configuration on after this runs.
+        services.AddOptions<ItemAnalysisOptions>()
+            .Bind(configuration.GetSection(ItemAnalysisOptions.SectionName))
+            .Validate(
+                options => options.MinimumCohortSize >= ItemAnalysisOptions.MinimumAllowedCohortSize,
+                $"{ItemAnalysisOptions.SectionName}:MinimumCohortSize must be at least {ItemAnalysisOptions.MinimumAllowedCohortSize}.")
+            .ValidateOnStart();
+        services.AddSingleton(sp => new ItemAnalysisPolicy(sp.GetRequiredService<IOptions<ItemAnalysisOptions>>().Value.MinimumCohortSize));
+        services.AddScoped<IExamItemAnalysis, ExamItemAnalysisService>();
     }
 
     /// <inheritdoc />

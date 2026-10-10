@@ -68,6 +68,17 @@ public interface IAttemptRepository
     Task<IReadOnlyList<Attempt>> ListCountedForCandidateAsync(Guid candidateId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Lists every submitted attempt at an exam that still counts, with the answers and the drawn paper that the answers are marked against,
+    /// oldest submission first. Read-only: nothing returned is tracked for saving.
+    /// </summary>
+    /// <remarks>
+    /// An attempt an administrator invalidated carries no result (FR-29), and an attempt still open has none to count, so both are left out.
+    /// </remarks>
+    /// <param name="examId">The exam.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Attempt>> ListCountedForExamAsync(Guid examId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// The best submitted score of each candidate at an exam, leaving out one candidate: the scores a result is ranked against (FR-32).
     /// </summary>
     /// <remarks>
