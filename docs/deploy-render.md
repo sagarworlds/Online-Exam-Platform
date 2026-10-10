@@ -14,7 +14,7 @@ Both services deploy from `main` (`branch: main` in `render.yaml`): merging a pu
 
 - The Render API sleeps after about 15 minutes without traffic; the first request afterwards takes up to a minute.
 - The Neon database sleeps after 5 minutes idle and wakes in about a second. It holds 0.5 GB.
-- The API can only e-mail sign-in codes. SMS is not supported yet, so candidates and staff must use e-mail.
+- The API can only e-mail sign-in codes. It cannot send SMS yet, because no SMS provider is built in, so candidates and staff must use e-mail. `Sms__Enabled` in `render.yaml` is the master switch for SMS: off unless set to `true`. Turning it on before a provider exists still sends nothing, and each attempt is logged.
 
 **What you need before starting**
 

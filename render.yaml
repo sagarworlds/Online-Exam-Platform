@@ -56,6 +56,11 @@ services:
       # WhatsApp__Enabled is not true; needs the WhatsApp settings above, and the operator's confirmation that those people agreed to WhatsApp notices (README, Invitations on WhatsApp).
       - key: Invite__WhatsApp__TemplateName
         sync: false
+      # The master switch for every SMS the platform sends (Sms:Enabled). Off unless set to true, and setting it back to false stops all
+      # SMS at once. No SMS provider is built in yet, so true still sends nothing; each attempt is logged. A provider's own settings
+      # arrive with its adapter (docs/deploy-render.md).
+      - key: Sms__Enabled
+        sync: false
       # Scheduled e-mails (exam reminders, released results, revised scores). The API sends them on a timer of its own while awake, and a
       # free service sleeps when idle, so a GitHub workflow calls POST /v1/notifications/run with this key every ten minutes (docs/deploy-render.md,
       # step 9). Unset, that route answers 404 and only the timer sends. At least 24 characters, random.

@@ -1,5 +1,6 @@
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure.Email;
+using ExamPlatform.SharedKernel.Infrastructure.Sms;
 using ExamPlatform.SharedKernel.Infrastructure.WhatsApp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -87,6 +88,19 @@ public static class SharedKernelServiceCollectionExtensions
 
         // What the webhook reports about recent messages, for the administrator's WhatsApp test (a diagnostic aid, kept in memory).
         services.TryAddSingleton<IWhatsAppDeliveryTracker>(sp => new InMemoryWhatsAppDeliveryTracker(sp.GetRequiredService<Clock>()));
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the <see cref="ISmsSender"/> every module uses, behind the <c>Sms:Enabled</c> master switch. The caller binds
+    /// <see cref="SmsOptions"/> to the <c>Sms</c> configuration section, which needs the configuration system this assembly does not
+    /// reference. No SMS provider is built in yet, so even with the switch on nothing is sent, and each attempt is logged.
+    /// </summary>
+    /// <param name="services">The application's service collection.</param>
+    public static IServiceCollection AddSmsSender(this IServiceCollection services)
+    {
+        services.TryAddSingleton<ISmsProvider, UnconfiguredSmsProvider>();
+        services.TryAddSingleton<ISmsSender, SwitchedSmsSender>();
         return services;
     }
 }
