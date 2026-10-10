@@ -1,0 +1,12 @@
+/* The admin status of question content encryption. The state is a word with a symbol (never colour alone), and the controls are 44px tall. */
+.encryption-status {
+  margin-bottom: 1rem;
+}
+
+.encryption-status .badge {
+  font-size: 0.95rem;
+}
+
+.encryption-status .btn {
+  min-height: 2.75rem;
+}

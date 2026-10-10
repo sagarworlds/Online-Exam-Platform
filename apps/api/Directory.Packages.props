@@ -25,6 +25,8 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <!-- Keeps ASP.NET Core Data Protection's key ring in Postgres, so every replica decrypts question content with the same keys (#57). -->
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.12" />
 
     <!-- Rich text -->
     <PackageVersion Include="HtmlSanitizer" Version="9.2.1039" />

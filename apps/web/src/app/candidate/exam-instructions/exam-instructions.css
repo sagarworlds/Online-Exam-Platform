@@ -122,3 +122,25 @@
     width: 100%;
   }
 }
+
+/* The question paper: locked until the exam opens, and open once it has (#57). The edge colour is repeated by the words, so colour is not the only cue. */
+.paper-status {
+  border-inline-start: 4px solid var(--warning);
+}
+
+.paper-status--open {
+  border-inline-start-color: var(--success);
+}
+
+.paper-status__body {
+  margin: 0.5rem 0 0;
+}
+
+/* The back link and the actions below the checks are tapped on a phone, so each is at least 44px tall (#57 UI rule). */
+.back-link,
+.actions button,
+.actions a.btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}

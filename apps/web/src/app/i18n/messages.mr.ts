@@ -964,6 +964,23 @@ export const MR: Messages = {
   'exams.field.chapters': 'धडे',
   'exams.field.noChapters': 'या पुस्तकात खुला धडा नाही.',
 
+  // ---- the question paper before and after the exam opens (#57) ----
+  'paper.locked.title': 'प्रश्नपत्रिका अजून उपलब्ध नाही',
+  'paper.locked.body': 'ती परीक्षेबरोबर {time} ला उघडेल. तोपर्यंत ती सांकेतिक स्वरूपात साठवलेली असते, त्यामुळे ती दाखवता येत नाही.',
+  'paper.locked.short': 'प्रश्नपत्रिका {time} ला उघडेल.',
+  'paper.open.title': 'प्रश्नपत्रिका उघडली आहे',
+  'paper.open.body': 'ती {time} ला उघडली. ती पाहण्यासाठी परीक्षा सुरू करा. तुमची उत्तरे पुढे जाताना जतन होतात.',
+
+  // ---- question content encryption, for administrators (#57) ----
+  'encryption.retry': 'पुन्हा प्रयत्न करा',
+  'encryption.title': 'प्रश्न मजकुराचे सांकेतिकीकरण',
+  'encryption.encrypted': 'सांकेतिक स्वरूपात',
+  'encryption.notComplete': 'पूर्ण नाही',
+  'encryption.complete': 'साठवलेली सर्व {count} प्रश्न-मूल्ये सांकेतिक स्वरूपात आहेत.',
+  'encryption.none': 'अजून कोणताही प्रश्न मजकूर साठवलेला नाही.',
+  'encryption.pending': 'साठवलेल्या {total} प्रश्न-मूल्यांपैकी {plaintext} अजून साध्या मजकुरात आहेत. प्रश्न वापरण्यापूर्वी ते पूर्ण व्हायला हवे.',
+  'encryption.hint': 'प्रश्नाचा मजकूर, पर्याय, उत्तरे आणि आवृत्ती इतिहास डेटाबेसमध्ये ठेवलेल्या किल्लींनी सांकेतिक केले जातात. लेखक ते नेहमीप्रमाणे वाचू आणि शोधू शकतात.',
+
   // ---- notifications: the in-app feed (FR-39) ----
   'notifications.title': 'सूचना',
   'notifications.intro': 'आपल्या परीक्षा, आमंत्रणे आणि विनंत्यांविषयी माहिती. ती फक्त आपण पाहू शकता.',

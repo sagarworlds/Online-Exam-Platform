@@ -964,6 +964,23 @@ export const HI: Messages = {
   'exams.field.chapters': 'अध्याय',
   'exams.field.noChapters': 'इस किताब में कोई खुला अध्याय नहीं है।',
 
+  // ---- the question paper before and after the exam opens (#57) ----
+  'paper.locked.title': 'प्रश्न-पत्र अभी उपलब्ध नहीं है',
+  'paper.locked.body': 'यह परीक्षा के साथ {time} पर खुलेगा। तब तक यह एन्क्रिप्टेड रूप में संग्रहीत है, इसलिए इसे दिखाया नहीं जा सकता।',
+  'paper.locked.short': 'प्रश्न-पत्र {time} पर खुलेगा।',
+  'paper.open.title': 'प्रश्न-पत्र खुला है',
+  'paper.open.body': 'यह {time} पर खुला था। इसे देखने के लिए परीक्षा शुरू करें। आपके उत्तर आगे बढ़ते हुए सहेजे जाते हैं।',
+
+  // ---- question content encryption, for administrators (#57) ----
+  'encryption.retry': 'फिर से कोशिश करें',
+  'encryption.title': 'प्रश्न सामग्री का एन्क्रिप्शन',
+  'encryption.encrypted': 'एन्क्रिप्टेड',
+  'encryption.notComplete': 'पूरा नहीं',
+  'encryption.complete': 'संग्रहीत सभी {count} प्रश्न-मान एन्क्रिप्टेड हैं।',
+  'encryption.none': 'अभी तक कोई प्रश्न सामग्री संग्रहीत नहीं है।',
+  'encryption.pending': 'संग्रहीत {total} प्रश्न-मानों में से {plaintext} अभी सादे पाठ में हैं। प्रश्नों के उपयोग से पहले पुरानी सामग्री का एन्क्रिप्ट होना पूरा होना चाहिए।',
+  'encryption.hint': 'प्रश्न का पाठ, विकल्प, उत्तर और संस्करण इतिहास डेटाबेस में रखी कुंजियों से एन्क्रिप्ट किए जाते हैं। लेखक इन्हें पहले की तरह पढ़ और खोज सकते हैं।',
+
   // ---- notifications: the in-app feed (FR-39) ----
   'notifications.title': 'सूचनाएँ',
   'notifications.intro': 'आपकी परीक्षाओं, आमंत्रणों और अनुरोधों के बारे में अपडेट। इन्हें केवल आप ही देख सकते हैं।',
