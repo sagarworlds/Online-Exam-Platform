@@ -11,7 +11,6 @@ using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -26,16 +25,9 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
     /// <inheritdoc />
     public void AddModule(IServiceCollection services, IConfiguration configuration)
     {
-        // The cipher's extension gives each host's cipher its own EF service provider, so the cached model and queries of one host never
-        // decrypt with another host's keys (#57). In production there is one host, so this changes nothing there.
-        services.AddDbContext<QuestionBankDbContext>((sp, options) =>
-        {
-            options
-                .UseNpgsql(configuration.GetConnectionString("Postgres"))
-                .AddInterceptors(sp.GetRequiredService<DomainEventsSaveChangesInterceptor>());
-            ((IDbContextOptionsBuilderInfrastructure)options)
-                .AddOrUpdateExtension(new ContentCipherOptionsExtension(sp.GetRequiredService<QuestionContentCipher>()));
-        });
+        services.AddDbContext<QuestionBankDbContext>((sp, options) => options
+            .UseNpgsql(configuration.GetConnectionString("Postgres"))
+            .AddInterceptors(sp.GetRequiredService<DomainEventsSaveChangesInterceptor>()));
 
         // Question content is encrypted at rest (NFR-5, #57). The key ring is kept in Postgres, so every replica decrypts with the same keys;
         // the application name keeps the ring the same across deployments that share the database.
