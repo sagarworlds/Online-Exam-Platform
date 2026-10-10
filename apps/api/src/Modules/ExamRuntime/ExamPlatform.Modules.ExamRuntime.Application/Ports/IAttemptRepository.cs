@@ -74,13 +74,26 @@ public interface IAttemptRepository
     Task<IReadOnlyList<Attempt>> ListSubmittedByQuestionIdAsync(Guid questionId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Lists every submitted attempt at an exam with its answers, focus departures and client sightings, for the risk review (FR-27).
+    /// Lists the submitted attempts at an exam without their answers, for the risk review's scope (FR-27): who sat each and when.
     /// </summary>
     /// <remarks>
-    /// Read-only: nothing loaded here is meant to be saved. Attempts still open are left out, since their answers are not final.
+    /// Read-only. Open attempts are left out, as they are not finished.
     /// </remarks>
     /// <param name="examId">The exam.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The submitted attempts in order of <see cref="Attempt.Number"/> within the exam; empty when none has been submitted.</returns>
-    Task<IReadOnlyList<Attempt>> ListFinishedWithAnswersForExamAsync(Guid examId, CancellationToken cancellationToken);
+    /// <returns>The submitted attempts in order of <see cref="Attempt.Number"/>; empty when none has been submitted.</returns>
+    Task<IReadOnlyList<Attempt>> ListFinishedForExamAsync(Guid examId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists the named submitted attempts at an exam with their answers, focus departures and client sightings, for the risk review (FR-27).
+    /// </summary>
+    /// <remarks>
+    /// Read-only: nothing loaded here is meant to be saved. Open attempts are left out, since their answers are not final. An id that is
+    /// not a submitted attempt of this exam is left out too.
+    /// </remarks>
+    /// <param name="examId">The exam.</param>
+    /// <param name="attemptIds">The attempts to read; empty reads nothing.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The attempts named that qualify, in order of <see cref="Attempt.Number"/>.</returns>
+    Task<IReadOnlyList<Attempt>> ListFinishedWithAnswersAsync(Guid examId, IReadOnlyCollection<Guid> attemptIds, CancellationToken cancellationToken);
 }

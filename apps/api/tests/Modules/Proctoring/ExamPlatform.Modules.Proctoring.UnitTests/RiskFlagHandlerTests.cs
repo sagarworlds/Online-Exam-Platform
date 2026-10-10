@@ -1,5 +1,7 @@
 using ExamPlatform.Modules.Admin.Contracts;
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
+using ExamPlatform.Modules.ExamRuntime.Contracts;
+using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Invite.Contracts;
 using ExamPlatform.Modules.Proctoring.Application;
 using ExamPlatform.Modules.Proctoring.Application.Commands;
@@ -24,6 +26,8 @@ public class RiskFlagHandlerTests
     private readonly IProctoringUnitOfWork _unitOfWork = Substitute.For<IProctoringUnitOfWork>();
     private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
     private readonly Clock _clock = Substitute.For<Clock>();
+    private readonly IAttemptSignalSource _signals = Substitute.For<IAttemptSignalSource>();
+    private readonly ICandidateAgeDirectory _ages = Substitute.For<ICandidateAgeDirectory>();
     private readonly ProctoringAuditTrail _audit;
 
     public RiskFlagHandlerTests()
@@ -33,7 +37,13 @@ public class RiskFlagHandlerTests
             _examId, "Maths Final", null, true, Now, Now.AddHours(3), null, null, 1, 0, 0, []));
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(0);
         _audit = new ProctoringAuditTrail(_auditLogger, Substitute.For<IRequestContext>());
+        _signals.ListFinishedAttemptRefsAsync(_examId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<FinishedAttemptRef>>([]));
     }
+
+    /// <summary>The queue handler, with the minors switch set as the test needs it.</summary>
+    private ListRiskFlagsHandler ListHandler(bool minorsScanEnabled = false) =>
+        new(_catalog, _roster, _assessments, new AttemptScanScope(_signals, _ages, new MinorScanPolicy(minorsScanEnabled)), new MinorScanPolicy(minorsScanEnabled));
 
     private RiskAssessment Add(int focus = 0, int attemptNumber = 1, int changes = 0, bool invalidated = false)
     {
@@ -54,7 +64,7 @@ public class RiskFlagHandlerTests
         var severe = Add(focus: 3, attemptNumber: 2, changes: 2, invalidated: true);
         var quiet = Add(focus: 0, attemptNumber: 3);
         RosterHas((modest.CandidateId, "modest@example.com"));
-        var handler = new ListRiskFlagsHandler(_catalog, _roster, _assessments);
+        var handler = ListHandler();
 
         var queue = await handler.HandleAsync(_examId, RiskFlagFilter.Open, PageRequest.Create(null, null), CancellationToken.None);
 
@@ -71,7 +81,7 @@ public class RiskFlagHandlerTests
     {
         var flagged = Add(focus: 3);
         RosterHas((flagged.CandidateId, "candidate@example.com"));
-        var handler = new ListRiskFlagsHandler(_catalog, _roster, _assessments);
+        var handler = ListHandler();
 
         var queue = await handler.HandleAsync(_examId, RiskFlagFilter.Open, PageRequest.Create(null, null), CancellationToken.None);
 
@@ -85,7 +95,7 @@ public class RiskFlagHandlerTests
         var dismissed = Add(focus: 3, attemptNumber: 2);
         dismissed.Dismiss(Reviewer, "Confirmed with invigilator", Now);
         RosterHas();
-        var handler = new ListRiskFlagsHandler(_catalog, _roster, _assessments);
+        var handler = ListHandler();
         var page = PageRequest.Create(null, null);
 
         var awaiting = await handler.HandleAsync(_examId, RiskFlagFilter.Open, page, CancellationToken.None);
@@ -104,7 +114,7 @@ public class RiskFlagHandlerTests
         for (var i = 1; i <= 3; i++)
             Add(focus: 3, attemptNumber: i);
         RosterHas();
-        var handler = new ListRiskFlagsHandler(_catalog, _roster, _assessments);
+        var handler = ListHandler();
 
         var second = await handler.HandleAsync(_examId, RiskFlagFilter.Open, PageRequest.Create(2, 2), CancellationToken.None);
 
@@ -117,7 +127,7 @@ public class RiskFlagHandlerTests
     public async Task TheQueue_ForAnUnknownExam_IsNotFound()
     {
         _catalog.FindAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((ExamSnapshot?)null);
-        var handler = new ListRiskFlagsHandler(_catalog, _roster, _assessments);
+        var handler = ListHandler();
 
         await Assert.ThrowsAsync<ExamNotFoundError>(() =>
             handler.HandleAsync(Guid.NewGuid(), RiskFlagFilter.Open, PageRequest.Create(null, null), CancellationToken.None));
@@ -183,5 +193,36 @@ public class RiskFlagHandlerTests
         var handler = new ReviewRiskFlagHandler(_assessments, _unitOfWork, _clock, _audit);
 
         await Assert.ThrowsAsync<RiskFlagNotRaisedError>(() => handler.HandleAsync(quiet.Id, Reviewer, null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task TheQueue_StatesTheGap_WhenAnUnder18AttemptIsLeftOut()
+    {
+        // With minors not scanned, the queue says how many finished attempts were left out, so the gap is visible to staff.
+        var minorAttempt = Guid.NewGuid();
+        _signals.ListFinishedAttemptRefsAsync(_examId, Arg.Any<CancellationToken>()).Returns(
+            Task.FromResult<IReadOnlyList<FinishedAttemptRef>>([new FinishedAttemptRef(minorAttempt, Guid.NewGuid(), Now)]));
+        _ages.FindAttemptsSatAsMinorAsync(Arg.Any<IReadOnlyCollection<AttemptStart>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid> { minorAttempt }));
+        RosterHas();
+
+        var queue = await ListHandler(minorsScanEnabled: false).HandleAsync(_examId, RiskFlagFilter.Open, PageRequest.Create(null, null), CancellationToken.None);
+
+        Assert.False(queue.MinorsScanEnabled);
+        Assert.Equal(1, queue.ExcludedUnder18Attempts);
+    }
+
+    [Fact]
+    public async Task TheQueue_StatesNoGap_WhenMinorsMayBeScanned()
+    {
+        _signals.ListFinishedAttemptRefsAsync(_examId, Arg.Any<CancellationToken>()).Returns(
+            Task.FromResult<IReadOnlyList<FinishedAttemptRef>>([new FinishedAttemptRef(Guid.NewGuid(), Guid.NewGuid(), Now)]));
+        RosterHas();
+
+        var queue = await ListHandler(minorsScanEnabled: true).HandleAsync(_examId, RiskFlagFilter.Open, PageRequest.Create(null, null), CancellationToken.None);
+
+        Assert.True(queue.MinorsScanEnabled);
+        Assert.Equal(0, queue.ExcludedUnder18Attempts);
+        await _ages.DidNotReceive().FindAttemptsSatAsMinorAsync(Arg.Any<IReadOnlyCollection<AttemptStart>>(), Arg.Any<CancellationToken>());
     }
 }

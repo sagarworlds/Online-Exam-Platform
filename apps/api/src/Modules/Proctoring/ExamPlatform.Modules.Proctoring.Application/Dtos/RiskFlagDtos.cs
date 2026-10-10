@@ -8,6 +8,8 @@ namespace ExamPlatform.Modules.Proctoring.Application.Dtos;
 /// <param name="PageSize">How many rows a page holds.</param>
 /// <param name="Total">How many flags match the filter across every page.</param>
 /// <param name="Items">The flags on this page, highest score first.</param>
+/// <param name="MinorsScanEnabled">Whether attempts by candidates under 18 may be scored in this environment (section 7.2).</param>
+/// <param name="ExcludedUnder18Attempts">How many finished attempts were left out of scoring because the candidate was under 18. Always zero when minors may be scanned.</param>
 public sealed record RiskFlagQueueDto(
     Guid ExamId,
     string ExamName,
@@ -15,7 +17,9 @@ public sealed record RiskFlagQueueDto(
     int Page,
     int PageSize,
     int Total,
-    IReadOnlyList<RiskFlagDto> Items);
+    IReadOnlyList<RiskFlagDto> Items,
+    bool MinorsScanEnabled,
+    int ExcludedUnder18Attempts);
 
 /// <summary>One flagged attempt in the review queue, with every signal that produced its score.</summary>
 /// <param name="Id">The assessment's id, used to decide on it.</param>
@@ -66,4 +70,5 @@ public sealed record RiskSignalDto(
 /// <param name="Scored">How many finished attempts were scored, new or rescored.</param>
 /// <param name="Flagged">How many of those scored attempts reached the flag threshold.</param>
 /// <param name="KeptDecided">How many attempts were left as they were, because a reviewer had already decided on them.</param>
-public sealed record RiskScanResultDto(Guid ExamId, int Scored, int Flagged, int KeptDecided);
+/// <param name="ExcludedUnder18">How many finished attempts were not scored because the candidate was under 18. Zero when minors may be scanned.</param>
+public sealed record RiskScanResultDto(Guid ExamId, int Scored, int Flagged, int KeptDecided, int ExcludedUnder18);

@@ -18,17 +18,44 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 public sealed class AttemptSignalSource(IAttemptRepository attempts, IExamCatalog catalog, IQuestionBank questionBank) : IAttemptSignalSource
 {
     /// <inheritdoc />
-    /// <exception cref="ExamContentUnavailableError">An attempt holds a saved answer naming an option its question no longer has.</exception>
-    public async Task<IReadOnlyList<AttemptSignals>> ListFinishedAttemptsAsync(Guid examId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<FinishedAttemptRef>> ListFinishedAttemptRefsAsync(Guid examId, CancellationToken cancellationToken)
     {
+        // An unknown exam has no attempts; the caller decides whether that is a 404.
+        if (await catalog.FindAsync(examId, cancellationToken) is null)
+        {
+            return [];
+        }
+
+        var finished = await attempts.ListFinishedForExamAsync(examId, cancellationToken);
+        return finished
+            .Select(a => new FinishedAttemptRef(
+                a.Id,
+                a.CandidateId,
+                a.StartedAtUtc))
+            .ToList();
+    }
+
+    /// <inheritdoc />
+    /// <exception cref="ExamContentUnavailableError">An attempt holds a saved answer naming an option its question no longer has.</exception>
+    public async Task<IReadOnlyList<AttemptSignals>> ListFinishedAttemptsAsync(Guid examId, IReadOnlyCollection<Guid> attemptIds, CancellationToken cancellationToken)
+    {
+        if (attemptIds.Count == 0)
+        {
+            return [];
+        }
+
         var exam = await catalog.FindAsync(examId, cancellationToken);
         if (exam is null)
+        {
             return [];
+        }
 
-        var finished = await attempts.ListFinishedWithAnswersForExamAsync(examId, cancellationToken);
+        var finished = await attempts.ListFinishedWithAnswersAsync(examId, attemptIds, cancellationToken);
         var signals = new List<AttemptSignals>(finished.Count);
         foreach (var attempt in finished)
+        {
             signals.Add(await SignalsOfAsync(attempt, exam, cancellationToken));
+        }
 
         return signals;
     }
@@ -47,7 +74,9 @@ public sealed class AttemptSignalSource(IAttemptRepository attempts, IExamCatalo
             // Partial credit is not wrong: a candidate who got part of a multiple-answer question right is not sharing a mistake.
             var mark = AttemptScorer.Mark(exam, question, answer.SelectedOptionIds, answer.AnswerText);
             if (mark.Verdict == AnswerVerdict.Wrong)
+            {
                 wrong.Add(new WrongAnswer(answer.QuestionId, ChoiceKeyOf(answer)));
+            }
         }
 
         return new AttemptSignals(
@@ -71,7 +100,9 @@ public sealed class AttemptSignalSource(IAttemptRepository attempts, IExamCatalo
     private static string ChoiceKeyOf(AttemptAnswer answer)
     {
         if (answer.AnswerText is { } typed)
+        {
             return string.Join(' ', typed.Split(' ', StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
+        }
 
         return string.Join(',', answer.SelectedOptionIds.OrderBy(id => id).Select(id => id.ToString("N")));
     }

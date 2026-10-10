@@ -13,7 +13,18 @@ namespace ExamPlatform.IntegrationTests;
 /// </summary>
 public sealed class ProctoringRiskFlagFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
-    private static async Task<Guid> PublishedExamAsync(HttpClient admin)
+    /// <summary>A candidate under 18 who has accepted the invite. Nothing in the platform stops a minor sitting an exam without consent today.</summary>
+    internal static async Task<HttpClient> EnrollMinorAsync(ApiFactory factory, HttpClient admin, Guid examId)
+    {
+        var email = UniqueEmail();
+        var invite = await InviteAsync(admin, examId, email);
+        var user = await factory.SignInAsAsync("Candidate", email, dateOfBirth: new DateOnly(2012, 6, 1));
+        var client = ClientAs(factory, user);
+        (await client.PostAsJsonAsync("/v1/invites/accept", new { code = CodeFromLink(invite.GetProperty("inviteLink").GetString()!) })).EnsureSuccessStatusCode();
+        return client;
+    }
+
+    internal static async Task<Guid> PublishedExamAsync(HttpClient admin)
     {
         var question = await CreateQuestionAsync(admin, "Which is a prime number?", "7", "8");
         var examId = await CreateExamAsync(admin, $"Risk Exam {Guid.NewGuid():N}", [question], startsIn: TimeSpan.FromMinutes(-5));
@@ -22,7 +33,7 @@ public sealed class ProctoringRiskFlagFlowTests(ApiFactory factory) : IClassFixt
         return examId;
     }
 
-    private static async Task<JsonElement> SitAndSubmitAsync(HttpClient candidate, Guid examId, int departures)
+    internal static async Task<JsonElement> SitAndSubmitAsync(HttpClient candidate, Guid examId, int departures)
     {
         var started = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true });
         started.EnsureSuccessStatusCode();
@@ -40,13 +51,13 @@ public sealed class ProctoringRiskFlagFlowTests(ApiFactory factory) : IClassFixt
         return attempt;
     }
 
-    private static async Task<JsonElement> QueueAsync(HttpClient staff, Guid examId, string filter = "open") =>
+    internal static async Task<JsonElement> QueueAsync(HttpClient staff, Guid examId, string filter = "open") =>
         await staff.GetFromJsonAsync<JsonElement>($"/v1/proctoring/exams/{examId}/risk-flags?filter={filter}");
 
     private static async Task<Guid> OnlyFlagIdAsync(HttpClient staff, Guid examId, string filter = "open") =>
         (await QueueAsync(staff, examId, filter)).GetProperty("items")[0].GetProperty("id").GetGuid();
 
-    private static HttpClient ClientAs(ApiFactory factory, SignedInTestUser caller)
+    internal static HttpClient ClientAs(ApiFactory factory, SignedInTestUser caller)
     {
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", caller.AccessToken);
@@ -220,5 +231,58 @@ public sealed class ProctoringRiskFlagFlowTests(ApiFactory factory) : IClassFixt
 
         Assert.Equal(HttpStatusCode.OK, scan.StatusCode);
         Assert.Equal(HttpStatusCode.OK, queue.StatusCode);
+    }
+
+    [Fact]
+    public async Task WithMinorsNotScanned_AScan_LeavesAnUnder18AttemptOutAndSaysSo()
+    {
+        // Counsel's opinion (issue #11) is not on record, so the switch is off: the minor's attempt is not scored, and the gap is counted.
+        using var admin = await factory.AdminClientAsync();
+        var examId = await PublishedExamAsync(admin);
+        using var minor = await EnrollMinorAsync(factory, admin, examId);
+        await SitAndSubmitAsync(minor, examId, departures: 3);
+
+        var summary = await (await admin.PostAsync($"/v1/proctoring/exams/{examId}/risk-scan", content: null)).Content.ReadFromJsonAsync<JsonElement>();
+        var queue = await QueueAsync(admin, examId, "all");
+
+        Assert.Equal(0, summary.GetProperty("scored").GetInt32());
+        Assert.Equal(0, summary.GetProperty("flagged").GetInt32());
+        Assert.Equal(1, summary.GetProperty("excludedUnder18").GetInt32());
+        Assert.False(queue.GetProperty("minorsScanEnabled").GetBoolean());
+        Assert.Equal(1, queue.GetProperty("excludedUnder18Attempts").GetInt32());
+        Assert.Equal(0, queue.GetProperty("total").GetInt32());
+    }
+
+    [Fact]
+    public async Task TwoScansAtOnce_NeitherFailsWithAServerError()
+    {
+        // Two scans can both try to write the same attempt's assessment. The second is refused as a structured conflict, never a 500. The
+        // two may also run one after the other, in which case both succeed; the test holds either way.
+        using var admin = await factory.AdminClientAsync();
+        var examId = await PublishedExamAsync(admin);
+        var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _c = candidate;
+        await SitAndSubmitAsync(candidate, examId, departures: 3);
+
+        var first = admin.PostAsync($"/v1/proctoring/exams/{examId}/risk-scan", content: null);
+        var second = admin.PostAsync($"/v1/proctoring/exams/{examId}/risk-scan", content: null);
+        var responses = await Task.WhenAll(first, second);
+
+        foreach (var response in responses)
+        {
+            Assert.NotEqual(HttpStatusCode.InternalServerError, response.StatusCode);
+            if (response.StatusCode == HttpStatusCode.Conflict)
+            {
+                var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+                Assert.Equal("scan_already_running", problem.GetProperty("title").GetString());
+            }
+            else
+            {
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            }
+        }
+
+        // However the two interleaved, the attempt has exactly one assessment.
+        Assert.Equal(1, (await QueueAsync(admin, examId, "all")).GetProperty("total").GetInt32());
     }
 }

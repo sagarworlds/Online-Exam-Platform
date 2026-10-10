@@ -102,12 +102,28 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Attempt>> ListFinishedWithAnswersForExamAsync(Guid examId, CancellationToken cancellationToken) =>
-        // The risk review reads the answers, the focus departures and the client sightings. The paper, marks, revisions and warnings are
-        // not needed for it, so they are not loaded: a large exam is read in one split query per collection, not one wide join.
-        await context.Attempts.AsNoTracking().AsSplitQuery()
-            .Include(a => a.Answers).Include(a => a.FocusViolations).Include(a => a.ClientSightings)
+    public async Task<IReadOnlyList<Attempt>> ListFinishedForExamAsync(Guid examId, CancellationToken cancellationToken) =>
+        // Only the attempt's own columns: the scope needs who sat it and when, and nothing else.
+        await context.Attempts.AsNoTracking()
             .Where(a => a.ExamId == examId && a.Status == AttemptStatus.Submitted)
             .OrderBy(a => a.Number)
             .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Attempt>> ListFinishedWithAnswersAsync(Guid examId, IReadOnlyCollection<Guid> attemptIds, CancellationToken cancellationToken)
+    {
+        // Nothing to read is not a query: an empty list of ids would otherwise still cost a round trip for no rows.
+        if (attemptIds.Count == 0)
+        {
+            return [];
+        }
+
+        // The risk review reads the answers, the focus departures and the client sightings. The paper, marks, revisions and warnings are
+        // not needed for it, so they are not loaded: a large exam is read in one split query per collection, not one wide join.
+        return await context.Attempts.AsNoTracking().AsSplitQuery()
+            .Include(a => a.Answers).Include(a => a.FocusViolations).Include(a => a.ClientSightings)
+            .Where(a => a.ExamId == examId && a.Status == AttemptStatus.Submitted && attemptIds.Contains(a.Id))
+            .OrderBy(a => a.Number)
+            .ToListAsync(cancellationToken);
+    }
 }

@@ -1,6 +1,7 @@
 using ExamPlatform.Modules.Proctoring.Application;
 using ExamPlatform.Modules.Proctoring.Application.Ports;
 using ExamPlatform.Modules.Proctoring.Domain;
+using ExamPlatform.Modules.Proctoring.Domain.Exceptions;
 using ExamPlatform.SharedKernel.Application;
 using Microsoft.EntityFrameworkCore;
 
@@ -58,6 +59,17 @@ public sealed class RiskAssessmentRepository(ProctoringDbContext context) : IRis
 public sealed class ProctoringUnitOfWork(ProctoringDbContext context) : IProctoringUnitOfWork
 {
     /// <inheritdoc />
-    public Task<int> SaveChangesAsync(CancellationToken cancellationToken) =>
-        context.SaveChangesAsync(cancellationToken);
+    /// <exception cref="ScanAlreadyRunningError">Another scan wrote the same attempt's assessment first; this save was refused as a whole.</exception>
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException error) when (OverlappingScanDetector.IsOverlappingScan(error))
+        {
+            // Nothing from this save was written: a save is one transaction, so the other scan's rows stand and this scan's are rolled back.
+            throw new ScanAlreadyRunningError(error);
+        }
+    }
 }

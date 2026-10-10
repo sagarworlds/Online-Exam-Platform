@@ -1,6 +1,7 @@
 using ExamPlatform.Modules.Admin.Contracts;
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.ExamRuntime.Contracts;
+using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Proctoring.Application;
 using ExamPlatform.Modules.Proctoring.Application.Commands;
 using ExamPlatform.Modules.Proctoring.Application.Dtos;
@@ -12,7 +13,10 @@ using NSubstitute;
 
 namespace ExamPlatform.Modules.Proctoring.UnitTests;
 
-/// <summary>The scan: scores the finished attempts of an exam, keeps every decided flag as it was, and audits the run (FR-27).</summary>
+/// <summary>
+/// The scan: scores the finished attempts of an exam that the minors policy allows, keeps every decided flag as it was, audits the run, and
+/// refuses an overlapping write as a structured conflict (FR-27, section 7.2).
+/// </summary>
 public class RiskScanHandlerTests
 {
     private static readonly DateTime Now = new(2026, 10, 10, 12, 0, 0, DateTimeKind.Utc);
@@ -20,35 +24,65 @@ public class RiskScanHandlerTests
     private readonly Guid _examId = Guid.NewGuid();
     private readonly IExamCatalog _catalog = Substitute.For<IExamCatalog>();
     private readonly IAttemptSignalSource _signals = Substitute.For<IAttemptSignalSource>();
+    private readonly ICandidateAgeDirectory _ages = Substitute.For<ICandidateAgeDirectory>();
     private readonly FakeRiskAssessmentRepository _assessments = new();
     private readonly IProctoringUnitOfWork _unitOfWork = Substitute.For<IProctoringUnitOfWork>();
     private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
-    private readonly RunRiskScanHandler _handler;
+    private readonly Dictionary<Guid, AttemptSignals> _finished = new();
+    private readonly Clock _clock = Substitute.For<Clock>();
+    private RunRiskScanHandler _handler = null!;
 
     public RiskScanHandlerTests()
     {
-        var clock = Substitute.For<Clock>();
-        clock.UtcNow.Returns(Now);
+        _clock.UtcNow.Returns(Now);
         _catalog.FindAsync(_examId, Arg.Any<CancellationToken>()).Returns(new ExamSnapshot(
             _examId, "Maths Final", null, true, Now, Now.AddHours(3), null, null, 1, 0, 0, []));
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(0);
+        NoMinors();
+        Build(minorsScanEnabled: false);
+    }
+
+    /// <summary>Builds the handler with the minors switch set as the test needs it.</summary>
+    private void Build(bool minorsScanEnabled)
+    {
+        var minorPolicy = new MinorScanPolicy(minorsScanEnabled);
         _handler = new RunRiskScanHandler(
             _catalog,
             _signals,
+            new AttemptScanScope(_signals, _ages, minorPolicy),
             _assessments,
             _unitOfWork,
             new RiskScoringOptions().ToPolicy(),
-            clock,
+            _clock,
             new ProctoringAuditTrail(_auditLogger, Substitute.For<IRequestContext>()));
     }
 
-    private void FinishedAttempts(params AttemptRiskInputs[] attempts) =>
-        _signals.ListFinishedAttemptsAsync(_examId, Arg.Any<CancellationToken>()).Returns(
-            Task.FromResult<IReadOnlyList<AttemptSignals>>(attempts.Select(ToSignals).ToList()));
+    /// <summary>Makes the age directory report exactly these attempts as sat by a minor.</summary>
+    private void MinorAttempts(params Guid[] attemptIds) =>
+        _ages.FindAttemptsSatAsMinorAsync(Arg.Any<IReadOnlyCollection<AttemptStart>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlySet<Guid>>(attemptIds.ToHashSet()));
 
-    private AttemptSignals ToSignals(AttemptRiskInputs input) => new(
+    private void NoMinors() => MinorAttempts();
+
+    /// <summary>Sets the finished attempts the exam runtime reports, and answers the scoped reads from them.</summary>
+    private void FinishedAttempts(params AttemptRiskInputs[] attempts)
+    {
+        _finished.Clear();
+        foreach (var input in attempts)
+        {
+            _finished[input.AttemptId] = ToSignals(input);
+        }
+
+        _signals.ListFinishedAttemptRefsAsync(_examId, Arg.Any<CancellationToken>()).Returns(
+            Task.FromResult<IReadOnlyList<FinishedAttemptRef>>(attempts.Select(a => new FinishedAttemptRef(a.AttemptId, a.CandidateId, a.StartedAtUtc)).ToList()));
+        _signals.ListFinishedAttemptsAsync(_examId, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns(call =>
+            Task.FromResult<IReadOnlyList<AttemptSignals>>(
+                call.ArgAt<IReadOnlyCollection<Guid>>(1).Where(_finished.ContainsKey).Select(id => _finished[id]).ToList()));
+    }
+
+    private static AttemptSignals ToSignals(AttemptRiskInputs input) => new(
         input.AttemptId,
-        _examId,
+        input.ExamId,
         input.CandidateId,
         input.AttemptNumber,
         input.StartedAtUtc,
@@ -77,22 +111,68 @@ public class RiskScanHandlerTests
 
         var result = await _handler.HandleAsync(_examId, CancellationToken.None);
 
-        Assert.Equal(new RiskScanResultDto(_examId, Scored: 2, Flagged: 1, KeptDecided: 0), result);
+        Assert.Equal(new RiskScanResultDto(_examId, Scored: 2, Flagged: 1, KeptDecided: 0, ExcludedUnder18: 0), result);
         Assert.Equal(2, _assessments.Stored.Count);
         Assert.Single(_assessments.Stored, a => a.Flagged);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task AScan_AuditsTheRun()
+    public async Task AScan_AuditsTheRun_IncludingHowManyWereLeftOut()
     {
         FinishedAttempts(Input(focus: 3));
 
         await _handler.HandleAsync(_examId, CancellationToken.None);
 
         await _auditLogger.Received(1).RecordAsync(
-            Arg.Is<AuditEntry>(e => e.Action == "Proctoring.RiskScanRun" && e.EntityId == _examId.ToString()),
+            Arg.Is<AuditEntry>(e => e.Action == "Proctoring.RiskScanRun" && e.EntityId == _examId.ToString() && e.Metadata["excludedUnder18"] == "0"),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task WithTheSwitchOff_AnUnder18Attempt_IsExcludedAndCounted_AndItsAnswersAreNotRead()
+    {
+        // The attempt of the minor is left out before any of its answers are read: only the adult's attempt is asked for.
+        var adult = Input(focus: 0);
+        var minor = Input(focus: 3);
+        FinishedAttempts(adult, minor);
+        MinorAttempts(minor.AttemptId);
+
+        var result = await _handler.HandleAsync(_examId, CancellationToken.None);
+
+        Assert.Equal(new RiskScanResultDto(_examId, Scored: 1, Flagged: 0, KeptDecided: 0, ExcludedUnder18: 1), result);
+        await _signals.Received(1).ListFinishedAttemptsAsync(
+            _examId,
+            Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Count == 1 && ids.Contains(adult.AttemptId)),
+            Arg.Any<CancellationToken>());
+        Assert.DoesNotContain(_assessments.Stored, a => a.AttemptId == minor.AttemptId);
+    }
+
+    [Fact]
+    public async Task WithTheSwitchOn_AnUnder18Attempt_IsScanned_AndNothingIsExcluded()
+    {
+        var minor = Input(focus: 3);
+        FinishedAttempts(minor);
+        MinorAttempts(minor.AttemptId);
+        Build(minorsScanEnabled: true);
+
+        var result = await _handler.HandleAsync(_examId, CancellationToken.None);
+
+        Assert.Equal(new RiskScanResultDto(_examId, Scored: 1, Flagged: 1, KeptDecided: 0, ExcludedUnder18: 0), result);
+        Assert.Single(_assessments.Stored, a => a.AttemptId == minor.AttemptId && a.Flagged);
+        // With minors allowed there is nothing to exclude, so the age directory is not even asked.
+        await _ages.DidNotReceive().FindAttemptsSatAsMinorAsync(Arg.Any<IReadOnlyCollection<AttemptStart>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task WithTheSwitchOff_WhenNoAttemptIsByAMinor_ExcludesNothing()
+    {
+        FinishedAttempts(Input(focus: 0), Input(focus: 3));
+
+        var result = await _handler.HandleAsync(_examId, CancellationToken.None);
+
+        Assert.Equal(0, result.ExcludedUnder18);
+        Assert.Equal(2, result.Scored);
     }
 
     [Fact]
@@ -139,7 +219,22 @@ public class RiskScanHandlerTests
 
         var result = await _handler.HandleAsync(_examId, CancellationToken.None);
 
-        Assert.Equal(new RiskScanResultDto(_examId, 0, 0, 0), result);
+        Assert.Equal(new RiskScanResultDto(_examId, 0, 0, 0, 0), result);
         Assert.Empty(_assessments.Stored);
+    }
+
+    [Fact]
+    public async Task AScanWhoseSaveIsRefusedAsOverlapping_PropagatesTheConflict_AndIsNotAudited()
+    {
+        // The other scan wrote this attempt first. This scan's save is refused as a whole, so it must not record that a scan ran.
+        FinishedAttempts(Input(focus: 3));
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<int>(new ScanAlreadyRunningError(new Exception("conflict"))));
+
+        var error = await Assert.ThrowsAsync<ScanAlreadyRunningError>(() => _handler.HandleAsync(_examId, CancellationToken.None));
+
+        Assert.Equal(409, error.HttpStatusCode);
+        Assert.Equal("scan_already_running", error.ErrorCode);
+        await _auditLogger.DidNotReceive().RecordAsync(Arg.Any<AuditEntry>(), Arg.Any<CancellationToken>());
     }
 }

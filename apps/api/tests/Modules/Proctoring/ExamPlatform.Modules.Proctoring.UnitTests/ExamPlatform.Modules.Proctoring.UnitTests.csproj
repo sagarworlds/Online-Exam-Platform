@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\src\Modules\Proctoring\ExamPlatform.Modules.Proctoring.Domain\ExamPlatform.Modules.Proctoring.Domain.csproj" />
     <ProjectReference Include="..\..\..\..\src\Modules\Proctoring\ExamPlatform.Modules.Proctoring.Application\ExamPlatform.Modules.Proctoring.Application.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Modules\Proctoring\ExamPlatform.Modules.Proctoring.Infrastructure\ExamPlatform.Modules.Proctoring.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\..\src\Modules\Proctoring\ExamPlatform.Modules.Proctoring.Endpoints\ExamPlatform.Modules.Proctoring.Endpoints.csproj" />
     <ProjectReference Include="..\..\..\..\src\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
   </ItemGroup>

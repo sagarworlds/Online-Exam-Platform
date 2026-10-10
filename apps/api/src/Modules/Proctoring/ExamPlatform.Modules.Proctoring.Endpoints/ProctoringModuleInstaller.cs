@@ -36,6 +36,13 @@ public sealed class ProctoringModuleInstaller : IModuleInstaller
         services.AddSingleton<IValidateOptions<RiskScoringOptions>, RiskScoringOptionsValidator>();
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<RiskScoringOptions>>().Value.ToPolicy());
 
+        // The minors switch is bound the same way, so a test's configuration layered on after AddModule still takes effect. It is read as
+        // a plain bool, so there is nothing to validate beyond the binding itself.
+        services.AddOptions<ProctoringOptions>()
+            .Bind(configuration.GetSection(ProctoringOptions.SectionName));
+        services.AddSingleton(sp => new MinorScanPolicy(sp.GetRequiredService<IOptions<ProctoringOptions>>().Value.MinorsScanEnabled));
+        services.AddScoped<AttemptScanScope>();
+
         services.AddScoped<IRiskAssessmentRepository, RiskAssessmentRepository>();
         services.AddScoped<IProctoringUnitOfWork, ProctoringUnitOfWork>();
         services.AddScoped<ProctoringAuditTrail>();

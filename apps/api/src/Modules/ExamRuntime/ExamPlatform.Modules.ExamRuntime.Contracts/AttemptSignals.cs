@@ -28,6 +28,14 @@ public sealed record AttemptSignals(
     IReadOnlyList<WrongAnswer> WrongAnswers);
 
 /// <summary>
+/// A finished attempt, named without its answers: enough for a reviewer to decide whether the attempt is in scope before any answer is read.
+/// </summary>
+/// <param name="AttemptId">The attempt.</param>
+/// <param name="CandidateId">The candidate who sat it.</param>
+/// <param name="StartedAtUtc">When the candidate started it, by the server's clock.</param>
+public sealed record FinishedAttemptRef(Guid AttemptId, Guid CandidateId, DateTime StartedAtUtc);
+
+/// <summary>
 /// One answer marked wrong. Two candidates who chose the same wrong answer to the same question share a <see cref="ChoiceKey"/>, which is
 /// what the risk review compares between attempts.
 /// </summary>

@@ -13,8 +13,9 @@ public sealed class ProctoringAuditTrail(IAuditLogger auditLogger, IRequestConte
     /// <param name="examId">The exam scanned.</param>
     /// <param name="scored">How many attempts were scored.</param>
     /// <param name="flagged">How many of them reached the flag threshold.</param>
+    /// <param name="excludedUnder18">How many finished attempts were left out because the candidate was under 18.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task RecordScanAsync(Guid examId, int scored, int flagged, CancellationToken cancellationToken) =>
+    public Task RecordScanAsync(Guid examId, int scored, int flagged, int excludedUnder18, CancellationToken cancellationToken) =>
         auditLogger.RecordAsync(
             new AuditEntry(
                 ActorUserId: requestContext.UserId,
@@ -26,6 +27,7 @@ public sealed class ProctoringAuditTrail(IAuditLogger auditLogger, IRequestConte
                 {
                     ["scored"] = scored.ToString(),
                     ["flagged"] = flagged.ToString(),
+                    ["excludedUnder18"] = excludedUnder18.ToString(),
                 },
                 CorrelationId: requestContext.CorrelationId),
             cancellationToken);
