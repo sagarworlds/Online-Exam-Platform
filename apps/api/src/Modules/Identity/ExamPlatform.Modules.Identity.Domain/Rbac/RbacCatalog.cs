@@ -67,6 +67,9 @@ public static class RbacCatalog
         /// <summary>Read the unspent sign-in and registration codes of candidates, to help one who never received theirs.</summary>
         public const string OtpRead = "identity.otp.read";
 
+        /// <summary>Score exams for risk, read the review queue of flagged attempts and decide on each flag (FR-27). Never changes a candidate's attempt.</summary>
+        public const string ProctoringReview = "proctoring.review";
+
         /// <summary>Link guardians to candidates and revoke those links (FR-45).</summary>
         public const string GuardianLinkManage = "guardian.link.manage";
 
@@ -120,6 +123,7 @@ public static class RbacCatalog
         new(PermissionCodes.GuardianLinkManage, "Link guardians to candidates and revoke those links"),
         new(PermissionCodes.OtpRead, "Read candidates' unspent sign-in and registration codes"),
         new(PermissionCodes.WhatsAppTest, "Check the WhatsApp connection and send test messages through it"),
+        new(PermissionCodes.ProctoringReview, "Score exams for risk and review the flags raised on attempts"),
     ];
 
     /// <summary>
@@ -149,7 +153,7 @@ public static class RbacCatalog
 
         new(RoleNames.ContentAuthor, RequiresTwoFactor: true, [PermissionCodes.QuestionManage, PermissionCodes.QuestionRead]),
         new(RoleNames.Reviewer, RequiresTwoFactor: true, [PermissionCodes.QuestionRead, PermissionCodes.QuestionReview]),
-        new(RoleNames.Proctor, RequiresTwoFactor: true, []),
+        new(RoleNames.Proctor, RequiresTwoFactor: true, [PermissionCodes.ProctoringReview]),
 
         new(RoleNames.InstituteTeacher, RequiresTwoFactor: false,
         [

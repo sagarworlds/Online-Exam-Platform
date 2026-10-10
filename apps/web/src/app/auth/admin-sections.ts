@@ -13,6 +13,7 @@ export const Permission = {
   GuardianLinkManage: 'guardian.link.manage',
   OtpRead: 'identity.otp.read',
   WhatsAppTest: 'admin.whatsapp.test',
+  ProctoringReview: 'proctoring.review',
 } as const;
 
 /**

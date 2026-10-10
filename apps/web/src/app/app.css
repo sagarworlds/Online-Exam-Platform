@@ -10,6 +10,9 @@
   color: var(--on-primary);
   font-weight: 600;
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
 }
 
 .skip-link:focus {
@@ -155,4 +158,21 @@
   height: 1.9rem;
   max-width: 9rem;
   object-fit: contain;
+}
+
+/* Touch targets: the header's brand, links and buttons are at least 44px tall (WCAG 2.5.5 and the team's touch rule). They are inline by
+   default, so a height only takes effect once they are laid out as inline-flex boxes. */
+.nav .brand,
+.nav nav a,
+.nav nav button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+/* A link to the risk review on the exam's attempts page: a tap target of at least 44px, as every control on the page is. */
+.risk-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
 }

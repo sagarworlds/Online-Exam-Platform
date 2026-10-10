@@ -110,8 +110,11 @@
             <button type="button" [attr.aria-pressed]="lowBandwidth.enabled()" aria-describedby="low-bandwidth-hint" (click)="toggleLowBandwidth()">{{ 'attempt.lowBandwidth' | t }}</button>
             <span id="low-bandwidth-hint" class="visually-hidden">{{ 'attempt.lowBandwidth.hint' | t }}</span>
           }
+          <button type="button" [attr.aria-pressed]="shortcutsOn()" (click)="toggleShortcuts()">{{ 'attempt.shortcuts.toggle' | t }}</button>
         </div>
-        <p class="hint exam-shortcuts">{{ 'attempt.shortcuts' | t }}</p>
+        @if (shortcutsOn()) {
+          <p class="hint exam-shortcuts">{{ 'attempt.shortcuts' | t }}</p>
+        }
         @if (protectContent()) {
           <p class="hint exam-protection">{{ 'attempt.protect' | t }}</p>
         }

@@ -1,0 +1,160 @@
+/* The risk review queue. Controls take the full width on a phone and are never shorter than 44px, so they are easy to reach with a thumb.
+   Each signal is a block of its own rather than a table, so nothing scrolls sideways at 360px. A raised signal says so in words as well
+   as by its edge colour, so colour is never the only cue. */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+/* A candidate's address is one long word, so it breaks where it must rather than pushing the card wider than the screen. */
+.risk-flag {
+  overflow-wrap: anywhere;
+}
+
+.risk-exam-name {
+  margin: 0.25rem 0 0;
+  font-weight: 600;
+}
+
+/* The under-18 notice sits above the queue so the gap is the first thing staff read. It states the count in words, never by colour. */
+.risk-gate {
+  margin-block: 0.75rem;
+}
+
+.risk-gate__title {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.risk-gate__count {
+  margin: 0;
+  font-weight: 600;
+}
+
+.risk-scan {
+  margin-block: 1rem;
+}
+
+.risk-scan__button,
+.risk-more,
+.risk-retry,
+.risk-toolbar__select,
+.risk-flag__actions button {
+  min-height: 2.75rem;
+}
+
+.risk-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-block: 0.75rem;
+}
+
+.risk-toolbar__select {
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: 0.5rem;
+}
+
+.risk-queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.risk-queue__count {
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+}
+
+.risk-flag__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.risk-flag__status {
+  margin: 0.25rem 0 0;
+  font-weight: 600;
+}
+
+.risk-flag__signals-title {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 1rem;
+}
+
+.risk-signals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.risk-signal {
+  padding: 0.5rem 0.75rem;
+  border-inline-start: 4px solid var(--border, #c9c9c9);
+  border-radius: var(--radius-sm, 4px);
+  overflow-wrap: anywhere;
+}
+
+.risk-signal--raised {
+  border-inline-start-color: var(--danger);
+}
+
+.risk-signal__name {
+  margin: 0;
+  font-weight: 600;
+}
+
+.risk-signal__detail,
+.risk-signal__points {
+  margin: 0.125rem 0 0;
+}
+
+.risk-flag__dismiss {
+  margin-top: 0.75rem;
+}
+
+.risk-flag__needs-note {
+  margin-top: 0.75rem;
+}
+
+.risk-flag__result {
+  margin: 0;
+  font-weight: 600;
+}
+
+.risk-flag__result--reviewed {
+  border-inline-start: 4px solid var(--success);
+  padding-inline-start: 0.5rem;
+}
+
+.risk-flag__result--dismissed {
+  border-inline-start: 4px solid var(--danger);
+  padding-inline-start: 0.5rem;
+}
+
+.risk-flag__result:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.risk-more,
+.risk-retry {
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 40rem) {
+  .risk-scan__button,
+  .risk-flag__actions button,
+  .risk-more,
+  .risk-retry {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+}
