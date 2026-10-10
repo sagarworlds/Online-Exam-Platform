@@ -465,6 +465,81 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
 
+    // ---- one candidate reading another candidate's attempt (OWASP A01, NFR-5) ----------------------
+    // Each candidate route that reads an attempt, and the analytics route, must show a signed-in candidate only their own
+    // attempts. The exam releases its results at once, so a refusal for the other candidate comes from ownership and not
+    // from a result that is still held back.
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("/status")]
+    [InlineData("/review")]
+    [InlineData("/result")]
+    [InlineData("/certificate")]
+    public async Task AnotherCandidate_CannotRead_SomeoneElsesAttempt(string suffix)
+    {
+        var (admin, examId) = await ReleasedExamAsync("Attempt isolation exam");
+        using var _a = admin;
+        var (owner, _) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _o = owner;
+        var attemptId = await SitAndSubmitAsync(owner, examId);
+        var (other, _) = await factory.CandidateClientAsync();
+        using var _x = other;
+
+        // The owner can reach the route, so the refusal below is about ownership and not about a wrong path.
+        var own = await owner.GetAsync($"/v1/me/attempts/{attemptId}{suffix}");
+        Assert.NotEqual(HttpStatusCode.NotFound, own.StatusCode);
+
+        var response = await other.GetAsync($"/v1/me/attempts/{attemptId}{suffix}");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("attempt_not_found", await ProblemTitleAsync(response));
+    }
+
+    [Fact]
+    public async Task AnotherCandidate_SeesNoResult_InTheirOwnAnalytics()
+    {
+        var (admin, examId) = await ReleasedExamAsync("Analytics isolation exam");
+        using var _a = admin;
+        var (owner, _) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _o = owner;
+        await SitAndSubmitAsync(owner, examId);
+        var (other, _) = await factory.CandidateClientAsync();
+        using var _x = other;
+
+        // The owner's own analytics count the released result, so the empty count for the other candidate means something.
+        var ownAnalytics = await owner.GetFromJsonAsync<System.Text.Json.JsonElement>("/v1/me/analytics");
+        Assert.Equal(1, ownAnalytics.GetProperty("resultCount").GetInt32());
+
+        var otherAnalytics = await other.GetFromJsonAsync<System.Text.Json.JsonElement>("/v1/me/analytics");
+        Assert.Equal(0, otherAnalytics.GetProperty("resultCount").GetInt32());
+    }
+
+    /// <summary>An exam of one question, open now, with its results released at once. Returns the administrator's client and the exam.</summary>
+    private async Task<(HttpClient Admin, Guid ExamId)> ReleasedExamAsync(string name)
+    {
+        var admin = await factory.AdminClientAsync();
+        var question = await ExamScenarios.CreateQuestionAsync(admin, "Q?", "Right", "Wrong");
+        var examId = await ExamScenarios.CreateExamAsync(admin, name, [question], TimeSpan.FromMinutes(-5));
+        (await admin.PutAsJsonAsync($"/v1/exams/{examId}/result-release", new { mode = "Instant" })).EnsureSuccessStatusCode();
+        return (admin, examId);
+    }
+
+    /// <summary>Starts the candidate's attempt at the exam, submits it, and returns the attempt's id.</summary>
+    private static async Task<Guid> SitAndSubmitAsync(HttpClient candidate, Guid examId)
+    {
+        var started = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true });
+        var attemptId = (await started.EnsureSuccessStatusCode().Content.ReadFromJsonAsync<System.Text.Json.JsonElement>())
+            .GetProperty("id").GetGuid();
+        (await candidate.PostAsync($"/v1/me/attempts/{attemptId}/submit", content: null)).EnsureSuccessStatusCode();
+        return attemptId;
+    }
+
+    /// <summary>The error code a problem response carries as its title.</summary>
+    /// <param name="response">A problem response.</param>
+    /// <returns>The title, which is the error code.</returns>
+    private static async Task<string?> ProblemTitleAsync(HttpResponseMessage response) =>
+        (await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>()).GetProperty("title").GetString();
+
     // ---- helpers ----------------------------------------------------------------------------------
 
     private static StaffRoute FindRoute(string routeKey) =>

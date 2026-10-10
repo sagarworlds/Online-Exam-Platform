@@ -10,4 +10,11 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
+  <!-- NFR-5: the .NET analyzers run on every build. Which findings fail the build is decided per category in
+       apps/api/.editorconfig (Security = error), so the rules are switched on here and their severity is set there. -->
+  <PropertyGroup>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+  </PropertyGroup>
+
 </Project>
