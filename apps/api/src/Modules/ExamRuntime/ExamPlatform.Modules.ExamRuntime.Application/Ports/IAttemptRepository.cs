@@ -72,4 +72,15 @@ public interface IAttemptRepository
     /// <param name="questionId">The question.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Attempt>> ListSubmittedByQuestionIdAsync(Guid questionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists every submitted attempt at an exam with its answers, focus departures and client sightings, for the risk review (FR-27).
+    /// </summary>
+    /// <remarks>
+    /// Read-only: nothing loaded here is meant to be saved. Attempts still open are left out, since their answers are not final.
+    /// </remarks>
+    /// <param name="examId">The exam.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The submitted attempts in order of <see cref="Attempt.Number"/> within the exam; empty when none has been submitted.</returns>
+    Task<IReadOnlyList<Attempt>> ListFinishedWithAnswersForExamAsync(Guid examId, CancellationToken cancellationToken);
 }

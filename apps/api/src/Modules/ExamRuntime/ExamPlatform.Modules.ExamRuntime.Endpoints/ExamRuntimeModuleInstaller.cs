@@ -6,6 +6,7 @@ using ExamPlatform.Modules.ExamRuntime.Endpoints.Notifications;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure.Email;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure.Repositories;
+using ExamPlatform.Modules.ExamRuntime.Contracts;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
@@ -60,6 +61,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<IQuestionUsageSource, AnsweredQuestionUsageSource>();
         services.AddScoped<IQuestionStatisticsSource, AttemptAnswerStatisticsSource>();
         services.AddScoped<IAttemptRescorer, AttemptRescorer>();
+        services.AddScoped<IAttemptSignalSource, AttemptSignalSource>();
 
         services.AddScoped<AttemptCloser>();
         services.AddScoped<AttemptViewBuilder>();
