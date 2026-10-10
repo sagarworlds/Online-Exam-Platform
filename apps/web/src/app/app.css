@@ -147,3 +147,12 @@
     align-items: stretch;
   }
 }
+
+/* The institute's logo in the header (FR-41): it keeps its shape and never pushes the navigation off a phone's width. */
+.nav .brand .brand__logo {
+  display: block;
+  width: auto;
+  height: 1.9rem;
+  max-width: 9rem;
+  object-fit: contain;
+}

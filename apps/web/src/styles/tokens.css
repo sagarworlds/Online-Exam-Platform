@@ -16,10 +16,11 @@
   --text: #172033;
   --text-muted: #566078;
 
-  --primary: #1a56db;
+  /* The institute's colour (FR-41) is written to --brand-* by the branding service; with none set, the platform's own colours below apply. */
+  --primary: var(--brand-primary, #1a56db);
   --primary-hover: #1546b3;
-  --primary-soft: #e6eeff;
-  --on-primary: #ffffff;
+  --primary-soft: var(--brand-primary-soft, #e6eeff);
+  --on-primary: var(--brand-on-primary, #ffffff);
 
   --success: #1a7f37;
   --success-soft: #e3f6ea;
@@ -45,10 +46,10 @@
     --text: #e6eaf5;
     --text-muted: #9aa6c4;
 
-    --primary: #6d9bff;
+    --primary: var(--brand-primary, #6d9bff);
     --primary-hover: #8bb0ff;
-    --primary-soft: #1f2c52;
-    --on-primary: #0b1226;
+    --primary-soft: var(--brand-primary-soft, #1f2c52);
+    --on-primary: var(--brand-on-primary, #0b1226);
 
     --success: #5fd38a;
     --success-soft: #14301f;
