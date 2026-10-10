@@ -31,6 +31,16 @@
         <p class="item-analysis__summary">{{ summary(a) }}</p>
         <p class="hint">{{ 'admin.items.minimumHint' | t: { count: a.minimumCohortSize } }}</p>
 
+        <div class="item-analysis__export">
+          <button type="button" class="btn" [disabled]="exporting()" (click)="exportCsv()">
+            {{ (exporting() ? 'admin.items.exporting' : 'admin.items.export') | t }}
+          </button>
+          <p class="hint">{{ 'admin.items.exportNote' | t }}</p>
+          @if (exportError()) {
+            <p class="error-message" role="alert">{{ exportError() }}</p>
+          }
+        </div>
+
         <!-- The sort buttons are the sorting control at every width: the table below turns into labelled blocks on a phone. -->
         <div class="item-analysis__sort" role="group" [attr.aria-label]="'admin.items.sort.label' | t">
           @for (key of sortKeys; track key) {

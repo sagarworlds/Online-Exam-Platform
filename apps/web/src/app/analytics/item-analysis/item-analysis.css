@@ -9,6 +9,16 @@
   font-weight: 600;
 }
 
+.item-analysis__export {
+  margin: 0.75rem 0 0;
+}
+
+.item-analysis__export .btn {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
 /* Every control is at least 44px tall, so it can be tapped on a phone. */
 .item-analysis__sort {
   display: flex;

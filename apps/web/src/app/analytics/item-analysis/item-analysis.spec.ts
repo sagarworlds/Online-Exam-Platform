@@ -1,4 +1,5 @@
 import { provideHttpClient } from '@angular/common/http';
+import { vi } from 'vitest';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
@@ -123,4 +124,43 @@ describe('ItemAnalysis', () => {
 
     expect(root(fixture).querySelector('table')).not.toBeNull();
   });
+
+  it('downloads the CSV under the name the server gave it, after recording nothing itself', async () => {
+    const { fixture, request } = await start();
+    request.flush(analysis());
+    fixture.detectChanges();
+    Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:csv'), revokeObjectURL: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+    exportButton(fixture)?.click();
+    const exported = httpMock.expectOne((r) => r.url.endsWith('/v1/exams/e1/analytics/items/exports') && r.method === 'POST');
+    exported.flush(new Blob(['No.,Question\r\n'], { type: 'text/csv' }), {
+      headers: { 'content-disposition': 'attachment; filename="item-analysis-physics-final-20261010-0930.csv"' },
+    });
+    fixture.detectChanges();
+
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    click.mockRestore();
+  });
+
+  it('says the export did not happen when the server refuses it, rather than offering a file', async () => {
+    const { fixture, request } = await start();
+    request.flush(analysis());
+    fixture.detectChanges();
+
+    exportButton(fixture)?.click();
+    // The export asks for a file, so the server's error body reaches the page as a blob.
+    httpMock
+      .expectOne((r) => r.url.endsWith('/v1/exams/e1/analytics/items/exports') && r.method === 'POST')
+      .flush(new Blob(['{"title":"Export refused"}'], { type: 'application/problem+json' }), { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+
+    expect(root(fixture).querySelector('[role="alert"]')?.textContent).toContain('nothing was exported');
+  });
+
+  /** The export button, found by its label, since it is the only button of the page's export row. */
+  function exportButton(fixture: ComponentFixture<ItemAnalysis>): HTMLButtonElement | null {
+    return root(fixture).querySelector<HTMLButtonElement>('.item-analysis__export button');
+  }
 });
