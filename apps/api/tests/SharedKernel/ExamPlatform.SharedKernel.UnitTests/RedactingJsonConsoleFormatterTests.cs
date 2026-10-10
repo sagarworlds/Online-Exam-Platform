@@ -36,6 +36,15 @@ public class RedactingJsonConsoleFormatterTests
     }
 
     [Fact]
+    public void ApostrophesAndNonAsciiText_AreReadableInTheLine_NotEscaped()
+    {
+        var (raw, json) = Write("Render's log: नमस्ते", (s, _) => s);
+
+        Assert.Contains("Render's log: नमस्ते", raw, StringComparison.Ordinal);
+        Assert.Equal("Render's log: नमस्ते", json.GetProperty("message").GetString());
+    }
+
+    [Fact]
     public void TheHeaderFields_AreLevelCategoryEventIdAndUtcTimestamp()
     {
         var (_, json) = Write("hello", (s, _) => s);

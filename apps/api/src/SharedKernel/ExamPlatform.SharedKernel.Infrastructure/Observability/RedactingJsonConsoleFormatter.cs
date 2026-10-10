@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Globalization;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -52,7 +53,9 @@ public sealed class RedactingJsonConsoleFormatter : ConsoleFormatter
         var scopes = CollectScopes(scopeProvider);
         var buffer = new ArrayBufferWriter<byte>();
 
-        using (var json = new Utf8JsonWriter(buffer))
+        // Log lines are read in a log viewer, not embedded in HTML, so the HTML-safe escaping would only turn an apostrophe or a name in
+        // Devanagari into an unreadable \u escape. Control characters, the line break included, are still escaped.
+        using (var json = new Utf8JsonWriter(buffer, new JsonWriterOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }))
         {
             json.WriteStartObject();
             json.WriteString("timestamp", DateTimeOffset.UtcNow);
