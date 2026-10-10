@@ -151,6 +151,15 @@
   }
 }
 
+/* The institute's logo in the header (FR-41): it keeps its shape and never pushes the navigation off a phone's width. */
+.nav .brand .brand__logo {
+  display: block;
+  width: auto;
+  height: 1.9rem;
+  max-width: 9rem;
+  object-fit: contain;
+}
+
 /* Touch targets: the header's brand, links and buttons are at least 44px tall (WCAG 2.5.5 and the team's touch rule). They are inline by
    default, so a height only takes effect once they are laid out as inline-flex boxes. */
 .nav .brand,

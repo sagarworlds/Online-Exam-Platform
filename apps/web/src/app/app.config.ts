@@ -9,12 +9,15 @@ import { languageInterceptor } from './i18n/language.interceptor';
 import { deviceSignatureInterceptor } from './shared/device/device-signature.interceptor';
 import { apiActivityInterceptor } from './shared/api-activity/api-activity.interceptor';
 import { routes } from './app.routes';
+import { BrandingService } from './branding/branding.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     // The chosen language's messages are fetched before the first screen is drawn (see I18nService.ready).
     provideAppInitializer(() => inject(I18nService).ready()),
+    // The institute's branding is read once at start-up and applied to the page (FR-41). It does not hold up the first screen.
+    provideAppInitializer(() => inject(BrandingService).load()),
     provideRouter(routes),
     // Names each page in the browser tab (WCAG 2.4.2); see PageTitleStrategy.
     { provide: TitleStrategy, useClass: PageTitleStrategy },

@@ -66,6 +66,15 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
         services.AddSingleton<ListProctoringProfilesHandler>();
         services.AddScoped<SetShuffleHandler>();
         services.AddScoped<ReleaseResultsHandler>();
+
+        services.AddScoped<IInstructionTemplateRepository, EFInstructionTemplateRepository>();
+        services.AddScoped<InstructionAudit>();
+        services.AddScoped<ListInstructionTemplatesHandler>();
+        services.AddScoped<CreateInstructionTemplateHandler>();
+        services.AddScoped<UpdateInstructionTemplateHandler>();
+        services.AddScoped<DeleteInstructionTemplateHandler>();
+        services.AddScoped<SetExamInstructionsHandler>();
+        services.AddScoped<UseInstructionTemplateHandler>();
     }
 
     /// <inheritdoc />

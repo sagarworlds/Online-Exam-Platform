@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -86,6 +87,12 @@ public sealed class QuestionContentBackfill(QuestionBankDbContext context, Quest
         }
     }
 
+    // Why the suppression: SQL cannot take a table or column name as a parameter, so the names have to be put in the statement text. They
+    // are safe there only because the one caller passes them from ContentColumns, a constant list inside this class, and nothing that a
+    // request can change reaches them. The values themselves are passed as parameters. Add a caller that passes anything else and this
+    // suppression must be removed.
+    [SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities",
+        Justification = "Table and column names come only from the constant ContentColumns list; values are passed as parameters.")]
     private async Task<(int Values, int Plaintext)> ScanColumnAsync(
         DbConnection connection, DbTransaction? transaction, string table, string column, bool apply, CancellationToken cancellationToken)
     {

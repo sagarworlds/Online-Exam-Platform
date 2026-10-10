@@ -62,6 +62,7 @@ public sealed record AttemptSummaryDto(
 /// <param name="ContentProtection">Whether the exam page turns off copying, pasting, right-click and printing (FR-23).</param>
 /// <param name="FocusViolationLimit">How many times a candidate may leave the exam page before the attempt is ended (FR-22); 0 when the exam does not watch for it.</param>
 /// <param name="ProctoringNotice">What the candidate is told about what is turned off, recorded and watched, written from the exam's proctoring settings (FR-46).</param>
+/// <param name="Instructions">What the author wrote for the candidate to read before starting, or null for none (FR-41).</param>
 public sealed record ExamRulesDto(
     decimal CorrectMarks,
     decimal IncorrectMarks,
@@ -71,7 +72,8 @@ public sealed record ExamRulesDto(
     int SectionCount,
     bool ContentProtection = true,
     int FocusViolationLimit = 0,
-    IReadOnlyList<string>? ProctoringNotice = null);
+    IReadOnlyList<string>? ProctoringNotice = null,
+    string? Instructions = null);
 
 /// <summary>An exam a candidate is enrolled in, as shown on their exams page.</summary>
 /// <param name="ExamId">The exam's id.</param>

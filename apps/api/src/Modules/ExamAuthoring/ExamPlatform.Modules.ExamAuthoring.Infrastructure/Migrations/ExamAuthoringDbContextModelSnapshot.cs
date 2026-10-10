@@ -37,6 +37,10 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<string>("Instructions")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
@@ -130,6 +134,32 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
                     b.HasIndex("ExamId");
 
                     b.ToTable("ExamSections", "examAuthoring");
+                });
+
+            modelBuilder.Entity("ExamPlatform.Modules.ExamAuthoring.Domain.InstructionTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("InstructionTemplates", "examAuthoring");
                 });
 
             modelBuilder.Entity("ExamPlatform.Modules.ExamAuthoring.Domain.SectionDrawRule", b =>
