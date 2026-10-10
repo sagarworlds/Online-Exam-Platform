@@ -1,0 +1,46 @@
+/*
+ * The answer review's own additions: the held state and the explanation under a question. The question cards, the strip and the dispute
+ * form keep their shared styles.
+ */
+
+/* The held state is the same card as the result page's, so the two read alike. */
+.review-locked {
+  max-width: 40rem;
+}
+
+/* The explanation is plain text, so line breaks the author typed are kept and nothing is rendered as markup. */
+.review-explanation {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-left: 3px solid var(--border-strong);
+  background: var(--surface-muted);
+  border-radius: var(--radius-sm);
+}
+
+.review-explanation__head {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.review-explanation__text {
+  margin: 0.25rem 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Every control is at least 44px tall, so it can be tapped on a phone: the back link, the buttons, and the question-jump buttons in the strip. */
+.back-link,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.empty-state .btn {
+  margin-top: 0.75rem;
+}
+
+.review-strip__item {
+  min-width: 44px;
+  min-height: 44px;
+}

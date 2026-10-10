@@ -11,6 +11,10 @@ namespace ExamPlatform.Modules.QuestionBank.Contracts;
 /// <param name="VersionNumber">The version of the question this is the content of (FR-7): the current one from <see cref="IQuestionBank.GetAsync"/>, or the one asked for from <see cref="IQuestionBank.GetVersionsAsync"/>.</param>
 /// <param name="IsTextAnswer">Whether the candidate types the answer instead of choosing an option. Such a question has no options.</param>
 /// <param name="AcceptedAnswers">For a text question, the answers a typed answer may be. Never to be sent to a candidate.</param>
+/// <param name="Explanation">
+/// Why the correct answer is correct, as plain text, or null when none was written. Only the answer review may show it, and only once the
+/// exam's author has released the results (FR-33); a question shown during the exam never carries it to the candidate.
+/// </param>
 public sealed record QuestionSnapshot(
     Guid Id,
     string Text,
@@ -21,7 +25,8 @@ public sealed record QuestionSnapshot(
     int VersionNumber = 1,
     string? UnusableReason = null,
     bool IsTextAnswer = false,
-    IReadOnlyList<string>? AcceptedAnswers = null);
+    IReadOnlyList<string>? AcceptedAnswers = null,
+    string? Explanation = null);
 
 /// <summary>One question, and which version of it to read.</summary>
 /// <param name="QuestionId">The question's id.</param>

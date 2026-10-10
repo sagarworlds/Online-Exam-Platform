@@ -41,6 +41,9 @@ public sealed class QuestionVersion
     /// <summary>The accepted answers at the time, for a text question; empty for a multiple-choice one.</summary>
     public string[] AcceptedAnswers { get; private set; } = [];
 
+    /// <summary>The explanation at the time, as plain text, or null when there was none (see <see cref="Question.Explanation"/>).</summary>
+    public string? Explanation { get; private set; }
+
     /// <summary>When this became the current version.</summary>
     public DateTime CreatedAtUtc { get; private set; }
 
@@ -49,7 +52,7 @@ public sealed class QuestionVersion
 
     internal QuestionVersion(
         Guid questionId, int versionNumber, string text, bool allowsMultiple, IReadOnlyList<QuestionVersionOption> options, DateTime createdAtUtc,
-        bool isTextAnswer = false, string[]? acceptedAnswers = null)
+        bool isTextAnswer = false, string[]? acceptedAnswers = null, string? explanation = null)
     {
         Id = Guid.NewGuid();
         QuestionId = questionId;
@@ -60,5 +63,6 @@ public sealed class QuestionVersion
         CreatedAtUtc = createdAtUtc;
         IsTextAnswer = isTextAnswer;
         AcceptedAnswers = acceptedAnswers ?? [];
+        Explanation = explanation;
     }
 }

@@ -71,7 +71,8 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
             current.GetValueOrDefault(q.Id, 1),
             approval.UnusableReason(q.Status),
             q.IsTextAnswer,
-            q.AcceptedAnswers);
+            q.AcceptedAnswers,
+            q.Explanation);
 
     private static QuestionSnapshot AsOf(Question q, QuestionVersion v, IReadOnlyDictionary<Guid, ChapterRef> chapters) =>
         new(
@@ -83,7 +84,8 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
             v.AllowsMultiple,
             v.VersionNumber,
             IsTextAnswer: v.IsTextAnswer,
-            AcceptedAnswers: v.AcceptedAnswers);
+            AcceptedAnswers: v.AcceptedAnswers,
+            Explanation: v.Explanation);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<QuestionTranslationSnapshot>> GetTranslationsAsync(
@@ -111,7 +113,7 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
                     continue;
 
                 found.Add(new QuestionTranslationSnapshot(
-                    source.Id, language, translation.Text, translation.Options.OrderBy(o => o.Order).Select(o => o.Text).ToList()));
+                    source.Id, language, translation.Text, translation.Options.OrderBy(o => o.Order).Select(o => o.Text).ToList(), translation.Explanation));
                 break;
             }
         }

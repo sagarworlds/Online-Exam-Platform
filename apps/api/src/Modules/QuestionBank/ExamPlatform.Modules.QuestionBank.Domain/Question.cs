@@ -40,6 +40,12 @@ public sealed class Question : AggregateRoot
     public const int MaxImages = 5;
 
     /// <summary>
+    /// The longest explanation, after trimming. An explanation is plain text, shown as the author wrote it: it is never rendered as markup, so
+    /// it needs no sanitizer and carries no images.
+    /// </summary>
+    public const int MaxExplanationLength = 2000;
+
+    /// <summary>
     /// The largest one embedded image, in bytes once decoded. Images live inside the question itself, so every
     /// response that carries the question carries them too; the limit keeps those responses small.
     /// </summary>
@@ -68,6 +74,12 @@ public sealed class Question : AggregateRoot
     /// it is rendered to every candidate, so anything else would be a script-injection route.
     /// </summary>
     public string Text { get; private set; }
+
+    /// <summary>
+    /// Why the correct answer is correct, as plain text, or null when the author wrote none. A candidate reads it only in the answer review,
+    /// which is built only once the exam's author has released the results (FR-33); it is never part of a question shown during the exam.
+    /// </summary>
+    public string? Explanation { get; private set; }
 
     /// <summary>
     /// The readable text of <see cref="Text"/> with the markup taken out, kept so the bank can be searched by what a candidate reads
@@ -198,23 +210,26 @@ public sealed class Question : AggregateRoot
     /// </param>
     /// <param name="isTextAnswer">Whether the candidate types the answer instead of choosing options; such a question has no options.</param>
     /// <param name="acceptedAnswers">For a text question, the answers a typed answer may be; must be empty for a multiple-choice one.</param>
+    /// <param name="explanation">Why the correct answer is correct, as plain text, or null for none; see <see cref="Explanation"/>.</param>
     /// <exception cref="InvalidQuestionError">
     /// The text is blank or larger than <see cref="MaxHtmlLength"/>, the language is not supported, the number of options is outside <see cref="MinOptions"/> to
-    /// <see cref="MaxOptions"/>, an option is blank or too long, the options do not have exactly one correct answer, or the topics
-    /// break the rules of <see cref="Classify"/>.
+    /// <see cref="MaxOptions"/>, an option is blank or too long, the options do not have exactly one correct answer, the topics
+    /// break the rules of <see cref="Classify"/>, or the explanation is longer than <see cref="MaxExplanationLength"/>.
     /// </exception>
     public static Question Create(
         string? text, IReadOnlyList<NewQuestionOption>? options, Guid createdBy, DateTime nowUtc, Guid? chapterId = null,
         QuestionDifficulty? difficulty = null, IReadOnlyList<string?>? topics = null, bool allowsMultiple = false,
-        string? language = null, Guid? translationGroupId = null, bool isTextAnswer = false, IReadOnlyList<string?>? acceptedAnswers = null)
+        string? language = null, Guid? translationGroupId = null, bool isTextAnswer = false, IReadOnlyList<string?>? acceptedAnswers = null,
+        string? explanation = null)
     {
         var trimmedText = RequireText(text);
         var code = QuestionLanguage.Parse(language);
         var answers = RequireAnswerShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0, allowsMultiple, isTextAnswer, acceptedAnswers);
+        var trimmedExplanation = RequireExplanation(explanation);
 
         var question = new Question(Guid.NewGuid(), trimmedText, chapterId, createdBy, nowUtc)
         {
-            AllowsMultiple = allowsMultiple, Language = code, IsTextAnswer = isTextAnswer, AcceptedAnswers = answers,
+            AllowsMultiple = allowsMultiple, Language = code, IsTextAnswer = isTextAnswer, AcceptedAnswers = answers, Explanation = trimmedExplanation,
         };
         question.TranslationGroupId = translationGroupId ?? question.Id;
         question.Classify(difficulty, topics);
@@ -249,16 +264,21 @@ public sealed class Question : AggregateRoot
     /// </param>
     /// <param name="isTextAnswer">Whether the candidate types the answer after the edit. Once answered, it may not change.</param>
     /// <param name="acceptedAnswers">The accepted answers after the edit, for a text question. Once answered, they may not change.</param>
+    /// <param name="explanation">
+    /// The explanation after the edit, or null for none; the edit replaces the whole of it, as it replaces the text. Wording only, so it is
+    /// allowed once the question has been answered.
+    /// </param>
     /// <exception cref="InvalidQuestionError">The edit breaks a rule of <see cref="Create"/>, or names an option this question does not have.</exception>
     /// <exception cref="QuestionLockedError">
     /// The question has been answered and the edit changes which option is correct, or adds, removes or reorders options.
     /// </exception>
     public void Revise(
         string? text, IReadOnlyList<QuestionOptionEdit>? options, bool answered, bool allowsMultiple = false, DateTime? nowUtc = null,
-        bool isTextAnswer = false, IReadOnlyList<string?>? acceptedAnswers = null)
+        bool isTextAnswer = false, IReadOnlyList<string?>? acceptedAnswers = null, string? explanation = null)
     {
         var trimmedText = RequireText(text);
         var answers = RequireAnswerShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0, allowsMultiple, isTextAnswer, acceptedAnswers);
+        var trimmedExplanation = RequireExplanation(explanation);
 
         IReadOnlyList<QuestionOptionEdit> edits = options ?? [];
         var optionTexts = edits.Select(o => RequireOptionText(o?.Text)).ToList();
@@ -278,6 +298,7 @@ public sealed class Question : AggregateRoot
         AllowsMultiple = allowsMultiple;
         IsTextAnswer = isTextAnswer;
         AcceptedAnswers = answers;
+        Explanation = trimmedExplanation;
 
         var revised = new List<QuestionOption>(edits.Count);
         for (var i = 0; i < edits.Count; i++)
@@ -304,9 +325,25 @@ public sealed class Question : AggregateRoot
             Status = QuestionStatus.Draft;
     }
 
+    // The explanation is content a candidate reads, so changing it sends the question back for approval like any other change.
     private string ContentFingerprint() =>
-        Text + "|" + AllowsMultiple + "|" + IsTextAnswer + "|" + string.Join("\u001f", AcceptedAnswers) + "|"
+        Text + "|" + AllowsMultiple + "|" + IsTextAnswer + "|" + string.Join("\u001f", AcceptedAnswers) + "|" + Explanation + "|"
         + string.Join(";", _options.OrderBy(o => o.Order).Select(o => $"{o.Id}:{o.Text}:{o.IsCorrect}:{o.IsPinned}:{o.Order}"));
+
+    /// <summary>The explanation trimmed, or null when it is blank; it may not be longer than <see cref="MaxExplanationLength"/>.</summary>
+    /// <param name="explanation">The explanation as the author typed it.</param>
+    /// <returns>The explanation to store, or null for none.</returns>
+    /// <exception cref="InvalidQuestionError">The explanation is longer than <see cref="MaxExplanationLength"/> once trimmed.</exception>
+    private static string? RequireExplanation(string? explanation)
+    {
+        var trimmed = explanation?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+            return null;
+        if (trimmed.Length > MaxExplanationLength)
+            throw new InvalidQuestionError($"The explanation is longer than {MaxExplanationLength} characters.");
+
+        return trimmed;
+    }
 
     /// <summary>Puts a draft forward for review (FR-8).</summary>
     /// <param name="byUserId">The author or other staff member putting it forward.</param>
@@ -536,7 +573,7 @@ public sealed class Question : AggregateRoot
         var options = _options.OrderBy(o => o.Order)
             .Select(o => new QuestionVersionOption(o.Id, o.Text, o.IsCorrect, o.Order, o.IsPinned))
             .ToList();
-        _versions.Add(new QuestionVersion(Id, _versions.Count + 1, Text, AllowsMultiple, options, nowUtc, IsTextAnswer, AcceptedAnswers));
+        _versions.Add(new QuestionVersion(Id, _versions.Count + 1, Text, AllowsMultiple, options, nowUtc, IsTextAnswer, AcceptedAnswers, Explanation));
     }
 
     // Once candidates have answered, the key and the list of options are part of their results. Wording is the one thing

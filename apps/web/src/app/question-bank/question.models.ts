@@ -85,6 +85,8 @@ export interface QuestionDto {
   isTextAnswer?: boolean;
   /** The answers a typed answer may be, as the author wrote them; empty for a multiple-choice question. Absent from an API that predates it. */
   acceptedAnswers?: string[];
+  /** Why the correct answer is correct, as plain text; a candidate sees it only in the answer review, once released (FR-33). Absent or null means none. */
+  explanation?: string | null;
 }
 
 /** The body of POST /v1/questions. The author is the caller, so it carries no user id. */
@@ -107,6 +109,8 @@ export interface CreateQuestionRequest {
   isTextAnswer?: boolean;
   /** The answers a typed answer may be, for a text question; empty for a multiple-choice one. */
   acceptedAnswers?: string[];
+  /** Why the correct answer is correct, as plain text; a candidate sees it only in the answer review, once released (FR-33). Absent or null means none. */
+  explanation?: string | null;
 }
 
 /** A question already in the bank that repeats one being added (FR-9). */
@@ -155,6 +159,8 @@ export interface UpdateQuestionRequest {
   isTextAnswer?: boolean;
   /** The accepted answers of a text question, which are part of its answer key like the options of another. */
   acceptedAnswers?: string[];
+  /** Why the correct answer is correct, as plain text; a candidate sees it only in the answer review, once released (FR-33). Absent or null means none. */
+  explanation?: string | null;
 }
 
 /** The longest reason the API accepts for correcting an answer key; every candidate whose score moves is shown it. */
@@ -252,6 +258,7 @@ export const QUESTION_LIMITS = {
   maxTopicLength: 40,
   maxAcceptedAnswers: 10,
   maxAcceptedAnswerLength: 200,
+  maxExplanationLength: 2000,
 } as const;
 
 /** The kinds of question an author writes: the candidate chooses options, or types the answer (a text question). */

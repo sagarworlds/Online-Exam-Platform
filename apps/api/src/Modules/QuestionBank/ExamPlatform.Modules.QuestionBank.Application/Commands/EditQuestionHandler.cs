@@ -18,7 +18,7 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 public sealed record EditQuestionCommand(
     Guid QuestionId, string? Text, IReadOnlyList<QuestionOptionEdit>? Options,
     string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false,
-    bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null);
+    bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null, string? Explanation = null);
 
 /// <summary>Handles <see cref="EditQuestionCommand"/>.</summary>
 public sealed class EditQuestionHandler(
@@ -45,7 +45,8 @@ public sealed class EditQuestionHandler(
         // Asked after loading and just before changing, so the lock is decided on the freshest answer there is.
         var usage = await usageReader.ReadOneAsync(question.Id, cancellationToken);
         question.Revise(
-            cleaned.Html, command.Options, usage.Answered, command.AllowsMultiple, clock.UtcNow, command.IsTextAnswer, command.AcceptedAnswers);
+            cleaned.Html, command.Options, usage.Answered, command.AllowsMultiple, clock.UtcNow, command.IsTextAnswer, command.AcceptedAnswers,
+            command.Explanation);
         question.IndexText(cleaned.PlainText);
         // Labels never reach a candidate, so they are not covered by the lock Revise applies to an answered question.
         question.Classify(QuestionDifficultyText.Parse(command.Difficulty), command.Topics);
