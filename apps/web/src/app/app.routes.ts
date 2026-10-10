@@ -86,6 +86,11 @@ export const routes: Routes = [
     loadComponent: () => import('./candidate/attempt-result/attempt-result').then((m) => m.AttemptResult),
   },
   {
+    path: 'my-exams/:examId/leaderboard',
+    canActivate: [authGuard],
+    loadComponent: () => import('./candidate/leaderboard/leaderboard').then((m) => m.Leaderboard),
+  },
+  {
     path: 'admin/questions',
     canActivate: [permissionGuard(Permission.QuestionRead)],
     loadComponent: () => import('./question-bank/question-bank').then((m) => m.QuestionBank),

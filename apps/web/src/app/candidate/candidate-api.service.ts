@@ -11,6 +11,8 @@ import {
   FocusViolationKind,
   FocusViolationResultDto,
   IssueCategory,
+  LeaderboardBoardKey,
+  LeaderboardDto,
   MyAttemptRequestDto,
   MyDisputeDto,
   MyExamDto,
@@ -72,6 +74,21 @@ export class CandidateApiService {
    */
   getAttemptResult(attemptId: string): Observable<AttemptResultDto> {
     return this.http.get<AttemptResultDto>(`${this.baseUrl}/attempts/${attemptId}/result`);
+  }
+
+  /**
+   * An exam's leaderboard for the candidate (FR-35): every candidate, the batch the candidate is in, or one subject. Each candidate counts once,
+   * by their best attempt. The API refuses it until the exam's author has released the results, and refuses a batch the candidate is not in.
+   */
+  getLeaderboard(examId: string, board: LeaderboardBoardKey, batchId?: string | null, subject?: string | null): Observable<LeaderboardDto> {
+    const params: Record<string, string> = { board };
+    if (batchId) {
+      params['batchId'] = batchId;
+    }
+    if (subject) {
+      params['subject'] = subject;
+    }
+    return this.http.get<LeaderboardDto>(`${this.baseUrl}/exams/${examId}/leaderboard`, { params });
   }
 
   /**
