@@ -75,6 +75,14 @@ export class CandidateApiService {
   }
 
   /**
+   * The PDF certificate for one of the candidate's submitted results (FR-34). The API refuses it until the exam's author has released the
+   * results, for an invalidated result, and when the name cannot be printed; each refusal comes back as a problem document in the body.
+   */
+  getCertificate(attemptId: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/attempts/${attemptId}/certificate`, { responseType: 'blob' });
+  }
+
+  /**
    * Disputes the answer key of one question of a result the candidate can review (FR-31). Each question can be disputed once, and staff's
    * answer is final; the API refuses a dispute once the time allowed since the result was released has passed.
    */
