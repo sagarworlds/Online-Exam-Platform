@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\ExamPlatform.Modules.Notifications.Domain\ExamPlatform.Modules.Notifications.Domain.csproj" />
+    <ProjectReference Include="..\ExamPlatform.Modules.Notifications.Contracts\ExamPlatform.Modules.Notifications.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
+  </ItemGroup>
+</Project>

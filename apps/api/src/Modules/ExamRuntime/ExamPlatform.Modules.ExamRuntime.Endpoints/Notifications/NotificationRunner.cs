@@ -50,7 +50,8 @@ public sealed class NotificationRunner(IServiceScopeFactory scopes, ILogger<Noti
 
         if (!summary.MailAvailable)
         {
-            logger.LogDebug("Notification pass did nothing: no mail server is configured.");
+            // Not an error: the feed is filled without a mail server, and only the e-mails are skipped.
+            logger.LogDebug("Notification pass sent no e-mail: no mail server is configured. The in-app feed was still filled.");
         }
         else if (summary is { RemindersSent: 0, ResultNoticesSent: 0, RevisionNoticesSent: 0, NotSent: 0, Errors: 0 })
         {
