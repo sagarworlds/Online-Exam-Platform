@@ -130,6 +130,9 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
 
         // Other modules read released results only through this contract (ADR 0001), e.g. candidate analytics (FR-36).
         services.AddScoped<ICandidateResultReader, CandidateResultReader>();
+
+        // How an exam's candidates answered it, for item analysis (FR-37): released results only, marked the same way as the results.
+        services.AddScoped<IExamResponseReader, ExamResponseReader>();
     }
 
     /// <inheritdoc />

@@ -67,6 +67,15 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
         await context.Attempts.AsNoTracking().Where(a => a.CandidateId == candidateId).ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Attempt>> ListCountedForExamAsync(Guid examId, CancellationToken cancellationToken) =>
+        // Read-only and untracked, for the item analysis: each attempt is marked from its answers and paper, which are loaded, and never saved.
+        await context.Attempts.AsNoTracking().AsSplitQuery()
+            .Include(a => a.Answers).Include(a => a.Paper)
+            .Where(a => a.ExamId == examId && a.Status == AttemptStatus.Submitted && a.InvalidatedAtUtc == null)
+            .OrderBy(a => a.SubmittedAtUtc)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListCountedForCandidateAsync(Guid candidateId, CancellationToken cancellationToken) =>
         // Read-only and untracked: the results are marked from these rows and never saved. The answers, paper and revisions are what
         // the marks and the score are built from, so all three are loaded; the split query keeps the three collections from joining.
