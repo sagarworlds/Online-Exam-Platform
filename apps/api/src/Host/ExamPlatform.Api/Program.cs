@@ -4,6 +4,7 @@ using ExamPlatform.Api;
 using ExamPlatform.Api.RateLimiting;
 using ExamPlatform.Api.WhatsApp;
 using ExamPlatform.Modules.Admin.Endpoints;
+using ExamPlatform.Modules.Analytics.Endpoints;
 using ExamPlatform.Modules.Batch.Endpoints;
 using ExamPlatform.Modules.Consent.Endpoints;
 using ExamPlatform.Modules.ExamAuthoring.Endpoints;
@@ -178,6 +179,7 @@ IModuleInstaller[] modules =
     new QuestionBankModuleInstaller(),
     new ExamRuntimeModuleInstaller(),
     new NotificationsModuleInstaller(),
+    new AnalyticsModuleInstaller(),
 ];
 
 foreach (var module in modules)
