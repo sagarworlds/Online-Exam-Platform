@@ -14,4 +14,14 @@ public sealed class StaffDirectory(IUserRepository users) : IStaffDirectory
 
         return await users.ListActiveEmailsWithPermissionAsync(permissionCode.Trim(), cancellationToken);
     }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<StaffRecipient>> GetActiveRecipientsWithPermissionAsync(string permissionCode, CancellationToken cancellationToken)
+    {
+        // Same rule as the e-mail lookup above: a blank code is a caller's bug, reported rather than answered with "no one".
+        ArgumentException.ThrowIfNullOrWhiteSpace(permissionCode);
+
+        var rows = await users.ListActiveWithPermissionAsync(permissionCode.Trim(), cancellationToken);
+        return rows.Select(r => new StaffRecipient(r.UserId, r.Email ?? string.Empty)).ToList();
+    }
 }

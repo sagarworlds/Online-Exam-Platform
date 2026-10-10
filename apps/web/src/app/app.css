@@ -55,11 +55,31 @@
 }
 
 .nav nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   padding: 0.4rem 0.55rem;
   border-radius: var(--radius-sm);
   color: var(--text);
   font-size: 0.95rem;
   text-decoration: none;
+}
+
+/* The unread count beside "Notifications": a small pill, read by screen readers through its visually hidden twin instead. */
+.nav nav .nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  margin-inline-start: 0.35rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .nav nav a:hover {
@@ -74,6 +94,7 @@
 
 .nav nav button {
   margin-inline-start: 0.5rem;
+  min-height: 2.75rem;
 }
 
 /* Holds the admin sidebar (when the signed-in user has an admin area open) beside the routed page. */

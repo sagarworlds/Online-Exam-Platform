@@ -5,6 +5,7 @@ using ExamPlatform.Modules.Invite.Application.Commands;
 using ExamPlatform.Modules.Invite.Application.Ports;
 using ExamPlatform.Modules.Invite.Domain;
 using ExamPlatform.Modules.Invite.Domain.Exceptions;
+using ExamPlatform.Modules.Notifications.Contracts;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -23,6 +24,7 @@ public class CreateInviteHandlerTests
     private readonly IInviteNotifier _notifier = Substitute.For<IInviteNotifier>();
     private readonly IInviteWhatsAppNotifier _whatsApp = Substitute.For<IInviteWhatsAppNotifier>();
     private readonly IContactDirectory _contacts = Substitute.For<IContactDirectory>();
+    private readonly IInAppNotifier _inApp = Substitute.For<IInAppNotifier>();
     private readonly IInviteLinkBuilder _links = Substitute.For<IInviteLinkBuilder>();
     private readonly Guid _examId = Guid.NewGuid();
     private readonly CreateInviteHandler _handler;
@@ -32,8 +34,34 @@ public class CreateInviteHandlerTests
         _catalog.FindAsync(_examId, Arg.Any<CancellationToken>()).Returns(new ExamSnapshot(
             _examId, "Maths Final", null, false, Now, Now.AddHours(3), null, null, 1, 0, 0, []));
         _links.Build(Arg.Any<string>()).Returns(call => "https://app.example/invite?code=" + call.Arg<string>());
+        _inApp.NotifyAsync(Arg.Any<InAppNotice>(), Arg.Any<CancellationToken>()).Returns(true);
         _handler = new CreateInviteHandler(
-            _repository, _unitOfWork, _catalog, _notifier, _whatsApp, _contacts, _links, new FakeClock(Now), NullLogger<CreateInviteHandler>.Instance);
+            _repository, _unitOfWork, _catalog, _notifier, _whatsApp, _contacts, _inApp, _links, new FakeClock(Now), NullLogger<CreateInviteHandler>.Instance);
+    }
+
+    [Fact]
+    public async Task AnAddressWithAnAccount_GetsTheInvitationInItsFeed()
+    {
+        var accountId = Guid.NewGuid();
+        _contacts.FindActiveAccountIdByEmailAsync(Email, Arg.Any<CancellationToken>()).Returns(accountId);
+
+        await _handler.HandleAsync(Command(), CancellationToken.None);
+
+        await _inApp.Received(1).NotifyAsync(
+            Arg.Is<InAppNotice>(n => n.RecipientUserId == accountId && n.Kind == InAppNoticeKind.InviteReceived && n.ExamName == "Maths Final"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AnAddressWithNoAccount_GetsNoFeedNotice_AndTheInviteStillGoes()
+    {
+        _contacts.FindActiveAccountIdByEmailAsync(Email, Arg.Any<CancellationToken>()).Returns((Guid?)null);
+        _notifier.SendAsync(Arg.Any<InviteEmail>(), Arg.Any<CancellationToken>()).Returns(true);
+
+        var result = await _handler.HandleAsync(Command(), CancellationToken.None);
+
+        Assert.True(result.EmailSent);
+        await _inApp.DidNotReceive().NotifyAsync(Arg.Any<InAppNotice>(), Arg.Any<CancellationToken>());
     }
 
     private CreateInviteCommand Command(string email = Email, Guid? examId = null) =>

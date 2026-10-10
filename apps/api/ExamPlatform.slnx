@@ -57,6 +57,13 @@
     <Project Path="src/Modules/Guardian/ExamPlatform.Modules.Guardian.Endpoints/ExamPlatform.Modules.Guardian.Endpoints.csproj" />
     <Project Path="src/Modules/Guardian/ExamPlatform.Modules.Guardian.Infrastructure/ExamPlatform.Modules.Guardian.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/ExamPlatform.Modules.Notifications.Application/ExamPlatform.Modules.Notifications.Application.csproj" />
+    <Project Path="src/Modules/Notifications/ExamPlatform.Modules.Notifications.Contracts/ExamPlatform.Modules.Notifications.Contracts.csproj" />
+    <Project Path="src/Modules/Notifications/ExamPlatform.Modules.Notifications.Domain/ExamPlatform.Modules.Notifications.Domain.csproj" />
+    <Project Path="src/Modules/Notifications/ExamPlatform.Modules.Notifications.Endpoints/ExamPlatform.Modules.Notifications.Endpoints.csproj" />
+    <Project Path="src/Modules/Notifications/ExamPlatform.Modules.Notifications.Infrastructure/ExamPlatform.Modules.Notifications.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/QuestionBank/">
     <Project Path="src/Modules/QuestionBank/ExamPlatform.Modules.QuestionBank.Application/ExamPlatform.Modules.QuestionBank.Application.csproj" />
     <Project Path="src/Modules/QuestionBank/ExamPlatform.Modules.QuestionBank.Contracts/ExamPlatform.Modules.QuestionBank.Contracts.csproj" />
@@ -103,5 +110,6 @@
   </Folder>
   <Folder Name="/tests/Modules/Guardian/">
     <Project Path="tests/Modules/Guardian/ExamPlatform.Modules.Guardian.UnitTests/ExamPlatform.Modules.Guardian.UnitTests.csproj" />
+    <Project Path="tests/Modules/Notifications/ExamPlatform.Modules.Notifications.UnitTests/ExamPlatform.Modules.Notifications.UnitTests.csproj" />
   </Folder>
 </Solution>

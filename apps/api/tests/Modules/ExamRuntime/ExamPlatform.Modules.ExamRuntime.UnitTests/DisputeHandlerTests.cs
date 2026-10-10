@@ -5,6 +5,7 @@ using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
 using ExamPlatform.Modules.Invite.Contracts;
+using ExamPlatform.Modules.Notifications.Contracts;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using NSubstitute;
 
@@ -24,6 +25,7 @@ public class DisputeHandlerTests
     private readonly IAttemptRepository _attempts = Substitute.For<IAttemptRepository>();
     private readonly IDisputeRepository _disputes = Substitute.For<IDisputeRepository>();
     private readonly IExamRuntimeUnitOfWork _unitOfWork = Substitute.For<IExamRuntimeUnitOfWork>();
+    private readonly IInAppNotifier _inApp = Substitute.For<IInAppNotifier>();
     private readonly QuestionSnapshot _question = Fixtures.Question("2 + 2?");
 
     private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock);
@@ -257,7 +259,7 @@ public class DisputeHandlerTests
         var dispute = OpenDispute(attempt.Id, exam.Id);
         _disputes.GetByIdAsync(dispute.Id, Arg.Any<CancellationToken>()).Returns(dispute);
 
-        var result = await new RejectDisputeHandler(_disputes, _unitOfWork, Dtos, _clock)
+        var result = await new RejectDisputeHandler(_disputes, _unitOfWork, Dtos, _clock, _inApp)
             .HandleAsync(dispute.Id, _staff, "4 is the only sum", CancellationToken.None);
 
         Assert.Equal(DisputeStatus.Rejected, result.Status);
@@ -265,6 +267,9 @@ public class DisputeHandlerTests
         Assert.Equal(Fixtures.Now, result.ResolvedAtUtc);
         Assert.Equal(_staff, dispute.ResolvedByUserId);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _inApp.Received(1).NotifyAsync(
+            Arg.Is<InAppNotice>(n => n.RecipientUserId == dispute.CandidateId && n.Kind == InAppNoticeKind.DisputeRejected && n.SubjectId == dispute.Id),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -273,7 +278,7 @@ public class DisputeHandlerTests
         _disputes.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Dispute?)null);
 
         await Assert.ThrowsAsync<DisputeNotFoundError>(
-            () => new RejectDisputeHandler(_disputes, _unitOfWork, Dtos, _clock).HandleAsync(Guid.NewGuid(), _staff, "No", CancellationToken.None));
+            () => new RejectDisputeHandler(_disputes, _unitOfWork, Dtos, _clock, _inApp).HandleAsync(Guid.NewGuid(), _staff, "No", CancellationToken.None));
     }
 
     [Fact]
@@ -284,7 +289,7 @@ public class DisputeHandlerTests
         _disputes.GetByIdAsync(dispute.Id, Arg.Any<CancellationToken>()).Returns(dispute);
 
         await Assert.ThrowsAsync<DisputeNotOpenError>(
-            () => new RejectDisputeHandler(_disputes, _unitOfWork, Dtos, _clock).HandleAsync(dispute.Id, _staff, "No", CancellationToken.None));
+            () => new RejectDisputeHandler(_disputes, _unitOfWork, Dtos, _clock, _inApp).HandleAsync(dispute.Id, _staff, "No", CancellationToken.None));
 
         await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
     }
@@ -296,7 +301,7 @@ public class DisputeHandlerTests
         _disputes.GetByIdAsync(dispute.Id, Arg.Any<CancellationToken>()).Returns(dispute);
 
         await Assert.ThrowsAsync<InvalidAttemptError>(
-            () => new RejectDisputeHandler(_disputes, _unitOfWork, Dtos, _clock).HandleAsync(dispute.Id, _staff, " ", CancellationToken.None));
+            () => new RejectDisputeHandler(_disputes, _unitOfWork, Dtos, _clock, _inApp).HandleAsync(dispute.Id, _staff, " ", CancellationToken.None));
 
         Assert.Equal(DisputeStatus.Open, dispute.Status);
         await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);

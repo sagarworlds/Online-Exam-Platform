@@ -3,6 +3,7 @@ using ExamPlatform.Modules.ExamRuntime.Application;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.Invite.Contracts;
+using ExamPlatform.Modules.Notifications.Contracts;
 using NSubstitute;
 
 namespace ExamPlatform.Modules.ExamRuntime.UnitTests;
@@ -17,6 +18,7 @@ public class NotificationRunTests
     private readonly IExamRoster _roster = Substitute.For<IExamRoster>();
     private readonly IExamNotificationMailer _mailer = Substitute.For<IExamNotificationMailer>();
     private readonly IExamRuntimeUnitOfWork _unitOfWork = Substitute.For<IExamRuntimeUnitOfWork>();
+    private readonly IInAppNotifier _inApp = Substitute.For<IInAppNotifier>();
     private readonly InMemoryDeliveries _deliveries = new();
     private readonly InMemoryQueries _queries;
     private readonly NotificationRun _run;
@@ -29,7 +31,8 @@ public class NotificationRunTests
         _mailer.SendResultReleasedAsync(default!, default).ReturnsForAnyArgs(true);
         _mailer.SendScoreRevisedAsync(default!, default).ReturnsForAnyArgs(true);
         _catalog.FindPublishedStartingBetweenAsync(default, default, default).ReturnsForAnyArgs([]);
-        _run = new NotificationRun(_catalog, _roster, _queries, _deliveries, _mailer, _unitOfWork);
+        _inApp.NotifyManyAsync(Arg.Any<IReadOnlyCollection<InAppNotice>>(), Arg.Any<CancellationToken>()).Returns(true);
+        _run = new NotificationRun(_catalog, _roster, _queries, _deliveries, _mailer, _unitOfWork, _inApp);
     }
 
     // ---- fakes of the two stores -----------------------------------------------------------------------
@@ -87,17 +90,35 @@ public class NotificationRunTests
     // ---- no mail server --------------------------------------------------------------------------------
 
     [Fact]
-    public async Task WithNoMailServer_NothingIsLookedAtOrRecorded()
+    public async Task WithNoMailServer_NoEmailIsSentOrRecorded_ButTheFeedIsStillFilled()
     {
         _mailer.IsAvailable.Returns(false);
-        ExamStartingIn(TimeSpan.FromHours(10));
+        var exam = ExamStartingIn(TimeSpan.FromHours(10));
 
         var summary = await _run.RunAsync(Now, CancellationToken.None);
 
         Assert.False(summary.MailAvailable);
         Assert.Empty(_deliveries.All);
-        await _catalog.DidNotReceiveWithAnyArgs().FindPublishedStartingBetweenAsync(default, default, default);
+        await _mailer.DidNotReceiveWithAnyArgs().SendReminderAsync(default!, default);
         await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await _inApp.Received(1).NotifyManyAsync(
+            Arg.Is<IReadOnlyCollection<InAppNotice>>(n => n.Count == 1
+                && n.Single().RecipientUserId == _candidate
+                && n.Single().Kind == InAppNoticeKind.ExamReminder24Hours
+                && n.Single().SubjectId == exam.Id),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AnExamWithinTheHour_FeedsTheHourReminder_NotTheDayOne()
+    {
+        var exam = ExamStartingIn(TimeSpan.FromMinutes(40));
+
+        await _run.RunAsync(Now, CancellationToken.None);
+
+        await _inApp.Received(1).NotifyManyAsync(
+            Arg.Is<IReadOnlyCollection<InAppNotice>>(n => n.Count == 1 && n.Single().Kind == InAppNoticeKind.ExamReminderOneHour && n.Single().SubjectId == exam.Id),
+            Arg.Any<CancellationToken>());
     }
 
     // ---- reminders -------------------------------------------------------------------------------------
