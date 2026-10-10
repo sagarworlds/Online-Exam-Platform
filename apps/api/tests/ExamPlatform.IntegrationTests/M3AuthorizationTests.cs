@@ -162,6 +162,21 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("DELETE", "/v1/guardians/{guardianId}/candidates/{candidateId}", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
         new("GET", "/v1/guardians", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
         new("GET", "/v1/guardians/{guardianId}/links", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
+
+        // FR-41: the institute's branding is changed with the exam editor's permission; its reads are public (see PublicRoutes).
+        new("PUT", "/v1/branding", RbacCatalog.PermissionCodes.ExamManage,
+            new { instituteName = "Authorization Test Institute", primaryColour = "#1A56DB" }),
+        new("PUT", "/v1/branding/logo", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("DELETE", "/v1/branding/logo", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("GET", "/v1/instruction-templates", RbacCatalog.PermissionCodes.ExamRead, null),
+        new("POST", "/v1/instruction-templates", RbacCatalog.PermissionCodes.ExamManage,
+            new { title = "Authorization test", body = "Authorization test" }),
+        new("PUT", "/v1/instruction-templates/{templateId:guid}", RbacCatalog.PermissionCodes.ExamManage,
+            new { title = "Authorization test", body = "Authorization test" }),
+        new("DELETE", "/v1/instruction-templates/{templateId:guid}", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("PUT", "/v1/exams/{examId:guid}/instructions", RbacCatalog.PermissionCodes.ExamManage,
+            new { instructions = "Authorization test" }),
+        new("POST", "/v1/exams/{examId:guid}/instructions/from-template/{templateId:guid}", RbacCatalog.PermissionCodes.ExamManage, null),
     ];
 
     // Routes under the module prefixes that deliberately ask for a signed-in caller only: accepting and declining
@@ -180,9 +195,9 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
 
     // Routes that need no sign-in at all: a guardian has no account, so the one-time code e-mailed to them is the only proof.
     // They are listed here so that adding one is a decision, and the test checks that they really are open.
-    private static readonly string[] PublicRoutes = ["POST /v1/guardian-links/verify"];
+    private static readonly string[] PublicRoutes = ["POST /v1/guardian-links/verify", "GET /v1/branding", "GET /v1/branding/logo"];
 
-    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/me/notifications", "/v1/me/analytics"];
+    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/me/notifications", "/v1/me/analytics", "/v1/branding", "/v1/instruction-templates"];
 
     public static TheoryData<string> StaffRouteKeys => [.. StaffRoutes.Select(r => r.Key)];
 
