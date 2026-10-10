@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\..\..\src\Modules\Analytics\ExamPlatform.Modules.Analytics.Domain\ExamPlatform.Modules.Analytics.Domain.csproj" />
     <ProjectReference Include="..\..\..\..\src\Modules\Analytics\ExamPlatform.Modules.Analytics.Contracts\ExamPlatform.Modules.Analytics.Contracts.csproj" />
     <ProjectReference Include="..\..\..\..\src\Modules\Analytics\ExamPlatform.Modules.Analytics.Application\ExamPlatform.Modules.Analytics.Application.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Modules\Analytics\ExamPlatform.Modules.Analytics.Infrastructure\ExamPlatform.Modules.Analytics.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\..\src\Modules\ExamRuntime\ExamPlatform.Modules.ExamRuntime.Contracts\ExamPlatform.Modules.ExamRuntime.Contracts.csproj" />
   </ItemGroup>
 

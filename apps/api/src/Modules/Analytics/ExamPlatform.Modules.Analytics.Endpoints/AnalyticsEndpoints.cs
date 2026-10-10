@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using ExamPlatform.Modules.Analytics.Contracts;
+using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Application.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -45,6 +46,16 @@ public static class AnalyticsEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .WithName("GetExamItemAnalysis")
             .WithDescription("How each question of an exam performed among the released results: its difficulty and discrimination index, shown only once enough candidates had it (FR-37)");
+
+        endpoints.MapPost("/v1/exams/{examId:guid}/analytics/items/exports", ExportItemAnalysis)
+            .RequireAuthorization(AnalyticsPermissions.ReadItems)
+            .WithTags("Analytics")
+            .Produces(StatusCodes.Status200OK, contentType: "text/csv")
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("ExportItemAnalysis")
+            .WithDescription("Download an exam's item analysis as CSV. The export is recorded in the audit log before the file is sent (FR-38)");
     }
 
     private static async Task<IResult> GetMyAnalytics(ClaimsPrincipal user, ICandidateAnalytics analytics, CancellationToken cancellationToken) =>
@@ -52,4 +63,13 @@ public static class AnalyticsEndpoints
 
     private static async Task<IResult> GetItemAnalysis(Guid examId, IExamItemAnalysis analysis, CancellationToken cancellationToken) =>
         Results.Ok(await analysis.GetAsync(examId, cancellationToken));
+
+    private static async Task<IResult> ExportItemAnalysis(
+        Guid examId, ClaimsPrincipal user, IRequestContext requestContext, IItemAnalysisExport export, CancellationToken cancellationToken)
+    {
+        // The actor comes from the token, so the audit entry names the person who asked, whatever the request says.
+        var report = await export.ExportAsync(
+            new ItemAnalysisExportRequest(examId, user.GetUserId(), user.GetPrimaryRole(), requestContext.CorrelationId), cancellationToken);
+        return Results.File(report.Content, report.ContentType, report.FileName);
+    }
 }
