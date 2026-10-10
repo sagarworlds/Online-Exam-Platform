@@ -143,6 +143,11 @@ builder.Services.AddOptions<RateLimiterOptions>()
 // per-IP limiters below see the real client behind a load balancer (NFR-5).
 builder.Services.AddSingleton<IConfigureOptions<ForwardedHeadersOptions>, ForwardedHeadersOptionsSetup>();
 
+// HSTS: a browser that has seen this host once keeps to HTTPS for this long. The framework default is 30 days; a year
+// keeps a candidate who sits an exam rarely on HTTPS between visits (NFR-5). Subdomains are left out on purpose: that is a
+// decision about the whole domain, not about the API.
+builder.Services.Configure<Microsoft.AspNetCore.HttpsPolicy.HstsOptions>(options => options.MaxAge = TimeSpan.FromDays(365));
+
 // Enums as JSON strings everywhere (e.g. "PrivacyNotice"), not their numeric values —
 // matches how query-string enum binding already works, so the API is consistent
 // whether a value arrives via a route/query parameter or a JSON request body.
