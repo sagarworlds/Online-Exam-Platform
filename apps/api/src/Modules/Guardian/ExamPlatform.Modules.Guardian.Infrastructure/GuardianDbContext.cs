@@ -40,7 +40,9 @@ public class GuardianDbContext(DbContextOptions<GuardianDbContext> options) : Db
             l.Property(x => x.GuardianId).IsRequired();
             l.Property(x => x.CandidateId).IsRequired();
             l.Property(x => x.CandidateEmail).HasMaxLength(255).IsRequired();
-            l.Property(x => x.VerificationToken).HasMaxLength(255).IsRequired();
+            // The hash is a fixed 64 hex characters; the plain code is never stored (see GuardianLinkToken).
+            l.Property(x => x.VerificationTokenHash).HasMaxLength(64).IsRequired();
+            l.Property(x => x.VerificationExpiresAt).IsRequired();
             l.Property(x => x.Status).HasConversion<string>();
             l.Property(x => x.IsDeleted);
 

@@ -1,19 +1,32 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
-import { GuardianDto, CreateGuardianRequest, GuardianLinkDto, LinkCandidateRequest } from './guardian.models';
+import {
+  GuardianDto,
+  CreateGuardianRequest,
+  GuardianLinkDto,
+  LinkCandidateRequest,
+  LinkCandidateResponse,
+} from './guardian.models';
 
 @Injectable({ providedIn: 'root' })
 export class GuardianApiService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiBaseUrl}/v1/guardians`;
+  // Outside the guardians API on purpose: confirming a link needs no sign-in, only the code from the guardian's e-mail.
+  private verifyUrl = `${environment.apiBaseUrl}/v1/guardian-links/verify`;
 
   registerGuardian(request: CreateGuardianRequest) {
     return this.http.post<GuardianDto>(this.apiUrl, request);
   }
 
   linkCandidate(guardianId: string, request: LinkCandidateRequest) {
-    return this.http.post<GuardianLinkDto>(`${this.apiUrl}/${guardianId}/links`, request);
+    return this.http.post<LinkCandidateResponse>(`${this.apiUrl}/${guardianId}/links`, request);
+  }
+
+  /** Confirms a candidate link with the one-time code from the guardian's e-mail. */
+  verifyLink(token: string) {
+    return this.http.post<GuardianLinkDto>(this.verifyUrl, { token });
   }
 
   revokeLink(guardianId: string, candidateId: string) {

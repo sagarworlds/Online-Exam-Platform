@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.Guardian.Application.Commands;
+using ExamPlatform.Modules.Guardian.Application.Dtos;
 using ExamPlatform.Modules.Guardian.Application.Queries;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -55,6 +56,17 @@ public static class GuardianEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("ListGuardianLinks")
             .WithDescription("List a guardian's candidate links, revoked ones included");
+
+        // Outside the guardians group, which needs a signed-in caller: a guardian has no account to sign in with, so the one-time
+        // code in the e-mail is the only proof. Confirming a link is the only thing this route does.
+        endpoints.MapPost("/v1/guardian-links/verify", VerifyGuardianLink)
+            .AllowAnonymous()
+            .WithTags("Guardian")
+            .Produces<GuardianLinkDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("VerifyGuardianLink")
+            .WithDescription("Confirm a candidate link with the one-time code e-mailed to the guardian");
     }
 
     private static async Task<IResult> CreateGuardian(
@@ -113,6 +125,12 @@ public static class GuardianEndpoints
         ListGuardianLinksHandler handler,
         CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(guardianId, ct));
+
+    private static async Task<IResult> VerifyGuardianLink(
+        VerifyGuardianLinkRequest request,
+        VerifyGuardianLinkHandler handler,
+        CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new VerifyGuardianLinkCommand(request.Token), ct));
 }
 
 /// <summary>Request DTO for creating a guardian.</summary>
@@ -125,3 +143,6 @@ public record CreateGuardianRequest(
 public record LinkCandidateRequest(
     Guid CandidateId,
     string CandidateEmail);
+
+/// <summary>Request DTO for confirming a candidate link with the code e-mailed to the guardian.</summary>
+public record VerifyGuardianLinkRequest(string? Token);

@@ -29,3 +29,11 @@ export interface LinkCandidateRequest {
   candidateId: string;
   candidateEmail: string;
 }
+
+/** The pending link, and whether the guardian was e-mailed the request to confirm it. */
+export interface LinkCandidateResponse {
+  link: GuardianLinkDto;
+  consentRequestSent: boolean;
+  /** Handed back only when no e-mail went out, so staff can pass the confirmation link on. */
+  consentLink?: string;
+}
