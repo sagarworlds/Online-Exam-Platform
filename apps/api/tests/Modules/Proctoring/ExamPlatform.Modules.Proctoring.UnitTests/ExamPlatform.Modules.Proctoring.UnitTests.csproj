@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\Modules\Proctoring\ExamPlatform.Modules.Proctoring.Domain\ExamPlatform.Modules.Proctoring.Domain.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Modules\Proctoring\ExamPlatform.Modules.Proctoring.Application\ExamPlatform.Modules.Proctoring.Application.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Modules\Proctoring\ExamPlatform.Modules.Proctoring.Endpoints\ExamPlatform.Modules.Proctoring.Endpoints.csproj" />
+    <ProjectReference Include="..\..\..\..\src\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
+  </ItemGroup>
+
+</Project>

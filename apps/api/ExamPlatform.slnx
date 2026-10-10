@@ -47,6 +47,7 @@
   </Folder>
   <Folder Name="/src/Modules/ExamRuntime/">
     <Project Path="src/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.Application/ExamPlatform.Modules.ExamRuntime.Application.csproj" />
+    <Project Path="src/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.Contracts/ExamPlatform.Modules.ExamRuntime.Contracts.csproj" />
     <Project Path="src/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.Domain/ExamPlatform.Modules.ExamRuntime.Domain.csproj" />
     <Project Path="src/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.Endpoints/ExamPlatform.Modules.ExamRuntime.Endpoints.csproj" />
     <Project Path="src/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.Infrastructure/ExamPlatform.Modules.ExamRuntime.Infrastructure.csproj" />
@@ -56,6 +57,13 @@
     <Project Path="src/Modules/Guardian/ExamPlatform.Modules.Guardian.Domain/ExamPlatform.Modules.Guardian.Domain.csproj" />
     <Project Path="src/Modules/Guardian/ExamPlatform.Modules.Guardian.Endpoints/ExamPlatform.Modules.Guardian.Endpoints.csproj" />
     <Project Path="src/Modules/Guardian/ExamPlatform.Modules.Guardian.Infrastructure/ExamPlatform.Modules.Guardian.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Proctoring/">
+    <Project Path="src/Modules/Proctoring/ExamPlatform.Modules.Proctoring.Application/ExamPlatform.Modules.Proctoring.Application.csproj" />
+    <Project Path="src/Modules/Proctoring/ExamPlatform.Modules.Proctoring.Contracts/ExamPlatform.Modules.Proctoring.Contracts.csproj" />
+    <Project Path="src/Modules/Proctoring/ExamPlatform.Modules.Proctoring.Domain/ExamPlatform.Modules.Proctoring.Domain.csproj" />
+    <Project Path="src/Modules/Proctoring/ExamPlatform.Modules.Proctoring.Endpoints/ExamPlatform.Modules.Proctoring.Endpoints.csproj" />
+    <Project Path="src/Modules/Proctoring/ExamPlatform.Modules.Proctoring.Infrastructure/ExamPlatform.Modules.Proctoring.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Modules/QuestionBank/">
     <Project Path="src/Modules/QuestionBank/ExamPlatform.Modules.QuestionBank.Application/ExamPlatform.Modules.QuestionBank.Application.csproj" />
@@ -103,5 +111,8 @@
   </Folder>
   <Folder Name="/tests/Modules/Guardian/">
     <Project Path="tests/Modules/Guardian/ExamPlatform.Modules.Guardian.UnitTests/ExamPlatform.Modules.Guardian.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Proctoring/">
+    <Project Path="tests/Modules/Proctoring/ExamPlatform.Modules.Proctoring.UnitTests/ExamPlatform.Modules.Proctoring.UnitTests.csproj" />
   </Folder>
 </Solution>
