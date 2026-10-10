@@ -126,3 +126,10 @@
     align-items: stretch;
   }
 }
+
+/* A link to the risk review on the exam's attempts page: a tap target of at least 44px, as every control on the page is. */
+.risk-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}

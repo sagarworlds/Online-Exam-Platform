@@ -202,5 +202,11 @@ export const routes: Routes = [
     canActivate: [permissionGuard(Permission.GuardianLinkManage)],
     loadComponent: () => import('./guardian-portal/guardian-link/guardian-link').then((m) => m.GuardianLink),
   },
+  {
+    // Staff review the risk flags of an exam's attempts (FR-27). Nothing on the page changes a candidate's attempt.
+    path: 'exams/:id/risk-flags',
+    canActivate: [permissionGuard(Permission.ProctoringReview)],
+    loadComponent: () => import('./proctoring/risk-flag-queue/risk-flag-queue').then((m) => m.RiskFlagQueue),
+  },
   { path: '**', redirectTo: 'login' },
 ];
