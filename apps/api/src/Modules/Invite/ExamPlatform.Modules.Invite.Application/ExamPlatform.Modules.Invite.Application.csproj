@@ -6,5 +6,6 @@
     <ProjectReference Include="..\ExamPlatform.Modules.Invite.Contracts\ExamPlatform.Modules.Invite.Contracts.csproj" />
     <ProjectReference Include="..\..\ExamAuthoring\ExamPlatform.Modules.ExamAuthoring.Contracts\ExamPlatform.Modules.ExamAuthoring.Contracts.csproj" />
     <ProjectReference Include="..\..\Identity\ExamPlatform.Modules.Identity.Contracts\ExamPlatform.Modules.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\..\Notifications\ExamPlatform.Modules.Notifications.Contracts\ExamPlatform.Modules.Notifications.Contracts.csproj" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,80 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>{{ 'notifications.title' | t }}</h1>
+    @if (!loading() && state.unreadCount() > 0) {
+      <button type="button" class="btn btn--primary feed__mark-all" [disabled]="busy()" (click)="markAll()">
+        {{ 'notifications.markAllRead' | t }}
+      </button>
+    }
+  </div>
+
+  <div class="card feed__summary">
+    <p class="feed__headline" aria-live="polite">{{ state.unreadCount() }}</p>
+    <p class="feed__headline-label">{{ 'notifications.unreadLabel' | t }}</p>
+  </div>
+
+  <p class="hint">{{ 'notifications.intro' | t }}</p>
+
+  <!-- Said aloud when a notice is marked read, so a screen reader user hears the change the pointer or keyboard made. -->
+  <p class="visually-hidden" role="status" aria-live="polite">{{ announcement() }}</p>
+
+  @if (actionError()) {
+    <p class="error-message" role="alert">{{ actionError() }}</p>
+  }
+
+  @if (loading()) {
+    <p role="status">{{ 'common.loading' | t }}</p>
+  } @else if (errorMessage()) {
+    <div class="card feed__error">
+      <p class="error-message" role="alert">{{ errorMessage() }}</p>
+      <button type="button" class="btn" (click)="reload()">{{ 'notifications.retry' | t }}</button>
+    </div>
+  } @else if (items().length === 0) {
+    <div class="card empty-state">{{ 'notifications.empty' | t }}</div>
+  } @else {
+    <ul class="feed" [attr.aria-label]="'notifications.listLabel' | t">
+      @for (notice of items(); track notice.id) {
+        <li class="feed__item" [class.feed__item--unread]="!notice.isRead">
+          <div class="feed__body">
+            <p class="feed__text">
+              <span class="feed__state" [class.feed__state--unread]="!notice.isRead">
+                {{ (notice.isRead ? 'notifications.read' : 'notifications.unread') | t }}
+              </span>
+              {{ text(notice) }}
+            </p>
+            <p class="feed__meta">
+              <time [attr.datetime]="notice.createdAtUtc">{{ notice.createdAtUtc | date: 'medium' }}</time>
+            </p>
+          </div>
+          <div class="feed__actions">
+            @if (link(notice); as target) {
+              <a class="btn" [routerLink]="target">
+                {{ 'notifications.open' | t }}
+                <span class="visually-hidden">{{ text(notice) }}</span>
+              </a>
+            }
+            @if (!notice.isRead) {
+              <button
+                type="button"
+                class="btn"
+                [disabled]="busy()"
+                (click)="markRead(notice)"
+              >
+                {{ 'notifications.markRead' | t }}
+                <span class="visually-hidden">{{ text(notice) }}</span>
+              </button>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+
+    @if (loadingMore()) {
+      <p role="status">{{ 'common.loading' | t }}</p>
+    } @else if (hasMore()) {
+      <div class="feed__more">
+        <button type="button" class="btn" (click)="loadMore()">{{ 'notifications.loadMore' | t }}</button>
+      </div>
+    }
+  }
+</div>

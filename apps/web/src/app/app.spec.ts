@@ -22,6 +22,18 @@ describe('App', () => {
 
   afterEach(() => httpMock.verify());
 
+  /**
+   * Answers what the App asks for when it starts: the health check and, when someone is signed in, the unread notification count the
+   * header reads (FR-39). Both are answered here, so each test is left with only the requests it is about.
+   */
+  function answerStartupRequests(): void {
+    httpMock
+      .match((request) => request.url.endsWith('/v1/health') || request.url.endsWith('/unread-count'))
+      .forEach((request) =>
+        request.flush(request.request.url.endsWith('/unread-count') ? { unreadCount: 0 } : 'Healthy'),
+      );
+  }
+
   it('should create the app', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
@@ -124,7 +136,7 @@ describe('App', () => {
     function topNavLinks(): string[] {
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
-      httpMock.expectOne(() => true).flush('Healthy');
+      answerStartupRequests();
       const nav = (fixture.nativeElement as HTMLElement).querySelector('header.nav nav') as HTMLElement;
       return Array.from(nav.querySelectorAll('a')).map((a) => a.textContent?.trim() ?? '');
     }
@@ -132,9 +144,22 @@ describe('App', () => {
     function render(): HTMLElement {
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
-      httpMock.expectOne(() => true).flush('Healthy');
+      answerStartupRequests();
       return fixture.nativeElement as HTMLElement;
     }
+
+    it('shows the unread notification count beside Notifications', () => {
+      signIn([]);
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      httpMock.expectOne(`${environment.apiBaseUrl}/v1/health`).flush('Healthy');
+      httpMock.expectOne((request) => request.url.endsWith('/unread-count')).flush({ unreadCount: 3 });
+      fixture.detectChanges();
+
+      const link = (fixture.nativeElement as HTMLElement).querySelector('a.nav-notifications');
+      expect(link?.querySelector('.nav-badge')?.textContent?.trim()).toBe('3');
+      expect(link?.textContent).toContain('3 unread');
+    });
 
     it('shows a candidate their exams, no admin sidebar', () => {
       signIn([]);
@@ -171,7 +196,7 @@ describe('App', () => {
 
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
-      httpMock.expectOne(`${environment.apiBaseUrl}/v1/health`).flush('Healthy');
+      answerStartupRequests();
       return fixture.nativeElement as HTMLElement;
     }
 

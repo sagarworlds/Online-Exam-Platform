@@ -12,6 +12,7 @@ using ExamPlatform.Modules.Guardian.Endpoints;
 using ExamPlatform.Modules.Identity.Endpoints;
 using ExamPlatform.Modules.Invite.Endpoints;
 using ExamPlatform.Modules.Proctoring.Endpoints;
+using ExamPlatform.Modules.Notifications.Endpoints;
 using ExamPlatform.Modules.QuestionBank.Endpoints;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
@@ -178,6 +179,7 @@ IModuleInstaller[] modules =
     new QuestionBankModuleInstaller(),
     new ExamRuntimeModuleInstaller(),
     new ProctoringModuleInstaller(),
+    new NotificationsModuleInstaller(),
 ];
 
 foreach (var module in modules)

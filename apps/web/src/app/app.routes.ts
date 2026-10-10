@@ -42,6 +42,11 @@ export const routes: Routes = [
     loadComponent: () => import('./consent/consent').then((m) => m.Consent),
   },
   {
+    path: 'notifications',
+    canActivate: [authGuard],
+    loadComponent: () => import('./notifications/notification-feed/notification-feed').then((m) => m.NotificationFeed),
+  },
+  {
     path: 'admin',
     canActivate: [authGuard],
     loadComponent: () => import('./admin/admin-home/admin-home').then((m) => m.AdminHome),

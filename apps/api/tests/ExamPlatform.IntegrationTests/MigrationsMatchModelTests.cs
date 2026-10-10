@@ -7,6 +7,7 @@ using ExamPlatform.Modules.Guardian.Infrastructure;
 using ExamPlatform.Modules.Identity.Infrastructure;
 using ExamPlatform.Modules.Invite.Infrastructure;
 using ExamPlatform.Modules.Proctoring.Infrastructure;
+using ExamPlatform.Modules.Notifications.Infrastructure;
 using ExamPlatform.Modules.QuestionBank.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,7 @@ public sealed class MigrationsMatchModelTests(ApiFactory factory) : IClassFixtur
         typeof(IdentityDbContext),
         typeof(InviteDbContext),
         typeof(ProctoringDbContext),
+        typeof(NotificationsDbContext),
         typeof(QuestionBankDbContext),
     ];
 

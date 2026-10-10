@@ -11,7 +11,7 @@ namespace ExamPlatform.ArchitectureTests;
 public class ModuleCatalogTests
 {
     private static readonly string[] KnownModules =
-        ["Identity", "Consent", "Admin", "ExamAuthoring", "Batch", "Invite", "Guardian", "QuestionBank", "ExamRuntime", "Proctoring"];
+        ["Identity", "Consent", "Admin", "ExamAuthoring", "Batch", "Invite", "Guardian", "QuestionBank", "ExamRuntime", "Proctoring", "Notifications"];
 
     [Fact]
     public void DiscoversAtLeastTheKnownModules()

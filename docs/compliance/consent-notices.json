@@ -1,0 +1,237 @@
+{
+  "banner": "DRAFT: for counsel review. This is not legal advice. The Hindi text needs review by a native speaker. Text in square brackets is a decision still to be made.",
+  "issue": "https://github.com/sagarworlds/Online-Exam-Platform/issues/13",
+  "format": "consent-notices, one entry per purpose and version",
+  "ledgerMapping": {
+    "description": "Each notice is one NoticeVersion row in the consent ledger (FR-44). The ledger stores the purpose, a version label, an effective-from time and one content reference (a URL or a content hash). It stores no text and no language, so the English and Hindi texts below need a seeding decision (see openPoints).",
+    "purposeKey": "The ConsentPurpose value the ledger uses as the purpose. Entries marked purposeStatus proposed need a code change first.",
+    "version": "NoticeVersion.VersionLabel, at most 50 characters. Version v1 is the first draft.",
+    "contentReference": "NoticeVersion.ContentReference, at most 500 characters. To be decided: a hosted address for each language, or a content hash. Set when the notices are seeded."
+  },
+  "openPoints": [
+    "OP-A Counsel review of every notice, and of the coverage table below (issue #11 covers the opinion on children and proctoring).",
+    "OP-B Native Hindi review of every Hindi text.",
+    "OP-C Grievance officer name, e-mail and postal address, in every notice that asks for them (data map OP2).",
+    "OP-D Retention periods, in the privacy notice (data map OP1).",
+    "OP-E Processor list and locations, in the privacy and WhatsApp notices (data map section 4 and OP3, OP4).",
+    "OP-F Enforcement: the terms (rule 5), the privacy notice (children) and the guardian consent describe guardian consent before exam access. The code does not enforce this yet (data map gap G3, FR-43). Do not publish those texts until it is enforced, or change them.",
+    "OP-G Hosting: decide the address or hash for each version and language before the first consent is recorded.",
+    "OP-H Language in the ledger: one NoticeVersion holds one content reference, so Hindi needs its own row or a language field. Decide this in the seeding follow-up.",
+    "OP-I Marathi: the interface has Marathi (mr), and no Marathi text is drafted (data map gap G15).",
+    "OP-J Proposed purpose keys (WhatsAppNotices, MinorGuardianConsent) need an enum value and a seeded version in code before they can be recorded.",
+    "OP-K Once a consent is recorded against a version, that version's text must not change. Publish any change as v2.",
+    "OP-L Integrity monitoring (client sightings, focus violations, warnings) for candidates under 18: counsel decides whether it needs its own notice, or a different purpose key. Today it sits under PrivacyNotice (data map OP6, gap G4).",
+    "OP-M Accommodation notes can reveal a disability or other need. Counsel decides whether they need a separate notice (data map gap G11 and section 3.9)."
+  ],
+  "notices": [
+    {
+      "status": "DRAFT: for counsel review",
+      "purpose": "TermsOfService",
+      "purposeStatus": "in the ConsentPurpose enum",
+      "version": "v1",
+      "effectiveFrom": "to be decided at publication",
+      "contentReference": "to be decided (see ledgerMapping)",
+      "reviewNotes": [
+        "Rule 5 describes the intended rule. The code does not block an under-18 candidate until a guardian has consented (FR-43, data map G3). Do not publish rule 5 as written until that is built, or change it.",
+        "Rule 6 needs the grievance officer (OP-C).",
+        "The rules of use do not mention proctoring, which is not built (milestone M6)."
+      ],
+      "text": {
+        "en": {
+          "reviewStatus": "for counsel review",
+          "title": "Terms of use",
+          "body": [
+            "These terms apply to everyone who uses the exam platform: candidates, guardians and staff.",
+            "Give accurate details when you sign up. Your account is for you only. Do not share your sign-in code with anyone.",
+            "Keep exam content private. Do not copy, record or share exam questions. Do not get help during an exam unless the exam says that help is allowed.",
+            "If we find that these terms have been broken, we may warn you, review your attempt, or cancel it. You can ask for a review of a decision through a dispute or an issue report.",
+            "If you are under 18, a parent or guardian must agree to these terms for you before you use the exam platform.",
+            "Questions and complaints: [to be decided: grievance officer name, e-mail and postal address]."
+          ]
+        },
+        "hi": {
+          "reviewStatus": "needs review by a native speaker; for counsel review",
+          "title": "उपयोग की शर्तें",
+          "body": [
+            "ये शर्तें हर उस व्यक्ति पर लागू होती हैं जो इस परीक्षा प्लेटफ़ॉर्म का उपयोग करता है: परीक्षार्थी, अभिभावक और कर्मचारी।",
+            "साइन-अप करते समय सही जानकारी दें। आपका खाता केवल आपके लिए है। अपना साइन-इन कोड किसी के साथ साझा न करें।",
+            "परीक्षा की सामग्री गोपनीय रखें। परीक्षा के प्रश्न न कॉपी करें, न रिकॉर्ड करें और न साझा करें। परीक्षा के दौरान सहायता तभी लें जब परीक्षा इसकी अनुमति दे।",
+            "यदि हमें पता चले कि इन शर्तों का उल्लंघन हुआ है, तो हम आपको चेतावनी दे सकते हैं, आपके प्रयास की समीक्षा कर सकते हैं, या उसे रद्द कर सकते हैं। किसी निर्णय की समीक्षा के लिए आप विवाद या समस्या रिपोर्ट के ज़रिए अनुरोध कर सकते हैं।",
+            "यदि आप 18 वर्ष से कम आयु के हैं, तो इस प्लेटफ़ॉर्म का उपयोग करने से पहले आपके माता-पिता या अभिभावक को आपकी ओर से इन शर्तों से सहमत होना होगा।",
+            "प्रश्न और शिकायतें: [तय किया जाना है: शिकायत अधिकारी का नाम, ई-मेल और डाक का पता]।"
+          ]
+        }
+      }
+    },
+    {
+      "status": "DRAFT: for counsel review",
+      "purpose": "PrivacyNotice",
+      "purposeStatus": "in the ConsentPurpose enum",
+      "version": "v1",
+      "effectiveFrom": "to be decided at publication",
+      "contentReference": "to be decided (see ledgerMapping)",
+      "reviewNotes": [
+        "Mirrors sections 2 to 9 of the public privacy page (apps/web/public/privacy.html). Keep the two in step (data map OP11).",
+        "The children paragraph does not say that integrity records are off for children. Those records (client sightings, focus violations) are kept for every candidate today. Counsel decides how they apply to children (data map OP6, gap G4).",
+        "The retention line is a placeholder (data map OP1).",
+        "The list of what is collected must match the data map, section 3."
+      ],
+      "text": {
+        "en": {
+          "reviewStatus": "for counsel review",
+          "title": "Privacy notice",
+          "body": [
+            "What we collect: your name, your e-mail address and/or mobile number, your date of birth, your exam invitations and attempts, the answers you give, the questions you mark for review, your scores and results, your sign-in times and device details (an IP address and a device signature), any accommodation your exam organiser gives you, the requests and disputes you make, and the messages we send you.",
+            "Why we use it: to create your account and sign you in; to run exams, keep time, save answers and show results; to keep exams fair and look into suspected cheating, always with a person making the decision; to give you any accommodation you are entitled to; to send notices about exams you are invited to; to answer your requests and disputes; to keep the service secure and keep a record of administrator actions; and to meet legal obligations.",
+            "Who sees it: the exam organiser that invited you, for the exams it runs; our hosting and database providers; our e-mail provider; and Meta, for WhatsApp messages where they are switched on. They act only on our instructions. [List of providers and where they hold data: to be decided, see data map section 4.]",
+            "Children: if you are under 18, a parent or guardian must agree for you. For candidates under 18 we do not show advertising, do not use third-party trackers in the exam, and do not use automatic profiling. Exam integrity records are kept for every candidate, and [to be decided by counsel: how they apply to candidates under 18].",
+            "How long we keep it: [to be decided by the owner and counsel, for each kind of data].",
+            "Your rights: you can ask for a summary of your data, ask us to correct it or erase it, withdraw your consent, and make a complaint. Contact: [to be decided: grievance officer]. If we do not resolve your complaint, you can complain to the Data Protection Board of India.",
+            "Withdrawing: you can withdraw your agreement on the Consent page after you sign in. Withdrawing does not undo what was done before. [What happens to your access to exams after withdrawal: to be decided by counsel.]",
+            "Breaches: if a breach affects your personal data, we will tell the Data Protection Board of India and the people affected, as the law requires."
+          ]
+        },
+        "hi": {
+          "reviewStatus": "needs review by a native speaker; for counsel review",
+          "title": "गोपनीयता सूचना",
+          "body": [
+            "हम क्या एकत्र करते हैं: आपका नाम, आपका ई-मेल पता और/या मोबाइल नंबर, जन्मतिथि, आपके परीक्षा आमंत्रण और प्रयास, आपके दिए उत्तर, जिन प्रश्नों को आपने समीक्षा के लिए चिह्नित किया, आपके अंक और परिणाम, साइन-इन का समय और डिवाइस की जानकारी (IP पता और डिवाइस सिग्नेचर), परीक्षा आयोजक द्वारा दी गई कोई सुविधा (accommodation), आपके अनुरोध और विवाद, और वे संदेश जो हम आपको भेजते हैं।",
+            "हम इसका उपयोग क्यों करते हैं: आपका खाता बनाने और साइन-इन करने के लिए; परीक्षा चलाने, समय रखने, उत्तर सहेजने और परिणाम दिखाने के लिए; परीक्षा निष्पक्ष रखने और संदिग्ध नकल की जाँच के लिए, जिसमें निर्णय हमेशा कोई व्यक्ति लेता है; आपको कानूनन मिलने वाली कोई भी सुविधा देने के लिए; आपके आमंत्रित परीक्षाओं की सूचनाएँ भेजने के लिए; आपके अनुरोधों और विवादों का उत्तर देने के लिए; सेवा सुरक्षित रखने और प्रशासकों की कार्रवाइयों का रिकॉर्ड रखने के लिए; और कानूनी दायित्व पूरे करने के लिए।",
+            "इसे कौन देखता है: वह परीक्षा आयोजक जिसने आपको आमंत्रित किया, उसकी परीक्षाओं के लिए; हमारे होस्टिंग और डेटाबेस प्रदाता; हमारा ई-मेल प्रदाता; और मेटा (Meta), व्हाट्सऐप संदेशों के लिए, जहाँ वे चालू हों। वे केवल हमारे निर्देश पर काम करते हैं। [प्रदाताओं की सूची और वे डेटा कहाँ रखते हैं: तय किया जाना है, डेटा मैप का खंड 4 देखें।]",
+            "बच्चे: यदि आप 18 वर्ष से कम आयु के हैं, तो आपकी ओर से माता-पिता या अभिभावक सहमति दें। 18 वर्ष से कम आयु के परीक्षार्थियों के लिए हम विज्ञापन नहीं दिखाते, परीक्षा में तीसरे पक्ष के ट्रैकर नहीं लगाते, और स्वचालित प्रोफ़ाइलिंग नहीं करते। परीक्षा की निगरानी से जुड़े रिकॉर्ड हर परीक्षार्थी के लिए रखे जाते हैं, और [काउंसल तय करेंगे: 18 वर्ष से कम आयु के परीक्षार्थियों पर ये कैसे लागू होते हैं]।",
+            "हम इसे कितने समय तक रखते हैं: [हर प्रकार के डेटा की अवधि: मालिक और काउंसल तय करेंगे]।",
+            "आपके अधिकार: आप अपने डेटा का सारांश माँग सकते हैं, उसे सुधरवा सकते हैं या मिटवा सकते हैं, अपनी सहमति वापस ले सकते हैं, और शिकायत कर सकते हैं। संपर्क: [तय किया जाना है: शिकायत अधिकारी]। यदि हम आपकी शिकायत का समाधान न करें, तो आप भारत के डेटा संरक्षण बोर्ड से शिकायत कर सकते हैं।",
+            "सहमति वापस लेना: साइन-इन के बाद आप 'सहमति' पेज पर अपनी सहमति वापस ले सकते हैं। वापस लेने से पहले किए गए काम पूर्ववत नहीं होते। [वापस लेने के बाद परीक्षा तक आपकी पहुँच पर क्या असर होगा: काउंसल तय करेंगे।]",
+            "डेटा उल्लंघन: यदि किसी उल्लंघन से आपका व्यक्तिगत डेटा प्रभावित होता है, तो कानून के अनुसार हम भारत के डेटा संरक्षण बोर्ड और प्रभावित लोगों को सूचित करेंगे।"
+          ]
+        }
+      }
+    },
+    {
+      "status": "DRAFT: for counsel review",
+      "purpose": "ProctoringDataProcessing",
+      "purposeStatus": "in the ConsentPurpose enum",
+      "version": "v1",
+      "effectiveFrom": "to be decided at publication",
+      "contentReference": "to be decided (see ledgerMapping)",
+      "reviewNotes": [
+        "Do not show this notice to any candidate. Camera and screen capture are not built (milestone M6). Under section 7.2, no camera or screen feature may be offered to a candidate under 18 until counsel's opinion is recorded (issue #11).",
+        "The enum value covers camera and screen capture. Browser-lock monitoring (focus violations, client sightings) is not covered by this notice. See the coverage table (OP-L).",
+        "The decisions line must stay true in code: no automatic action is taken on a flag."
+      ],
+      "text": {
+        "en": {
+          "reviewStatus": "for counsel review",
+          "title": "Proctoring data processing",
+          "body": [
+            "This notice applies only to an exam that uses proctoring, and only if you agree.",
+            "What is recorded: [to be decided in milestone M6; list each type of data].",
+            "Who reviews it: [to be decided by counsel].",
+            "How long it is kept: [to be decided by counsel].",
+            "Decisions: a person reviews every flag raised during an exam. The platform makes no automatic decision about you from a flag."
+          ]
+        },
+        "hi": {
+          "reviewStatus": "needs review by a native speaker; for counsel review",
+          "title": "प्रॉक्टरिंग डेटा प्रसंस्करण",
+          "body": [
+            "यह सूचना केवल उस परीक्षा पर लागू होती है जिसमें प्रॉक्टरिंग हो, और केवल तब जब आप सहमति दें।",
+            "क्या रिकॉर्ड होता है: [मिलेस्टोन M6 में तय होगा; डेटा के हर प्रकार की सूची दें]।",
+            "इसे कौन देखता है: [काउंसल तय करेंगे]।",
+            "कितने समय तक रखा जाता है: [काउंसल तय करेंगे]।",
+            "निर्णय: परीक्षा के दौरान उठे हर फ़्लैग की समीक्षा एक व्यक्ति करता है। प्लेटफ़ॉर्म किसी फ़्लैग के आधार पर आपके बारे में कोई स्वचालित निर्णय नहीं लेता।"
+          ]
+        }
+      }
+    },
+    {
+      "status": "DRAFT: for counsel review",
+      "purpose": "WhatsAppNotices",
+      "purposeStatus": "proposed: not in the ConsentPurpose enum; needs code",
+      "version": "v1",
+      "effectiveFrom": "to be decided at publication",
+      "contentReference": "to be decided (see ledgerMapping)",
+      "reviewNotes": [
+        "Mirrors section 4 of the public privacy page. Keep the two in step.",
+        "The operator must confirm that people on invitations have agreed to WhatsApp notices (render.yaml, Invite__WhatsApp__TemplateName). This notice is what that confirmation should point to.",
+        "Whether Meta may process data outside India is for counsel (OP-E, data map OP3 and OP5)."
+      ],
+      "text": {
+        "en": {
+          "reviewStatus": "for counsel review",
+          "title": "WhatsApp messages",
+          "body": [
+            "If you give us your mobile number, we may send you messages on WhatsApp: a one-time sign-in code when you choose to sign in with your number, and, where the exam organiser has switched it on, invitations, reminders and result notices.",
+            "We do not put your exam answers in these messages, and we do not use WhatsApp for advertising.",
+            "To send a WhatsApp message we give Meta your mobile number and the text of the message. Meta also receives delivery information and handles it under its own terms: the WhatsApp Privacy Policy and the Meta Privacy Policy.",
+            "You can stop WhatsApp messages at any time by telling us (see the contact in the privacy notice), by withdrawing this consent on the Consent page, or by blocking the sender in WhatsApp. You can still take your exam without them.",
+            "Meta may process data outside India. [To be decided by counsel: whether this is acceptable for each kind of message.]"
+          ]
+        },
+        "hi": {
+          "reviewStatus": "needs review by a native speaker; for counsel review",
+          "title": "व्हाट्सऐप संदेश",
+          "body": [
+            "यदि आप हमें अपना मोबाइल नंबर देते हैं, तो हम आपको व्हाट्सऐप पर संदेश भेज सकते हैं: जब आप अपने नंबर से साइन-इन करना चुनें, तब एक बार का साइन-इन कोड, और जहाँ परीक्षा आयोजक ने इसे चालू किया हो, वहाँ आमंत्रण, अनुस्मारक और परिणाम की सूचनाएँ।",
+            "इन संदेशों में हम आपके परीक्षा उत्तर नहीं डालते, और व्हाट्सऐप का उपयोग विज्ञापन के लिए नहीं करते।",
+            "संदेश भेजने के लिए हम मेटा को आपका मोबाइल नंबर और संदेश का पाठ देते हैं। मेटा डिलीवरी की जानकारी भी पाता है और उसे अपनी नीतियों के तहत संभालता है: व्हाट्सऐप गोपनीयता नीति और मेटा गोपनीयता नीति।",
+            "आप हमें बताकर, इस सहमति को 'सहमति' पेज पर वापस लेकर, या व्हाट्सऐप में भेजने वाले को ब्लॉक करके इन संदेशों को कभी भी रोक सकते हैं। इनके बिना भी आप परीक्षा दे सकते हैं।",
+            "मेटा भारत के बाहर भी डेटा संसाधित कर सकता है। [काउंसल तय करेंगे कि हर प्रकार के संदेश के लिए यह स्वीकार्य है या नहीं।]"
+          ]
+        }
+      }
+    },
+    {
+      "status": "DRAFT: for counsel review",
+      "purpose": "MinorGuardianConsent",
+      "purposeStatus": "proposed: not in the ConsentPurpose enum; needs code",
+      "version": "v1",
+      "effectiveFrom": "to be decided at publication",
+      "contentReference": "to be decided (see ledgerMapping)",
+      "reviewNotes": [
+        "The guardian gives this consent, so the ledger row has the guardian as given-by and the candidate as subject.",
+        "The text says exam access waits for consent. The code does not check it yet (data map G3, FR-43). Do not publish until it is enforced, or change the text.",
+        "Check that the guardian portal's consent and withdrawal path matches this text (FR-45).",
+        "Consent request e-mails currently carry the candidate's e-mail address to the guardian. Counsel to confirm that this is acceptable."
+      ],
+      "text": {
+        "en": {
+          "reviewStatus": "for counsel review",
+          "title": "Guardian consent for a candidate under 18",
+          "body": [
+            "You are giving this consent as the parent or guardian of the candidate named in your confirmation link, who is under 18. This consent is not for an account of your own.",
+            "By confirming, you agree that the platform may hold and use the candidate's personal data as described in the privacy notice, so that the candidate can take the exams they are invited to.",
+            "Your name, e-mail address and phone number (if you give one) are kept with the link, so that we can show that you consented.",
+            "You can view and withdraw this consent at any time through the guardian link (FR-45). [To be decided by counsel: what withdrawing means for the candidate's access to exams.]",
+            "The candidate can take an exam only once this consent is on record. [To be enforced before publication: see the review notes.]",
+            "Questions and complaints: [to be decided: grievance officer name, e-mail and postal address]."
+          ]
+        },
+        "hi": {
+          "reviewStatus": "needs review by a native speaker; for counsel review",
+          "title": "18 वर्ष से कम आयु के परीक्षार्थी के लिए अभिभावक की सहमति",
+          "body": [
+            "आप यह सहमति उस परीक्षार्थी के माता-पिता या अभिभावक के रूप में दे रहे हैं, जिसका नाम आपके पुष्टि लिंक में है और जो 18 वर्ष से कम आयु का है। यह सहमति आपके अपने खाते के लिए नहीं है।",
+            "पुष्टि करके आप सहमत होते हैं कि परीक्षार्थी का व्यक्तिगत डेटा प्लेटफ़ॉर्म पर उसी तरह रखा और उपयोग किया जा सकता है जैसा गोपनीयता सूचना में बताया गया है, ताकि वह उन परीक्षाओं में भाग ले सके जिनके लिए उसे आमंत्रित किया गया है।",
+            "आपका नाम, ई-मेल और फ़ोन नंबर (यदि आप देते हैं) इस लिंक के साथ रखे जाते हैं, ताकि यह दिखाया जा सके कि आपने सहमति दी।",
+            "आप पुष्टि लिंक के माध्यम से यह सहमति कभी भी देख और वापस ले सकते हैं। [वापस लेने का परीक्षार्थी की परीक्षा तक पहुँच पर क्या असर होगा: काउंसल तय करेंगे।]",
+            "परीक्षार्थी परीक्षा तभी दे सकेगा जब यह सहमति दर्ज हो। [लागू करने से पहले इसे सुनिश्चित किया जाएगा: समीक्षा नोट देखें।]",
+            "प्रश्न और शिकायतें: [तय किया जाना है: शिकायत अधिकारी का नाम, ई-मेल और डाक का पता]।"
+          ]
+        }
+      }
+    }
+  ],
+  "coverage": [
+    { "dataMapArea": "Account, sign-in and sessions (data map 3.1)", "purposeKey": "PrivacyNotice", "note": "TermsOfService sets the rules of use." },
+    { "dataMapArea": "Exam activity: attempts, answers, scores, requests and disputes (data map 3.9)", "purposeKey": "PrivacyNotice" },
+    { "dataMapArea": "Integrity monitoring: client sightings, focus violations, warnings (data map 3.9)", "purposeKey": "PrivacyNotice", "note": "OP-L: counsel decides whether these need their own notice for candidates under 18. ProctoringDataProcessing covers camera and screen capture only, which is not built." },
+    { "dataMapArea": "Accommodations, including disability-related notes (data map 3.9)", "purposeKey": "PrivacyNotice", "note": "OP-M: counsel decides whether these need a separate notice." },
+    { "dataMapArea": "E-mail and in-app notices (data map 3.9, 3.10)", "purposeKey": "PrivacyNotice" },
+    { "dataMapArea": "Audit trail (data map 3.2)", "purposeKey": "PrivacyNotice", "note": "Kept for security and accountability; retention to be decided." },
+    { "dataMapArea": "WhatsApp codes, invitations and notices (data map 3.1, 3.4, 3.11)", "purposeKey": "WhatsAppNotices", "note": "Proposed key." },
+    { "dataMapArea": "Guardian details and consent (data map 3.5)", "purposeKey": "MinorGuardianConsent", "note": "Proposed key." },
+    { "dataMapArea": "Camera and screen capture (not built; milestone M6)", "purposeKey": "ProctoringDataProcessing" },
+    { "dataMapArea": "Consent ledger (data map 3.6)", "purposeKey": null, "note": "Records consent. It is not a consent purpose and has no notice." }
+  ]
+}

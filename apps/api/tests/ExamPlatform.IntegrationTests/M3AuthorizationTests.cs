@@ -171,13 +171,22 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
 
     // Routes under the module prefixes that deliberately ask for a signed-in caller only: accepting and declining
     // an invite are the invitee's own actions, so they cannot demand a staff permission. The invited address is checked.
-    private static readonly string[] SelfServiceRoutes = ["POST /v1/invites/accept", "POST /v1/invites/{inviteId}/decline"];
+    // The in-app feed is the signed-in account's own (FR-39): every route reads or marks that account's notices only, taken from the token.
+    private static readonly string[] SelfServiceRoutes =
+    [
+        "POST /v1/invites/accept",
+        "POST /v1/invites/{inviteId}/decline",
+        "GET /v1/me/notifications",
+        "GET /v1/me/notifications/unread-count",
+        "POST /v1/me/notifications/{notificationId:guid}/read",
+        "POST /v1/me/notifications/read-all",
+    ];
 
     // Routes that need no sign-in at all: a guardian has no account, so the one-time code e-mailed to them is the only proof.
     // They are listed here so that adding one is a decision, and the test checks that they really are open.
     private static readonly string[] PublicRoutes = ["POST /v1/guardian-links/verify"];
 
-    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/proctoring"];
+    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/proctoring", "/v1/me/notifications"];
 
     public static TheoryData<string> StaffRouteKeys => [.. StaffRoutes.Select(r => r.Key)];
 

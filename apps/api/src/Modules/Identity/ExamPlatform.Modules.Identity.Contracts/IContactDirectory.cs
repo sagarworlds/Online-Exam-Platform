@@ -16,4 +16,14 @@ public interface IContactDirectory
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number, or null when no active account holds the address or the account has no phone number.</returns>
     Task<string?> FindPhoneNumberByEmailAsync(string email, CancellationToken cancellationToken);
+
+    /// <summary>The id of the active account that holds an e-mail address, so its holder can be told in their in-app feed (FR-39).</summary>
+    /// <remarks>
+    /// The same rule as <see cref="FindPhoneNumberByEmailAsync"/>: an account that cannot sign in is not returned. It says only whether an
+    /// account exists for the address, which the caller already knows from having been asked to invite it.
+    /// </remarks>
+    /// <param name="email">The address the account was registered with.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The account's id, or null when no active account holds the address.</returns>
+    Task<Guid?> FindActiveAccountIdByEmailAsync(string email, CancellationToken cancellationToken);
 }

@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\Modules\QuestionBank\ExamPlatform.Modules.QuestionBank.Endpoints\ExamPlatform.Modules.QuestionBank.Endpoints.csproj" />
     <ProjectReference Include="..\..\Modules\ExamRuntime\ExamPlatform.Modules.ExamRuntime.Endpoints\ExamPlatform.Modules.ExamRuntime.Endpoints.csproj" />
     <ProjectReference Include="..\..\Modules\Proctoring\ExamPlatform.Modules.Proctoring.Endpoints\ExamPlatform.Modules.Proctoring.Endpoints.csproj" />
+    <ProjectReference Include="..\..\Modules\Notifications\ExamPlatform.Modules.Notifications.Endpoints\ExamPlatform.Modules.Notifications.Endpoints.csproj" />
     <ProjectReference Include="..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
     <ProjectReference Include="..\..\SharedKernel\ExamPlatform.SharedKernel.Infrastructure\ExamPlatform.SharedKernel.Infrastructure.csproj" />
   </ItemGroup>
