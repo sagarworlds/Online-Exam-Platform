@@ -922,4 +922,9 @@ export const MR: Messages = {
   'exams.field.chooseBook': 'पुस्तक निवडा…',
   'exams.field.chapters': 'धडे',
   'exams.field.noChapters': 'या पुस्तकात खुला धडा नाही.',
+  'attempt.shortcuts.toggle': 'एक-की शॉर्टकट (N, P, M, C)',
+  'pageTitle.exam': 'परीक्षा',
+  'pageTitle.examNew': 'नवीन परीक्षा',
+  'pageTitle.examEdit': 'परीक्षा संपादित करा',
+  'pageTitle.questionEdit': 'प्रश्न संपादित करा',
 };

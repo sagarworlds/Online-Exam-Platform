@@ -922,4 +922,9 @@ export const HI: Messages = {
   'exams.field.chooseBook': 'किताब चुनें…',
   'exams.field.chapters': 'अध्याय',
   'exams.field.noChapters': 'इस किताब में कोई खुला अध्याय नहीं है।',
+  'attempt.shortcuts.toggle': 'एक-कुंजी शॉर्टकट (N, P, M, C)',
+  'pageTitle.exam': 'परीक्षा',
+  'pageTitle.examNew': 'नई परीक्षा',
+  'pageTitle.examEdit': 'परीक्षा संपादित करें',
+  'pageTitle.questionEdit': 'प्रश्न संपादित करें',
 };

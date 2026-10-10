@@ -928,6 +928,11 @@ export const EN = {
   'exams.field.chooseBook': 'Choose a book…',
   'exams.field.chapters': 'Chapters',
   'exams.field.noChapters': 'This book has no open chapters.',
+  'attempt.shortcuts.toggle': 'Single-key shortcuts (N, P, M, C)',
+  'pageTitle.exam': 'Exam',
+  'pageTitle.examNew': 'New exam',
+  'pageTitle.examEdit': 'Edit exam',
+  'pageTitle.questionEdit': 'Edit question',
 } as const;
 
 /** The key of a message. */
