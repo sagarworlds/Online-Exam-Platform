@@ -160,6 +160,30 @@ public class GuardianFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_link_token");
     }
 
+    [Fact]
+    public async Task FindGuardian_ByAddressInAnyCase_ReturnsTheGuardian()
+    {
+        using var client = await StaffClientAsync();
+        var created = await client.PostAsJsonAsync("/v1/guardians", new CreateGuardianRequest("find-me@example.com", "Find Me", null));
+        created.EnsureSuccessStatusCode();
+        var guardianId = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        var response = await client.GetAsync("/v1/guardians?email=FIND-ME%40example.com");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(guardianId, (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid());
+    }
+
+    [Fact]
+    public async Task FindGuardian_WithAnUnknownAddress_Returns404()
+    {
+        using var client = await StaffClientAsync();
+
+        var response = await client.GetAsync("/v1/guardians?email=nobody%40example.com");
+
+        await AssertProblemAsync(response, HttpStatusCode.NotFound, "guardian_not_found");
+    }
+
     private async Task<HttpClient> StaffClientAsync()
     {
         var client = factory.CreateClient();

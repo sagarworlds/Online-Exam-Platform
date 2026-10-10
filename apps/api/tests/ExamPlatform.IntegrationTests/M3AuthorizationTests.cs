@@ -158,6 +158,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             new { candidateId = Guid.NewGuid(), candidateEmail = "candidate@example.com" }),
         new("DELETE", "/v1/guardians/{guardianId}/links/{candidateId}", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
         new("DELETE", "/v1/guardians/{guardianId}/candidates/{candidateId}", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
+        new("GET", "/v1/guardians", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
         new("GET", "/v1/guardians/{guardianId}/links", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
     ];
 

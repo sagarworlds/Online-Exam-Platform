@@ -2,8 +2,9 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { switchMap } from 'rxjs';
+import { extractErrorMessage } from '../../shared/problem-details';
 import { GuardianApiService } from '../guardian-api.service';
-import { AuthSessionService } from '../../auth/auth-session.service';
 
 @Component({
   selector: 'app-guardian-link',
@@ -15,6 +16,20 @@ import { AuthSessionService } from '../../auth/auth-session.service';
       <p class="hint">Link a candidate to a guardian. The guardian is e-mailed a request to confirm the link.</p>
 
       <form class="card" [formGroup]="form" (ngSubmit)="onSubmit()">
+        <div class="field">
+          <label for="guardianEmail">Guardian e-mail *</label>
+          <input
+            type="email"
+            id="guardianEmail"
+            formControlName="guardianEmail"
+            placeholder="guardian@example.com"
+          />
+          @if (form.get('guardianEmail')?.invalid && form.get('guardianEmail')?.touched) {
+            <div class="field-error">Valid guardian e-mail is required</div>
+          }
+          <p class="field-hint">The guardian must already be registered.</p>
+        </div>
+
         <div class="field">
           <label for="candidateId">Candidate ID *</label>
           <input
@@ -78,7 +93,6 @@ import { AuthSessionService } from '../../auth/auth-session.service';
 export class GuardianLink implements OnInit {
   private fb = inject(FormBuilder);
   private guardianApi = inject(GuardianApiService);
-  private authSession = inject(AuthSessionService);
   private router = inject(Router);
 
   form!: FormGroup;
@@ -91,6 +105,7 @@ export class GuardianLink implements OnInit {
 
   ngOnInit() {
     this.form = this.fb.group({
+      guardianEmail: ['', [Validators.required, Validators.email]],
       candidateId: ['', Validators.required],
       candidateEmail: ['', [Validators.required, Validators.email]],
     });
@@ -99,43 +114,40 @@ export class GuardianLink implements OnInit {
   onSubmit() {
     if (!this.form.valid) return;
 
-    const session = this.authSession.session();
-    if (!session?.userId) {
-      this.error.set('Not authenticated');
-      return;
-    }
-
     this.loading.set(true);
     this.error.set('');
     this.success.set(false);
     this.confirmLink.set('');
 
-    const request = {
-      candidateId: this.form.value.candidateId,
-      candidateEmail: this.form.value.candidateEmail,
-    };
+    const { guardianEmail, candidateId, candidateEmail } = this.form.value;
+    const request = { candidateId, candidateEmail };
 
-    this.guardianApi.linkCandidate(session.userId, request).subscribe({
-      next: (response) => {
-        this.loading.set(false);
-        if (response.consentRequestSent) {
-          this.success.set(true);
-          setTimeout(() => {
-            this.router.navigate(['/guardian']);
-          }, 2000);
-        } else if (response.consentLink) {
-          // Nothing was e-mailed. Stay on the page so the link can be copied; leaving would lose it.
-          this.confirmLink.set(response.consentLink);
-        } else {
-          this.error.set('The candidate is linked, but no confirmation link was returned. Ask the platform team to check e-mail setup.');
-        }
-        this.form.reset();
-      },
-      error: (err) => {
-        this.error.set('Failed to link candidate');
-        this.loading.set(false);
-        console.error(err);
-      },
-    });
+    // Two steps: the guardian's record is found by the address staff have, and the candidate is linked to the record found.
+    this.guardianApi
+      .findGuardianByEmail(guardianEmail)
+      .pipe(switchMap((guardian) => this.guardianApi.linkCandidate(guardian.id, request)))
+      .subscribe({
+        next: (response) => {
+          this.loading.set(false);
+          if (response.consentRequestSent) {
+            this.success.set(true);
+            setTimeout(() => {
+              this.router.navigate(['/guardian']);
+            }, 2000);
+          } else if (response.consentLink) {
+            // Nothing was e-mailed. Stay on the page so the link can be copied; leaving would lose it.
+            this.confirmLink.set(response.consentLink);
+          } else {
+            this.error.set('The candidate is linked, but no confirmation link was returned. Ask the platform team to check e-mail setup.');
+          }
+          this.form.reset();
+        },
+        error: (err: unknown) => {
+          // The API's reason is shown as it is: "no guardian is registered with that address" tells staff what to do next.
+          this.error.set(extractErrorMessage(err, 'Failed to link candidate'));
+          this.loading.set(false);
+          console.error(err);
+        },
+      });
   }
 }
