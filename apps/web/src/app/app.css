@@ -147,3 +147,13 @@
     align-items: stretch;
   }
 }
+
+/* Touch targets: the header's brand, links and buttons are at least 44px tall (WCAG 2.5.5 and the team's touch rule). They are inline by
+   default, so a height only takes effect once they are laid out as inline-flex boxes. */
+.nav .brand,
+.nav nav a,
+.nav nav button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}

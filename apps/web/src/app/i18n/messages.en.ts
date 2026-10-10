@@ -1067,6 +1067,11 @@ export const EN = {
   'admin.items.howTitle': 'How to read the figures',
   'admin.items.difficultyHelp': 'The share of the candidates who had the question and answered it fully correctly. A question nobody answered counts as wrong.',
   'admin.items.discriminationHelp': 'The share correct among the top {group} candidates by score, less the share correct among the bottom {group}. Near +1 means strong candidates got it right and weak ones did not; near zero or below means it does not separate them.',
+  'attempt.shortcuts.toggle': 'Single-key shortcuts (N, P, M, C)',
+  'pageTitle.exam': 'Exam',
+  'pageTitle.examNew': 'New exam',
+  'pageTitle.examEdit': 'Edit exam',
+  'pageTitle.questionEdit': 'Edit question',
 } as const;
 
 /** The key of a message. */
