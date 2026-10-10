@@ -67,6 +67,20 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
         await context.Attempts.AsNoTracking().Where(a => a.CandidateId == candidateId).ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<decimal>> ListBestScoresOfOtherCandidatesAsync(Guid examId, Guid excludedCandidateId, CancellationToken cancellationToken)
+    {
+        // Grouped in the database so only one number per candidate leaves it, not every attempt of a large exam.
+        var best = await context.Attempts.AsNoTracking()
+            .Where(a => a.ExamId == examId && a.CandidateId != excludedCandidateId && a.Status == AttemptStatus.Submitted && a.InvalidatedAtUtc == null)
+            .GroupBy(a => a.CandidateId)
+            .Select(g => g.Max(a => a.Score))
+            .ToListAsync(cancellationToken);
+
+        // A submitted attempt always has a score; the null check only satisfies the nullable column's type.
+        return best.Where(score => score is not null).Select(score => score!.Value).ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListSubmittedByQuestionIdAsync(Guid questionId, CancellationToken cancellationToken)
     {
         // Attempts that answered the question, union attempts that only drew it onto their paper (unanswered but

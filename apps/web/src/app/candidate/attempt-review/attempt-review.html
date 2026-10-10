@@ -41,6 +41,9 @@
     </div>
 
     <!-- Under the summary, not inside it, so the summary stays short and the answers start higher up the page. -->
+    @if (attemptId) {
+      <p><a [routerLink]="['/attempt', attemptId, 'result']">{{ 'result.viewResult' | t }}</a></p>
+    }
     @if (r.autoSubmitted) {
       <p class="hint">{{ 'common.autoSubmitted' | t }}</p>
     }
