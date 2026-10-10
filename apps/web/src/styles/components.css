@@ -76,7 +76,7 @@
 .option-row select {
   width: 100%;
   padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
@@ -121,7 +121,7 @@
   align-items: center;
   justify-content: center;
   height: 3.25rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   font-size: 1.5rem;
@@ -265,7 +265,7 @@ button,
   justify-content: center;
   gap: 0.4rem;
   padding: 0.5rem 1rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
@@ -589,7 +589,7 @@ button.btn--primary:hover:not(:disabled),
   flex: 1;
   min-width: 10rem;
   padding: 0.3rem 0.5rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
@@ -620,7 +620,7 @@ button.btn--primary:hover:not(:disabled),
 .list-filter input[type='search'] {
   max-width: 100%;
   padding: 0.4rem 0.6rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
@@ -1282,4 +1282,27 @@ button.btn--primary:hover:not(:disabled),
     grid-column: 2;
     justify-self: start;
   }
+}
+
+/*
+ * Touch targets: buttons, text fields and selects are at least 44px tall at every width (WCAG 2.5.5 and the team's touch rule). It is set
+ * once here, not per screen, so a new screen gets it too. It comes after the rules above, so it overrides their smaller heights.
+ * Checkboxes and radios keep their size: their labels are what a finger hits, so the label is the 44px row.
+ */
+button,
+.btn,
+.password-toggle,
+.mode-toggle button,
+.segmented__option,
+select,
+textarea,
+input:not([type='checkbox']):not([type='radio']) {
+  min-height: 2.75rem;
+}
+
+label:has(> input[type='checkbox']),
+label:has(> input[type='radio']) {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
 }

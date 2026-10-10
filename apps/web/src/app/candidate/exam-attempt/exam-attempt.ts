@@ -53,6 +53,8 @@ const ZOOM_STORAGE_KEY = 'exam.textZoom';
 
 /** Where the high contrast choice is remembered. Browser-only, like the text size. */
 const CONTRAST_STORAGE_KEY = 'exam.highContrast';
+/** Set to 'off' when the candidate turns the single-key shortcuts off (WCAG 2.1.4). Anything else, or no choice, leaves them on. */
+const SHORTCUTS_STORAGE_KEY = 'exam.keyShortcuts';
 
 /**
  * The room kept between the pinned block and a control brought into view, so the control is never left touching the block's edge.
@@ -66,6 +68,15 @@ function hasStoredChoice(key: string): boolean {
     return localStorage.getItem(key) !== null;
   } catch {
     return false;
+  }
+}
+
+/** Reads whether the single-key shortcuts are on. They are on unless the candidate turned them off, so a blocked store means on. */
+function loadShortcutsOn(): boolean {
+  try {
+    return localStorage.getItem(SHORTCUTS_STORAGE_KEY) !== 'off';
+  } catch {
+    return true;
   }
 }
 
@@ -196,6 +207,7 @@ export class ExamAttempt {
   protected readonly zoom = signal<number>(loadZoomLevel());
   /** Whether the stronger black-and-white colour scheme is on. */
   protected readonly highContrast = signal(loadHighContrast());
+  protected readonly shortcutsOn = signal(loadShortcutsOn());
   protected readonly canZoomOut = computed(() => this.zoom() > ZOOM_LEVELS[0]);
   protected readonly canZoomIn = computed(() => this.zoom() < ZOOM_LEVELS[ZOOM_LEVELS.length - 1]);
 
@@ -544,6 +556,20 @@ export class ExamAttempt {
     }
   }
 
+  /**
+   * Turns the single-key shortcuts on or off and remembers the choice in this browser. Turning them off is what WCAG 2.1.4 asks for when
+   * shortcuts are single letters: a candidate whose input sends letters by accident is not moved between questions.
+   */
+  protected toggleShortcuts(): void {
+    const next = !this.shortcutsOn();
+    this.shortcutsOn.set(next);
+    try {
+      localStorage.setItem(SHORTCUTS_STORAGE_KEY, next ? 'on' : 'off');
+    } catch {
+      // A blocked store only means the choice is forgotten on the next visit; the change on screen still applies.
+    }
+  }
+
   /** Turns the high contrast colours on or off and remembers the choice in this browser. */
   protected toggleHighContrast(): void {
     const next = !this.highContrast();
@@ -557,13 +583,14 @@ export class ExamAttempt {
 
   /**
    * Keyboard shortcuts while sitting the exam: N next, P previous, M mark for review, C clear response.
-   * They stand down while a confirmation is open, so a stray key cannot move the candidate under a question they are being asked.
+   * They stand down while a confirmation is open, so a stray key cannot move the candidate under a question they are being asked, and when
+   * the candidate has turned them off (WCAG 2.1.4).
    */
   @HostListener('document:keydown', ['$event'])
   protected onKeydown(event: KeyboardEvent): void {
     const question = this.currentQuestion();
     const shortcut = shortcutFor(event);
-    if (shortcut === null || question === null || !this.isOpen() || this.confirmingSubmit() || this.leavingTo() !== null) {
+    if (shortcut === null || question === null || !this.shortcutsOn() || !this.isOpen() || this.confirmingSubmit() || this.leavingTo() !== null) {
       return;
     }
 
