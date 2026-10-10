@@ -1,0 +1,171 @@
+/*
+ * The analytics page's own layout, on top of the shared cards and stat tiles. Colours are the design tokens only, so dark mode follows the rest
+ * of the app. The chart is a drawing scaled to the page's width; its labels, end value and tooltip are HTML placed over it by percentage,
+ * so they keep a readable size and stay inside the plot at a phone's width.
+ */
+
+.analytics-headline .stat-value {
+  font-size: clamp(1.4rem, 5vw, 2rem);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* The axis labels take a fixed column; the drawing takes the rest, and shrinks rather than pushing the page wider. */
+.trend {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  column-gap: 0.5rem;
+  max-width: 40rem;
+  margin: 0.75rem 0 1.5rem;
+}
+
+.trend__axis {
+  position: relative;
+  min-width: 0;
+}
+
+.trend__label {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.trend__plot {
+  position: relative;
+  min-width: 0;
+}
+
+.trend__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* Hairlines stay one screen pixel wide however far the drawing is scaled. Gridlines are recessive: a solid border tone, never dashed. */
+.trend__grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.trend__line {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The transparent circle is the hit target, wider than the marker, so a point is easy to point at on a phone. */
+.trend__hit {
+  fill: transparent;
+  cursor: default;
+}
+
+/* A surface-coloured ring separates each marker from the line it sits on. */
+.trend__marker {
+  fill: var(--primary);
+  stroke: var(--surface);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.trend__point--active .trend__marker {
+  transform: scale(1.25);
+}
+
+/* Positioned from the plot's own edges: the top is the point's height; the left is kept inside the plot by clamp(), see the component. */
+.trend__end,
+.trend__tip {
+  position: absolute;
+  pointer-events: none;
+}
+
+.trend__end {
+  transform: translateY(calc(-100% - 0.6rem));
+  width: 5rem;
+  text-align: center;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.trend__tip {
+  display: grid;
+  gap: 0.15rem;
+  width: 12rem;
+  max-width: 100%;
+  padding: 0.5rem 0.65rem;
+  transform: translateY(calc(-100% - 0.9rem));
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.trend__tip span {
+  color: var(--text-muted);
+}
+
+.analytics-results,
+.analytics-sections {
+  display: grid;
+  gap: 1rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.analytics-result h3,
+.analytics-section h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+
+.analytics-result dl,
+.analytics-section dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.75rem 1.5rem;
+  margin: 1rem 0 0;
+}
+
+.analytics-result dt,
+.analytics-section dt {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.analytics-result dd,
+.analytics-section dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Every control is at least 44px tall, so it can be tapped on a phone. */
+.back-link,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.empty-state .btn {
+  margin-top: 0.75rem;
+}

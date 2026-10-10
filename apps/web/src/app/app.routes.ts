@@ -207,5 +207,12 @@ export const routes: Routes = [
     canActivate: [permissionGuard(Permission.GuardianLinkManage)],
     loadComponent: () => import('./guardian-portal/guardian-link/guardian-link').then((m) => m.GuardianLink),
   },
+  {
+    // The candidate's own performance across the exams they sat (FR-36): released results only, and only their own.
+    path: 'analytics',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./analytics/candidate-analytics/candidate-analytics').then((m) => m.CandidateAnalytics),
+  },
   { path: '**', redirectTo: 'login' },
 ];
