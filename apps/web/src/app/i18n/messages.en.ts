@@ -1067,6 +1067,10 @@ export const EN = {
   'admin.items.howTitle': 'How to read the figures',
   'admin.items.difficultyHelp': 'The share of the candidates who had the question and answered it fully correctly. A question nobody answered counts as wrong.',
   'admin.items.discriminationHelp': 'The share correct among the top {group} candidates by score, less the share correct among the bottom {group}. Near +1 means strong candidates got it right and weak ones did not; near zero or below means it does not separate them.',
+  'admin.items.export': 'Export as CSV',
+  'admin.items.exporting': 'Preparing the file…',
+  'admin.items.exportError': 'The file could not be prepared, so nothing was exported. Please try again.',
+  'admin.items.exportNote': 'The file has the same figures as this page and names no candidate. Each export is recorded in the audit log with who took it and when.',
   // ---- institute branding and instruction templates (FR-41) ----
   'branding.title': 'Institute branding',
   'branding.hint': 'Set the name, colour and logo that candidates see. Leave a field empty to keep the platform’s default look.',

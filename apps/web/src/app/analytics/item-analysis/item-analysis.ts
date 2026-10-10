@@ -1,3 +1,5 @@
+import { DOCUMENT } from '@angular/common';
+import { HttpResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { MessageKey } from '../../i18n/messages.en';
@@ -13,6 +15,13 @@ export type ItemAnalysisView = 'loading' | 'ready' | 'held' | 'empty' | 'error';
 
 /** The columns the reader can sort by, in the order the sort buttons show them. */
 export const ITEM_SORT_KEYS: readonly ItemSortKey[] = ['position', 'attempts', 'difficulty', 'discrimination'];
+
+/** The file name the server gave the download, read from its Content-Disposition header, or null when the header does not carry one. */
+export function fileNameOf(response: HttpResponse<Blob>): string | null {
+  const disposition = response.headers.get('content-disposition') ?? '';
+  const match = /filename="?([^";]+)"?/i.exec(disposition);
+  return match ? match[1] : null;
+}
 
 /** The message that names each sort column; typed so a key missing from the messages does not compile. */
 const SORT_LABEL_KEYS = {
@@ -35,7 +44,12 @@ const SORT_LABEL_KEYS = {
 export class ItemAnalysis {
   private readonly api = inject(AnalyticsApiService);
   private readonly i18n = inject(I18nService);
+  private readonly document = inject(DOCUMENT);
   protected readonly examId = inject(ActivatedRoute).snapshot.paramMap.get('id');
+
+  /** Whether an export request is in flight, so the button shows it is working and cannot be pressed twice. */
+  protected readonly exporting = signal(false);
+  protected readonly exportError = signal<string | null>(null);
 
   protected readonly sortKeys = ITEM_SORT_KEYS;
   protected readonly view = signal<ItemAnalysisView>('loading');
@@ -60,6 +74,49 @@ export class ItemAnalysis {
   /** Reads the analysis again, e.g. after a failed read. */
   protected retry(): void {
     this.load();
+  }
+
+  /**
+   * Downloads the analysis as a CSV file. The server records the export before it sends the file, so a failed export leaves no file behind and
+   * the reader is told so; a second press while one is running is ignored.
+   */
+  protected exportCsv(): void {
+    const examId = this.examId;
+    if (examId === null || this.exporting()) {
+      return;
+    }
+
+    this.exporting.set(true);
+    this.exportError.set(null);
+    this.api.exportItemAnalysis(examId).subscribe({
+      next: (response) => {
+        this.exporting.set(false);
+        this.saveFile(response);
+      },
+      error: (error: unknown) => {
+        // The request asked for a file, so an error body arrives as a blob that cannot be read as a problem; the generic message is the honest one.
+        console.error('Exporting the item analysis failed', error);
+        this.exporting.set(false);
+        this.exportError.set(this.i18n.t('admin.items.exportError'));
+      },
+    });
+  }
+
+  /** Saves the downloaded file under the name the server gave it, or a plain default when the server gave none. */
+  private saveFile(response: HttpResponse<Blob>): void {
+    const blob = response.body;
+    if (blob === null) {
+      this.exportError.set(this.i18n.t('admin.items.exportError'));
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const link = this.document.createElement('a');
+    link.href = url;
+    link.download = fileNameOf(response) ?? 'item-analysis.csv';
+    link.click();
+    // The download starts with the click; the address can be released once the browser has had a moment to read it.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   /** Sorts by a column; choosing the column already sorted reverses its direction. */

@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.Analytics.Application;
+using ExamPlatform.Modules.Analytics.Application.Ports;
 using ExamPlatform.Modules.Analytics.Contracts;
 using ExamPlatform.Modules.Analytics.Infrastructure;
 using ExamPlatform.SharedKernel.Application;
@@ -38,6 +39,9 @@ public sealed class AnalyticsModuleInstaller : IModuleInstaller
             .ValidateOnStart();
         services.AddSingleton(sp => new ItemAnalysisPolicy(sp.GetRequiredService<IOptions<ItemAnalysisOptions>>().Value.MinimumCohortSize));
         services.AddScoped<IExamItemAnalysis, ExamItemAnalysisService>();
+
+        services.AddScoped<IItemAnalysisCsvWriter, ItemAnalysisCsvWriter>();
+        services.AddScoped<IItemAnalysisExport, ItemAnalysisExportService>();
     }
 
     /// <inheritdoc />

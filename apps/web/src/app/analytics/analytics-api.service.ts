@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
@@ -23,5 +23,16 @@ export class AnalyticsApiService {
    */
   getItemAnalysis(examId: string): Observable<ExamItemAnalysisDto> {
     return this.http.get<ExamItemAnalysisDto>(`${environment.apiBaseUrl}/v1/exams/${examId}/analytics/items`);
+  }
+
+  /**
+   * Downloads an exam's item analysis as CSV (FR-38). It is a POST because the server records the export in the audit log, so the response
+   * carries the file's headers, which name the file, along with its bytes.
+   */
+  exportItemAnalysis(examId: string): Observable<HttpResponse<Blob>> {
+    return this.http.post(`${environment.apiBaseUrl}/v1/exams/${examId}/analytics/items/exports`, null, {
+      observe: 'response',
+      responseType: 'blob',
+    });
   }
 }
