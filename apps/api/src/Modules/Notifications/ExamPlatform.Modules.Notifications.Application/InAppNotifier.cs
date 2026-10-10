@@ -54,6 +54,7 @@ public sealed class InAppNotifier(
         InAppNoticeKind.AttemptRequestApproved => NoticeKind.AttemptRequestApproved,
         InAppNoticeKind.AttemptRequestDeclined => NoticeKind.AttemptRequestDeclined,
         InAppNoticeKind.DisputeRejected => NoticeKind.DisputeRejected,
+        InAppNoticeKind.DisputeAccepted => NoticeKind.DisputeAccepted,
         InAppNoticeKind.ExamReminder24Hours => NoticeKind.ExamReminder24Hours,
         InAppNoticeKind.ExamReminderOneHour => NoticeKind.ExamReminderOneHour,
         InAppNoticeKind.ResultReleased => NoticeKind.ResultReleased,

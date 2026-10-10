@@ -1003,6 +1003,7 @@ export const MR: Messages = {
   'notifications.kind.AttemptRequestApproved': '{exam} साठी आणखी एका प्रयत्नाची आपली विनंती मंजूर झाली आहे.',
   'notifications.kind.AttemptRequestDeclined': '{exam} साठी आणखी एका प्रयत्नाची आपली विनंती नाकारण्यात आली आहे. कारण वाचण्यासाठी माझ्या परीक्षा उघडा.',
   'notifications.kind.DisputeRejected': '{exam} मधील एका प्रश्नावरील आपल्या हरकतीचा विचार करण्यात आला आणि उत्तर-किल्ली तशीच राहते. कारण वाचण्यासाठी माझ्या परीक्षा उघडा.',
+  'notifications.kind.DisputeAccepted': '{exam} मधील एका प्रश्नावरील आपली हरकत मान्य करण्यात आली आणि उत्तर-किल्ली दुरुस्त करण्यात आली. निकाल पाहण्यासाठी माझ्या परीक्षा उघडा.',
   'notifications.kind.ExamReminder24Hours': '{exam} एका दिवसात सुरू होणार आहे.',
   'notifications.kind.ExamReminderOneHour': '{exam} एका तासात सुरू होणार आहे.',
   'notifications.kind.ResultReleased': '{exam} चा आपला निकाल जाहीर झाला आहे.',

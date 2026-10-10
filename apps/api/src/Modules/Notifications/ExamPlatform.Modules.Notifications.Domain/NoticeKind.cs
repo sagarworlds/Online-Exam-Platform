@@ -21,6 +21,9 @@ public enum NoticeKind
     /// <summary>A dispute of an answer key was turned down; the key stands (FR-31).</summary>
     DisputeRejected,
 
+    /// <summary>A dispute of an answer key was accepted: the key was corrected and the candidate's result rescored under it (FR-31).</summary>
+    DisputeAccepted,
+
     /// <summary>An exam starts within a day (FR-39).</summary>
     ExamReminder24Hours,
 
