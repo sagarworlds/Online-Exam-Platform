@@ -74,6 +74,12 @@ export class RiskFlagQueue {
   protected readonly filter = signal<RiskFlagFilterName>('open');
   protected readonly entries = signal<QueueEntry[]>([]);
   protected readonly total = signal(0);
+  /** Whether a queue has been read, so the under-18 notice is shown only once the server has said what the gate is. */
+  protected readonly loaded = signal(false);
+  /** Whether attempts by candidates under 18 may be scored here, as the server says. */
+  protected readonly minorsScanEnabled = signal(false);
+  /** How many finished attempts were left out of scoring because the candidate was under 18. */
+  protected readonly excludedUnder18 = signal(0);
   protected readonly page = signal(1);
   protected readonly loading = signal(true);
   protected readonly loadingMore = signal(false);
@@ -176,6 +182,16 @@ export class RiskFlagQueue {
     return this.i18n.plural('proctoring.count', this.total());
   }
 
+  /** The notice for finished attempts left out because the candidate is under 18, with the count in words. */
+  protected gateOffText(): string {
+    return this.i18n.plural('proctoring.gate.off', this.excludedUnder18());
+  }
+
+  /** The sentence after a scan that left attempts out, with the count in words. */
+  protected scanExcludedText(count: number): string {
+    return this.i18n.plural('proctoring.scan.excluded', count);
+  }
+
   /** The words shown when the view holds no flag. */
   protected emptyText(): string {
     return this.filter() === 'open' ? this.i18n.t('proctoring.none.open') : this.i18n.t('proctoring.none.other');
@@ -239,6 +255,9 @@ export class RiskFlagQueue {
       next: (queue) => {
         this.examName.set(queue.examName);
         this.total.set(queue.total);
+        this.minorsScanEnabled.set(queue.minorsScanEnabled);
+        this.excludedUnder18.set(queue.excludedUnder18Attempts);
+        this.loaded.set(true);
         this.page.set(page);
         const fresh: QueueEntry[] = queue.items.map((flag) => ({ flag, decision: null }));
         this.entries.update((list) => (append ? [...list, ...fresh] : fresh));

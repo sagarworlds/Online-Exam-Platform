@@ -28,7 +28,11 @@ const flag = (id: string, overrides: Partial<RiskFlag> = {}): RiskFlag => ({
   ...overrides,
 });
 
-const queue = (items: RiskFlag[], total = items.length): RiskFlagQueue => ({
+const queue = (
+  items: RiskFlag[],
+  total = items.length,
+  gate: Partial<Pick<RiskFlagQueue, 'minorsScanEnabled' | 'excludedUnder18Attempts'>> = {},
+): RiskFlagQueue => ({
   examId: 'e1',
   examName: 'Maths Final',
   filter: 'open',
@@ -36,6 +40,9 @@ const queue = (items: RiskFlag[], total = items.length): RiskFlagQueue => ({
   pageSize: 50,
   total,
   items,
+  minorsScanEnabled: false,
+  excludedUnder18Attempts: 0,
+  ...gate,
 });
 
 describe('RiskFlagQueue', () => {
@@ -114,6 +121,32 @@ describe('RiskFlagQueue', () => {
     httpMock.expectOne((r) => r.url === `${base}/exams/e1/risk-flags`).flush(queue([]));
     fixture.detectChanges();
     expect(text()).toContain('No flags are waiting for review.');
+  });
+
+  it('says how many under-18 attempts were not scored while minors are not scanned', () => {
+    open(queue([], 0, { excludedUnder18Attempts: 2 }));
+
+    expect(text()).toContain('Candidates under 18');
+    expect(text()).toContain('2 finished attempts by candidates under 18 are not scored.');
+    expect(text()).toContain('Scoring of candidates under 18 stays off until counsel’s opinion is on record.');
+  });
+
+  it('says that minors are scored, and shows no gap, once the switch is on', () => {
+    open(queue([flag('f1')], 1, { minorsScanEnabled: true, excludedUnder18Attempts: 0 }));
+
+    expect(text()).toContain('Scoring of candidates under 18 is on in this environment.');
+    expect(text()).not.toContain('not scored');
+  });
+
+  it('reports the under-18 attempts a scan left out', () => {
+    open(queue([]));
+    press('Score finished attempts');
+
+    httpMock.expectOne(`${base}/exams/e1/risk-scan`).flush({ examId: 'e1', scored: 1, flagged: 0, keptDecided: 0, excludedUnder18: 1 });
+    httpMock.expectOne((r) => r.method === 'GET' && r.url === `${base}/exams/e1/risk-flags`).flush(queue([], 0, { excludedUnder18Attempts: 1 }));
+    fixture.detectChanges();
+
+    expect(text()).toContain('One attempt by a candidate under 18 was not scored.');
   });
 
   it('shows every signal behind a score, with its value, rule and points in words', () => {

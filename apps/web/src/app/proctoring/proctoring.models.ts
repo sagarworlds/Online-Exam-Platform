@@ -45,6 +45,10 @@ export interface RiskFlagQueue {
   /** How many flags match the filter across every page. */
   total: number;
   items: RiskFlag[];
+  /** Whether attempts by candidates under 18 may be scored in this environment. Off until counsel's opinion is on record. */
+  minorsScanEnabled: boolean;
+  /** How many finished attempts were left out of scoring because the candidate was under 18. Zero when minors may be scanned. */
+  excludedUnder18Attempts: number;
 }
 
 /** What a scan of an exam did. */
@@ -53,6 +57,8 @@ export interface RiskScanResult {
   scored: number;
   flagged: number;
   keptDecided: number;
+  /** How many finished attempts were not scored because the candidate was under 18. */
+  excludedUnder18: number;
 }
 
 /** The longest note a reviewer may write; the API refuses a longer one. */

@@ -23,6 +23,11 @@
         }}
       </p>
     }
+    @if (scanResult(); as result) {
+      @if (result.excludedUnder18 > 0) {
+        <p class="hint" role="status">{{ scanExcludedText(result.excludedUnder18) }}</p>
+      }
+    }
     @if (scanError()) {
       <p class="error-message" role="alert">{{ scanError() }}</p>
     }
@@ -36,6 +41,19 @@
       }
     </select>
   </div>
+
+  @if (loaded()) {
+    <section class="card risk-gate" aria-labelledby="risk-gate-heading">
+      <h2 id="risk-gate-heading" class="risk-gate__title">{{ 'proctoring.gate.heading' | t }}</h2>
+      @if (minorsScanEnabled()) {
+        <p>{{ 'proctoring.gate.on' | t }}</p>
+      } @else if (excludedUnder18() > 0) {
+        <p class="risk-gate__count">{{ gateOffText() }}</p>
+      } @else {
+        <p>{{ 'proctoring.gate.offNone' | t }}</p>
+      }
+    </section>
+  }
 
   @if (errorMessage()) {
     <p class="error-message" role="alert">{{ errorMessage() }}</p>
