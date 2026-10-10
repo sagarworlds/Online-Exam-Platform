@@ -2,6 +2,7 @@ using ExamPlatform.Modules.ExamRuntime.Application;
 using ExamPlatform.Modules.ExamRuntime.Application.Commands;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
+using ExamPlatform.Modules.ExamRuntime.Contracts;
 using ExamPlatform.Modules.ExamRuntime.Endpoints.Notifications;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure.Email;
@@ -126,6 +127,9 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<ReportIssueHandler>();
         services.AddScoped<ListIssueReportsHandler>();
         services.AddScoped<ResolveIssueReportHandler>();
+
+        // Other modules read released results only through this contract (ADR 0001), e.g. candidate analytics (FR-36).
+        services.AddScoped<ICandidateResultReader, CandidateResultReader>();
     }
 
     /// <inheritdoc />
