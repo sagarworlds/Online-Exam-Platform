@@ -21,7 +21,7 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 public sealed record CreateQuestionCommand(
     string? Text, IReadOnlyList<NewQuestionOption>? Options, Guid CreatedBy, Guid? ChapterId = null,
     string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false, bool AllowDuplicate = false,
-    string? Language = null, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null);
+    string? Language = null, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null, string? Explanation = null);
 
 /// <summary>Handles <see cref="CreateQuestionCommand"/>.</summary>
 public sealed class CreateQuestionHandler(
@@ -57,7 +57,7 @@ public sealed class CreateQuestionHandler(
         var question = Question.Create(
             cleaned.Html, command.Options, command.CreatedBy, clock.UtcNow, filedUnder?.ChapterId,
             QuestionDifficultyText.Parse(command.Difficulty), command.Topics, command.AllowsMultiple, command.Language,
-            translationGroupId: null, isTextAnswer: command.IsTextAnswer, acceptedAnswers: command.AcceptedAnswers);
+            translationGroupId: null, isTextAnswer: command.IsTextAnswer, acceptedAnswers: command.AcceptedAnswers, explanation: command.Explanation);
         question.IndexText(cleaned.PlainText);
 
         repository.Add(question);

@@ -3,10 +3,12 @@
     <ProjectReference Include="..\..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
     <ProjectReference Include="..\ExamPlatform.Modules.ExamRuntime.Domain\ExamPlatform.Modules.ExamRuntime.Domain.csproj" />
     <ProjectReference Include="..\..\Admin\ExamPlatform.Modules.Admin.Contracts\ExamPlatform.Modules.Admin.Contracts.csproj" />
+    <ProjectReference Include="..\..\Batch\ExamPlatform.Modules.Batch.Contracts\ExamPlatform.Modules.Batch.Contracts.csproj" />
     <ProjectReference Include="..\..\ExamAuthoring\ExamPlatform.Modules.ExamAuthoring.Contracts\ExamPlatform.Modules.ExamAuthoring.Contracts.csproj" />
     <ProjectReference Include="..\..\Invite\ExamPlatform.Modules.Invite.Contracts\ExamPlatform.Modules.Invite.Contracts.csproj" />
     <ProjectReference Include="..\..\Identity\ExamPlatform.Modules.Identity.Contracts\ExamPlatform.Modules.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\QuestionBank\ExamPlatform.Modules.QuestionBank.Contracts\ExamPlatform.Modules.QuestionBank.Contracts.csproj" />
     <ProjectReference Include="..\..\Notifications\ExamPlatform.Modules.Notifications.Contracts\ExamPlatform.Modules.Notifications.Contracts.csproj" />
+    <ProjectReference Include="..\ExamPlatform.Modules.ExamRuntime.Contracts\ExamPlatform.Modules.ExamRuntime.Contracts.csproj" />
   </ItemGroup>
 </Project>

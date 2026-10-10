@@ -89,6 +89,7 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
             question.AllowsMultiple,
             question.IsTextAnswer,
             answer?.AnswerText,
-            question.IsTextAnswer ? question.AcceptedAnswers : null);
+            question.IsTextAnswer ? question.AcceptedAnswers : null,
+            question.Explanation);
     }
 }

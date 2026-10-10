@@ -9,7 +9,8 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Ports;
 /// <param name="BookName">The book's name.</param>
 /// <param name="ClassId">The class the book belongs to, or null when it has none.</param>
 /// <param name="ClassName">That class's name, or null.</param>
-public sealed record ChapterRef(Guid ChapterId, string ChapterTitle, Guid BookId, string BookName, Guid? ClassId = null, string? ClassName = null);
+public sealed record ChapterRef(
+    Guid ChapterId, string ChapterTitle, Guid BookId, string BookName, Guid? ClassId = null, string? ClassName = null, string? BookSubject = null);
 
 /// <summary>Persistence port for <see cref="Book"/> and the chapters it owns.</summary>
 public interface IBookRepository

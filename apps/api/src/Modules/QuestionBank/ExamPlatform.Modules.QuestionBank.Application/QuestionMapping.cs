@@ -32,7 +32,8 @@ internal static class QuestionMapping
             filedUnder?.ClassId,
             filedUnder?.ClassName,
             question.IsTextAnswer,
-            question.AcceptedAnswers);
+            question.AcceptedAnswers,
+            question.Explanation);
 
     /// <summary>Maps a line of a question's review thread.</summary>
     public static QuestionReviewEntryDto ToDto(this QuestionReviewEntry entry) =>

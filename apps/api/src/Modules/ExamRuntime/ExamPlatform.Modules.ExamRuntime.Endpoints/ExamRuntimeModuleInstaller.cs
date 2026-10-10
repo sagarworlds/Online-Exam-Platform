@@ -2,6 +2,7 @@ using ExamPlatform.Modules.ExamRuntime.Application;
 using ExamPlatform.Modules.ExamRuntime.Application.Commands;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
+using ExamPlatform.Modules.ExamRuntime.Contracts;
 using ExamPlatform.Modules.ExamRuntime.Endpoints.Notifications;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure.Email;
@@ -77,6 +78,9 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<GetQuestionPictureHandler>();
         services.AddScoped<GetAttemptReviewHandler>();
         services.AddScoped<GetAttemptResultHandler>();
+        services.AddScoped<GetCertificateHandler>();
+        services.AddScoped<SubjectMarks>();
+        services.AddScoped<GetLeaderboardHandler>();
         services.AddScoped<SaveAnswerHandler>();
         services.AddScoped<ClearAnswerHandler>();
         services.AddScoped<MarkQuestionHandler>();
@@ -126,6 +130,12 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<ReportIssueHandler>();
         services.AddScoped<ListIssueReportsHandler>();
         services.AddScoped<ResolveIssueReportHandler>();
+
+        // Other modules read released results only through this contract (ADR 0001), e.g. candidate analytics (FR-36).
+        services.AddScoped<ICandidateResultReader, CandidateResultReader>();
+
+        // How an exam's candidates answered it, for item analysis (FR-37): released results only, marked the same way as the results.
+        services.AddScoped<IExamResponseReader, ExamResponseReader>();
     }
 
     /// <inheritdoc />

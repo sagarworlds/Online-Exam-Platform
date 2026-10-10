@@ -25,6 +25,18 @@
         } @else {
           <p>{{ 'result.locked.whenReleased' | t }}</p>
         }
+        <!-- The certificate exists only for a released result, so while it is held the button is disabled and says why. -->
+        <button type="button" class="btn" disabled aria-describedby="certificate-reason">{{ 'certificate.download' | t }}</button>
+        <p class="hint" id="certificate-reason">{{ 'certificate.reason.held' | t }}</p>
+      </div>
+    }
+
+    @case ('invalidated') {
+      <div class="card result-locked" role="status">
+        <h2 class="card__title">{{ 'result.invalidated.title' | t }}</h2>
+        <p>{{ 'result.invalidated.body' | t }}</p>
+        <button type="button" class="btn" disabled aria-describedby="certificate-reason">{{ 'certificate.download' | t }}</button>
+        <p class="hint" id="certificate-reason">{{ 'certificate.reason.invalidated' | t }}</p>
       </div>
     }
 
@@ -109,7 +121,14 @@
 
         <div class="actions">
           <a [routerLink]="['/attempt', r.attemptId, 'review']" class="btn btn--primary">{{ 'result.reviewAnswers' | t }}</a>
+          <a [routerLink]="['/my-exams', r.examId, 'leaderboard']" class="btn">{{ 'leaderboard.title' | t }}</a>
           <a routerLink="/my-exams" class="btn">{{ 'common.backToMyExams' | t }}</a>
+          <button type="button" class="btn" [disabled]="certificateBusy()" [attr.aria-describedby]="certificateError() ? 'certificate-error' : null" (click)="downloadCertificate()">
+            {{ (certificateBusy() ? 'certificate.downloading' : 'certificate.download') | t }}
+          </button>
+          @if (certificateError(); as problem) {
+            <p class="error-message" id="certificate-error" role="alert">{{ problem }}</p>
+          }
         </div>
       }
     }

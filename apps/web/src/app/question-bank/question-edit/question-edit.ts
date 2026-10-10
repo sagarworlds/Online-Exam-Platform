@@ -4,7 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { extractErrorMessage, extractProblemCode } from '../../shared/problem-details';
 import { QuestionApiService } from '../question-api.service';
 import { QuestionFields } from '../question-fields/question-fields';
-import { createQuestionForm, fillQuestionForm, toAcceptedAnswers, toAllowsMultiple, toEditedOptions, toIsTextAnswer, toLabels } from '../question-form';
+import { createQuestionForm, fillQuestionForm, toAcceptedAnswers, toAllowsMultiple, toEditedOptions, toExplanation, toIsTextAnswer, toLabels } from '../question-form';
 import { QuestionDto } from '../question.models';
 
 /**
@@ -65,6 +65,7 @@ export class QuestionEdit {
         allowsMultiple: toAllowsMultiple(this.form),
         isTextAnswer: toIsTextAnswer(this.form),
         acceptedAnswers: toAcceptedAnswers(this.form),
+        explanation: toExplanation(this.form),
       })
       .subscribe({
       next: (updated) => {

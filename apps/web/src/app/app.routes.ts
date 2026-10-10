@@ -86,6 +86,11 @@ export const routes: Routes = [
     loadComponent: () => import('./candidate/attempt-result/attempt-result').then((m) => m.AttemptResult),
   },
   {
+    path: 'my-exams/:examId/leaderboard',
+    canActivate: [authGuard],
+    loadComponent: () => import('./candidate/leaderboard/leaderboard').then((m) => m.Leaderboard),
+  },
+  {
     path: 'admin/questions',
     canActivate: [permissionGuard(Permission.QuestionRead)],
     loadComponent: () => import('./question-bank/question-bank').then((m) => m.QuestionBank),
@@ -206,6 +211,19 @@ export const routes: Routes = [
     path: 'guardian/link-candidate',
     canActivate: [permissionGuard(Permission.GuardianLinkManage)],
     loadComponent: () => import('./guardian-portal/guardian-link/guardian-link').then((m) => m.GuardianLink),
+  },
+  {
+    // The candidate's own performance across the exams they sat (FR-36): released results only, and only their own.
+    path: 'analytics',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./analytics/candidate-analytics/candidate-analytics').then((m) => m.CandidateAnalytics),
+  },
+  {
+    // Staff see how each question of an exam performed (FR-37): difficulty and discrimination, once enough candidates had the question.
+    path: 'exams/:id/item-analysis',
+    canActivate: [permissionGuard(Permission.ExamManage)],
+    loadComponent: () => import('./analytics/item-analysis/item-analysis').then((m) => m.ItemAnalysis),
   },
   { path: '**', redirectTo: 'login' },
 ];

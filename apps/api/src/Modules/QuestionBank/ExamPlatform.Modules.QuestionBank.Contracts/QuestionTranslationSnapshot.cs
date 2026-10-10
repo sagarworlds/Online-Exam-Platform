@@ -8,4 +8,8 @@ namespace ExamPlatform.Modules.QuestionBank.Contracts;
 /// The translated options in display order, one for each option of the question as it stands now. A translation is made with as many
 /// options as its source had, and the caller pairs them with the options it is showing by position, so it must check the counts match.
 /// </param>
-public sealed record QuestionTranslationSnapshot(Guid QuestionId, string Language, string Text, IReadOnlyList<string> OptionTexts);
+/// <param name="Explanation">
+/// The translation's own explanation, in its language, or null when it has none. It is not the source's explanation: a candidate shown a
+/// translated question sees the translated explanation or none, never the source language's explanation under translated wording.
+/// </param>
+public sealed record QuestionTranslationSnapshot(Guid QuestionId, string Language, string Text, IReadOnlyList<string> OptionTexts, string? Explanation = null);

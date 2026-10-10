@@ -43,6 +43,23 @@
   </div>
 </div>
 
+<div class="field">
+  <label for="question-explanation">{{ 'questions.explanation.label' | t }}</label>
+  <textarea
+    id="question-explanation"
+    rows="3"
+    maxlength="2000"
+    formControlName="explanation"
+    aria-describedby="question-explanation-hint"
+  ></textarea>
+  <p class="hint" id="question-explanation-hint">
+    {{ 'questions.explanation.hint' | t }}
+  </p>
+  @if (form.controls.explanation.errors?.['maxlength']) {
+    <p class="error-message" role="alert">{{ 'questions.explanation.tooLong' | t: { max: 2000 } }}</p>
+  }
+</div>
+
 @if (!isText) {
 <fieldset class="field" formArrayName="options">
   <legend>Options ({{ form.controls.allowsMultiple.value ? 'tick every correct one' : 'pick the correct one' }})</legend>

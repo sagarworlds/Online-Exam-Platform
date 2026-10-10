@@ -34,6 +34,7 @@
   </Folder>
   <Folder Name="/src/Modules/Batch/">
     <Project Path="src/Modules/Batch/ExamPlatform.Modules.Batch.Application/ExamPlatform.Modules.Batch.Application.csproj" />
+    <Project Path="src/Modules/Batch/ExamPlatform.Modules.Batch.Contracts/ExamPlatform.Modules.Batch.Contracts.csproj" />
     <Project Path="src/Modules/Batch/ExamPlatform.Modules.Batch.Domain/ExamPlatform.Modules.Batch.Domain.csproj" />
     <Project Path="src/Modules/Batch/ExamPlatform.Modules.Batch.Endpoints/ExamPlatform.Modules.Batch.Endpoints.csproj" />
     <Project Path="src/Modules/Batch/ExamPlatform.Modules.Batch.Infrastructure/ExamPlatform.Modules.Batch.Infrastructure.csproj" />
@@ -47,6 +48,7 @@
   </Folder>
   <Folder Name="/src/Modules/ExamRuntime/">
     <Project Path="src/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.Application/ExamPlatform.Modules.ExamRuntime.Application.csproj" />
+    <Project Path="src/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.Contracts/ExamPlatform.Modules.ExamRuntime.Contracts.csproj" />
     <Project Path="src/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.Domain/ExamPlatform.Modules.ExamRuntime.Domain.csproj" />
     <Project Path="src/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.Endpoints/ExamPlatform.Modules.ExamRuntime.Endpoints.csproj" />
     <Project Path="src/Modules/ExamRuntime/ExamPlatform.Modules.ExamRuntime.Infrastructure/ExamPlatform.Modules.ExamRuntime.Infrastructure.csproj" />
@@ -111,5 +113,15 @@
   <Folder Name="/tests/Modules/Guardian/">
     <Project Path="tests/Modules/Guardian/ExamPlatform.Modules.Guardian.UnitTests/ExamPlatform.Modules.Guardian.UnitTests.csproj" />
     <Project Path="tests/Modules/Notifications/ExamPlatform.Modules.Notifications.UnitTests/ExamPlatform.Modules.Notifications.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Analytics/">
+    <Project Path="src/Modules/Analytics/ExamPlatform.Modules.Analytics.Application/ExamPlatform.Modules.Analytics.Application.csproj" />
+    <Project Path="src/Modules/Analytics/ExamPlatform.Modules.Analytics.Contracts/ExamPlatform.Modules.Analytics.Contracts.csproj" />
+    <Project Path="src/Modules/Analytics/ExamPlatform.Modules.Analytics.Domain/ExamPlatform.Modules.Analytics.Domain.csproj" />
+    <Project Path="src/Modules/Analytics/ExamPlatform.Modules.Analytics.Endpoints/ExamPlatform.Modules.Analytics.Endpoints.csproj" />
+    <Project Path="src/Modules/Analytics/ExamPlatform.Modules.Analytics.Infrastructure/ExamPlatform.Modules.Analytics.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Analytics/">
+    <Project Path="tests/Modules/Analytics/ExamPlatform.Modules.Analytics.UnitTests/ExamPlatform.Modules.Analytics.UnitTests.csproj" />
   </Folder>
 </Solution>
