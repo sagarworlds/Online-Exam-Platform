@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ExamPlatform.Modules.ExamRuntime.Application;
 using ExamPlatform.Modules.ExamRuntime.Application.Commands;
 using ExamPlatform.Modules.ExamRuntime.Application.Dtos;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
@@ -148,6 +149,15 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status409Conflict)
             .WithName("GetAttemptResult")
             .WithDescription("Read a submitted attempt's result: the score, its rank and percentile among the exam's released results, and the marks by section, once the exam's author has released the results");
+
+        me.MapGet("/attempts/{attemptId:guid}/certificate", GetCertificate)
+            .Produces(StatusCodes.Status200OK, contentType: "application/pdf")
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("GetCertificate")
+            .WithDescription("A PDF certificate for one of the signed-in candidate's submitted attempts, once the exam's author has released the results (FR-34)");
 
         me.MapGet("/exams/{examId:guid}/leaderboard", GetLeaderboard)
             .Produces<LeaderboardDto>()
@@ -614,6 +624,12 @@ public static class ExamRuntimeEndpoints
 
     private static async Task<IResult> GetAttemptReview(Guid attemptId, ClaimsPrincipal user, GetAttemptReviewHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct));
+
+    private static async Task<IResult> GetCertificate(Guid attemptId, ClaimsPrincipal user, GetCertificateHandler handler, CancellationToken ct)
+    {
+        var details = await handler.HandleAsync(attemptId, user.GetUserId(), ct);
+        return Results.File(CertificatePdf.Render(details), "application/pdf", $"certificate-{attemptId:N}.pdf");
+    }
 
     private static async Task<IResult> GetLeaderboard(
         Guid examId, string? board, Guid? batchId, string? subject, ClaimsPrincipal user, GetLeaderboardHandler handler, CancellationToken ct) =>
