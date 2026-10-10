@@ -15,6 +15,7 @@ using ExamPlatform.Modules.QuestionBank.Endpoints;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using ExamPlatform.SharedKernel.Infrastructure.Email;
+using ExamPlatform.SharedKernel.Infrastructure.Sms;
 using ExamPlatform.SharedKernel.Infrastructure.WhatsApp;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -57,6 +58,11 @@ else
 // so, until the WhatsApp section is filled in; Identity:OtpDelivery:PhoneProvider decides whether phone codes use it.
 builder.Services.AddOptions<WhatsAppOptions>().Bind(builder.Configuration.GetSection(WhatsAppOptions.SectionName));
 builder.Services.AddWhatsAppCloudApi();
+
+// SMS: one sender behind the Sms:Enabled master switch, off unless set to true. No SMS provider is built in yet, so nothing is
+// sent even when the switch is on, and each attempt is logged. Render's setting is documented in render.yaml.
+builder.Services.AddOptions<SmsOptions>().Bind(builder.Configuration.GetSection(SmsOptions.SectionName));
+builder.Services.AddSmsSender();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
