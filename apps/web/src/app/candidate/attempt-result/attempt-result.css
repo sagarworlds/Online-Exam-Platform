@@ -1,0 +1,64 @@
+/*
+ * The result page's own layout. Each figure is a label and a value in a definition list, so the pairs wrap onto new lines at a phone's
+ * width instead of a table that scrolls sideways.
+ */
+.result-score {
+  margin: 0.25rem 0 0;
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-standing,
+.result-section dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem 1.5rem;
+  margin: 1rem 0 0;
+}
+
+.result-standing dt,
+.result-section dt {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.result-standing dd,
+.result-section dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-percentile {
+  margin: 0.75rem 0 0;
+}
+
+.result-counts {
+  margin-top: 0.75rem;
+}
+
+.result-section dl {
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+}
+
+/* Every control is at least 44px tall, so it can be tapped on a phone. The back link is text, so it is given the same height. */
+.back-link,
+.actions .btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.result-sections {
+  display: grid;
+  gap: 1rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.result-section h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}

@@ -51,6 +51,19 @@ public interface IAttemptRepository
     Task<IReadOnlyList<Attempt>> ListForCandidateAsync(Guid candidateId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The best submitted score of each candidate at an exam, leaving out one candidate: the scores a result is ranked against (FR-32).
+    /// </summary>
+    /// <remarks>
+    /// One entry per other candidate, not per attempt, so a retake counts once. Open attempts and attempts an administrator invalidated are
+    /// left out, as they carry no result that counts.
+    /// </remarks>
+    /// <param name="examId">The exam.</param>
+    /// <param name="excludedCandidateId">The candidate being placed, whose own attempts are never compared with the others.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Each other candidate's best score, in no particular order; empty when no one else has finished the exam.</returns>
+    Task<IReadOnlyList<decimal>> ListBestScoresOfOtherCandidatesAsync(Guid examId, Guid excludedCandidateId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Loads every submitted attempt that included a question, whether the candidate answered it or it was only on
     /// their drawn paper, tracked with their answers and paper so each can be rescored. For
     /// <see cref="ExamPlatform.Modules.QuestionBank.Contracts.IAttemptRescorer"/>: an open attempt is excluded,

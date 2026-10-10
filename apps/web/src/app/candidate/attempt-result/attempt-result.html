@@ -1,0 +1,84 @@
+<div class="page page--exam">
+  <a [routerLink]="attemptId ? ['/attempt', attemptId] : ['/my-exams']" class="back-link">&larr; {{ 'result.back' | t }}</a>
+
+  @if (loading()) {
+    <p>{{ 'common.loading' | t }}</p>
+  }
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+
+  @if (result(); as r) {
+    <div class="card">
+      <p class="exam-bar__label">{{ 'result.title' | t }}@if (r.number > 1) { · {{ 'common.attempt' | t: { number: r.number } }} }</p>
+      <h1>{{ r.examName }}</h1>
+      <p class="result-score" aria-live="polite">{{ r.score }} / {{ r.maxScore }}</p>
+
+      <dl class="result-standing">
+        <div>
+          <dt>{{ 'result.standing' | t }}</dt>
+          <dd>{{ 'result.rankOf' | t: { rank: r.rank, count: r.cohortSize } }}</dd>
+        </div>
+      </dl>
+      <p class="result-percentile">{{ 'result.percentile' | t: { percent: r.percentile, count: r.cohortSize } }}</p>
+
+      <ul class="review-counts result-counts" [attr.aria-label]="'review.summaryAria' | t">
+        <li class="badge badge--active">{{ 'review.correct' | t: { count: r.correctCount } }}</li>
+        @if (r.partialCount) {
+          <li class="badge badge--warning">{{ 'review.partial' | t: { count: r.partialCount } }}</li>
+        }
+        <li class="badge badge--danger">{{ 'review.wrong' | t: { count: r.wrongCount } }}</li>
+        <li class="badge badge--inactive">{{ 'review.unanswered' | t: { count: r.unansweredCount } }}</li>
+      </ul>
+    </div>
+
+    @if (r.provisional) {
+      <p class="hint">{{ 'result.provisional' | t }}</p>
+    }
+    @if (r.autoSubmitted) {
+      <p class="hint">{{ 'common.autoSubmitted' | t }}</p>
+    }
+    @if (r.resultVersion > 1) {
+      <p class="hint">{{ 'review.version' | t: { version: r.resultVersion } }}</p>
+    }
+
+    <h2>{{ 'result.bySection' | t }}</h2>
+    <ul class="result-sections">
+      @for (section of r.sections; track section.id) {
+        <li class="card result-section">
+          <h3>{{ section.name }}</h3>
+          <dl>
+            <div>
+              <dt>{{ 'result.marks' | t }}</dt>
+              <dd>{{ formatMarks(section.score) }}</dd>
+            </div>
+            <div>
+              <dt>{{ 'result.correct' | t }}</dt>
+              <dd>{{ section.correctCount }}</dd>
+            </div>
+            @if (section.partialCount) {
+              <div>
+                <dt>{{ 'result.partial' | t }}</dt>
+                <dd>{{ section.partialCount }}</dd>
+              </div>
+            }
+            <div>
+              <dt>{{ 'result.wrong' | t }}</dt>
+              <dd>{{ section.wrongCount }}</dd>
+            </div>
+            <div>
+              <dt>{{ 'result.unanswered' | t }}</dt>
+              <dd>{{ section.unansweredCount }}</dd>
+            </div>
+          </dl>
+        </li>
+      }
+    </ul>
+
+    <div class="actions">
+      <a [routerLink]="['/attempt', r.attemptId, 'review']" class="btn btn--primary">{{ 'result.reviewAnswers' | t }}</a>
+      <a routerLink="/my-exams" class="btn">{{ 'common.backToMyExams' | t }}</a>
+    </div>
+  }
+</div>

@@ -263,6 +263,7 @@
         <div class="actions">
           @if (current.review?.available && !current.invalidated) {
             <a [routerLink]="['/attempt', current.id, 'review']" class="btn btn--primary">{{ 'result.reviewAnswers' | t }}</a>
+            <a [routerLink]="['/attempt', current.id, 'result']" class="btn">{{ 'result.viewResult' | t }}</a>
             <a routerLink="/my-exams" class="btn">{{ 'common.backToMyExams' | t }}</a>
           } @else {
             <a routerLink="/my-exams" class="btn btn--primary">{{ 'common.backToMyExams' | t }}</a>
