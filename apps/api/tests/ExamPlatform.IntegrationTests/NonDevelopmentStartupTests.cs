@@ -33,6 +33,10 @@ public sealed class PostgresServerFixture : IAsyncLifetime
 
     /// <summary>Creates a new, empty database on the server.</summary>
     /// <returns>A connection string for the new database.</returns>
+    // Why the suppression: CREATE DATABASE cannot take its name as a parameter. The name is the fixed prefix "test_" and a GUID in
+    // its "N" form, so only lower-case hex characters can reach the statement.
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities",
+        Justification = "The database name is a fixed prefix and a GUID in N format; no external input reaches the statement.")]
     public async Task<string> CreateDatabaseAsync()
     {
         var name = $"test_{Guid.NewGuid():N}";
