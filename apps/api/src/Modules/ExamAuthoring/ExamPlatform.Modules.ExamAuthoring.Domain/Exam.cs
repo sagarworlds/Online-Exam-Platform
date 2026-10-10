@@ -11,6 +11,13 @@ public class Exam : AggregateRoot
     public Guid? SeriesId { get; set; }
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
+
+    /// <summary>
+    /// What a candidate reads before starting the exam (FR-17, FR-41), or null for none. An exam may start from a template, which copies its
+    /// text here; after that the exam keeps its own copy. Changed only while the exam is a draft (see <see cref="SetInstructions"/>).
+    /// </summary>
+    public string? Instructions { get; private set; }
+
     public ExamStatus Status { get; set; } = ExamStatus.Draft;
     public ExamConfig Config { get; set; } = new();
 
@@ -53,6 +60,30 @@ public class Exam : AggregateRoot
         AddDomainEvent(new ExamCreatedEvent(Id, Name, CreatedBy));
     }
 
+    /// <summary>
+    /// Sets the instructions a candidate reads before starting (FR-41). Draft exams only: a candidate acknowledges the instructions before each
+    /// attempt, so changing them once the exam is published would change what candidates agreed to. Blank means none.
+    /// </summary>
+    /// <param name="instructions">The new instructions text; surrounding whitespace is removed, and blank clears it.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="InvalidExamConfigError">The instructions are longer than <see cref="MaxInstructionsLength"/> characters.</exception>
+    public void SetInstructions(string? instructions, DateTime nowUtc)
+    {
+        EnsureNotArchived();
+        EnsureDraft();
+
+        var cleaned = string.IsNullOrWhiteSpace(instructions) ? null : instructions.Trim();
+        if (cleaned?.Length > MaxInstructionsLength)
+        {
+            throw new InvalidExamConfigError($"The instructions must be at most {MaxInstructionsLength} characters.");
+        }
+
+        Instructions = cleaned;
+        UpdatedAt = nowUtc;
+    }
+
     public void UpdateConfig(ExamConfig config)
     {
         Config = config;
@@ -70,6 +101,9 @@ public class Exam : AggregateRoot
 
     /// <summary>The longest description an exam may have.</summary>
     public const int MaxDescriptionLength = 1000;
+
+    /// <summary>The longest instructions text an exam may have, and so the longest body of an instruction template.</summary>
+    public const int MaxInstructionsLength = 4000;
 
     /// <summary>The longest name an exam section may have.</summary>
     public const int MaxSectionNameLength = 255;
