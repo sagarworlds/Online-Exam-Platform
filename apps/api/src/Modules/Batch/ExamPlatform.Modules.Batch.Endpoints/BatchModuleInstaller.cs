@@ -2,6 +2,7 @@ using ExamPlatform.Modules.Batch.Application;
 using ExamPlatform.Modules.Batch.Application.Commands;
 using ExamPlatform.Modules.Batch.Application.Ports;
 using ExamPlatform.Modules.Batch.Application.Queries;
+using ExamPlatform.Modules.Batch.Contracts;
 using ExamPlatform.Modules.Batch.Infrastructure;
 using ExamPlatform.Modules.Batch.Infrastructure.Repositories;
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
@@ -28,6 +29,7 @@ public sealed class BatchModuleInstaller : IModuleInstaller
             .AddInterceptors(sp.GetRequiredService<DomainEventsSaveChangesInterceptor>()));
 
         services.AddScoped<IBatchRepository, EFBatchRepository>();
+        services.AddScoped<IExamBatchMembers, ExamBatchMembers>();
         services.AddScoped<IBatchUnitOfWork, BatchUnitOfWork>();
         services.AddScoped<IExamDeletionGuard, BatchExamDeletionGuard>();
 

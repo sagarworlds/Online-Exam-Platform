@@ -26,6 +26,12 @@ public interface IUserRepository
     /// <returns>Each address once, in a stable order; users who are not active or have no e-mail address are left out.</returns>
     Task<IReadOnlyList<string>> ListActiveEmailsWithPermissionAsync(string permissionCode, CancellationToken cancellationToken);
 
+    /// <summary>Lists the active users who hold a permission through any of their roles, with their e-mail address when they have one.</summary>
+    /// <param name="permissionCode">The permission code, such as <c>exam.manage</c>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Each user once, ordered by address then id; the address is null for a user who has none.</returns>
+    Task<IReadOnlyList<(Guid UserId, string? Email)>> ListActiveWithPermissionAsync(string permissionCode, CancellationToken cancellationToken);
+
     /// <summary>Begins tracking a new user for insertion on the next unit-of-work commit.</summary>
     /// <param name="user">The user to add.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

@@ -109,6 +109,7 @@
 
         <div class="actions">
           <a [routerLink]="['/attempt', r.attemptId, 'review']" class="btn btn--primary">{{ 'result.reviewAnswers' | t }}</a>
+          <a [routerLink]="['/my-exams', r.examId, 'leaderboard']" class="btn">{{ 'leaderboard.title' | t }}</a>
           <a routerLink="/my-exams" class="btn">{{ 'common.backToMyExams' | t }}</a>
         </div>
       }

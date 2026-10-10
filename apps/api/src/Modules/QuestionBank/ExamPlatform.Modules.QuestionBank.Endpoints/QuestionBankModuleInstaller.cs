@@ -55,6 +55,7 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         // Read when first needed, not now, so a host that adds its settings after registration (as the tests do) is honoured.
         services.AddSingleton(sp => new QuestionApprovalPolicy(sp.GetRequiredService<IConfiguration>().GetValue<bool>("QuestionBank:RequireApproval")));
         services.AddScoped<IQuestionBank, QuestionBankReader>();
+        services.AddScoped<IQuestionSubjects, QuestionSubjects>();
         services.AddScoped<IBookCatalog, BookCatalog>();
         // Combines the IQuestionUsageSource each module that uses questions registers for itself.
         services.AddScoped<QuestionUsageReader>();

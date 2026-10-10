@@ -81,6 +81,22 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<SubmittedScore>> ListSubmittedScoresAsync(Guid examId, CancellationToken cancellationToken) =>
+        // A projection, so a large exam moves one row per attempt and no answers.
+        await context.Attempts.AsNoTracking()
+            .Where(a => a.ExamId == examId && a.Status == AttemptStatus.Submitted && a.InvalidatedAtUtc == null && a.Score != null)
+            .Select(a => new SubmittedScore(a.Id, a.CandidateId, a.Score!.Value))
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Attempt>> ListWithAnswersAsync(IReadOnlyCollection<Guid> attemptIds, CancellationToken cancellationToken) =>
+        // The answers and the drawn paper are what marking a subject needs; the split keeps the two collections from multiplying each other.
+        await context.Attempts.AsNoTracking().AsSplitQuery()
+            .Include(a => a.Answers).Include(a => a.Paper)
+            .Where(a => attemptIds.Contains(a.Id))
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListSubmittedByQuestionIdAsync(Guid questionId, CancellationToken cancellationToken)
     {
         // Attempts that answered the question, union attempts that only drew it onto their paper (unanswered but

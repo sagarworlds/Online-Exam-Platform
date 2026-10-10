@@ -46,7 +46,7 @@ public sealed class BookRepository(QuestionBankDbContext context) : IBookReposit
                 join b in context.Books on c.BookId equals b.Id
                 join k in context.Classes on b.ClassId equals (Guid?)k.Id into classes
                 from k in classes.DefaultIfEmpty()
-                select new ChapterRef(c.Id, c.Title, b.Id, b.Name, b.ClassId, k == null ? null : k.Name))
+                select new ChapterRef(c.Id, c.Title, b.Id, b.Name, b.ClassId, k == null ? null : k.Name, b.Subject))
             .ToDictionaryAsync(r => r.ChapterId, cancellationToken);
     }
 }

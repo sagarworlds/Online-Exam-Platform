@@ -149,6 +149,15 @@ public static class ExamRuntimeEndpoints
             .WithName("GetAttemptResult")
             .WithDescription("Read a submitted attempt's result: the score, its rank and percentile among the exam's released results, and the marks by section, once the exam's author has released the results");
 
+        me.MapGet("/exams/{examId:guid}/leaderboard", GetLeaderboard)
+            .Produces<LeaderboardDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("GetLeaderboard")
+            .WithDescription("An exam's leaderboard for the signed-in candidate: overall, the batch they are in, or one subject. Built from released results only, with names shortened for other candidates");
+
         me.MapPost("/attempts/{attemptId:guid}/disputes", RaiseDispute)
             .Produces<MyDisputeDto>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
@@ -605,6 +614,10 @@ public static class ExamRuntimeEndpoints
 
     private static async Task<IResult> GetAttemptReview(Guid attemptId, ClaimsPrincipal user, GetAttemptReviewHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct));
+
+    private static async Task<IResult> GetLeaderboard(
+        Guid examId, string? board, Guid? batchId, string? subject, ClaimsPrincipal user, GetLeaderboardHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, user.GetUserId(), board, batchId, subject, ct));
 
     private static async Task<IResult> GetAttemptResult(Guid attemptId, ClaimsPrincipal user, GetAttemptResultHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct));

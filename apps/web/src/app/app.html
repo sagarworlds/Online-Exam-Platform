@@ -17,6 +17,13 @@
       <a routerLink="/invite" routerLinkActive="active">{{ 'nav.redeemInvite' | t }}</a>
       <a routerLink="/profile" routerLinkActive="active">{{ 'nav.profile' | t }}</a>
       <a routerLink="/consent" routerLinkActive="active">{{ 'nav.consent' | t }}</a>
+      <a routerLink="/notifications" routerLinkActive="active" class="nav-notifications">
+        {{ 'nav.notifications' | t }}
+        @if (notifications.unreadCount() > 0) {
+          <span class="nav-badge" aria-hidden="true">{{ notifications.unreadCount() }}</span>
+          <span class="visually-hidden">{{ 'notifications.unreadSummary' | t: { count: notifications.unreadCount() } }}</span>
+        }
+      </a>
       <button type="button" (click)="logout()">{{ 'nav.logout' | t }}</button>
     } @else {
       <a routerLink="/login" routerLinkActive="active">{{ 'nav.login' | t }}</a>

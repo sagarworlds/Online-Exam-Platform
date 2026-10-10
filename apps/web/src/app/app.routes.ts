@@ -42,6 +42,11 @@ export const routes: Routes = [
     loadComponent: () => import('./consent/consent').then((m) => m.Consent),
   },
   {
+    path: 'notifications',
+    canActivate: [authGuard],
+    loadComponent: () => import('./notifications/notification-feed/notification-feed').then((m) => m.NotificationFeed),
+  },
+  {
     path: 'admin',
     canActivate: [authGuard],
     loadComponent: () => import('./admin/admin-home/admin-home').then((m) => m.AdminHome),
@@ -79,6 +84,11 @@ export const routes: Routes = [
     path: 'attempt/:attemptId/result',
     canActivate: [authGuard],
     loadComponent: () => import('./candidate/attempt-result/attempt-result').then((m) => m.AttemptResult),
+  },
+  {
+    path: 'my-exams/:examId/leaderboard',
+    canActivate: [authGuard],
+    loadComponent: () => import('./candidate/leaderboard/leaderboard').then((m) => m.Leaderboard),
   },
   {
     path: 'admin/questions',

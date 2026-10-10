@@ -11,6 +11,7 @@ using ExamPlatform.Modules.ExamRuntime.Endpoints;
 using ExamPlatform.Modules.Guardian.Endpoints;
 using ExamPlatform.Modules.Identity.Endpoints;
 using ExamPlatform.Modules.Invite.Endpoints;
+using ExamPlatform.Modules.Notifications.Endpoints;
 using ExamPlatform.Modules.QuestionBank.Endpoints;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
@@ -176,6 +177,7 @@ IModuleInstaller[] modules =
     new GuardianModuleInstaller(),
     new QuestionBankModuleInstaller(),
     new ExamRuntimeModuleInstaller(),
+    new NotificationsModuleInstaller(),
 ];
 
 foreach (var module in modules)
