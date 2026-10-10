@@ -17,6 +17,7 @@ using ExamPlatform.Modules.QuestionBank.Endpoints;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
 using ExamPlatform.SharedKernel.Infrastructure.Email;
+using ExamPlatform.SharedKernel.Infrastructure.Observability;
 using ExamPlatform.SharedKernel.Infrastructure.Sms;
 using ExamPlatform.SharedKernel.Infrastructure.WhatsApp;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -29,10 +30,17 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Logs are one JSON object per line on stdout, with personal data masked (NFR-9, NFR-6). It picks the format of the console
+// provider the host already has, so the line is written once.
+builder.Logging.AddExamPlatformJsonConsole();
+
 // Cross-cutting services shared by every module (Clock, domain-event dispatch) —
 // registered once here, before any module's AddModule, so every module resolves
 // the same singleton Clock/dispatcher instead of each registering its own.
 builder.Services.AddSharedKernel();
+
+// The log retention setting (NFR-13, refused below 180 days at startup) and the readiness check for the database.
+builder.Services.AddExamPlatformObservability(builder.Configuration);
 
 // Who is acting in the current request, so code that reacts to a domain event can name the actor in the audit trail.
 builder.Services.AddHttpContextAccessor();
@@ -105,7 +113,9 @@ builder.Services.AddCors(options =>
 {
     var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
         ?? ["http://localhost:4200"];
-    options.AddDefaultPolicy(policy => policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod());
+    // The correlation id is exposed so the web client can show it to someone reporting a failure (NFR-9).
+    options.AddDefaultPolicy(policy => policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()
+        .WithExposedHeaders(CorrelationId.HeaderName));
 });
 
 // A global, per-IP fixed-window limiter (NFR-5: rate limiting), in-process for now — see
@@ -194,6 +204,10 @@ var app = builder.Build();
 // partition, and a header from an untrusted sender must never choose its own partition.
 app.UseForwardedHeaders();
 
+// Right after forwarded headers: the correlation id and the request line then cover every later step, including rate-limit
+// rejections and errors the exception handler answers.
+app.UseExamPlatformRequestObservability();
+
 // HSTS is for browsers talking to a deployed host over HTTPS; in Development it would
 // pin localhost to HTTPS. TLS ends at the proxy, so there is no UseHttpsRedirection.
 if (!app.Environment.IsDevelopment())
@@ -228,6 +242,7 @@ if (apiReferenceEnabled)
 }
 
 app.MapHealthChecks("/v1/health");
+app.MapExamPlatformHealthChecks();
 app.MapWhatsAppWebhook();
 
 foreach (var module in modules)
