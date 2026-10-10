@@ -2,12 +2,14 @@ using ExamPlatform.Modules.Identity.Application;
 using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Application.Queries;
+using ExamPlatform.Modules.Identity.Application.Retention;
 using ExamPlatform.Modules.Identity.Application.Sessions;
 using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Identity.Endpoints.Authentication;
 using ExamPlatform.Modules.Identity.Endpoints.Authorization;
 using ExamPlatform.Modules.Identity.Endpoints.OtpDelivery;
 using ExamPlatform.Modules.Identity.Endpoints.RateLimiting;
+using ExamPlatform.Modules.Identity.Endpoints.Retention;
 using ExamPlatform.Modules.Identity.Infrastructure;
 using ExamPlatform.Modules.Identity.Infrastructure.Repositories;
 using ExamPlatform.SharedKernel.Application;
@@ -51,6 +53,16 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<ICandidateAgeDirectory, CandidateAgeDirectory>();
         services.AddScoped<IDisplayNameDirectory, DisplayNameDirectory>();
         services.AddScoped<IIdentityUnitOfWork, IdentityUnitOfWork>();
+
+        // The credential sweep (FR-47): removes expired codes, reset links and sessions once their grace period is over. Options are
+        // validated at start, so a bad period stops the host rather than deleting on a wrong schedule.
+        services.AddOptions<CredentialRetentionOptions>()
+            .Bind(configuration.GetSection(CredentialRetentionOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddScoped<IExpiredCredentialStore, ExpiredCredentialStore>();
+        services.AddScoped<PurgeExpiredCredentialsHandler>();
+        services.AddHostedService<CredentialRetentionBackgroundService>();
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IOtpCodeGenerator, OtpCodeGenerator>();
