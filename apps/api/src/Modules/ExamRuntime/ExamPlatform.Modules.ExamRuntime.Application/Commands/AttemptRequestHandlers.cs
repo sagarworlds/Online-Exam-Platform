@@ -5,6 +5,7 @@ using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
 using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Invite.Contracts;
+using ExamPlatform.Modules.Notifications.Contracts;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Domain.Exceptions;
 
@@ -21,6 +22,7 @@ public sealed class RequestAttemptHandler(
     IStaffDirectory staff,
     IExamRoster roster,
     IAttemptRequestNotifier notifier,
+    IInAppNotifier inAppNotifier,
     Clock clock)
 {
     /// <summary>The permission whose holders are told of a new request: the one that lets them answer it.</summary>
@@ -68,25 +70,30 @@ public sealed class RequestAttemptHandler(
         // The store allows one pending request per candidate per exam, so two taps at once cannot queue two.
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        await TellManagersAsync(exam.Name, examId, candidateId, request.Message, cancellationToken);
+        await TellManagersAsync(request, exam.Name, cancellationToken);
 
         return AttemptRequestDtoFactory.ForCandidate(request);
     }
 
     // After the request is saved, and never able to undo it: a mail outage, or nobody holding the permission, leaves the request waiting
     // in the queue exactly as before. The mail sender logs a message it could not send; nothing here reports it to the candidate, who
-    // did what was asked and cannot act on a staff-side delivery problem.
-    private async Task TellManagersAsync(string examName, Guid examId, Guid candidateId, string? message, CancellationToken cancellationToken)
+    // did what was asked and cannot act on a staff-side delivery problem. The feed is written for each person who holds the permission
+    // (FR-39), and a manager with no address is still told there.
+    private async Task TellManagersAsync(AttemptRequest request, string examName, CancellationToken cancellationToken)
     {
-        var managers = await staff.GetEmailsWithPermissionAsync(RecipientPermission, cancellationToken);
+        var managers = await staff.GetActiveRecipientsWithPermissionAsync(RecipientPermission, cancellationToken);
         if (managers.Count == 0)
             return;
 
-        var candidateEmail = (await roster.GetEnrolledCandidatesAsync(examId, cancellationToken))
-            .FirstOrDefault(c => c.UserId == candidateId)?.Email;
+        var candidateEmail = (await roster.GetEnrolledCandidatesAsync(request.ExamId, cancellationToken))
+            .FirstOrDefault(c => c.UserId == request.CandidateId)?.Email;
 
-        foreach (var manager in managers)
-            await notifier.SendNewRequestAsync(new NewAttemptRequestEmail(manager, examName, candidateEmail, message), cancellationToken);
+        await inAppNotifier.NotifyManyAsync(
+            managers.Select(m => new InAppNotice(m.UserId, InAppNoticeKind.AttemptRequestReceived, request.Id, examName)).ToList(),
+            cancellationToken);
+
+        foreach (var manager in managers.Where(m => m.Email.Length > 0))
+            await notifier.SendNewRequestAsync(new NewAttemptRequestEmail(manager.Email, examName, candidateEmail, request.Message), cancellationToken);
     }
 }
 
@@ -105,7 +112,11 @@ public sealed class ListAttemptRequestsHandler(IAttemptRequestRepository request
 
 /// <summary>Lets an administrator approve a request, which gives the candidate the attempt.</summary>
 public sealed class ApproveAttemptRequestHandler(
-    IAttemptRequestRepository requests, GrantExtraAttemptHandler grantHandler, AttemptRequestDtoFactory dtos, IAttemptRequestNotifier notifier)
+    IAttemptRequestRepository requests,
+    GrantExtraAttemptHandler grantHandler,
+    AttemptRequestDtoFactory dtos,
+    IAttemptRequestNotifier notifier,
+    IInAppNotifier inAppNotifier)
 {
     /// <summary>Grants the attempt and marks the request approved, in one save, then e-mails the candidate.</summary>
     /// <param name="requestId">The request.</param>
@@ -128,13 +139,21 @@ public sealed class ApproveAttemptRequestHandler(
         await grantHandler.HandleAsync(request.ExamId, request.CandidateId, decidedByUserId, request.Message, cancellationToken, fulfilling: request);
 
         var dto = (await dtos.CreateAsync([request], cancellationToken))[0];
+        await inAppNotifier.NotifyAsync(
+            new InAppNotice(request.CandidateId, InAppNoticeKind.AttemptRequestApproved, request.Id, dto.ExamName), cancellationToken);
+
         return dto with { CandidateNotified = await dtos.NotifyAsync(dto, notifier, approved: true, cancellationToken) };
     }
 }
 
 /// <summary>Lets an administrator turn a request down.</summary>
 public sealed class DeclineAttemptRequestHandler(
-    IAttemptRequestRepository requests, IExamRuntimeUnitOfWork unitOfWork, AttemptRequestDtoFactory dtos, Clock clock, IAttemptRequestNotifier notifier)
+    IAttemptRequestRepository requests,
+    IExamRuntimeUnitOfWork unitOfWork,
+    AttemptRequestDtoFactory dtos,
+    Clock clock,
+    IAttemptRequestNotifier notifier,
+    IInAppNotifier inAppNotifier)
 {
     /// <summary>Marks the request declined and saves, then e-mails the candidate.</summary>
     /// <param name="requestId">The request.</param>
@@ -152,6 +171,9 @@ public sealed class DeclineAttemptRequestHandler(
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         var dto = (await dtos.CreateAsync([request], cancellationToken))[0];
+        await inAppNotifier.NotifyAsync(
+            new InAppNotice(request.CandidateId, InAppNoticeKind.AttemptRequestDeclined, request.Id, dto.ExamName), cancellationToken);
+
         return dto with { CandidateNotified = await dtos.NotifyAsync(dto, notifier, approved: false, cancellationToken) };
     }
 }

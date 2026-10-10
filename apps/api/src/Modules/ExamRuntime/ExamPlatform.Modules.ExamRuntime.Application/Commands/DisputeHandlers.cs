@@ -2,6 +2,7 @@ using ExamPlatform.Modules.ExamRuntime.Application.Dtos;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
+using ExamPlatform.Modules.Notifications.Contracts;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Domain.Exceptions;
 
@@ -88,7 +89,12 @@ public sealed class ListDisputesHandler(IDisputeRepository disputes, DisputeDtoF
 /// correcting the question's answer key does to every open dispute about that question (see <see cref="AttemptRescorer"/>), so an
 /// acceptance can never exist without the correction that justifies it.
 /// </summary>
-public sealed class RejectDisputeHandler(IDisputeRepository disputes, IExamRuntimeUnitOfWork unitOfWork, DisputeDtoFactory dtos, Clock clock)
+public sealed class RejectDisputeHandler(
+    IDisputeRepository disputes,
+    IExamRuntimeUnitOfWork unitOfWork,
+    DisputeDtoFactory dtos,
+    Clock clock,
+    IInAppNotifier inAppNotifier)
 {
     /// <summary>Marks the dispute rejected and saves.</summary>
     /// <param name="disputeId">The dispute.</param>
@@ -105,6 +111,10 @@ public sealed class RejectDisputeHandler(IDisputeRepository disputes, IExamRunti
         dispute.Reject(decidedByUserId, clock.UtcNow, note);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return (await dtos.CreateAsync([dispute], cancellationToken))[0];
+        var dto = (await dtos.CreateAsync([dispute], cancellationToken))[0];
+        await inAppNotifier.NotifyAsync(
+            new InAppNotice(dto.CandidateId, InAppNoticeKind.DisputeRejected, dispute.Id, dto.ExamName), cancellationToken);
+
+        return dto;
     }
 }

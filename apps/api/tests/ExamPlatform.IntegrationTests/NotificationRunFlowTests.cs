@@ -248,7 +248,7 @@ public sealed class NotificationRunFlowTests(NotificationApiFactory factory) : I
     }
 
     [Fact]
-    public async Task WithNoMailServerConfigured_NothingIsSentOrRecorded_AndWhatIsDueGoesOnceThereIsOne()
+    public async Task WithNoMailServerConfigured_NoMailIsSentOrRecorded_ButTheFeedIsFilled_AndWhatIsDueGoesOnceThereIsOne()
     {
         var s = await ScheduledAsync(TimeSpan.FromHours(20));
         using var _a = s.Admin;
@@ -261,6 +261,12 @@ public sealed class NotificationRunFlowTests(NotificationApiFactory factory) : I
 
             Assert.False(idle.MailAvailable);
             Assert.Empty(await DeliveriesAboutAsync(s.ExamId));
+
+            // The feed needs no mail server: the reminder is in the candidate's own feed all the same.
+            var feed = await s.Candidate.GetFromJsonAsync<JsonElement>("/v1/me/notifications");
+            Assert.Contains(
+                feed.GetProperty("items").EnumerateArray(),
+                item => item.GetProperty("kind").GetString() == "ExamReminder24Hours" && item.GetProperty("subjectId").GetGuid() == s.ExamId);
         }
         finally
         {

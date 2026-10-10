@@ -1,0 +1,118 @@
+/* The notification feed. Each notice is one row: its text and time, then its actions. Unread rows carry an edge colour and a word ("Unread"),
+   so the state is never shown by colour alone. Every control is at least 44px tall, and on a phone the actions take the full width. */
+.feed__mark-all {
+  min-height: 2.75rem;
+}
+
+/* The headline figure, as on the result page: the number large, its label under it. */
+.feed__summary {
+  margin-bottom: 1rem;
+}
+
+.feed__headline {
+  margin: 0.25rem 0 0;
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.feed__headline-label {
+  margin: 0.15rem 0 0;
+  color: var(--text-muted);
+}
+
+.feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.feed__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  min-width: 0;
+}
+
+.feed__item--unread {
+  border-inline-start: 4px solid var(--primary);
+}
+
+.feed__body {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.feed__text {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.feed__item--unread .feed__text {
+  font-weight: 600;
+}
+
+.feed__state {
+  display: inline-block;
+  margin-inline-end: 0.5rem;
+  padding: 0 0.4rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.feed__state--unread {
+  background: var(--primary-soft);
+  color: var(--text);
+}
+
+.feed__meta {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.feed__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.feed__actions .btn,
+.feed__more .btn,
+.feed__error .btn,
+.feed__mark-all {
+  min-height: 2.75rem;
+}
+
+.feed__error {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+}
+
+.feed__more {
+  margin-top: 1rem;
+}
+
+@media (max-width: 40rem) {
+  .feed__actions .btn,
+  .feed__more .btn {
+    flex: 1 1 100%;
+  }
+
+  .feed__mark-all {
+    width: 100%;
+  }
+}

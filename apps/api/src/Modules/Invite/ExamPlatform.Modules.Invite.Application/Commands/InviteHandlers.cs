@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Invite.Application.Dtos;
+using ExamPlatform.Modules.Notifications.Contracts;
 using ExamPlatform.Modules.Invite.Application.Ports;
 using ExamPlatform.Modules.Invite.Domain;
 using ExamPlatform.Modules.Invite.Domain.Exceptions;
@@ -14,6 +15,7 @@ namespace ExamPlatform.Modules.Invite.Application.Commands;
 /// <summary>
 /// Handles <see cref="CreateInviteCommand"/>: invites an address to an exam and e-mails it the link, and, when the host sends
 /// invitations on WhatsApp and the address belongs to an account with a phone number, sends the exam code there too (FR-14, FR-50a).
+/// When the address belongs to an account, the invitation is also recorded in that account's in-app feed (FR-39).
 /// </summary>
 public sealed class CreateInviteHandler(
     IInviteRepository repository,
@@ -22,6 +24,7 @@ public sealed class CreateInviteHandler(
     IInviteNotifier notifier,
     IInviteWhatsAppNotifier whatsAppNotifier,
     IContactDirectory contacts,
+    IInAppNotifier inAppNotifier,
     IInviteLinkBuilder linkBuilder,
     Clock clock,
     ILogger<CreateInviteHandler> logger)
@@ -54,6 +57,7 @@ public sealed class CreateInviteHandler(
         var link = linkBuilder.Build(code.Code);
         var sent = await notifier.SendAsync(new InviteEmail(invite.Email, exam.Name, link, code.ExpiresAt), cancellationToken);
         var whatsAppSent = await TrySendOnWhatsAppAsync(invite, exam.Name, code, link, cancellationToken);
+        await TellAccountHolderAsync(invite, exam.Name, cancellationToken);
 
         if (!sent && !whatsAppSent)
             logger.LogWarning("Invite {InviteId} was created but could not be sent; the inviter was given the link.", invite.Id);
@@ -93,6 +97,18 @@ public sealed class CreateInviteHandler(
             logger.LogError(ex, "Invite {InviteId} was created but sending its code on WhatsApp failed.", invite.Id);
             return false;
         }
+    }
+
+    // Records the invitation in the feed of the account that holds the address, if there is one. It is after the save and cannot undo it:
+    // the invitation is already sent by e-mail or WhatsApp, and the feed is a second place to find it, not the only one.
+    private async Task TellAccountHolderAsync(InviteAggregate invite, string examName, CancellationToken cancellationToken)
+    {
+        var accountId = await contacts.FindActiveAccountIdByEmailAsync(invite.Email, cancellationToken);
+        if (accountId is not { } userId)
+            return;
+
+        await inAppNotifier.NotifyAsync(
+            new InAppNotice(userId, InAppNoticeKind.InviteReceived, invite.Id, examName), cancellationToken);
     }
 }
 

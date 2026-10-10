@@ -42,6 +42,19 @@ public sealed class UserRepository(IdentityDbContext context) : IUserRepository
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<(Guid UserId, string? Email)>> ListActiveWithPermissionAsync(string permissionCode, CancellationToken cancellationToken)
+    {
+        // The projection is anonymous because EF cannot translate a tuple; the tuples are built once the rows are in memory.
+        var rows = await context.Users.AsNoTracking()
+            .Where(u => u.Status == UserStatus.Active && u.Roles.Any(r => r.Permissions.Any(p => p.Code == permissionCode)))
+            .OrderBy(u => u.Email).ThenBy(u => u.Id)
+            .Select(u => new { u.Id, u.Email })
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(r => (r.Id, r.Email)).ToList();
+    }
+
+    /// <inheritdoc />
     public async Task AddAsync(User user, CancellationToken cancellationToken) =>
         await context.Users.AddAsync(user, cancellationToken);
 }

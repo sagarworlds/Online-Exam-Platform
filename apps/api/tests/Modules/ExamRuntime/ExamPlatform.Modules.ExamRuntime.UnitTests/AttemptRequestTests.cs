@@ -8,6 +8,7 @@ using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
 using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Invite.Contracts;
+using ExamPlatform.Modules.Notifications.Contracts;
 using NSubstitute;
 
 namespace ExamPlatform.Modules.ExamRuntime.UnitTests;
@@ -109,6 +110,9 @@ public class AttemptRequestHandlerTests
     private readonly IExamRuntimeUnitOfWork _unitOfWork = Substitute.For<IExamRuntimeUnitOfWork>();
     private readonly IAttemptRequestNotifier _notifier = Substitute.For<IAttemptRequestNotifier>();
     private readonly IStaffDirectory _staff = Substitute.For<IStaffDirectory>();
+    private readonly IInAppNotifier _inApp = Substitute.For<IInAppNotifier>();
+    private readonly Guid _manager1 = Guid.NewGuid();
+    private readonly Guid _manager2 = Guid.NewGuid();
 
     private ExamSnapshot _exam;
     private readonly List<Attempt> _theirs = [];
@@ -129,15 +133,18 @@ public class AttemptRequestHandlerTests
         _requests.HasPendingAsync(_exam.Id, _candidate, Arg.Any<CancellationToken>()).Returns(_ => _pending);
         _notifier.SendDecisionAsync(Arg.Any<AttemptRequestDecisionEmail>(), Arg.Any<CancellationToken>()).Returns(true);
         _notifier.SendNewRequestAsync(Arg.Any<NewAttemptRequestEmail>(), Arg.Any<CancellationToken>()).Returns(true);
-        _staff.GetEmailsWithPermissionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<string>>(["admin1@example.com", "admin2@example.com"]));
+        _staff.GetActiveRecipientsWithPermissionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<StaffRecipient>>(
+            [new StaffRecipient(_manager1, "admin1@example.com"), new StaffRecipient(_manager2, "admin2@example.com")]));
+        _inApp.NotifyManyAsync(Arg.Any<IReadOnlyCollection<InAppNotice>>(), Arg.Any<CancellationToken>()).Returns(true);
+        _inApp.NotifyAsync(Arg.Any<InAppNotice>(), Arg.Any<CancellationToken>()).Returns(true);
     }
 
-    private RequestAttemptHandler Request => new(_catalog, _enrollments, _attempts, _grants, _requests, _unitOfWork, _staff, _roster, _notifier, _clock);
+    private RequestAttemptHandler Request =>
+        new(_catalog, _enrollments, _attempts, _grants, _requests, _unitOfWork, _staff, _roster, _notifier, _inApp, _clock);
     private AttemptRequestDtoFactory Dtos => new(_catalog, _roster);
     private ApproveAttemptRequestHandler Approve =>
-        new(_requests, new GrantExtraAttemptHandler(_catalog, _roster, _attempts, _grants, _accommodations, _unitOfWork, _clock), Dtos, _notifier);
-    private DeclineAttemptRequestHandler Decline => new(_requests, _unitOfWork, Dtos, _clock, _notifier);
+        new(_requests, new GrantExtraAttemptHandler(_catalog, _roster, _attempts, _grants, _accommodations, _unitOfWork, _clock), Dtos, _notifier, _inApp);
+    private DeclineAttemptRequestHandler Decline => new(_requests, _unitOfWork, Dtos, _clock, _notifier, _inApp);
 
     private Attempt Made(bool open = false)
     {
@@ -233,7 +240,7 @@ public class AttemptRequestHandlerTests
 
         await Request.HandleAsync(_exam.Id, _candidate, "Power cut", CancellationToken.None);
 
-        await _staff.Received(1).GetEmailsWithPermissionAsync("exam.manage", Arg.Any<CancellationToken>());
+        await _staff.Received(1).GetActiveRecipientsWithPermissionAsync("exam.manage", Arg.Any<CancellationToken>());
         foreach (var manager in new[] { "admin1@example.com", "admin2@example.com" })
         {
             await _notifier.Received(1).SendNewRequestAsync(
@@ -243,10 +250,25 @@ public class AttemptRequestHandlerTests
     }
 
     [Fact]
+    public async Task Request_RecordsAFeedNoticeForEachPersonWhoCanAnswerIt()
+    {
+        Made();
+
+        await Request.HandleAsync(_exam.Id, _candidate, "Power cut", CancellationToken.None);
+
+        await _inApp.Received(1).NotifyManyAsync(
+            Arg.Is<IReadOnlyCollection<InAppNotice>>(notices => notices.Count == 2
+                && notices.All(n => n.Kind == InAppNoticeKind.AttemptRequestReceived && n.ExamName == "Physics")
+                && notices.Select(n => n.RecipientUserId).ToHashSet().SetEquals(new[] { _manager1, _manager2 })),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Request_WithNoOneToTell_StillRecordsTheRequest()
     {
         Made();
-        _staff.GetEmailsWithPermissionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<string>>([]));
+        _staff.GetActiveRecipientsWithPermissionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<StaffRecipient>>([]));
 
         var dto = await Request.HandleAsync(_exam.Id, _candidate, null, CancellationToken.None);
 
@@ -273,8 +295,9 @@ public class AttemptRequestHandlerTests
         // Still has the attempt they hold, so there is nothing to ask for yet.
         await Assert.ThrowsAsync<AttemptNotNeededError>(() => Request.HandleAsync(_exam.Id, _candidate, null, CancellationToken.None));
 
-        await _staff.DidNotReceive().GetEmailsWithPermissionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _staff.DidNotReceive().GetActiveRecipientsWithPermissionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _notifier.DidNotReceive().SendNewRequestAsync(Arg.Any<NewAttemptRequestEmail>(), Arg.Any<CancellationToken>());
+        await _inApp.DidNotReceive().NotifyManyAsync(Arg.Any<IReadOnlyCollection<InAppNotice>>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -298,6 +321,9 @@ public class AttemptRequestHandlerTests
 
         var dto = await Approve.HandleAsync(request.Id, _admin, CancellationToken.None);
 
+        await _inApp.Received(1).NotifyAsync(
+            Arg.Is<InAppNotice>(n => n.RecipientUserId == request.CandidateId && n.Kind == InAppNoticeKind.AttemptRequestApproved && n.SubjectId == request.Id),
+            Arg.Any<CancellationToken>());
         Assert.Equal(AttemptRequestStatus.Approved, request.Status);
         Assert.Equal(_admin, request.DecidedByUserId);
         Assert.Equal(AttemptRequestStatus.Approved, dto.Status);
@@ -346,6 +372,10 @@ public class AttemptRequestHandlerTests
 
         var dto = await Decline.HandleAsync(request.Id, _admin, "Speak to your teacher", CancellationToken.None);
 
+        // The note stays out of the feed: the candidate reads it on their result page, where it was first written.
+        await _inApp.Received(1).NotifyAsync(
+            Arg.Is<InAppNotice>(n => n.RecipientUserId == request.CandidateId && n.Kind == InAppNoticeKind.AttemptRequestDeclined && n.SubjectId == request.Id),
+            Arg.Any<CancellationToken>());
         Assert.Equal(AttemptRequestStatus.Declined, dto.Status);
         Assert.Equal("Speak to your teacher", dto.DecisionNote);
         _grants.DidNotReceive().Add(Arg.Any<ExtraAttemptGrant>());
