@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ExamPlatform.Modules.Analytics.Application\ExamPlatform.Modules.Analytics.Application.csproj" />
+    <ProjectReference Include="..\ExamPlatform.Modules.Analytics.Infrastructure\ExamPlatform.Modules.Analytics.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
+  </ItemGroup>
+</Project>

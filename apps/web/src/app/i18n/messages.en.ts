@@ -978,6 +978,30 @@ export const EN = {
   'notifications.kind.ExamReminderOneHour': '{exam} starts within the hour.',
   'notifications.kind.ResultReleased': 'Your result for {exam} is out.',
   'notifications.kind.ScoreRevised': 'Your score for {exam} was revised. Open My exams to see the new score.',
+
+  // ---- candidate analytics (FR-36) ----
+  'analytics.title': 'My performance',
+  'analytics.hint': 'How you did across the exams you sat. Only results the exam organiser has released are counted, and you see only your own.',
+  'analytics.loadError': 'Your performance could not be loaded. Please try again.',
+  'analytics.retry': 'Try again',
+  'analytics.empty': 'Your performance will appear here once the organiser releases the results of an exam you sat.',
+  'analytics.link': 'See my performance',
+  'analytics.resultsLabel': 'Released results',
+  'analytics.latestLabel': 'Latest result, share of the marks',
+  'analytics.noMarks': 'No marks',
+  'analytics.trend.title': 'Score trend',
+  'analytics.trend.hint': 'Each point is one released result, in the order you sat the exams. The height is the share of the marks you earned.',
+  'analytics.results.title': 'Results in order',
+  'analytics.col.sat': 'Sat on',
+  'analytics.col.score': 'Marks',
+  'analytics.col.share': 'Share of the marks',
+  'analytics.sections.title': 'By section',
+  'analytics.sections.hint': 'Accuracy is the share of the questions you answered that were fully correct. Questions you skipped are left out, so skipping does not lower it. Weakest first.',
+  'analytics.sections.accuracy': 'Accuracy',
+  'analytics.sections.none': 'No section was scored in your released results.',
+  'analytics.sections.noneAnswered': 'No question answered',
+  'analytics.sections.resultCount.one': 'In {count} result',
+  'analytics.sections.resultCount.other': 'In {count} results',
 } as const;
 
 /** The key of a message. */

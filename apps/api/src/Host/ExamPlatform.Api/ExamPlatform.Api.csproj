@@ -13,6 +13,7 @@
     <ProjectReference Include="..\..\Modules\Guardian\ExamPlatform.Modules.Guardian.Endpoints\ExamPlatform.Modules.Guardian.Endpoints.csproj" />
     <ProjectReference Include="..\..\Modules\QuestionBank\ExamPlatform.Modules.QuestionBank.Endpoints\ExamPlatform.Modules.QuestionBank.Endpoints.csproj" />
     <ProjectReference Include="..\..\Modules\ExamRuntime\ExamPlatform.Modules.ExamRuntime.Endpoints\ExamPlatform.Modules.ExamRuntime.Endpoints.csproj" />
+    <ProjectReference Include="..\..\Modules\Analytics\ExamPlatform.Modules.Analytics.Endpoints\ExamPlatform.Modules.Analytics.Endpoints.csproj" />
     <ProjectReference Include="..\..\Modules\Notifications\ExamPlatform.Modules.Notifications.Endpoints\ExamPlatform.Modules.Notifications.Endpoints.csproj" />
     <ProjectReference Include="..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
     <ProjectReference Include="..\..\SharedKernel\ExamPlatform.SharedKernel.Infrastructure\ExamPlatform.SharedKernel.Infrastructure.csproj" />

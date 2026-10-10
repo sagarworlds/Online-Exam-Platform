@@ -173,13 +173,14 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         "GET /v1/me/notifications/unread-count",
         "POST /v1/me/notifications/{notificationId:guid}/read",
         "POST /v1/me/notifications/read-all",
+        "GET /v1/me/analytics",
     ];
 
     // Routes that need no sign-in at all: a guardian has no account, so the one-time code e-mailed to them is the only proof.
     // They are listed here so that adding one is a decision, and the test checks that they really are open.
     private static readonly string[] PublicRoutes = ["POST /v1/guardian-links/verify"];
 
-    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/me/notifications"];
+    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/me/notifications", "/v1/me/analytics"];
 
     public static TheoryData<string> StaffRouteKeys => [.. StaffRoutes.Select(r => r.Key)];
 
