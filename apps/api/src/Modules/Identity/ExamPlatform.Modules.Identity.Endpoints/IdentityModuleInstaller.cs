@@ -1,6 +1,7 @@
 using ExamPlatform.Modules.Identity.Application;
 using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Ports;
+using ExamPlatform.Modules.Identity.Application.DataRequests;
 using ExamPlatform.Modules.Identity.Application.Queries;
 using ExamPlatform.Modules.Identity.Application.Retention;
 using ExamPlatform.Modules.Identity.Application.Sessions;
@@ -63,6 +64,16 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<IExpiredCredentialStore, ExpiredCredentialStore>();
         services.AddScoped<PurgeExpiredCredentialsHandler>();
         services.AddHostedService<CredentialRetentionBackgroundService>();
+
+        // Data-principal requests (FR-48): a candidate asks, staff answer within the service period.
+        services.AddOptions<DataRequestOptions>()
+            .Bind(configuration.GetSection(DataRequestOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddScoped<IDataRequestRepository, DataRequestRepository>();
+        services.AddScoped<RaiseDataRequestHandler>();
+        services.AddScoped<ResolveDataRequestHandler>();
+        services.AddScoped<DataRequestQueries>();
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IOtpCodeGenerator, OtpCodeGenerator>();
