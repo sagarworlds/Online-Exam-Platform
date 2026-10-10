@@ -276,6 +276,32 @@ public sealed class NotificationRunFlowTests(NotificationApiFactory factory) : I
         await RunAsync();
         Assert.Single(MailTo(s.Email));
     }
+    [Fact]
+    public async Task TheCandidateReadsTheirReminder_MarksItRead_AndMarkingAllThenFindsNothingUnread()
+    {
+        var s = await ScheduledAsync(TimeSpan.FromHours(20));
+        using var _a = s.Admin;
+        using var _c = s.Candidate;
+        await RunAsync();
+
+        var feed = await s.Candidate.GetFromJsonAsync<JsonElement>("/v1/me/notifications");
+        var reminder = Assert.Single(
+            feed.GetProperty("items").EnumerateArray(),
+            item => item.GetProperty("subjectId").GetGuid() == s.ExamId);
+        Assert.Equal("ExamReminder24Hours", reminder.GetProperty("kind").GetString());
+        Assert.False(reminder.GetProperty("isRead").GetBoolean());
+
+        var marked = await s.Candidate.PostAsync($"/v1/me/notifications/{reminder.GetProperty("id").GetString()}/read", content: null);
+        marked.EnsureSuccessStatusCode();
+        Assert.True((await JsonAsync(marked)).GetProperty("isRead").GetBoolean());
+
+        var all = await s.Candidate.PostAsync("/v1/me/notifications/read-all", content: null);
+        all.EnsureSuccessStatusCode();
+        Assert.Equal(0, (await JsonAsync(all)).GetProperty("marked").GetInt32());
+
+        var count = await s.Candidate.GetFromJsonAsync<JsonElement>("/v1/me/notifications/unread-count");
+        Assert.Equal(0, count.GetProperty("unreadCount").GetInt32());
+    }
 }
 
 /// <summary>The route an outside scheduler calls to start a pass (FR-39): proven by a key, and doing the same work as the timer.</summary>
