@@ -3,6 +3,7 @@ using System;
 using ExamPlatform.Modules.QuestionBank.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
 {
     [DbContext(typeof(QuestionBankDbContext))]
-    partial class QuestionBankDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261010042414_EncryptQuestionContent")]
+    partial class EncryptQuestionContent
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -119,9 +122,6 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
                     b.Property<string>("Difficulty")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
-
-                    b.Property<string>("Explanation")
-                        .HasColumnType("text");
 
                     b.Property<bool>("IsTextAnswer")
                         .ValueGeneratedOnAdd()
@@ -260,9 +260,6 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Explanation")
-                        .HasColumnType("text");
 
                     b.Property<bool>("IsTextAnswer")
                         .ValueGeneratedOnAdd()

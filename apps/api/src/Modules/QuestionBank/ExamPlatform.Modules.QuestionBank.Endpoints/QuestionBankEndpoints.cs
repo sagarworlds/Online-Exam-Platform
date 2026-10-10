@@ -67,6 +67,12 @@ public static class QuestionBankEndpoints
             .WithName("GetQuestionStatistics")
             .WithDescription("The exams that hold a question, how many candidates answered it, how many were fully correct and how often each option was chosen");
 
+        readers.MapGet("/encryption-status", ReadContentEncryptionStatus)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("GetQuestionContentEncryptionStatus")
+            .WithDescription("How many stored question content values are encrypted, and how many are still plaintext (#57)");
+
         readers.MapGet("/topics", ListTopics)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
@@ -250,6 +256,9 @@ public static class QuestionBankEndpoints
         Results.Ok(await handler.RestoreAsync(questionId, Actor(user), request?.Comment, ct));
 
     private static async Task<IResult> ListTopics(ListTopicsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(ct));
+
+    private static async Task<IResult> ReadContentEncryptionStatus(ReadContentEncryptionStatusHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(ct));
 
     private static async Task<IResult> GetQuestion(Guid questionId, GetQuestionHandler handler, CancellationToken ct) =>

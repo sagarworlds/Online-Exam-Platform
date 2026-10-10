@@ -2,6 +2,7 @@ import { HttpClient, HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
+import type { ContentEncryptionStatus } from './question.models';
 import {
   AddTranslationRequest,
   AnswerKeyCorrectionResult,
@@ -43,6 +44,11 @@ export class QuestionApiService {
     if (filter.language) params['language'] = filter.language;
     if (skip > 0) params['skip'] = String(skip);
     return this.http.get<QuestionDto[]>(this.baseUrl, { params });
+  }
+
+  /** How much of the bank's content is encrypted at rest, for the admin status (#57). */
+  encryptionStatus(): Observable<ContentEncryptionStatus> {
+    return this.http.get<ContentEncryptionStatus>(`${this.baseUrl}/encryption-status`);
   }
 
   /** Every topic in use, once each, alphabetically, for the topic filter and for suggestions. */

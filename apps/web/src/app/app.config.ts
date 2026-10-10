@@ -16,6 +16,9 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => inject(I18nService).ready()),
     provideRouter(routes),
     provideHttpClient(withFetch(), withInterceptors([apiActivityInterceptor, deviceSignatureInterceptor, languageInterceptor, authInterceptor])),
+    // Installable and offline-capable for the app shell only. ngsw-config.json has no data groups and its file patterns do not reach /api,
+    // so an exam paper, its pictures and every other API response are never stored by the browser (NFR-5: the paper is readable only
+    // once the exam starts). Keep it that way when the config changes; the pwa-install spec checks it.
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',
