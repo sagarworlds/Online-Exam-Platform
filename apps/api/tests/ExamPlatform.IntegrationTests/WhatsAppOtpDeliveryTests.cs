@@ -46,6 +46,7 @@ public sealed class WhatsAppOtpDeliveryTests(ApiFactory factory) : IClassFixture
                 ["WhatsApp:OtpTemplateLanguage"] = "hi",
             }));
             builder.ConfigureTestServices(services => services.AddSingleton<IWhatsAppSender>(whatsApp));
+            builder.ConfigureTestServices(SharedKeyRing.Apply);
         });
 
     [Fact]

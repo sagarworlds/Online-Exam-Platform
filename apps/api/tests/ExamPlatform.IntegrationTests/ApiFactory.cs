@@ -1,8 +1,4 @@
-using System.Xml.Linq;
 using ExamPlatform.Modules.Identity.Application.Ports;
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.DataProtection.KeyManagement;
-using Microsoft.AspNetCore.DataProtection.Repositories;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -105,55 +101,5 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             TestRemoteIpStartupFilter.Register(services);
             SharedKeyRing.Apply(services);
         });
-    }
-
-    /// <summary>
-    /// One Data Protection key ring for every test host in the process. EF Core caches the QuestionBank model for the process, and its
-    /// value converters keep the content cipher of the host that built it first. A later host therefore decrypts with that first
-    /// cipher, which works only if both hosts read the same keys. Production keeps its keys in the database
-    /// (<c>PersistKeysToDbContext</c>); this replaces only where the test host keeps them.
-    /// </summary>
-    private static class SharedKeyRing
-    {
-        private static readonly MemoryKeyRepository Repository = new();
-
-        static SharedKeyRing()
-        {
-            // The first key is created here, before any host runs: two hosts that each created one at the same moment would hold
-            // different default keys.
-            var services = new ServiceCollection();
-            services.AddDataProtection().SetApplicationName("ExamPlatform");
-            services.PostConfigure<KeyManagementOptions>(options => options.XmlRepository = Repository);
-            using var provider = services.BuildServiceProvider();
-            provider.GetRequiredService<IDataProtectionProvider>()
-                .CreateProtector("ExamPlatform.IntegrationTests.KeyRingWarmUp")
-                .Protect("warm-up");
-        }
-
-        /// <summary>Points a test host's Data Protection at the shared key ring. PostConfigure runs after the host's own key storage is set.</summary>
-        public static void Apply(IServiceCollection services) =>
-            services.PostConfigure<KeyManagementOptions>(options => options.XmlRepository = Repository);
-
-        private sealed class MemoryKeyRepository : IXmlRepository
-        {
-            private readonly object _gate = new();
-            private readonly List<XElement> _elements = [];
-
-            public IReadOnlyCollection<XElement> GetAllElements()
-            {
-                lock (_gate)
-                {
-                    return _elements.Select(element => new XElement(element)).ToArray();
-                }
-            }
-
-            public void StoreElement(XElement element, string friendlyName)
-            {
-                lock (_gate)
-                {
-                    _elements.Add(new XElement(element));
-                }
-            }
-        }
     }
 }

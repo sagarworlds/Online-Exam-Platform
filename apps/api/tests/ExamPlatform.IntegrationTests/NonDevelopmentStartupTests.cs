@@ -4,6 +4,7 @@ using ExamPlatform.Modules.Identity.Domain.Rbac;
 using ExamPlatform.Modules.Identity.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
@@ -247,6 +248,8 @@ public sealed class NonDevelopmentStartupTests(PostgresServerFixture postgres) :
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Development");
+            // This host migrates and seeds, so it builds the QuestionBank model the whole process reuses; it must use the shared key ring (SharedKeyRing).
+            builder.ConfigureTestServices(SharedKeyRing.Apply);
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Postgres"] = connectionString,
