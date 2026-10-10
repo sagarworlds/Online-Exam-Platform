@@ -12,8 +12,12 @@ public class EFGuardianRepository(GuardianDbContext context) : IGuardianReposito
     // tracking to INSERT new children; an explicit DbSet.Update would flag them Modified instead.
     public async Task<GuardianAggregate?> GetByIdAsync(Guid guardianId, CancellationToken cancellationToken = default) =>
         await Loaded().FirstOrDefaultAsync(g => g.Id == guardianId, cancellationToken);
-    public async Task<GuardianAggregate?> GetByEmailAsync(string email, CancellationToken cancellationToken = default) =>
-        await Loaded().AsNoTracking().FirstOrDefaultAsync(g => g.Email == email, cancellationToken);
+    // Compared in lower case: a person types an address by hand, and the same mailbox is not two guardians for case alone.
+    public async Task<IReadOnlyList<GuardianAggregate>> ListByEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        var wanted = email.Trim().ToLowerInvariant();
+        return await Loaded().AsNoTracking().Where(g => g.Email.ToLower() == wanted).ToListAsync(cancellationToken);
+    }
     public async Task<IReadOnlyList<GuardianAggregate>> ListByCandidateAsync(Guid candidateId, CancellationToken cancellationToken = default) =>
         await Loaded().AsNoTracking().Where(g => g.CandidateLinks.Any(l => l.CandidateId == candidateId)).ToListAsync(cancellationToken);
     // Tracked, like GetByIdAsync: confirming a link changes it, and the unit of work saves that change.

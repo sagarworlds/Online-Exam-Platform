@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.Guardian.Domain;
+using GuardianAggregate = ExamPlatform.Modules.Guardian.Domain.Guardian;
 
 namespace ExamPlatform.Modules.Guardian.Application.Dtos;
 
@@ -10,7 +11,13 @@ public record GuardianDto(
     string FullName,
     DateTime CreatedAt,
     DateTime UpdatedAt
-);
+)
+{
+    /// <summary>Maps a guardian to its DTO.</summary>
+    /// <param name="guardian">The guardian to map.</param>
+    public static GuardianDto From(GuardianAggregate guardian) =>
+        new(guardian.Id, guardian.Email, guardian.Phone, guardian.FullName, guardian.CreatedAt, guardian.UpdatedAt);
+}
 
 /// DTO for guardian link to candidate.
 public record GuardianLinkDto(

@@ -38,6 +38,7 @@ public sealed class GuardianModuleInstaller : IModuleInstaller
         services.AddScoped<RevokeGuardianLinkHandler>();
         services.AddScoped<UnlinkCandidateHandler>();
         services.AddScoped<ListGuardianLinksHandler>();
+        services.AddScoped<FindGuardianByEmailHandler>();
     }
 
     /// <inheritdoc />

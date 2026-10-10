@@ -50,6 +50,18 @@ public static class GuardianEndpoints
             .WithName("UnlinkCandidate")
             .WithDescription("Unlink a candidate from a guardian");
 
+        // Staff look a guardian up by the address they know, to link a candidate to them (the id is not something staff have).
+        guardians.MapGet("/", FindGuardianByEmail)
+            .RequireAuthorization(GuardianPermissions.LinkManage)
+            .Produces<GuardianDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("FindGuardianByEmail")
+            .WithDescription("Find the guardian registered with an e-mail address");
+
         guardians.MapGet("/{guardianId}/links", ListGuardianLinks)
             .RequireAuthorization(GuardianPermissions.LinkManage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -119,6 +131,12 @@ public static class GuardianEndpoints
         await handler.HandleAsync(command, ct);
         return Results.NoContent();
     }
+
+    private static async Task<IResult> FindGuardianByEmail(
+        string? email,
+        FindGuardianByEmailHandler handler,
+        CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(email, ct));
 
     private static async Task<IResult> ListGuardianLinks(
         Guid guardianId,

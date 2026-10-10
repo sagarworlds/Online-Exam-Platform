@@ -20,11 +20,8 @@ public sealed class CreateGuardianHandler(IGuardianRepository repository, IGuard
         var guardian = new GuardianAggregate(command.Email, command.FullName, command.Phone);
         repository.Add(guardian);
         await unitOfWork.SaveChangesAsync(cancellationToken);
-        return MapToDto(guardian);
+        return GuardianDto.From(guardian);
     }
-
-    private static GuardianDto MapToDto(GuardianAggregate guardian) =>
-        new(guardian.Id, guardian.Email, guardian.Phone, guardian.FullName, guardian.CreatedAt, guardian.UpdatedAt);
 }
 
 /// <summary>

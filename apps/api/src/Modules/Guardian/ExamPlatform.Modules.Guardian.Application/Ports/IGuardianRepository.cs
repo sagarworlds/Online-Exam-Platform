@@ -9,7 +9,8 @@ public interface IGuardianRepository
 
     /// <summary>Finds a guardian with their candidate links, ready to change; null when there is none.</summary>
     Task<GuardianAggregate?> GetByIdAsync(Guid guardianId, CancellationToken cancellationToken = default);
-    Task<GuardianAggregate?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
+    /// <summary>Finds every guardian registered with the address, compared without regard to case; empty when there is none.</summary>
+    Task<IReadOnlyList<GuardianAggregate>> ListByEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<GuardianAggregate>> ListByCandidateAsync(Guid candidateId, CancellationToken cancellationToken = default);
 
     /// <summary>

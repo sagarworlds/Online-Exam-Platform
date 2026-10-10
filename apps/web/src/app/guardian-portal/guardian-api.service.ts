@@ -20,6 +20,11 @@ export class GuardianApiService {
     return this.http.post<GuardianDto>(this.apiUrl, request);
   }
 
+  /** Finds the guardian registered with an e-mail address, so a candidate can be linked to them without knowing their id. */
+  findGuardianByEmail(email: string) {
+    return this.http.get<GuardianDto>(this.apiUrl, { params: { email } });
+  }
+
   linkCandidate(guardianId: string, request: LinkCandidateRequest) {
     return this.http.post<LinkCandidateResponse>(`${this.apiUrl}/${guardianId}/links`, request);
   }
