@@ -14,6 +14,18 @@
       <p>{{ exam.description }}</p>
     }
 
+    <!-- The paper is locked until the exam opens, and says so with the time it opens; once open it is available to start (#57). -->
+    @if (paperStatus(); as status) {
+      <section class="card paper-status" [class.paper-status--open]="status === 'open'" aria-labelledby="paper-status-heading">
+        <h2 id="paper-status-heading" class="card__title">
+          {{ (status === 'locked' ? 'paper.locked.title' : 'paper.open.title') | t }}
+        </h2>
+        <p class="paper-status__body" role="status">
+          {{ (status === 'locked' ? 'paper.locked.body' : 'paper.open.body') | t: { time: (exam.startUtc | date: 'medium') ?? '' } }}
+        </p>
+      </section>
+    }
+
     <section class="card" aria-labelledby="facts-heading">
       <h2 id="facts-heading" class="card__title">{{ 'instructions.about' | t }}</h2>
       <dl class="facts">

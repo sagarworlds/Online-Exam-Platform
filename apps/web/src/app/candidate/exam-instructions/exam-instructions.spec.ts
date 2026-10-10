@@ -234,6 +234,24 @@ describe('ExamInstructions', () => {
     expect(startButton(fixture)).toBeUndefined();
   });
 
+  it('says the question paper is locked until the exam opens, and when it opens (#57)', async () => {
+    const fixture = await open([exam({ state: 'NotOpen', canStartAttempt: false })]);
+
+    const notice = root(fixture).querySelector('.paper-status');
+    expect(notice?.classList).not.toContain('paper-status--open');
+    expect(notice?.textContent).toContain('The question paper is not available yet');
+    expect(notice?.textContent).toContain('It opens with the exam at');
+  });
+
+  it('says the question paper is open once the exam has opened, and does not call it locked (#57)', async () => {
+    const fixture = await open([exam({ state: 'Open', canStartAttempt: true })]);
+
+    const notice = root(fixture).querySelector('.paper-status');
+    expect(notice?.classList).toContain('paper-status--open');
+    expect(notice?.textContent).toContain('The question paper is open');
+    expect(notice?.textContent).not.toContain('not available yet');
+  });
+
   it('points a candidate with an attempt in progress to resume it', async () => {
     const fixture = await open([exam({ canStartAttempt: false, attemptId: 'a7', attemptStatus: 'InProgress', attemptsUsed: 1 })]);
 

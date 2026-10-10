@@ -97,6 +97,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             new { text = "Q?", options = new[] { new { text = "A", isCorrect = true }, new { text = "B", isCorrect = false } } }),
         new("GET", "/v1/questions", RbacCatalog.PermissionCodes.QuestionRead, null),
         new("GET", "/v1/questions/topics", RbacCatalog.PermissionCodes.QuestionRead, null),
+        new("GET", "/v1/questions/encryption-status", RbacCatalog.PermissionCodes.QuestionRead, null),
         new("GET", "/v1/questions/{questionId:guid}", RbacCatalog.PermissionCodes.QuestionRead, null),
         new("PUT", "/v1/questions/{questionId:guid}", RbacCatalog.PermissionCodes.QuestionManage,
             new { text = "Q?", options = new[] { new { text = "A", isCorrect = true }, new { text = "B", isCorrect = false } } }),
@@ -162,6 +163,13 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("DELETE", "/v1/guardians/{guardianId}/candidates/{candidateId}", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
         new("GET", "/v1/guardians", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
         new("GET", "/v1/guardians/{guardianId}/links", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
+
+        new("GET", "/v1/proctoring/exams/{examId:guid}/risk-flags", RbacCatalog.PermissionCodes.ProctoringReview, null),
+        new("POST", "/v1/proctoring/exams/{examId:guid}/risk-scan", RbacCatalog.PermissionCodes.ProctoringReview, null),
+        new("POST", "/v1/proctoring/risk-flags/{assessmentId:guid}/review", RbacCatalog.PermissionCodes.ProctoringReview,
+            new { note = "Authorization test" }),
+        new("POST", "/v1/proctoring/risk-flags/{assessmentId:guid}/dismiss", RbacCatalog.PermissionCodes.ProctoringReview,
+            new { note = "Authorization test" }),
     ];
 
     // Routes under the module prefixes that deliberately ask for a signed-in caller only: accepting and declining
@@ -182,7 +190,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
     // They are listed here so that adding one is a decision, and the test checks that they really are open.
     private static readonly string[] PublicRoutes = ["POST /v1/guardian-links/verify"];
 
-    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/me/notifications", "/v1/me/analytics"];
+    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/proctoring", "/v1/me/notifications", "/v1/me/analytics"];
 
     public static TheoryData<string> StaffRouteKeys => [.. StaffRoutes.Select(r => r.Key)];
 

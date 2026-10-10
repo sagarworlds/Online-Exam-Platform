@@ -59,6 +59,13 @@
     <Project Path="src/Modules/Guardian/ExamPlatform.Modules.Guardian.Endpoints/ExamPlatform.Modules.Guardian.Endpoints.csproj" />
     <Project Path="src/Modules/Guardian/ExamPlatform.Modules.Guardian.Infrastructure/ExamPlatform.Modules.Guardian.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Proctoring/">
+    <Project Path="src/Modules/Proctoring/ExamPlatform.Modules.Proctoring.Application/ExamPlatform.Modules.Proctoring.Application.csproj" />
+    <Project Path="src/Modules/Proctoring/ExamPlatform.Modules.Proctoring.Contracts/ExamPlatform.Modules.Proctoring.Contracts.csproj" />
+    <Project Path="src/Modules/Proctoring/ExamPlatform.Modules.Proctoring.Domain/ExamPlatform.Modules.Proctoring.Domain.csproj" />
+    <Project Path="src/Modules/Proctoring/ExamPlatform.Modules.Proctoring.Endpoints/ExamPlatform.Modules.Proctoring.Endpoints.csproj" />
+    <Project Path="src/Modules/Proctoring/ExamPlatform.Modules.Proctoring.Infrastructure/ExamPlatform.Modules.Proctoring.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Notifications/">
     <Project Path="src/Modules/Notifications/ExamPlatform.Modules.Notifications.Application/ExamPlatform.Modules.Notifications.Application.csproj" />
     <Project Path="src/Modules/Notifications/ExamPlatform.Modules.Notifications.Contracts/ExamPlatform.Modules.Notifications.Contracts.csproj" />
@@ -113,6 +120,9 @@
   <Folder Name="/tests/Modules/Guardian/">
     <Project Path="tests/Modules/Guardian/ExamPlatform.Modules.Guardian.UnitTests/ExamPlatform.Modules.Guardian.UnitTests.csproj" />
     <Project Path="tests/Modules/Notifications/ExamPlatform.Modules.Notifications.UnitTests/ExamPlatform.Modules.Notifications.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Proctoring/">
+    <Project Path="tests/Modules/Proctoring/ExamPlatform.Modules.Proctoring.UnitTests/ExamPlatform.Modules.Proctoring.UnitTests.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Analytics/">
     <Project Path="src/Modules/Analytics/ExamPlatform.Modules.Analytics.Application/ExamPlatform.Modules.Analytics.Application.csproj" />

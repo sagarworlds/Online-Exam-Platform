@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
     <ProjectReference Include="..\ExamPlatform.Modules.ExamRuntime.Domain\ExamPlatform.Modules.ExamRuntime.Domain.csproj" />
+    <ProjectReference Include="..\ExamPlatform.Modules.ExamRuntime.Contracts\ExamPlatform.Modules.ExamRuntime.Contracts.csproj" />
     <ProjectReference Include="..\..\Admin\ExamPlatform.Modules.Admin.Contracts\ExamPlatform.Modules.Admin.Contracts.csproj" />
     <ProjectReference Include="..\..\Batch\ExamPlatform.Modules.Batch.Contracts\ExamPlatform.Modules.Batch.Contracts.csproj" />
     <ProjectReference Include="..\..\ExamAuthoring\ExamPlatform.Modules.ExamAuthoring.Contracts\ExamPlatform.Modules.ExamAuthoring.Contracts.csproj" />

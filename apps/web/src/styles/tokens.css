@@ -12,6 +12,9 @@
   --surface-muted: #f7f8fc;
   --border: #d9deea;
   --border-strong: #b4bdd1;
+  /* The edge of a control (a field, a button, an answer choice). It must reach 3:1 against the surface (WCAG 1.4.11), which
+     --border-strong does not; --border-strong stays for decorative rules and accents. */
+  --control-border: #7b849b;
 
   --text: #172033;
   --text-muted: #566078;
@@ -41,6 +44,7 @@
     --surface-muted: #1b2236;
     --border: #2b3550;
     --border-strong: #41507a;
+    --control-border: #7d88a6;
 
     --text: #e6eaf5;
     --text-muted: #9aa6c4;

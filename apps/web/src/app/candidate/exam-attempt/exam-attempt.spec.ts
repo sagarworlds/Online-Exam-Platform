@@ -1191,6 +1191,27 @@ describe('ExamAttempt', () => {
       expect(buttonLabelled(fixture, 'High contrast')?.getAttribute('aria-pressed')).toBe('true');
       expect(localStorage.getItem('exam.highContrast')).toBe('on');
     });
+
+    it('turns the single-key shortcuts off, so N no longer moves the candidate, and remembers the choice (WCAG 2.1.4)', async () => {
+      const fixture = await open(attempt());
+      buttonLabelled(fixture, 'Single-key shortcuts (N, P, M, C)')?.click();
+      fixture.detectChanges();
+
+      press(fixture, 'n');
+
+      expect(position(fixture)).toBe('1');
+      expect(buttonLabelled(fixture, 'Single-key shortcuts (N, P, M, C)')?.getAttribute('aria-pressed')).toBe('false');
+      expect(localStorage.getItem('exam.keyShortcuts')).toBe('off');
+    });
+
+    it('starts with the shortcuts off when the candidate turned them off on an earlier visit', async () => {
+      localStorage.setItem('exam.keyShortcuts', 'off');
+      const fixture = await open(attempt());
+
+      press(fixture, 'n');
+
+      expect(position(fixture)).toBe('1');
+    });
   });
 
   describe('copy, paste, right-click and print protection (FR-23)', () => {

@@ -97,9 +97,9 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
-                    b.PrimitiveCollection<string[]>("AcceptedAnswers")
+                    b.Property<string>("AcceptedAnswers")
                         .IsRequired()
-                        .HasColumnType("text[]");
+                        .HasColumnType("text");
 
                     b.Property<bool>("AllowsMultiple")
                         .HasColumnType("boolean");
@@ -193,8 +193,7 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
 
                     b.Property<string>("Text")
                         .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -252,9 +251,9 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
-                    b.PrimitiveCollection<string[]>("AcceptedAnswers")
+                    b.Property<string>("AcceptedAnswers")
                         .IsRequired()
-                        .HasColumnType("text[]");
+                        .HasColumnType("text");
 
                     b.Property<bool>("AllowsMultiple")
                         .HasColumnType("boolean");
@@ -272,7 +271,7 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
 
                     b.Property<string>("Options")
                         .IsRequired()
-                        .HasColumnType("jsonb");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("QuestionId")
                         .HasColumnType("uuid");
@@ -317,6 +316,25 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Classes", "questionBank");
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FriendlyName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Xml")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DataProtectionKeys", "questionBank");
                 });
 
             modelBuilder.Entity("ExamPlatform.Modules.QuestionBank.Domain.Book", b =>

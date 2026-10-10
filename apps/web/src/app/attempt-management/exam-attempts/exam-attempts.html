@@ -13,6 +13,7 @@
   } @else if (data(); as d) {
     <div class="page-header">
       <h1>Candidates and attempts</h1>
+      <a [routerLink]="['/exams', examId, 'risk-flags']" class="risk-link">{{ 'proctoring.exam.link' | t }}</a>
       <a [routerLink]="['/exams', examId, 'item-analysis']" class="btn">Item analysis</a>
     </div>
     <p class="hint">

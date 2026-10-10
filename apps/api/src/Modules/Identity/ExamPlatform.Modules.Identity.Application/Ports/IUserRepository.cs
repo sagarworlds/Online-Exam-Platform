@@ -32,6 +32,12 @@ public interface IUserRepository
     /// <returns>Each user once, ordered by address then id; the address is null for a user who has none.</returns>
     Task<IReadOnlyList<(Guid UserId, string? Email)>> ListActiveWithPermissionAsync(string permissionCode, CancellationToken cancellationToken);
 
+    /// <summary>Reads the dates of birth of the given users, without loading their roles or sessions.</summary>
+    /// <param name="userIds">The users.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The date of birth of each user found; an id that matches no user is left out.</returns>
+    Task<IReadOnlyDictionary<Guid, DateOnly>> ListDatesOfBirthAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
+
     /// <summary>Begins tracking a new user for insertion on the next unit-of-work commit.</summary>
     /// <param name="user">The user to add.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

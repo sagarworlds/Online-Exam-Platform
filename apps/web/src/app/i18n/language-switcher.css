@@ -4,12 +4,12 @@
   width: auto;
   margin-inline-start: 0.5rem;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  min-height: 2.625rem;
+  min-height: 2.75rem;
   cursor: pointer;
 }
 

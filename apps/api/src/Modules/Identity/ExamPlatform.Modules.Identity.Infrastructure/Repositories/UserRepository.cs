@@ -55,6 +55,18 @@ public sealed class UserRepository(IdentityDbContext context) : IUserRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, DateOnly>> ListDatesOfBirthAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
+    {
+        // A projection rather than Loaded(): an age check needs one column, and loading roles and sessions for every attempt would be wasted.
+        var rows = await context.Users.AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .Select(u => new { u.Id, u.DateOfBirth })
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(r => r.Id, r => r.DateOfBirth);
+    }
+
+    /// <inheritdoc />
     public async Task AddAsync(User user, CancellationToken cancellationToken) =>
         await context.Users.AddAsync(user, cancellationToken);
 }

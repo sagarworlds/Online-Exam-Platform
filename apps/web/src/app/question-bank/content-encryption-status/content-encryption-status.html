@@ -1,0 +1,27 @@
+<section class="card encryption-status" aria-labelledby="encryption-status-heading">
+  <h2 id="encryption-status-heading" class="card__title">{{ 'encryption.title' | t }}</h2>
+
+  @if (loading()) {
+    <p aria-live="polite">{{ 'common.loading' | t }}</p>
+  } @else if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+    <button type="button" class="btn" (click)="reload()">{{ 'encryption.retry' | t }}</button>
+  } @else if (status(); as current) {
+    @if (current.complete) {
+      <p>
+        <span class="badge badge--active"><span aria-hidden="true">✓</span> {{ 'encryption.encrypted' | t }}</span>
+      </p>
+      <p aria-live="polite">
+        {{ current.contentValues === 0 ? ('encryption.none' | t) : ('encryption.complete' | t: { count: current.contentValues }) }}
+      </p>
+    } @else {
+      <p>
+        <span class="badge badge--danger"><span aria-hidden="true">✗</span> {{ 'encryption.notComplete' | t }}</span>
+      </p>
+      <p class="error-message" role="alert">
+        {{ 'encryption.pending' | t: { plaintext: current.plaintextValues, total: current.contentValues } }}
+      </p>
+    }
+    <p class="hint">{{ 'encryption.hint' | t }}</p>
+  }
+</section>
