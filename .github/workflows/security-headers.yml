@@ -1,0 +1,44 @@
+name: Security headers
+
+# NFR-5: checks the deployed static site and the deployed API for the defensive response headers (scripts/security/check-security-headers.sh).
+# The two addresses are repository variables, so no host name lives in the repository. A missing variable fails the job: a check that is
+# not configured must not look like a passing one. Runs weekly and on demand, after a deploy.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-headers
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check deployed headers
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WEB_URL: ${{ vars.PUBLIC_WEB_URL }}
+      API_URL: ${{ vars.PUBLIC_API_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Static site
+        run: |
+          if [ -z "$WEB_URL" ]; then
+            echo "::error title=Not configured::Set the PUBLIC_WEB_URL repository variable to the https address of the static site."
+            exit 1
+          fi
+          scripts/security/check-security-headers.sh "$WEB_URL"
+
+      - name: API
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "::error title=Not configured::Set the PUBLIC_API_URL repository variable to the https address of the API."
+            exit 1
+          fi
+          scripts/security/check-security-headers.sh "${API_URL%/}/v1/health"
