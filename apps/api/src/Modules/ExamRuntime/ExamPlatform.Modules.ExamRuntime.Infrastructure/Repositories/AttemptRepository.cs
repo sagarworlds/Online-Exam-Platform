@@ -67,6 +67,25 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
         await context.Attempts.AsNoTracking().Where(a => a.CandidateId == candidateId).ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Attempt>> ListCountedForExamAsync(Guid examId, CancellationToken cancellationToken) =>
+        // Read-only and untracked, for the item analysis: each attempt is marked from its answers and paper, which are loaded, and never saved.
+        await context.Attempts.AsNoTracking().AsSplitQuery()
+            .Include(a => a.Answers).Include(a => a.Paper)
+            .Where(a => a.ExamId == examId && a.Status == AttemptStatus.Submitted && a.InvalidatedAtUtc == null)
+            .OrderBy(a => a.SubmittedAtUtc)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Attempt>> ListCountedForCandidateAsync(Guid candidateId, CancellationToken cancellationToken) =>
+        // Read-only and untracked: the results are marked from these rows and never saved. The answers, paper and revisions are what
+        // the marks and the score are built from, so all three are loaded; the split query keeps the three collections from joining.
+        await context.Attempts.AsNoTracking().AsSplitQuery()
+            .Include(a => a.Answers).Include(a => a.Paper).Include(a => a.Revisions)
+            .Where(a => a.CandidateId == candidateId && a.Status == AttemptStatus.Submitted && a.InvalidatedAtUtc == null)
+            .OrderBy(a => a.SubmittedAtUtc)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<decimal>> ListBestScoresOfOtherCandidatesAsync(Guid examId, Guid excludedCandidateId, CancellationToken cancellationToken)
     {
         // Grouped in the database so only one number per candidate leaves it, not every attempt of a large exam.
@@ -79,6 +98,22 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
         // A submitted attempt always has a score; the null check only satisfies the nullable column's type.
         return best.Where(score => score is not null).Select(score => score!.Value).ToList();
     }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<SubmittedScore>> ListSubmittedScoresAsync(Guid examId, CancellationToken cancellationToken) =>
+        // A projection, so a large exam moves one row per attempt and no answers.
+        await context.Attempts.AsNoTracking()
+            .Where(a => a.ExamId == examId && a.Status == AttemptStatus.Submitted && a.InvalidatedAtUtc == null && a.Score != null)
+            .Select(a => new SubmittedScore(a.Id, a.CandidateId, a.Score!.Value))
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Attempt>> ListWithAnswersAsync(IReadOnlyCollection<Guid> attemptIds, CancellationToken cancellationToken) =>
+        // The answers and the drawn paper are what marking a subject needs; the split keeps the two collections from multiplying each other.
+        await context.Attempts.AsNoTracking().AsSplitQuery()
+            .Include(a => a.Answers).Include(a => a.Paper)
+            .Where(a => attemptIds.Contains(a.Id))
+            .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListSubmittedByQuestionIdAsync(Guid questionId, CancellationToken cancellationToken)

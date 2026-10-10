@@ -1,0 +1,130 @@
+/*
+ * The item analysis page's own layout, on top of the shared table and card styles. Colours are design tokens, so dark mode follows the rest of the
+ * app. On a phone the table has no room for six columns, so each question becomes a block that names its own fields (the cell's label comes from
+ * data-label), and the header row stays for screen readers, hidden as a visually-hidden row.
+ */
+
+.item-analysis__summary {
+  margin: 0.75rem 0 0.25rem;
+  font-weight: 600;
+}
+
+/* Every control is at least 44px tall, so it can be tapped on a phone. */
+.item-analysis__sort {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.item-analysis__sort-button {
+  min-height: 44px;
+  padding: 0 0.85rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.item-analysis__sort-button[aria-pressed='true'] {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  font-weight: 600;
+}
+
+.item-analysis__sort-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.item-table td {
+  font-variant-numeric: tabular-nums;
+}
+
+.item-table__question {
+  max-width: 36rem;
+  overflow-wrap: anywhere;
+}
+
+.item-analysis__glossary {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.75rem 0 0;
+}
+
+.item-analysis__glossary dt {
+  font-weight: 600;
+}
+
+.item-analysis__glossary dd {
+  margin: 0.15rem 0 0;
+  color: var(--text-muted);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.empty-state .btn {
+  margin-top: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+@media (max-width: 40rem) {
+  .item-table,
+  .item-table tbody {
+    display: block;
+  }
+
+  .item-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .item-table tr {
+    display: block;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .item-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .item-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.2rem 0;
+    border: 0;
+  }
+
+  .item-table td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  .item-table td:first-child {
+    font-weight: 600;
+  }
+
+  .item-table td.item-table__question {
+    display: block;
+  }
+
+  .item-table td.item-table__question::before {
+    display: block;
+    margin-bottom: 0.15rem;
+  }
+}

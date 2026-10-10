@@ -295,6 +295,45 @@ export interface ScoreRevisionDto {
   version?: number;
 }
 
+/** Which leaderboard an exam shows (FR-35): every candidate, the candidate's own batch, or one subject. */
+export type LeaderboardBoardKey = 'overall' | 'batch' | 'subject';
+
+/** One place on a leaderboard. The name is shortened for other candidates (first name and an initial); null when the account has no name. */
+export interface LeaderboardEntryDto {
+  rank: number;
+  name: string | null;
+  score: number;
+  isYou: boolean;
+}
+
+/** A batch the candidate is in on the exam, for the batch selector. */
+export interface LeaderboardBatchDto {
+  id: string;
+  name: string;
+}
+
+/**
+ * One leaderboard of an exam (FR-35), built from the released results only. The API refuses it until the exam's author has released them.
+ */
+export interface LeaderboardDto {
+  examId: string;
+  examName: string;
+  board: LeaderboardBoardKey;
+  /** The batch the batch board shows, or null when none applies. */
+  batchId: string | null;
+  /** The subject the subject board shows, or null when none applies. */
+  subject: string | null;
+  entries: LeaderboardEntryDto[];
+  /** The candidate's own row when it falls outside the listed places; null otherwise. */
+  you: LeaderboardEntryDto | null;
+  candidateCount: number;
+  batches: LeaderboardBatchDto[];
+  /** The subjects the exam's questions are filed under; filled for the subject board only. */
+  subjects: string[];
+  /** Whether the board has more candidates than the listed places. */
+  truncated: boolean;
+}
+
 /** What kind of problem a candidate reports from inside an exam (FR-42). */
 export type IssueCategory = 'Question' | 'Technical' | 'Other';
 

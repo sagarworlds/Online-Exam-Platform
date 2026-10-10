@@ -1,0 +1,170 @@
+<div class="page page--wide">
+  <a routerLink="/my-exams" class="back-link">&larr; {{ 'common.backToMyExams' | t }}</a>
+
+  <div class="page-header">
+    <h1>{{ 'analytics.title' | t }}</h1>
+  </div>
+  <p class="hint">{{ 'analytics.hint' | t }}</p>
+
+  @switch (view()) {
+    @case ('loading') {
+      <p role="status" aria-live="polite">{{ 'common.loading' | t }}</p>
+    }
+
+    @case ('error') {
+      <div class="card empty-state">
+        <p class="error-message" role="alert">{{ errorMessage() }}</p>
+        <button type="button" class="btn" (click)="retry()">{{ 'analytics.retry' | t }}</button>
+      </div>
+    }
+
+    @case ('empty') {
+      <div class="card empty-state">
+        <p>{{ 'analytics.empty' | t }}</p>
+        <a routerLink="/my-exams" class="btn">{{ 'common.backToMyExams' | t }}</a>
+      </div>
+    }
+
+    @case ('ready') {
+      @if (analytics(); as a) {
+        <div class="stat-grid analytics-headline">
+          <div class="stat-card">
+            <p class="stat-value">{{ a.resultCount }}</p>
+            <p class="stat-label">{{ 'analytics.resultsLabel' | t }}</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-value">{{ percent(latest()?.result.percentOfMarks ?? null) }}</p>
+            <p class="stat-label">{{ 'analytics.latestLabel' | t }}</p>
+          </div>
+        </div>
+
+        <section aria-labelledby="analytics-trend-heading">
+          <h2 id="analytics-trend-heading">{{ 'analytics.trend.title' | t }}</h2>
+          <p class="hint">{{ 'analytics.trend.hint' | t }}</p>
+
+          <div class="trend">
+            <!-- The labels sit beside the drawing, in HTML, so they keep their size at any width. -->
+            <div class="trend__axis" aria-hidden="true">
+              @for (g of plot().gridLines; track g.percent) {
+                <span class="trend__label" [style.top.%]="(g.y / size.height) * 100">{{ g.percent }}%</span>
+              }
+            </div>
+
+            <div class="trend__plot" (mouseleave)="hovered.set(null)">
+              <!-- Decorative: the results list below carries the same figures to everyone, including keyboard and screen-reader users. -->
+              <svg class="trend__svg" [attr.viewBox]="'0 0 ' + size.width + ' ' + size.height" aria-hidden="true" focusable="false">
+                @for (g of plot().gridLines; track g.percent) {
+                  <line
+                    class="trend__grid"
+                    [attr.x1]="margins.left"
+                    [attr.x2]="size.width - margins.right"
+                    [attr.y1]="g.y"
+                    [attr.y2]="g.y"
+                  />
+                }
+                @if (plot().polyline) {
+                  <polyline class="trend__line" [attr.points]="plot().polyline" />
+                }
+                @for (entry of drawn(); track entry.point.index; let i = $index) {
+                  <g class="trend__point" [class.trend__point--active]="hovered() === i" (mouseenter)="show(i)">
+                    <circle class="trend__hit" [attr.cx]="entry.point.x" [attr.cy]="entry.point.y" r="22" />
+                    <circle class="trend__marker" [attr.cx]="entry.point.x" [attr.cy]="entry.point.y" r="8" />
+                  </g>
+                }
+              </svg>
+
+              @if (latest(); as last) {
+                <span
+                  class="trend__end"
+                  [style.left]="endLeft(last.point)"
+                  [style.top.%]="(last.point.y / size.height) * 100"
+                  aria-hidden="true"
+                >{{ percent(last.result.percentOfMarks) }}</span>
+              }
+
+              @if (hoveredResult(); as h) {
+                <div
+                  class="trend__tip"
+                  [style.left]="tipLeft(h.point)"
+                  [style.top.%]="(h.point.y / size.height) * 100"
+                  aria-hidden="true"
+                >
+                  <strong>{{ h.result.examName }}</strong>
+                  <span>{{ h.result.submittedAtUtc | date: 'mediumDate' }}</span>
+                  <span>{{ percent(h.result.percentOfMarks) }} · {{ h.result.score }} / {{ h.result.maxScore }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="analytics-results-heading">
+          <h2 id="analytics-results-heading">{{ 'analytics.results.title' | t }}</h2>
+          <ol class="analytics-results">
+            @for (result of trend(); track result.attemptId) {
+              <li class="card analytics-result">
+                <h3>{{ result.examName }}</h3>
+                <dl>
+                  <div>
+                    <dt>{{ 'analytics.col.sat' | t }}</dt>
+                    <dd>{{ result.submittedAtUtc | date: 'mediumDate' }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'analytics.col.score' | t }}</dt>
+                    <dd>{{ result.score }} / {{ result.maxScore }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ 'analytics.col.share' | t }}</dt>
+                    <dd>{{ percent(result.percentOfMarks) }}</dd>
+                  </div>
+                </dl>
+              </li>
+            }
+          </ol>
+        </section>
+
+        <section aria-labelledby="analytics-sections-heading">
+          <h2 id="analytics-sections-heading">{{ 'analytics.sections.title' | t }}</h2>
+          <p class="hint">{{ 'analytics.sections.hint' | t }}</p>
+
+          @if (a.sections.length === 0) {
+            <div class="card empty-state">{{ 'analytics.sections.none' | t }}</div>
+          } @else {
+            <ul class="analytics-sections">
+              @for (section of a.sections; track section.name) {
+                <li class="card analytics-section">
+                  <h3>{{ section.name }}</h3>
+                  <p class="card__meta">{{ resultCountText(section.resultCount) }}</p>
+                  <dl>
+                    <div>
+                      <dt>{{ 'analytics.sections.accuracy' | t }}</dt>
+                      <dd>{{ section.accuracy === null ? ('analytics.sections.noneAnswered' | t) : percent(section.accuracy) }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ 'result.correct' | t }}</dt>
+                      <dd>{{ section.correctCount }}</dd>
+                    </div>
+                    @if (section.partialCount) {
+                      <div>
+                        <dt>{{ 'result.partial' | t }}</dt>
+                        <dd>{{ section.partialCount }}</dd>
+                      </div>
+                    }
+                    <div>
+                      <dt>{{ 'result.wrong' | t }}</dt>
+                      <dd>{{ section.wrongCount }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ 'result.unanswered' | t }}</dt>
+                      <dd>{{ section.unansweredCount }}</dd>
+                    </div>
+                  </dl>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
+    }
+  }
+</div>

@@ -49,6 +49,7 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<IStaffDirectory, StaffDirectory>();
         services.AddScoped<IContactDirectory, ContactDirectory>();
         services.AddScoped<ICandidateAgeDirectory, CandidateAgeDirectory>();
+        services.AddScoped<IDisplayNameDirectory, DisplayNameDirectory>();
         services.AddScoped<IIdentityUnitOfWork, IdentityUnitOfWork>();
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();

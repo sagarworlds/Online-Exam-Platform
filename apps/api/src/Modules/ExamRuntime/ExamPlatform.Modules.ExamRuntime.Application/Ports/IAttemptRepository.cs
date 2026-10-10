@@ -8,6 +8,12 @@ namespace ExamPlatform.Modules.ExamRuntime.Application.Ports;
 /// <param name="AnswerText">What the candidate typed, for a text question; null for an answer made by choosing options.</param>
 public sealed record SubmittedAnswer(IReadOnlyCollection<Guid> SelectedOptionIds, int? VersionNumber, string? AnswerText = null);
 
+/// <summary>The score of one submitted attempt, as the leaderboards read it.</summary>
+/// <param name="AttemptId">The attempt.</param>
+/// <param name="CandidateId">The candidate who made it.</param>
+/// <param name="Score">The marks it scored, as the latest version of its result says.</param>
+public sealed record SubmittedScore(Guid AttemptId, Guid CandidateId, decimal Score);
+
 /// <summary>Persistence port for <see cref="Attempt"/>.</summary>
 public interface IAttemptRepository
 {
@@ -49,6 +55,28 @@ public interface IAttemptRepository
     /// <param name="candidateId">The candidate.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Attempt>> ListForCandidateAsync(Guid candidateId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists the candidate's submitted attempts that still count, with the answers, drawn paper and score revisions their results are marked from,
+    /// oldest submission first. Read-only: nothing returned is tracked for saving.
+    /// </summary>
+    /// <remarks>
+    /// An attempt an administrator invalidated carries no result (FR-29), so it is left out, as is an attempt still open.
+    /// </remarks>
+    /// <param name="candidateId">The candidate.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Attempt>> ListCountedForCandidateAsync(Guid candidateId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists every submitted attempt at an exam that still counts, with the answers and the drawn paper that the answers are marked against,
+    /// oldest submission first. Read-only: nothing returned is tracked for saving.
+    /// </summary>
+    /// <remarks>
+    /// An attempt an administrator invalidated carries no result (FR-29), and an attempt still open has none to count, so both are left out.
+    /// </remarks>
+    /// <param name="examId">The exam.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Attempt>> ListCountedForExamAsync(Guid examId, CancellationToken cancellationToken);
 
     /// <summary>
     /// The best submitted score of each candidate at an exam, leaving out one candidate: the scores a result is ranked against (FR-32).
@@ -96,4 +124,23 @@ public interface IAttemptRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The attempts named that qualify, in order of <see cref="Attempt.Number"/>.</returns>
     Task<IReadOnlyList<Attempt>> ListFinishedWithAnswersAsync(Guid examId, IReadOnlyCollection<Guid> attemptIds, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The score of every submitted attempt at an exam that still counts, read without the answers, for the leaderboards (FR-35).
+    /// </summary>
+    /// <remarks>
+    /// Attempts an administrator invalidated are left out, and open attempts too, as neither carries a result. Each candidate may have
+    /// several entries, one per attempt.
+    /// </remarks>
+    /// <param name="examId">The exam.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<SubmittedScore>> ListSubmittedScoresAsync(Guid examId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Loads the given attempts with their answers and the papers they were drawn with, read-only, for the subject leaderboard to mark (FR-35).
+    /// </summary>
+    /// <param name="attemptIds">The attempts.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The attempts that exist, in no particular order.</returns>
+    Task<IReadOnlyList<Attempt>> ListWithAnswersAsync(IReadOnlyCollection<Guid> attemptIds, CancellationToken cancellationToken);
 }
