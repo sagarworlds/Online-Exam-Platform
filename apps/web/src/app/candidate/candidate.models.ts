@@ -369,3 +369,46 @@ export interface AttemptReviewDto {
   /** The candidate's own disputes of this attempt's answer keys, oldest first; null or absent when none are known. */
   disputes?: MyDisputeDto[] | null;
 }
+
+/** One section of a result: the marks it earned and how its questions were answered (FR-32). Carries no answers. */
+export interface SectionResultDto {
+  id: string;
+  name: string;
+  /** The marks the section's questions earned; may be negative. */
+  score: number;
+  correctCount: number;
+  wrongCount: number;
+  partialCount: number;
+  unansweredCount: number;
+}
+
+/**
+ * A submitted attempt's result (FR-32): the score, where it stands among the exam's released results, and the marks by section. The API
+ * answers only once the exam's author has released the results.
+ */
+export interface AttemptResultDto {
+  attemptId: string;
+  examId: string;
+  examName: string;
+  /** Which attempt this is for the candidate at the exam, from 1. */
+  number: number;
+  submittedAtUtc: string | null;
+  autoSubmitted: boolean;
+  score: number;
+  maxScore: number;
+  correctCount: number;
+  wrongCount: number;
+  partialCount: number;
+  unansweredCount: number;
+  sections: SectionResultDto[];
+  /** The place among the exam's released results; 1 is the best, and ties share a place. */
+  rank: number;
+  /** The share of the results compared that scored the same or less, from 0 to 100, rounded down to two decimals. */
+  percentile: number;
+  /** How many results the rank and percentile were worked out from, this one included. */
+  cohortSize: number;
+  /** Whether the exam is still open, so the rank may still move. */
+  provisional: boolean;
+  /** Which version of the result the score is: 1 as first submitted, one more for each revision (FR-31). */
+  resultVersion: number;
+}

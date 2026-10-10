@@ -76,6 +76,11 @@ export const routes: Routes = [
     loadComponent: () => import('./candidate/attempt-review/attempt-review').then((m) => m.AttemptReview),
   },
   {
+    path: 'attempt/:attemptId/result',
+    canActivate: [authGuard],
+    loadComponent: () => import('./candidate/attempt-result/attempt-result').then((m) => m.AttemptResult),
+  },
+  {
     path: 'admin/questions',
     canActivate: [permissionGuard(Permission.QuestionRead)],
     loadComponent: () => import('./question-bank/question-bank').then((m) => m.QuestionBank),
