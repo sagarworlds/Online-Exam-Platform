@@ -2,12 +2,16 @@ using ExamPlatform.SharedKernel.Infrastructure.Health;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace ExamPlatform.SharedKernel.Infrastructure.Observability;
 
-/// <summary>Adds the correlation and request-logging middleware, and the liveness and readiness endpoints (NFR-3, NFR-9).</summary>
+/// <summary>Adds the correlation and request-logging middleware, and the health endpoints (NFR-3, NFR-9).</summary>
 public static class ObservabilityPipelineExtensions
 {
+    /// <summary>The original health route, kept as it was: it runs no checks, so Render's probe does not depend on the database.</summary>
+    public const string HealthPath = "/v1/health";
+
     /// <summary>The liveness route: answers while the process is serving requests, and checks nothing else.</summary>
     public const string LivenessPath = "/v1/health/live";
 
@@ -28,17 +32,33 @@ public static class ObservabilityPipelineExtensions
     }
 
     /// <summary>
-    /// Maps the liveness route, which runs no checks, and the readiness route, which runs the database check. The original
-    /// <c>/v1/health</c> route is mapped by the Host and is left as it is: Render's health check and the web client both use it.
+    /// Maps the three health routes, each with its own set of checks. Render's health check and the web client use
+    /// <see cref="HealthPath"/>, which keeps the check set it always had (none). Liveness has none too; readiness runs the
+    /// database check.
     /// </summary>
+    /// <remarks>
+    /// Every route must have an explicit predicate. <c>MapHealthChecks</c> with no options runs every registered check, so the
+    /// database check, which is registered for readiness only, would otherwise also run on <see cref="HealthPath"/>, and a database
+    /// outage would take the whole service out of rotation with a 503.
+    /// </remarks>
     /// <param name="endpoints">The endpoint route builder.</param>
     /// <returns>The same builder, for chaining.</returns>
     public static IEndpointRouteBuilder MapExamPlatformHealthChecks(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapHealthChecks(LivenessPath, new HealthCheckOptions { Predicate = _ => false });
-        endpoints.MapHealthChecks(
-            ReadinessPath,
-            new HealthCheckOptions { Predicate = check => check.Tags.Contains(DatabaseReadinessCheck.ReadyTag) });
+        endpoints.MapHealthChecks(HealthPath, new HealthCheckOptions { Predicate = SelectsNoChecks });
+        endpoints.MapHealthChecks(LivenessPath, new HealthCheckOptions { Predicate = SelectsNoChecks });
+        endpoints.MapHealthChecks(ReadinessPath, new HealthCheckOptions { Predicate = SelectsReadinessChecks });
         return endpoints;
     }
+
+    /// <summary>The check selection for the routes that run no checks: no registration is selected.</summary>
+    /// <param name="registration">A registered health check.</param>
+    /// <returns>Always false.</returns>
+    public static bool SelectsNoChecks(HealthCheckRegistration registration) => false;
+
+    /// <summary>The check selection for readiness: only the checks tagged <see cref="DatabaseReadinessCheck.ReadyTag"/>.</summary>
+    /// <param name="registration">A registered health check.</param>
+    /// <returns>True when the registration carries the ready tag.</returns>
+    public static bool SelectsReadinessChecks(HealthCheckRegistration registration) =>
+        registration.Tags.Contains(DatabaseReadinessCheck.ReadyTag);
 }

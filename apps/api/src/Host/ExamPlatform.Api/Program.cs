@@ -241,7 +241,7 @@ if (apiReferenceEnabled)
     app.MapScalarApiReference();
 }
 
-app.MapHealthChecks("/v1/health");
+// /v1/health (Render's check) and the liveness and readiness routes, each with its own checks.
 app.MapExamPlatformHealthChecks();
 app.MapWhatsAppWebhook();
 
