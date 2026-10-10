@@ -13,6 +13,7 @@
   } @else if (data(); as d) {
     <div class="page-header">
       <h1>Candidates and attempts</h1>
+      <a [routerLink]="['/exams', examId, 'item-analysis']" class="btn">Item analysis</a>
     </div>
     <p class="hint">
       {{ d.examName }}. Every candidate has {{ d.attemptsPerCandidate === 1 ? 'one attempt' : d.attemptsPerCandidate + ' attempts' }}; you can

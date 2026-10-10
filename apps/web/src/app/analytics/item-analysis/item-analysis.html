@@ -1,0 +1,93 @@
+<div class="page page--wide">
+  <a [routerLink]="examId ? ['/exams', examId, 'attempts'] : ['/exams']" class="back-link">&larr; {{ 'admin.items.back' | t }}</a>
+
+  <div class="page-header">
+    <h1>{{ 'admin.items.title' | t }}</h1>
+  </div>
+  <p class="hint">{{ 'admin.items.hint' | t }}</p>
+
+  @switch (view()) {
+    @case ('loading') {
+      <p role="status" aria-live="polite">{{ 'common.loading' | t }}</p>
+    }
+
+    @case ('error') {
+      <div class="card empty-state">
+        <p class="error-message" role="alert">{{ errorMessage() }}</p>
+        <button type="button" class="btn" (click)="retry()">{{ 'admin.items.retry' | t }}</button>
+      </div>
+    }
+
+    @case ('held') {
+      <div class="card empty-state" role="status">{{ 'admin.items.held' | t }}</div>
+    }
+
+    @case ('empty') {
+      <div class="card empty-state">{{ 'admin.items.none' | t }}</div>
+    }
+
+    @case ('ready') {
+      @if (analysis(); as a) {
+        <p class="item-analysis__summary">{{ summary(a) }}</p>
+        <p class="hint">{{ 'admin.items.minimumHint' | t: { count: a.minimumCohortSize } }}</p>
+
+        <!-- The sort buttons are the sorting control at every width: the table below turns into labelled blocks on a phone. -->
+        <div class="item-analysis__sort" role="group" [attr.aria-label]="'admin.items.sort.label' | t">
+          @for (key of sortKeys; track key) {
+            <button
+              type="button"
+              class="item-analysis__sort-button"
+              [attr.aria-pressed]="sortKey() === key"
+              (click)="sortBy(key)"
+            >
+              {{ sortLabel(key) }}
+              @if (sortKey() === key) {
+                <span aria-hidden="true">{{ direction() === 'asc' ? '▲' : '▼' }}</span>
+                <span class="visually-hidden">, {{ sortState(key) }}</span>
+              }
+            </button>
+          }
+        </div>
+
+        <div class="table-wrap">
+          <table class="table item-table" [attr.aria-label]="'admin.items.tableLabel' | t: { name: a.examName }">
+            <thead>
+              <tr>
+                <th scope="col">{{ 'admin.items.col.position' | t }}</th>
+                <th scope="col">{{ 'admin.items.col.question' | t }}</th>
+                <th scope="col">{{ 'admin.items.col.attempts' | t }}</th>
+                <th scope="col">{{ 'admin.items.col.correct' | t }}</th>
+                <th scope="col">{{ 'admin.items.col.difficulty' | t }}</th>
+                <th scope="col">{{ 'admin.items.col.discrimination' | t }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of rows(); track row.questionId) {
+                <tr>
+                  <td [attr.data-label]="'admin.items.col.position' | t">{{ row.position }}</td>
+                  <td [attr.data-label]="'admin.items.col.question' | t" class="item-table__question">{{ row.text }}</td>
+                  <td [attr.data-label]="'admin.items.col.attempts' | t">{{ row.attempts }}</td>
+                  <td [attr.data-label]="'admin.items.col.correct' | t">{{ row.correctCount }}</td>
+                  <td [attr.data-label]="'admin.items.col.difficulty' | t">{{ difficultyText(row) }}</td>
+                  <td [attr.data-label]="'admin.items.col.discrimination' | t">{{ discriminationText(row) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <h2>{{ 'admin.items.howTitle' | t }}</h2>
+        <dl class="item-analysis__glossary">
+          <div>
+            <dt>{{ 'admin.items.col.difficulty' | t }}</dt>
+            <dd>{{ 'admin.items.difficultyHelp' | t }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.items.col.discrimination' | t }}</dt>
+            <dd>{{ 'admin.items.discriminationHelp' | t: { group: a.groupSize } }}</dd>
+          </div>
+        </dl>
+      }
+    }
+  }
+</div>
