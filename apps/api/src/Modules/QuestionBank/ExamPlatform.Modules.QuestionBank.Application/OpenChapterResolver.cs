@@ -24,6 +24,6 @@ public sealed class OpenChapterResolver(IBookRepository books, IClassRepository 
             throw new BookArchivedError($"The chapter \"{chapter.Title}\" is archived; restore it or choose another chapter.");
 
         var className = book.ClassId is { } classId ? (await classes.GetNamesAsync([classId], cancellationToken)).GetValueOrDefault(classId) : null;
-        return new ChapterRef(chapter.Id, chapter.Title, book.Id, book.Name, book.ClassId, className);
+        return new ChapterRef(chapter.Id, chapter.Title, book.Id, book.Name, book.ClassId, className, book.Subject);
     }
 }

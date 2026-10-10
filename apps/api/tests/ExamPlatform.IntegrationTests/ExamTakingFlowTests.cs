@@ -424,6 +424,7 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [InlineData("GET", "/v1/me/attempts/{id}")]
     [InlineData("GET", "/v1/me/attempts/{id}/review")]
     [InlineData("GET", "/v1/me/attempts/{id}/result")]
+    [InlineData("GET", "/v1/me/attempts/{id}/certificate")]
     [InlineData("PUT", "/v1/me/attempts/{id}/answers/{id}")]
     [InlineData("DELETE", "/v1/me/attempts/{id}/answers/{id}")]
     [InlineData("PUT", "/v1/me/attempts/{id}/marks/{id}")]
@@ -452,7 +453,8 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
             .Where(r => r.Pattern.StartsWith("/v1/me/exams", StringComparison.Ordinal) || r.Pattern.StartsWith("/v1/me/attempts", StringComparison.Ordinal))
             .ToList();
 
-        Assert.Equal(17, routes.Count);
+        // Nineteen self-service routes: the eighteen already on main (the leaderboard among them), plus the certificate route (FR-34).
+        Assert.Equal(19, routes.Count);
         Assert.All(routes, r => Assert.True(r.RequiresAuthorization, $"{r.Key} must require a signed-in caller."));
     }
 }

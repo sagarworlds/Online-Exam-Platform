@@ -1,0 +1,94 @@
+/*
+ * The leaderboard's own layout: the board tabs, the list of places as cards, and the held state. Shared cards, tiles and badges keep their look.
+ */
+
+.board-held {
+  max-width: 40rem;
+}
+
+/* Every control is at least 44px tall, so it can be tapped on a phone: the back link and the retry button included. */
+.back-link,
+.empty-state .btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.empty-state .btn {
+  margin-top: 0.75rem;
+}
+
+.field select {
+  min-height: 44px;
+}
+
+/* The three boards are tabs: a row that wraps on a phone, each tab as tall as a finger needs. */
+.board-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+.board-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.board-tab[aria-selected='true'] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+  font-weight: 600;
+}
+
+/* A place is a card: rank, name and score on one line, wrapping the name if it must. */
+.board {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.board-row {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.6rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.board-row__rank {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-row__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.board-row__score {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The candidate's own place is marked by a colour and a border, and the word "You" in the name, so it is not told by colour alone. */
+.board-row--you {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  border-left-width: 4px;
+}
