@@ -8,6 +8,12 @@ namespace ExamPlatform.Modules.ExamRuntime.Application.Ports;
 /// <param name="AnswerText">What the candidate typed, for a text question; null for an answer made by choosing options.</param>
 public sealed record SubmittedAnswer(IReadOnlyCollection<Guid> SelectedOptionIds, int? VersionNumber, string? AnswerText = null);
 
+/// <summary>The score of one submitted attempt, as the leaderboards read it.</summary>
+/// <param name="AttemptId">The attempt.</param>
+/// <param name="CandidateId">The candidate who made it.</param>
+/// <param name="Score">The marks it scored, as the latest version of its result says.</param>
+public sealed record SubmittedScore(Guid AttemptId, Guid CandidateId, decimal Score);
+
 /// <summary>Persistence port for <see cref="Attempt"/>.</summary>
 public interface IAttemptRepository
 {
@@ -94,4 +100,23 @@ public interface IAttemptRepository
     /// <param name="questionId">The question.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Attempt>> ListSubmittedByQuestionIdAsync(Guid questionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The score of every submitted attempt at an exam that still counts, read without the answers, for the leaderboards (FR-35).
+    /// </summary>
+    /// <remarks>
+    /// Attempts an administrator invalidated are left out, and open attempts too, as neither carries a result. Each candidate may have
+    /// several entries, one per attempt.
+    /// </remarks>
+    /// <param name="examId">The exam.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<SubmittedScore>> ListSubmittedScoresAsync(Guid examId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Loads the given attempts with their answers and the papers they were drawn with, read-only, for the subject leaderboard to mark (FR-35).
+    /// </summary>
+    /// <param name="attemptIds">The attempts.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The attempts that exist, in no particular order.</returns>
+    Task<IReadOnlyList<Attempt>> ListWithAnswersAsync(IReadOnlyCollection<Guid> attemptIds, CancellationToken cancellationToken);
 }

@@ -120,6 +120,9 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
+                    b.Property<string>("Explanation")
+                        .HasColumnType("text");
+
                     b.Property<bool>("IsTextAnswer")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -258,6 +261,9 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Explanation")
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsTextAnswer")
                         .ValueGeneratedOnAdd()

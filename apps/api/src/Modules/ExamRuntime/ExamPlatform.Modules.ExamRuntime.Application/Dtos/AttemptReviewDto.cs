@@ -26,9 +26,13 @@ public sealed record ReviewOptionDto(Guid Id, string Text, bool IsCorrect, bool 
 /// <param name="IsTextAnswer">Whether the candidate typed the answer. Such a question has no options.</param>
 /// <param name="AnswerText">What the candidate typed, for a text question; null when they chose options or answered nothing.</param>
 /// <param name="AcceptedAnswers">The answers that were accepted, for a text question, so the candidate can see what counted as right.</param>
+/// <param name="Explanation">
+/// Why the correct answer is correct, as plain text, or null when the author wrote none. Shown only here: a review is built only once the
+/// exam's author has released the results (FR-33), and the explanation is the version the attempt sat, or the translation the candidate read.
+/// </param>
 public sealed record ReviewQuestionDto(
     Guid Id, string Text, IReadOnlyList<ReviewOptionDto> Options, AnswerVerdict Verdict, decimal Marks, bool AllowsMultiple = false,
-    bool IsTextAnswer = false, string? AnswerText = null, IReadOnlyList<string>? AcceptedAnswers = null);
+    bool IsTextAnswer = false, string? AnswerText = null, IReadOnlyList<string>? AcceptedAnswers = null, string? Explanation = null);
 
 /// <summary>One change to an attempt's score after it was first submitted (FR-31), most often an answer-key correction.</summary>
 /// <param name="PreviousScore">The score before this revision.</param>

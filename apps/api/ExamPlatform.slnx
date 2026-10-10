@@ -34,6 +34,7 @@
   </Folder>
   <Folder Name="/src/Modules/Batch/">
     <Project Path="src/Modules/Batch/ExamPlatform.Modules.Batch.Application/ExamPlatform.Modules.Batch.Application.csproj" />
+    <Project Path="src/Modules/Batch/ExamPlatform.Modules.Batch.Contracts/ExamPlatform.Modules.Batch.Contracts.csproj" />
     <Project Path="src/Modules/Batch/ExamPlatform.Modules.Batch.Domain/ExamPlatform.Modules.Batch.Domain.csproj" />
     <Project Path="src/Modules/Batch/ExamPlatform.Modules.Batch.Endpoints/ExamPlatform.Modules.Batch.Endpoints.csproj" />
     <Project Path="src/Modules/Batch/ExamPlatform.Modules.Batch.Infrastructure/ExamPlatform.Modules.Batch.Infrastructure.csproj" />

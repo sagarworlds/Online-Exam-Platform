@@ -1,0 +1,116 @@
+<div class="page page--wide">
+  <a routerLink="/my-exams" class="back-link">&larr; {{ 'common.backToMyExams' | t }}</a>
+
+  <div class="page-header">
+    <h1>{{ 'leaderboard.title' | t }}</h1>
+  </div>
+
+  <div class="board-tabs" role="tablist" [attr.aria-label]="'leaderboard.tabsAria' | t">
+    <button type="button" role="tab" class="board-tab" [attr.aria-selected]="board() === 'overall'" (click)="chooseBoard('overall')">
+      {{ 'leaderboard.tab.overall' | t }}
+    </button>
+    <button type="button" role="tab" class="board-tab" [attr.aria-selected]="board() === 'batch'" (click)="chooseBoard('batch')">
+      {{ 'leaderboard.tab.batch' | t }}
+    </button>
+    <button type="button" role="tab" class="board-tab" [attr.aria-selected]="board() === 'subject'" (click)="chooseBoard('subject')">
+      {{ 'leaderboard.tab.subject' | t }}
+    </button>
+  </div>
+
+  @switch (view()) {
+    @case ('loading') {
+      <p role="status" aria-live="polite">{{ 'common.loading' | t }}</p>
+    }
+
+    @case ('held') {
+      <div class="card board-held" role="status">
+        <h2 class="card__title">{{ 'leaderboard.held.title' | t }}</h2>
+        <p>{{ 'leaderboard.held.body' | t }}</p>
+      </div>
+    }
+
+    @case ('error') {
+      <div class="card empty-state">
+        <p class="error-message" role="alert">{{ errorMessage() }}</p>
+        <button type="button" class="btn" (click)="retry()">{{ 'leaderboard.retry' | t }}</button>
+      </div>
+    }
+
+    @case ('ready') {
+      @if (data(); as b) {
+        <p class="card__meta">{{ b.examName }}</p>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <p class="stat-value">{{ ownRow(b)?.rank ?? '—' }}</p>
+            <p class="stat-label">{{ 'leaderboard.yourRank' | t }}</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-value">{{ b.candidateCount }}</p>
+            <p class="stat-label">{{ 'leaderboard.candidates' | t }}</p>
+          </div>
+        </div>
+        @if (!ownRow(b)) {
+          <p class="hint">{{ 'leaderboard.notOnBoard' | t }}</p>
+        }
+
+        @if (b.board === 'batch') {
+          @if (b.batches.length === 0) {
+            <div class="card empty-state">{{ 'leaderboard.noBatch' | t }}</div>
+          } @else {
+            <div class="field">
+              <label for="leaderboard-batch">{{ 'leaderboard.batchLabel' | t }}</label>
+              <select id="leaderboard-batch" (change)="chooseBatch($any($event.target).value)">
+                @for (batch of b.batches; track batch.id) {
+                  <option [value]="batch.id" [selected]="batch.id === b.batchId">{{ batch.name }}</option>
+                }
+              </select>
+            </div>
+          }
+        }
+
+        @if (b.board === 'subject') {
+          @if (b.subjects.length === 0) {
+            <div class="card empty-state">{{ 'leaderboard.noSubject' | t }}</div>
+          } @else {
+            <div class="field">
+              <label for="leaderboard-subject">{{ 'leaderboard.subjectLabel' | t }}</label>
+              <select id="leaderboard-subject" (change)="chooseSubject($any($event.target).value)">
+                @for (name of b.subjects; track name) {
+                  <option [value]="name" [selected]="name === b.subject">{{ name }}</option>
+                }
+              </select>
+            </div>
+          }
+        }
+
+        @if (b.board === 'overall' || (b.board === 'batch' && b.batches.length > 0) || (b.board === 'subject' && b.subjects.length > 0)) {
+          @if (rowsOf(b).length === 0) {
+            <div class="card empty-state">{{ 'leaderboard.empty' | t }}</div>
+          } @else {
+            @if (b.truncated) {
+              <p class="hint">{{ 'leaderboard.truncated' | t: { count: b.entries.length } }}</p>
+            }
+            <!-- A list of cards rather than a table, so each place reads on its own at a phone's width. -->
+            <ol class="board" [attr.aria-label]="'leaderboard.listLabel' | t">
+              @for (row of rowsOf(b); track $index) {
+                <li class="board-row" [class.board-row--you]="row.isYou" [attr.aria-current]="row.isYou ? 'true' : null">
+                  <span class="board-row__rank">{{ row.rank }}</span>
+                  <span class="board-row__name">
+                    {{ row.name ?? ('leaderboard.anonymous' | t) }}
+                    @if (row.isYou) {
+                      <span class="badge badge--active">{{ 'leaderboard.you' | t }}</span>
+                    }
+                  </span>
+                  <span class="board-row__score">
+                    <span class="visually-hidden">{{ 'leaderboard.scoreLabel' | t }}: </span>{{ row.score }}
+                  </span>
+                </li>
+              }
+            </ol>
+          }
+        }
+      }
+    }
+  }
+</div>
