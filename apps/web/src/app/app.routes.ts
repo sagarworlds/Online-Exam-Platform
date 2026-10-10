@@ -231,5 +231,18 @@ export const routes: Routes = [
     canActivate: [permissionGuard(Permission.ExamManage)],
     loadComponent: () => import('./analytics/item-analysis/item-analysis').then((m) => m.ItemAnalysis),
   },
+  {
+    // Staff set the institute's name, colour and logo for the candidate pages (FR-41). Reading is open; changing needs exam.manage.
+    path: 'admin/branding',
+    canActivate: [permissionGuard(Permission.ExamManage)],
+    loadComponent: () => import('./branding/branding-settings/branding-settings').then((m) => m.BrandingSettings),
+  },
+  {
+    // The reusable instructions an exam starts from (FR-41).
+    path: 'admin/instruction-templates',
+    canActivate: [permissionGuard(Permission.ExamManage)],
+    loadComponent: () =>
+      import('./instruction-templates/instruction-templates').then((m) => m.InstructionTemplates),
+  },
   { path: '**', redirectTo: 'login' },
 ];

@@ -100,6 +100,13 @@
         }
       </section>
 
+      @if (exam.rules?.instructions; as text) {
+        <section class="card" aria-labelledby="exam-instructions-heading">
+          <h2 id="exam-instructions-heading" class="card__title">{{ 'instructions.custom.title' | t }}</h2>
+          <p class="exam-custom-instructions">{{ text }}</p>
+        </section>
+      }
+
       <section class="card" aria-labelledby="rules-heading">
         <h2 id="rules-heading" class="card__title">{{ 'instructions.heading' | t }}</h2>
         <ul class="rules">

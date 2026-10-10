@@ -1,0 +1,30 @@
+/* The template form. Its fields and buttons are at least 44px tall, and the text is free to wrap so nothing scrolls sideways on a phone. */
+.form-card input[type='text'],
+.form-card textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 2.75rem;
+  overflow-wrap: anywhere;
+}
+
+.form-card textarea {
+  min-height: 9rem;
+  resize: vertical;
+}
+
+.form-card .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.form-card .actions > button {
+  min-height: 2.75rem;
+}
+
+@media (max-width: 40rem) {
+  .form-card .actions > button {
+    flex: 1 1 100%;
+  }
+}

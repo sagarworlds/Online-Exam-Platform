@@ -1,0 +1,40 @@
+/* The instructions card in the exam editor. Its controls are at least 44px tall, and long text wraps so the editor never scrolls sideways. */
+.instructions textarea,
+.instructions select {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 2.75rem;
+}
+
+.instructions textarea {
+  min-height: 8rem;
+  resize: vertical;
+  overflow-wrap: anywhere;
+}
+
+.instructions__heading {
+  margin: 1rem 0 0.25rem;
+  font-size: 1rem;
+}
+
+.instructions__text {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.instructions .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.instructions .actions > button {
+  min-height: 2.75rem;
+}
+
+@media (max-width: 40rem) {
+  .instructions .actions > button {
+    flex: 1 1 100%;
+  }
+}

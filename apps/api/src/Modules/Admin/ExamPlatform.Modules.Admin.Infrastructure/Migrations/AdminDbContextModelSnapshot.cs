@@ -26,7 +26,6 @@ namespace ExamPlatform.Modules.Admin.Infrastructure.Migrations
             modelBuilder.Entity("ExamPlatform.Modules.Admin.Domain.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("Action")
@@ -69,6 +68,34 @@ namespace ExamPlatform.Modules.Admin.Infrastructure.Migrations
                     b.HasIndex("EntityType", "OccurredAtUtc");
 
                     b.ToTable("AuditLogs", "admin");
+                });
+
+            modelBuilder.Entity("ExamPlatform.Modules.Admin.Domain.InstituteBranding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("InstituteName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<byte[]>("Logo")
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("LogoContentType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("PrimaryColour")
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("InstituteBranding", "admin");
                 });
 #pragma warning restore 612, 618
         }

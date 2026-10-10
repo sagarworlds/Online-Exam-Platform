@@ -23,5 +23,7 @@ public static class AdminEndpoints
             })
             .WithTags("Admin")
             .RequireAuthorization("permission:admin.audit.read");
+
+        endpoints.MapBrandingEndpoints();
     }
 }

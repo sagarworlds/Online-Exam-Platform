@@ -136,6 +136,13 @@
   margin: 0.5rem 0 0;
 }
 
+/* The instructions the author wrote (FR-41): their line breaks are kept, and a long word wraps rather than widening the page. */
+.exam-custom-instructions {
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
 /* The back link and the actions below the checks are tapped on a phone, so each is at least 44px tall (#57 UI rule). */
 .back-link,
 .actions button,

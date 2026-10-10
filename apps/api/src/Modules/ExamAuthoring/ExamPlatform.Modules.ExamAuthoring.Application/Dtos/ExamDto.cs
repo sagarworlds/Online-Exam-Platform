@@ -24,7 +24,8 @@ public record ExamDto(
     bool IsScheduled = false,
     IReadOnlyList<ExamSectionDto>? Sections = null,
     ExamScopeDto? Scope = null,
-    ProctoringDto? Proctoring = null
+    ProctoringDto? Proctoring = null,
+    string? Instructions = null
 );
 
 /// <summary>An exam's proctoring as an author reads it (FR-46): which profile its settings amount to, and the notice candidates are shown.</summary>

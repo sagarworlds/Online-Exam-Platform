@@ -4,6 +4,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { filter } from 'rxjs';
 import { ADMIN_SECTIONS } from './auth/admin-sections';
 import { AuthSessionService } from './auth/auth-session.service';
+import { BrandingService } from './branding/branding.service';
 import { SignOutService } from './auth/sign-out.service';
 import { HealthService } from './health/health.service';
 import { NotificationsStateService } from './notifications/notifications-state.service';
@@ -23,6 +24,9 @@ export class App {
   private readonly signOutService = inject(SignOutService);
   private readonly router = inject(Router);
   protected readonly authSession = inject(AuthSessionService);
+
+  /** The institute's name and logo for the header (FR-41); the platform's own look while none is set. */
+  protected readonly branding = inject(BrandingService);
 
   /** The unread count the header shows beside "Notifications" (FR-39); zero while nobody is signed in. */
   protected readonly notifications = inject(NotificationsStateService);

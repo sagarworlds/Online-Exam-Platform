@@ -38,6 +38,9 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// What a candidate is told before they start about what is turned off, recorded and watched (FR-46), written from the exam's proctoring
 /// settings so it is always what is collected. The instructions page shows it, and the attempt keeps the text the candidate acknowledged.
 /// </param>
+/// <param name="Instructions">
+/// What the author wrote for candidates to read before they start (FR-41), or null for none. The instructions page shows it above the rules.
+/// </param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -60,7 +63,8 @@ public sealed record ExamSnapshot(
     bool PartialCredit = false,
     bool ContentProtection = true,
     int FocusViolationLimit = 0,
-    IReadOnlyList<string>? ProctoringNotice = null);
+    IReadOnlyList<string>? ProctoringNotice = null,
+    string? Instructions = null);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>
