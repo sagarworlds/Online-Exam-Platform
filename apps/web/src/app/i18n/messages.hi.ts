@@ -1003,6 +1003,7 @@ export const HI: Messages = {
   'notifications.kind.AttemptRequestApproved': '{exam} के लिए एक और प्रयास का आपका अनुरोध स्वीकार कर लिया गया है।',
   'notifications.kind.AttemptRequestDeclined': '{exam} के लिए एक और प्रयास का आपका अनुरोध अस्वीकार कर दिया गया है। कारण पढ़ने के लिए मेरी परीक्षाएँ खोलें।',
   'notifications.kind.DisputeRejected': '{exam} के एक प्रश्न पर आपकी आपत्ति की समीक्षा की गई, और उत्तर-कुंजी यथावत है। कारण पढ़ने के लिए मेरी परीक्षाएँ खोलें।',
+  'notifications.kind.DisputeAccepted': '{exam} के एक प्रश्न पर आपकी आपत्ति स्वीकार की गई, और उत्तर-कुंजी सुधार दी गई है। अपना परिणाम देखने के लिए मेरी परीक्षाएँ खोलें।',
   'notifications.kind.ExamReminder24Hours': '{exam} एक दिन के भीतर शुरू होगी।',
   'notifications.kind.ExamReminderOneHour': '{exam} एक घंटे के भीतर शुरू होगी।',
   'notifications.kind.ResultReleased': '{exam} का आपका परिणाम आ गया है।',

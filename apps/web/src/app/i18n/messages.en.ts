@@ -1008,6 +1008,7 @@ export const EN = {
   'notifications.kind.AttemptRequestApproved': 'Your request for another attempt at {exam} was approved.',
   'notifications.kind.AttemptRequestDeclined': 'Your request for another attempt at {exam} was declined. Open My exams to read the reason.',
   'notifications.kind.DisputeRejected': 'Your dispute of a question in {exam} was reviewed, and the answer key stands. Open My exams to read the reason.',
+  'notifications.kind.DisputeAccepted': 'Your dispute of a question in {exam} was accepted, and the answer key was corrected. Open My exams to see your result.',
   'notifications.kind.ExamReminder24Hours': '{exam} starts within a day.',
   'notifications.kind.ExamReminderOneHour': '{exam} starts within the hour.',
   'notifications.kind.ResultReleased': 'Your result for {exam} is out.',

@@ -5,6 +5,7 @@ export type NotificationKind =
   | 'AttemptRequestApproved'
   | 'AttemptRequestDeclined'
   | 'DisputeRejected'
+  | 'DisputeAccepted'
   | 'ExamReminder24Hours'
   | 'ExamReminderOneHour'
   | 'ResultReleased'

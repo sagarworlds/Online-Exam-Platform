@@ -3,6 +3,7 @@ using ExamPlatform.Modules.ExamRuntime.Application;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
+using ExamPlatform.Modules.Notifications.Contracts;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
 using NSubstitute;
@@ -105,7 +106,7 @@ public class QuestionVersionPinningTests
         var disputes = Substitute.For<IDisputeRepository>();
         disputes.ListOpenForQuestionAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns([]);
 
-        var changed = await new AttemptRescorer(attempts, catalog, _bank, disputes, unitOfWork, Substitute.For<IRequestContext>(), new FakeClock(Fixtures.Now))
+        var changed = await new AttemptRescorer(attempts, catalog, _bank, disputes, unitOfWork, Substitute.For<IRequestContext>(), new FakeClock(Fixtures.Now), Substitute.For<IInAppNotifier>())
             .RescoreForQuestionAsync(v1.Id, "Key corrected", CancellationToken.None);
 
         Assert.Equal(1, changed);
