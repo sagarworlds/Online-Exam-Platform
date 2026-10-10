@@ -4,9 +4,11 @@ using ExamPlatform.Modules.QuestionBank.Application.Ports;
 using ExamPlatform.Modules.QuestionBank.Application.Queries;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.Modules.QuestionBank.Infrastructure;
+using ExamPlatform.Modules.QuestionBank.Infrastructure.Encryption;
 using ExamPlatform.Modules.QuestionBank.Infrastructure.Repositories;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -26,6 +28,16 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         services.AddDbContext<QuestionBankDbContext>((sp, options) => options
             .UseNpgsql(configuration.GetConnectionString("Postgres"))
             .AddInterceptors(sp.GetRequiredService<DomainEventsSaveChangesInterceptor>()));
+
+        // Question content is encrypted at rest (NFR-5, #57). The key ring is kept in Postgres, so every replica decrypts with the same keys;
+        // the application name keeps the ring the same across deployments that share the database.
+        services.AddDataProtection()
+            .SetApplicationName("ExamPlatform")
+            .PersistKeysToDbContext<QuestionBankDbContext>();
+        services.AddSingleton<QuestionContentCipher>();
+        services.AddScoped<QuestionContentBackfill>();
+        services.AddScoped<IQuestionContentEncryptionStatus, QuestionContentEncryptionStatus>();
+        services.AddScoped<ReadContentEncryptionStatusHandler>();
 
         services.AddScoped<IQuestionRepository, QuestionRepository>();
         services.AddScoped<IBookRepository, BookRepository>();
@@ -87,5 +99,9 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
     {
         var db = services.GetRequiredService<QuestionBankDbContext>();
         await db.Database.MigrateAsync(cancellationToken);
+
+        // Before any replica serves questions: the encryption backfill turns plaintext content that predates #57 into ciphertext, so a
+        // question is never read as plaintext. It is idempotent, so a run on an already encrypted bank changes nothing.
+        await services.GetRequiredService<QuestionContentBackfill>().RunAsync(cancellationToken);
     }
 }

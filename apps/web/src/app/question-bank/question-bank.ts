@@ -5,6 +5,7 @@ import { ANY_CLASS, bookOptionLabel, booksInClass, classChoicesOf } from '../boo
 import { BookDto } from '../book-management/book.models';
 import { extractErrorMessage, extractProblemCode } from '../shared/problem-details';
 import { BookChapterPicker, isCompletePlacement, NO_PLACEMENT, Placement } from './book-chapter-picker/book-chapter-picker';
+import { ContentEncryptionStatusPanel } from './content-encryption-status/content-encryption-status';
 import { QuestionApiService } from './question-api.service';
 import { QuestionCard } from './question-card/question-card';
 import {
@@ -44,7 +45,7 @@ export const UNFILED = 'unfiled';
  */
 @Component({
   selector: 'app-question-bank',
-  imports: [ReactiveFormsModule, BookChapterPicker, QuestionCard, QuestionFields, QuestionTransfer],
+  imports: [ReactiveFormsModule, BookChapterPicker, ContentEncryptionStatusPanel, QuestionCard, QuestionFields, QuestionTransfer],
   templateUrl: './question-bank.html',
 })
 export class QuestionBank {

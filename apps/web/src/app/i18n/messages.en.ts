@@ -928,6 +928,22 @@ export const EN = {
   'exams.field.chooseBook': 'Choose a book…',
   'exams.field.chapters': 'Chapters',
   'exams.field.noChapters': 'This book has no open chapters.',
+  // ---- the question paper before and after the exam opens (#57) ----
+  'paper.locked.title': 'The question paper is not available yet',
+  'paper.locked.body': 'It opens with the exam at {time}. Until then it is stored encrypted, so it cannot be shown.',
+  'paper.locked.short': 'The question paper opens at {time}.',
+  'paper.open.title': 'The question paper is open',
+  'paper.open.body': 'It opened at {time}. Start the exam to see it. Your answers are saved as you go.',
+
+  // ---- question content encryption, for administrators (#57) ----
+  'encryption.retry': 'Try again',
+  'encryption.title': 'Question content encryption',
+  'encryption.encrypted': 'Encrypted',
+  'encryption.notComplete': 'Not complete',
+  'encryption.complete': 'All {count} stored question values are encrypted at rest.',
+  'encryption.none': 'No question content is stored yet.',
+  'encryption.pending': '{plaintext} of {total} stored question values are still plain text. The backfill has to finish before questions are used.',
+  'encryption.hint': 'Question text, options, answers and version history are encrypted with keys kept in the database. Authors read and search them as usual.',
 } as const;
 
 /** The key of a message. */
