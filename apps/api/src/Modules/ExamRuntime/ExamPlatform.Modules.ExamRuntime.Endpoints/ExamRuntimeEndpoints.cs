@@ -141,14 +141,6 @@ public static class ExamRuntimeEndpoints
             .WithName("GetAttemptReview")
             .WithDescription("Read a submitted attempt with which answers were right, once the exam's author has released them");
 
-        me.MapGet("/attempts/{attemptId:guid}/result", GetAttemptResult)
-            .Produces<AttemptResultDto>()
-            .Produces(StatusCodes.Status401Unauthorized)
-            .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict)
-            .WithName("GetAttemptResult")
-            .WithDescription("Read a submitted attempt's result: the score, its rank and percentile among the exam's released results, and the marks by section, once the exam's author has released the results");
-
         me.MapPost("/attempts/{attemptId:guid}/disputes", RaiseDispute)
             .Produces<MyDisputeDto>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
@@ -604,9 +596,6 @@ public static class ExamRuntimeEndpoints
     }
 
     private static async Task<IResult> GetAttemptReview(Guid attemptId, ClaimsPrincipal user, GetAttemptReviewHandler handler, CancellationToken ct) =>
-        Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct));
-
-    private static async Task<IResult> GetAttemptResult(Guid attemptId, ClaimsPrincipal user, GetAttemptResultHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct));
 
     private static async Task<IResult> SaveAnswer(

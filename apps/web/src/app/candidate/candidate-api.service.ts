@@ -5,7 +5,6 @@ import { environment } from '../../environments/environment';
 import { SILENT_ACTIVITY } from '../shared/api-activity/api-activity.interceptor';
 import {
   AttemptDto,
-  AttemptResultDto,
   AttemptReviewDto,
   AttemptStatusDto,
   FocusViolationKind,
@@ -64,14 +63,6 @@ export class CandidateApiService {
   /** Which answers were right, for a submitted attempt whose answers have been released; the API refuses it otherwise. */
   getAttemptReview(attemptId: string): Observable<AttemptReviewDto> {
     return this.http.get<AttemptReviewDto>(`${this.baseUrl}/attempts/${attemptId}/review`);
-  }
-
-  /**
-   * Reads one of the candidate's submitted results: the score, its rank and percentile among the exam's released results, and the marks by
-   * section (FR-32). The API refuses it until the exam's author has released the results.
-   */
-  getAttemptResult(attemptId: string): Observable<AttemptResultDto> {
-    return this.http.get<AttemptResultDto>(`${this.baseUrl}/attempts/${attemptId}/result`);
   }
 
   /**

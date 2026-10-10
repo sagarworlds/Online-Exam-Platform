@@ -21,6 +21,7 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Dtos;
 /// <param name="ClassName">That class's name, or null.</param>
 /// <param name="IsTextAnswer">Whether the candidate types the answer instead of choosing an option (a text question).</param>
 /// <param name="AcceptedAnswers">The answers a typed answer may be, for a text question; empty for a multiple-choice one.</param>
+/// <param name="Explanation">Why the correct answer is correct, as plain text, or null when none was written. Staff see it here; a candidate sees it only in the review, once released (FR-33).</param>
 public sealed record QuestionDto(
     Guid Id,
     string Text,
@@ -41,7 +42,8 @@ public sealed record QuestionDto(
     Guid? ClassId = null,
     string? ClassName = null,
     bool IsTextAnswer = false,
-    IReadOnlyList<string>? AcceptedAnswers = null);
+    IReadOnlyList<string>? AcceptedAnswers = null,
+    string? Explanation = null);
 
 /// <summary>One option of a <see cref="QuestionDto"/>.</summary>
 /// <param name="Id">The option's id.</param>

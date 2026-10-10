@@ -2,11 +2,25 @@
   <a [routerLink]="attemptId ? ['/attempt', attemptId] : ['/my-exams']" class="back-link">&larr; {{ 'review.back' | t }}</a>
 
   @if (loading()) {
-    <p>{{ 'common.loading' | t }}</p>
+    <p role="status" aria-live="polite">{{ 'common.loading' | t }}</p>
+  }
+
+  @if (locked()) {
+    <div class="card review-locked" role="status">
+      <h2 class="card__title">{{ 'review.locked.title' | t }}</h2>
+      @if (availableFromUtc(); as from) {
+        <p>{{ 'review.locked.until' | t: { date: (from | date: 'medium') ?? '' } }}</p>
+      } @else {
+        <p>{{ 'review.locked.whenReleased' | t }}</p>
+      }
+    </div>
   }
 
   @if (errorMessage()) {
-    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+    <div class="card empty-state">
+      <p class="error-message" role="alert">{{ errorMessage() }}</p>
+      <button type="button" class="btn" (click)="retry()">{{ 'review.retry' | t }}</button>
+    </div>
   }
 
   @if (review(); as r) {
@@ -27,9 +41,6 @@
     </div>
 
     <!-- Under the summary, not inside it, so the summary stays short and the answers start higher up the page. -->
-    @if (attemptId) {
-      <p><a [routerLink]="['/attempt', attemptId, 'result']">{{ 'result.viewResult' | t }}</a></p>
-    }
     @if (r.autoSubmitted) {
       <p class="hint">{{ 'common.autoSubmitted' | t }}</p>
     }
@@ -137,6 +148,13 @@
           }
           @if (question.verdict === 'Unanswered') {
             <p class="hint">{{ 'review.notAnswered' | t }}</p>
+          }
+
+          @if (question.explanation) {
+            <section class="review-explanation" [attr.aria-label]="'review.explanation.label' | t">
+              <p class="review-explanation__head"><strong>{{ 'review.explanation.label' | t }}</strong></p>
+              <p class="review-explanation__text">{{ question.explanation }}</p>
+            </section>
           }
 
           @if (disputeFor(question.id); as dispute) {

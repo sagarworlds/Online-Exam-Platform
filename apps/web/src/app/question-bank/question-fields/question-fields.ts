@@ -1,5 +1,6 @@
 import { Component, inject, input } from '@angular/core';
 import { ControlContainer, FormBuilder, FormGroupDirective, ReactiveFormsModule } from '@angular/forms';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { RichTextEditor } from '../../shared/rich-text/rich-text-editor';
 import { newAcceptedAnswer, newOption, QuestionForm } from '../question-form';
 import { QUESTION_DIFFICULTIES, QUESTION_LIMITS, QUESTION_TYPES } from '../question.models';
@@ -11,7 +12,7 @@ import { QUESTION_DIFFICULTIES, QUESTION_LIMITS, QUESTION_TYPES } from '../quest
  */
 @Component({
   selector: 'app-question-fields',
-  imports: [ReactiveFormsModule, RichTextEditor],
+  imports: [ReactiveFormsModule, RichTextEditor, TranslatePipe],
   // Lets formControlName in this template find the page's form group, which a child component cannot see by default.
   viewProviders: [{ provide: ControlContainer, useExisting: FormGroupDirective }],
   templateUrl: './question-fields.html',

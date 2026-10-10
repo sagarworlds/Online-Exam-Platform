@@ -13,6 +13,7 @@ import {
   setAcceptedAnswers,
   toAcceptedAnswers,
   toAllowsMultiple,
+  toExplanation,
   toIsTextAnswer,
   toLabels,
   toNewOptions,
@@ -210,6 +211,7 @@ export class QuestionBank {
       language: this.form.getRawValue().language,
       isTextAnswer: toIsTextAnswer(this.form),
       acceptedAnswers: toAcceptedAnswers(this.form),
+      explanation: toExplanation(this.form),
     };
 
     this.send(request);
