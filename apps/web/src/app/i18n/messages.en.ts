@@ -328,6 +328,14 @@ export const EN = {
 
   // ---- the answer review ----
   'review.back': 'Back to the result',
+  'questions.explanation.label': 'Explanation',
+  'questions.explanation.hint': 'Why the correct answer is correct. Candidates see it in their answer review, once the results are released. Plain text.',
+  'questions.explanation.tooLong': 'The explanation can be at most {max} characters.',
+  'review.explanation.label': 'Explanation',
+  'review.retry': 'Try again',
+  'review.locked.title': 'The answers are not out yet',
+  'review.locked.until': 'The answers and explanations open on {date}.',
+  'review.locked.whenReleased': 'The answers and explanations will be shown once the exam organiser releases them.',
   'leaderboard.title': 'Leaderboard',
   'leaderboard.tabsAria': 'Leaderboards',
   'leaderboard.tab.overall': 'Overall',

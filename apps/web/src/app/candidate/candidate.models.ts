@@ -275,6 +275,8 @@ export interface ReviewQuestionDto {
   answerText?: string | null;
   /** The answers that were accepted for a text question, so the candidate can see what counted as right. */
   acceptedAnswers?: string[];
+  /** Why the correct answer is correct, as plain text; null or absent when none was written. Only in a released review (FR-33). */
+  explanation?: string | null;
 }
 
 export interface ReviewSectionDto {

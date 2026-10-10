@@ -62,6 +62,8 @@ public static class AttemptQuestionReads
             {
                 Text = translation.Text,
                 Options = question.Options.Select((option, i) => option with { Text = translation.OptionTexts[i] }).ToList(),
+                // The translation's own explanation, or none: the source's would be in another language beside translated wording.
+                Explanation = translation.Explanation,
             };
         }
 

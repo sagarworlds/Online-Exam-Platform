@@ -322,6 +322,14 @@ export const HI: Messages = {
 
   // ---- the answer review ----
   'review.back': 'परिणाम पर वापस जाएँ',
+  'questions.explanation.label': 'व्याख्या',
+  'questions.explanation.hint': 'सही उत्तर सही क्यों है। परिणाम जारी होने के बाद उम्मीदवार इसे अपनी उत्तर समीक्षा में देखेंगे। सादा पाठ।',
+  'questions.explanation.tooLong': 'व्याख्या अधिकतम {max} अक्षरों की हो सकती है।',
+  'review.explanation.label': 'व्याख्या',
+  'review.retry': 'फिर से प्रयास करें',
+  'review.locked.title': 'उत्तर अभी जारी नहीं हुए हैं',
+  'review.locked.until': 'उत्तर और व्याख्याएँ {date} को खुलेंगी।',
+  'review.locked.whenReleased': 'परीक्षा के आयोजक जारी करने के बाद उत्तर और व्याख्याएँ दिखाई जाएँगी।',
   'leaderboard.title': 'लीडरबोर्ड',
   'leaderboard.tabsAria': 'लीडरबोर्ड',
   'leaderboard.tab.overall': 'कुल',

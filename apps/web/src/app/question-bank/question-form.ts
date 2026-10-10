@@ -31,6 +31,8 @@ export function createQuestionForm(formBuilder: FormBuilder) {
       // The language a new question is written in (FR-10); an edit leaves it alone, as another language is a translation.
       language: ['en' as QuestionLanguage],
       topics: ['', topicsValidator],
+      // Why the correct answer is correct, shown to candidates in the answer review after release (FR-33); blank means none.
+      explanation: ['', Validators.maxLength(QUESTION_LIMITS.maxExplanationLength)],
       options: formBuilder.array([newOptionGroup(formBuilder), newOptionGroup(formBuilder)]),
       acceptedAnswers: formBuilder.array([newAcceptedAnswer(formBuilder)]),
     },
@@ -167,6 +169,7 @@ export function fillQuestionForm(form: QuestionForm, formBuilder: FormBuilder, q
   form.controls.difficulty.setValue(question.difficulty ?? '');
   form.controls.language.setValue(question.language ?? 'en');
   form.controls.topics.setValue(question.topics.join(', '));
+  form.controls.explanation.setValue(question.explanation ?? '');
   applyQuestionType(form);
 }
 
@@ -179,6 +182,12 @@ export function toLabels(form: QuestionForm): { difficulty: QuestionDifficulty |
 /** Whether the question is a text question, which the candidate answers by typing rather than by choosing options. */
 export function toIsTextAnswer(form: QuestionForm): boolean {
   return form.getRawValue().questionType === 'text';
+}
+
+/** The explanation as a request sends it: trimmed, or null when the author wrote none. */
+export function toExplanation(form: QuestionForm): string | null {
+  const explanation = form.getRawValue().explanation.trim();
+  return explanation.length > 0 ? explanation : null;
 }
 
 /** The accepted answers as a request sends them: trimmed, with blank ones left out; none for a multiple-choice question. */

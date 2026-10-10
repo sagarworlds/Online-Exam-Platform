@@ -1,4 +1,5 @@
 import { formatDate } from '@angular/common';
+import { vi } from 'vitest';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -242,14 +243,75 @@ describe('AttemptReview', () => {
     expect(text).toContain('4');
   });
 
-  it('shows the reason when the answers have not been released yet, and no answer key', async () => {
-    const fixture = await open({
+  describe('held answers and explanations (FR-33)', () => {
+    const refusedReview = {
       status: 409,
-      error: { title: 'results_not_released', detail: 'The correct answers have not been released yet. They will be shown from 2026-10-08 09:00 UTC.' },
+      error: { title: 'results_not_released', detail: 'The correct answers have not been released yet.' },
+    };
+
+    /** Answers the page's attempt read, which says when the held answers open. */
+    function answerAttempt(fixture: ComponentFixture<AttemptReview>, availableFromUtc: string | null) {
+      httpMock
+        .expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET')
+        .flush({ id: 'a1', review: { available: false, mode: availableFromUtc ? 'Scheduled' : 'Manual', availableFromUtc } });
+      fixture.detectChanges();
+    }
+
+    it('shows the answers as locked, with the date they open, and no answer key or explanation', async () => {
+      const fixture = await open(refusedReview);
+      answerAttempt(fixture, '2026-10-08T09:00:00Z');
+
+      expect(root(fixture).querySelector('.review-locked')?.textContent).toContain('The answers are not out yet');
+      expect(textOf(fixture)).toContain('open on');
+      expect(root(fixture).querySelector('.review-option')).toBeNull();
+      expect(root(fixture).querySelector('.review-explanation')).toBeNull();
+      expect(root(fixture).querySelector('[role="alert"]')).toBeNull();
     });
 
-    expect(textOf(fixture)).toContain('have not been released yet');
-    expect(root(fixture).querySelector('.review-option')).toBeNull();
+    it('says the answers are held until an organiser releases them, when no date is decided', async () => {
+      const fixture = await open(refusedReview);
+      answerAttempt(fixture, null);
+
+      expect(textOf(fixture)).toContain('will be shown once the exam organiser releases them');
+    });
+
+    it('still says the answers are held when the date cannot be read, and logs why', async () => {
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const fixture = await open(refusedReview);
+      httpMock
+        .expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET')
+        .flush({ title: 'boom' }, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('will be shown once the exam organiser releases them');
+      expect(logged).toHaveBeenCalled();
+    });
+
+    it('shows the explanation under a question that has one, in the released review', async () => {
+      const body = review();
+      body.sections[0].questions[0] = { ...body.sections[0].questions[0], explanation: 'Paris has been the capital for centuries.' };
+      const fixture = await open(body);
+
+      const explained = root(fixture).querySelectorAll('.review-explanation');
+      expect(explained.length).toBe(1);
+      expect(explained[0].textContent).toContain('Paris has been the capital for centuries.');
+      expect(card(fixture, 2).querySelector('.review-explanation')).toBeNull();
+    });
+
+    it('offers a retry when the review cannot be read, and reads it again', async () => {
+      const fixture = await open({ status: 500, error: { title: 'internal', detail: 'The server had a problem.' } });
+
+      expect(root(fixture).querySelector('[role="alert"]')?.textContent).toContain('The server had a problem.');
+      const retry = [...root(fixture).querySelectorAll('button')].find((b) => b.textContent?.includes('Try again'));
+      expect(retry).toBeDefined();
+
+      retry?.click();
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/review') && r.method === 'GET').flush(review());
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Maths Final');
+      expect(root(fixture).querySelector('[role="alert"]')).toBeNull();
+    });
   });
 
   describe('result versions (FR-31)', () => {

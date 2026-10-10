@@ -322,6 +322,14 @@ export const MR: Messages = {
 
   // ---- the answer review ----
   'review.back': 'निकालाकडे परत जा',
+  'questions.explanation.label': 'स्पष्टीकरण',
+  'questions.explanation.hint': 'बरोबर उत्तर का बरोबर आहे ते. निकाल जाहीर झाल्यावर परीक्षार्थी ते त्यांच्या उत्तर पुनरावलोकनात पाहतील. साधा मजकूर.',
+  'questions.explanation.tooLong': 'स्पष्टीकरण जास्तीत जास्त {max} अक्षरांचे असू शकते.',
+  'review.explanation.label': 'स्पष्टीकरण',
+  'review.retry': 'पुन्हा प्रयत्न करा',
+  'review.locked.title': 'उत्तरे अजून जाहीर झालेली नाहीत',
+  'review.locked.until': 'उत्तरे आणि स्पष्टीकरणे {date} रोजी खुली होतील.',
+  'review.locked.whenReleased': 'परीक्षेचे आयोजक जाहीर केल्यावर उत्तरे आणि स्पष्टीकरणे दाखवली जातील.',
   'leaderboard.title': 'लीडरबोर्ड',
   'leaderboard.tabsAria': 'लीडरबोर्ड',
   'leaderboard.tab.overall': 'एकूण',

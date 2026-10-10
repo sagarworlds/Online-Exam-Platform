@@ -197,7 +197,7 @@ public static class QuestionBankEndpoints
     {
         var options = request.Options?.Select(o => new QuestionOptionEdit(o?.Id, o?.Text, o?.IsCorrect ?? false, o?.IsPinned ?? false)).ToList();
         return Results.Ok(await handler.HandleAsync(
-            new EditQuestionCommand(questionId, request.Text, options, request.Difficulty, request.Topics, request.AllowsMultiple, request.IsTextAnswer, request.AcceptedAnswers), ct));
+            new EditQuestionCommand(questionId, request.Text, options, request.Difficulty, request.Topics, request.AllowsMultiple, request.IsTextAnswer, request.AcceptedAnswers, request.Explanation), ct));
     }
 
     private static async Task<IResult> CreateQuestion(
@@ -207,7 +207,7 @@ public static class QuestionBankEndpoints
         var result = await handler.HandleAsync(
             new CreateQuestionCommand(
                 request.Text, options, user.GetUserId(), request.ChapterId, request.Difficulty, request.Topics, request.AllowsMultiple,
-                request.AllowDuplicate, request.Language, request.IsTextAnswer, request.AcceptedAnswers), ct);
+                request.AllowDuplicate, request.Language, request.IsTextAnswer, request.AcceptedAnswers, request.Explanation), ct);
         return Results.Created($"/v1/questions/{result.Id}", result);
     }
 
@@ -293,10 +293,11 @@ public static class QuestionBankEndpoints
 /// <param name="Language">"en", "hi" or "mr"; omitted means English. The same question in another language is added as a translation (FR-10).</param>
 /// <param name="IsTextAnswer">True for a text question, where the candidate types the answer; omit it for a multiple-choice question.</param>
 /// <param name="AcceptedAnswers">For a text question, the answers a typed answer may be (at least one); omit it for a multiple-choice question.</param>
+/// <param name="Explanation">Why the correct answer is correct, as plain text, at most 2000 characters; omit it for none (FR-33).</param>
 public sealed record CreateQuestionRequest(
     string? Text, IReadOnlyList<CreateQuestionOptionRequest?>? Options, Guid? ChapterId = null,
     string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false, bool AllowDuplicate = false,
-    string? Language = null, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null);
+    string? Language = null, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null, string? Explanation = null);
 
 /// <summary>Request body for adding a translation of a question (FR-10).</summary>
 /// <param name="Language">The language of the translation, "en", "hi" or "mr"; required, and not one the question's group already has.</param>
@@ -325,9 +326,10 @@ public sealed record FileQuestionsRequest(IReadOnlyList<Guid>? QuestionIds, Guid
 /// <param name="AllowsMultiple">Whether more than one option is correct; omitting it means a single correct option. Locked once candidates have answered.</param>
 /// <param name="IsTextAnswer">True for a text question; omit it for a multiple-choice one. Like the answer key it is locked once candidates have answered.</param>
 /// <param name="AcceptedAnswers">For a text question, the accepted answers after the edit (at least one); omit it for a multiple-choice one.</param>
+/// <param name="Explanation">The explanation after the edit, as plain text; omitting it clears the explanation, as the body is the whole new content (FR-33).</param>
 public sealed record EditQuestionRequest(
     string? Text, IReadOnlyList<EditQuestionOptionRequest?>? Options, string? Difficulty = null, IReadOnlyList<string?>? Topics = null,
-    bool AllowsMultiple = false, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null);
+    bool AllowsMultiple = false, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null, string? Explanation = null);
 
 /// <summary>One option in an <see cref="EditQuestionRequest"/>.</summary>
 /// <param name="Id">The id of the existing option being edited; omit it for a new option.</param>

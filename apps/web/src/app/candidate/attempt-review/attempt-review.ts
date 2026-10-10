@@ -26,6 +26,7 @@ interface NumberedQuestion extends ReviewQuestionDto {
   selector: 'app-attempt-review',
   imports: [RouterLink, DatePipe, MathDirective, TranslatePipe],
   templateUrl: './attempt-review.html',
+  styleUrl: './attempt-review.css',
 })
 export class AttemptReview {
   private readonly api = inject(CandidateApiService);
@@ -36,6 +37,9 @@ export class AttemptReview {
   protected readonly review = signal<AttemptReviewDto | null>(null);
   protected readonly loading = signal(true);
   protected readonly errorMessage = signal<string | null>(null);
+  /** The answers are held until the exam's author releases them; {@link availableFromUtc} says when, if that is decided. */
+  protected readonly locked = signal(false);
+  protected readonly availableFromUtc = signal<string | null>(null);
 
   /** The candidate's disputes of this attempt: those the review came with, and any raised since without reloading. */
   protected readonly disputes = signal<MyDisputeDto[]>([]);
@@ -57,17 +61,58 @@ export class AttemptReview {
       this.errorMessage.set('No attempt was given.');
       return;
     }
+    this.load();
+  }
 
-    this.api.getAttemptReview(this.attemptId).subscribe({
+  /** Reads the review again, e.g. after a failed read. */
+  protected retry(): void {
+    this.load();
+  }
+
+  private load(): void {
+    const attemptId = this.attemptId;
+    if (attemptId === null) {
+      return;
+    }
+
+    this.loading.set(true);
+    this.errorMessage.set(null);
+    this.locked.set(false);
+    this.api.getAttemptReview(attemptId).subscribe({
       next: (review) => {
         this.review.set(review);
         this.disputes.set(review.disputes ?? []);
         this.loading.set(false);
       },
       error: (error: unknown) => {
+        // Held answers are an expected state: the page shows when they open rather than an error.
+        if (extractProblemCode(error) === 'results_not_released') {
+          this.loadReleaseTime(attemptId);
+          return;
+        }
         this.loading.set(false);
-        // The API's own reason, e.g. "not released yet, shown from ...", is the most useful thing to tell the candidate.
+        // The API's own reason is the most useful thing to tell the candidate; the page offers a retry.
         this.errorMessage.set(extractErrorMessage(error, 'The answers could not be loaded. Please try again.'));
+      },
+    });
+  }
+
+  /**
+   * Reads when held answers open from the attempt, which the API answers without the release check. The date is a convenience: if that read
+   * fails the page still says the answers are held, without the date, and the failure is logged rather than hidden.
+   */
+  private loadReleaseTime(attemptId: string): void {
+    this.api.getAttempt(attemptId).subscribe({
+      next: (attempt) => {
+        this.availableFromUtc.set(attempt.review?.availableFromUtc ?? null);
+        this.locked.set(true);
+        this.loading.set(false);
+      },
+      error: (error: unknown) => {
+        console.error('Reading when the answers open failed', error);
+        this.availableFromUtc.set(null);
+        this.locked.set(true);
+        this.loading.set(false);
       },
     });
   }
