@@ -164,6 +164,11 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("GET", "/v1/guardians", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
         new("GET", "/v1/guardians/{guardianId}/links", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
 
+        // FR-48: staff answer a candidate's data-principal request with the privacy-operations permission.
+        new("GET", "/v1/data-requests/open", RbacCatalog.PermissionCodes.ConsentManage, null),
+        new("POST", "/v1/data-requests/{id:guid}/resolve", RbacCatalog.PermissionCodes.ConsentManage,
+            new { outcome = "Completed", note = (string?)null }),
+
         // FR-41: the institute's branding is changed with the exam editor's permission; its reads are public (see PublicRoutes).
         new("PUT", "/v1/branding", RbacCatalog.PermissionCodes.ExamManage,
             new { instituteName = "Authorization Test Institute", primaryColour = "#1A56DB" }),
@@ -203,13 +208,15 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         "POST /v1/me/notifications/{notificationId:guid}/read",
         "POST /v1/me/notifications/read-all",
         "GET /v1/me/analytics",
+        "POST /v1/me/data-requests",
+        "GET /v1/me/data-requests",
     ];
 
     // Routes that need no sign-in at all: a guardian has no account, so the one-time code e-mailed to them is the only proof.
     // They are listed here so that adding one is a decision, and the test checks that they really are open.
     private static readonly string[] PublicRoutes = ["POST /v1/guardian-links/verify", "GET /v1/branding", "GET /v1/branding/logo"];
 
-    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/proctoring", "/v1/me/notifications", "/v1/me/analytics", "/v1/branding", "/v1/instruction-templates", "/v1/incidents"];
+    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/proctoring", "/v1/me/notifications", "/v1/me/analytics", "/v1/me/data-requests", "/v1/data-requests", "/v1/branding", "/v1/instruction-templates", "/v1/incidents"];
 
     public static TheoryData<string> StaffRouteKeys => [.. StaffRoutes.Select(r => r.Key)];
 
