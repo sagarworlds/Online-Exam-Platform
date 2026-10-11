@@ -41,7 +41,12 @@ public sealed class AnalyticsModuleInstaller : IModuleInstaller
         services.AddScoped<IExamItemAnalysis, ExamItemAnalysisService>();
 
         services.AddScoped<IItemAnalysisCsvWriter, ItemAnalysisCsvWriter>();
+        services.AddScoped<IItemAnalysisPdfWriter, ItemAnalysisPdfWriter>();
         services.AddScoped<IItemAnalysisExport, ItemAnalysisExportService>();
+
+        services.AddScoped<ICandidateAnalyticsCsvWriter, CandidateAnalyticsCsvWriter>();
+        services.AddScoped<ICandidateAnalyticsPdfWriter, CandidateAnalyticsPdfWriter>();
+        services.AddScoped<ICandidateAnalyticsExport, CandidateAnalyticsExportService>();
     }
 
     /// <inheritdoc />

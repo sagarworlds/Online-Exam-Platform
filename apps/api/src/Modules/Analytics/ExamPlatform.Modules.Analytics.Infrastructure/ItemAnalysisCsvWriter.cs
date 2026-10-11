@@ -31,30 +31,11 @@ public sealed class ItemAnalysisCsvWriter : IItemAnalysisCsvWriter
     private static IEnumerable<string?> FieldsOf(ItemRowDto row, int minimumCohortSize) =>
     [
         row.Position.ToString(CultureInfo.InvariantCulture),
-        SafeText(row.Text),
+        ReportFormatting.SafeCell(row.Text),
         row.Attempts.ToString(CultureInfo.InvariantCulture),
         row.CorrectCount.ToString(CultureInfo.InvariantCulture),
-        row.Difficulty is { } difficulty ? (difficulty * 100).ToString("0.##", CultureInfo.InvariantCulture) : null,
-        row.Discrimination is { } discrimination ? discrimination.ToString("0.0000", CultureInfo.InvariantCulture) : null,
-        StatusOf(row, minimumCohortSize),
+        ReportFormatting.Figure(row.Difficulty * 100),
+        ReportFormatting.Discrimination(row.Discrimination),
+        ReportFormatting.ItemStatus(row, minimumCohortSize),
     ];
-
-    /// <summary>
-    /// Says why a figure is empty, in words a spreadsheet reader can filter on.
-    /// </summary>
-    private static string StatusOf(ItemRowDto row, int minimumCohortSize)
-    {
-        if (row.Difficulty is null)
-            return $"Not shown: fewer than {minimumCohortSize} candidates had the question";
-
-        return row.Discrimination is null ? "Difficulty shown; discrimination not shown: no one from a group had the question" : "Shown";
-    }
-
-    /// <summary>
-    /// Spreadsheet programs run a cell that begins with <c>=</c>, <c>+</c>, <c>-</c> or <c>@</c> as a formula, so a question whose text begins
-    /// that way could execute something when the file is opened. A leading apostrophe makes the program show the text instead. Applied to text
-    /// only: the figures are numbers and their minus signs must stay.
-    /// </summary>
-    private static string SafeText(string text) =>
-        text.Length > 0 && text[0] is '=' or '+' or '-' or '@' or '\t' or '\r' ? "'" + text : text;
 }
