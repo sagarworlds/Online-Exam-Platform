@@ -56,6 +56,7 @@ public class AttemptHandlerTests
     private SaveAnswerHandler Save => new(Access, _bank, _unitOfWork, _clock);
     private ClearAnswerHandler Clear => new(Access, _unitOfWork, _clock);
     private MarkQuestionHandler Mark => new(Access, _unitOfWork, _clock);
+    private RecordQuestionTimeHandler RecordTime => new(Access, _unitOfWork, _clock);
     private MoveToSectionHandler MoveSection => new(Access, _unitOfWork, _clock);
     private SubmitAttemptHandler Submit => new(Access, Closer, Views, _unitOfWork);
     private GetAttemptHandler Get => new(Access, Views, _client, _unitOfWork, _clock);
@@ -467,6 +468,69 @@ public class AttemptHandlerTests
 
         Assert.Equal(AttemptStatus.Submitted, attempt.Status);
         Assert.Empty(attempt.Marks);
+    }
+
+    // ---- time per question (FR-36) ------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Time_RecordsTheRunningTotal_WithoutAnswering()
+    {
+        var attempt = OpenAttempt();
+        // A report is capped at the time since the sitting began, so it is made a while into the sitting.
+        _clock.UtcNow = Fixtures.Now.AddMinutes(1);
+
+        await RecordTime.HandleAsync(attempt.Id, _candidate, _q1.Id, 42, CancellationToken.None);
+
+        Assert.Equal(42, Assert.Single(attempt.QuestionTimes).Seconds);
+        Assert.Empty(attempt.Answers);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Time_ForAQuestionThatIsNotInTheExam_IsNotFound()
+    {
+        var attempt = OpenAttempt();
+
+        await Assert.ThrowsAsync<QuestionNotInAttemptError>(
+            () => RecordTime.HandleAsync(attempt.Id, _candidate, Guid.NewGuid(), 10, CancellationToken.None));
+
+        Assert.Empty(attempt.QuestionTimes);
+    }
+
+    [Fact]
+    public async Task Time_ForSomeoneElsesAttempt_IsNotFound()
+    {
+        var attempt = OpenAttempt();
+
+        await Assert.ThrowsAsync<AttemptNotFoundError>(
+            () => RecordTime.HandleAsync(attempt.Id, Guid.NewGuid(), _q1.Id, 10, CancellationToken.None));
+
+        Assert.Empty(attempt.QuestionTimes);
+    }
+
+    [Fact]
+    public async Task Time_AfterTheDeadline_ClosesTheAttemptAndRefusesTheReport()
+    {
+        var attempt = OpenAttempt(startedAt: Fixtures.Now.AddMinutes(-31), deadline: Fixtures.Now.AddMinutes(-1));
+
+        await Assert.ThrowsAsync<AttemptNotInProgressError>(
+            () => RecordTime.HandleAsync(attempt.Id, _candidate, _q1.Id, 10, CancellationToken.None));
+
+        Assert.Equal(AttemptStatus.Submitted, attempt.Status);
+        Assert.Empty(attempt.QuestionTimes);
+    }
+
+    [Fact]
+    public async Task Get_CarriesEachQuestionsReportedTime_SoThePageCanResumeItsCount()
+    {
+        var attempt = OpenAttempt();
+        attempt.RecordQuestionTime(_q1.Id, 75, Fixtures.Now.AddMinutes(5));
+
+        var dto = await Get.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+
+        var questions = Assert.Single(dto.Sections).Questions.ToDictionary(q => q.Id);
+        Assert.Equal(75, questions[_q1.Id].TimeSpentSeconds);
+        Assert.Null(questions[_q2.Id].TimeSpentSeconds);
     }
 
     [Fact]

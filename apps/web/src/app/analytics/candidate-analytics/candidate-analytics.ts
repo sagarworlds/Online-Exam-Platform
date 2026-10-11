@@ -19,7 +19,8 @@ export interface DrawnResult {
 
 /**
  * Where a candidate reads their own performance across the exams they sat (FR-36): the score trend, the results in order (which is also the
- * table behind the chart), and the answers by section, weakest first. Only released results are in it, because the API counts nothing else.
+ * table behind the chart), the answers by section and by topic, weakest first, and the time spent per question. Only released results are in
+ * it, because the API counts nothing else.
  */
 @Component({
   selector: 'app-candidate-analytics',
@@ -73,6 +74,21 @@ export class CandidateAnalytics {
   /** How many released results a section name was in, in words: "In 1 result" or "In 3 results". */
   protected resultCountText(count: number): string {
     return this.i18n.plural('analytics.sections.resultCount', count);
+  }
+
+  /** How many questions a topic covered, in words: "1 question" or "3 questions". */
+  protected questionCountText(count: number): string {
+    return this.i18n.plural('analytics.topics.questionCount', count);
+  }
+
+  /** How many timed questions an average stands on, in words: "Across 1 question" or "Across 4 questions". */
+  protected timeBasisText(count: number): string {
+    return this.i18n.plural('analytics.time.basis', count);
+  }
+
+  /** An average time in seconds as shown, or the words for a figure with no timed question behind it, rather than a zero. */
+  protected seconds(value: number | null): string {
+    return value === null ? this.i18n.t('analytics.time.notTimed') : this.i18n.t('analytics.time.seconds', { seconds: value });
   }
 
   /**

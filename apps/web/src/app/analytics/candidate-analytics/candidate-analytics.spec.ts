@@ -34,6 +34,18 @@ describe('CandidateAnalytics', () => {
       { name: 'Algebra', resultCount: 2, correctCount: 1, wrongCount: 1, partialCount: 0, unansweredCount: 2, accuracy: 50 },
       { name: 'Geometry', resultCount: 1, correctCount: 0, wrongCount: 0, partialCount: 0, unansweredCount: 3, accuracy: null },
     ],
+    topics: [
+      { name: 'algebra', questionCount: 3, correctCount: 1, wrongCount: 1, partialCount: 0, unansweredCount: 1, accuracy: 50 },
+      { name: 'graphs', questionCount: 1, correctCount: 0, wrongCount: 0, partialCount: 0, unansweredCount: 1, accuracy: null },
+    ],
+    time: {
+      questionsTimed: 4,
+      averageSeconds: 37.5,
+      sections: [
+        { name: 'Algebra', questionsTimed: 3, averageSeconds: 40 },
+        { name: 'Geometry', questionsTimed: 1, averageSeconds: 25 },
+      ],
+    },
     ...overrides,
   });
 
@@ -79,6 +91,31 @@ describe('CandidateAnalytics', () => {
     expect(sections).toEqual(['Algebra', 'Geometry']);
     expect(textOf(fixture)).toContain('50%');
     expect(textOf(fixture)).toContain('No question answered');
+  });
+
+  it('shows the accuracy by topic, weakest first, and the time per question with its average and by section', async () => {
+    const { fixture, request } = await start();
+
+    request.flush(analytics());
+    fixture.detectChanges();
+
+    const topics = [...root(fixture).querySelectorAll('.analytics-topic h3')].map((h) => h.textContent?.trim());
+    expect(topics).toEqual(['algebra', 'graphs']);
+    expect(textOf(fixture)).toContain('3 questions');
+    expect(root(fixture).querySelector('.analytics-time__average strong')?.textContent?.trim()).toBe('37.5 seconds');
+    expect(textOf(fixture)).toContain('Across 4 questions with a reported time');
+    expect(root(fixture).querySelectorAll('.analytics-time__sections li')).toHaveLength(2);
+  });
+
+  it('says no time was reported, rather than showing a zero average, when no question was timed', async () => {
+    const { fixture, request } = await start();
+
+    request.flush(analytics({ topics: [], time: { questionsTimed: 0, averageSeconds: null, sections: [] } }));
+    fixture.detectChanges();
+
+    expect(textOf(fixture)).toContain('No question with a topic was scored in your released results.');
+    expect(textOf(fixture)).toContain('No time on a question was reported in your released results.');
+    expect(root(fixture).querySelector('.analytics-time__average')).toBeNull();
   });
 
   it('marks the chart as decorative, so the results list is what assistive technology reads', async () => {

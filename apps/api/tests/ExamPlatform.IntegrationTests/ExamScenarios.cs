@@ -1,6 +1,9 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using ExamPlatform.Modules.ExamRuntime.Infrastructure;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ExamPlatform.IntegrationTests;
 
@@ -27,6 +30,22 @@ internal static class ExamScenarios
         var user = await factory.SignInAsAsync("Candidate", email, phoneNumber: phoneNumber);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.AccessToken);
         return (client, user);
+    }
+
+    /// <summary>
+    /// Moves an attempt's start back by <paramref name="by"/>, so the time since the sitting began is long enough for a time report to count
+    /// (FR-36). A test sits an exam in milliseconds, and a report is capped at the time since the sitting began, so without this a report of
+    /// 45 seconds would be kept as zero. The deadline stays where it was.
+    /// </summary>
+    /// <param name="factory">The running API, whose database the attempt is in.</param>
+    /// <param name="attemptId">The attempt to move back.</param>
+    /// <param name="by">How far back to move its start.</param>
+    public static async Task BackdateSittingAsync(this ApiFactory factory, Guid attemptId, TimeSpan by)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ExamRuntimeDbContext>();
+        await db.Database.ExecuteSqlRawAsync(
+            "UPDATE \"examRuntime\".\"Attempts\" SET \"StartedAtUtc\" = \"StartedAtUtc\" - {0} WHERE \"Id\" = {1}", by, attemptId);
     }
 
     /// <summary>Creates a question with the given options (the first is correct) and returns its id.</summary>

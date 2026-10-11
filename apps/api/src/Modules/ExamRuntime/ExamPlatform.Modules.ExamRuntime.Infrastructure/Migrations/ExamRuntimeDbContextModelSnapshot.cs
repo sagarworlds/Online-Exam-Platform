@@ -301,6 +301,28 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
                     b.ToTable("AttemptQuestions", "examRuntime");
                 });
 
+            modelBuilder.Entity("ExamPlatform.Modules.ExamRuntime.Domain.AttemptQuestionTime", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Seconds")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttemptId", "QuestionId")
+                        .IsUnique();
+
+                    b.ToTable("AttemptQuestionTimes", "examRuntime");
+                });
+
             modelBuilder.Entity("ExamPlatform.Modules.ExamRuntime.Domain.AttemptRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -628,6 +650,15 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ExamPlatform.Modules.ExamRuntime.Domain.AttemptQuestionTime", b =>
+                {
+                    b.HasOne("ExamPlatform.Modules.ExamRuntime.Domain.Attempt", null)
+                        .WithMany("QuestionTimes")
+                        .HasForeignKey("AttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ExamPlatform.Modules.ExamRuntime.Domain.AttemptResultRevision", b =>
                 {
                     b.HasOne("ExamPlatform.Modules.ExamRuntime.Domain.Attempt", null)
@@ -657,6 +688,8 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
                     b.Navigation("Marks");
 
                     b.Navigation("Paper");
+
+                    b.Navigation("QuestionTimes");
 
                     b.Navigation("Revisions");
 

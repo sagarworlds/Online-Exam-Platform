@@ -11,6 +11,10 @@ namespace ExamPlatform.Modules.ExamRuntime.Contracts;
 /// <param name="Score">The marks scored, as the latest version of the result says.</param>
 /// <param name="MaxScore">The marks available.</param>
 /// <param name="Sections">How the answers fell in each section, in exam order.</param>
+/// <param name="Questions">
+/// How each question of the paper was answered and timed, in exam order; null for a result that was built without them. Only the topic and time
+/// breakdowns read them.
+/// </param>
 public sealed record CandidateResult(
     Guid AttemptId,
     Guid ExamId,
@@ -18,7 +22,8 @@ public sealed record CandidateResult(
     DateTime SubmittedAtUtc,
     decimal Score,
     decimal MaxScore,
-    IReadOnlyList<CandidateSectionResult> Sections);
+    IReadOnlyList<CandidateSectionResult> Sections,
+    IReadOnlyList<CandidateQuestionResult>? Questions = null);
 
 /// <summary>How a candidate's answers fell in one section of an exam.</summary>
 /// <param name="SectionId">The section's id.</param>
