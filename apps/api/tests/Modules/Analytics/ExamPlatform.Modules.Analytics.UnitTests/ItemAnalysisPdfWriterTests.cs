@@ -8,8 +8,11 @@ namespace ExamPlatform.Modules.Analytics.UnitTests;
 /// <summary>The PDF report of an item analysis (FR-38): the same figures and status words as the CSV, laid out over as many pages as needed.</summary>
 public class ItemAnalysisPdfWriterTests
 {
+    // The summary of an analysis whose results are held or whose cohort has no marks: no figures, no bands.
+    private static readonly ExamScoreSummaryDto NoScores = new(0, null, null, []);
+
     private static ExamItemAnalysisDto Analysis(params ItemRowDto[] rows) =>
-        new(Guid.NewGuid(), "Physics", ResultsReleased: true, CandidateCount: 44, MinimumCohortSize: 30, GroupSize: 12, rows);
+        new(Guid.NewGuid(), "Physics", ResultsReleased: true, CandidateCount: 44, MinimumCohortSize: 30, GroupSize: 12, rows, NoScores);
 
     private static ItemRowDto Shown(int position, string text) => new(Guid.NewGuid(), position, text, 44, 31, 0.7045m, 0.4545m);
 
@@ -65,7 +68,7 @@ public class ItemAnalysisPdfWriterTests
     [Fact]
     public void TheResultsNotReleased_SaysSo_AndDrawsNoTable()
     {
-        var analysis = new ExamItemAnalysisDto(Guid.NewGuid(), "Physics", ResultsReleased: false, CandidateCount: 0, MinimumCohortSize: 30, GroupSize: 12, []);
+        var analysis = new ExamItemAnalysisDto(Guid.NewGuid(), "Physics", ResultsReleased: false, CandidateCount: 0, MinimumCohortSize: 30, GroupSize: 12, [], NoScores);
 
         var text = Text(new ItemAnalysisPdfWriter().Write(analysis));
 
