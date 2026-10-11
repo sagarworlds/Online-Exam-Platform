@@ -45,6 +45,16 @@ public class CertificatePdfTests
     }
 
     [Fact]
+    public void TheCertificate_IsStillOnOnePage()
+    {
+        // The shared PDF writer lays out any number of pages; the certificate is a single page, as its object numbers have always been.
+        var text = Text(CertificatePdf.Render(Details()));
+
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(text, @"/Type /Page\b"));
+        Assert.Contains("/Info 7 0 R", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TheCandidatesName_IsPrintedAsWritten()
     {
         var text = Text(CertificatePdf.Render(Details("Asha Kumar")));
