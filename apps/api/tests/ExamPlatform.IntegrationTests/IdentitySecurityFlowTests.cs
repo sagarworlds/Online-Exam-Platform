@@ -828,6 +828,8 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
 
     // Unique per call, so tests never collide on the unique phone index; 13 characters,
     // within the 20 an account stores.
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA5394:Do not use insecure randomness",
+        Justification = "Test data: a phone number that only has to be unique per call. It is not a secret or a token.")]
     private static string UniquePhoneNumber() =>
         "+91" + Random.Shared.NextInt64(1_000_000_000, 10_000_000_000).ToString(CultureInfo.InvariantCulture);
 

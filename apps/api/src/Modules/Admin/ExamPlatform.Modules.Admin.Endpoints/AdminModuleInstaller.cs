@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.Admin.Application;
+using ExamPlatform.Modules.Admin.Application.Commands;
 using ExamPlatform.Modules.Admin.Application.Ports;
 using ExamPlatform.Modules.Admin.Application.Queries;
 using ExamPlatform.Modules.Admin.Contracts;
@@ -29,6 +30,14 @@ public sealed class AdminModuleInstaller : IModuleInstaller
         services.AddScoped<IAdminUnitOfWork, AdminUnitOfWork>();
         services.AddScoped<IAuditLogger, AuditLogger>();
         services.AddScoped<SearchAuditLogsHandler>();
+
+        services.AddScoped<IBrandingRepository, BrandingRepository>();
+        services.AddScoped<BrandingAudit>();
+        services.AddScoped<UpdateBrandingHandler>();
+        services.AddScoped<SetBrandingLogoHandler>();
+        services.AddScoped<RemoveBrandingLogoHandler>();
+        services.AddScoped<GetBrandingHandler>();
+        services.AddScoped<GetBrandingLogoHandler>();
     }
 
     /// <inheritdoc />

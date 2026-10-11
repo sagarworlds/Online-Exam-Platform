@@ -22,6 +22,13 @@ jobs:
         run: dotnet restore ExamPlatform.slnx
         working-directory: apps/api
 
+      # NFR-5: fails on any known-vulnerable NuGet package. It reads the findings itself, because the SDK exits 0 even when it
+      # reports one (scripts/security/check-nuget-vulnerabilities.sh).
+      - name: Dependency vulnerability scan (NuGet)
+        run: ../../scripts/security/check-nuget-vulnerabilities.sh ExamPlatform.slnx
+        working-directory: apps/api
+
+      # NFR-5: the .NET security analyzers are errors in apps/api/.editorconfig, so a security finding fails this step.
       - name: Build
         run: dotnet build ExamPlatform.slnx --no-restore -c Release
         working-directory: apps/api
@@ -58,6 +65,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        working-directory: apps/web
+
+      # NFR-5: npm exits non-zero for a high or critical advisory in the dependency tree (moderate and low do not fail the step).
+      - name: Dependency audit (npm, high and critical)
+        run: npm audit --audit-level=high
         working-directory: apps/web
 
       - name: Lint

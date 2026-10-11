@@ -31,6 +31,18 @@ public sealed class ProductionHostTests
     }
 
     [Fact]
+    public async Task Production_HstsLastsAYear_NotTheFrameworkDefaultOfThirtyDays()
+    {
+        // A short max-age lets a browser forget HTTPS-only between visits; this pins the year set in Program.cs.
+        using var factory = new ProductionHostFactory(otpProvider: null, allowCapturingSender: true);
+        using var client = factory.CreateClient(HttpsClient);
+
+        var response = await client.GetAsync("/v1/health");
+
+        Assert.Equal("max-age=31536000", Assert.Single(response.Headers.GetValues("Strict-Transport-Security")));
+    }
+
+    [Fact]
     public async Task Production_SendsHstsOnTypedErrorResponsesToo()
     {
         // A typed error is written by the exception handler, which clears the response headers

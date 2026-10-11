@@ -272,3 +272,10 @@ export const QUESTION_TYPES: readonly { value: QuestionType; label: string }[] =
 
 /** How many questions one listing returns at most, as the API sets it. A full page means there may be more to load. */
 export const QUESTION_LIST_PAGE_SIZE = 200;
+
+/** How much of the bank's stored content is encrypted at rest (#57): the values there are, and how many are still plaintext. */
+export interface ContentEncryptionStatus {
+  contentValues: number;
+  plaintextValues: number;
+  complete: boolean;
+}

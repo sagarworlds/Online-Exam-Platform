@@ -17,6 +17,8 @@ public static class ExamAuthoringEndpoints
     /// <param name="endpoints">The endpoint route builder to map onto.</param>
     public static void MapExamAuthoringEndpoints(this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapInstructionTemplateEndpoints();
+
         // The group only demands a signed-in caller. Being signed in says nothing about being allowed to
         // author exams (a candidate is signed in too), so every route also names the permission it needs (FR-2, NFR-5).
         // The profiles an author can choose between (FR-46): fixed by the platform, so it needs only the permission to read exams.

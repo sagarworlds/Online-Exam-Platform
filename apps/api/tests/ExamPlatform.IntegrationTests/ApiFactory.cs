@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Testcontainers.PostgreSql;
 
 namespace ExamPlatform.IntegrationTests;
@@ -74,6 +75,9 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         // in Development, and the fresh container has no schema without it.
         builder.UseEnvironment("Development");
 
+        // Errors the host logs (such as an unhandled exception behind a 500) are kept, so a failing request can report them.
+        builder.ConfigureLogging(logging => logging.AddProvider(new ServerErrorLogProvider()));
+
         var settings = new Dictionary<string, string?>
         {
             ["ConnectionStrings:Postgres"] = _postgres.GetConnectionString(),
@@ -95,6 +99,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             services.AddSingleton<IOtpSender>(OtpSender);
             TestRemoteIpStartupFilter.Register(services);
+            SharedKeyRing.Apply(services);
         });
     }
 }

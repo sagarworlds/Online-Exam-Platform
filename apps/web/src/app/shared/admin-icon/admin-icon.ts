@@ -1,7 +1,7 @@
 import { Component, input } from '@angular/core';
 
 /** The icon keys an {@link AdminIcon} knows how to draw; see {@link AdminSection.icon}. */
-export type AdminIconName = 'question' | 'book' | 'exam' | 'attempt-request' | 'dispute' | 'issue' | 'invite' | 'batch' | 'guardian' | 'otp' | 'whatsapp';
+export type AdminIconName = 'question' | 'book' | 'exam' | 'attempt-request' | 'dispute' | 'issue' | 'invite' | 'batch' | 'guardian' | 'otp' | 'whatsapp' | 'brand' | 'template';
 
 /**
  * One of the admin sidebar's icons, drawn as a small inline outline (the same hand-drawn stroke style as the
@@ -63,6 +63,18 @@ export type AdminIconName = 'question' | 'book' | 'exam' | 'attempt-request' | '
           <path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-4.5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
           <path d="M8 9h8" />
           <path d="M8 12.5h5" />
+        }
+        @case ('brand') {
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="8.5" cy="10" r="1.2" />
+          <circle cx="12" cy="7.8" r="1.2" />
+          <circle cx="15.5" cy="10" r="1.2" />
+        }
+        @case ('template') {
+          <rect x="4" y="4" width="16" height="16" rx="2" />
+          <path d="M8 9h8" />
+          <path d="M8 13h8" />
+          <path d="M8 17h5" />
         }
       }
     </svg>

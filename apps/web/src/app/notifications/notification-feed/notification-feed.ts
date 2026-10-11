@@ -16,6 +16,7 @@ const KIND_MESSAGES: Record<NotificationKind, MessageKey> = {
   AttemptRequestApproved: 'notifications.kind.AttemptRequestApproved',
   AttemptRequestDeclined: 'notifications.kind.AttemptRequestDeclined',
   DisputeRejected: 'notifications.kind.DisputeRejected',
+  DisputeAccepted: 'notifications.kind.DisputeAccepted',
   ExamReminder24Hours: 'notifications.kind.ExamReminder24Hours',
   ExamReminderOneHour: 'notifications.kind.ExamReminderOneHour',
   ResultReleased: 'notifications.kind.ResultReleased',

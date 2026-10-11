@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.Identity.Domain;
+using ExamPlatform.Modules.Identity.Domain.DataRequests;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
@@ -32,6 +33,9 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     /// <summary>Outstanding and historical password reset tokens.</summary>
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+
+    /// <summary>Data-principal requests (FR-48): what a candidate asked for, and how staff answered.</summary>
+    public DbSet<DataRequest> DataRequests => Set<DataRequest>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -84,6 +88,21 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             b.Property(p => p.Code).IsRequired().HasMaxLength(150);
             b.Property(p => p.Description).HasMaxLength(500);
             b.HasIndex(p => p.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<DataRequest>(b =>
+        {
+            b.ToTable("DataRequests");
+            b.HasKey(r => r.Id);
+            b.Property(r => r.Kind).HasConversion<string>().HasMaxLength(20);
+            b.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
+            b.Property(r => r.Details).HasMaxLength(DataRequest.MaxDetailsLength);
+            b.Property(r => r.ResolutionNote).HasMaxLength(DataRequest.MaxNoteLength);
+            b.Ignore(r => r.DomainEvents);
+
+            // The lookups staff and the candidate make: one account's requests, and the open queue in due order.
+            b.HasIndex(r => new { r.UserId, r.Kind, r.Status });
+            b.HasIndex(r => new { r.Status, r.DueAtUtc });
         });
 
         modelBuilder.Entity<OtpChallenge>(b =>

@@ -54,6 +54,7 @@ public sealed class ProductionHostFactory(
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(settings));
 
         builder.ConfigureTestServices(TestRemoteIpStartupFilter.Register);
+        builder.ConfigureTestServices(SharedKeyRing.Apply);
 
         if (allowCapturingSender)
         {

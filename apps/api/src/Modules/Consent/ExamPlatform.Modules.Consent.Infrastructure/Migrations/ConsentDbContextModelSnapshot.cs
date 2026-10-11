@@ -26,7 +26,6 @@ namespace ExamPlatform.Modules.Consent.Infrastructure.Migrations
             modelBuilder.Entity("ExamPlatform.Modules.Consent.Domain.ConsentRecord", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("GivenById")
@@ -59,10 +58,95 @@ namespace ExamPlatform.Modules.Consent.Infrastructure.Migrations
                     b.ToTable("ConsentRecords", "consent");
                 });
 
+            modelBuilder.Entity("ExamPlatform.Modules.Consent.Domain.Incident", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AffectedData")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("DetectedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("EscalationDueAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("LoggedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("LoggedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status", "EscalationDueAtUtc");
+
+                    b.ToTable("Incidents", "consent");
+                });
+
+            modelBuilder.Entity("ExamPlatform.Modules.Consent.Domain.IncidentStatusChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ChangedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ChangedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FromStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("IncidentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IncidentId");
+
+                    b.ToTable("IncidentStatusChanges", "consent");
+                });
+
             modelBuilder.Entity("ExamPlatform.Modules.Consent.Domain.NoticeVersion", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("ContentReference")
@@ -86,6 +170,20 @@ namespace ExamPlatform.Modules.Consent.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("NoticeVersions", "consent");
+                });
+
+            modelBuilder.Entity("ExamPlatform.Modules.Consent.Domain.IncidentStatusChange", b =>
+                {
+                    b.HasOne("ExamPlatform.Modules.Consent.Domain.Incident", null)
+                        .WithMany("StatusChanges")
+                        .HasForeignKey("IncidentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ExamPlatform.Modules.Consent.Domain.Incident", b =>
+                {
+                    b.Navigation("StatusChanges");
                 });
 #pragma warning restore 612, 618
         }

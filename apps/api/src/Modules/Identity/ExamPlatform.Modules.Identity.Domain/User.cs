@@ -194,11 +194,23 @@ public sealed class User : AggregateRoot
     /// rather than stored, since "is this person a minor" can change as time passes.
     /// </summary>
     /// <param name="asOfUtc">The instant to compute age as of (normally <c>Clock.UtcNow</c>).</param>
-    public AgeBand GetAgeBand(DateTime asOfUtc)
+    public AgeBand GetAgeBand(DateTime asOfUtc) => BandOn(DateOfBirth, asOfUtc);
+
+    /// <summary>
+    /// The age band a date of birth falls in on the day of an instant. Static, so a module that holds only the date of birth (a
+    /// directory answering "was this attempt sat by a minor?") applies the same rule as <see cref="GetAgeBand"/>, rather than a copy.
+    /// </summary>
+    /// <remarks>
+    /// The day is the UTC day of <paramref name="asOfUtc"/>. A candidate is an adult from the start of their eighteenth birthday, so a
+    /// birthday on the day itself counts.
+    /// </remarks>
+    /// <param name="dateOfBirth">The candidate's date of birth.</param>
+    /// <param name="asOfUtc">The instant to compute age as of.</param>
+    public static AgeBand BandOn(DateOnly dateOfBirth, DateTime asOfUtc)
     {
         var asOfDate = DateOnly.FromDateTime(asOfUtc);
-        var age = asOfDate.Year - DateOfBirth.Year;
-        if (DateOfBirth > asOfDate.AddYears(-age)) age--;
+        var age = asOfDate.Year - dateOfBirth.Year;
+        if (dateOfBirth > asOfDate.AddYears(-age)) age--;
         return age < 18 ? AgeBand.Minor : AgeBand.Adult;
     }
 

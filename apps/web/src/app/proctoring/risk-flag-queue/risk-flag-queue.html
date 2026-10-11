@@ -1,0 +1,207 @@
+<div class="page page--wide">
+  <a [routerLink]="['/exams', examId, 'attempts']" class="back-link">{{ 'proctoring.backToAttempts' | t }}</a>
+
+  <div class="page-header">
+    <h1>{{ 'proctoring.title' | t }}</h1>
+    @if (examName(); as name) {
+      <p class="risk-exam-name">{{ name }}</p>
+    }
+  </div>
+
+  <p class="hint">{{ 'proctoring.hint' | t }}</p>
+
+  <div class="risk-scan">
+    <p class="hint">{{ 'proctoring.scan.explain' | t }}</p>
+    <button type="button" class="primary risk-scan__button" (click)="scan()" [disabled]="scanning()">
+      {{ (scanning() ? 'proctoring.scan.running' : 'proctoring.scan.run') | t }}
+    </button>
+    @if (scanResult(); as result) {
+      <p class="success-message" role="status">
+        {{
+          'proctoring.scan.result'
+            | t: { scored: result.scored, flagged: result.flagged, kept: result.keptDecided }
+        }}
+      </p>
+    }
+    @if (scanResult(); as result) {
+      @if (result.excludedUnder18 > 0) {
+        <p class="hint" role="status">{{ scanExcludedText(result.excludedUnder18) }}</p>
+      }
+    }
+    @if (scanError()) {
+      <p class="error-message" role="alert">{{ scanError() }}</p>
+    }
+  </div>
+
+  <div class="risk-toolbar">
+    <label for="risk-filter">{{ 'proctoring.filter.label' | t }}</label>
+    <select id="risk-filter" class="risk-toolbar__select" [value]="filter()" (change)="setFilter($any($event.target).value)">
+      @for (option of filters; track option.value) {
+        <option [value]="option.value">{{ option.label | t }}</option>
+      }
+    </select>
+  </div>
+
+  @if (loaded()) {
+    <section class="card risk-gate" aria-labelledby="risk-gate-heading">
+      <h2 id="risk-gate-heading" class="risk-gate__title">{{ 'proctoring.gate.heading' | t }}</h2>
+      @if (minorsScanEnabled()) {
+        <p>{{ 'proctoring.gate.on' | t }}</p>
+      } @else if (excludedUnder18() > 0) {
+        <p class="risk-gate__count">{{ gateOffText() }}</p>
+      } @else {
+        <p>{{ 'proctoring.gate.offNone' | t }}</p>
+      }
+    </section>
+  }
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+    <button type="button" class="risk-retry" (click)="retry()" [disabled]="loading()">{{ 'proctoring.retry' | t }}</button>
+  }
+
+  @if (loading()) {
+    <p role="status">{{ 'common.loading' | t }}</p>
+  } @else if (entries().length === 0) {
+    @if (!errorMessage()) {
+      <div class="card empty-state">
+        <p>{{ emptyText() }}</p>
+        @if (filter() === 'open') {
+          <p class="hint">{{ 'proctoring.noneHint' | t }}</p>
+        }
+      </div>
+    }
+  } @else {
+    <p class="risk-queue__count">{{ countText() }}</p>
+
+    <ul class="risk-queue">
+      @for (entry of entries(); track entry.flag.id) {
+        <li class="card risk-flag">
+          @if (entry.decision; as decision) {
+            <p
+              class="risk-flag__result"
+              [class.risk-flag__result--reviewed]="decision.outcome === 'reviewed'"
+              [class.risk-flag__result--dismissed]="decision.outcome === 'dismissed'"
+              tabindex="-1"
+              #focusTarget
+              [attr.data-focus]="'result:' + entry.flag.id"
+            >
+              <span aria-hidden="true">{{ decision.outcome === 'reviewed' ? '✓' : '✗' }}</span>
+              {{ resultText(decision) }}
+            </p>
+          } @else {
+            <h3 class="card__title">{{ candidateTitle(entry.flag) }}</h3>
+            <p class="card__meta">
+              {{ 'common.attempt' | t: { number: entry.flag.attemptNumber } }} ·
+              {{ 'proctoring.card.score' | t: { score: entry.flag.score, max: entry.flag.maxScore } }}
+            </p>
+            <p class="card__meta">
+              {{ 'proctoring.card.computed' | t: { when: (entry.flag.computedAtUtc | date: 'medium') ?? '' } }}
+            </p>
+
+            @if (!isOpen(entry.flag)) {
+              <p class="risk-flag__status">
+                @if (entry.flag.status === 'Reviewed') {
+                  {{ 'proctoring.status.reviewed' | t: { when: (entry.flag.decidedAtUtc | date: 'medium') ?? '' } }}
+                } @else {
+                  {{
+                    'proctoring.status.dismissed'
+                      | t
+                        : {
+                            when: (entry.flag.decidedAtUtc | date: 'medium') ?? '',
+                            note: entry.flag.decisionNote ?? '',
+                          }
+                  }}
+                }
+              </p>
+            }
+
+            <h4 class="risk-flag__signals-title">{{ 'proctoring.card.signals' | t }}</h4>
+            <ul class="risk-signals">
+              @for (signal of entry.flag.signals; track signal.kind) {
+                <li class="risk-signal" [class.risk-signal--raised]="signal.raised">
+                  <p class="risk-signal__name">{{ signalName(signal) }}</p>
+                  <p class="risk-signal__detail">{{ valueText(signal) }} · {{ ruleText(signal) }}</p>
+                  <p class="risk-signal__points">
+                    <strong>{{ raisedText(signal) }}</strong> · {{ pointsText(signal) }}
+                  </p>
+                </li>
+              }
+            </ul>
+
+            @if (rowErrors()[entry.flag.id]; as rowError) {
+              <p class="error-message" role="alert">{{ rowError }}</p>
+            }
+
+            @if (isOpen(entry.flag)) {
+              @if (dismissingId() === entry.flag.id) {
+                <form
+                  class="risk-flag__dismiss"
+                  novalidate
+                  (submit)="$event.preventDefault(); confirmDismiss(entry.flag)"
+                  [attr.aria-label]="'proctoring.dismiss.formLabel' | t: { who: candidateName(entry.flag) }"
+                >
+                  <p class="hint">{{ 'proctoring.dismiss.needsNote' | t }}</p>
+                  <div class="field">
+                    <label [attr.for]="'dismiss-note-' + entry.flag.id">{{ 'proctoring.dismiss.label' | t }}</label>
+                    <textarea
+                      [id]="'dismiss-note-' + entry.flag.id"
+                      rows="3"
+                      aria-required="true"
+                      [attr.aria-invalid]="noteError() ? 'true' : null"
+                      [attr.aria-describedby]="noteError() ? 'dismiss-note-error-' + entry.flag.id : null"
+                      [maxLength]="maxNoteLength"
+                      [value]="note()"
+                      (input)="note.set($any($event.target).value)"
+                      #focusTarget
+                      [attr.data-focus]="'note:' + entry.flag.id"
+                    ></textarea>
+                    @if (noteError()) {
+                      <p class="error-message" role="alert" [id]="'dismiss-note-error-' + entry.flag.id">
+                        {{ noteError() }}
+                      </p>
+                    }
+                  </div>
+                  <div class="risk-flag__actions">
+                    <button type="submit" class="btn--danger" [disabled]="busyId() !== null">
+                      {{ 'proctoring.dismiss.submit' | t }}
+                    </button>
+                    <button type="button" (click)="cancelDismissing(entry.flag)" [disabled]="busyId() !== null">
+                      {{ 'common.cancel' | t }}
+                    </button>
+                  </div>
+                </form>
+              } @else {
+                <p class="hint risk-flag__needs-note" [id]="'dismiss-hint-' + entry.flag.id">
+                  {{ 'proctoring.dismiss.needsNote' | t }}
+                </p>
+                <div class="risk-flag__actions">
+                  <button type="button" class="primary" (click)="review(entry.flag)" [disabled]="busyId() !== null">
+                    {{ 'proctoring.review' | t }}
+                  </button>
+                  <button
+                    type="button"
+                    #focusTarget
+                    [attr.data-focus]="'dismiss:' + entry.flag.id"
+                    [attr.aria-describedby]="'dismiss-hint-' + entry.flag.id"
+                    (click)="startDismissing(entry.flag)"
+                    [disabled]="busyId() !== null"
+                  >
+                    {{ 'proctoring.dismiss.open' | t }}
+                  </button>
+                </div>
+              }
+            }
+          }
+        </li>
+      }
+    </ul>
+
+    @if (loadingMore()) {
+      <p role="status">{{ 'common.loading' | t }}</p>
+    }
+    @if (hasMore() && !loadingMore()) {
+      <button type="button" class="risk-more" (click)="showMore()">{{ 'proctoring.showMore' | t }}</button>
+    }
+  }
+</div>

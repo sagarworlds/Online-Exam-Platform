@@ -37,7 +37,7 @@ internal static class ExamScenarios
             text,
             options = options.Select((option, i) => new { text = option, isCorrect = i == 0 }).ToArray(),
         });
-        response.EnsureSuccessStatusCode();
+        await ServerErrorLog.EnsureSuccessAsync(response);
         return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
     }
 

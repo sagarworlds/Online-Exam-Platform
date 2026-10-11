@@ -72,6 +72,8 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("GET", "/v1/exams/{examId:guid}/preview", RbacCatalog.PermissionCodes.ExamManage, null),
         new("GET", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/clients", RbacCatalog.PermissionCodes.ExamManage, null),
         new("GET", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/paper", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("GET", "/v1/exams/{examId:guid}/analytics/items", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("POST", "/v1/exams/{examId:guid}/analytics/items/exports", RbacCatalog.PermissionCodes.ExamManage, null),
         new("POST", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/rescore", RbacCatalog.PermissionCodes.ExamManage, new { reason = "Authorization test" }),
         new("POST", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/warn", RbacCatalog.PermissionCodes.ExamManage, new { message = "Authorization test" }),
         new("POST", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/pause", RbacCatalog.PermissionCodes.ExamManage, null),
@@ -95,6 +97,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             new { text = "Q?", options = new[] { new { text = "A", isCorrect = true }, new { text = "B", isCorrect = false } } }),
         new("GET", "/v1/questions", RbacCatalog.PermissionCodes.QuestionRead, null),
         new("GET", "/v1/questions/topics", RbacCatalog.PermissionCodes.QuestionRead, null),
+        new("GET", "/v1/questions/encryption-status", RbacCatalog.PermissionCodes.QuestionRead, null),
         new("GET", "/v1/questions/{questionId:guid}", RbacCatalog.PermissionCodes.QuestionRead, null),
         new("PUT", "/v1/questions/{questionId:guid}", RbacCatalog.PermissionCodes.QuestionManage,
             new { text = "Q?", options = new[] { new { text = "A", isCorrect = true }, new { text = "B", isCorrect = false } } }),
@@ -160,6 +163,37 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("DELETE", "/v1/guardians/{guardianId}/candidates/{candidateId}", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
         new("GET", "/v1/guardians", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
         new("GET", "/v1/guardians/{guardianId}/links", RbacCatalog.PermissionCodes.GuardianLinkManage, null),
+
+        // FR-48: staff answer a candidate's data-principal request with the privacy-operations permission.
+        new("GET", "/v1/data-requests/open", RbacCatalog.PermissionCodes.ConsentManage, null),
+        new("POST", "/v1/data-requests/{id:guid}/resolve", RbacCatalog.PermissionCodes.ConsentManage,
+            new { outcome = "Completed", note = (string?)null }),
+
+        // FR-41: the institute's branding is changed with the exam editor's permission; its reads are public (see PublicRoutes).
+        new("PUT", "/v1/branding", RbacCatalog.PermissionCodes.ExamManage,
+            new { instituteName = "Authorization Test Institute", primaryColour = "#1A56DB" }),
+        new("PUT", "/v1/branding/logo", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("DELETE", "/v1/branding/logo", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("GET", "/v1/instruction-templates", RbacCatalog.PermissionCodes.ExamRead, null),
+        new("POST", "/v1/instruction-templates", RbacCatalog.PermissionCodes.ExamManage,
+            new { title = "Authorization test", body = "Authorization test" }),
+        new("PUT", "/v1/instruction-templates/{templateId:guid}", RbacCatalog.PermissionCodes.ExamManage,
+            new { title = "Authorization test", body = "Authorization test" }),
+        new("DELETE", "/v1/instruction-templates/{templateId:guid}", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("PUT", "/v1/exams/{examId:guid}/instructions", RbacCatalog.PermissionCodes.ExamManage,
+            new { instructions = "Authorization test" }),
+        new("POST", "/v1/exams/{examId:guid}/instructions/from-template/{templateId:guid}", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("GET", "/v1/proctoring/exams/{examId:guid}/risk-flags", RbacCatalog.PermissionCodes.ProctoringReview, null),
+        new("POST", "/v1/proctoring/exams/{examId:guid}/risk-scan", RbacCatalog.PermissionCodes.ProctoringReview, null),
+        new("POST", "/v1/proctoring/risk-flags/{assessmentId:guid}/review", RbacCatalog.PermissionCodes.ProctoringReview,
+            new { note = "Authorization test" }),
+        new("POST", "/v1/proctoring/risk-flags/{assessmentId:guid}/dismiss", RbacCatalog.PermissionCodes.ProctoringReview,
+            new { note = "Authorization test" }),
+        new("POST", "/v1/incidents", RbacCatalog.PermissionCodes.IncidentManage,
+            new { description = "Authorization test", detectedAtUtc = DateTime.UtcNow, category = "Other", affectedData = "None known" }),
+        new("GET", "/v1/incidents/open", RbacCatalog.PermissionCodes.IncidentManage, null),
+        new("POST", "/v1/incidents/{incidentId:guid}/status", RbacCatalog.PermissionCodes.IncidentManage,
+            new { status = "Reported", note = "Authorization test" }),
     ];
 
     // Routes under the module prefixes that deliberately ask for a signed-in caller only: accepting and declining
@@ -173,13 +207,16 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         "GET /v1/me/notifications/unread-count",
         "POST /v1/me/notifications/{notificationId:guid}/read",
         "POST /v1/me/notifications/read-all",
+        "GET /v1/me/analytics",
+        "POST /v1/me/data-requests",
+        "GET /v1/me/data-requests",
     ];
 
     // Routes that need no sign-in at all: a guardian has no account, so the one-time code e-mailed to them is the only proof.
     // They are listed here so that adding one is a decision, and the test checks that they really are open.
-    private static readonly string[] PublicRoutes = ["POST /v1/guardian-links/verify"];
+    private static readonly string[] PublicRoutes = ["POST /v1/guardian-links/verify", "GET /v1/branding", "GET /v1/branding/logo"];
 
-    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/me/notifications"];
+    private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/proctoring", "/v1/me/notifications", "/v1/me/analytics", "/v1/me/data-requests", "/v1/data-requests", "/v1/branding", "/v1/instruction-templates", "/v1/incidents"];
 
     public static TheoryData<string> StaffRouteKeys => [.. StaffRoutes.Select(r => r.Key)];
 
@@ -454,6 +491,81 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
+
+    // ---- one candidate reading another candidate's attempt (OWASP A01, NFR-5) ----------------------
+    // Each candidate route that reads an attempt, and the analytics route, must show a signed-in candidate only their own
+    // attempts. The exam releases its results at once, so a refusal for the other candidate comes from ownership and not
+    // from a result that is still held back.
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("/status")]
+    [InlineData("/review")]
+    [InlineData("/result")]
+    [InlineData("/certificate")]
+    public async Task AnotherCandidate_CannotRead_SomeoneElsesAttempt(string suffix)
+    {
+        var (admin, examId) = await ReleasedExamAsync("Attempt isolation exam");
+        using var _a = admin;
+        var (owner, _) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _o = owner;
+        var attemptId = await SitAndSubmitAsync(owner, examId);
+        var (other, _) = await factory.CandidateClientAsync();
+        using var _x = other;
+
+        // The owner can reach the route, so the refusal below is about ownership and not about a wrong path.
+        var own = await owner.GetAsync($"/v1/me/attempts/{attemptId}{suffix}");
+        Assert.NotEqual(HttpStatusCode.NotFound, own.StatusCode);
+
+        var response = await other.GetAsync($"/v1/me/attempts/{attemptId}{suffix}");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("attempt_not_found", await ProblemTitleAsync(response));
+    }
+
+    [Fact]
+    public async Task AnotherCandidate_SeesNoResult_InTheirOwnAnalytics()
+    {
+        var (admin, examId) = await ReleasedExamAsync("Analytics isolation exam");
+        using var _a = admin;
+        var (owner, _) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _o = owner;
+        await SitAndSubmitAsync(owner, examId);
+        var (other, _) = await factory.CandidateClientAsync();
+        using var _x = other;
+
+        // The owner's own analytics count the released result, so the empty count for the other candidate means something.
+        var ownAnalytics = await owner.GetFromJsonAsync<System.Text.Json.JsonElement>("/v1/me/analytics");
+        Assert.Equal(1, ownAnalytics.GetProperty("resultCount").GetInt32());
+
+        var otherAnalytics = await other.GetFromJsonAsync<System.Text.Json.JsonElement>("/v1/me/analytics");
+        Assert.Equal(0, otherAnalytics.GetProperty("resultCount").GetInt32());
+    }
+
+    /// <summary>An exam of one question, open now, with its results released at once. Returns the administrator's client and the exam.</summary>
+    private async Task<(HttpClient Admin, Guid ExamId)> ReleasedExamAsync(string name)
+    {
+        var admin = await factory.AdminClientAsync();
+        var question = await ExamScenarios.CreateQuestionAsync(admin, "Q?", "Right", "Wrong");
+        var examId = await ExamScenarios.CreateExamAsync(admin, name, [question], TimeSpan.FromMinutes(-5));
+        (await admin.PutAsJsonAsync($"/v1/exams/{examId}/result-release", new { mode = "Instant" })).EnsureSuccessStatusCode();
+        return (admin, examId);
+    }
+
+    /// <summary>Starts the candidate's attempt at the exam, submits it, and returns the attempt's id.</summary>
+    private static async Task<Guid> SitAndSubmitAsync(HttpClient candidate, Guid examId)
+    {
+        var started = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true });
+        var attemptId = (await started.EnsureSuccessStatusCode().Content.ReadFromJsonAsync<System.Text.Json.JsonElement>())
+            .GetProperty("id").GetGuid();
+        (await candidate.PostAsync($"/v1/me/attempts/{attemptId}/submit", content: null)).EnsureSuccessStatusCode();
+        return attemptId;
+    }
+
+    /// <summary>The error code a problem response carries as its title.</summary>
+    /// <param name="response">A problem response.</param>
+    /// <returns>The title, which is the error code.</returns>
+    private static async Task<string?> ProblemTitleAsync(HttpResponseMessage response) =>
+        (await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>()).GetProperty("title").GetString();
 
     // ---- helpers ----------------------------------------------------------------------------------
 

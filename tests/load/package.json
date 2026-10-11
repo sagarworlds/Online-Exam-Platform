@@ -1,0 +1,9 @@
+{
+  "name": "exam-platform-load-tests",
+  "private": true,
+  "type": "module",
+  "description": "k6 load scripts for NFR-1 and NFR-2, and unit tests for their pure helpers. No runtime dependencies: k6 runs the scripts, Node runs the tests.",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  }
+}

@@ -57,6 +57,28 @@ public interface IAttemptRepository
     Task<IReadOnlyList<Attempt>> ListForCandidateAsync(Guid candidateId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Lists the candidate's submitted attempts that still count, with the answers, drawn paper and score revisions their results are marked from,
+    /// oldest submission first. Read-only: nothing returned is tracked for saving.
+    /// </summary>
+    /// <remarks>
+    /// An attempt an administrator invalidated carries no result (FR-29), so it is left out, as is an attempt still open.
+    /// </remarks>
+    /// <param name="candidateId">The candidate.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Attempt>> ListCountedForCandidateAsync(Guid candidateId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists every submitted attempt at an exam that still counts, with the answers and the drawn paper that the answers are marked against,
+    /// oldest submission first. Read-only: nothing returned is tracked for saving.
+    /// </summary>
+    /// <remarks>
+    /// An attempt an administrator invalidated carries no result (FR-29), and an attempt still open has none to count, so both are left out.
+    /// </remarks>
+    /// <param name="examId">The exam.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Attempt>> ListCountedForExamAsync(Guid examId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// The best submitted score of each candidate at an exam, leaving out one candidate: the scores a result is ranked against (FR-32).
     /// </summary>
     /// <remarks>
@@ -78,6 +100,30 @@ public interface IAttemptRepository
     /// <param name="questionId">The question.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Attempt>> ListSubmittedByQuestionIdAsync(Guid questionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists the submitted attempts at an exam without their answers, for the risk review's scope (FR-27): who sat each and when.
+    /// </summary>
+    /// <remarks>
+    /// Read-only. Open attempts are left out, as they are not finished.
+    /// </remarks>
+    /// <param name="examId">The exam.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The submitted attempts in order of <see cref="Attempt.Number"/>; empty when none has been submitted.</returns>
+    Task<IReadOnlyList<Attempt>> ListFinishedForExamAsync(Guid examId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists the named submitted attempts at an exam with their answers, focus departures and client sightings, for the risk review (FR-27).
+    /// </summary>
+    /// <remarks>
+    /// Read-only: nothing loaded here is meant to be saved. Open attempts are left out, since their answers are not final. An id that is
+    /// not a submitted attempt of this exam is left out too.
+    /// </remarks>
+    /// <param name="examId">The exam.</param>
+    /// <param name="attemptIds">The attempts to read; empty reads nothing.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The attempts named that qualify, in order of <see cref="Attempt.Number"/>.</returns>
+    Task<IReadOnlyList<Attempt>> ListFinishedWithAnswersAsync(Guid examId, IReadOnlyCollection<Guid> attemptIds, CancellationToken cancellationToken);
 
     /// <summary>
     /// The score of every submitted attempt at an exam that still counts, read without the answers, for the leaderboards (FR-35).

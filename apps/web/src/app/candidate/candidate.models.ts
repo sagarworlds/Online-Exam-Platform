@@ -69,6 +69,8 @@ export interface ExamRulesDto {
   focusViolationLimit?: number;
   /** What the candidate is told about what is turned off, recorded and watched, written by the server from the exam's proctoring settings (FR-46). */
   proctoringNotice?: string[];
+  /** What the author wrote for the candidate to read before starting, or null for none (FR-41). Absent from an older API. */
+  instructions?: string | null;
 }
 
 /** An exam the candidate is enrolled in, as listed on their exams page. All instants are UTC. */

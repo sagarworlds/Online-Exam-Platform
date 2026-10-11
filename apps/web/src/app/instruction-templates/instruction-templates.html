@@ -1,0 +1,64 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>{{ 'templates.title' | t }}</h1>
+  </div>
+
+  <p class="hint">{{ 'templates.hint' | t }}</p>
+
+  @if (message(); as text) {
+    <p class="success-message" role="status">{{ text }}</p>
+  }
+
+  @if (editing(); as editingValue) {
+    <app-instruction-template-form
+      [template]="editingValue === 'new' ? null : editingValue"
+      [busy]="formBusy()"
+      [errorMessage]="formError()"
+      (saved)="saveForm($event)"
+      (cancelled)="closeForm()"
+    />
+  } @else {
+    <div class="actions">
+      <button type="button" class="primary" (click)="openNew()">{{ 'templates.new' | t }}</button>
+    </div>
+  }
+
+  @if (loading()) {
+    <p role="status">{{ 'common.loading' | t }}</p>
+  } @else if (loadError(); as errorText) {
+    <div class="card">
+      <p class="error-message" role="alert">{{ errorText }}</p>
+      <button type="button" (click)="load()">{{ 'templates.retry' | t }}</button>
+    </div>
+  } @else if (templates().length === 0) {
+    <p class="card empty-state">{{ 'templates.empty' | t }}</p>
+  } @else {
+    @if (rowError(); as errorText) {
+      <p class="error-message" role="alert">{{ errorText }}</p>
+    }
+
+    @for (template of templates(); track template.id) {
+      <article class="card template">
+        <h2 class="card__title">{{ template.title }}</h2>
+        <p class="template__body">{{ template.body }}</p>
+
+        @if (confirmingId() === template.id) {
+          <p class="template__ask">{{ 'templates.deleteAsk' | t: { title: template.title } }}</p>
+          <div class="actions">
+            <button type="button" class="btn--danger" [disabled]="deletingId() !== null" (click)="confirmDelete(template)">
+              {{ 'templates.deleteYes' | t }}
+            </button>
+            <button type="button" [disabled]="deletingId() !== null" (click)="keepTemplate()">
+              {{ 'templates.deleteNo' | t }}
+            </button>
+          </div>
+        } @else {
+          <div class="actions">
+            <button type="button" [disabled]="editing() !== null" (click)="openEdit(template)">{{ 'templates.edit' | t }}</button>
+            <button type="button" [disabled]="editing() !== null" (click)="askDelete(template)">{{ 'templates.delete' | t }}</button>
+          </div>
+        }
+      </article>
+    }
+  }
+</div>

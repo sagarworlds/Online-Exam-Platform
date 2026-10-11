@@ -18,6 +18,8 @@ public static class IdentityEndpoints
     /// <param name="endpoints">The endpoint route builder to map onto.</param>
     public static void MapIdentityEndpoints(this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapDataRequestEndpoints();
+
         var auth = endpoints.MapGroup("/v1/auth").WithTags("Identity");
 
         auth.MapPost("/otp/request", async (RequestOtpRequest request, RequestOtpHandler handler, CancellationToken ct) =>

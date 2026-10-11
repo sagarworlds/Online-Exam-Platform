@@ -1,0 +1,73 @@
+/* The branding form. Every control is at least 44px tall, and the form's rows stack on a phone so nothing scrolls sideways. */
+.branding-form .field + .field,
+.page > .card + .card {
+  margin-top: 1rem;
+}
+
+.branding-form input[type='text'] {
+  width: 100%;
+  min-height: 2.75rem;
+  box-sizing: border-box;
+}
+
+.colour-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* The picker is a small swatch beside the hex field. The more specific selector keeps the global full-width rule for inputs from stretching it. */
+.branding-form .colour-row .colour-picker {
+  flex: none;
+  width: 3.25rem;
+  min-height: 2.75rem;
+  padding: 0.2rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.colour-text {
+  flex: 1 1 8rem;
+  min-width: 0;
+  min-height: 2.75rem;
+  box-sizing: border-box;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.logo-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 8rem;
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+input[type='file'] {
+  display: block;
+  max-width: 100%;
+  min-height: 2.75rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.actions > button {
+  min-height: 2.75rem;
+}
+
+@media (max-width: 40rem) {
+  .actions > button {
+    flex: 1 1 100%;
+  }
+}

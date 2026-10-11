@@ -10,6 +10,9 @@ public class ExamAuthoringDbContext(DbContextOptions<ExamAuthoringDbContext> opt
     public DbSet<Exam> Exams => Set<Exam>();
     public DbSet<ExamSection> ExamSections => Set<ExamSection>();
 
+    /// <summary>The reusable instruction texts staff start an exam's instructions from (FR-41).</summary>
+    public DbSet<InstructionTemplate> InstructionTemplates => Set<InstructionTemplate>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -20,6 +23,7 @@ public class ExamAuthoringDbContext(DbContextOptions<ExamAuthoringDbContext> opt
             e.Property(x => x.Id).ValueGeneratedNever();
             e.Property(x => x.Name).HasMaxLength(255).IsRequired();
             e.Property(x => x.Description).HasMaxLength(1000);
+            e.Property(x => x.Instructions).HasMaxLength(Exam.MaxInstructionsLength);
             e.Property(x => x.Status).HasConversion<string>();
             e.Property(x => x.TimeZone).HasMaxLength(50).IsRequired();
             e.Property(x => x.IsDeleted);
@@ -93,6 +97,15 @@ public class ExamAuthoringDbContext(DbContextOptions<ExamAuthoringDbContext> opt
             r.Property(x => x.Difficulty).HasMaxLength(10);
             r.Property(x => x.Topic).HasMaxLength(SectionDrawRule.MaxTopicLength);
             r.ToTable("SectionDrawRules", "examAuthoring");
+        });
+
+        modelBuilder.Entity<InstructionTemplate>(t =>
+        {
+            t.HasKey(x => x.Id);
+            t.Property(x => x.Id).ValueGeneratedNever();
+            t.Property(x => x.Title).HasMaxLength(InstructionTemplate.MaxTitleLength).IsRequired();
+            t.Property(x => x.Body).HasMaxLength(InstructionTemplate.MaxBodyLength).IsRequired();
+            t.ToTable("InstructionTemplates", "examAuthoring");
         });
 
         modelBuilder.ApplyUtcDateTimeConversion();

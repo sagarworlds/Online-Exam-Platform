@@ -157,6 +157,8 @@ export interface ExamDto {
   scope: ExamScopeDto;
   /** Which proctoring profile the exam's settings amount to, and the notice candidates are shown (FR-46). Absent from an older API. */
   proctoring?: ProctoringDto;
+  /** The instructions a candidate reads before starting, or null for none (FR-41). Absent from an older API. */
+  instructions?: string | null;
 }
 
 /** An exam's proctoring: the profile its settings match (or CUSTOM), and the notice written from them. */

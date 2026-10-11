@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+
 namespace ExamPlatform.SharedKernel.Application;
 
 /// <summary>Chooses which of some candidates a draw takes. A port so a test can make the choice predictable.</summary>
@@ -11,7 +13,14 @@ public interface IQuestionPicker
     IReadOnlyList<T> Pick<T>(IReadOnlyList<T> items, int count);
 }
 
-/// <summary>Picks uniformly at random. Draws are never replayed, so it needs no seed or reproducibility.</summary>
+/// <summary>
+/// Picks uniformly at random from a cryptographically secure source. Draws are never replayed, so no seed is needed.
+/// </summary>
+/// <remarks>
+/// Each candidate's paper is drawn from this picker when the attempt starts (<c>PaperDrawer</c>). A generator whose
+/// output can be predicted from a few observed draws would let a candidate work out which questions another candidate
+/// was given, which is why CA5394 (insecure randomness) is an error for this project.
+/// </remarks>
 public sealed class RandomQuestionPicker : IQuestionPicker
 {
     /// <inheritdoc />
@@ -21,7 +30,7 @@ public sealed class RandomQuestionPicker : IQuestionPicker
         var pool = items.ToArray();
         for (var i = 0; i < count; i++)
         {
-            var j = Random.Shared.Next(i, pool.Length);
+            var j = RandomNumberGenerator.GetInt32(i, pool.Length);
             (pool[i], pool[j]) = (pool[j], pool[i]);
         }
 

@@ -1,0 +1,106 @@
+name: Load test (manual)
+
+# NFR-1 and NFR-2. Manual only: the scripts need a staging environment whose rate limits are raised
+# for the run (see tests/load/README.md). They must never run on a pull request or a push.
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "API origin of the staging environment, with no path, for example https://<staging-api-host>"
+        required: true
+        type: string
+      exam_id:
+        description: "GUID of the load-test exam"
+        required: true
+        type: string
+      scenario:
+        description: "Which measured path to load"
+        required: true
+        type: choice
+        options:
+          - answer-save
+          - question-load
+          - both
+        default: answer-save
+      account_count:
+        description: "Accounts in the test pool. Must be at least the VU ceiling, which is the rate"
+        required: true
+        type: string
+      save_rps:
+        description: "Optional: override the derived answer-save rate, in requests per second"
+        required: false
+        type: string
+        default: ""
+      question_rps:
+        description: "Optional: override the derived question-load rate, in requests per second"
+        required: false
+        type: string
+        default: ""
+
+# One run at a time against staging, so two dispatches cannot share the same test accounts or rate limits.
+concurrency:
+  group: load-test-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  load-test:
+    name: Load test (${{ inputs.scenario }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: staging
+    env:
+      # Inputs and secrets go through the environment, not into the run scripts, so nothing is interpolated into shell text.
+      LOAD_BASE_URL: ${{ inputs.base_url }}
+      LOAD_EXAM_ID: ${{ inputs.exam_id }}
+      LOAD_TEST_ACCOUNT_COUNT: ${{ inputs.account_count }}
+      LOAD_TEST_EMAIL_PATTERN: ${{ secrets.LOAD_TEST_EMAIL_PATTERN }}
+      LOAD_TEST_PASSWORD: ${{ secrets.LOAD_TEST_PASSWORD }}
+      LOAD_SAVE_RPS: ${{ inputs.save_rps }}
+      LOAD_QUESTION_RPS: ${{ inputs.question_rps }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Unit tests for the load helpers
+        run: npm test
+        working-directory: tests/load
+
+      - name: Create the results folder
+        run: mkdir -p "$GITHUB_WORKSPACE/load-results"
+
+      # k6 is pinned by image tag. Bump it deliberately, and re-run the smoke settings in tests/load/README.md after a bump.
+      - name: Answer save at 2x peak (NFR-1)
+        if: inputs.scenario == 'answer-save' || inputs.scenario == 'both'
+        run: >
+          docker run --rm
+          -e LOAD_BASE_URL -e LOAD_EXAM_ID -e LOAD_TEST_ACCOUNT_COUNT -e LOAD_TEST_EMAIL_PATTERN
+          -e LOAD_TEST_PASSWORD -e LOAD_SAVE_RPS -e LOAD_QUESTION_RPS
+          -v "$GITHUB_WORKSPACE/tests/load:/scripts:ro"
+          -v "$GITHUB_WORKSPACE/load-results:/results"
+          grafana/k6:1.0.0 run --summary-export /results/answer-save-summary.json /scripts/answer-save.js
+
+      - name: Question load at 2x peak (NFR-1)
+        if: inputs.scenario == 'question-load' || inputs.scenario == 'both'
+        run: >
+          docker run --rm
+          -e LOAD_BASE_URL -e LOAD_EXAM_ID -e LOAD_TEST_ACCOUNT_COUNT -e LOAD_TEST_EMAIL_PATTERN
+          -e LOAD_TEST_PASSWORD -e LOAD_SAVE_RPS -e LOAD_QUESTION_RPS
+          -v "$GITHUB_WORKSPACE/tests/load:/scripts:ro"
+          -v "$GITHUB_WORKSPACE/load-results:/results"
+          grafana/k6:1.0.0 run --summary-export /results/question-load-summary.json /scripts/question-load.js
+
+      - name: Upload k6 summaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-summaries
+          path: load-results/
+          if-no-files-found: ignore
+          retention-days: 14

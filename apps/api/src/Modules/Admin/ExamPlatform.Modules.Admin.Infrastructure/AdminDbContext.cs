@@ -13,6 +13,9 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
     /// <summary>The audit trail.</summary>
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    /// <summary>The institute's branding for the candidate pages (FR-41). At most one row, under <see cref="InstituteBranding.SingletonId"/>.</summary>
+    public DbSet<InstituteBranding> InstituteBrandings => Set<InstituteBranding>();
+
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,6 +44,18 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             b.Property(a => a.Metadata).HasConversion(metadataConverter, metadataComparer).HasColumnType("jsonb");
             b.HasIndex(a => new { a.EntityType, a.OccurredAtUtc });
             b.HasIndex(a => a.ActorUserId);
+        });
+
+        modelBuilder.Entity<InstituteBranding>(b =>
+        {
+            b.ToTable("InstituteBranding");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.InstituteName).HasMaxLength(InstituteBranding.MaxNameLength);
+            b.Property(x => x.PrimaryColour).HasMaxLength(7);
+
+            // The logo lives in the row rather than on disk, so every web replica serves the same image and a restart loses nothing.
+            b.Property(x => x.Logo).HasColumnType("bytea");
+            b.Property(x => x.LogoContentType).HasMaxLength(50);
         });
 
         modelBuilder.ApplyUtcDateTimeConversion();

@@ -1,0 +1,120 @@
+<div class="page">
+  <div class="page-header">
+    <h1>{{ 'branding.title' | t }}</h1>
+  </div>
+
+  <p class="hint">{{ 'branding.hint' | t }}</p>
+
+  @if (loading()) {
+    <p role="status">{{ 'common.loading' | t }}</p>
+  } @else if (loadError(); as message) {
+    <div class="card">
+      <p class="error-message" role="alert">{{ message }}</p>
+      <button type="button" (click)="load()">{{ 'branding.retry' | t }}</button>
+    </div>
+  } @else {
+    @if (hasNothingSet()) {
+      <p class="card empty-state">{{ 'branding.empty' | t }}</p>
+    }
+
+    <section class="card">
+      <form class="branding-form" novalidate (submit)="$event.preventDefault(); save()" [attr.aria-label]="'branding.title' | t">
+        <div class="field">
+          <label for="branding-name">{{ 'branding.nameLabel' | t }}</label>
+          <input
+            id="branding-name"
+            type="text"
+            autocomplete="organization"
+            [maxLength]="maxNameLength"
+            [value]="name()"
+            (input)="name.set($any($event.target).value)"
+            aria-describedby="branding-name-hint"
+          />
+          <p class="field-hint" id="branding-name-hint">{{ 'branding.nameHint' | t }}</p>
+        </div>
+
+        <div class="field">
+          <label for="branding-colour">{{ 'branding.colourLabel' | t }}</label>
+          <div class="colour-row">
+            <input
+              class="colour-picker"
+              type="color"
+              [attr.aria-label]="'branding.colourPick' | t"
+              [value]="pickerValue()"
+              (input)="colour.set($any($event.target).value)"
+            />
+            <input
+              id="branding-colour"
+              type="text"
+              class="colour-text"
+              maxlength="7"
+              spellcheck="false"
+              autocomplete="off"
+              [value]="colour()"
+              (input)="colour.set($any($event.target).value)"
+              [attr.aria-invalid]="colourInvalid()"
+              [attr.aria-describedby]="colourInvalid() ? 'branding-colour-hint branding-colour-error' : 'branding-colour-hint'"
+            />
+          </div>
+          <p class="field-hint" id="branding-colour-hint">{{ 'branding.colourHint' | t }}</p>
+          @if (colourInvalid()) {
+            <p class="field-error" id="branding-colour-error">{{ 'branding.colourInvalid' | t }}</p>
+          }
+        </div>
+
+        @if (saveError(); as message) {
+          <p class="error-message" role="alert">{{ message }}</p>
+        }
+        @if (saveMessage(); as message) {
+          <p class="success-message" role="status">{{ message }}</p>
+        }
+
+        <div class="actions">
+          <button type="submit" class="primary" [disabled]="saving() || colourInvalid()">{{ 'branding.save' | t }}</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card" aria-labelledby="branding-logo-heading">
+      <h2 id="branding-logo-heading" class="card__title">{{ 'branding.logoTitle' | t }}</h2>
+      <p class="hint">{{ 'branding.logoHint' | t }}</p>
+
+      @if (currentLogoUrl(); as src) {
+        <img class="logo-preview" [src]="src" [alt]="'branding.logoCurrent' | t" />
+      } @else {
+        <p class="hint">{{ 'branding.logoNone' | t }}</p>
+      }
+
+      <div class="field">
+        <label for="branding-logo-file">{{ 'branding.logoLabel' | t }}</label>
+        <input
+          #logoInput
+          id="branding-logo-file"
+          type="file"
+          [accept]="logoAccept"
+          (change)="chooseLogo($event)"
+        />
+      </div>
+
+      @if (chosenPreviewUrl(); as preview) {
+        <img class="logo-preview" [src]="preview" [alt]="'branding.logoChosen' | t" />
+      }
+
+      @if (logoError(); as message) {
+        <p class="error-message" role="alert">{{ message }}</p>
+      }
+      @if (logoMessage(); as message) {
+        <p class="success-message" role="status">{{ message }}</p>
+      }
+
+      <div class="actions">
+        <button type="button" class="primary" [disabled]="chosenLogo() === null || logoBusy()" (click)="uploadLogo()">
+          {{ 'branding.logoUpload' | t }}
+        </button>
+        @if (current()?.hasLogo) {
+          <button type="button" [disabled]="logoBusy()" (click)="removeLogo()">{{ 'branding.logoRemove' | t }}</button>
+        }
+      </div>
+    </section>
+  }
+</div>

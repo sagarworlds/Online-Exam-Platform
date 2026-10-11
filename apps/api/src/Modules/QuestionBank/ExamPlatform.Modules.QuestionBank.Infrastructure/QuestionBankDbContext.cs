@@ -1,15 +1,26 @@
 using System.Text.Json;
 using ExamPlatform.Modules.QuestionBank.Domain;
+using ExamPlatform.Modules.QuestionBank.Infrastructure.Encryption;
 using ExamPlatform.SharedKernel.Infrastructure;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace ExamPlatform.Modules.QuestionBank.Infrastructure;
 
-/// <summary>The QuestionBank module's persistence context, scoped to the <c>questionBank</c> Postgres schema.</summary>
-public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext> options) : DbContext(options)
+/// <summary>
+/// The QuestionBank module's persistence context, scoped to the <c>questionBank</c> Postgres schema. The content of questions (their text,
+/// options, answers and version history) is stored encrypted (#57); see <see cref="ContentConverters"/>.
+/// </summary>
+/// <param name="options">The context options.</param>
+/// <param name="cipher">The cipher that encrypts and decrypts content; its key ring lives in this database (see <see cref="QuestionContentCipher"/>).</param>
+public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext> options, QuestionContentCipher cipher)
+    : DbContext(options), IDataProtectionKeyContext
 {
+    /// <summary>The Data Protection key ring, kept here so every replica decrypts with the same keys (#57).</summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
     /// <summary>The stored questions.</summary>
     public DbSet<Question> Questions => Set<Question>();
 
@@ -36,9 +47,9 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
             b.ToTable("Questions");
             b.HasKey(q => q.Id);
             // HTML that may embed images, so the unbounded text type; Question.MaxHtmlLength is the real ceiling.
-            b.Property(q => q.Text).IsRequired().HasColumnType("text");
-            // Plain text for searching; never null so a search needs no null check.
-            b.Property(q => q.SearchText).IsRequired().HasColumnType("text");
+            b.Property(q => q.Text).IsRequired().HasColumnType("text").HasConversion(ContentConverters.Text(cipher));
+            // The plain text a search looks through. Encrypted with the stem; a search decrypts it in the application (#57).
+            b.Property(q => q.SearchText).IsRequired().HasColumnType("text").HasConversion(ContentConverters.Text(cipher));
             // A hash of the stem's letters and digits, so a new question is checked against the bank by an index lookup (FR-9).
             b.Property(q => q.TextKey).IsRequired().HasMaxLength(64);
             b.HasIndex(q => q.TextKey);
@@ -54,7 +65,10 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
             b.PrimitiveCollection(q => q.Topics).HasColumnType("text[]");
             // A text question: whether the candidate types the answer, and the answers a typed one may be (also a text[]).
             b.Property(q => q.IsTextAnswer).HasDefaultValue(false);
-            b.PrimitiveCollection(q => q.AcceptedAnswers).HasColumnType("text[]");
+            // The answers a typed answer may be: encrypted as one value, so they are never read from a plain column (#57).
+            b.Property(q => q.AcceptedAnswers)
+                .HasConversion(ContentConverters.Strings(cipher), ContentConverters.StringsComparer())
+                .HasColumnType("text");
             b.Ignore(q => q.DomainEvents);
             b.HasIndex(q => q.CreatedAtUtc);
             b.HasIndex(q => q.ChapterId);
@@ -113,28 +127,25 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
         {
             b.ToTable("QuestionOptions");
             b.HasKey(o => o.Id);
-            b.Property(o => o.Text).IsRequired().HasMaxLength(Question.MaxOptionTextLength);
+            // Encrypted, so the stored value is longer than the text: the length limit is enforced by the domain, not the column.
+            b.Property(o => o.Text).IsRequired().HasColumnType("text").HasConversion(ContentConverters.Text(cipher));
         });
 
-        var versionOptionsConverter = new ValueConverter<IReadOnlyList<QuestionVersionOption>, string>(
-            options => JsonSerializer.Serialize(options, (JsonSerializerOptions?)null),
-            json => JsonSerializer.Deserialize<List<QuestionVersionOption>>(json, (JsonSerializerOptions?)null) ?? new());
-
-        // A QuestionVersion is append-only (never updated after insert), so this comparer only needs to satisfy EF's
-        // change-tracking snapshot requirement, not support mutation.
-        var versionOptionsComparer = new ValueComparer<IReadOnlyList<QuestionVersionOption>>(
-            (a, b) => (a ?? new List<QuestionVersionOption>()).SequenceEqual(b ?? new List<QuestionVersionOption>()),
-            options => options.Aggregate(0, (hash, o) => HashCode.Combine(hash, o)),
-            options => options.ToList());
-
+        // A QuestionVersion is append-only (never updated after insert), so its comparers only need to satisfy EF's change-tracking
+        // snapshot requirement, not support mutation.
         modelBuilder.Entity<QuestionVersion>(b =>
         {
             b.ToTable("QuestionVersions");
             b.HasKey(v => v.Id);
-            b.Property(v => v.Text).IsRequired().HasColumnType("text");
-            b.Property(v => v.Options).HasConversion(versionOptionsConverter, versionOptionsComparer).HasColumnType("jsonb");
+            b.Property(v => v.Text).IsRequired().HasColumnType("text").HasConversion(ContentConverters.Text(cipher));
+            // The options a version held are encrypted JSON now, so the column is text, not jsonb (#57).
+            b.Property(v => v.Options)
+                .HasConversion(ContentConverters.VersionOptions(cipher), ContentConverters.VersionOptionsComparer())
+                .HasColumnType("text");
             b.Property(v => v.IsTextAnswer).HasDefaultValue(false);
-            b.PrimitiveCollection(v => v.AcceptedAnswers).HasColumnType("text[]");
+            b.Property(v => v.AcceptedAnswers)
+                .HasConversion(ContentConverters.Strings(cipher), ContentConverters.StringsComparer())
+                .HasColumnType("text");
             // A question's versions are always listed in order, and never looked up any other way.
             b.HasIndex(v => new { v.QuestionId, v.VersionNumber }).IsUnique();
         });

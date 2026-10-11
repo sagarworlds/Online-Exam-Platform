@@ -67,11 +67,20 @@ public static class RbacCatalog
         /// <summary>Read the unspent sign-in and registration codes of candidates, to help one who never received theirs.</summary>
         public const string OtpRead = "identity.otp.read";
 
+        /// <summary>Score exams for risk, read the review queue of flagged attempts and decide on each flag (FR-27). Never changes a candidate's attempt.</summary>
+        public const string ProctoringReview = "proctoring.review";
+
         /// <summary>Link guardians to candidates and revoke those links (FR-45).</summary>
         public const string GuardianLinkManage = "guardian.link.manage";
 
         /// <summary>Check the WhatsApp connection and send a test message through it: a real message to a real number.</summary>
         public const string WhatsAppTest = "admin.whatsapp.test";
+
+        /// <summary>
+        /// Log incidents and breaches, list the open ones with their escalation flags, and record their status changes (FR-52).
+        /// Not <c>consent.manage</c>: that code is about recording a candidate's consent, which an incident log does not do.
+        /// </summary>
+        public const string IncidentManage = "consent.incident.manage";
     }
 
     /// <summary>The names of the roles the platform defines.</summary>
@@ -120,6 +129,8 @@ public static class RbacCatalog
         new(PermissionCodes.GuardianLinkManage, "Link guardians to candidates and revoke those links"),
         new(PermissionCodes.OtpRead, "Read candidates' unspent sign-in and registration codes"),
         new(PermissionCodes.WhatsAppTest, "Check the WhatsApp connection and send test messages through it"),
+        new(PermissionCodes.ProctoringReview, "Score exams for risk and review the flags raised on attempts"),
+        new(PermissionCodes.IncidentManage, "Log incidents and breaches, see the open ones, and record their status changes"),
     ];
 
     /// <summary>
@@ -149,7 +160,7 @@ public static class RbacCatalog
 
         new(RoleNames.ContentAuthor, RequiresTwoFactor: true, [PermissionCodes.QuestionManage, PermissionCodes.QuestionRead]),
         new(RoleNames.Reviewer, RequiresTwoFactor: true, [PermissionCodes.QuestionRead, PermissionCodes.QuestionReview]),
-        new(RoleNames.Proctor, RequiresTwoFactor: true, []),
+        new(RoleNames.Proctor, RequiresTwoFactor: true, [PermissionCodes.ProctoringReview]),
 
         new(RoleNames.InstituteTeacher, RequiresTwoFactor: false,
         [

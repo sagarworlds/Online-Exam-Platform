@@ -60,3 +60,9 @@
 .empty-state .btn {
   margin-top: 0.75rem;
 }
+
+/* A control that cannot be used now looks it, and the reason sits beside it, so it is not left as an unexplained grey button. */
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

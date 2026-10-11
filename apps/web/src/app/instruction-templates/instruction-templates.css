@@ -1,0 +1,33 @@
+/* The template list. Long titles and text wrap inside their card, so the page never scrolls sideways on a phone. Every button is at least 44px tall. */
+.template {
+  margin-top: 1rem;
+}
+
+.template__body {
+  margin: 0.5rem 0 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.template__ask {
+  margin: 0.75rem 0 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.actions > button {
+  min-height: 2.75rem;
+}
+
+@media (max-width: 40rem) {
+  .actions > button {
+    flex: 1 1 100%;
+  }
+}

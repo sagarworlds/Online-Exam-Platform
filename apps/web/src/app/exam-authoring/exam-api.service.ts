@@ -66,6 +66,16 @@ export class ExamApiService {
     return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/shuffle`, request);
   }
 
+  /** Sets the instructions a candidate reads before starting a draft exam (FR-41). A blank text clears them. */
+  setInstructions(examId: string, instructions: string): Observable<ExamDto> {
+    return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/instructions`, { instructions });
+  }
+
+  /** Copies an instruction template's text into a draft exam's instructions (FR-41). */
+  useInstructionTemplate(examId: string, templateId: string): Observable<ExamDto> {
+    return this.http.post<ExamDto>(`${this.apiUrl}/${examId}/instructions/from-template/${templateId}`, null);
+  }
+
   /** Sets how many attempts every enrolled candidate has. Allowed after publishing too: lowering it never takes an attempt back. */
   setAttemptLimit(examId: string, request: AttemptLimitRequest): Observable<ExamDto> {
     return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/attempt-limit`, request);

@@ -1,6 +1,7 @@
 <div class="page page--wide">
   <div class="page-header">
     <h1>{{ 'myExams.title' | t }}</h1>
+    <a routerLink="/analytics" class="btn">{{ 'analytics.link' | t }}</a>
   </div>
 
   @if (errorMessage()) {
@@ -28,6 +29,9 @@
         <p class="exam-card__window">
           {{ 'myExams.window' | t: { start: (exam.startUtc | date: 'medium') ?? '', end: (exam.endUtc | date: 'medium') ?? '' } }}
         </p>
+        @if (exam.state === 'NotOpen') {
+          <p class="hint paper-locked">{{ 'paper.locked.short' | t: { time: (exam.startUtc | date: 'medium') ?? '' } }}</p>
+        }
         <ul class="exam-facts">
           <li>{{ 'myExams.questionCount' | t: { count: exam.questionCount } }}</li>
           @if (exam.durationSeconds) {

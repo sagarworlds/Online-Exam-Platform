@@ -19,7 +19,8 @@ public sealed class QuestionSearchFlowTests(ApiFactory factory) : IClassFixture<
             options = new[] { new { text = correct, isCorrect = true }, new { text = wrong, isCorrect = false } },
             difficulty,
         });
-        return (await JsonAsync(response.EnsureSuccessStatusCode())).GetProperty("id").GetGuid();
+        await ServerErrorLog.EnsureSuccessAsync(response);
+        return (await JsonAsync(response)).GetProperty("id").GetGuid();
     }
 
     private static async Task<List<Guid>> SearchAsync(HttpClient admin, string query, string extra = "") =>

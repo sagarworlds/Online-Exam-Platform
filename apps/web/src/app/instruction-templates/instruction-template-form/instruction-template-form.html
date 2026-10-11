@@ -1,0 +1,52 @@
+<section class="card form-card" aria-labelledby="template-form-heading">
+  <h2 id="template-form-heading" class="card__title">
+    {{ (template() ? 'templates.formEdit' : 'templates.formNew') | t }}
+  </h2>
+
+  <form novalidate (submit)="$event.preventDefault(); submit()">
+    <div class="field">
+      <label for="template-title">{{ 'templates.titleLabel' | t }}</label>
+      <input
+        #titleField
+        id="template-title"
+        type="text"
+        [maxLength]="maxTitleLength"
+        [value]="title()"
+        (input)="title.set($any($event.target).value)"
+        [attr.aria-invalid]="titleMissing()"
+        aria-describedby="template-title-hint"
+      />
+      <p class="field-hint" id="template-title-hint">{{ 'templates.titleHint' | t }}</p>
+      @if (titleMissing()) {
+        <p class="field-error">{{ 'templates.titleMissing' | t }}</p>
+      }
+    </div>
+
+    <div class="field">
+      <label for="template-body">{{ 'templates.bodyLabel' | t }}</label>
+      <textarea
+        #bodyField
+        id="template-body"
+        rows="8"
+        [maxLength]="maxBodyLength"
+        [value]="body()"
+        (input)="body.set($any($event.target).value)"
+        [attr.aria-invalid]="bodyMissing()"
+        aria-describedby="template-body-hint"
+      ></textarea>
+      <p class="field-hint" id="template-body-hint">{{ 'templates.bodyHint' | t }}</p>
+      @if (bodyMissing()) {
+        <p class="field-error">{{ 'templates.bodyMissing' | t }}</p>
+      }
+    </div>
+
+    @if (errorMessage(); as message) {
+      <p class="error-message" role="alert">{{ message }}</p>
+    }
+
+    <div class="actions">
+      <button type="submit" class="primary" [disabled]="busy()">{{ 'templates.save' | t }}</button>
+      <button type="button" [disabled]="busy()" (click)="cancelled.emit()">{{ 'common.cancel' | t }}</button>
+    </div>
+  </form>
+</section>

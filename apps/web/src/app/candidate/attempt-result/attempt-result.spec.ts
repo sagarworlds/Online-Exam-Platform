@@ -191,4 +191,86 @@ describe('AttemptResult', () => {
     expect(textOf(fixture)).toContain('4 में से रैंक');
     expect(textOf(fixture)).toContain('पर्सेंटाइल');
   });
+
+  describe('the certificate (FR-34)', () => {
+    const certificateButton = (fixture: ComponentFixture<AttemptResult>) =>
+      [...root(fixture).querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes('Download certificate'));
+
+    /** A problem document as the API sends it when it refuses a certificate: a file whose text is the problem's JSON. */
+    function refusalBlob(title: string): Blob {
+      const json = JSON.stringify({ title, status: 409, detail: 'Refused.' });
+      const blob = new Blob([json], { type: 'application/problem+json' });
+      // jsdom's Blob does not read its own text; the browser does, so the test supplies the same text the API wrote.
+      Object.defineProperty(blob, 'text', { value: () => Promise.resolve(json) });
+      return blob;
+    }
+
+    it('offers the download once the result is out, and saves the PDF the API returns', async () => {
+      const createUrl = vi.fn(() => 'blob:certificate');
+      const revoke = vi.fn();
+      const [originalCreate, originalRevoke] = [URL.createObjectURL, URL.revokeObjectURL];
+      URL.createObjectURL = createUrl;
+      URL.revokeObjectURL = revoke;
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+      const fixture = await open(result());
+
+      const button = certificateButton(fixture);
+      expect(button?.disabled).toBe(false);
+      button?.click();
+      const request = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/certificate') && r.method === 'GET');
+      expect(request.request.responseType).toBe('blob');
+      request.flush(new Blob(['%PDF-1.4'], { type: 'application/pdf' }));
+      fixture.detectChanges();
+
+      expect(createUrl).toHaveBeenCalled();
+      expect(click).toHaveBeenCalled();
+      expect(revoke).toHaveBeenCalledWith('blob:certificate');
+      click.mockRestore();
+      URL.createObjectURL = originalCreate;
+      URL.revokeObjectURL = originalRevoke;
+    });
+
+    it('is disabled, with the reason, while the result is held', async () => {
+      const fixture = await start();
+      resultRequest().flush({ title: 'results_not_released', detail: 'Held.' }, { status: 409, statusText: 'Conflict' });
+      attemptRequest().flush({ id: 'a1', review: { available: false, mode: 'Manual', availableFromUtc: null } });
+      fixture.detectChanges();
+
+      const button = certificateButton(fixture);
+      expect(button?.disabled).toBe(true);
+      expect(root(fixture).querySelector(`#${button?.getAttribute('aria-describedby')}`)?.textContent).toContain('once your result is released');
+    });
+
+    it('is disabled, with the reason, when the result was invalidated, which has no retry', async () => {
+      const fixture = await open({ status: 409, error: { title: 'attempt_invalidated', detail: 'Invalidated.' } });
+
+      expect(textOf(fixture)).toContain('This result was invalidated');
+      expect(certificateButton(fixture)?.disabled).toBe(true);
+      expect([...root(fixture).querySelectorAll('button')].some((b) => b.textContent?.includes('Try again'))).toBe(false);
+    });
+
+    it('explains a refused download with the API’s reason, when the name is missing from the profile', async () => {
+      const fixture = await open(result());
+      certificateButton(fixture)?.click();
+      httpMock
+        .expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/certificate'))
+        .flush(refusalBlob('certificate_name_missing'), { status: 409, statusText: 'Conflict' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(root(fixture).querySelector('[role="alert"]')?.textContent).toContain('Add your name to your profile');
+    });
+
+    it('explains a refused download when the name uses characters the certificate cannot show', async () => {
+      const fixture = await open(result());
+      certificateButton(fixture)?.click();
+      httpMock
+        .expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/certificate'))
+        .flush(refusalBlob('certificate_text_unsupported'), { status: 409, statusText: 'Conflict' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(root(fixture).querySelector('[role="alert"]')?.textContent).toContain('Latin letters');
+    });
+  });
 });

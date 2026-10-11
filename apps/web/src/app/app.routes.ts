@@ -212,5 +212,37 @@ export const routes: Routes = [
     canActivate: [permissionGuard(Permission.GuardianLinkManage)],
     loadComponent: () => import('./guardian-portal/guardian-link/guardian-link').then((m) => m.GuardianLink),
   },
+  {
+    // Staff review the risk flags of an exam's attempts (FR-27). Nothing on the page changes a candidate's attempt.
+    path: 'exams/:id/risk-flags',
+    canActivate: [permissionGuard(Permission.ProctoringReview)],
+    loadComponent: () => import('./proctoring/risk-flag-queue/risk-flag-queue').then((m) => m.RiskFlagQueue),
+  },
+  {
+    // The candidate's own performance across the exams they sat (FR-36): released results only, and only their own.
+    path: 'analytics',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./analytics/candidate-analytics/candidate-analytics').then((m) => m.CandidateAnalytics),
+  },
+  {
+    // Staff see how each question of an exam performed (FR-37): difficulty and discrimination, once enough candidates had the question.
+    path: 'exams/:id/item-analysis',
+    canActivate: [permissionGuard(Permission.ExamManage)],
+    loadComponent: () => import('./analytics/item-analysis/item-analysis').then((m) => m.ItemAnalysis),
+  },
+  {
+    // Staff set the institute's name, colour and logo for the candidate pages (FR-41). Reading is open; changing needs exam.manage.
+    path: 'admin/branding',
+    canActivate: [permissionGuard(Permission.ExamManage)],
+    loadComponent: () => import('./branding/branding-settings/branding-settings').then((m) => m.BrandingSettings),
+  },
+  {
+    // The reusable instructions an exam starts from (FR-41).
+    path: 'admin/instruction-templates',
+    canActivate: [permissionGuard(Permission.ExamManage)],
+    loadComponent: () =>
+      import('./instruction-templates/instruction-templates').then((m) => m.InstructionTemplates),
+  },
   { path: '**', redirectTo: 'login' },
 ];

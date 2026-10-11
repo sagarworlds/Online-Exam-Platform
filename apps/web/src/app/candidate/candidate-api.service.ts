@@ -77,6 +77,14 @@ export class CandidateApiService {
   }
 
   /**
+   * The PDF certificate for one of the candidate's submitted results (FR-34). The API refuses it until the exam's author has released the
+   * results, for an invalidated result, and when the name cannot be printed; each refusal comes back as a problem document in the body.
+   */
+  getCertificate(attemptId: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/attempts/${attemptId}/certificate`, { responseType: 'blob' });
+  }
+
+  /**
    * An exam's leaderboard for the candidate (FR-35): every candidate, the batch the candidate is in, or one subject. Each candidate counts once,
    * by their best attempt. The API refuses it until the exam's author has released the results, and refuses a batch the candidate is not in.
    */

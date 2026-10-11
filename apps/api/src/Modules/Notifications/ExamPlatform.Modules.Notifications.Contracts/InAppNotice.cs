@@ -18,6 +18,9 @@ public enum InAppNoticeKind
     /// <summary>A dispute of an answer key was turned down; the key stands.</summary>
     DisputeRejected,
 
+    /// <summary>A dispute of an answer key was accepted; the key was corrected and the candidate's result rescored under it.</summary>
+    DisputeAccepted,
+
     /// <summary>An exam starts within a day.</summary>
     ExamReminder24Hours,
 

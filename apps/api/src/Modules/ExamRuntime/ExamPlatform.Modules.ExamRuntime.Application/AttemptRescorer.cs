@@ -1,6 +1,7 @@
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
+using ExamPlatform.Modules.Notifications.Contracts;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
 
@@ -10,7 +11,7 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 /// ExamRuntime's side of a question-bank answer-key correction (FR-31, ADR 0001): QuestionBank asks for this through
 /// <see cref="IAttemptRescorer"/> once it has saved the corrected key, and this is the one place that recomputes a
 /// submitted attempt's score from scratch outside the normal submit flow. A correction also settles the candidates' open disputes
-/// of that question: correcting the key is what accepting a dispute means.
+/// of that question: correcting the key is what accepting a dispute means, so each of those candidates is told in their feed.
 /// </summary>
 public sealed class AttemptRescorer(
     IAttemptRepository attempts,
@@ -19,7 +20,8 @@ public sealed class AttemptRescorer(
     IDisputeRepository disputes,
     IExamRuntimeUnitOfWork unitOfWork,
     IRequestContext requestContext,
-    Clock clock)
+    Clock clock,
+    IInAppNotifier inAppNotifier)
     : IAttemptRescorer
 {
     /// <inheritdoc />
@@ -63,18 +65,48 @@ public sealed class AttemptRescorer(
 
         // Everyone who disputed this question's key now has their answer: it was corrected. The staff user is whoever is making the
         // correction, since this runs inside their request; outside a signed-in request there is none to name.
-        var settled = false;
+        var accepted = new List<Dispute>();
         foreach (var dispute in await disputes.ListOpenForQuestionAsync(questionId, cancellationToken))
         {
             dispute.Accept(requestContext.UserId, nowUtc, reason);
-            settled = true;
+            accepted.Add(dispute);
         }
 
         // Saved when a score moved, when an attempt was only moved to the corrected version (which is part of what it shows), or when a
         // dispute was settled.
-        if (changed > 0 || repinned || settled)
+        if (changed > 0 || repinned || accepted.Count > 0)
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
+        // After the save, so the feed never announces an acceptance that was not stored. A failure to write the feed is logged by the
+        // notifier and does not undo the correction.
+        await NotifyAcceptedAsync(accepted, cancellationToken);
+
         return changed;
+    }
+
+    /// <summary>
+    /// Tells each candidate whose dispute was accepted. One question is often in several exams, so each exam's name is read once,
+    /// not once per dispute.
+    /// </summary>
+    /// <param name="accepted">The disputes this correction accepted; empty when there were none.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task NotifyAcceptedAsync(IReadOnlyCollection<Dispute> accepted, CancellationToken cancellationToken)
+    {
+        if (accepted.Count == 0)
+            return;
+
+        var examNames = new Dictionary<Guid, string?>();
+        var notices = new List<InAppNotice>(accepted.Count);
+        foreach (var dispute in accepted)
+        {
+            if (!examNames.TryGetValue(dispute.ExamId, out var examName))
+            {
+                examName = (await examCatalog.FindAsync(dispute.ExamId, cancellationToken))?.Name;
+                examNames[dispute.ExamId] = examName;
+            }
+            notices.Add(new InAppNotice(dispute.CandidateId, InAppNoticeKind.DisputeAccepted, dispute.Id, examName));
+        }
+
+        await inAppNotifier.NotifyManyAsync(notices, cancellationToken);
     }
 }

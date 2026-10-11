@@ -87,6 +87,15 @@ export class ExamInstructions {
     return this.acknowledged() ? this.i18n.t('instructions.bar.ready') : this.i18n.t('instructions.bar.tick');
   });
 
+  /**
+   * The state of the question paper for this exam: locked until it opens, open once it has, and nothing once it is closed. A paper is
+   * only ever shown to a candidate who has started, so this is what the page tells them before they do (#57).
+   */
+  protected readonly paperStatus = computed<'locked' | 'open' | null>(() => {
+    const state = this.exam()?.state;
+    return state === 'NotOpen' ? 'locked' : state === 'Open' ? 'open' : null;
+  });
+
   /** Why a new attempt cannot be started from here, or null when one can. */
   protected readonly cannotStartReason = computed(() => {
     const exam = this.exam();

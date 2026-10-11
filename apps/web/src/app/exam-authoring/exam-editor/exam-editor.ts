@@ -11,6 +11,9 @@ import { TranslatePipe } from '../../i18n/translate.pipe';
 import { QuestionApiService } from '../../question-bank/question-api.service';
 import { QuestionDto } from '../../question-bank/question.models';
 import { extractErrorMessage } from '../../shared/problem-details';
+import { InstructionTemplateApiService } from '../../instruction-templates/instruction-template-api.service';
+import { InstructionTemplateDto } from '../../instruction-templates/instruction-template.models';
+import { ExamInstructions } from '../exam-instructions/exam-instructions';
 import { ExamApiService } from '../exam-api.service';
 import { ContentProtectionRequest, DrawQuestionsRequest, ExamDto, ExamScopeDto, ExamStatus, FocusViolationLimitRequest, MarkingSchemeDto, ShuffleRequest, UpdateExamDetailsRequest } from '../exam.models';
 import { ExamMarkingScheme } from '../exam-marking-scheme/exam-marking-scheme';
@@ -54,7 +57,7 @@ function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): bool
  */
 @Component({
   selector: 'app-exam-editor',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, TranslatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamProctoringProfile, ExamSectionCard],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, TranslatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamProctoringProfile, ExamSectionCard, ExamInstructions],
   templateUrl: './exam-editor.html',
 })
 export class ExamEditor {
@@ -62,6 +65,7 @@ export class ExamEditor {
   private readonly examApi = inject(ExamApiService);
   private readonly questionApi = inject(QuestionApiService);
   private readonly bookApi = inject(BookApiService);
+  private readonly templateApi = inject(InstructionTemplateApiService);
   private readonly router = inject(Router);
   private readonly examId = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
   private readonly i18n = inject(I18nService);
@@ -232,6 +236,51 @@ export class ExamEditor {
     if (!this.busy() && this.isDraft()) {
       this.run(this.examApi.setShuffle(this.examId, request));
     }
+  }
+
+  /** The instruction templates the author can copy from. Loaded the first time the Instructions setting is opened (FR-41). */
+  protected readonly templates = signal<InstructionTemplateDto[]>([]);
+  protected readonly templatesLoading = signal(false);
+  protected readonly templatesError = signal<string | null>(null);
+  private templatesLoaded = false;
+
+  /** Loads the templates the first time the Instructions setting is opened, so the page does not ask for them before they are needed. */
+  protected onInstructionsToggled(event: Event): void {
+    if ((event.target as HTMLDetailsElement).open && !this.templatesLoaded) {
+      this.loadTemplates();
+    }
+  }
+
+  /** Saves the instructions a candidate reads. Draft exams only: a candidate acknowledges them before each attempt. */
+  protected saveInstructions(text: string): void {
+    if (!this.busy() && this.isDraft()) {
+      this.run(this.examApi.setInstructions(this.examId, text));
+    }
+  }
+
+  /** Copies an instruction template's text into the exam's instructions. Draft exams only, for the same reason. */
+  protected useInstructionTemplate(templateId: string): void {
+    if (!this.busy() && this.isDraft()) {
+      this.run(this.examApi.useInstructionTemplate(this.examId, templateId));
+    }
+  }
+
+  private loadTemplates(): void {
+    this.templatesLoaded = true;
+    this.templatesLoading.set(true);
+    this.templatesError.set(null);
+    this.templateApi.list().subscribe({
+      next: (templates) => {
+        this.templates.set(templates);
+        this.templatesLoading.set(false);
+      },
+      error: (error: unknown) => {
+        // Not marked as loaded, so opening the setting again asks once more.
+        this.templatesLoaded = false;
+        this.templatesLoading.set(false);
+        this.templatesError.set(extractErrorMessage(error, this.i18n.t('exams.instructions.loadFailed')));
+      },
+    });
   }
 
   /** Sets the marks per answer. Draft exams only, so every attempt at a published exam is scored the same way. */

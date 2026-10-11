@@ -123,6 +123,8 @@ public sealed class WhatsAppTestFlowTests : IClassFixture<WhatsAppTestApiFactory
         Assert.Equal(code, (await JsonAsync(response)).GetProperty("title").GetString());
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA5394:Do not use insecure randomness",
+        Justification = "Test data: a phone number that only has to be unique per call. It is not a secret or a token.")]
     private static string UniqueNumber() => "9" + Random.Shared.NextInt64(100_000_000, 999_999_999).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private Task<HttpResponseMessage> SendAsync(HttpClient client, object body) => client.PostAsJsonAsync(Messages, body);

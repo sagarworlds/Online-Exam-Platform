@@ -9,6 +9,7 @@ import { QuestionUsageDto } from './question.models';
 // The base URL differs between builds and the test environment, so requests are matched by their path.
 const isList = (r: { method: string; url: string }) => r.method === 'GET' && /\/v1\/questions(\?.*)?$/.test(r.url);
 const isTopics = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/questions/topics');
+const isEncryptionStatus = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/questions/encryption-status');
 const isBooks = (r: { method: string; url: string }) => r.method === 'GET' && r.url.includes('/v1/books');
 
 const chapter = (id: string, order: number, title: string, isArchived = false) => ({ id, bookId: 'b1', title, order, isArchived, questionCount: 0 });
@@ -38,6 +39,10 @@ describe('QuestionBank', () => {
   afterEach(() => {
     // Saving a question re-reads the topics in use; tests about something else do not need to answer that.
     httpMock.match(isTopics).forEach((request) => request.flush([]));
+    // The admin encryption status the page shows (#57) is answered here, so it does not need its own expectation in each test.
+    httpMock
+      .match(isEncryptionStatus)
+      .forEach((request) => request.flush({ contentValues: 0, plaintextValues: 0, complete: true }));
     httpMock.verify();
   });
 

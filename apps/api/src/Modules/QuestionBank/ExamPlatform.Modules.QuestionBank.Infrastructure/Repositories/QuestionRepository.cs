@@ -1,3 +1,4 @@
+using ExamPlatform.Modules.QuestionBank.Application;
 using ExamPlatform.Modules.QuestionBank.Application.Ports;
 using ExamPlatform.Modules.QuestionBank.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -64,14 +65,34 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
         await context.Questions.Where(q => questionIds.Contains(q.Id)).ToListAsync(cancellationToken);
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Question>> ListNewestAsync(QuestionFilter filter, int skip, int take, CancellationToken cancellationToken) =>
+    public async Task<IReadOnlyList<Question>> ListNewestAsync(QuestionFilter filter, int skip, int take, CancellationToken cancellationToken)
+    {
         // The id breaks ties between questions created in the same instant, so a page boundary never repeats or skips one.
-        await Matching(context.Questions.AsNoTracking().Include(q => q.Options), filter)
-            .OrderByDescending(q => q.CreatedAtUtc).ThenBy(q => q.Id).Skip(skip).Take(take).ToListAsync(cancellationToken);
+        var query = Matching(context.Questions.AsNoTracking().Include(q => q.Options), filter)
+            .OrderByDescending(q => q.CreatedAtUtc).ThenBy(q => q.Id);
+
+        if (QuestionTextSearch.TermOf(filter.Search) is not { } term)
+            return await query.Skip(skip).Take(take).ToListAsync(cancellationToken);
+
+        // A search runs over the decrypted text, which the database cannot match (#57): the questions the other criteria allow are read
+        // in order, the ones containing the term are kept, and the page is cut from those.
+        var matches = await query.ToListAsync(cancellationToken);
+        return matches.Where(q => QuestionTextSearch.Matches(term, q)).Skip(skip).Take(take).ToList();
+    }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<(Guid Id, Guid? ChapterId)>> FindPlacementsAsync(QuestionFilter filter, int take, CancellationToken cancellationToken)
     {
+        if (QuestionTextSearch.TermOf(filter.Search) is { } term)
+        {
+            // As in ListNewestAsync: the search is applied to the decrypted text here, so the options are loaded for it too.
+            var matches = await Matching(context.Questions.AsNoTracking().Include(q => q.Options), filter)
+                .OrderByDescending(q => q.CreatedAtUtc).ThenBy(q => q.Id)
+                .ToListAsync(cancellationToken);
+
+            return matches.Where(q => QuestionTextSearch.Matches(term, q)).Take(take).Select(q => (q.Id, q.ChapterId)).ToList();
+        }
+
         var found = await Matching(context.Questions.AsNoTracking(), filter)
             .OrderByDescending(q => q.CreatedAtUtc).ThenBy(q => q.Id).Take(take)
             .Select(q => new { q.Id, q.ChapterId })
@@ -79,9 +100,6 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
 
         return found.Select(q => (q.Id, q.ChapterId)).ToList();
     }
-
-    // What the author typed is text to find, not a pattern: a "%" or "_" in it must match itself, so the wildcards are escaped.
-    private static string EscapeLike(string text) => text.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
 
     private IQueryable<Question> Matching(IQueryable<Question> query, QuestionFilter filter)
     {
@@ -103,13 +121,7 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
             query = query.Where(q => statuses.Contains(q.Status));
         if (filter.Topic is { Length: > 0 } topic)
             query = query.Where(q => q.Topics.Contains(topic));
-        if (filter.Search?.Trim() is { Length: > 0 } search)
-        {
-            var pattern = $"%{EscapeLike(search)}%";
-            query = query.Where(q => EF.Functions.ILike(q.SearchText, pattern, "\\")
-                || q.Options.Any(o => EF.Functions.ILike(o.Text, pattern, "\\")));
-        }
-
+        // The text search is not here: it runs over the decrypted text in the callers (see QuestionTextSearch).
         return query;
     }
 

@@ -67,6 +67,25 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
         await context.Attempts.AsNoTracking().Where(a => a.CandidateId == candidateId).ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Attempt>> ListCountedForExamAsync(Guid examId, CancellationToken cancellationToken) =>
+        // Read-only and untracked, for the item analysis: each attempt is marked from its answers and paper, which are loaded, and never saved.
+        await context.Attempts.AsNoTracking().AsSplitQuery()
+            .Include(a => a.Answers).Include(a => a.Paper)
+            .Where(a => a.ExamId == examId && a.Status == AttemptStatus.Submitted && a.InvalidatedAtUtc == null)
+            .OrderBy(a => a.SubmittedAtUtc)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Attempt>> ListCountedForCandidateAsync(Guid candidateId, CancellationToken cancellationToken) =>
+        // Read-only and untracked: the results are marked from these rows and never saved. The answers, paper and revisions are what
+        // the marks and the score are built from, so all three are loaded; the split query keeps the three collections from joining.
+        await context.Attempts.AsNoTracking().AsSplitQuery()
+            .Include(a => a.Answers).Include(a => a.Paper).Include(a => a.Revisions)
+            .Where(a => a.CandidateId == candidateId && a.Status == AttemptStatus.Submitted && a.InvalidatedAtUtc == null)
+            .OrderBy(a => a.SubmittedAtUtc)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<decimal>> ListBestScoresOfOtherCandidatesAsync(Guid examId, Guid excludedCandidateId, CancellationToken cancellationToken)
     {
         // Grouped in the database so only one number per candidate leaves it, not every attempt of a large exam.
@@ -114,6 +133,32 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
         return await context.Attempts.AsSplitQuery()
             .Include(a => a.Answers).Include(a => a.Marks).Include(a => a.Paper).Include(a => a.Revisions)
             .Where(a => attemptIds.Contains(a.Id) && a.Status == AttemptStatus.Submitted)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Attempt>> ListFinishedForExamAsync(Guid examId, CancellationToken cancellationToken) =>
+        // Only the attempt's own columns: the scope needs who sat it and when, and nothing else.
+        await context.Attempts.AsNoTracking()
+            .Where(a => a.ExamId == examId && a.Status == AttemptStatus.Submitted)
+            .OrderBy(a => a.Number)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Attempt>> ListFinishedWithAnswersAsync(Guid examId, IReadOnlyCollection<Guid> attemptIds, CancellationToken cancellationToken)
+    {
+        // Nothing to read is not a query: an empty list of ids would otherwise still cost a round trip for no rows.
+        if (attemptIds.Count == 0)
+        {
+            return [];
+        }
+
+        // The risk review reads the answers, the focus departures and the client sightings. The paper, marks, revisions and warnings are
+        // not needed for it, so they are not loaded: a large exam is read in one split query per collection, not one wide join.
+        return await context.Attempts.AsNoTracking().AsSplitQuery()
+            .Include(a => a.Answers).Include(a => a.FocusViolations).Include(a => a.ClientSightings)
+            .Where(a => a.ExamId == examId && a.Status == AttemptStatus.Submitted && attemptIds.Contains(a.Id))
+            .OrderBy(a => a.Number)
             .ToListAsync(cancellationToken);
     }
 }

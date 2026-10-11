@@ -215,6 +215,25 @@
         </div>
       </details>
 
+      <details class="setting" (toggle)="onInstructionsToggled($event)">
+        <summary>
+          <h3 class="setting__name">{{ 'exams.setting.instructions' | t }}</h3>
+          <span class="setting__value">{{ e.instructions ? ('exams.instructions.summarySet' | t) : ('exams.instructions.summaryNone' | t) }}</span>
+        </summary>
+        <div class="setting__body">
+          <app-exam-instructions
+            [instructions]="e.instructions ?? null"
+            [editable]="isDraft()"
+            [busy]="busy()"
+            [templates]="templates()"
+            [templatesLoading]="templatesLoading()"
+            [templatesError]="templatesError()"
+            (changed)="saveInstructions($event)"
+            (templateChosen)="useInstructionTemplate($event)"
+          />
+        </div>
+      </details>
+
       <details class="setting">
         <summary>
           <h3 class="setting__name">{{ 'exams.setting.marking' | t }}</h3>
