@@ -21,6 +21,17 @@ describe('ItemAnalysis', () => {
       { questionId: 'q2', position: 2, text: 'Define work', attempts: 12, correctCount: 6, difficulty: null, discrimination: null },
       { questionId: 'q3', position: 3, text: 'Unit of power', attempts: 40, correctCount: 0, difficulty: 0, discrimination: -0.1 },
     ],
+    scores: {
+      count: 40,
+      meanPercentOfMarks: 58.4,
+      medianPercentOfMarks: 60,
+      // Ten bands of ten percentage points, from the bottom; the counts add up to the 40 candidates.
+      distribution: [0, 1, 2, 3, 5, 7, 9, 8, 4, 1].map((count, index) => ({
+        fromPercent: index === 0 ? null : index * 10,
+        toPercent: index === 9 ? null : (index + 1) * 10,
+        count,
+      })),
+    },
     ...overrides,
   });
 
@@ -63,7 +74,7 @@ describe('ItemAnalysis', () => {
     request.flush(analysis());
     fixture.detectChanges();
 
-    const rows = root(fixture).querySelectorAll('tbody tr');
+    const rows = root(fixture).querySelectorAll('.item-table tbody tr');
     expect(rows).toHaveLength(3);
     expect(rows[0].textContent).toContain('75%');
     expect(rows[0].textContent).toContain('+0.40');
@@ -83,13 +94,60 @@ describe('ItemAnalysis', () => {
     );
     discrimination?.click();
     fixture.detectChanges();
-    let firstRow = root(fixture).querySelector('tbody tr td:first-child')?.textContent?.trim();
+    let firstRow = root(fixture).querySelector('.item-table tbody tr td:first-child')?.textContent?.trim();
     expect(firstRow).toBe('3');
 
     discrimination?.click();
     fixture.detectChanges();
-    firstRow = root(fixture).querySelector('tbody tr td:first-child')?.textContent?.trim();
+    firstRow = root(fixture).querySelector('.item-table tbody tr td:first-child')?.textContent?.trim();
     expect(firstRow).toBe('1');
+  });
+
+  it('shows the mean and the median of the candidates\' scores, and each band with its count', async () => {
+    const { fixture, request } = await start();
+
+    request.flush(analysis());
+    fixture.detectChanges();
+
+    const section = root(fixture).querySelector('.item-analysis__scores') as HTMLElement;
+    expect(section.textContent).toContain('58.4%');
+    expect(section.textContent).toContain('60%');
+    const bands = section.querySelectorAll('.item-distribution tbody tr');
+    expect(bands).toHaveLength(10);
+    // The open ends of the scale are named in words, so the bottom and top bands read as "below" and "and above".
+    expect(bands[0].textContent).toContain('Below 10%');
+    expect(bands[1].textContent).toContain('10% to under 20%');
+    expect(bands[9].textContent).toContain('90% and above');
+    expect(bands[6].querySelector('.item-distribution__value')?.textContent?.trim()).toBe('9');
+  });
+
+  it('draws each bar in proportion to the largest band, so the tallest band fills the track', async () => {
+    const { fixture, request } = await start();
+
+    request.flush(analysis());
+    fixture.detectChanges();
+
+    const bars = [...root(fixture).querySelectorAll<HTMLElement>('.item-distribution__bar')];
+    // The largest band holds 9 candidates, so it is full; an empty band draws nothing.
+    expect(bars[6].style.width).toBe('100%');
+    expect(bars[0].style.width).toBe(`${(0 / 9) * 100}%`);
+    expect(bars[1].style.width).toBe(`${(1 / 9) * 100}%`);
+  });
+
+  it('says there are no scores yet, rather than a mean, when no candidate has a released result', async () => {
+    const { fixture, request } = await start();
+
+    request.flush(
+      analysis({
+        candidateCount: 0,
+        scores: { count: 0, meanPercentOfMarks: null, medianPercentOfMarks: null, distribution: [] },
+      }),
+    );
+    fixture.detectChanges();
+
+    const section = root(fixture).querySelector('.item-analysis__scores') as HTMLElement;
+    expect(section.textContent).toContain('there are no scores');
+    expect(section.querySelector('table')).toBeNull();
   });
 
   it('says the results are held when the author has not released them', async () => {

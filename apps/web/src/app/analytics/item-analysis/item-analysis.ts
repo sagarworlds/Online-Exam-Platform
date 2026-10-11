@@ -7,7 +7,7 @@ import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AnalyticsApiService } from '../analytics-api.service';
-import { ExamItemAnalysisDto, ItemRowDto } from '../analytics.models';
+import { ExamItemAnalysisDto, ItemRowDto, ScoreBandDto } from '../analytics.models';
 import { ItemSortKey, SortDirection, sortItemRows } from './item-analysis-sort';
 
 /** What the page shows at any moment: being read, the questions, the results held, nothing to show, or a failed read. */
@@ -152,6 +152,36 @@ export class ItemAnalysis {
       return `${row.discrimination > 0 ? '+' : ''}${row.discrimination.toFixed(2)}`;
     }
     return row.difficulty === null ? this.i18n.t('admin.items.notShown') : this.i18n.t('admin.items.noCompare');
+  }
+
+  /** A percentage of the marks as the page shows it, or the words for a figure that is not shown. */
+  protected percentText(value: number | null): string {
+    return value === null ? this.i18n.t('admin.items.notShown') : `${value}%`;
+  }
+
+  /**
+   * The label of a score band, with the open ends of the scale named in words: "Below 10%" at the bottom and "90% and above" at the top.
+   */
+  protected bandLabel(band: ScoreBandDto): string {
+    if (band.fromPercent === null && band.toPercent !== null) {
+      return this.i18n.t('admin.items.scores.bandBelow', { to: band.toPercent });
+    }
+    if (band.toPercent === null && band.fromPercent !== null) {
+      return this.i18n.t('admin.items.scores.bandAbove', { from: band.fromPercent });
+    }
+    if (band.fromPercent !== null && band.toPercent !== null) {
+      return this.i18n.t('admin.items.scores.band', { from: band.fromPercent, to: band.toPercent });
+    }
+    return this.i18n.t('admin.items.notShown');
+  }
+
+  /**
+   * The width of a band's bar, as a share of the largest band, so the tallest band fills the track and the shape of the distribution reads at a
+   * glance. The counts beside the bars carry the exact figures.
+   */
+  protected barWidth(band: ScoreBandDto, distribution: ScoreBandDto[]): number {
+    const largest = Math.max(0, ...distribution.map((other) => other.count));
+    return largest === 0 ? 0 : (band.count / largest) * 100;
   }
 
   /** The count line above the table: how many candidates the figures come from, and the size of each group. */

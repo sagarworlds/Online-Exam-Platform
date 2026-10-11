@@ -50,7 +50,9 @@ public static class AnalyticsEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .WithName("GetExamItemAnalysis")
-            .WithDescription("How each question of an exam performed among the released results: its difficulty and discrimination index, shown only once enough candidates had it (FR-37)");
+            .WithDescription(
+                "How each question of an exam performed among the released results: its difficulty and discrimination index, shown only once enough candidates had it, "
+                + "and the candidates' mean, median and score distribution (FR-37)");
 
         endpoints.MapPost("/v1/exams/{examId:guid}/analytics/items/exports", ExportItemAnalysis)
             .RequireAuthorization(AnalyticsPermissions.ReadItems)

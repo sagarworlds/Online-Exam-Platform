@@ -31,7 +31,8 @@ public class ItemAnalysisExportServiceTests
             .Select(i => new ItemRowDto(Guid.NewGuid(), i, $"Q{i}", 44, 30, 0.5m, 0m))
             .ToArray();
         _analysis.GetAsync(_examId, Arg.Any<CancellationToken>()).Returns(
-            new ExamItemAnalysisDto(_examId, examName, ResultsReleased: true, CandidateCount: 44, MinimumCohortSize: 30, GroupSize: 12, rows));
+            new ExamItemAnalysisDto(
+                _examId, examName, ResultsReleased: true, CandidateCount: 44, MinimumCohortSize: 30, GroupSize: 12, rows, new ExamScoreSummaryDto(0, null, null, [])));
         _writer.Write(Arg.Any<ExamItemAnalysisDto>()).Returns(new byte[] { 1, 2, 3 });
         _pdfWriter.Write(Arg.Any<ExamItemAnalysisDto>()).Returns(new byte[] { 9, 8, 7 });
     }

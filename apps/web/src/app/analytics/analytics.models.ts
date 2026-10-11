@@ -39,7 +39,29 @@ export interface ItemRowDto {
   discrimination: number | null;
 }
 
-/** An exam's item analysis (FR-37): the questions in order and the settings they were worked out under. */
+/** One band of an exam's score distribution (FR-37), in percent of the marks on each paper. */
+export interface ScoreBandDto {
+  /** The lowest percentage the band holds, inclusive; null for the bottom band, which also takes every score below ten percent. */
+  fromPercent: number | null;
+  /** The percentage the band stops below, exclusive; null for the top band, which also takes full marks and anything above. */
+  toPercent: number | null;
+  /** How many candidates' best results fall in the band. */
+  count: number;
+}
+
+/** An exam's candidate scores (FR-37): each candidate's best result as a percentage of their paper's marks, with the mean, median and distribution. */
+export interface ExamScoreSummaryDto {
+  /** How many candidates' results the figures were worked from. */
+  count: number;
+  /** The mean percentage, to two decimals; null when no candidate had marks to earn. */
+  meanPercentOfMarks: number | null;
+  /** The median percentage, to two decimals; null when no candidate had marks to earn. */
+  medianPercentOfMarks: number | null;
+  /** The bands from the lowest; empty while the results are held. */
+  distribution: ScoreBandDto[];
+}
+
+/** An exam's item analysis (FR-37): the questions in order, the settings they were worked out under, and the candidates' scores. */
 export interface ExamItemAnalysisDto {
   examId: string;
   examName: string;
@@ -49,6 +71,7 @@ export interface ExamItemAnalysisDto {
   minimumCohortSize: number;
   groupSize: number;
   questions: ItemRowDto[];
+  scores: ExamScoreSummaryDto;
 }
 
 /** A candidate's own performance across the exams they sat (FR-36). */
