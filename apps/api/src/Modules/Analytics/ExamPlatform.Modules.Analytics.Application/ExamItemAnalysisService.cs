@@ -12,6 +12,9 @@ namespace ExamPlatform.Modules.Analytics.Application;
 /// </summary>
 public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQuestionBank questionBank, ItemAnalysisPolicy policy) : IExamItemAnalysis
 {
+    /// <summary>The score figures of an exam whose results are held: nobody counts, so there is no mean, median or band to show.</summary>
+    private static readonly ExamScoreSummaryDto NoScores = new(0, null, null, []);
+
     /// <inheritdoc />
     public async Task<ExamItemAnalysisDto> GetAsync(Guid examId, CancellationToken cancellationToken)
     {
@@ -19,7 +22,7 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
 
         // With the results held, no attempt counts, so there is nothing to show; the caller is told why, not handed empty rows.
         if (!read.ResultsReleased)
-            return new ExamItemAnalysisDto(read.ExamId, read.ExamName, false, 0, policy.MinimumCohortSize, 0, []);
+            return new ExamItemAnalysisDto(read.ExamId, read.ExamName, false, 0, policy.MinimumCohortSize, 0, [], NoScores);
 
         var best = BestAttemptPerCandidate(read.Attempts);
         var groups = ItemStatistics.GroupsOf(best.Select(a => new CandidateScore(a.CandidateId, a.Score)).ToList());
@@ -37,7 +40,27 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
             best.Count,
             policy.MinimumCohortSize,
             ItemStatistics.GroupSize(best.Count),
-            rows);
+            rows,
+            ScoresOf(best));
+    }
+
+    /// <summary>
+    /// The mean, median and distribution of the cohort's scores as percentages of each paper's marks. A candidate whose paper carried no marks has
+    /// no percentage and is left out of the figures, though they still count as a candidate on the page.
+    /// </summary>
+    private static ExamScoreSummaryDto ScoresOf(IReadOnlyList<AttemptResponsesOfCandidate> best)
+    {
+        var percentages = best
+            .Select(a => PerformanceMeasures.PercentOfMarks(a.Score, a.MaxScore))
+            .OfType<decimal>()
+            .ToList();
+        var summary = ScoreDistribution.Of(percentages);
+
+        return new ExamScoreSummaryDto(
+            summary.Count,
+            summary.Mean,
+            summary.Median,
+            summary.Bands.Select(band => new ScoreBandDto(band.From, band.To, band.Count)).ToList());
     }
 
     /// <summary>
@@ -48,7 +71,7 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
         attempts
             .GroupBy(a => a.CandidateId)
             .Select(group => group.OrderByDescending(a => a.Score).ThenByDescending(a => a.SubmittedAtUtc).First())
-            .Select(a => new AttemptResponsesOfCandidate(a.CandidateId, a.Score, a.Questions))
+            .Select(a => new AttemptResponsesOfCandidate(a.CandidateId, a.Score, a.MaxScore, a.Questions))
             .ToList();
 
     private static Dictionary<Guid, List<ItemAnswer>> AnswersByQuestion(IReadOnlyList<AttemptResponsesOfCandidate> best)
@@ -97,5 +120,5 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
 
     /// <summary>A candidate's best counted attempt, reduced to what the analysis reads.</summary>
     private sealed record AttemptResponsesOfCandidate(
-        Guid CandidateId, decimal Score, IReadOnlyList<QuestionResponse> Questions);
+        Guid CandidateId, decimal Score, decimal MaxScore, IReadOnlyList<QuestionResponse> Questions);
 }

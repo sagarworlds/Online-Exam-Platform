@@ -105,6 +105,7 @@ public sealed class ExamResponseReader(IAttemptRepository attempts, IExamCatalog
             attempt.CandidateId,
             attempt.SubmittedAtUtc ?? throw new InvalidOperationException("A counted attempt always has a submission time."),
             attempt.Score ?? throw new InvalidOperationException("A submitted attempt always has a score."),
+            attempt.MaxScore ?? throw new InvalidOperationException("A submitted attempt always has a maximum score."),
             responses);
     }
 }

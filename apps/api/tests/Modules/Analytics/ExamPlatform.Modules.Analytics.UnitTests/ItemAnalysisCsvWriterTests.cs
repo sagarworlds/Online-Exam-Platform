@@ -9,7 +9,7 @@ namespace ExamPlatform.Modules.Analytics.UnitTests;
 public class ItemAnalysisCsvWriterTests
 {
     private static ExamItemAnalysisDto Analysis(params ItemRowDto[] rows) =>
-        new(Guid.NewGuid(), "Physics", ResultsReleased: true, CandidateCount: 44, MinimumCohortSize: 30, GroupSize: 12, rows);
+        new(Guid.NewGuid(), "Physics", ResultsReleased: true, CandidateCount: 44, MinimumCohortSize: 30, GroupSize: 12, rows, new ExamScoreSummaryDto(0, null, null, []));
 
     /// <summary>Reads the file back as rows of fields, dropping the byte-order mark the writer puts first.</summary>
     private static IReadOnlyList<IReadOnlyList<string>> ReadBack(byte[] bytes) =>
