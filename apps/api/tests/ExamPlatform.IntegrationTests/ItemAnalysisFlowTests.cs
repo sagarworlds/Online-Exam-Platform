@@ -65,6 +65,27 @@ public sealed class ItemAnalysisFlowTests(ApiFactory factory) : IClassFixture<Ap
     }
 
     [Fact]
+    public async Task AReleasedExam_GivesTheMeanMedianAndADistributionOfTenBands_OverTheCohort()
+    {
+        var (admin, examId) = await OpenExamAsync("Scored exam");
+        using var _a = admin;
+        var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _c = candidate;
+        await SitRightOnFirstAsync(candidate, examId);
+
+        var scores = (await AnalysisAsync(admin, examId)).GetProperty("scores");
+
+        Assert.Equal(1, scores.GetProperty("count").GetInt32());
+        // One candidate, so the mean and the median are the same percentage of the marks on their paper.
+        Assert.Equal(
+            scores.GetProperty("meanPercentOfMarks").GetDecimal(),
+            scores.GetProperty("medianPercentOfMarks").GetDecimal());
+        var bands = scores.GetProperty("distribution").EnumerateArray().ToList();
+        Assert.Equal(10, bands.Count);
+        Assert.Equal(1, bands.Sum(band => band.GetProperty("count").GetInt32()));
+    }
+
+    [Fact]
     public async Task BelowTheMinimumCohort_TheIndicesAreWithheld_NotGuessed()
     {
         // One candidate is far below the default minimum cohort, so the counts show and the indices are null rather than a figure from one person.
@@ -96,6 +117,8 @@ public sealed class ItemAnalysisFlowTests(ApiFactory factory) : IClassFixture<Ap
 
         Assert.False(analysis.GetProperty("resultsReleased").GetBoolean());
         Assert.Empty(analysis.GetProperty("questions").EnumerateArray());
+        Assert.Equal(0, analysis.GetProperty("scores").GetProperty("count").GetInt32());
+        Assert.Equal(JsonValueKind.Null, analysis.GetProperty("scores").GetProperty("meanPercentOfMarks").ValueKind);
     }
 
     [Fact]

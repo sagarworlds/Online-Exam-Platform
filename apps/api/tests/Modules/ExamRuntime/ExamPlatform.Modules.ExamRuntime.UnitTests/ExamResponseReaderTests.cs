@@ -87,6 +87,8 @@ public class ExamResponseReaderTests
         Assert.Equal(candidate, attempt.CandidateId);
         // Right on the first question earns 4 and wrong on the second costs 1, so the attempt scored 3.
         Assert.Equal(3m, attempt.Score);
+        // Both questions carry 4 marks when right, so the paper had 8 marks available whatever the candidate answered.
+        Assert.Equal(8m, attempt.MaxScore);
         Assert.Equal(new[] { new QuestionResponse(_first.Id, true), new QuestionResponse(_second.Id, false) }, attempt.Questions);
     }
 

@@ -31,6 +31,54 @@
         <p class="item-analysis__summary">{{ summary(a) }}</p>
         <p class="hint">{{ 'admin.items.minimumHint' | t: { count: a.minimumCohortSize } }}</p>
 
+        <!--
+          The distribution is one series, so it has one colour and no legend box; its table is the readable twin, with every count in text. The
+          bars are only the shape, so they are hidden from screen readers, which hear the band and its count.
+        -->
+        <section class="item-analysis__scores" aria-labelledby="item-scores-title">
+          <h2 id="item-scores-title">{{ 'admin.items.scores.title' | t }}</h2>
+          <p class="hint">{{ 'admin.items.scores.hint' | t }}</p>
+
+          @if (a.scores.count === 0) {
+            <p class="hint" role="status">{{ 'admin.items.scores.none' | t }}</p>
+          } @else {
+            <dl class="item-analysis__stats">
+              <div>
+                <dt>{{ 'admin.items.scores.mean' | t }}</dt>
+                <dd>{{ percentText(a.scores.meanPercentOfMarks) }}</dd>
+              </div>
+              <div>
+                <dt>{{ 'admin.items.scores.median' | t }}</dt>
+                <dd>{{ percentText(a.scores.medianPercentOfMarks) }}</dd>
+              </div>
+            </dl>
+
+            <div class="table-wrap">
+              <table class="table item-distribution" [attr.aria-label]="'admin.items.scores.tableLabel' | t">
+                <thead>
+                  <tr>
+                    <th scope="col">{{ 'admin.items.scores.bandCol' | t }}</th>
+                    <th scope="col">{{ 'admin.items.scores.countCol' | t }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (band of a.scores.distribution; track $index) {
+                    <tr>
+                      <td [attr.data-label]="'admin.items.scores.bandCol' | t">{{ bandLabel(band) }}</td>
+                      <td [attr.data-label]="'admin.items.scores.countCol' | t" class="item-distribution__count">
+                        <span class="item-distribution__track" aria-hidden="true">
+                          <span class="item-distribution__bar" [style.width.%]="barWidth(band, a.scores.distribution)"></span>
+                        </span>
+                        <span class="item-distribution__value">{{ band.count }}</span>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+
         <div class="item-analysis__export">
           <button type="button" class="btn" [disabled]="exporting()" (click)="exportCsv()">
             {{ (exporting() ? 'admin.items.exporting' : 'admin.items.export') | t }}
@@ -95,6 +143,14 @@
           <div>
             <dt>{{ 'admin.items.col.discrimination' | t }}</dt>
             <dd>{{ 'admin.items.discriminationHelp' | t: { group: a.groupSize } }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.items.scores.averageTitle' | t }}</dt>
+            <dd>{{ 'admin.items.scores.meanMedianHelp' | t }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.items.scores.distribution' | t }}</dt>
+            <dd>{{ 'admin.items.scores.distributionHelp' | t }}</dd>
           </div>
         </dl>
       }
