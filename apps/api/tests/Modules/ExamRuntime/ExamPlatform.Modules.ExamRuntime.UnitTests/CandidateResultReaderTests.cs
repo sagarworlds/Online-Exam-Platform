@@ -4,6 +4,7 @@ using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Contracts;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
+using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using NSubstitute;
 
@@ -20,6 +21,11 @@ public class CandidateResultReaderTests
     private readonly IExamCatalog _catalog = Substitute.For<IExamCatalog>();
     private readonly IQuestionBank _bank = Substitute.For<IQuestionBank>();
     private readonly IAttemptRepository _attempts = Substitute.For<IAttemptRepository>();
+
+    // The age directory and the minors switch (FR-36, section 7): the attempts the directory reports as sat by a minor, and the switch.
+    private readonly ICandidateAgeDirectory _ages = Substitute.For<ICandidateAgeDirectory>();
+    private readonly HashSet<Guid> _attemptsSatAsMinor = [];
+    private bool _minorsEnabled;
 
     private readonly QuestionSnapshot _right = Fixtures.Question("Right one");
     private readonly QuestionSnapshot _wrong = Fixtures.Question("Wrong one");
@@ -52,7 +58,13 @@ public class CandidateResultReaderTests
         _attempts.ListCountedForCandidateAsync(_candidate, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<Attempt>>(attempts));
 
-    private CandidateResultReader Reader => new(_attempts, _catalog, _bank, _clock);
+    private CandidateResultReader Reader => new(_attempts, _catalog, _bank, _clock, new QuestionTimeWithholding(_ages, new QuestionTimePolicy(_minorsEnabled)));
+
+    public CandidateResultReaderTests()
+    {
+        _ages.FindAttemptsSatAsMinorAsync(Arg.Any<IReadOnlyCollection<AttemptStart>>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>(_attemptsSatAsMinor)));
+    }
 
     [Fact]
     public async Task AReleasedResult_CarriesTheScore_AndHowTheAnswersFellInEachSection()
@@ -97,6 +109,63 @@ public class CandidateResultReaderTests
                 new CandidateQuestionResult(_skipped.Id, section, CandidateQuestionOutcome.Unanswered, 17),
             ],
             released.Questions ?? []);
+    }
+
+    [Fact]
+    public async Task AMinorsResult_WithTheSwitchOff_CarriesNoTime_EvenOneStoredBefore_AndIsMarkedWithheld()
+    {
+        // A row stored before the switch was turned off must not reach the candidate's figures.
+        _minorsEnabled = false;
+        var exam = ExamWith();
+        var attempt = Attempt.Start(exam.Id, _candidate, 1, Fixtures.Now, Fixtures.Now.AddMinutes(30));
+        attempt.RecordAnswer(_right.Id, _right.Correct(), Fixtures.Now);
+        attempt.RecordQuestionTime(_right.Id, 42, Fixtures.Now.AddMinutes(1));
+        var score = AttemptScorer.Score(exam, new[] { _right, _wrong, _skipped }.ToDictionary(q => q.Id), attempt.Answers.ToList());
+        attempt.Submit(Fixtures.Now.AddMinutes(10), score.Score, score.MaxScore);
+        _attemptsSatAsMinor.Add(attempt.Id);
+        CountedForCandidate(attempt);
+
+        var released = Assert.Single(await Reader.ListReleasedAsync(_candidate, CancellationToken.None));
+
+        Assert.True(released.TimeWithheld);
+        Assert.All(released.Questions ?? [], q => Assert.Null(q.TimeSpentSeconds));
+    }
+
+    [Fact]
+    public async Task AMinorsResult_WithTheSwitchOn_CarriesItsTime_AndIsNotMarkedWithheld()
+    {
+        _minorsEnabled = true;
+        var exam = ExamWith();
+        var attempt = Attempt.Start(exam.Id, _candidate, 1, Fixtures.Now, Fixtures.Now.AddMinutes(30));
+        attempt.RecordAnswer(_right.Id, _right.Correct(), Fixtures.Now);
+        attempt.RecordQuestionTime(_right.Id, 42, Fixtures.Now.AddMinutes(1));
+        var score = AttemptScorer.Score(exam, new[] { _right, _wrong, _skipped }.ToDictionary(q => q.Id), attempt.Answers.ToList());
+        attempt.Submit(Fixtures.Now.AddMinutes(10), score.Score, score.MaxScore);
+        _attemptsSatAsMinor.Add(attempt.Id);
+        CountedForCandidate(attempt);
+
+        var released = Assert.Single(await Reader.ListReleasedAsync(_candidate, CancellationToken.None));
+
+        Assert.False(released.TimeWithheld);
+        Assert.Equal(42, released.Questions!.Single(q => q.QuestionId == _right.Id).TimeSpentSeconds);
+    }
+
+    [Fact]
+    public async Task AnAdultsResult_WithTheSwitchOff_CarriesItsTime()
+    {
+        _minorsEnabled = false;
+        var exam = ExamWith();
+        var attempt = Attempt.Start(exam.Id, _candidate, 1, Fixtures.Now, Fixtures.Now.AddMinutes(30));
+        attempt.RecordAnswer(_right.Id, _right.Correct(), Fixtures.Now);
+        attempt.RecordQuestionTime(_right.Id, 42, Fixtures.Now.AddMinutes(1));
+        var score = AttemptScorer.Score(exam, new[] { _right, _wrong, _skipped }.ToDictionary(q => q.Id), attempt.Answers.ToList());
+        attempt.Submit(Fixtures.Now.AddMinutes(10), score.Score, score.MaxScore);
+        CountedForCandidate(attempt);
+
+        var released = Assert.Single(await Reader.ListReleasedAsync(_candidate, CancellationToken.None));
+
+        Assert.False(released.TimeWithheld);
+        Assert.Equal(42, released.Questions!.Single(q => q.QuestionId == _right.Id).TimeSpentSeconds);
     }
 
     [Fact]

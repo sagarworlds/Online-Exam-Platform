@@ -105,6 +105,25 @@ public class AttemptQuestionTimeTests
     }
 
     [Fact]
+    public void RecordQuestionTime_WhenNotKept_StoresNothing()
+    {
+        var attempt = Open();
+
+        attempt.RecordQuestionTime(Guid.NewGuid(), 42, Start.AddMinutes(2), keep: false);
+
+        Assert.Empty(attempt.QuestionTimes);
+    }
+
+    [Fact]
+    public void RecordQuestionTime_WhenNotKept_OnASubmittedAttempt_IsStillRefused()
+    {
+        var attempt = Open();
+        attempt.Submit(Start.AddMinutes(6), 0m, 10m);
+
+        Assert.Throws<AttemptNotInProgressError>(() => attempt.RecordQuestionTime(Guid.NewGuid(), 10, Start.AddMinutes(7), keep: false));
+    }
+
+    [Fact]
     public void RecordQuestionTime_WhilePaused_IsRefused_BecausePausedTimeIsNotReading()
     {
         var attempt = Open();

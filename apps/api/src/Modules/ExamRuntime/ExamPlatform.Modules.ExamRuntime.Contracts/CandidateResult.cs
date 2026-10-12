@@ -15,6 +15,10 @@ namespace ExamPlatform.Modules.ExamRuntime.Contracts;
 /// How each question of the paper was answered and timed, in exam order; null for a result that was built without them. Only the topic and time
 /// breakdowns read them.
 /// </param>
+/// <param name="TimeWithheld">
+/// True when the time per question is withheld from this result (FR-36, section 7: the candidate was under 18 when they sat it, and the platform
+/// does not record time for minors). Then no question carries a time, and the candidate's own time figures are not shown at all, rather than as zero.
+/// </param>
 public sealed record CandidateResult(
     Guid AttemptId,
     Guid ExamId,
@@ -23,7 +27,8 @@ public sealed record CandidateResult(
     decimal Score,
     decimal MaxScore,
     IReadOnlyList<CandidateSectionResult> Sections,
-    IReadOnlyList<CandidateQuestionResult>? Questions = null);
+    IReadOnlyList<CandidateQuestionResult>? Questions = null,
+    bool TimeWithheld = false);
 
 /// <summary>How a candidate's answers fell in one section of an exam.</summary>
 /// <param name="SectionId">The section's id.</param>

@@ -3,6 +3,7 @@ using ExamPlatform.Modules.ExamRuntime.Application.Commands;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
 using ExamPlatform.Modules.ExamRuntime.Contracts;
+using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Endpoints.Notifications;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure.Email;
@@ -54,6 +55,13 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
                 $"{DisputeOptions.SectionName}:WindowDays must be between 0 and {DisputePolicy.MaxWindowDays}.")
             .ValidateOnStart();
         services.AddSingleton(sp => DisputePolicy.From(sp.GetRequiredService<IOptions<DisputeOptions>>().Value.WindowDays));
+
+        // Whether time per question is kept for candidates under 18 (FR-36, section 7). Off unless the environment turns it on; bound as options
+        // for the same reason as the dispute window above, so a test's configuration layered on after AddModule still takes effect.
+        services.AddOptions<TimePerQuestionOptions>()
+            .Bind(configuration.GetSection(TimePerQuestionOptions.SectionName));
+        services.AddSingleton(sp => new QuestionTimePolicy(sp.GetRequiredService<IOptions<TimePerQuestionOptions>>().Value.MinorsEnabled));
+        services.AddScoped<QuestionTimeWithholding>();
 
         // Answers to attempt requests go out through the platform's mail sender when a mail server is configured and are otherwise
         // not sent; the administrator is told so in the response.

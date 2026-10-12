@@ -214,11 +214,11 @@ public class CandidateAnalyticsServiceTests
 
         var dto = await _service.GetAsync(Guid.NewGuid(), CancellationToken.None);
 
-        Assert.Equal(3, dto.Time.QuestionsTimed);
-        Assert.Equal(60m, dto.Time.AverageSeconds);
-        Assert.Equal(["Maths", "Physics"], dto.Time.Sections.Select(s => s.Name));
-        Assert.Equal(45m, dto.Time.Sections[0].AverageSeconds);
-        Assert.Equal(90m, dto.Time.Sections[1].AverageSeconds);
+        Assert.Equal(3, dto.Time!.QuestionsTimed);
+        Assert.Equal(60m, dto.Time!.AverageSeconds);
+        Assert.Equal(["Maths", "Physics"], dto.Time!.Sections.Select(s => s.Name));
+        Assert.Equal(45m, dto.Time!.Sections[0].AverageSeconds);
+        Assert.Equal(90m, dto.Time!.Sections[1].AverageSeconds);
     }
 
     [Fact]
@@ -232,8 +232,8 @@ public class CandidateAnalyticsServiceTests
 
         var dto = await _service.GetAsync(Guid.NewGuid(), CancellationToken.None);
 
-        Assert.Equal(1, dto.Time.QuestionsTimed);
-        Assert.Equal(40m, dto.Time.AverageSeconds);
+        Assert.Equal(1, dto.Time!.QuestionsTimed);
+        Assert.Equal(40m, dto.Time!.AverageSeconds);
     }
 
     [Fact]
@@ -243,9 +243,57 @@ public class CandidateAnalyticsServiceTests
 
         var dto = await _service.GetAsync(Guid.NewGuid(), CancellationToken.None);
 
-        Assert.Equal(0, dto.Time.QuestionsTimed);
-        Assert.Null(dto.Time.AverageSeconds);
-        Assert.Empty(dto.Time.Sections);
+        Assert.Equal(0, dto.Time!.QuestionsTimed);
+        Assert.Null(dto.Time!.AverageSeconds);
+        Assert.Empty(dto.Time!.Sections);
+    }
+
+    [Fact]
+    public async Task WhenEveryResultsTimeIsWithheld_ThereIsNoTimeFigure_NotAZero()
+    {
+        // A candidate under 18 while the switch is off: the time is withheld, so the figures are absent (null), not a count of zero.
+        var section = Section("Maths", 1, 0);
+        var sectionId = Guid.NewGuid();
+        var withheld = WithQuestions(
+            Result("Mock", Day1, 4, 4, section) with { TimeWithheld = true },
+            Question(sectionId, CandidateQuestionOutcome.Correct));
+        Released(withheld);
+
+        var dto = await _service.GetAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Null(dto.Time);
+        Assert.Equal(1, dto.ResultCount);
+        Assert.Single(dto.Sections);
+    }
+
+    [Fact]
+    public async Task WithNoReleasedResult_NoTimeFigureIsShown_NotAZero()
+    {
+        // A candidate under 18 with nothing released has no time to show either, so the time is absent rather than a count of zero.
+        Released();
+
+        var dto = await _service.GetAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Null(dto.Time);
+    }
+
+    [Fact]
+    public async Task WhenSomeResultsTimeIsWithheld_TheFiguresComeFromTheRestOnly()
+    {
+        var sectionId = Guid.NewGuid();
+        var withheld = WithQuestions(
+            Result("Mock 1", Day1, 4, 4, Section("Maths", 1, 0, id: sectionId)) with { TimeWithheld = true },
+            Question(sectionId, CandidateQuestionOutcome.Correct));
+        var kept = WithQuestions(
+            Result("Mock 2", Day1.AddDays(7), 2, 4, Section("Maths", 1, 1, id: sectionId)),
+            Question(sectionId, CandidateQuestionOutcome.Correct, 40));
+        Released(withheld, kept);
+
+        var dto = await _service.GetAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.NotNull(dto.Time);
+        Assert.Equal(1, dto.Time!.QuestionsTimed);
+        Assert.Equal(40m, dto.Time!.AverageSeconds);
     }
 
     private static CandidateResult ResultAt(Guid examId, string examName, decimal score, decimal maxScore, DateTime? submittedAt = null) =>

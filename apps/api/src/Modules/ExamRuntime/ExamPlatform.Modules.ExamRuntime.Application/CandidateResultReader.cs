@@ -17,12 +17,14 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 /// answer review and the result page for the same attempt. The review builder is not reused because it also loads the option texts and
 /// the translations, which a summary of marks never needs.
 /// </remarks>
-public sealed class CandidateResultReader(IAttemptRepository attempts, IExamCatalog catalog, IQuestionBank questionBank, Clock clock) : ICandidateResultReader
+public sealed class CandidateResultReader(
+    IAttemptRepository attempts, IExamCatalog catalog, IQuestionBank questionBank, Clock clock, QuestionTimeWithholding withholding) : ICandidateResultReader
 {
     /// <inheritdoc />
     public async Task<IReadOnlyList<CandidateResult>> ListReleasedAsync(Guid candidateId, CancellationToken cancellationToken)
     {
         var counted = await attempts.ListCountedForCandidateAsync(candidateId, cancellationToken);
+        var withheld = await withholding.FindWithheldAsync(counted, cancellationToken);
         var now = clock.UtcNow;
         var examsById = new Dictionary<Guid, ExamSnapshot>();
         var results = new List<CandidateResult>();
@@ -36,7 +38,7 @@ public sealed class CandidateResultReader(IAttemptRepository attempts, IExamCata
             if (!ResultRelease.IsReleased(exam, now))
                 continue;
 
-            results.Add(await BuildAsync(attempt, exam.For(attempt), cancellationToken));
+            results.Add(await BuildAsync(attempt, exam.For(attempt), withheld.Contains(attempt.Id), cancellationToken));
         }
 
         return results;
@@ -52,12 +54,15 @@ public sealed class CandidateResultReader(IAttemptRepository attempts, IExamCata
         return exam;
     }
 
-    private async Task<CandidateResult> BuildAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken)
+    private async Task<CandidateResult> BuildAsync(Attempt attempt, ExamSnapshot exam, bool timeWithheld, CancellationToken cancellationToken)
     {
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).Distinct().ToList();
         var questions = await questionBank.ReadAsync(attempt, questionIds, cancellationToken);
         var answers = attempt.Answers.ToDictionary(a => a.QuestionId);
-        var timeSpent = attempt.QuestionTimes.ToDictionary(t => t.QuestionId, t => t.Seconds);
+        // A withheld attempt reports no time at all, even one stored before the switch was turned off, so the candidate's figures never show it.
+        var timeSpent = timeWithheld
+            ? new Dictionary<Guid, int>()
+            : attempt.QuestionTimes.ToDictionary(t => t.QuestionId, t => t.Seconds);
 
         var sections = new List<CandidateSectionResult>();
         var questionResults = new List<CandidateQuestionResult>();
@@ -81,7 +86,8 @@ public sealed class CandidateResultReader(IAttemptRepository attempts, IExamCata
             attempt.Score ?? throw new InvalidOperationException("A submitted attempt always has a score."),
             attempt.MaxScore ?? throw new InvalidOperationException("A submitted attempt always has a maximum score."),
             sections,
-            questionResults);
+            questionResults,
+            TimeWithheld: timeWithheld);
     }
 
     private static CandidateSectionResult SectionOf(ExamSectionSnapshot section, IReadOnlyList<QuestionMark> marks) =>
