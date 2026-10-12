@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { vi } from 'vitest';
 import { CandidateAnalyticsDto } from '../analytics.models';
 import { CandidateAnalytics } from './candidate-analytics';
 
@@ -68,6 +69,7 @@ describe('CandidateAnalytics', () => {
   afterEach(() => {
     httpMock.verify();
     localStorage.clear();
+    vi.restoreAllMocks();
   });
 
   it('shows a loading notice while the figures are read', async () => {
@@ -182,4 +184,135 @@ describe('CandidateAnalytics', () => {
 
     expect(textOf(fixture)).toContain('No marks');
   });
+
+  describe("downloads of the candidate's own analytics", () => {
+    it('offers a Download CSV and a Download PDF button, once there are results to download', async () => {
+      const { fixture, request } = await start();
+      request.flush(analytics());
+      fixture.detectChanges();
+
+      expect(exportLabels(fixture)).toEqual(['Download CSV', 'Download PDF']);
+      expect(root(fixture).querySelector('.analytics-export [role="group"]')?.getAttribute('aria-label')).toBe('My performance');
+    });
+
+    it('offers no download when no result is released yet, since there is nothing to take', async () => {
+      const { fixture, request } = await start();
+      request.flush(analytics({ resultCount: 0, trend: [], sections: [] }));
+      fixture.detectChanges();
+
+      expect(exportLabels(fixture)).toEqual([]);
+    });
+
+    it('downloads the CSV from the candidate CSV route, under the name the server gave it', async () => {
+      const { fixture, request } = await start();
+      request.flush(analytics());
+      fixture.detectChanges();
+      const downloads = captureDownloads();
+
+      exportButton(fixture, 'Download CSV')?.click();
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/analytics/exports/csv') && r.method === 'POST').flush(
+        new Blob(['Exam,Score\r\n'], { type: 'text/csv' }),
+        { headers: { 'content-disposition': 'attachment; filename="candidate-analytics-20260912-0930.csv"' } },
+      );
+      fixture.detectChanges();
+
+      expect(downloads).toEqual(['candidate-analytics-20260912-0930.csv']);
+    });
+
+    it('downloads the PDF from the candidate PDF route, and names the file itself when the server sends no name', async () => {
+      const { fixture, request } = await start();
+      request.flush(analytics());
+      fixture.detectChanges();
+      const downloads = captureDownloads();
+
+      exportButton(fixture, 'Download PDF')?.click();
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/analytics/exports/pdf') && r.method === 'POST').flush(new Blob(['%PDF-1.4']));
+      fixture.detectChanges();
+
+      expect(downloads).toEqual(['candidate-analytics.pdf']);
+    });
+
+    it('disables both download buttons while one runs, so a second press starts no second request', async () => {
+      const { fixture, request } = await start();
+      request.flush(analytics());
+      fixture.detectChanges();
+      captureDownloads();
+
+      exportButton(fixture, 'Download PDF')?.click();
+      fixture.detectChanges();
+
+      const working = exportButton(fixture, 'Preparing the file…');
+      expect(working?.disabled).toBe(true);
+      expect(exportButton(fixture, 'Download CSV')?.disabled).toBe(true);
+      exportButton(fixture, 'Download CSV')?.click();
+      working?.click();
+      fixture.detectChanges();
+
+      const exports = httpMock.match((r) => r.url.includes('/v1/me/analytics/exports'));
+      expect(exports).toHaveLength(1);
+      exports[0].flush(new Blob(['%PDF-1.4']));
+      fixture.detectChanges();
+
+      expect(exportButton(fixture, 'Download CSV')?.disabled).toBe(false);
+      expect(exportButton(fixture, 'Download PDF')?.disabled).toBe(false);
+    });
+
+    it('shows the problem the server gave when a download fails, and frees the buttons again', async () => {
+      const { fixture, request } = await start();
+      request.flush(analytics());
+      fixture.detectChanges();
+
+      exportButton(fixture, 'Download CSV')?.click();
+      // A file request reads its error body as a blob, so the server's message is read out of it.
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/analytics/exports/csv') && r.method === 'POST').flush(
+        new Blob(['{"title":"server_error","detail":"The database is busy."}'], { type: 'application/problem+json' }),
+        { status: 500, statusText: 'Error' },
+      );
+
+      await vi.waitFor(() => {
+        fixture.detectChanges();
+        expect(root(fixture).querySelector('[role="alert"]')?.textContent).toContain('The database is busy.');
+      });
+      expect(exportButton(fixture, 'Download CSV')?.disabled).toBe(false);
+    });
+
+    it('says nothing was exported when the failure carries no message', async () => {
+      const { fixture, request } = await start();
+      request.flush(analytics());
+      fixture.detectChanges();
+
+      exportButton(fixture, 'Download PDF')?.click();
+      httpMock
+        .expectOne((r) => r.url.endsWith('/v1/me/analytics/exports/pdf') && r.method === 'POST')
+        .flush(new Blob(['not a problem']), { status: 502, statusText: 'Bad Gateway' });
+
+      await vi.waitFor(() => {
+        fixture.detectChanges();
+        expect(root(fixture).querySelector('[role="alert"]')?.textContent).toContain('nothing was exported');
+      });
+    });
+  });
+
+  /** The labels of the download buttons, in the order they are shown. */
+  function exportLabels(fixture: ComponentFixture<CandidateAnalytics>): string[] {
+    return [...root(fixture).querySelectorAll<HTMLButtonElement>('.analytics-export button')].map((b) => b.textContent?.trim() ?? '');
+  }
+
+  /** The download button with this label. */
+  function exportButton(fixture: ComponentFixture<CandidateAnalytics>, label: string): HTMLButtonElement | undefined {
+    return [...root(fixture).querySelectorAll<HTMLButtonElement>('.analytics-export button')].find((b) => b.textContent?.trim() === label);
+  }
+
+  /**
+   * Stubs the saving of a file, so each download is seen by the name it was given instead of being written to disk. Returns the names, in the
+   * order the downloads were saved.
+   */
+  function captureDownloads(): string[] {
+    const names: string[] = [];
+    Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:download'), revokeObjectURL: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      names.push(this.download);
+    });
+    return names;
+  }
 });

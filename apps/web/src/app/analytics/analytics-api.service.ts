@@ -29,10 +29,27 @@ export class AnalyticsApiService {
    * Downloads an exam's item analysis as CSV (FR-38). It is a POST because the server records the export in the audit log, so the response
    * carries the file's headers, which name the file, along with its bytes.
    */
-  exportItemAnalysis(examId: string): Observable<HttpResponse<Blob>> {
-    return this.http.post(`${environment.apiBaseUrl}/v1/exams/${examId}/analytics/items/exports`, null, {
-      observe: 'response',
-      responseType: 'blob',
-    });
+  exportItemAnalysisCsv(examId: string): Observable<HttpResponse<Blob>> {
+    return this.download(`${environment.apiBaseUrl}/v1/exams/${examId}/analytics/items/exports`);
+  }
+
+  /** Downloads an exam's item analysis as a PDF report (FR-38). Staff only, and recorded in the audit log like the CSV. */
+  exportItemAnalysisPdf(examId: string): Observable<HttpResponse<Blob>> {
+    return this.download(`${environment.apiBaseUrl}/v1/exams/${examId}/analytics/items/exports/pdf`);
+  }
+
+  /** Downloads the signed-in candidate's own analytics as CSV (FR-38). The candidate comes from the sign-in, as on the page. */
+  exportMyAnalyticsCsv(): Observable<HttpResponse<Blob>> {
+    return this.download(`${environment.apiBaseUrl}/v1/me/analytics/exports/csv`);
+  }
+
+  /** Downloads the signed-in candidate's own analytics as a PDF report (FR-38). */
+  exportMyAnalyticsPdf(): Observable<HttpResponse<Blob>> {
+    return this.download(`${environment.apiBaseUrl}/v1/me/analytics/exports/pdf`);
+  }
+
+  /** A POST with no body that reads the file's bytes and headers, the shape every export shares. */
+  private download(url: string): Observable<HttpResponse<Blob>> {
+    return this.http.post(url, null, { observe: 'response', responseType: 'blob' });
   }
 }

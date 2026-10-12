@@ -234,6 +234,20 @@
             </div>
           }
         </section>
+
+        <div class="analytics-export">
+          <div class="analytics-export__buttons" role="group" [attr.aria-label]="'analytics.title' | t">
+            <button type="button" class="btn" [disabled]="exporting() !== null" (click)="download('csv')">
+              {{ (exporting() === 'csv' ? 'exports.preparing' : 'exports.downloadCsv') | t }}
+            </button>
+            <button type="button" class="btn" [disabled]="exporting() !== null" (click)="download('pdf')">
+              {{ (exporting() === 'pdf' ? 'exports.preparing' : 'exports.downloadPdf') | t }}
+            </button>
+          </div>
+          @if (exportError()) {
+            <p class="error-message" role="alert">{{ exportError() }}</p>
+          }
+        </div>
       }
     }
   }
