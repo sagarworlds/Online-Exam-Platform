@@ -89,11 +89,26 @@ public class ItemAnalysisPdfWriterTests
     }
 
     [Fact]
-    public void AQuestionInAScriptTheFontLacks_ShowsAMark_AndTheReportSaysWhy()
+    public void AQuestionInDevanagari_IsDrawnShaped_WithTheEmbeddedFont_AndNeedsNoNote()
     {
         var text = Text(new ItemAnalysisPdfWriter().Write(Analysis(Shown(1, "अशा"))));
 
-        Assert.Contains("(???) Tj", text, StringComparison.Ordinal);
+        // The question is drawn as shaped glyphs of the embedded font, one glyph at a time, not as question marks.
+        Assert.DoesNotContain("(???) Tj", text, StringComparison.Ordinal);
+        Assert.Matches(@"/F3 8\.5 Tf 1 0 0 1 [\d.]+ [\d.]+ Tm <[0-9A-F]{4}> Tj", text);
+        // Copying the question gives its letters back, so each one is in the font's ToUnicode map: अ, श and ा.
+        Assert.Contains("> <0905>\n", text, StringComparison.Ordinal);
+        Assert.Contains("> <0936>\n", text, StringComparison.Ordinal);
+        Assert.Contains("> <093E>\n", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Some characters could not be printed", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AQuestionWithACharacterNoFontHas_ShowsAMark_AndTheReportSaysWhy()
+    {
+        var text = Text(new ItemAnalysisPdfWriter().Write(Analysis(Shown(1, "漢字"))));
+
+        Assert.Contains("(??) Tj", text, StringComparison.Ordinal);
         // The note wraps across two lines, so its opening words are the part that sits on one line.
         Assert.Contains("Some characters could not be printed", text, StringComparison.Ordinal);
     }

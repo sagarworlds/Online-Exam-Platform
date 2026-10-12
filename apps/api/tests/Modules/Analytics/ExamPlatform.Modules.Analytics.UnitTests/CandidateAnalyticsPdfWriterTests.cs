@@ -68,13 +68,26 @@ public class CandidateAnalyticsPdfWriterTests
     }
 
     [Fact]
-    public void AnExamName_InAScriptTheFontLacks_ShowsAMark_AndTheReportSaysWhy()
+    public void AnExamNameInDevanagari_IsDrawnShaped_WithTheEmbeddedFont_AndNeedsNoNote()
     {
         var figures = new CandidateAnalyticsDto(1, [Point("अशा परीक्षा", 1, 2, 50)], [], [], new TimePerQuestionDto(0, null, []), []);
 
         var text = Text(new CandidateAnalyticsPdfWriter().Write(figures));
 
-        Assert.Contains("(??? ???????) Tj", text, StringComparison.Ordinal);
+        // The name is drawn as glyphs of the embedded font, not as question marks, so there is nothing for the report to explain.
+        Assert.DoesNotContain("(??? ???????) Tj", text, StringComparison.Ordinal);
+        Assert.Matches(@"/F3 [\d.]+ Tf 1 0 0 1 [\d.]+ [\d.]+ Tm <[0-9A-F]{4}> Tj", text);
+        Assert.DoesNotContain("Some characters could not be printed", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnExamNameWithACharacterNoFontHas_ShowsAMark_AndTheReportSaysWhy()
+    {
+        var figures = new CandidateAnalyticsDto(1, [Point("Exam 漢字", 1, 2, 50)], [], [], new TimePerQuestionDto(0, null, []), []);
+
+        var text = Text(new CandidateAnalyticsPdfWriter().Write(figures));
+
+        Assert.Contains("(Exam ??) Tj", text, StringComparison.Ordinal);
         Assert.Contains("Some characters could not be printed", text, StringComparison.Ordinal);
     }
 }

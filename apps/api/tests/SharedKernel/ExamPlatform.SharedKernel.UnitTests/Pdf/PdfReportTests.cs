@@ -129,13 +129,14 @@ public class PdfReportTests
     [Fact]
     public void TextTheFontCannotPrint_IsReplaced_AndTheReportSaysSo()
     {
+        // Two Chinese characters: neither the Helvetica faces nor the Devanagari font has them, so each becomes a mark.
         var report = new PdfReport("Substitution");
-        report.Table(Columns, [new[] { "R1", "अशा", "1" }]);
+        report.Table(Columns, [new[] { "R1", "漢字", "1" }]);
 
         var text = Text(report.Build());
 
         Assert.True(report.SubstitutedCharacters);
-        Assert.Contains("(???) Tj", text, StringComparison.Ordinal);
+        Assert.Contains("(??) Tj", text, StringComparison.Ordinal);
     }
 
     [Fact]

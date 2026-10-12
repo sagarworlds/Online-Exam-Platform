@@ -32,6 +32,10 @@
     <!-- Rich text -->
     <PackageVersion Include="HtmlSanitizer" Version="9.2.1039" />
 
+    <!-- PDF text: shapes Devanagari for the PDF writer (FR-38). The Linux native library is its own package and is needed on linux-x64. -->
+    <PackageVersion Include="HarfBuzzSharp" Version="14.2.1.301" />
+    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="14.2.1.301" />
+
     <!-- Identity / Auth -->
     <PackageVersion Include="Microsoft.AspNetCore.Identity" Version="2.3.13" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />

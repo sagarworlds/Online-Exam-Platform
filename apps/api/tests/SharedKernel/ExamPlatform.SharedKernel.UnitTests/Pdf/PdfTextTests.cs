@@ -2,26 +2,44 @@ using ExamPlatform.SharedKernel.Application.Pdf;
 
 namespace ExamPlatform.SharedKernel.UnitTests.Pdf;
 
-/// <summary>The text rules of the PDF writer: what the built-in fonts print, how text is escaped, and how a line is measured and wrapped.</summary>
+/// <summary>The text rules of the PDF writer: what the fonts print, how text is escaped, and how a line is measured and wrapped.</summary>
 public class PdfTextTests
 {
     [Theory]
     [InlineData("Asha Kumar", true)]
     [InlineData("Café Müller", true)]
     [InlineData("Asha (Kumar) \\ 100%", true)]
-    [InlineData("अशा कुमार", false)]
+    [InlineData("अशा कुमार", true)]
+    [InlineData("क्षत्रिय", true)]
+    [InlineData("क\u200Dष", true)]
+    [InlineData("\u200Dक", false)]
     [InlineData("Ā-long vowel", false)]
     [InlineData("Ellipsis…", false)]
+    [InlineData("漢字", false)]
     [InlineData("tab\there", false)]
     [InlineData("line\nbreak", false)]
-    public void CanShow_AcceptsOnlyWhatTheBuiltInFontHas(string text, bool expected) =>
+    public void CanShow_AcceptsOnlyWhatTheFontsHave(string text, bool expected) =>
         Assert.Equal(expected, PdfText.CanShow(text));
 
+    [Theory]
+    [InlineData("Café Müller", true)]
+    [InlineData("अशा कुमार", false)]
+    public void CanShowLatin_AcceptsOnlyWhatTheHelveticaFacesHave(string text, bool expected) =>
+        Assert.Equal(expected, PdfText.CanShowLatin(text));
+
     [Fact]
-    public void Printable_ReplacesEachUnprintableCharacterWithAQuestionMark()
+    public void Printable_ReplacesEachCharacterNeitherLatinNorDevanagari_WithAQuestionMark()
     {
-        // Each Devanagari letter here is one character, so the three of "अशा" become three marks.
-        Assert.Equal("Asha ??? Kumar", PdfText.Printable("Asha अशा Kumar"));
+        // Two Chinese characters are neither set, so each becomes one mark; the Devanagari beside them is kept as it is.
+        Assert.Equal("Asha ?? Kumar", PdfText.Printable("Asha 漢字 Kumar"));
+        Assert.Equal("Asha अशा Kumar", PdfText.Printable("Asha अशा Kumar"));
+    }
+
+    [Fact]
+    public void Printable_KeepsAJoinerOnlyAfterADevanagariLetter()
+    {
+        Assert.Equal("क\u200Dष", PdfText.Printable("क\u200Dष"));
+        Assert.Equal("a?b", PdfText.Printable("a\u200Db"));
     }
 
     [Fact]

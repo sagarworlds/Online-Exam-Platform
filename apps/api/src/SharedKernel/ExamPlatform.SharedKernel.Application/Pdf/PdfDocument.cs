@@ -5,13 +5,15 @@ namespace ExamPlatform.SharedKernel.Application.Pdf;
 
 /// <summary>
 /// A PDF document of one or more A4 pages, written by hand: the header, the objects, and a cross-reference table computed from the real byte
-/// offsets. It uses no third-party library, so there is no licence to carry and no font file to ship (FR-34, FR-38).
+/// offsets. Latin text uses the two standard Helvetica faces, which need no file. Devanagari uses one embedded font, Noto Sans Devanagari, which
+/// is written into the file only when the document draws Devanagari text (FR-38).
 /// </summary>
 /// <remarks>
 /// Object numbers are fixed by the layout, so the first page of a one-page document has the same numbers the certificate has always used: the
 /// catalogue is 1, the page tree 2, the pages from 3, the two fonts after them, the page contents after those, and the document information
-/// last. Every string is escaped, so a name with brackets or a backslash cannot break the file. Every character is below 0x100 (see
-/// <see cref="PdfText.CanShow"/>), so Latin-1 writes each one as the single byte the offsets count.
+/// last. The Devanagari font, when a document has any, takes the numbers after the information. Every string is escaped, so a name with
+/// brackets or a backslash cannot break the file. Every character of the file is below 0x100, so Latin-1 writes each one as the single byte the
+/// offsets count; the font file is a binary stream and is carried the same way.
 /// </remarks>
 public sealed class PdfDocument
 {
@@ -23,14 +25,15 @@ public sealed class PdfDocument
 
     private readonly string _title;
     private readonly List<PdfPage> _pages = [];
+    private readonly DevanagariGlyphs _glyphs = new();
 
     /// <summary>Starts an empty document. Pages are added with <see cref="AddPage"/>.</summary>
     /// <param name="title">The document's title, shown in the reader's title bar and kept in the file's information.</param>
-    /// <exception cref="ArgumentException"><paramref name="title"/> has a character the built-in font cannot print.</exception>
+    /// <exception cref="ArgumentException"><paramref name="title"/> has a character the fonts cannot print.</exception>
     public PdfDocument(string title)
     {
         if (!PdfText.CanShow(title))
-            throw new ArgumentException("The title uses a character the built-in font cannot show.", nameof(title));
+            throw new ArgumentException("The title uses a character the fonts cannot show.", nameof(title));
 
         _title = title;
     }
@@ -42,7 +45,7 @@ public sealed class PdfDocument
     /// <returns>The page, to draw on until the document is built.</returns>
     public PdfPage AddPage()
     {
-        var page = new PdfPage();
+        var page = new PdfPage(_glyphs);
         _pages.Add(page);
         return page;
     }
@@ -76,9 +79,12 @@ public sealed class PdfDocument
         foreach (var offset in offsets)
             sb.Append($"{offset:D10} 00000 n \n");
 
-        sb.Append($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R /Info {objects.Count} 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        sb.Append($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R /Info {InfoNumber} 0 R >>\nstartxref\n{xref}\n%%EOF\n");
         return Encoding.Latin1.GetBytes(sb.ToString());
     }
+
+    /// <summary>The number of the document information dictionary: after the catalogue, the page tree, the pages, the fonts and the contents.</summary>
+    private int InfoNumber => 5 + 2 * _pages.Count;
 
     /// <summary>Lays out the object bodies in the order the layout fixes their numbers.</summary>
     private List<string> ObjectsOf()
@@ -87,9 +93,13 @@ public sealed class PdfDocument
         var regularFont = 3 + n;
         var boldFont = regularFont + 1;
         var firstContent = boldFont + 1;
-        var info = firstContent + n;
+        var info = InfoNumber;
+        var devanagariFont = info + 1;
 
-        var objects = new List<string>(info)
+        // The Devanagari font is named only in a document that draws it, so a Latin-only document is written as it always was.
+        var fonts = $"/F1 {regularFont} 0 R /F2 {boldFont} 0 R" + (_glyphs.Any ? $" /F3 {devanagariFont} 0 R" : string.Empty);
+
+        var objects = new List<string>(info + DevanagariFontObjects.Count)
         {
             "<< /Type /Catalog /Pages 2 0 R >>",
             $"<< /Type /Pages /Kids [{string.Join(' ', Enumerable.Range(0, n).Select(i => $"{3 + i} 0 R"))}] /Count {n} >>",
@@ -99,7 +109,7 @@ public sealed class PdfDocument
         {
             objects.Add(
                 $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {PageWidth} {PageHeight}] " +
-                $"/Resources << /Font << /F1 {regularFont} 0 R /F2 {boldFont} 0 R >> >> /Contents {firstContent + i} 0 R >>");
+                $"/Resources << /Font << {fonts} >> >> /Contents {firstContent + i} 0 R >>");
         }
 
         objects.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
@@ -111,9 +121,20 @@ public sealed class PdfDocument
             objects.Add($"<< /Length {Encoding.Latin1.GetByteCount(content)} >>\nstream\n{content}endstream");
         }
 
-        objects.Add($"<< /Title ({PdfText.Escape(_title)}) /Producer (Online Exam Platform) >>");
+        objects.Add($"<< /Title {TitleString()} /Producer (Online Exam Platform) >>");
+
+        if (_glyphs.Any)
+            objects.AddRange(DevanagariFontObjects.For(_glyphs, devanagariFont));
+
         return objects;
     }
+
+    /// <summary>
+    /// The title as a PDF string. A title in Latin-1 is a literal string, as it always was. Any other title (one with Devanagari, say) is UTF-16 in
+    /// hexadecimal behind a byte order mark, so its characters survive the reader.
+    /// </summary>
+    private string TitleString() =>
+        _title.All(c => c <= 0xFF) ? $"({PdfText.Escape(_title)})" : $"<FEFF{PdfText.Utf16Hex(_title)}>";
 }
 
 /// <summary>
@@ -123,24 +144,51 @@ public sealed class PdfDocument
 public sealed class PdfPage
 {
     private readonly StringBuilder _content = new();
+    private readonly DevanagariGlyphs _glyphs;
+
+    /// <summary>Starts a page that records its Devanagari glyphs in the document's registry.</summary>
+    internal PdfPage(DevanagariGlyphs glyphs) => _glyphs = glyphs;
 
     /// <summary>The page's content stream, as the PDF operators that draw it.</summary>
     internal string Content => _content.ToString();
 
-    /// <summary>Draws one line of text with its baseline at the given point.</summary>
+    /// <summary>
+    /// Draws one line of text with its baseline at the given point. Latin runs are set in the chosen Helvetica face; Devanagari runs are shaped
+    /// and drawn with the embedded font, glyph by glyph, so a vowel sign sits where shaping put it.
+    /// </summary>
     /// <param name="text">The text, printable (see <see cref="PdfText.CanShow"/>); it is printed as written.</param>
-    /// <param name="font">The face to set the text in.</param>
+    /// <param name="font">The face to set the Latin text in. Devanagari has one face, and is drawn in it whatever is asked.</param>
     /// <param name="size">The font size in points.</param>
     /// <param name="x">The left edge of the text, in points from the page's left edge.</param>
     /// <param name="y">The baseline, in points from the page's bottom edge.</param>
-    /// <exception cref="ArgumentException">The text has a character the built-in font cannot print.</exception>
+    /// <exception cref="ArgumentException">The text has a character the fonts cannot print.</exception>
     public void Text(string text, PdfFont font, double size, double x, double y)
     {
         if (!PdfText.CanShow(text))
-            throw new ArgumentException("The text uses a character the built-in font cannot show.", nameof(text));
+            throw new ArgumentException("The text uses a character the fonts cannot show.", nameof(text));
 
         var face = font == PdfFont.Bold ? "F2" : "F1";
-        _content.Append($"BT /{face} {Num(size)} Tf {Num(x)} {Num(y)} Td ({PdfText.Escape(text)}) Tj ET\n");
+        var segments = PdfText.Segments(text);
+        if (segments.Count == 0)
+        {
+            // An empty line still draws an empty string, as it always has.
+            _content.Append($"BT /{face} {Num(size)} Tf {Num(x)} {Num(y)} Td () Tj ET\n");
+            return;
+        }
+
+        // Each run is a text object of its own, which starts at the origin, so a Latin run is placed with Td. A Devanagari run is placed glyph by glyph.
+        var pen = x;
+        foreach (var segment in segments)
+        {
+            if (segment.Devanagari)
+            {
+                pen = ShowDevanagari(segment.Text, size, pen, y);
+                continue;
+            }
+
+            _content.Append($"BT /{face} {Num(size)} Tf {Num(pen)} {Num(y)} Td ({PdfText.Escape(segment.Text)}) Tj ET\n");
+            pen += PdfText.Width(segment.Text, font, size);
+        }
     }
 
     /// <summary>Draws the outline of a rectangle.</summary>
@@ -178,6 +226,29 @@ public sealed class PdfPage
     public void Line(double x1, double y1, double x2, double y2, double lineWidth, PdfColor color)
     {
         _content.Append($"q {Color(color)} RG {Num(lineWidth)} w {Num(x1)} {Num(y1)} m {Num(x2)} {Num(y2)} l S Q\n");
+    }
+
+    /// <summary>
+    /// Draws a Devanagari run and returns where the next run starts. Each glyph is drawn at the position shaping gave it, in the order of the
+    /// characters it stands for. The run sits in a span whose ActualText is its own characters, so a reader that copies or searches the page takes
+    /// the text from the span: the characters come back in order even where a vowel sign was drawn out of that order.
+    /// </summary>
+    private double ShowDevanagari(string text, double size, double pen, double baseline)
+    {
+        var font = DevanagariFont.Default;
+        var run = font.Shape(text);
+        var scale = size / DevanagariFont.UnitsPerEm;
+        var glyphs = new List<string>(run.Glyphs.Count);
+
+        foreach (var logical in run.InLogicalOrder())
+        {
+            var glyph = logical.Glyph;
+            var cid = _glyphs.Use(glyph.GlyphId, font.AdvanceOf(glyph.GlyphId), logical.Text);
+            glyphs.Add($"1 0 0 1 {Num(pen + glyph.X * scale)} {Num(baseline + glyph.Y * scale)} Tm <{cid:X4}> Tj");
+        }
+
+        _content.Append($"/Span << /ActualText <FEFF{PdfText.Utf16Hex(text)}> >> BDC BT /F3 {Num(size)} Tf {string.Join(' ', glyphs)} ET EMC\n");
+        return pen + run.Advance * scale;
     }
 
     private static string Color(PdfColor color) => $"{Num(color.Red)} {Num(color.Green)} {Num(color.Blue)}";

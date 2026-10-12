@@ -18,18 +18,19 @@ public sealed record CertificateDetails(string CandidateName, string ExamName, D
 /// covers Latin letters, digits and punctuation, which <see cref="CanShow"/> checks before anything is written.
 /// </summary>
 /// <remarks>
-/// The writer and its text rules live in the SharedKernel PDF engine, which the reports also use (FR-38). The certificate keeps its own
-/// refusal of an unprintable name: a certificate is a document of record, so a substituted letter in someone's name would be a wrong fact.
+/// The writer and its text rules live in the SharedKernel PDF engine, which the reports also use (FR-38). The engine can also draw Devanagari
+/// with its embedded font, but a certificate still refuses it: a certificate is a document of record, and that the name prints in a new way is
+/// a decision for its owner, not a side effect of the reports. So the certificate keeps the Latin set, and a name outside it is refused.
 /// </remarks>
 public static class CertificatePdf
 {
     private const double TextWidth = 450;
     private static readonly PdfColor Frame = new(0.15, 0.25, 0.45);
 
-    /// <summary>Whether the text can be printed with the built-in font: printable ASCII and the Latin-1 letters from 0xA0 to 0xFF.</summary>
+    /// <summary>Whether the text can be printed with the Helvetica font: printable ASCII and the Latin-1 letters from 0xA0 to 0xFF.</summary>
     /// <param name="text">The text to print.</param>
     /// <returns>True when every character of the text can be printed.</returns>
-    public static bool CanShow(string text) => PdfText.CanShow(text);
+    public static bool CanShow(string text) => PdfText.CanShowLatin(text);
 
     /// <summary>Lays out and writes the certificate.</summary>
     /// <param name="details">What the certificate says; its text must pass <see cref="CanShow"/>.</param>
