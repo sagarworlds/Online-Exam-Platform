@@ -7,12 +7,13 @@ namespace ExamPlatform.Modules.Analytics.Infrastructure;
 
 /// <summary>
 /// Writes an item analysis as a PDF report (FR-38): a summary of how the figures were worked, then one table row per question, over as many
-/// pages as the exam needs, with the same figures and status words as the CSV.
+/// pages as the exam needs, with the same difficulty and discrimination figures and status words as the CSV.
 /// </summary>
 /// <remarks>
 /// The table is in the exam's order, and its header repeats on each page so every page reads alone. A question's text is the same short preview
-/// the CSV carries, so the two files list the same questions. A question whose text uses a character the built-in font lacks shows a question
-/// mark, and the report ends with a line that says so.
+/// the CSV carries, so the two files list the same questions. The average time per question is in the CSV only: the table already fills the
+/// width between the margins, so another column would mean re-laying out every existing one. A question whose text uses a character the
+/// built-in font lacks shows a question mark, and the report ends with a line that says so.
 /// </remarks>
 public sealed class ItemAnalysisPdfWriter : IItemAnalysisPdfWriter
 {

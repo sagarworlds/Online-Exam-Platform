@@ -87,6 +87,8 @@ public sealed class ExamResponseReader(IAttemptRepository attempts, IExamCatalog
         Attempt attempt, ExamSnapshot paperExam, IReadOnlyDictionary<(Guid QuestionId, int? Version), QuestionSnapshot> questions)
     {
         var answers = attempt.Answers.ToDictionary(a => a.QuestionId);
+        // The times are the recorded ones the candidate's own result reads, so the staff figure and the candidate's figure never disagree.
+        var timeSpent = attempt.QuestionTimes.ToDictionary(t => t.QuestionId, t => t.Seconds);
         var responses = paperExam.Sections
             .SelectMany(s => s.QuestionIds)
             .Select(questionId =>
@@ -96,7 +98,8 @@ public sealed class ExamResponseReader(IAttemptRepository attempts, IExamCatalog
                 var question = questions.GetValueOrDefault((questionId, version)) ?? throw new ExamContentUnavailableError();
                 var answer = answers.GetValueOrDefault(questionId);
                 var mark = AttemptScorer.Mark(paperExam, question, answer?.SelectedOptionIds ?? [], answer?.AnswerText);
-                return new QuestionResponse(questionId, mark.Verdict == AnswerVerdict.Correct);
+                var seconds = timeSpent.TryGetValue(questionId, out var reported) ? reported : (int?)null;
+                return new QuestionResponse(questionId, mark.Verdict == AnswerVerdict.Correct, seconds);
             })
             .ToList();
 

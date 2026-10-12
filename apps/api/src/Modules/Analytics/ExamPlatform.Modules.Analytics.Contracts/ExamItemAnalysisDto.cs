@@ -9,6 +9,7 @@ namespace ExamPlatform.Modules.Analytics.Contracts;
 /// <param name="GroupSize">How many candidates are in each of the upper and lower groups behind the discrimination index.</param>
 /// <param name="Questions">The questions in the exam's order, with any drawn questions after them.</param>
 /// <param name="Scores">The candidates' mean, median and score distribution (FR-37), with no figures while the results are held.</param>
+/// <param name="Time">The average time per question across the counted candidates' timed answers (FR-37), with no figures while the results are held.</param>
 public sealed record ExamItemAnalysisDto(
     Guid ExamId,
     string ExamName,
@@ -17,7 +18,8 @@ public sealed record ExamItemAnalysisDto(
     int MinimumCohortSize,
     int GroupSize,
     IReadOnlyList<ItemRowDto> Questions,
-    ExamScoreSummaryDto Scores);
+    ExamScoreSummaryDto Scores,
+    ExamTimeSummaryDto Time);
 
 /// <summary>One question's row in the item analysis.</summary>
 /// <param name="QuestionId">The question.</param>
@@ -27,6 +29,7 @@ public sealed record ExamItemAnalysisDto(
 /// <param name="CorrectCount">How many of them answered it fully correctly.</param>
 /// <param name="Difficulty">The share of them who answered correctly, from 0 to 1; null while below the minimum cohort size.</param>
 /// <param name="Discrimination">The upper group's share correct less the lower group's, from -1 to 1; null while below the minimum, or when a group has no one to compare.</param>
+/// <param name="Time">How long the counted candidates spent on the question, and whether its average is shown.</param>
 public sealed record ItemRowDto(
     Guid QuestionId,
     int Position,
@@ -34,4 +37,29 @@ public sealed record ItemRowDto(
     int Attempts,
     int CorrectCount,
     decimal? Difficulty,
-    decimal? Discrimination);
+    decimal? Discrimination,
+    ItemTimeDto Time);
+
+/// <summary>How long the counted candidates spent on one question, and whether its average is shown (FR-37).</summary>
+/// <param name="CandidatesTimed">How many counted candidates have a reported time for the question. A candidate with no reported time is not counted as zero.</param>
+/// <param name="AverageSeconds">The average time in seconds, to one decimal place; null unless <paramref name="Status"/> is Shown.</param>
+/// <param name="Status">Whether the average is shown and, if not, why, so a withheld average is never read as zero.</param>
+public sealed record ItemTimeDto(int CandidatesTimed, decimal? AverageSeconds, ItemTimeStatus Status);
+
+/// <summary>Why a question's average time is shown or withheld (FR-37).</summary>
+public enum ItemTimeStatus
+{
+    /// <summary>At least the minimum cohort size of counted candidates have a time for the question, so its average is shown.</summary>
+    Shown,
+
+    /// <summary>Some candidates have a time for the question, but fewer than the minimum cohort size, so the average is withheld.</summary>
+    BelowMinimumCohort,
+
+    /// <summary>No counted candidate has a reported time for the question, so there is no average to show.</summary>
+    NoTimes,
+}
+
+/// <summary>The average time per question across an exam's counted candidates (FR-37).</summary>
+/// <param name="QuestionsTimed">How many question answers across the counted candidates have a reported time.</param>
+/// <param name="AverageSeconds">The average over those timed answers, in seconds, to one decimal place; null when none was timed.</param>
+public sealed record ExamTimeSummaryDto(int QuestionsTimed, decimal? AverageSeconds);

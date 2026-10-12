@@ -49,6 +49,20 @@ internal static class ReportFormatting
     }
 
     /// <summary>
+    /// Says why a question's average time is withheld, in words a reader can filter on, so a blank is never taken for zero (FR-38).
+    /// </summary>
+    /// <param name="time">The question's time figure.</param>
+    /// <param name="minimumCohortSize">How many candidates must have a time for the question before its average is shown.</param>
+    /// <returns>The status: that the average is shown, or why it is not.</returns>
+    public static string TimeStatus(ItemTimeDto time, int minimumCohortSize) => time.Status switch
+    {
+        ItemTimeStatus.Shown => "Shown",
+        ItemTimeStatus.BelowMinimumCohort => $"Not shown: fewer than {Count(minimumCohortSize)} candidates had a time for the question",
+        ItemTimeStatus.NoTimes => "Not shown: no candidate had a time for the question",
+        _ => throw new ArgumentOutOfRangeException(nameof(time), time.Status, "This time status has no report wording."),
+    };
+
+    /// <summary>
     /// Spreadsheet programs run a cell that begins with <c>=</c>, <c>+</c>, <c>-</c> or <c>@</c> as a formula, so text beginning that way could
     /// execute something when the file is opened. A leading apostrophe makes the program show the text instead. Applied to text only: the
     /// figures are numbers and their minus signs must stay.

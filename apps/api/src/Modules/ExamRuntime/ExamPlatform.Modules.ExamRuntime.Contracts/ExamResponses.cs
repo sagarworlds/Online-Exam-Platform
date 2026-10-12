@@ -28,7 +28,11 @@ public sealed record AttemptResponses(
     decimal MaxScore,
     IReadOnlyList<QuestionResponse> Questions);
 
-/// <summary>Whether one question was answered fully correctly on one attempt.</summary>
+/// <summary>Whether one question was answered fully correctly on one attempt, and how long the candidate spent on it.</summary>
 /// <param name="QuestionId">The question.</param>
 /// <param name="Correct">True only when the candidate's answer was fully correct; partly right, wrong and unanswered are all false.</param>
-public sealed record QuestionResponse(Guid QuestionId, bool Correct);
+/// <param name="TimeSpentSeconds">
+/// The running total of seconds the candidate spent on the question, as the page reported it; null when the page never reported on it. It is the
+/// same time the candidate's own result shows (FR-36).
+/// </param>
+public sealed record QuestionResponse(Guid QuestionId, bool Correct, int? TimeSpentSeconds = null);

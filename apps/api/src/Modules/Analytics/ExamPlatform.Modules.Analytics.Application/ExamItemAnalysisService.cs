@@ -15,6 +15,9 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
     /// <summary>The score figures of an exam whose results are held: nobody counts, so there is no mean, median or band to show.</summary>
     private static readonly ExamScoreSummaryDto NoScores = new(0, null, null, []);
 
+    /// <summary>The time figures of an exam whose results are held: nobody counts, so there is no average to show.</summary>
+    private static readonly ExamTimeSummaryDto NoTime = new(0, null);
+
     /// <inheritdoc />
     public async Task<ExamItemAnalysisDto> GetAsync(Guid examId, CancellationToken cancellationToken)
     {
@@ -22,15 +25,16 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
 
         // With the results held, no attempt counts, so there is nothing to show; the caller is told why, not handed empty rows.
         if (!read.ResultsReleased)
-            return new ExamItemAnalysisDto(read.ExamId, read.ExamName, false, 0, policy.MinimumCohortSize, 0, [], NoScores);
+            return new ExamItemAnalysisDto(read.ExamId, read.ExamName, false, 0, policy.MinimumCohortSize, 0, [], NoScores, NoTime);
 
         var best = BestAttemptPerCandidate(read.Attempts);
         var groups = ItemStatistics.GroupsOf(best.Select(a => new CandidateScore(a.CandidateId, a.Score)).ToList());
         var answers = AnswersByQuestion(best);
+        var seconds = SecondsByQuestion(best);
         var texts = await PreviewsAsync(read.QuestionIds, cancellationToken);
 
         var rows = read.QuestionIds
-            .Select((questionId, index) => RowOf(questionId, index + 1, groups, answers, texts))
+            .Select((questionId, index) => RowOf(questionId, index + 1, groups, answers, seconds, texts))
             .ToList();
 
         return new ExamItemAnalysisDto(
@@ -41,7 +45,18 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
             policy.MinimumCohortSize,
             ItemStatistics.GroupSize(best.Count),
             rows,
-            ScoresOf(best));
+            ScoresOf(best),
+            TimeOf(seconds));
+    }
+
+    /// <summary>
+    /// The average time per question over every timed answer of the counted candidates, the same figure the candidate's own analytics gives for
+    /// their time (FR-36). It is not withheld by the cohort rule, which governs one question's figure; the exam's scores are not withheld either.
+    /// </summary>
+    private static ExamTimeSummaryDto TimeOf(IReadOnlyDictionary<Guid, List<int>> seconds)
+    {
+        var timed = seconds.Values.SelectMany(s => s).ToList();
+        return new ExamTimeSummaryDto(timed.Count, QuestionTiming.AverageOf(timed));
     }
 
     /// <summary>
@@ -91,6 +106,31 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
         return byQuestion;
     }
 
+    /// <summary>
+    /// Each question's reported times, one per counted candidate who has one. Times come from each candidate's best counted attempt, as the answers
+    /// do, so a candidate who sat twice is timed once and the time cohort matches the other figures. A question nobody reported on has no entry.
+    /// </summary>
+    private static Dictionary<Guid, List<int>> SecondsByQuestion(IReadOnlyList<AttemptResponsesOfCandidate> best)
+    {
+        var byQuestion = new Dictionary<Guid, List<int>>();
+        foreach (var attempt in best)
+        {
+            foreach (var question in attempt.Questions)
+            {
+                // A question the page never reported on says nothing about the pace, so it is left out rather than counted as zero.
+                if (question.TimeSpentSeconds is not { } seconds)
+                    continue;
+
+                if (!byQuestion.TryGetValue(question.QuestionId, out var list))
+                    byQuestion[question.QuestionId] = list = [];
+
+                list.Add(seconds);
+            }
+        }
+
+        return byQuestion;
+    }
+
     private async Task<Dictionary<Guid, string>> PreviewsAsync(IReadOnlyList<Guid> questionIds, CancellationToken cancellationToken)
     {
         if (questionIds.Count == 0)
@@ -105,6 +145,7 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
         int position,
         CohortGroups groups,
         IReadOnlyDictionary<Guid, List<ItemAnswer>> answers,
+        IReadOnlyDictionary<Guid, List<int>> seconds,
         IReadOnlyDictionary<Guid, string> texts)
     {
         // A question of the exam that the bank cannot return is a fault to surface, not a row to leave blank.
@@ -115,7 +156,12 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
         var questionAnswers = answers.TryGetValue(questionId, out var found) ? found : new List<ItemAnswer>();
         var indices = ItemStatistics.IndicesOf(groups, questionAnswers, policy.MinimumCohortSize);
 
-        return new ItemRowDto(questionId, position, text, indices.Attempts, indices.CorrectCount, indices.Difficulty, indices.Discrimination);
+        // A question nobody reported a time on has no entry, which the cohort rule reads as no times at all.
+        var questionSeconds = seconds.TryGetValue(questionId, out var reported) ? reported : new List<int>();
+        var time = TimedCohortRule.FigureOf(questionSeconds, policy.MinimumCohortSize);
+
+        return new ItemRowDto(
+            questionId, position, text, indices.Attempts, indices.CorrectCount, indices.Difficulty, indices.Discrimination, time);
     }
 
     /// <summary>A candidate's best counted attempt, reduced to what the analysis reads.</summary>

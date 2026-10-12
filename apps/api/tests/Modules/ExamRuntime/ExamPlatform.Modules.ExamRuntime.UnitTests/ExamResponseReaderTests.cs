@@ -116,4 +116,23 @@ public class ExamResponseReaderTests
         var answered = Assert.Single(Assert.Single(responses!.Attempts).Questions, q => q.QuestionId == _first.Id);
         Assert.True(answered.Correct);
     }
+
+    [Fact]
+    public async Task EachQuestion_CarriesTheTimeTheCandidateReported_OrNone()
+    {
+        // The first question was timed at 40 seconds. The second was never reported on, so it carries no time rather than zero.
+        var exam = ExamWith();
+        var attempt = Attempt.Start(exam.Id, Guid.NewGuid(), 1, Fixtures.Now, Fixtures.Now.AddMinutes(30));
+        attempt.RecordAnswer(_first.Id, _first.Correct(), Fixtures.Now.AddSeconds(45));
+        attempt.RecordQuestionTime(_first.Id, 40, Fixtures.Now.AddSeconds(45));
+        attempt.RecordAnswer(_second.Id, _second.Wrong(), Fixtures.Now.AddSeconds(45));
+        attempt.Submit(Fixtures.Now.AddMinutes(10), 4m, 8m);
+        Counted(attempt);
+
+        var responses = await Reader.ReadAsync(exam.Id, CancellationToken.None);
+
+        Assert.Equal(
+            new[] { new QuestionResponse(_first.Id, true, 40), new QuestionResponse(_second.Id, false, null) },
+            Assert.Single(responses!.Attempts).Questions);
+    }
 }
