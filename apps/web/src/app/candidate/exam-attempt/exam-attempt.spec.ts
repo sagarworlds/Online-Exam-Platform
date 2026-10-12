@@ -161,6 +161,21 @@ describe('ExamAttempt', () => {
     expect(textOf(fixture)).toContain('Question 1 of 2');
   });
 
+  it.each(['Next', 'Save & Next'])(
+    'keeps focus on the question when %s reaches the last question, instead of dropping it to the page',
+    async (label) => {
+      const fixture = await open(attempt());
+      const button = buttonLabelled(fixture, label)!;
+      button.focus();
+      button.click();
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Question 2 of 2');
+      expect((buttonLabelled(fixture, label) as HTMLButtonElement).disabled).toBe(true);
+      expect(document.activeElement).toBe(root(fixture).querySelector('.question__meta'));
+    },
+  );
+
   it('numbers every question in a palette, marks the answered ones, and jumps to the one pressed', async () => {
     const fixture = await open(attempt());
 
@@ -972,17 +987,26 @@ describe('ExamAttempt', () => {
 
     expect(buttonLabelled(fixture, 'A−')!.disabled).toBe(true);
     for (let i = 0; i < 5; i++) {
-      (root(fixture).querySelector('button[aria-label="Larger text"]') as HTMLButtonElement).click();
+      (root(fixture).querySelector('button[aria-label$="Larger text"]') as HTMLButtonElement).click();
       fixture.detectChanges();
     }
     expect(card().style.getPropertyValue('--exam-zoom')).toBe('1.5');
-    expect((root(fixture).querySelector('button[aria-label="Larger text"]') as HTMLButtonElement).disabled).toBe(true);
+    expect((root(fixture).querySelector('button[aria-label$="Larger text"]') as HTMLButtonElement).disabled).toBe(true);
     expect(localStorage.getItem('exam.textZoom')).toBe('1.5');
 
-    (root(fixture).querySelector('button[aria-label="Smaller text"]') as HTMLButtonElement).click();
+    (root(fixture).querySelector('button[aria-label$="Smaller text"]') as HTMLButtonElement).click();
     fixture.detectChanges();
     expect(card().style.getPropertyValue('--exam-zoom')).toBe('1.3');
     localStorage.removeItem('exam.textZoom');
+  });
+
+  it('names the zoom buttons with their visible A− and A+ first, then what they do, for voice control and screen readers', async () => {
+    const fixture = await open(attempt());
+    const zoomButton = (visible: string) =>
+      Array.from(root(fixture).querySelectorAll<HTMLButtonElement>('.exam-zoom button')).find((b) => b.textContent?.trim() === visible)!;
+
+    expect(zoomButton('A−').getAttribute('aria-label')).toBe('A− Smaller text');
+    expect(zoomButton('A+').getAttribute('aria-label')).toBe('A+ Larger text');
   });
 
   describe('an accommodation (FR-49)', () => {
@@ -1017,7 +1041,7 @@ describe('ExamAttempt', () => {
       const fixture = await open(accommodated(['large_text', 'high_contrast']));
 
       buttonLabelled(fixture, 'High contrast')?.click();
-      (root(fixture).querySelector('button[aria-label="Smaller text"]') as HTMLButtonElement).click();
+      (root(fixture).querySelector('button[aria-label$="Smaller text"]') as HTMLButtonElement).click();
       fixture.detectChanges();
 
       expect(root(fixture).querySelector('.page--contrast')).toBeNull();
@@ -1099,6 +1123,54 @@ describe('ExamAttempt', () => {
 
       expect(textOf(fixture)).toContain('Section A · Question 1 of 3');
       expect(textOf(fixture)).not.toContain('You will not be able to come back');
+    });
+
+    it('moves focus into the section confirmation when it opens, named and described for a screen reader', async () => {
+      const fixture = await open(lockedAttempt());
+      paletteButton(fixture, 3).focus();
+      paletteButton(fixture, 3).click();
+      fixture.detectChanges();
+
+      const dialog = root(fixture).querySelector<HTMLElement>('[role="alertdialog"]')!;
+      expect(dialog.getAttribute('aria-label')).toBe('Confirm leaving the section');
+      expect(document.getElementById(dialog.getAttribute('aria-describedby') ?? '')?.textContent).toContain(
+        'You will not be able to come back to this section',
+      );
+      expect(document.activeElement).toBe(dialog);
+    });
+
+    it('gives focus back to the control that asked to leave when the candidate stays', async () => {
+      const fixture = await open(lockedAttempt());
+      paletteButton(fixture, 3).focus();
+      paletteButton(fixture, 3).click();
+      fixture.detectChanges();
+
+      buttonLabelled(fixture, 'Stay here')!.click();
+      fixture.detectChanges();
+
+      expect(root(fixture).querySelector('[role="alertdialog"]')).toBeNull();
+      expect(document.activeElement).toBe(paletteButton(fixture, 3));
+    });
+
+    it('gives focus to the question when the control that asked to leave is disabled by the move', async () => {
+      const fixture = await open(lockedAttempt());
+      buttonLabelled(fixture, 'Next')!.click();
+      fixture.detectChanges();
+      // On question 2, the last of section A, the pager asks to leave the section. Question 3 is the last in the exam, so
+      // Save & Next is disabled once the move is made.
+      const saveNextSection = buttonLabelled(fixture, 'Save & Next section')!;
+      saveNextSection.focus();
+      saveNextSection.click();
+      fixture.detectChanges();
+
+      buttonLabelled(fixture, 'Yes, move on')!.click();
+      const request = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/section/s2') && r.method === 'PUT');
+      request.flush(null, { status: 204, statusText: 'No Content' });
+      fixture.detectChanges();
+
+      expect((buttonLabelled(fixture, 'Save & Next') as HTMLButtonElement).disabled).toBe(true);
+      expect(document.activeElement).toBe(root(fixture).querySelector('.question__meta'));
+      expect(document.activeElement?.textContent).toContain('Section B · Question 3 of 3');
     });
 
     it('opens in the section the server says the candidate is in, after a reload', async () => {
