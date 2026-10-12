@@ -253,6 +253,8 @@ export interface FocusViolationResultDto {
   limit: number;
   /** Whether this departure reached the limit, so the server has ended and scored the attempt. */
   attemptEnded: boolean;
+  /** The departure from which the candidate is warned; 0 when the exam does not watch. Warnings start here, before the limit. */
+  warnAt: number;
 }
 
 /** How one question was marked. */

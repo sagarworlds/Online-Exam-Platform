@@ -936,7 +936,7 @@ export const EN = {
   'exams.leaving.title': 'Leaving the exam page',
   'exams.leaving.watch': 'Warn candidates when they switch tab, switch window or leave full screen, and end the attempt after too many',
   'exams.leaving.field': 'Times a candidate may leave before the attempt ends',
-  'exams.leaving.rangeHint': 'From {fewest} to {most}. Each time, the candidate is warned how many they have used. Leaving that many times makes the server submit the attempt with the answers saved so far, and an administrator can then give them another attempt.',
+  'exams.leaving.rangeHint': 'From {fewest} to {most}. The candidate is warned from the third time they leave, or sooner when the limit is low, and told how many they have used. Leaving that many times makes the server submit the attempt with the answers saved so far, and an administrator can then give them another attempt.',
   'exams.leaving.defaultHint': 'Off by default. Candidates are told before they start. The page counts what the browser reports; a browser set up to hide it cannot be detected, and a candidate who loses their connection is not counted while offline. Treat it as a deterrent and a record, not proof. You can change it after publishing.',
   'exams.leaving.readLine': 'Leaving the exam page: {state}',
   'exams.leaving.readEnds.one': 'the attempt ends after {count} time',

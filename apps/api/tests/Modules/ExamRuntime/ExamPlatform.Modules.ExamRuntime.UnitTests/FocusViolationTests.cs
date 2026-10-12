@@ -105,7 +105,8 @@ public class FocusViolationTests
 
         var result = await Handler().HandleAsync(attempt.Id, _candidate, FocusViolationKind.TabHidden, CancellationToken.None);
 
-        Assert.Equal(new(1, 3, false), result);
+        // A limit of 3 warns from the second departure, so the candidate has one warning before the attempt ends.
+        Assert.Equal(new(1, 3, false, 2), result);
         Assert.Equal(AttemptStatus.InProgress, attempt.Status);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -120,7 +121,7 @@ public class FocusViolationTests
 
         var result = await Handler().HandleAsync(attempt.Id, _candidate, FocusViolationKind.FullscreenExited, CancellationToken.None);
 
-        Assert.Equal(new(3, 3, true), result);
+        Assert.Equal(new(3, 3, true, 2), result);
         Assert.Equal(AttemptStatus.Submitted, attempt.Status);
         Assert.True(attempt.EndedByViolations);
         Assert.Equal(1m, attempt.Score);
@@ -136,7 +137,7 @@ public class FocusViolationTests
 
         var result = await Handler().HandleAsync(attempt.Id, _candidate, FocusViolationKind.TabHidden, CancellationToken.None);
 
-        Assert.Equal(new(0, 0, false), result);
+        Assert.Equal(new(0, 0, false, 0), result);
         Assert.Empty(attempt.FocusViolations);
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
