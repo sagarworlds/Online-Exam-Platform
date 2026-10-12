@@ -70,9 +70,10 @@ else
 builder.Services.AddOptions<WhatsAppOptions>().Bind(builder.Configuration.GetSection(WhatsAppOptions.SectionName));
 builder.Services.AddWhatsAppCloudApi();
 
-// SMS: one sender behind the Sms:Enabled master switch, off unless set to true. No SMS provider is built in yet, so nothing is
-// sent even when the switch is on, and each attempt is logged. Render's setting is documented in render.yaml.
-builder.Services.AddOptions<SmsOptions>().Bind(builder.Configuration.GetSection(SmsOptions.SectionName));
+// SMS: one sender behind the Sms:Enabled master switch, off unless set to true. Switched on, it needs a provider, a registered sender ID
+// and a DLT template ID for each template, and the host refuses to start without them (SmsOptionsValidator). No provider is built in yet,
+// so the switch cannot be turned on for a real send. Render's settings are documented in render.yaml.
+builder.Services.AddOptions<SmsOptions>().Bind(builder.Configuration.GetSection(SmsOptions.SectionName)).ValidateOnStart();
 builder.Services.AddSmsSender();
 
 builder.Services
