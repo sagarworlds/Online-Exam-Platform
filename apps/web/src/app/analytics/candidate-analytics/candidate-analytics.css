@@ -122,7 +122,8 @@
 }
 
 .analytics-results,
-.analytics-sections {
+.analytics-sections,
+.analytics-topics {
   display: grid;
   gap: 1rem;
   margin: 0.75rem 0 0;
@@ -131,14 +132,16 @@
 }
 
 .analytics-result h3,
-.analytics-section h3 {
+.analytics-section h3,
+.analytics-topic h3 {
   margin: 0;
   font-size: 1.05rem;
   overflow-wrap: anywhere;
 }
 
 .analytics-result dl,
-.analytics-section dl {
+.analytics-section dl,
+.analytics-topic dl {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
   gap: 0.75rem 1.5rem;
@@ -146,15 +149,53 @@
 }
 
 .analytics-result dt,
-.analytics-section dt {
+.analytics-section dt,
+.analytics-topic dt {
   color: var(--text-muted);
   font-size: 0.9rem;
 }
 
 .analytics-result dd,
-.analytics-section dd {
+.analytics-section dd,
+.analytics-topic dd {
   margin: 0.15rem 0 0;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Time per question: the average is the figure to read, so it leads, and the sections follow as a plain list. */
+.analytics-time__average {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+.analytics-time__average strong {
+  font-size: 1.4rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.analytics-time h3 {
+  margin: 1rem 0 0.25rem;
+  font-size: 1rem;
+}
+
+.analytics-time__sections {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.analytics-time__sections li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
   font-variant-numeric: tabular-nums;
 }
 

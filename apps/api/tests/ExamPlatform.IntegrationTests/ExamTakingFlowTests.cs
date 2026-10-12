@@ -316,6 +316,48 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task TheTimeOnAQuestion_IsARunningTotal_AndTheAttemptCarriesItOnAResume()
+    {
+        var (admin, candidate, examId, questions) = await EnrolledCandidateAsync();
+        using var _ = admin;
+        using var __ = candidate;
+        var attemptId = (await StartAsync(candidate, examId)).GetProperty("id").GetGuid();
+        await factory.BackdateSittingAsync(attemptId, TimeSpan.FromMinutes(10));
+
+        var raised = await candidate.PutAsJsonAsync($"/v1/me/attempts/{attemptId}/questions/{questions[0].Id}/time", new { seconds = 60 });
+        // A total lower than the one kept is accepted and changes nothing, so a repeated or late report is harmless.
+        var lower = await candidate.PutAsJsonAsync($"/v1/me/attempts/{attemptId}/questions/{questions[0].Id}/time", new { seconds = 20 });
+
+        Assert.Equal(HttpStatusCode.NoContent, raised.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, lower.StatusCode);
+        var resumed = QuestionsOf(await candidate.GetFromJsonAsync<JsonElement>($"/v1/me/attempts/{attemptId}")).ToList();
+        Assert.Equal(60, resumed[0].GetProperty("timeSpentSeconds").GetInt32());
+        // A question nobody reported on has no time, and reading it is not the same as having spent none.
+        Assert.Equal(JsonValueKind.Null, resumed[1].GetProperty("timeSpentSeconds").ValueKind);
+    }
+
+    [Fact]
+    public async Task ATimeReport_IsNotAcceptedForAQuestionOutsideTheExam_OrAfterSubmitting()
+    {
+        var (admin, candidate, examId, questions) = await EnrolledCandidateAsync();
+        using var _ = admin;
+        using var __ = candidate;
+        var attemptId = (await StartAsync(candidate, examId)).GetProperty("id").GetGuid();
+        var outsider = await CreateTwoOptionQuestionAsync(admin, "Not in this exam either?");
+
+        await AssertProblemAsync(
+            await candidate.PutAsJsonAsync($"/v1/me/attempts/{attemptId}/questions/{outsider.Id}/time", new { seconds = 5 }),
+            HttpStatusCode.NotFound,
+            "question_not_in_attempt");
+
+        (await candidate.PostAsync($"/v1/me/attempts/{attemptId}/submit", content: null)).EnsureSuccessStatusCode();
+        await AssertProblemAsync(
+            await candidate.PutAsJsonAsync($"/v1/me/attempts/{attemptId}/questions/{questions[0].Id}/time", new { seconds = 5 }),
+            HttpStatusCode.Conflict,
+            "attempt_not_in_progress");
+    }
+
+    [Fact]
     public async Task AnotherCandidate_CannotClearOrMarkSomeoneElsesAttempt()
     {
         var (admin, owner, examId, questions) = await EnrolledCandidateAsync();
@@ -429,6 +471,7 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [InlineData("DELETE", "/v1/me/attempts/{id}/answers/{id}")]
     [InlineData("PUT", "/v1/me/attempts/{id}/marks/{id}")]
     [InlineData("DELETE", "/v1/me/attempts/{id}/marks/{id}")]
+    [InlineData("PUT", "/v1/me/attempts/{id}/questions/{id}/time")]
     [InlineData("PUT", "/v1/me/attempts/{id}/section/{id}")]
     [InlineData("POST", "/v1/me/attempts/{id}/submit")]
     [InlineData("POST", "/v1/me/attempts/{id}/issues")]
@@ -453,8 +496,9 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
             .Where(r => r.Pattern.StartsWith("/v1/me/exams", StringComparison.Ordinal) || r.Pattern.StartsWith("/v1/me/attempts", StringComparison.Ordinal))
             .ToList();
 
-        // Nineteen self-service routes: the eighteen already on main (the leaderboard among them), plus the certificate route (FR-34).
-        Assert.Equal(19, routes.Count);
+        // Twenty self-service routes: the nineteen already on main (the leaderboard and the certificate route among them), plus the
+        // time-per-question route (FR-36).
+        Assert.Equal(20, routes.Count);
         Assert.All(routes, r => Assert.True(r.RequiresAuthorization, $"{r.Key} must require a signed-in caller."));
     }
 }

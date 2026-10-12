@@ -48,6 +48,7 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         services.AddSingleton(sp => new QuestionApprovalPolicy(sp.GetRequiredService<IConfiguration>().GetValue<bool>("QuestionBank:RequireApproval")));
         services.AddScoped<IQuestionBank, QuestionBankReader>();
         services.AddScoped<IQuestionSubjects, QuestionSubjects>();
+        services.AddScoped<IQuestionTopics, QuestionTopics>();
         services.AddScoped<IBookCatalog, BookCatalog>();
         // Combines the IQuestionUsageSource each module that uses questions registers for itself.
         services.AddScoped<QuestionUsageReader>();

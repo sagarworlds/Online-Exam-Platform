@@ -22,6 +22,10 @@ public sealed record StartAttemptRequest(bool InstructionsAcknowledged = false);
 /// <param name="Text">The answer the candidate typed, for a text question. When given, it is the answer and the options are ignored.</param>
 public sealed record SaveAnswerRequest(Guid? OptionId = null, IReadOnlyList<Guid>? OptionIds = null, string? Text = null);
 
+/// <summary>Body of <c>PUT /v1/me/attempts/{attemptId}/questions/{questionId}/time</c> (FR-36).</summary>
+/// <param name="Seconds">The running total the candidate has spent on the question so far, in seconds, as the page measured it. The server keeps it no higher than the time since the attempt began.</param>
+public sealed record RecordQuestionTimeRequest(int Seconds);
+
 /// <summary>Body of <c>POST /v1/exams/{examId}/candidates/{candidateId}/extra-attempts</c>.</summary>
 /// <param name="Reason">Why the candidate is being given another attempt; optional, at most 500 characters.</param>
 public sealed record GrantExtraAttemptRequest(string? Reason);
@@ -203,6 +207,14 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status409Conflict)
             .WithName("ClearAnswer")
             .WithDescription("Take back the option chosen for one question of an open attempt, so it counts as unanswered");
+
+        me.MapPut("/attempts/{attemptId:guid}/questions/{questionId:guid}/time", RecordQuestionTime)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("RecordQuestionTime")
+            .WithDescription("Report the running total of seconds the candidate has spent on one question of an open attempt (FR-36); a total lower than the one kept changes nothing");
 
         me.MapPut("/attempts/{attemptId:guid}/marks/{questionId:guid}", MarkQuestion)
             .Produces(StatusCodes.Status204NoContent)
@@ -674,6 +686,13 @@ public static class ExamRuntimeEndpoints
         Guid attemptId, Guid questionId, ClaimsPrincipal user, MarkQuestionHandler handler, CancellationToken ct)
     {
         await handler.HandleAsync(attemptId, user.GetUserId(), questionId, marked: false, ct);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> RecordQuestionTime(
+        Guid attemptId, Guid questionId, RecordQuestionTimeRequest request, ClaimsPrincipal user, RecordQuestionTimeHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(attemptId, user.GetUserId(), questionId, request.Seconds, ct);
         return Results.NoContent();
     }
 
