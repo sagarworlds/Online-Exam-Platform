@@ -108,3 +108,15 @@ Question content is encrypted by `QuestionContentCipher` through the ASP.NET Cor
 - The header check has not been run against the deployed static site or API. Render may set headers at its edge that the repository does not show; the check reports what is actually served.
 - The Render Blueprint `headers` syntax was not confirmed.
 - No penetration test was run. Those are manual, and the requirement's "security test clean" is not covered by these automated checks alone.
+
+## Audit, 2026-10-12: question paper before the exam starts
+
+NFR-5 requires the question paper to be encrypted until the exam starts. The code does not do that. Question content is encrypted at rest with the Data Protection key ring (`QuestionContentCipher`), and the server can decrypt it at any time, so nothing is released at the start time.
+
+What keeps the paper back is access control:
+
+- The paper is drawn only when an attempt is created. `StartAttemptHandler` calls `Begin`, which throws `ExamNotOpenError` while `nowUtc < exam.StartUtc`, and the paper is drawn after that call.
+- A candidate has no attempt before the window opens, so no candidate route returns the paper early.
+- Staff can open `GET /v1/exams/{examId}/preview` (FR-15, `ManageAttempts`) at any time. It returns the questions as a candidate would see them, without answer keys, and nothing is stored. Staff can therefore read the paper before the start time. That is intended, but the requirement's wording does not allow for it.
+
+So candidates are kept from the paper before the start, but by access control rather than encryption. The owner decides whether access control is accepted as the control, with the exception and its reason recorded, or whether the paper is released by a step at the start time, such as a key issued only when the window opens. The content-protection setting is a different control: it turns off copy, paste and print (FR-23).
