@@ -10,8 +10,8 @@ namespace ExamPlatform.Modules.ExamRuntime.Application.Queries;
 /// <summary>
 /// Works out what a candidate's certificate says (FR-34). A certificate is issued only once the exam's author has released the result, the
 /// same gate the result page uses, so nobody learns a certificate, or a pass, before the result is out. Which certificate it is depends on the
-/// exam: with a pass mark, a candidate who reached it gets an achievement certificate with the score, and one who did not gets none; with no
-/// pass mark, every candidate gets a participation certificate, which names no score.
+/// exam: with a pass mark, a candidate who reached it gets an achievement certificate with the score, and one who did not gets a participation
+/// certificate, which names no score; with no pass mark, every candidate gets a participation certificate.
 /// </summary>
 public sealed class GetCertificateHandler(AttemptAccess access, IDisplayNameDirectory displayNames, Clock clock)
 {
@@ -24,7 +24,6 @@ public sealed class GetCertificateHandler(AttemptAccess access, IDisplayNameDire
     /// <exception cref="AttemptNotSubmittedError">The attempt is still open.</exception>
     /// <exception cref="AttemptInvalidatedError">An administrator invalidated the result, so it has no certificate.</exception>
     /// <exception cref="ResultsNotReleasedError">The exam's author has not released the results yet.</exception>
-    /// <exception cref="CertificateNotIssuedError">The exam has a pass mark and the candidate did not reach it.</exception>
     /// <exception cref="CertificateNameMissingError">The candidate's account has no name to print.</exception>
     /// <exception cref="CertificateTextUnsupportedError">The name or the exam's name uses a character the certificate cannot show.</exception>
     public async Task<CertificateDetails> HandleAsync(Guid attemptId, Guid candidateId, CancellationToken cancellationToken)
@@ -65,8 +64,8 @@ public sealed class GetCertificateHandler(AttemptAccess access, IDisplayNameDire
     }
 
     /// <summary>
-    /// The certificate this released attempt earns. An exam with no pass mark gives participation to everyone. An exam with a pass mark gives
-    /// the achievement to a candidate who reached it, and no certificate to one who did not.
+    /// The certificate this released attempt earns. Only a candidate who reached the exam's pass mark gets the achievement; everyone else,
+    /// including every candidate of an exam with no pass mark, gets a participation certificate.
     /// </summary>
     private static CertificateKind KindOf(ExamSnapshot exam, Attempt attempt)
     {
@@ -74,6 +73,6 @@ public sealed class GetCertificateHandler(AttemptAccess access, IDisplayNameDire
             return CertificateKind.Participation;
 
         var passed = PassRule.Of(attempt.Score!.Value, attempt.MaxScore!.Value, exam.PassingPercentage) == true;
-        return passed ? CertificateKind.Achievement : throw new CertificateNotIssuedError();
+        return passed ? CertificateKind.Achievement : CertificateKind.Participation;
     }
 }

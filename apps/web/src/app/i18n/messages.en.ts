@@ -301,7 +301,6 @@ export const EN = {
   'certificate.download': 'Download certificate',
   'certificate.downloading': 'Preparing your certificate…',
   'certificate.reason.held': 'You can download your certificate once your result is released.',
-  'certificate.reason.notPassed': 'A certificate is issued only to candidates who pass this exam.',
   'certificate.reason.invalidated': 'This result was invalidated, so it has no certificate.',
   'certificate.nameMissing': 'Add your name to your profile before a certificate can be issued.',
   'certificate.unsupported': 'This certificate cannot show every character in your name or the exam’s name yet. Latin letters, digits and common punctuation are supported.',

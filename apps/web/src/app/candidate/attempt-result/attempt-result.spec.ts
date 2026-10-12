@@ -241,11 +241,10 @@ describe('AttemptResult', () => {
       expect(root(fixture).querySelector(`#${button?.getAttribute('aria-describedby')}`)?.textContent).toContain('once your result is released');
     });
 
-    it('is disabled, with the reason, once the result is out but the candidate did not reach the pass mark', async () => {
+    it('stays available once the result is out, even to a candidate who did not reach the pass mark, since they get a participation certificate', async () => {
       const fixture = await open(result({ passed: false }));
 
-      expect(certificateButton(fixture)?.disabled).toBe(true);
-      expect(textOf(fixture)).toContain('only to candidates who pass this exam');
+      expect(certificateButton(fixture)?.disabled).toBe(false);
     });
 
     it('says the candidate passed when the exam has a pass mark and the score reaches it', async () => {

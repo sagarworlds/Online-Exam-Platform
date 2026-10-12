@@ -1,15 +1,15 @@
 namespace ExamPlatform.Modules.ExamRuntime.Application;
 
 /// <summary>
-/// Which certificate a released result earns (FR-34). An exam with a pass mark gives an achievement certificate to a candidate who reached
-/// the mark, and it shows the score. An exam with no pass mark gives a participation certificate to every candidate, which names no score,
-/// because there is no pass for the score to show.
+/// Which certificate a released result earns (FR-34). A candidate who reached an exam's pass mark gets an achievement certificate, which shows
+/// the score. Everyone else gets a participation certificate, which names no score: an exam with no pass mark has no pass for a score to
+/// show, and a candidate who did not reach the mark has not passed, so the score is not printed on their certificate.
 /// </summary>
 public enum CertificateKind
 {
     /// <summary>The candidate reached the exam's pass mark.</summary>
     Achievement,
 
-    /// <summary>The exam has no pass mark, so the candidate is certified as having taken part.</summary>
+    /// <summary>The candidate took part, without reaching a pass mark, or the exam has none.</summary>
     Participation,
 }

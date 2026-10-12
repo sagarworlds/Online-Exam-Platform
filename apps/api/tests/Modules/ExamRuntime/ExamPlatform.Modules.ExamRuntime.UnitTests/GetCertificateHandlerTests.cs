@@ -102,12 +102,16 @@ public class GetCertificateHandlerTests
     }
 
     [Fact]
-    public async Task AReleasedResultThatDidNotPass_IsNotIssued_BecauseTheExamHasAPassMark()
+    public async Task AReleasedResultThatDidNotPass_GivesAParticipationCertificateWithNoScore()
     {
         var exam = ExamWithPassMark(50);
         var attempt = SubmittedWithScore(exam, 1m);
 
-        await Assert.ThrowsAsync<CertificateNotIssuedError>(() => Handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None));
+        var details = await Handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+
+        Assert.Equal(CertificateKind.Participation, details.Kind);
+        Assert.Null(details.Score);
+        Assert.Null(details.MaxScore);
     }
 
     [Fact]
