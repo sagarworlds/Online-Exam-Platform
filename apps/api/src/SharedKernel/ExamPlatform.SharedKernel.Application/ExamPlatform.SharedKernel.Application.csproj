@@ -7,4 +7,9 @@
   <ItemGroup>
     <ProjectReference Include="..\ExamPlatform.SharedKernel.Domain\ExamPlatform.SharedKernel.Domain.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The font the PDF writer embeds for Devanagari text, and its licence (FR-38). See Pdf/Fonts/README.md. -->
+    <EmbeddedResource Include="Pdf\Fonts\NotoSansDevanagari-Regular.ttf" LogicalName="ExamPlatform.SharedKernel.Application.Pdf.Fonts.NotoSansDevanagari-Regular.ttf" />
+    <EmbeddedResource Include="Pdf\Fonts\OFL.txt" LogicalName="ExamPlatform.SharedKernel.Application.Pdf.Fonts.OFL.txt" />
+  </ItemGroup>
 </Project>
