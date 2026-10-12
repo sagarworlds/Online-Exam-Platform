@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace ExamPlatform.SharedKernel.Application.Pdf;
@@ -49,19 +50,91 @@ public static class PdfText
     /// <returns>The text ready to sit between the parentheses of a string.</returns>
     public static string Escape(string text) => text.Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)");
 
-    /// <summary>The width of a line of text, in points, when set in the given face and size.</summary>
+    /// <summary>
+    /// The width of a line of text, in points, when set in the given face and size. Devanagari is measured from its shaped glyphs, the advances
+    /// it is drawn with, and everything else from the Helvetica metrics.
+    /// </summary>
     /// <param name="text">Printable text (see <see cref="CanShow"/>).</param>
-    /// <param name="font">The face the text is set in.</param>
+    /// <param name="font">The face the Latin text is set in. Devanagari has only the one face.</param>
     /// <param name="size">The font size in points.</param>
     /// <returns>The width in points.</returns>
     public static double Width(string text, PdfFont font, double size)
+    {
+        var units = 0.0;
+        foreach (var segment in Segments(text))
+            units += segment.Devanagari ? DevanagariFont.Default.Shape(segment.Text).Advance : LatinUnits(segment.Text, font);
+
+        return units * size / 1000.0;
+    }
+
+    /// <summary>The width of Latin text in thousandths of an em, from the Helvetica metrics.</summary>
+    private static int LatinUnits(string text, PdfFont font)
     {
         var units = 0;
         foreach (var c in text)
             units += PdfFontMetrics.WidthOf(c, font);
 
-        return units * size / 1000.0;
+        return units;
     }
+
+    /// <summary>
+    /// Splits a line into runs of one script: each Devanagari run, shaped with the embedded font, and the Latin text between them, which the
+    /// Helvetica faces print. A space at either end of a Devanagari run belongs to the Latin text, so a run is a phrase, not a space-padded span.
+    /// </summary>
+    /// <param name="text">Printable text (see <see cref="CanShow"/>).</param>
+    /// <returns>The runs in order; their texts join back to the original.</returns>
+    internal static IReadOnlyList<TextSegment> Segments(string text)
+    {
+        var segments = new List<TextSegment>();
+        var latin = new StringBuilder();
+        var i = 0;
+        while (i < text.Length)
+        {
+            if (!IsDevanagari(text[i]))
+            {
+                latin.Append(text[i]);
+                i++;
+                continue;
+            }
+
+            var start = i;
+            while (i < text.Length && (IsDevanagari(text[i]) || IsJoiner(text[i]) || text[i] == ' '))
+                i++;
+
+            // The run ends at its last character that is not a space; the spaces after it are Latin, and the loop reads them next.
+            var end = i;
+            while (text[end - 1] == ' ')
+                end--;
+
+            i = end;
+            if (latin.Length > 0)
+            {
+                segments.Add(new TextSegment(latin.ToString(), Devanagari: false));
+                latin.Clear();
+            }
+
+            segments.Add(new TextSegment(text[start..end], Devanagari: true));
+        }
+
+        if (latin.Length > 0)
+            segments.Add(new TextSegment(latin.ToString(), Devanagari: false));
+
+        return segments;
+    }
+
+    /// <summary>Whether a character is in the Devanagari block, U+0900 to U+097F.</summary>
+    internal static bool IsDevanagari(char c) => c is >= 'ऀ' and <= 'ॿ';
+
+    /// <summary>Whether a character is a zero width joiner or non-joiner, which shaping reads inside a Devanagari word.</summary>
+    internal static bool IsJoiner(char c) => c is '‌' or '‍';
+
+    /// <summary>
+    /// Whether a character attaches to the letter before it: a combining mark (a vowel sign, a virama, an anusvara) or a joiner. A line break
+    /// must not fall before one, because a mark on its own is drawn on a dotted circle.
+    /// </summary>
+    private static bool IsAttachment(char c) =>
+        IsJoiner(c) || CharUnicodeInfo.GetUnicodeCategory(c) is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark
+            or UnicodeCategory.EnclosingMark;
 
     /// <summary>
     /// Breaks text into lines no wider than the given width, at spaces. A single word wider than a line is broken between its characters, so
@@ -143,21 +216,22 @@ public static class PdfText
 
     /// <summary>
     /// Cuts a word that is wider than a line into pieces that each fit, so a long unbroken string (a URL, say) wraps instead of overflowing.
+    /// A piece is cut only between clusters (see <see cref="Clusters"/>), so a Devanagari vowel sign never starts a line.
     /// </summary>
     /// <returns>The pieces in order; never empty for a non-empty word.</returns>
     private static List<string> BreakWord(string word, PdfFont font, double size, double maxWidth)
     {
         var pieces = new List<string>();
         var piece = new StringBuilder();
-        foreach (var c in word)
+        foreach (var cluster in Clusters(word))
         {
-            if (piece.Length > 0 && Width(piece + c.ToString(), font, size) > maxWidth)
+            if (piece.Length > 0 && Width(piece + cluster, font, size) > maxWidth)
             {
                 pieces.Add(piece.ToString());
                 piece.Clear();
             }
 
-            piece.Append(c);
+            piece.Append(cluster);
         }
 
         if (piece.Length > 0)
@@ -165,4 +239,26 @@ public static class PdfText
 
         return pieces;
     }
+
+    /// <summary>
+    /// Splits a word into clusters: each letter with the marks and joiners that attach to it. A Latin word splits into its letters, and a
+    /// Devanagari word into its aksharas, so a line break never falls inside one.
+    /// </summary>
+    private static IEnumerable<string> Clusters(string word)
+    {
+        var start = 0;
+        for (var i = 1; i <= word.Length; i++)
+        {
+            if (i == word.Length || !IsAttachment(word[i]))
+            {
+                yield return word[start..i];
+                start = i;
+            }
+        }
+    }
 }
+
+/// <summary>A run of text that is set in one face: Devanagari, shaped with the embedded font, or Latin text in a Helvetica face.</summary>
+/// <param name="Text">The characters of the run.</param>
+/// <param name="Devanagari">Whether the run is Devanagari (true) or Latin (false).</param>
+internal readonly record struct TextSegment(string Text, bool Devanagari);
