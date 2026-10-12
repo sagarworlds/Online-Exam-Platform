@@ -19,7 +19,7 @@ public class CandidateAnalyticsCsvWriterTests
     private static readonly CandidateAnalyticsDto Sample = new(
         2,
         [Point("Physics Mock", 37.75m, 80m, 47.19m), Point("Chemistry Test", 60m, 80m, 75m, Sep1.AddDays(7))],
-        [Section("Mechanics", 3, 5, 37.5m), Section("Organic", 6, 2, 75m)], [], new TimePerQuestionDto(0, null, []));
+        [Section("Mechanics", 3, 5, 37.5m), Section("Organic", 6, 2, 75m)], [], new TimePerQuestionDto(0, null, []), []);
 
     /// <summary>Reads the file back as rows, dropping the byte-order mark the writer puts first.</summary>
     private static IReadOnlyList<IReadOnlyList<string>> ReadBack(byte[] bytes) =>
@@ -57,7 +57,7 @@ public class CandidateAnalyticsCsvWriterTests
     [Fact]
     public void AWithheldFigure_IsAnEmptyCell_NotZero()
     {
-        var figures = new CandidateAnalyticsDto(1, [Point("No marks", 0, 0, null)], [Section("Untried", 0, 0, null)], [], new TimePerQuestionDto(0, null, []));
+        var figures = new CandidateAnalyticsDto(1, [Point("No marks", 0, 0, null)], [Section("Untried", 0, 0, null)], [], new TimePerQuestionDto(0, null, []), []);
 
         var rows = ReadBack(new CandidateAnalyticsCsvWriter().Write(figures));
 
@@ -68,7 +68,7 @@ public class CandidateAnalyticsCsvWriterTests
     [Fact]
     public void AnExamName_ThatStartsLikeAFormula_IsGuarded()
     {
-        var figures = new CandidateAnalyticsDto(1, [Point("=HYPERLINK(\"http://x\")", 1, 2, 50)], [], [], new TimePerQuestionDto(0, null, []));
+        var figures = new CandidateAnalyticsDto(1, [Point("=HYPERLINK(\"http://x\")", 1, 2, 50)], [], [], new TimePerQuestionDto(0, null, []), []);
 
         var rows = ReadBack(new CandidateAnalyticsCsvWriter().Write(figures));
 
@@ -78,7 +78,7 @@ public class CandidateAnalyticsCsvWriterTests
     [Fact]
     public void ACandidateWithNoResults_HasTheTwoHeadersAndNoFigures()
     {
-        var rows = ReadBack(new CandidateAnalyticsCsvWriter().Write(new CandidateAnalyticsDto(0, [], [], [], new TimePerQuestionDto(0, null, []))));
+        var rows = ReadBack(new CandidateAnalyticsCsvWriter().Write(new CandidateAnalyticsDto(0, [], [], [], new TimePerQuestionDto(0, null, []), [])));
 
         Assert.Equal(3, rows.Count);
         Assert.Equal("Exam", rows[0][0]);
