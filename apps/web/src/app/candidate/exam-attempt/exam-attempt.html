@@ -132,7 +132,7 @@
         <section [attr.aria-label]="'attempt.questionRegion' | t">
           @if (currentQuestion(); as question) {
             <div class="card exam-question" [style.--exam-zoom]="zoom()">
-              <p class="question__meta">{{ 'attempt.position' | t: { section: currentSectionName(), number: position() + 1, total: questions().length } }}</p>
+              <p class="question__meta" #questionPosition tabindex="-1">{{ 'attempt.position' | t: { section: currentSectionName(), number: position() + 1, total: questions().length } }}</p>
               <fieldset class="question" [attr.aria-labelledby]="'question-text-' + question.id">
                 <!-- The text is the API's sanitized HTML, rendered through Angular's own sanitizer as a second layer. -->
                 <div class="question__text rich-text" [id]="'question-text-' + question.id" [appMath]="question.text" [appMathPicture]="pictureLoader(question.id)"></div>
@@ -183,8 +183,8 @@
             </div>
 
             @if (leavingTo(); as target) {
-              <div class="submit-confirm" role="alertdialog" [attr.aria-label]="'attempt.leave.aria' | t">
-                <p>{{ 'attempt.leave.body' | t: { name: target.name } }}</p>
+              <div class="submit-confirm" role="alertdialog" tabindex="-1" #leaveDialog [attr.aria-label]="'attempt.leave.aria' | t" aria-describedby="leave-section-text">
+                <p id="leave-section-text">{{ 'attempt.leave.body' | t: { name: target.name } }}</p>
                 <div class="actions">
                   <button type="button" class="primary" (click)="confirmLeaveSection()">{{ 'attempt.leave.yes' | t }}</button>
                   <button type="button" (click)="stayInSection()">{{ 'attempt.leave.stay' | t }}</button>

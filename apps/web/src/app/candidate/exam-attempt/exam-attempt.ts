@@ -160,6 +160,10 @@ export class ExamAttempt {
   private readonly submitButton = viewChild<ElementRef<HTMLButtonElement>>('submitButton');
   /** The sentence that opens the confirmation: focus goes there so a screen reader reads what is being asked. */
   private readonly confirmText = viewChild<ElementRef<HTMLElement>>('confirmText');
+  /** The section confirmation: focus goes into it when it opens, so the candidate hears what leaving the section means before they choose. */
+  private readonly leaveDialog = viewChild<ElementRef<HTMLElement>>('leaveDialog');
+  /** The line that gives the question's position: where focus goes when the control that asked to leave cannot take it back. */
+  private readonly questionPosition = viewChild<ElementRef<HTMLElement>>('questionPosition');
   /** The pinned block: the time bar, and the submit confirmation under it when it is open. */
   private readonly pinnedBlock = viewChild<ElementRef<HTMLElement>>('pinnedBlock');
   private readonly doc = inject(DOCUMENT);
@@ -303,6 +307,8 @@ export class ExamAttempt {
   });
   /** The section the candidate has asked to move to and is being asked to confirm; null when no move is pending. */
   protected readonly leavingTo = signal<{ id: string; name: string; start: number } | null>(null);
+  /** The control that asked to leave the section, where focus returns when the confirmation closes. */
+  private leaveOpener: HTMLElement | null = null;
   protected readonly currentQuestion = computed<AttemptQuestionDto | null>(() => this.questions()[this.position()] ?? null);
   /** First in the open section when sections are locked: the section before it cannot be returned to. */
   protected readonly isFirst = computed(() => this.position() <= (this.activeRange()?.start ?? 0));
@@ -518,7 +524,12 @@ export class ExamAttempt {
     if (active !== null && (index < active.start || index > active.end)) {
       const target = this.sectionRanges().find((r) => index >= r.start && index <= r.end);
       if (target !== undefined && target.start > active.end) {
+        // Nothing is focused when the move came from a shortcut, or from a click in a browser that does not focus buttons on click; the page
+        // is then not a control to give focus back to.
+        const focused = this.doc.activeElement;
+        this.leaveOpener = focused instanceof HTMLElement && focused !== this.doc.body ? focused : null;
         this.leavingTo.set({ id: target.id, name: target.name, start: index });
+        afterNextRender(() => this.leaveDialog()?.nativeElement.focus(), { injector: this.injector });
       }
       return;
     }
@@ -532,7 +543,25 @@ export class ExamAttempt {
   }
 
   protected stayInSection(): void {
+    this.closeLeaveConfirmation();
+  }
+
+  /**
+   * Closes the section confirmation and gives focus back to the control that asked to leave. Focus moves after the next render, because the
+   * render removes the dialog, which would otherwise drop focus to the page. If that control is gone or disabled by the move (Next on the
+   * last question, say), the line giving the question's position takes focus instead.
+   */
+  private closeLeaveConfirmation(): void {
+    const opener = this.leaveOpener;
+    this.leaveOpener = null;
     this.leavingTo.set(null);
+    afterNextRender(
+      () => {
+        const usable = opener?.isConnected && !opener.matches(':disabled') ? opener : this.questionPosition()?.nativeElement;
+        usable?.focus();
+      },
+      { injector: this.injector },
+    );
   }
 
   /** Tells the server the candidate is leaving their section for good, then shows the question they chose. */
@@ -546,13 +575,13 @@ export class ExamAttempt {
     this.errorMessage.set(null);
     this.api.moveToSection(attempt.id, target.id).subscribe({
       next: () => {
-        this.leavingTo.set(null);
+        this.closeLeaveConfirmation();
         this.attempt.update((current) => (current === null ? null : { ...current, activeSectionId: target.id }));
         this.requestedIndex.set(target.start);
         this.markCurrentVisited();
       },
       error: (error: unknown) => {
-        this.leavingTo.set(null);
+        this.closeLeaveConfirmation();
         this.explainFailure(error, this.i18n.t('attempt.failure.moveSection'));
       },
     });

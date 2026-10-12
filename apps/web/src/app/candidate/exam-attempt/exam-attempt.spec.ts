@@ -1101,6 +1101,54 @@ describe('ExamAttempt', () => {
       expect(textOf(fixture)).not.toContain('You will not be able to come back');
     });
 
+    it('moves focus into the section confirmation when it opens, named and described for a screen reader', async () => {
+      const fixture = await open(lockedAttempt());
+      paletteButton(fixture, 3).focus();
+      paletteButton(fixture, 3).click();
+      fixture.detectChanges();
+
+      const dialog = root(fixture).querySelector<HTMLElement>('[role="alertdialog"]')!;
+      expect(dialog.getAttribute('aria-label')).toBe('Confirm leaving the section');
+      expect(document.getElementById(dialog.getAttribute('aria-describedby') ?? '')?.textContent).toContain(
+        'You will not be able to come back to this section',
+      );
+      expect(document.activeElement).toBe(dialog);
+    });
+
+    it('gives focus back to the control that asked to leave when the candidate stays', async () => {
+      const fixture = await open(lockedAttempt());
+      paletteButton(fixture, 3).focus();
+      paletteButton(fixture, 3).click();
+      fixture.detectChanges();
+
+      buttonLabelled(fixture, 'Stay here')!.click();
+      fixture.detectChanges();
+
+      expect(root(fixture).querySelector('[role="alertdialog"]')).toBeNull();
+      expect(document.activeElement).toBe(paletteButton(fixture, 3));
+    });
+
+    it('gives focus to the question when the control that asked to leave is disabled by the move', async () => {
+      const fixture = await open(lockedAttempt());
+      buttonLabelled(fixture, 'Next')!.click();
+      fixture.detectChanges();
+      // On question 2, the last of section A, the pager asks to leave the section. Question 3 is the last in the exam, so
+      // Save & Next is disabled once the move is made.
+      const saveNextSection = buttonLabelled(fixture, 'Save & Next section')!;
+      saveNextSection.focus();
+      saveNextSection.click();
+      fixture.detectChanges();
+
+      buttonLabelled(fixture, 'Yes, move on')!.click();
+      const request = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/section/s2') && r.method === 'PUT');
+      request.flush(null, { status: 204, statusText: 'No Content' });
+      fixture.detectChanges();
+
+      expect((buttonLabelled(fixture, 'Save & Next') as HTMLButtonElement).disabled).toBe(true);
+      expect(document.activeElement).toBe(root(fixture).querySelector('.question__meta'));
+      expect(document.activeElement?.textContent).toContain('Section B · Question 3 of 3');
+    });
+
     it('opens in the section the server says the candidate is in, after a reload', async () => {
       const fixture = await open(lockedAttempt('s2'));
 
