@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.Analytics.Application;
+using ExamPlatform.Modules.Analytics.Contracts;
 
 namespace ExamPlatform.Modules.Analytics.UnitTests;
 
@@ -34,5 +35,18 @@ public class ReportFileNameTests
     public void TheTimeInTheName_IsUtc()
     {
         Assert.Equal("item-analysis-x-20260101-0005.csv", ReportFileName.ForItemAnalysis("x", new DateTime(2026, 1, 1, 0, 5, 0, DateTimeKind.Utc)));
+    }
+
+    [Fact]
+    public void APdfReport_IsNamedWithAPdfExtension()
+    {
+        Assert.Equal("item-analysis-physics-final-20261010-0930.pdf", ReportFileName.ForItemAnalysis("Physics Final", Now, ReportFormat.Pdf));
+    }
+
+    [Fact]
+    public void ACandidateAnalyticsFile_IsNamedForTheTime_AndCarriesNoIdentity()
+    {
+        Assert.Equal("candidate-analytics-20261010-0930.csv", ReportFileName.ForCandidateAnalytics(Now, ReportFormat.Csv));
+        Assert.Equal("candidate-analytics-20261010-0930.pdf", ReportFileName.ForCandidateAnalytics(Now, ReportFormat.Pdf));
     }
 }

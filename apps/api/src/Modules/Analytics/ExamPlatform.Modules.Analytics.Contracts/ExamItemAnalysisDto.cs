@@ -8,6 +8,7 @@ namespace ExamPlatform.Modules.Analytics.Contracts;
 /// <param name="MinimumCohortSize">How many candidates must have had a question before its indices are shown.</param>
 /// <param name="GroupSize">How many candidates are in each of the upper and lower groups behind the discrimination index.</param>
 /// <param name="Questions">The questions in the exam's order, with any drawn questions after them.</param>
+/// <param name="Scores">The candidates' mean, median and score distribution (FR-37), with no figures while the results are held.</param>
 public sealed record ExamItemAnalysisDto(
     Guid ExamId,
     string ExamName,
@@ -15,7 +16,8 @@ public sealed record ExamItemAnalysisDto(
     int CandidateCount,
     int MinimumCohortSize,
     int GroupSize,
-    IReadOnlyList<ItemRowDto> Questions);
+    IReadOnlyList<ItemRowDto> Questions,
+    ExamScoreSummaryDto Scores);
 
 /// <summary>One question's row in the item analysis.</summary>
 /// <param name="QuestionId">The question.</param>

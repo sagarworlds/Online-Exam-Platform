@@ -16,13 +16,14 @@ public class ItemAnalysisExportServiceTests
     private readonly Guid _actor = Guid.NewGuid();
     private readonly IExamItemAnalysis _analysis = Substitute.For<IExamItemAnalysis>();
     private readonly IItemAnalysisCsvWriter _writer = Substitute.For<IItemAnalysisCsvWriter>();
+    private readonly IItemAnalysisPdfWriter _pdfWriter = Substitute.For<IItemAnalysisPdfWriter>();
     private readonly IAuditLogger _audit = Substitute.For<IAuditLogger>();
     private readonly FakeClock _clock = new(Now);
 
-    private ItemAnalysisExportService Service => new(_analysis, _writer, _audit, _clock);
+    private ItemAnalysisExportService Service => new(_analysis, _writer, _pdfWriter, _audit, _clock);
 
-    private ItemAnalysisExportRequest Request(string? correlationId = "req-1") =>
-        new(_examId, _actor, "ExamAdmin", correlationId);
+    private ItemAnalysisExportRequest Request(string? correlationId = "req-1", ReportFormat format = ReportFormat.Csv) =>
+        new(_examId, _actor, "ExamAdmin", correlationId, format);
 
     private void AnalysisOf(string examName = "Physics Final", int questions = 2)
     {
@@ -30,8 +31,10 @@ public class ItemAnalysisExportServiceTests
             .Select(i => new ItemRowDto(Guid.NewGuid(), i, $"Q{i}", 44, 30, 0.5m, 0m))
             .ToArray();
         _analysis.GetAsync(_examId, Arg.Any<CancellationToken>()).Returns(
-            new ExamItemAnalysisDto(_examId, examName, ResultsReleased: true, CandidateCount: 44, MinimumCohortSize: 30, GroupSize: 12, rows));
+            new ExamItemAnalysisDto(
+                _examId, examName, ResultsReleased: true, CandidateCount: 44, MinimumCohortSize: 30, GroupSize: 12, rows, new ExamScoreSummaryDto(0, null, null, [])));
         _writer.Write(Arg.Any<ExamItemAnalysisDto>()).Returns(new byte[] { 1, 2, 3 });
+        _pdfWriter.Write(Arg.Any<ExamItemAnalysisDto>()).Returns(new byte[] { 9, 8, 7 });
     }
 
     [Fact]
@@ -67,6 +70,42 @@ public class ItemAnalysisExportServiceTests
         Assert.Equal("text/csv", report.ContentType);
         Assert.Equal(new byte[] { 1, 2, 3 }, report.Content);
         Assert.Equal(2, report.RowCount);
+    }
+
+    [Fact]
+    public async Task APdfExport_IsRecordedAsPdf_AndWrittenByThePdfWriter()
+    {
+        AnalysisOf();
+
+        var report = await Service.ExportAsync(Request(format: ReportFormat.Pdf), CancellationToken.None);
+
+        await _audit.Received(1).RecordAsync(
+            Arg.Is<AuditEntry>(e => e.Action == ItemAnalysisExportService.ExportAction && e.Metadata["format"] == "pdf" && e.Metadata["report"] == "item-analysis"),
+            Arg.Any<CancellationToken>());
+        _pdfWriter.Received(1).Write(Arg.Any<ExamItemAnalysisDto>());
+        _writer.DidNotReceiveWithAnyArgs().Write(default!);
+        Assert.Equal(new byte[] { 9, 8, 7 }, report.Content);
+    }
+
+    [Fact]
+    public async Task APdfFile_IsNamedWithAPdfExtension_AndHasThePdfMediaType()
+    {
+        AnalysisOf("Physics Final");
+
+        var report = await Service.ExportAsync(Request(format: ReportFormat.Pdf), CancellationToken.None);
+
+        Assert.Equal("item-analysis-physics-final-20261010-0930.pdf", report.FileName);
+        Assert.Equal("application/pdf", report.ContentType);
+    }
+
+    [Fact]
+    public async Task AFormatThisModuleDoesNotWrite_IsRefused_AndNothingIsRecorded()
+    {
+        AnalysisOf();
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => Service.ExportAsync(Request(format: (ReportFormat)99), CancellationToken.None));
+
+        await _audit.DidNotReceiveWithAnyArgs().RecordAsync(default!, default);
     }
 
     [Fact]

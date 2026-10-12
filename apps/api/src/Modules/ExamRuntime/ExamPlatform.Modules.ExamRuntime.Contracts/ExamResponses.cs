@@ -18,12 +18,14 @@ public sealed record ExamResponses(
 /// <param name="CandidateId">The candidate who sat it.</param>
 /// <param name="SubmittedAtUtc">When it was submitted; breaks ties between a candidate's attempts with the same score.</param>
 /// <param name="Score">The marks scored, as the latest version of the result says.</param>
+/// <param name="MaxScore">The marks available on this attempt's paper, as the latest version of the result says. Drawn papers can differ in it.</param>
 /// <param name="Questions">Each question on this attempt's paper, with whether it was answered fully correctly. A question left unanswered is not correct.</param>
 public sealed record AttemptResponses(
     Guid AttemptId,
     Guid CandidateId,
     DateTime SubmittedAtUtc,
     decimal Score,
+    decimal MaxScore,
     IReadOnlyList<QuestionResponse> Questions);
 
 /// <summary>Whether one question was answered fully correctly on one attempt.</summary>

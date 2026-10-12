@@ -74,6 +74,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("GET", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/paper", RbacCatalog.PermissionCodes.ExamManage, null),
         new("GET", "/v1/exams/{examId:guid}/analytics/items", RbacCatalog.PermissionCodes.ExamManage, null),
         new("POST", "/v1/exams/{examId:guid}/analytics/items/exports", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("POST", "/v1/exams/{examId:guid}/analytics/items/exports/pdf", RbacCatalog.PermissionCodes.ExamManage, null),
         new("POST", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/rescore", RbacCatalog.PermissionCodes.ExamManage, new { reason = "Authorization test" }),
         new("POST", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/warn", RbacCatalog.PermissionCodes.ExamManage, new { message = "Authorization test" }),
         new("POST", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/pause", RbacCatalog.PermissionCodes.ExamManage, null),
@@ -208,6 +209,8 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         "POST /v1/me/notifications/{notificationId:guid}/read",
         "POST /v1/me/notifications/read-all",
         "GET /v1/me/analytics",
+        "POST /v1/me/analytics/exports/csv",
+        "POST /v1/me/analytics/exports/pdf",
         "POST /v1/me/data-requests",
         "GET /v1/me/data-requests",
     ];

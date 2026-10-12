@@ -8,8 +8,8 @@ using static ExamPlatform.IntegrationTests.ExamScenarios;
 namespace ExamPlatform.IntegrationTests;
 
 /// <summary>
-/// The item analysis CSV export (FR-38) over real HTTP and a real database: the file is the page's figures, it is downloaded as an attachment,
-/// and each export is in the audit log with who took it and of which exam (FR-40).
+/// The item analysis exports (FR-38) over real HTTP and a real database: the CSV and PDF files are the page's figures, they are downloaded as
+/// attachments, and each export is in the audit log with who took it, of which exam, and in which format (FR-40).
 /// </summary>
 public sealed class ItemAnalysisExportFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
@@ -92,6 +92,42 @@ public sealed class ItemAnalysisExportFlowTests(ApiFactory factory) : IClassFixt
         Assert.Equal("item-analysis", metadata.GetProperty("report").GetString());
         Assert.Equal("csv", metadata.GetProperty("format").GetString());
         Assert.Equal("2", metadata.GetProperty("rows").GetString());
+    }
+
+    [Fact]
+    public async Task APdfExport_IsAPdfAttachment_WithTheFiguresAndTheExamsName()
+    {
+        var (admin, _, examId) = await OpenExamAsync("PDF export exam");
+        using var _a = admin;
+
+        var response = await admin.PostAsync($"/v1/exams/{examId}/analytics/items/exports/pdf", content: null);
+
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
+        var fileName = response.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? string.Empty;
+        Assert.StartsWith("item-analysis-pdf-export-exam-", fileName, StringComparison.Ordinal);
+        Assert.EndsWith(".pdf", fileName, StringComparison.Ordinal);
+
+        var text = Encoding.Latin1.GetString(await response.Content.ReadAsByteArrayAsync());
+        Assert.StartsWith("%PDF-1.4", text, StringComparison.Ordinal);
+        Assert.Contains("(Item analysis: PDF export exam) Tj", text, StringComparison.Ordinal);
+        Assert.Contains("(Q1) Tj", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task APdfExport_IsRecordedInTheAuditLog_AsAPdf()
+    {
+        var (admin, adminId, examId) = await OpenExamAsync("Audited PDF export");
+        using var _a = admin;
+        (await admin.PostAsync($"/v1/exams/{examId}/analytics/items/exports/pdf", content: null)).EnsureSuccessStatusCode();
+
+        var entry = Assert.Single(await ExportEntriesAsync(admin, examId, adminId));
+
+        Assert.Equal(adminId, entry.GetProperty("actorUserId").GetGuid());
+        var metadata = entry.GetProperty("metadata");
+        Assert.Equal("item-analysis", metadata.GetProperty("report").GetString());
+        Assert.Equal("pdf", metadata.GetProperty("format").GetString());
     }
 
     [Fact]

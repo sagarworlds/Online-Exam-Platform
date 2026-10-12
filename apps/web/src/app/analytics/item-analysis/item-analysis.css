@@ -73,6 +73,52 @@
   color: var(--text-muted);
 }
 
+.item-analysis__scores {
+  margin: 1.5rem 0 0;
+}
+
+.item-analysis__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: 0.75rem 0;
+}
+
+.item-analysis__stats dt {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.item-analysis__stats dd {
+  margin: 0.15rem 0 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+/* A bar is thin, at most 24px, with its data end rounded and its baseline square, so it reads as a bar and not a block of colour. */
+.item-distribution__count {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.item-distribution__track {
+  flex: 1 1 auto;
+  max-width: 18rem;
+  height: 0.75rem;
+}
+
+.item-distribution__bar {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--primary);
+}
+
+.item-distribution__value {
+  min-width: 2ch;
+}
+
 .back-link {
   display: inline-flex;
   align-items: center;
@@ -86,13 +132,17 @@
   min-height: 44px;
 }
 
+/* The question table and the score distribution both become labelled blocks on a phone, so their rules are the same. */
 @media (max-width: 40rem) {
   .item-table,
-  .item-table tbody {
+  .item-table tbody,
+  .item-distribution,
+  .item-distribution tbody {
     display: block;
   }
 
-  .item-table thead {
+  .item-table thead,
+  .item-distribution thead {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -101,17 +151,20 @@
     white-space: nowrap;
   }
 
-  .item-table tr {
+  .item-table tr,
+  .item-distribution tr {
     display: block;
     padding: 0.75rem 0;
     border-bottom: 1px solid var(--border);
   }
 
-  .item-table tbody tr:last-child {
+  .item-table tbody tr:last-child,
+  .item-distribution tbody tr:last-child {
     border-bottom: 0;
   }
 
-  .item-table td {
+  .item-table td,
+  .item-distribution td {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
@@ -119,13 +172,15 @@
     border: 0;
   }
 
-  .item-table td::before {
+  .item-table td::before,
+  .item-distribution td::before {
     content: attr(data-label);
     color: var(--text-muted);
     font-size: 0.9rem;
   }
 
-  .item-table td:first-child {
+  .item-table td:first-child,
+  .item-distribution td:first-child {
     font-weight: 600;
   }
 

@@ -1,5 +1,6 @@
 using ExamPlatform.Modules.Analytics.Application;
 using ExamPlatform.Modules.Analytics.Contracts;
+using ExamPlatform.Modules.Analytics.Domain;
 using ExamPlatform.Modules.Analytics.Domain.Exceptions;
 using ExamPlatform.Modules.ExamRuntime.Contracts;
 using ExamPlatform.Modules.QuestionBank.Contracts;
@@ -21,13 +22,17 @@ public class ExamItemAnalysisServiceTests
 
     private ExamItemAnalysisService Service(int threshold = 10) => new(_responses, _bank, new ItemAnalysisPolicy(threshold));
 
-    /// <summary>A candidate who answered both questions, the first correctly if <paramref name="firstRight"/>, the second likewise.</summary>
-    private AttemptResponses Sitting(int candidate, decimal score, bool firstRight, bool secondRight, DateTime? submitted = null) =>
+    /// <summary>
+    /// A candidate who answered both questions, the first correctly if <paramref name="firstRight"/>, the second likewise. The paper carries
+    /// <paramref name="maxScore"/> marks; the default of eight is two questions of four marks each.
+    /// </summary>
+    private AttemptResponses Sitting(int candidate, decimal score, bool firstRight, bool secondRight, DateTime? submitted = null, decimal maxScore = 8m) =>
         new(
             Guid.NewGuid(),
             Id(candidate),
             submitted ?? Day,
             score,
+            maxScore,
             [new QuestionResponse(_q1, firstRight), new QuestionResponse(_q2, secondRight)]);
 
     private static Guid Id(int n) => new($"00000000-0000-0000-0000-{n:D12}");
@@ -122,6 +127,70 @@ public class ExamItemAnalysisServiceTests
         Assert.Null(first.Difficulty);
         Assert.Null(first.Discrimination);
         Assert.Equal(10, analysis.MinimumCohortSize);
+    }
+
+    [Fact]
+    public async Task TheScores_AreEachCandidatesBestResultAsAPercentOfTheirMarks()
+    {
+        // Candidate 1 scored 2 and then 5 of 8, so the retake counts at 62.5%. Candidate 2 scored all 8 and candidate 3 none.
+        Released(
+            Sitting(1, 2m, false, false, submitted: Day),
+            Sitting(1, 5m, true, false, submitted: Day.AddDays(1)),
+            Sitting(2, 8m, true, true),
+            Sitting(3, 0m, false, false));
+        QuestionTexts();
+
+        var scores = (await Service().GetAsync(_examId, CancellationToken.None)).Scores;
+
+        Assert.Equal(3, scores.Count);
+        Assert.Equal(54.17m, scores.MeanPercentOfMarks);
+        Assert.Equal(62.5m, scores.MedianPercentOfMarks);
+        Assert.Equal(1, scores.Distribution[0].Count);
+        Assert.Equal(1, scores.Distribution[6].Count);
+        Assert.Equal(1, scores.Distribution[9].Count);
+    }
+
+    [Fact]
+    public async Task ACandidateWhosePaperHadNoMarks_IsCountedButLeftOutOfTheScores()
+    {
+        // A paper with no marks to earn has no percentage to place, so it cannot sit in the scores; it still counts as a candidate.
+        Released(Sitting(1, 0m, false, false, maxScore: 0m), Sitting(2, 4m, true, false));
+        QuestionTexts();
+
+        var analysis = await Service().GetAsync(_examId, CancellationToken.None);
+
+        Assert.Equal(2, analysis.CandidateCount);
+        Assert.Equal(1, analysis.Scores.Count);
+        Assert.Equal(50m, analysis.Scores.MeanPercentOfMarks);
+    }
+
+    [Fact]
+    public async Task WhileTheResultsAreHeld_TheScoresAreEmpty()
+    {
+        _responses.ReadAsync(_examId, Arg.Any<CancellationToken>()).Returns(
+            new ExamResponses(_examId, "Physics", ResultsReleased: false, QuestionIds: [_q1, _q2], Attempts: []));
+
+        var scores = (await Service().GetAsync(_examId, CancellationToken.None)).Scores;
+
+        Assert.Equal(0, scores.Count);
+        Assert.Null(scores.MeanPercentOfMarks);
+        Assert.Null(scores.MedianPercentOfMarks);
+        Assert.Empty(scores.Distribution);
+    }
+
+    [Fact]
+    public async Task AReleasedExamNobodySatYet_HasNoMeanOrMedian_ButShowsEveryBand()
+    {
+        Released();
+        QuestionTexts();
+
+        var scores = (await Service().GetAsync(_examId, CancellationToken.None)).Scores;
+
+        Assert.Equal(0, scores.Count);
+        Assert.Null(scores.MeanPercentOfMarks);
+        Assert.Null(scores.MedianPercentOfMarks);
+        Assert.Equal(ScoreDistribution.BandCount, scores.Distribution.Count);
+        Assert.All(scores.Distribution, band => Assert.Equal(0, band.Count));
     }
 
     [Fact]

@@ -75,3 +75,14 @@ ASP.NET Core already emits `http.server.request.duration` on its own meter (`Mic
 2. **The development OTP log line.** `LoggingOtpSender` writes the code so that a developer can sign in, including the bootstrap administrator, whose second factor is a code. Removing it means finding another development route first.
 3. **Client IP addresses.** The request line does not record them, because an IP address is personal data under the DPDP Act. Whether security logs need them is a decision for the owner with counsel.
 4. **Exporting metrics.** Choose an exporter when there is somewhere to send them.
+
+## Audit, 2026-10-12
+
+Checked against the code and tests. These hold: the JSON console output with masking (`RedactingJsonConsoleFormatterTests`, `LogRedactionTests`), the correlation ids (`CorrelationIdTests`), the startup refusal below 180 days (`ObservabilityRegistrationTests`), and the audit log has no delete path (no `ExecuteDelete` or remove call on an audit entry in `apps/api/src/Modules`).
+
+Still open, all owner decisions:
+
+1. **Log store and its retention.** Nothing in the code keeps logs for 180 days. The setting only declares it (decision 1 above).
+2. **Tracing.** None is configured. The only signal is `http.server.request.duration`, which has no exporter (Metrics, above).
+3. **Alerts.** None are defined for error rate or latency. They need an exporter and somewhere to send them (decision 4). The solution has no message queue or job framework, so there is no queue lag to alert on yet. NFR-9 lists queue lag, and it applies only if a queue is added.
+4. **Audit-log retention job (M7, #79).** When it is built, it must not purge audit rows younger than 180 days.

@@ -6,8 +6,8 @@ using ExamPlatform.SharedKernel.Application;
 namespace ExamPlatform.Modules.Analytics.Application;
 
 /// <summary>
-/// Exports an exam's item analysis for staff (FR-38): the same figures the page shows, written as a file and recorded in the audit log, so
-/// it is known who took the figures out and when.
+/// Exports an exam's item analysis for staff (FR-38) as CSV or PDF: the same figures the page shows, written as a file and recorded in the
+/// audit log, so it is known who took the figures out and when.
 /// </summary>
 /// <remarks>
 /// The export names no candidate and carries no personal data beyond what the item analysis page already shows, which is nothing about any
@@ -16,7 +16,8 @@ namespace ExamPlatform.Modules.Analytics.Application;
 /// </remarks>
 public sealed class ItemAnalysisExportService(
     IExamItemAnalysis analysis,
-    IItemAnalysisCsvWriter writer,
+    IItemAnalysisCsvWriter csvWriter,
+    IItemAnalysisPdfWriter pdfWriter,
     IAuditLogger audit,
     Clock clock) : IItemAnalysisExport
 {
@@ -27,11 +28,17 @@ public sealed class ItemAnalysisExportService(
     public const string ReportName = "item-analysis";
 
     /// <inheritdoc />
+    /// <exception cref="ArgumentOutOfRangeException">The requested format is not one this module writes.</exception>
     public async Task<ExportedReport> ExportAsync(ItemAnalysisExportRequest request, CancellationToken cancellationToken)
     {
         // Reading the analysis first means an unknown exam fails here, before anything is recorded as exported.
         var result = await analysis.GetAsync(request.ExamId, cancellationToken);
-        var content = writer.Write(result);
+        var content = request.Format switch
+        {
+            ReportFormat.Csv => csvWriter.Write(result),
+            ReportFormat.Pdf => pdfWriter.Write(result),
+            _ => throw new ArgumentOutOfRangeException(nameof(request), request.Format, "This module does not write that report format."),
+        };
 
         await audit.RecordAsync(
             new AuditEntry(
@@ -43,7 +50,7 @@ public sealed class ItemAnalysisExportService(
                 new Dictionary<string, string>
                 {
                     ["report"] = ReportName,
-                    ["format"] = "csv",
+                    ["format"] = ReportFormats.ExtensionOf(request.Format),
                     ["rows"] = result.Questions.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     ["candidates"] = result.CandidateCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 },
@@ -51,8 +58,8 @@ public sealed class ItemAnalysisExportService(
             cancellationToken);
 
         return new ExportedReport(
-            ReportFileName.ForItemAnalysis(result.ExamName, clock.UtcNow),
-            "text/csv",
+            ReportFileName.ForItemAnalysis(result.ExamName, clock.UtcNow, request.Format),
+            ReportFormats.ContentTypeOf(request.Format),
             content,
             result.Questions.Count);
     }
