@@ -351,6 +351,28 @@ public class CandidateAnalyticsServiceTests
     }
 
     [Fact]
+    public async Task ACandidateWhoseHighestRawScoreIsNotTheirHighestPercent_IsComparedOnThePercent()
+    {
+        // The candidate sat one exam on two papers: 6 of 8 (75%) and 20 of 40 (50%). Their best result is the 75%, so their own percentage is 75.
+        // The cohort is them and 29 others at 50%: the topper is 75 and the average is (75 + 29 x 50) / 30 = 50.83.
+        var examId = Guid.NewGuid();
+        var me = Guid.NewGuid();
+        Released(
+            ResultAt(examId, "Mock", 6m, 8m, Day1),
+            ResultAt(examId, "Mock", 20m, 40m, Day1.AddDays(1)));
+        var cohort = new List<AttemptResponses> { Sitting(me, 6m, 8m), Sitting(me, 20m, 40m) };
+        cohort.AddRange(Enumerable.Range(0, 29).Select(_ => Sitting(Guid.NewGuid(), 50m)));
+        CohortOf(examId, released: true, cohort);
+
+        var comparison = Assert.Single((await _service.GetAsync(me, CancellationToken.None)).Comparisons);
+
+        Assert.Equal(75m, comparison.CandidatePercentOfMarks);
+        Assert.Equal(30, comparison.CohortSize);
+        Assert.Equal(75m, comparison.TopperPercentOfMarks);
+        Assert.Equal(50.83m, comparison.AveragePercentOfMarks);
+    }
+
+    [Fact]
     public async Task TheComparisons_HaveOneEntryPerExam_OldestExamFirst_OnItsBestResult()
     {
         var first = Guid.NewGuid();

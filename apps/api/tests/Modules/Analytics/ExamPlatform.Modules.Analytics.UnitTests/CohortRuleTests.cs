@@ -104,7 +104,59 @@ public class CohortRuleTests
     }
 
     [Fact]
-    public void BestOf_KeepsTheHighestScore_AndTheLaterSubmissionWhenTheScoresTie()
+    public void ACandidateWhoseHighestRawScoreIsNotTheirHighestPercent_IsRankedByThePercent()
+    {
+        // X scored 6 of 8 (75%) on one paper and 20 of 40 (50%) on another. X's highest raw score is 20, but the comparison is in percent, so X's
+        // result is 75%. With 29 others at 50%, the topper is 75 and the average is (75 + 29 x 50) / 30 = 50.83. Ranked by raw score it would be 50.
+        var x = Guid.NewGuid();
+        var cohort = Crowd(29, 50m).Concat([Sitting(x, 6m, 8m, day: 1), Sitting(x, 20m, 40m, day: 2)]).ToArray();
+
+        var figures = CohortRule.Of(cohort, 30);
+
+        Assert.Equal(30, figures.Size);
+        Assert.Equal(75m, figures.TopperPercent);
+        Assert.Equal(50.83m, figures.AveragePercent);
+    }
+
+    [Fact]
+    public void BestOf_TakesTheHighestPercent_NotTheHighestRawScore()
+    {
+        var candidate = Guid.NewGuid();
+        var sixOfEight = Sitting(candidate, 6m, 8m, day: 1);
+        var twentyOfForty = Sitting(candidate, 20m, 40m, day: 2);
+
+        Assert.Equal(sixOfEight, CohortRule.BestOf([sixOfEight, twentyOfForty]));
+    }
+
+    [Fact]
+    public void BestOf_OnATiedPercent_TakesTheHigherScore_ThenTheLaterSubmission()
+    {
+        var candidate = Guid.NewGuid();
+        var fourOfEight = Sitting(candidate, 4m, 8m, day: 1);
+        var fiftyOfHundred = Sitting(candidate, 50m, 100m, day: 2);
+        var eightOfSixteenEarlier = Sitting(candidate, 8m, 16m, day: 1);
+        var eightOfSixteenLater = Sitting(candidate, 8m, 16m, day: 3);
+
+        // Both are 50%; the 50 out of 100 earned more marks than the 4 out of 8.
+        Assert.Equal(fiftyOfHundred, CohortRule.BestOf([fourOfEight, fiftyOfHundred]));
+
+        // Same percent and same score: the later submission is the one kept.
+        Assert.Equal(eightOfSixteenLater, CohortRule.BestOf([eightOfSixteenEarlier, eightOfSixteenLater]));
+    }
+
+    [Fact]
+    public void BestOf_RanksAResultWithNoMarksBelowEveryPercentage()
+    {
+        // The paper with no marks has no percent, so it must not displace the 25% result, even though it was submitted later.
+        var candidate = Guid.NewGuid();
+        var quarter = Sitting(candidate, 2m, 8m, day: 1);
+        var noMarks = Sitting(candidate, 0m, 0m, day: 3);
+
+        Assert.Equal(quarter, CohortRule.BestOf([noMarks, quarter]));
+    }
+
+    [Fact]
+    public void BestOf_KeepsTheHighestPercent_AndTheLaterSubmissionWhenTheyTie()
     {
         var candidate = Guid.NewGuid();
         var lower = Sitting(candidate, 4m, day: 1);

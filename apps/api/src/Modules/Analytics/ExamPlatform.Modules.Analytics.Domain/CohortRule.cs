@@ -29,13 +29,14 @@ public sealed record CohortFigures(CohortStatus Status, int? Size, decimal? Topp
 /// and average the figures are. Pure, so the rule is tested without a database and every comparison applies it the same way.
 /// </summary>
 /// <remarks>
-/// The cohort is each candidate's best counted result at the exam, which is the rule the item analysis (FR-37) and the leaderboard use. A candidate
-/// who sat an exam twice counts once, so a retake cannot give one person two places in the comparison.
+/// The cohort is each candidate's best counted result at the exam. A candidate who sat an exam twice counts once, so a retake cannot give one
+/// person two places in the comparison. The best is chosen by percent of marks, not raw score, because the comparison is made in percent: with
+/// papers of different marks, the higher raw score is not necessarily the higher percent. FR-37 keeps its own raw-score rule, which is unchanged.
 /// </remarks>
 public static class CohortRule
 {
     /// <summary>
-    /// The candidate's best counted result: the highest score, and the later submission when two results score the same. Null when there is none.
+    /// The candidate's best counted result: the highest percent of marks, then the higher raw score, then the later submission. Null when there is none.
     /// </summary>
     /// <param name="attempts">The candidate's counted results at one exam.</param>
     public static CohortAttempt? BestOf(IEnumerable<CohortAttempt> attempts)
@@ -76,8 +77,17 @@ public static class CohortRule
         return new CohortFigures(CohortStatus.Shown, percents.Count, percents.Max(), Round(percents.Average()));
     }
 
+    /// <remarks>
+    /// Why a result with no marks ranks below every percentage: it has no percent to compare, so it must never displace a result that has one.
+    /// Why the raw score breaks a tie in percent: two papers with the same percentage are equally strong, and the higher score is the one that
+    /// earned more marks. Why the later submission breaks what is left: it is the candidate's most recent word on the exam.
+    /// </remarks>
     private static CohortAttempt Best(IReadOnlyList<CohortAttempt> attempts) =>
-        attempts.OrderByDescending(a => a.Score).ThenByDescending(a => a.SubmittedAtUtc).First();
+        attempts
+            .OrderByDescending(a => PercentOf(a) ?? decimal.MinValue)
+            .ThenByDescending(a => a.Score)
+            .ThenByDescending(a => a.SubmittedAtUtc)
+            .First();
 
     private static decimal Round(decimal value) => decimal.Round(value, 2, MidpointRounding.AwayFromZero);
 }
