@@ -160,6 +160,11 @@ export interface AttemptQuestionDto {
   isTextAnswer?: boolean;
   /** What the candidate typed for a text question, or null when they have not typed anything. */
   answerText?: string | null;
+  /**
+   * The running total of seconds the candidate has spent on the question, as the server last took it; null or absent when the page never
+   * reported on it. The page carries on counting from it, so a reload does not start the count again from zero (FR-36).
+   */
+  timeSpentSeconds?: number | null;
 }
 
 /** A section of the exam. */

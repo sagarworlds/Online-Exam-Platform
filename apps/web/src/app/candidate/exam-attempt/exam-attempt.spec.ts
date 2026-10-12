@@ -98,8 +98,10 @@ describe('ExamAttempt', () => {
   });
 
   afterEach(() => {
-    // Tests that move the clock a long way also run the page's heartbeat; what it asked is not what those tests are about.
+    // Tests that move the clock a long way also run the page's heartbeat; what it asked is not what those tests are about. The same goes for
+    // the time-per-question reports the heartbeat sends, which only the time-on-question tests look at.
     httpMock.match((r) => r.method === 'GET' && r.url.endsWith('/status'));
+    httpMock.match((r) => r.method === 'PUT' && r.url.endsWith('/time'));
     httpMock.verify();
     vi.useRealTimers();
   });
@@ -1852,6 +1854,68 @@ describe('ExamAttempt', () => {
 
       expect(root(fixture).querySelector('.exam-paused')).not.toBeNull();
       expect(root(fixture).querySelector('app-report-issue')).not.toBeNull();
+    });
+  });
+
+  // Time per question (FR-36): the page counts the time on the question on screen and reports the running total with the heartbeat.
+  describe('time on each question', () => {
+    const timeReports = () => httpMock.match((r) => r.method === 'PUT' && r.url.endsWith('/time'));
+
+    it('reports the time on the question on screen with the heartbeat, as a running total', async () => {
+      await open(attempt());
+
+      vi.advanceTimersByTime(10_000);
+
+      const [report] = timeReports();
+      expect(report.request.url).toMatch(/\/v1\/me\/attempts\/a1\/questions\/q1\/time$/);
+      expect(report.request.body).toEqual({ seconds: 10 });
+      report.flush(null);
+    });
+
+    it('counts the time to the question the candidate moved to, from the moment they moved', async () => {
+      const fixture = await open(attempt());
+
+      vi.advanceTimersByTime(4_000);
+      buttonLabelled(fixture, 'Next')?.click();
+      fixture.detectChanges();
+      vi.advanceTimersByTime(6_000);
+
+      const reports = timeReports();
+      const secondsOf = (questionId: string) =>
+        reports.find((r) => r.request.url.endsWith(`/questions/${questionId}/time`))?.request.body;
+      expect(secondsOf('q1')).toEqual({ seconds: 4 });
+      expect(secondsOf('q2')).toEqual({ seconds: 6 });
+      reports.forEach((r) => r.flush(null));
+    });
+
+    it('carries on from the time the server already holds, so a reload does not start the count from zero', async () => {
+      const held = attempt();
+      held.sections[0].questions[0].timeSpentSeconds = 100;
+      await open(held);
+
+      vi.advanceTimersByTime(10_000);
+
+      const [report] = timeReports();
+      expect(report.request.body).toEqual({ seconds: 110 });
+      report.flush(null);
+    });
+
+    it('reports what it has counted when the page is hidden, and counts nothing while hidden', async () => {
+      await open(attempt());
+      vi.advanceTimersByTime(3_000);
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+
+      try {
+        document.dispatchEvent(new Event('visibilitychange'));
+        const [hiddenReport] = timeReports();
+        expect(hiddenReport.request.body).toEqual({ seconds: 3 });
+        hiddenReport.flush(null);
+
+        vi.advanceTimersByTime(20_000);
+        expect(timeReports()).toEqual([]);
+      } finally {
+        Reflect.deleteProperty(document, 'hidden');
+      }
     });
   });
 });

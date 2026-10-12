@@ -6,7 +6,10 @@ namespace ExamPlatform.Modules.Analytics.Contracts;
 /// </summary>
 public interface ICandidateAnalytics
 {
-    /// <summary>Works out the candidate's score trend and results by section from their released results.</summary>
+    /// <summary>
+    /// Works out the candidate's score trend, results by section, topics, time per question, and comparison with each exam's topper and average
+    /// from their released results.
+    /// </summary>
     /// <param name="candidateId">The candidate whose performance is wanted.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The figures; with no released result the trend and sections are empty rather than an error.</returns>
