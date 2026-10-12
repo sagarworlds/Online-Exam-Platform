@@ -101,6 +101,8 @@ public static class SharedKernelServiceCollectionExtensions
     {
         services.TryAddSingleton<ISmsProvider, UnconfiguredSmsProvider>();
         services.TryAddSingleton<ISmsSender, SwitchedSmsSender>();
+        // Checks the provider, sender ID and templates when the switch is on (FR-39). The host turns startup validation on for SmsOptions.
+        services.AddSingleton<IValidateOptions<SmsOptions>, SmsOptionsValidator>();
         return services;
     }
 }

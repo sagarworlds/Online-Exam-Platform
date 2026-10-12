@@ -3,6 +3,7 @@ using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Endpoints.OtpDelivery;
 using ExamPlatform.Modules.Identity.Endpoints.RateLimiting;
 using ExamPlatform.Modules.Invite.Infrastructure.WhatsApp;
+using ExamPlatform.SharedKernel.Infrastructure.Sms;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -116,6 +117,17 @@ public sealed class StartupGuardTests
         var response = await client.GetAsync("/v1/health");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public void NonDevelopment_WithSmsSwitchedOnAndNoProvider_FailsAtStartupNamingWhatIsMissing()
+    {
+        // SMS switched on before a provider exists: the host stops here, not on the first message (FR-39).
+        using var factory = SmtpHostWith(("Sms:Enabled", "true"));
+
+        var failure = AssertStartupFails<SmsOptions>(factory);
+
+        Assert.Contains("Sms:Provider", failure.Message);
     }
 
     private static ProductionHostFactory SmtpHostWith(params (string Key, string? Value)[] settings) =>
