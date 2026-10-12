@@ -120,6 +120,17 @@ describe('CandidateAnalytics', () => {
     expect(root(fixture).querySelector('.analytics-time__average')).toBeNull();
   });
 
+  it('shows no time section at all when the time is withheld, rather than a zero', async () => {
+    const { fixture, request } = await start();
+
+    request.flush(analytics({ time: null }));
+    fixture.detectChanges();
+
+    expect(root(fixture).querySelector('#analytics-time-heading')).toBeNull();
+    expect(root(fixture).querySelector('.analytics-time')).toBeNull();
+    expect(textOf(fixture)).not.toContain('Time per question');
+  });
+
   it('marks the chart as decorative, so the results list is what assistive technology reads', async () => {
     const { fixture, request } = await start();
 

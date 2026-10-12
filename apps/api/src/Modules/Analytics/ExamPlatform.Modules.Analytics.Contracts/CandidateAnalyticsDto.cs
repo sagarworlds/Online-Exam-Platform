@@ -5,14 +5,18 @@ namespace ExamPlatform.Modules.Analytics.Contracts;
 /// <param name="Trend">One point per released result, oldest submission first, for the score trend.</param>
 /// <param name="Sections">How the candidate's answers fell in each section name across the exams, weakest accuracy first.</param>
 /// <param name="Topics">How the candidate's answers fell under each topic label of their questions, weakest accuracy first.</param>
-/// <param name="Time">How long the candidate spent per question, overall and by section.</param>
+/// <param name="Time">
+/// How long the candidate spent per question, overall and by section; null when no released result carries a time, either because none is released
+/// or because the time is withheld from them (FR-36, section 7), so no figure is shown at all. Null is not a zero: a candidate with a released result
+/// but no reported time gets figures with no question timed.
+/// </param>
 /// <param name="Comparisons">How the candidate's best result at each exam compares with that exam's topper and average, oldest exam first (FR-36).</param>
 public sealed record CandidateAnalyticsDto(
     int ResultCount,
     IReadOnlyList<ScorePointDto> Trend,
     IReadOnlyList<SectionPerformanceDto> Sections,
     IReadOnlyList<TopicPerformanceDto> Topics,
-    TimePerQuestionDto Time,
+    TimePerQuestionDto? Time,
     IReadOnlyList<ExamComparisonDto> Comparisons);
 
 /// <summary>One released result on the score trend.</summary>

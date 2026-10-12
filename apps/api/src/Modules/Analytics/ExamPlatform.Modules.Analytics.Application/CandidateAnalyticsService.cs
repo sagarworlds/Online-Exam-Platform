@@ -154,8 +154,16 @@ public sealed class CandidateAnalyticsService(
     /// <summary>
     /// Works out the time per question, overall and by section name. Only questions the page reported on are timed; see <see cref="QuestionTiming"/>.
     /// </summary>
-    private static TimePerQuestionDto TimeOf(IReadOnlyList<CandidateResult> released)
+    /// <remarks>
+    /// When no released result carries a time (none is released, or every one has its time withheld for a candidate under 18 while the switch is
+    /// off), there is no figure to show and none is returned: null, not a count of zero. Otherwise the figures come from the results that kept their
+    /// times, and a withheld result carries none anyway.
+    /// </remarks>
+    private static TimePerQuestionDto? TimeOf(IReadOnlyList<CandidateResult> released)
     {
+        if (released.All(r => r.TimeWithheld))
+            return null;
+
         var timed = released
             .SelectMany(r => (r.Questions ?? [])
                 .Where(q => q.TimeSpentSeconds is not null)

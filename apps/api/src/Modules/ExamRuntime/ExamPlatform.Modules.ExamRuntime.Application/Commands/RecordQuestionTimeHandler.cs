@@ -8,7 +8,11 @@ namespace ExamPlatform.Modules.ExamRuntime.Application.Commands;
 /// answer, so it takes no row lock on the attempt and is never scored; a report that arrives after the attempt has ended is refused, and the
 /// page keeps no reason to send it again.
 /// </summary>
-public sealed class RecordQuestionTimeHandler(AttemptAccess access, IExamRuntimeUnitOfWork unitOfWork, Clock clock)
+/// <remarks>
+/// When the time is withheld for the attempt (a candidate under 18 while <c>ExamRuntime:TimePerQuestion:MinorsEnabled</c> is off), the report is
+/// checked the same way and then dropped: the candidate gets the same success as anyone else, and nothing is written.
+/// </remarks>
+public sealed class RecordQuestionTimeHandler(AttemptAccess access, IExamRuntimeUnitOfWork unitOfWork, Clock clock, QuestionTimeWithholding withholding)
 {
     /// <summary>Checks the question belongs to the exam and raises the time the candidate has spent on it.</summary>
     /// <param name="attemptId">The attempt.</param>
@@ -29,7 +33,10 @@ public sealed class RecordQuestionTimeHandler(AttemptAccess access, IExamRuntime
             throw new QuestionNotInAttemptError();
 
         SectionLock.EnsureQuestionReachable(exam, attempt, questionId);
-        attempt.RecordQuestionTime(questionId, seconds, clock.UtcNow);
+
+        // Written only when the time is not withheld for this attempt. The check is on the write path, so nothing is stored for a withheld attempt.
+        var withheld = (await withholding.FindWithheldAsync([attempt], cancellationToken)).Contains(attempt.Id);
+        attempt.RecordQuestionTime(questionId, seconds, clock.UtcNow, keep: !withheld);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

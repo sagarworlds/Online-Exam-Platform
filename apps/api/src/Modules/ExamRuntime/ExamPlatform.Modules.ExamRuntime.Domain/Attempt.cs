@@ -425,12 +425,18 @@ public sealed class Attempt : AggregateRoot
     /// <param name="questionId">The question the time was spent on.</param>
     /// <param name="seconds">The running total for the question, in seconds, as the page has it.</param>
     /// <param name="nowUtc">The current instant.</param>
+    /// <param name="keep">
+    /// False when the time is withheld from this attempt (FR-36, section 7: a candidate under 18 while the switch is off). The report is
+    /// checked exactly as any other, so a closed attempt is refused the same way, and then nothing is kept.
+    /// </param>
     /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
     /// <exception cref="AttemptPausedError">An administrator has paused the attempt.</exception>
     /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
-    public void RecordQuestionTime(Guid questionId, int seconds, DateTime nowUtc)
+    public void RecordQuestionTime(Guid questionId, int seconds, DateTime nowUtc, bool keep = true)
     {
         EnsureOpen(nowUtc);
+        if (!keep)
+            return;
 
         var sitting = (int)Math.Clamp(Math.Floor((nowUtc - StartedAtUtc).TotalSeconds), 0, int.MaxValue);
         var total = Math.Clamp(seconds, 0, sitting);

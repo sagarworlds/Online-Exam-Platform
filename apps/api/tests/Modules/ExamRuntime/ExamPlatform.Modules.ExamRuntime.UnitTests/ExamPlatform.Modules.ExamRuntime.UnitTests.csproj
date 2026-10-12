@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\..\..\src\Modules\ExamRuntime\ExamPlatform.Modules.ExamRuntime.Domain\ExamPlatform.Modules.ExamRuntime.Domain.csproj" />
     <ProjectReference Include="..\..\..\..\src\Modules\ExamRuntime\ExamPlatform.Modules.ExamRuntime.Application\ExamPlatform.Modules.ExamRuntime.Application.csproj" />
     <ProjectReference Include="..\..\..\..\src\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Modules\Identity\ExamPlatform.Modules.Identity.Application\ExamPlatform.Modules.Identity.Application.csproj" />
   </ItemGroup>
 
 </Project>

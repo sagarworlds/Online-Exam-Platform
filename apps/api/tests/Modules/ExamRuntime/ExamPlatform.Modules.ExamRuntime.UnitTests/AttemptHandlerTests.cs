@@ -6,6 +6,9 @@ using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
+using ExamPlatform.Modules.Identity.Application;
+using ExamPlatform.Modules.Identity.Application.Ports;
+using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Invite.Contracts;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using NSubstitute;
@@ -27,6 +30,12 @@ public class AttemptHandlerTests
     private readonly List<Attempt> _theirs = [];
     private readonly IExamRuntimeUnitOfWork _unitOfWork = Substitute.For<IExamRuntimeUnitOfWork>();
 
+    // The age directory and the minors switch for the time-per-question tests (FR-36): the attempts the directory reports as sat by a minor,
+    // and whether the switch is on. Both are read when a test runs, so a test sets them before it calls the handler.
+    private readonly ICandidateAgeDirectory _ages = Substitute.For<ICandidateAgeDirectory>();
+    private readonly HashSet<Guid> _attemptsSatAsMinor = [];
+    private bool _minorsEnabled;
+
     private readonly QuestionSnapshot _q1 = Fixtures.Question("First");
     private readonly QuestionSnapshot _q2 = Fixtures.Question("Second");
     private readonly ExamSnapshot _exam;
@@ -47,6 +56,8 @@ public class AttemptHandlerTests
         _bank.GetVersionsAsync(Arg.Any<IReadOnlyCollection<QuestionVersionRef>>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult<IReadOnlyList<QuestionSnapshot>>(
                 new[] { _q1, _q2 }.Where(q => call.Arg<IReadOnlyCollection<QuestionVersionRef>>().Any(r => r.QuestionId == q.Id)).ToList()));
+        _ages.FindAttemptsSatAsMinorAsync(Arg.Any<IReadOnlyCollection<AttemptStart>>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>(_attemptsSatAsMinor)));
     }
 
     private AttemptViewBuilder Views => new(_bank, _clock);
@@ -56,7 +67,9 @@ public class AttemptHandlerTests
     private SaveAnswerHandler Save => new(Access, _bank, _unitOfWork, _clock);
     private ClearAnswerHandler Clear => new(Access, _unitOfWork, _clock);
     private MarkQuestionHandler Mark => new(Access, _unitOfWork, _clock);
-    private RecordQuestionTimeHandler RecordTime => new(Access, _unitOfWork, _clock);
+    private RecordQuestionTimeHandler RecordTime => RecordTimeWith(_ages);
+    private RecordQuestionTimeHandler RecordTimeWith(ICandidateAgeDirectory ages) =>
+        new(Access, _unitOfWork, _clock, new QuestionTimeWithholding(ages, new QuestionTimePolicy(_minorsEnabled)));
     private MoveToSectionHandler MoveSection => new(Access, _unitOfWork, _clock);
     private SubmitAttemptHandler Submit => new(Access, Closer, Views, _unitOfWork);
     private GetAttemptHandler Get => new(Access, Views, _client, _unitOfWork, _clock);
@@ -517,6 +530,80 @@ public class AttemptHandlerTests
             () => RecordTime.HandleAsync(attempt.Id, _candidate, _q1.Id, 10, CancellationToken.None));
 
         Assert.Equal(AttemptStatus.Submitted, attempt.Status);
+        Assert.Empty(attempt.QuestionTimes);
+    }
+
+    [Fact]
+    public async Task Time_ForAMinorWithTheSwitchOff_IsNotStored()
+    {
+        // FR-36 and section 7: a candidate under 18 while the switch is off. The write is refused on this path, so nothing is kept.
+        _minorsEnabled = false;
+        var attempt = OpenAttempt();
+        _attemptsSatAsMinor.Add(attempt.Id);
+        _clock.UtcNow = Fixtures.Now.AddMinutes(1);
+
+        await RecordTime.HandleAsync(attempt.Id, _candidate, _q1.Id, 42, CancellationToken.None);
+
+        Assert.Empty(attempt.QuestionTimes);
+        Assert.Empty(attempt.Answers);
+        await _ages.Received(1).FindAttemptsSatAsMinorAsync(
+            Arg.Is<IReadOnlyCollection<AttemptStart>>(starts => starts.Single().AttemptId == attempt.Id && starts.Single().CandidateId == _candidate),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Time_ForAnAdultWithTheSwitchOff_IsStored()
+    {
+        _minorsEnabled = false;
+        var attempt = OpenAttempt();
+        _clock.UtcNow = Fixtures.Now.AddMinutes(1);
+
+        await RecordTime.HandleAsync(attempt.Id, _candidate, _q1.Id, 42, CancellationToken.None);
+
+        Assert.Equal(42, Assert.Single(attempt.QuestionTimes).Seconds);
+    }
+
+    [Fact]
+    public async Task Time_ForAMinorWithTheSwitchOn_IsStored_AndTheAgeIsNotLookedUp()
+    {
+        _minorsEnabled = true;
+        var attempt = OpenAttempt();
+        _attemptsSatAsMinor.Add(attempt.Id);
+        _clock.UtcNow = Fixtures.Now.AddMinutes(1);
+
+        await RecordTime.HandleAsync(attempt.Id, _candidate, _q1.Id, 42, CancellationToken.None);
+
+        Assert.Equal(42, Assert.Single(attempt.QuestionTimes).Seconds);
+        await _ages.DidNotReceive().FindAttemptsSatAsMinorAsync(Arg.Any<IReadOnlyCollection<AttemptStart>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Time_WithTheSwitchOff_AndNoDateOfBirthOnRecord_IsNotStored()
+    {
+        // Fail closed, through the real age rule: a candidate with no date of birth on record is counted as a minor, so their time is withheld.
+        _minorsEnabled = false;
+        var users = Substitute.For<IUserRepository>();
+        users.ListDatesOfBirthAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyDictionary<Guid, DateOnly>>(new Dictionary<Guid, DateOnly>()));
+        var attempt = OpenAttempt();
+        _clock.UtcNow = Fixtures.Now.AddMinutes(1);
+
+        await RecordTimeWith(new CandidateAgeDirectory(users)).HandleAsync(attempt.Id, _candidate, _q1.Id, 42, CancellationToken.None);
+
+        Assert.Empty(attempt.QuestionTimes);
+    }
+
+    [Fact]
+    public async Task Time_ForAMinorWithTheSwitchOff_AfterTheDeadline_IsRefusedAsForEveryone()
+    {
+        // A withheld report is checked like any other, so a closed attempt answers the same way whoever sat it.
+        _minorsEnabled = false;
+        var attempt = OpenAttempt(startedAt: Fixtures.Now.AddMinutes(-31), deadline: Fixtures.Now.AddMinutes(-1));
+        _attemptsSatAsMinor.Add(attempt.Id);
+
+        await Assert.ThrowsAsync<AttemptNotInProgressError>(
+            () => RecordTime.HandleAsync(attempt.Id, _candidate, _q1.Id, 10, CancellationToken.None));
+
         Assert.Empty(attempt.QuestionTimes);
     }
 

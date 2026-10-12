@@ -111,5 +111,6 @@ export interface CandidateAnalyticsDto {
   sections: SectionPerformanceDto[];
   /** Weakest accuracy first. */
   topics: TopicPerformanceDto[];
-  time: TimePerQuestionDto;
+  /** Null when the time per question is withheld from the candidate (FR-36, section 7): no figure is shown, not even a zero. */
+  time: TimePerQuestionDto | null;
 }

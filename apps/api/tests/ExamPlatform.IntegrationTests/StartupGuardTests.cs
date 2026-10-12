@@ -292,7 +292,7 @@ public sealed class StartupGuardTests
         // A mistyped window must stop the boot, not fail the first candidate who tries to dispute a result.
         using var factory = SmtpHostWith(("ExamRuntime:Disputes:WindowDays", value));
 
-        var failure = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+        var failure = CreateClientAfterStartupFailure(factory);
 
         Assert.Contains(SelfAndInnerExceptions(failure), e => e.Message.Contains("ExamRuntime:Disputes:WindowDays", StringComparison.Ordinal));
     }
@@ -311,7 +311,11 @@ public sealed class StartupGuardTests
     /// <summary>How many times to try again when the framework loses the startup failure (see <see cref="AssertStartupFails{TOptions}"/>).</summary>
     private const int StartupFailureAttempts = 5;
 
-    private static OptionsValidationException AssertStartupFails<TOptions>(ProductionHostFactory factory)
+    /// <summary>
+    /// Creates the client of a host that is expected to fail at startup, and returns the failure. Retries only the lost-failure outcome
+    /// (see <see cref="IsLostStartupFailure"/>), so a test that checks the message of the real failure is not flaky on a loaded machine.
+    /// </summary>
+    private static Exception CreateClientAfterStartupFailure(ProductionHostFactory factory)
     {
         // WebApplicationFactory runs the host's entry point on another thread and, when startup throws, races to report it:
         // sometimes the caller sees the real OptionsValidationException, and sometimes only an ObjectDisposedException from the
@@ -325,6 +329,13 @@ public sealed class StartupGuardTests
             failure = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
         }
         while (attempt < StartupFailureAttempts && IsLostStartupFailure(failure));
+
+        return failure;
+    }
+
+    private static OptionsValidationException AssertStartupFails<TOptions>(ProductionHostFactory factory)
+    {
+        var failure = CreateClientAfterStartupFailure(factory);
 
         // The host may surface the validation failure directly or wrapped (e.g. in an
         // AggregateException), so look for it anywhere in the exception chain.
