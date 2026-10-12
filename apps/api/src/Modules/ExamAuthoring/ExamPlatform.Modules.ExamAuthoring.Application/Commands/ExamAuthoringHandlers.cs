@@ -520,6 +520,47 @@ public sealed class SetFocusViolationLimitHandler(IExamRepository repository, IE
     }
 }
 
+/// <summary>Handles <see cref="SetPassingPercentageCommand"/>.</summary>
+public sealed class SetPassingPercentageHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
+{
+    /// <summary>Sets the pass mark, as a share of the total marks.</summary>
+    /// <param name="command">The new pass mark.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The mark was not sent, or is outside the allowed range.</exception>
+    public async Task<ExamDto> HandleAsync(SetPassingPercentageCommand command, CancellationToken cancellationToken)
+    {
+        // A body without the number binds it to null. That is a 400 about the missing value, not a silent removal of the pass mark.
+        if (command.PassingPercentage is null)
+            throw new InvalidExamConfigError("Send the passing mark as a percentage, or remove it with DELETE.");
+
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.SetPassingPercentage(command.PassingPercentage.Value, clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await dtos.ToDtoAsync(exam, cancellationToken);
+    }
+}
+
+/// <summary>Handles <see cref="ClearPassingPercentageCommand"/>.</summary>
+public sealed class ClearPassingPercentageHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
+{
+    /// <summary>Removes the pass mark, so the exam has no pass.</summary>
+    /// <param name="command">The exam.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    public async Task<ExamDto> HandleAsync(ClearPassingPercentageCommand command, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.ClearPassingPercentage(clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await dtos.ToDtoAsync(exam, cancellationToken);
+    }
+}
+
 /// <summary>Handles releasing the answers of a manual-release exam.</summary>
 public sealed class ReleaseResultsHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
 {

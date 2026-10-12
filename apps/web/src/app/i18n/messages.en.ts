@@ -301,6 +301,7 @@ export const EN = {
   'certificate.download': 'Download certificate',
   'certificate.downloading': 'Preparing your certificate…',
   'certificate.reason.held': 'You can download your certificate once your result is released.',
+  'certificate.reason.heldOrPassed': 'You can download your certificate once your result is released, or now if you passed the exam.',
   'certificate.reason.invalidated': 'This result was invalidated, so it has no certificate.',
   'certificate.nameMissing': 'Add your name to your profile before a certificate can be issued.',
   'certificate.unsupported': 'This certificate cannot show every character in your name or the exam’s name yet. Latin letters, digits and common punctuation are supported.',
@@ -310,6 +311,8 @@ export const EN = {
   'result.noAttempt': 'No attempt was given.',
   'result.loadError': 'Your result could not be loaded. Please try again.',
   'result.scoreLabel': 'Score',
+  'result.passed': 'You passed this exam.',
+  'result.notPassed': 'You did not pass this exam.',
   'result.rankLabel': 'Rank out of {count}',
   'result.percentileLabel': 'Percentile',
   'result.percentileHint': 'Your score is the same as or higher than {percent}% of the {count} results.',
@@ -805,6 +808,7 @@ export const EN = {
   'exams.setting.proctoring': 'Proctoring',
   'exams.setting.copying': 'Copying and printing',
   'exams.setting.leaving': 'Leaving the exam page',
+  'exams.setting.passingMark': 'Passing mark',
 
   // ---- exam editor: the one-line value of each setting, when its row is closed ----
   'exams.summary.release.scheduled': 'From a set time',
@@ -938,6 +942,14 @@ export const EN = {
   'exams.leaving.readEnds.one': 'the attempt ends after {count} time',
   'exams.leaving.readEnds.other': 'the attempt ends after {count} times',
   'exams.leaving.readNotWatched': 'not watched',
+  'exams.passingMark.title': 'Passing mark',
+  'exams.passingMark.set': 'This exam has a passing mark',
+  'exams.passingMark.field': 'Passing mark, as a percentage of the total marks',
+  'exams.passingMark.rangeHint': 'From {lowest} to {highest} percent. A candidate who reaches it passes: their result says so, and they can download a certificate before the result is released.',
+  'exams.passingMark.defaultHint': 'Off by default. With no passing mark, results do not say passed or failed, and a certificate is issued only once the result is released.',
+  'exams.passingMark.readLine': 'Passing mark: {state}',
+  'exams.passingMark.readSet': '{percent}% of the total marks',
+  'exams.passingMark.readNone': 'none',
 
   // ---- exam editor: name and description ----
   'exams.details.formLabel': 'Exam name and description',

@@ -33,6 +33,8 @@ export interface ExamConfigDto {
   contentProtection?: boolean;
   /** How many times a candidate may leave the exam page before the attempt is ended (FR-22); 0 or absent: the exam does not watch. */
   focusViolationLimit?: number;
+  /** The share of the total marks a candidate needs to pass (FR-34), or null when the exam has no pass mark. */
+  passingPercentage?: number | null;
 }
 
 /** The body of PUT /v1/exams/{id}/result-release. */
@@ -59,6 +61,11 @@ export interface ContentProtectionRequest {
 /** The body of PUT /v1/exams/{id}/focus-violation-limit: how many times a candidate may leave the exam page before the attempt is ended, 0 to 20; 0 turns the watch off. */
 export interface FocusViolationLimitRequest {
   focusViolationLimit: number;
+}
+
+/** The passing mark to set, as a whole percentage of the total marks from 1 to 100 (FR-34). */
+export interface PassingPercentageRequest {
+  passingPercentage: number;
 }
 
 /** The body of PUT /v1/exams/{id}/attempt-limit: how many attempts every enrolled candidate has, from 1 to 10. */

@@ -7,10 +7,13 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 /// <param name="CandidateName">The candidate's name, as on their account.</param>
 /// <param name="ExamName">The exam's name.</param>
 /// <param name="CompletedOnUtc">When the attempt was submitted.</param>
-/// <param name="Score">The marks scored, as the released result says.</param>
-/// <param name="MaxScore">The marks available.</param>
+/// <param name="Score">
+/// The marks scored, as the released result says; null when the score is withheld because the candidate passed before the result was
+/// released (FR-34), so the certificate says only that they passed.
+/// </param>
+/// <param name="MaxScore">The marks available; null together with <paramref name="Score"/>.</param>
 /// <param name="AttemptId">The attempt the certificate is for; its id is printed on the certificate as the reference.</param>
-public sealed record CertificateDetails(string CandidateName, string ExamName, DateTime CompletedOnUtc, decimal Score, decimal MaxScore, Guid AttemptId);
+public sealed record CertificateDetails(string CandidateName, string ExamName, DateTime CompletedOnUtc, decimal? Score, decimal? MaxScore, Guid AttemptId);
 
 /// <summary>
 /// Writes a certificate as a one-page PDF (FR-34). The page is drawn with the shared PDF writer, which uses the Helvetica font every PDF reader
@@ -59,8 +62,11 @@ public static class CertificatePdf
         y = Text(page, "has completed", PdfFont.Regular, 14, 72, y - 12, 26);
         y = Text(page, details.ExamName, PdfFont.Bold, 18, 72, y - 8, 24);
         var when = details.CompletedOnUtc.ToString("d MMMM yyyy", CultureInfo.InvariantCulture);
-        var score = $"{Format(details.Score)} out of {Format(details.MaxScore)}";
-        Text(page, $"on {when}, with a score of {score}.", PdfFont.Regular, 14, 72, y - 12, 26);
+        // A pass before release carries no score, so the certificate says only that the candidate passed, never a number they may not see yet.
+        var finish = details.Score is { } score && details.MaxScore is { } maxScore
+            ? $"on {when}, with a score of {Format(score)} out of {Format(maxScore)}."
+            : $"on {when}, having passed it.";
+        Text(page, finish, PdfFont.Regular, 14, 72, y - 12, 26);
 
         Text(page, $"Certificate ID: {details.AttemptId.ToString("D").ToUpperInvariant()}", PdfFont.Regular, 10, 72, 70, 12);
     }

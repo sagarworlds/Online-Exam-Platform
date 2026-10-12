@@ -19,6 +19,7 @@ import { ContentProtectionRequest, DrawQuestionsRequest, ExamDto, ExamScopeDto, 
 import { ExamMarkingScheme } from '../exam-marking-scheme/exam-marking-scheme';
 import { ExamContentProtection } from '../exam-content-protection/exam-content-protection';
 import { ExamFocusViolationLimit } from '../exam-focus-violation-limit/exam-focus-violation-limit';
+import { ExamPassingPercentage } from '../exam-passing-percentage/exam-passing-percentage';
 import { ExamProctoringProfile } from '../exam-proctoring-profile/exam-proctoring-profile';
 import { ExamShuffle } from '../exam-shuffle/exam-shuffle';
 import { ExamAttemptLimit } from '../exam-attempt-limit/exam-attempt-limit';
@@ -57,7 +58,7 @@ function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): bool
  */
 @Component({
   selector: 'app-exam-editor',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, TranslatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamProctoringProfile, ExamSectionCard, ExamInstructions],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, TranslatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamPassingPercentage, ExamProctoringProfile, ExamSectionCard, ExamInstructions],
   templateUrl: './exam-editor.html',
 })
 export class ExamEditor {
@@ -320,6 +321,18 @@ export class ExamEditor {
     if (!this.busy()) {
       this.run(this.examApi.setFocusViolationLimit(this.examId, request));
     }
+  }
+
+  /** Sets the passing mark, or removes it when the author turned it off (FR-34). */
+  protected savePassingPercentage(percent: number | null): void {
+    if (this.busy()) {
+      return;
+    }
+    this.run(
+      percent === null
+        ? this.examApi.clearPassingPercentage(this.examId)
+        : this.examApi.setPassingPercentage(this.examId, { passingPercentage: percent }),
+    );
   }
 
   protected releaseNow(): void {

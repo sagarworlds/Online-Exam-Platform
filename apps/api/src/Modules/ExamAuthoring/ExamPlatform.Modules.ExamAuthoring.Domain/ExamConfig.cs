@@ -13,7 +13,8 @@ public record ExamConfig(
     DateTime? ResultReleaseTime,
     MarkingScheme MarkingScheme,
     bool ContentProtection,
-    int FocusViolationLimit)
+    int FocusViolationLimit,
+    int? PassingPercentage)
 {
     /// <summary>The fewest attempts an exam can allow: every candidate can sit it once.</summary>
     public const int FewestAttempts = 1;
@@ -40,6 +41,15 @@ public record ExamConfig(
     // server ends the attempt (FR-22). 0 turns detection off. Off for a new exam: ending somebody's sitting is a proctoring choice
     // an author makes on purpose, together with the consent text that tells candidates about it, never a default.
 
+    // PassingPercentage: the share of the total marks a candidate needs to pass, from 1 to 100. Null means the exam has no pass mark, so no
+    // result says passed or failed and no certificate is issued on a pass (FR-34). The author sets it; nothing is passed by default.
+
+    /// <summary>The fewest percent a passing mark can be.</summary>
+    public const int LowestPassingPercentage = 1;
+
+    /// <summary>The most percent a passing mark can be.</summary>
+    public const int HighestPassingPercentage = 100;
+
     /// <summary>A new exam shuffles nothing on the first attempt: the author turns shuffling on, or later attempts shuffle anyway.</summary>
-    public ExamConfig() : this(null, false, false, false, false, true, FewestAttempts, 0, ResultReleaseMode.Instant, null, new MarkingScheme(), true, NoViolationLimit) { }
+    public ExamConfig() : this(null, false, false, false, false, true, FewestAttempts, 0, ResultReleaseMode.Instant, null, new MarkingScheme(), true, NoViolationLimit, null) { }
 }

@@ -222,6 +222,9 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
                             b1.Property<int>("MaxRetakes")
                                 .HasColumnType("integer");
 
+                            b1.Property<int?>("PassingPercentage")
+                                .HasColumnType("integer");
+
                             b1.Property<string>("ResultReleaseMode")
                                 .IsRequired()
                                 .HasColumnType("text");

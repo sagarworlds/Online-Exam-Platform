@@ -141,6 +141,23 @@ public static class ExamAuthoringEndpoints
             .WithName("SetExamFocusViolationLimit")
             .WithDescription("Set how many times a candidate may leave the exam page before the attempt is ended; 0 turns the watch off");
 
+        exams.MapPut("/{examId:guid}/passing-percentage", SetPassingPercentage)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("SetExamPassingPercentage")
+            .WithDescription("Set the passing mark as a percentage of the total marks, from 1 to 100");
+
+        exams.MapDelete("/{examId:guid}/passing-percentage", ClearPassingPercentage)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("ClearExamPassingPercentage")
+            .WithDescription("Remove the passing mark, so the exam has no pass");
+
         exams.MapPut("/{examId:guid}/result-release", SetResultRelease)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -301,6 +318,14 @@ public static class ExamAuthoringEndpoints
         Guid examId, FocusViolationLimitRequest request, SetFocusViolationLimitHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetFocusViolationLimitCommand(examId, request.FocusViolationLimit), ct));
 
+    private static async Task<IResult> SetPassingPercentage(
+        Guid examId, PassingPercentageRequest request, SetPassingPercentageHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new SetPassingPercentageCommand(examId, request.PassingPercentage), ct));
+
+    private static async Task<IResult> ClearPassingPercentage(
+        Guid examId, ClearPassingPercentageHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new ClearPassingPercentageCommand(examId), ct));
+
     private static async Task<IResult> SetResultRelease(
         Guid examId, ResultReleaseRequest request, SetResultReleaseHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetResultReleaseCommand(examId, request.Mode, request.ReleaseTime), ct));
@@ -437,6 +462,10 @@ public record ContentProtectionRequest(bool? ContentProtection);
 /// <summary>Request body for setting how many times a candidate may leave the exam page before the attempt is ended.</summary>
 /// <param name="FocusViolationLimit">The violations allowed, from 0 (the exam does not watch) to 20.</param>
 public record FocusViolationLimitRequest(int? FocusViolationLimit);
+
+/// <summary>Request body for setting the passing mark. The number is required: an empty body is a 400, not a removal.</summary>
+/// <param name="PassingPercentage">The pass mark, from 1 to 100.</param>
+public record PassingPercentageRequest(int? PassingPercentage);
 
 /// <summary>Request body for applying a proctoring profile.</summary>
 /// <param name="Profile">The profile's id, for example <c>BROWSER_LOCK</c>; see <c>GET /v1/proctoring-profiles</c>.</param>

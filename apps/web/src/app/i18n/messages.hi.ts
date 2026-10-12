@@ -295,6 +295,7 @@ export const HI: Messages = {
   'certificate.download': 'प्रमाणपत्र डाउनलोड करें',
   'certificate.downloading': 'आपका प्रमाणपत्र तैयार हो रहा है…',
   'certificate.reason.held': 'परिणाम जारी होने के बाद आप अपना प्रमाणपत्र डाउनलोड कर सकते हैं।',
+  'certificate.reason.heldOrPassed': 'परिणाम जारी होने के बाद, या परीक्षा उत्तीर्ण करने पर अभी भी, आप अपना प्रमाणपत्र डाउनलोड कर सकते हैं।',
   'certificate.reason.invalidated': 'यह परिणाम अमान्य है, इसलिए इसका कोई प्रमाणपत्र नहीं है।',
   'certificate.nameMissing': 'प्रमाणपत्र जारी होने से पहले अपनी प्रोफ़ाइल में अपना नाम जोड़ें।',
   'certificate.unsupported': 'यह प्रमाणपत्र अभी आपके नाम या परीक्षा के नाम के हर अक्षर को नहीं दिखा सकता। लैटिन अक्षर, अंक और सामान्य विराम चिह्न समर्थित हैं।',
@@ -304,6 +305,8 @@ export const HI: Messages = {
   'result.noAttempt': 'कोई प्रयास नहीं दिया गया।',
   'result.loadError': 'आपका परिणाम लोड नहीं हो सका। कृपया फिर से प्रयास करें।',
   'result.scoreLabel': 'स्कोर',
+  'result.passed': 'आप इस परीक्षा में उत्तीर्ण हुए हैं।',
+  'result.notPassed': 'आप इस परीक्षा में उत्तीर्ण नहीं हुए हैं।',
   'result.rankLabel': '{count} में से रैंक',
   'result.percentileLabel': 'पर्सेंटाइल',
   'result.percentileHint': 'आपका स्कोर {count} परिणामों में से {percent}% के बराबर या उससे अधिक है।',
@@ -799,6 +802,7 @@ export const HI: Messages = {
   'exams.setting.proctoring': 'निगरानी',
   'exams.setting.copying': 'कॉपी और प्रिंट',
   'exams.setting.leaving': 'परीक्षा पृष्ठ छोड़ना',
+  'exams.setting.passingMark': 'उत्तीर्णता अंक',
 
   // ---- exam editor: the one-line value of each setting, when its row is closed ----
   'exams.summary.release.scheduled': 'एक तय समय से',
@@ -932,6 +936,14 @@ export const HI: Messages = {
   'exams.leaving.readEnds.one': 'प्रयास {count} बार छोड़ने पर समाप्त होता है',
   'exams.leaving.readEnds.other': 'प्रयास {count} बार छोड़ने पर समाप्त होता है',
   'exams.leaving.readNotWatched': 'नज़र नहीं रखी जाती',
+  'exams.passingMark.title': 'उत्तीर्णता अंक',
+  'exams.passingMark.set': 'इस परीक्षा का उत्तीर्णता अंक है',
+  'exams.passingMark.field': 'उत्तीर्णता अंक, कुल अंकों का प्रतिशत',
+  'exams.passingMark.rangeHint': '{lowest} से {highest} प्रतिशत। जो परीक्षार्थी इस अंक तक पहुँचता है, वह उत्तीर्ण होता है: उसके परिणाम में यह लिखा जाता है, और परिणाम जारी होने से पहले भी वह प्रमाणपत्र डाउनलोड कर सकता है।',
+  'exams.passingMark.defaultHint': 'डिफ़ॉल्ट रूप से बंद। उत्तीर्णता अंक न होने पर परिणाम में उत्तीर्ण या अनुत्तीर्ण नहीं लिखा जाता, और प्रमाणपत्र केवल परिणाम जारी होने के बाद दिया जाता है।',
+  'exams.passingMark.readLine': 'उत्तीर्णता अंक: {state}',
+  'exams.passingMark.readSet': '{percent}% कुल अंकों का',
+  'exams.passingMark.readNone': 'कोई नहीं',
 
   // ---- exam editor: name and description ----
   'exams.details.formLabel': 'परीक्षा का नाम और विवरण',

@@ -38,6 +38,9 @@ public sealed record SectionResultDto(
 /// Whether the exam's window is still open, so other candidates may still submit and move the rank. Once it closes the rank is final.
 /// </param>
 /// <param name="ResultVersion">Which version of the result the score above is: 1 as first submitted, one more for each revision (FR-31).</param>
+/// <param name="Passed">
+/// Whether the score reaches the exam's pass mark (FR-34). Null when the exam has no pass mark, so the page says nothing about passing.
+/// </param>
 public sealed record AttemptResultDto(
     Guid AttemptId,
     Guid ExamId,
@@ -56,4 +59,5 @@ public sealed record AttemptResultDto(
     decimal Percentile,
     int CohortSize,
     bool Provisional,
-    int ResultVersion);
+    int ResultVersion,
+    bool? Passed);

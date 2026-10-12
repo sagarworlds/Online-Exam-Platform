@@ -54,6 +54,56 @@ public class GetCertificateHandlerTests
         NamedAs("Asha Kumar");
     }
 
+    private ExamSnapshot ExamWithPassMark(int percent, ExamResultReleaseMode mode = ExamResultReleaseMode.Instant, DateTime? releaseTime = null)
+    {
+        var exam = ExamWith(mode, releaseTime) with { PassingPercentage = percent };
+        _catalog.FindAsync(exam.Id, Arg.Any<CancellationToken>()).Returns(exam);
+        return exam;
+    }
+
+    private Attempt SubmittedWithScore(ExamSnapshot exam, decimal score)
+    {
+        var attempt = Attempt.Start(exam.Id, _candidate, 1, Fixtures.Now, Fixtures.Now.AddMinutes(30));
+        attempt.Submit(Fixtures.Now.AddMinutes(10), score, 4m);
+        _attempts.GetByIdAsync(attempt.Id, Arg.Any<CancellationToken>()).Returns(attempt);
+        return attempt;
+    }
+
+    [Fact]
+    public async Task AHeldResultThatPassed_GivesACertificateThatSaysSoWithoutAScore()
+    {
+        // FR-34 "passed or released": a pass before the author releases the results is enough, but the score stays unprinted until release.
+        var exam = ExamWithPassMark(50, ExamResultReleaseMode.Manual);
+        var attempt = SubmittedWithScore(exam, 4m);
+
+        var details = await Handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+
+        Assert.Equal("Asha Kumar", details.CandidateName);
+        Assert.Null(details.Score);
+        Assert.Null(details.MaxScore);
+    }
+
+    [Fact]
+    public async Task AHeldResultThatDidNotPass_IsRefused_LikeAnyHeldResult()
+    {
+        var exam = ExamWithPassMark(50, ExamResultReleaseMode.Manual);
+        var attempt = SubmittedWithScore(exam, 1m);
+
+        await Assert.ThrowsAsync<ResultsNotReleasedError>(() => Handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task AReleasedResultThatPassed_StillShowsTheScore()
+    {
+        var exam = ExamWithPassMark(50);
+        var attempt = SubmittedWithScore(exam, 4m);
+
+        var details = await Handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+
+        Assert.Equal(4m, details.Score);
+        Assert.Equal(4m, details.MaxScore);
+    }
+
     [Fact]
     public async Task AReleasedResult_GivesTheCandidatesNameTheExamTheScoreAndTheAttemptReference()
     {

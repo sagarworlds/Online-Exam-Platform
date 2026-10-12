@@ -10,6 +10,7 @@ import {
   ProctoringProfileDto,
   ProctoringProfileRequest,
   FocusViolationLimitRequest,
+  PassingPercentageRequest,
   CreateExamRequest,
   DrawQuestionsRequest,
   DrawRuleDto,
@@ -99,6 +100,16 @@ export class ExamApiService {
   /** Sets how many times a candidate may leave the exam page before the attempt is ended; 0 turns the watch off. Allowed after publishing too. */
   setFocusViolationLimit(examId: string, request: FocusViolationLimitRequest): Observable<ExamDto> {
     return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/focus-violation-limit`, request);
+  }
+
+  /** Sets the passing mark, as a percentage of the total marks (FR-34). Allowed after publishing too. */
+  setPassingPercentage(examId: string, request: PassingPercentageRequest): Observable<ExamDto> {
+    return this.http.put<ExamDto>(`${this.apiUrl}/${examId}/passing-percentage`, request);
+  }
+
+  /** Removes the passing mark, so the exam has no pass. Allowed after publishing too. */
+  clearPassingPercentage(examId: string): Observable<ExamDto> {
+    return this.http.delete<ExamDto>(`${this.apiUrl}/${examId}/passing-percentage`);
   }
 
   /** Shows candidates which answers were right, for an exam set to manual release. Safe to repeat. */
