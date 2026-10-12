@@ -131,24 +131,28 @@ Each finding gives the page, the WCAG success criterion (SC), how it was found, 
 - Found by: manual. Enter on "Question 4, not visited" in the second section opened `role="alertdialog"` named "Confirm leaving the section" with the text "Move to Optics? You will not be able to come back to this section." Focus stayed on the palette button outside the dialog (`activeInsideDialog: false`).
 - The dialog says the move cannot be undone. Because focus is not on the dialog, a screen-reader user may not hear it before choosing "Yes, move on".
 - Where: `apps/web/src/app/candidate/exam-attempt/exam-attempt.html:185-193` (dialog). `apps/web/src/app/candidate/exam-attempt/exam-attempt.ts:521` sets `leavingTo` in `goTo` with no focus call. The submit confirmation, `askToSubmit` and `cancelSubmit` at `apps/web/src/app/candidate/exam-attempt/exam-attempt.ts:786-795`, does move focus, so this is an omission, not a design choice.
+- Fixed in: `788a8d7`.
 
 **A-02. Focus is lost when "Save & Next" reaches the last question (High).**
 - Page: exam page.
 - SC: 2.4.3 Focus Order (A).
 - Found by: manual. Focus on "Save & Next" at question 4 of 5, then Enter. The page moved to question 5 of 5. The button is `disabled` on the last question (`isLast()`), so it lost focus, and `document.activeElement` became `BODY`. The next Tab starts again at the top of the page.
 - Where: `apps/web/src/app/candidate/exam-attempt/exam-attempt.html:181` ("Next", `[disabled]="isLast()"`) and `:182` ("Save & Next", `[disabled]="isLast()"`). `apps/web/src/app/candidate/exam-attempt/exam-attempt.ts:512-528` (`goTo`) and `:570-574` (`saveAndNext`) move the question without moving focus to a control that remains.
+- Fixed in: `c4d60af`.
 
 **A-03. "A−" and "A+" zoom buttons: visible label not in the accessible name (Medium).**
 - Page: exam page, "Display and help" panel.
 - SC: 2.5.3 Label in Name (A). A user who speaks the visible label ("A plus") cannot activate the control.
 - Found by: axe `label-content-name-mismatch` (violation, serious). It appears in both colour schemes. The nodes are `button[aria-label="Larger text"]`, visible text "A+", and `button[aria-label="Smaller text"]`, visible text "A−".
 - Where: `apps/web/src/app/candidate/exam-attempt/exam-attempt.html:106` and `:108`.
+- Fixed in: `8b7ddb5`.
 
 **A-04. Focus ring on answer choices is about 1.6:1 (Medium).**
 - Page: exam page, each answer choice.
 - SC: 1.4.11 Non-text Contrast (AA), 2.4.7 Focus Visible (AA).
 - Found by: manual. The radio input is hidden with `opacity: 0`. Its only focus cue is `.option-choice:has(input:focus-visible) { box-shadow: var(--focus-ring) }`, a 3 px ring at 30 % alpha. The option's border stays `--control-border`. In light mode the ring colour is rgb(186, 204, 244) against white, a contrast of 1.61:1. In dark mode it is rgb(52, 72, 118) against rgb(22, 28, 45), 1.89:1. Both values were sampled from screenshot pixels.
 - Where: `apps/web/src/styles/exam.css:232-239` (border stays `--control-border`), `:249-253` (radio hidden) and `:281-283` (ring only). The ring colour is set in `apps/web/src/styles/tokens.css:38` (light) and `:66` (dark).
+- Fixed in: `c7b2e95`.
 
 **A-05. Focus ring on text fields is about 1.6:1, and the border never changes (Medium).**
 - Pages: measured on sign-in (email) and register (date field). Reset password and every other `.field` input use the same rule (code read), including forms in the staff area.
