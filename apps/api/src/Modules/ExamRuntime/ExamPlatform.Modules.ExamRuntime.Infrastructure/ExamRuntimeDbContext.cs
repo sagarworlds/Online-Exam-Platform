@@ -63,6 +63,9 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             b.HasMany(a => a.Marks).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(a => a.Marks).HasField("_marks").UsePropertyAccessMode(PropertyAccessMode.Field);
 
+            b.HasMany(a => a.QuestionTimes).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
+            b.Navigation(a => a.QuestionTimes).HasField("_questionTimes").UsePropertyAccessMode(PropertyAccessMode.Field);
+
             b.HasMany(a => a.Paper).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(a => a.Paper).HasField("_paper").UsePropertyAccessMode(PropertyAccessMode.Field);
 
@@ -138,6 +141,16 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
 
             // At most one mark per question: marking twice at once cannot leave two rows, and the loser is a harmless conflict.
             // The index also serves loading an attempt's marks.
+            b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
+        });
+
+        modelBuilder.Entity<AttemptQuestionTime>(b =>
+        {
+            b.ToTable("AttemptQuestionTimes");
+            b.HasKey(x => x.Id);
+
+            // One running total per question: two reports racing for the same question cannot leave two rows, and the loser is a
+            // harmless conflict, since the page sends the total again. The index also serves loading an attempt's times.
             b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
         });
 

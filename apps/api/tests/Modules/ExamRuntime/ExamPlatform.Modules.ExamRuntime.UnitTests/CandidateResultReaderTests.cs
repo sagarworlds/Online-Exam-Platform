@@ -75,6 +75,31 @@ public class CandidateResultReaderTests
     }
 
     [Fact]
+    public async Task AReleasedResult_CarriesEachQuestionsOutcome_AndTheTimeReportedOnIt()
+    {
+        var exam = ExamWith();
+        var attempt = Attempt.Start(exam.Id, _candidate, 1, Fixtures.Now, Fixtures.Now.AddMinutes(30));
+        attempt.RecordAnswer(_right.Id, _right.Correct(), Fixtures.Now);
+        attempt.RecordAnswer(_wrong.Id, _wrong.Wrong(), Fixtures.Now);
+        attempt.RecordQuestionTime(_right.Id, 42, Fixtures.Now.AddMinutes(1));
+        attempt.RecordQuestionTime(_skipped.Id, 17, Fixtures.Now.AddMinutes(1));
+        var score = AttemptScorer.Score(exam, new[] { _right, _wrong, _skipped }.ToDictionary(q => q.Id), attempt.Answers.ToList());
+        attempt.Submit(Fixtures.Now.AddMinutes(10), score.Score, score.MaxScore);
+        CountedForCandidate(attempt);
+
+        var released = Assert.Single(await Reader.ListReleasedAsync(_candidate, CancellationToken.None));
+
+        var section = exam.Sections.Single().Id;
+        Assert.Equal(
+            [
+                new CandidateQuestionResult(_right.Id, section, CandidateQuestionOutcome.Correct, 42),
+                new CandidateQuestionResult(_wrong.Id, section, CandidateQuestionOutcome.Wrong, null),
+                new CandidateQuestionResult(_skipped.Id, section, CandidateQuestionOutcome.Unanswered, 17),
+            ],
+            released.Questions ?? []);
+    }
+
+    [Fact]
     public async Task AResultTheAuthorHasNotReleased_IsLeftOut_NotReportedAsZero()
     {
         // Manual release with no release time yet: how the candidate did is not known to anyone until the author releases it.

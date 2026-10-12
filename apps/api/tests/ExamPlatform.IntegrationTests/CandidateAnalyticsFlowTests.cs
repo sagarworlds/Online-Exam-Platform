@@ -65,6 +65,81 @@ public sealed class CandidateAnalyticsFlowTests(ApiFactory factory) : IClassFixt
         Assert.Equal(100m, section.GetProperty("accuracy").GetDecimal());
     }
 
+    /// <summary>Creates a question carrying the given topic labels, with its first option correct.</summary>
+    private static async Task<Guid> CreateTopicQuestionAsync(HttpClient admin, string text, string[] topics)
+    {
+        var response = await admin.PostAsJsonAsync("/v1/questions", new
+        {
+            text,
+            options = new[] { new { text = "Right", isCorrect = true }, new { text = "Wrong", isCorrect = false } },
+            topics,
+        });
+        await ServerErrorLog.EnsureSuccessAsync(response);
+        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+    }
+
+    /// <summary>The id of the question on a candidate's paper with the given text.</summary>
+    private static async Task<Guid> PaperIdOfAsync(HttpClient candidate, Guid attemptId, string text)
+    {
+        var attempt = await candidate.GetFromJsonAsync<JsonElement>($"/v1/me/attempts/{attemptId}");
+        return attempt.GetProperty("sections").EnumerateArray().SelectMany(s => s.GetProperty("questions").EnumerateArray())
+            .Single(q => q.GetProperty("text").GetString() == text).GetProperty("id").GetGuid();
+    }
+
+    [Fact]
+    public async Task TopicAccuracyAndTime_AreWorkedFromTheCandidatesOwnAnswers()
+    {
+        var admin = await factory.AdminClientAsync();
+        using var _a = admin;
+        var algebraQuestion = await CreateTopicQuestionAsync(admin, "Topic algebra", ["algebra"]);
+        var graphsQuestion = await CreateTopicQuestionAsync(admin, "Topic graphs", ["algebra", "graphs"]);
+        var examId = await CreateExamAsync(admin, "Topic exam", [algebraQuestion, graphsQuestion], TimeSpan.FromMinutes(-5));
+        var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _c = candidate;
+
+        var started = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", new { instructionsAcknowledged = true });
+        started.EnsureSuccessStatusCode();
+        var attemptId = (await JsonAsync(started)).GetProperty("id").GetGuid();
+        // A report is capped at the time since the sitting began, so the sitting is moved back far enough for 45 and 30 seconds to count.
+        await factory.BackdateSittingAsync(attemptId, TimeSpan.FromMinutes(10));
+
+        // The algebra question is answered right and the graphs one wrong; each is reported with the time spent on it.
+        var algebra = await PaperIdOfAsync(candidate, attemptId, "Topic algebra");
+        var graphs = await PaperIdOfAsync(candidate, attemptId, "Topic graphs");
+        (await candidate.PutAsJsonAsync($"/v1/me/attempts/{attemptId}/answers/{algebra}", new { optionId = await OptionOfAsync(candidate, attemptId, algebra, "Right") }))
+            .EnsureSuccessStatusCode();
+        (await candidate.PutAsJsonAsync($"/v1/me/attempts/{attemptId}/answers/{graphs}", new { optionId = await OptionOfAsync(candidate, attemptId, graphs, "Wrong") }))
+            .EnsureSuccessStatusCode();
+        (await candidate.PutAsJsonAsync($"/v1/me/attempts/{attemptId}/questions/{algebra}/time", new { seconds = 45 })).EnsureSuccessStatusCode();
+        (await candidate.PutAsJsonAsync($"/v1/me/attempts/{attemptId}/questions/{graphs}/time", new { seconds = 30 })).EnsureSuccessStatusCode();
+        (await candidate.PostAsync($"/v1/me/attempts/{attemptId}/submit", content: null)).EnsureSuccessStatusCode();
+
+        var analytics = await AnalyticsAsync(candidate);
+
+        // Weakest first: graphs is 0% (its one answer was wrong); algebra is 1 right and 1 wrong, so 50%, and it counts the graphs question too.
+        var topics = analytics.GetProperty("topics").EnumerateArray().ToList();
+        Assert.Equal(["graphs", "algebra"], topics.Select(t => t.GetProperty("name").GetString()));
+        Assert.Equal(0m, topics[0].GetProperty("accuracy").GetDecimal());
+        Assert.Equal(2, topics[1].GetProperty("questionCount").GetInt32());
+        Assert.Equal(1, topics[1].GetProperty("correctCount").GetInt32());
+        Assert.Equal(1, topics[1].GetProperty("wrongCount").GetInt32());
+        Assert.Equal(50m, topics[1].GetProperty("accuracy").GetDecimal());
+
+        // The time is the average of the two reported questions: (45 + 30) / 2.
+        var time = analytics.GetProperty("time");
+        Assert.Equal(2, time.GetProperty("questionsTimed").GetInt32());
+        Assert.Equal(37.5m, time.GetProperty("averageSeconds").GetDecimal());
+    }
+
+    /// <summary>The id of the option with the given text on one question of the candidate's paper; each question has its own option ids.</summary>
+    private static async Task<Guid> OptionOfAsync(HttpClient candidate, Guid attemptId, Guid questionId, string optionText)
+    {
+        var attempt = await candidate.GetFromJsonAsync<JsonElement>($"/v1/me/attempts/{attemptId}");
+        var question = attempt.GetProperty("sections").EnumerateArray().SelectMany(s => s.GetProperty("questions").EnumerateArray())
+            .Single(q => q.GetProperty("id").GetGuid() == questionId);
+        return question.GetProperty("options").EnumerateArray().Single(o => o.GetProperty("text").GetString() == optionText).GetProperty("id").GetGuid();
+    }
+
     [Fact]
     public async Task WhileTheAuthorHoldsTheResults_TheCandidateSeesNoTrendOrSections()
     {

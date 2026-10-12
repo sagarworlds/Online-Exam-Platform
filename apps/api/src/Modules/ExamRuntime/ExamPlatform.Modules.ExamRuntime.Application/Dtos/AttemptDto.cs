@@ -17,6 +17,10 @@ public sealed record AttemptOptionDto(Guid Id, string Text);
 /// <param name="SelectedOptionIds">Every option the candidate chose; empty when unanswered.</param>
 /// <param name="IsTextAnswer">Whether the candidate types the answer instead of choosing an option. Such a question has no options.</param>
 /// <param name="AnswerText">What the candidate typed, for a text question; null when unanswered or when the question takes options.</param>
+/// <param name="TimeSpentSeconds">
+/// The running total of seconds the candidate has spent on the question so far, as the page last reported it; null when it has never been reported.
+/// The page carries on counting from it, so a reload does not start the count again from zero.
+/// </param>
 public sealed record AttemptQuestionDto(
     Guid Id,
     string Text,
@@ -26,7 +30,8 @@ public sealed record AttemptQuestionDto(
     bool AllowsMultiple = false,
     IReadOnlyList<Guid>? SelectedOptionIds = null,
     bool IsTextAnswer = false,
-    string? AnswerText = null);
+    string? AnswerText = null,
+    int? TimeSpentSeconds = null);
 
 /// <summary>A section of the exam as a candidate sees it.</summary>
 /// <param name="Id">The section's id.</param>

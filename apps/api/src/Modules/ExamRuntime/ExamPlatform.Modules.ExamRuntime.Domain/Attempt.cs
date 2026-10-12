@@ -18,6 +18,7 @@ public sealed class Attempt : AggregateRoot
 {
     private readonly List<AttemptAnswer> _answers = [];
     private readonly List<AttemptMark> _marks = [];
+    private readonly List<AttemptQuestionTime> _questionTimes = [];
     private readonly List<AttemptQuestion> _paper = [];
     private readonly List<AttemptResultRevision> _revisions = [];
     private readonly List<AttemptFocusViolation> _focusViolations = [];
@@ -130,6 +131,12 @@ public sealed class Attempt : AggregateRoot
 
     /// <summary>The questions the candidate has marked for review, at most one mark per question. Marks never affect the score.</summary>
     public IReadOnlyList<AttemptMark> Marks => _marks.AsReadOnly();
+
+    /// <summary>
+    /// How long the candidate has spent on each question, in seconds, as the page has measured it; a question the page never reported on is
+    /// absent. See <see cref="RecordQuestionTime"/>.
+    /// </summary>
+    public IReadOnlyList<AttemptQuestionTime> QuestionTimes => _questionTimes.AsReadOnly();
 
     /// <summary>
     /// The questions drawn for this attempt, section by section. Empty when the exam has no draw rules, in which case the exam's
@@ -403,6 +410,41 @@ public sealed class Attempt : AggregateRoot
             _marks.Add(new AttemptMark(Id, questionId, nowUtc));
         else if (!marked && existing is not null)
             _marks.Remove(existing);
+    }
+
+    /// <summary>
+    /// Records how many seconds the candidate has spent on a question so far, as the page measured it (FR-36). The report is a running total,
+    /// not the time since the last report, so a report that is repeated or arrives late cannot count the same seconds twice.
+    /// </summary>
+    /// <remarks>
+    /// The total is kept no higher than the time since the attempt began, because nobody can have read a question for longer than they have been
+    /// sitting; a negative report counts as none. A total lower than the one kept is ignored, so a page that has lost its own count (after a
+    /// reload, say) can never lower the record. The report is never refused for its size: it is a measure, and a candidate's answer must not be
+    /// lost over it.
+    /// </remarks>
+    /// <param name="questionId">The question the time was spent on.</param>
+    /// <param name="seconds">The running total for the question, in seconds, as the page has it.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
+    /// <exception cref="AttemptPausedError">An administrator has paused the attempt.</exception>
+    /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
+    public void RecordQuestionTime(Guid questionId, int seconds, DateTime nowUtc)
+    {
+        EnsureOpen(nowUtc);
+
+        var sitting = (int)Math.Clamp(Math.Floor((nowUtc - StartedAtUtc).TotalSeconds), 0, int.MaxValue);
+        var total = Math.Clamp(seconds, 0, sitting);
+        var existing = _questionTimes.FirstOrDefault(t => t.QuestionId == questionId);
+
+        if (existing is not null)
+        {
+            if (total > existing.Seconds)
+                existing.RaiseTo(total);
+        }
+        else if (total > 0)
+        {
+            _questionTimes.Add(new AttemptQuestionTime(Id, questionId, total));
+        }
     }
 
     /// <summary>
