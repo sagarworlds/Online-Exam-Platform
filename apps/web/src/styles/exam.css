@@ -278,8 +278,11 @@
   color: var(--on-primary);
 }
 
+/* A solid outline with a gap, not the translucent --focus-ring: that ring was about 1.6:1 on the card (WCAG 1.4.11). The gap keeps the
+   outline against the card rather than against the choice's own border. */
 .option-choice:has(input:focus-visible) {
-  box-shadow: var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .exam-tools {
