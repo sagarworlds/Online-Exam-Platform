@@ -1,8 +1,5 @@
 using System.Globalization;
 using ExamPlatform.SharedKernel.Application.Pdf;
-using HarfBuzzSharp;
-using HbBuffer = HarfBuzzSharp.Buffer;
-using HbFont = HarfBuzzSharp.Font;
 
 namespace ExamPlatform.SharedKernel.UnitTests.Pdf;
 
@@ -12,30 +9,8 @@ namespace ExamPlatform.SharedKernel.UnitTests.Pdf;
 /// </summary>
 public class PdfDevanagariTextTests
 {
-    private const string FontResource = "ExamPlatform.SharedKernel.Application.Pdf.Fonts.NotoSansDevanagari-Regular.ttf";
-
-    // The same font file, shaped by HarfBuzz directly. The writer's measurements are checked against it, not against its own output.
-    private static readonly Lazy<HbFont> ReferenceFont = new(() =>
-    {
-        using var stream = typeof(PdfText).Assembly.GetManifestResourceStream(FontResource)
-            ?? throw new InvalidOperationException("The embedded font is missing.");
-        using var blob = Blob.FromStream(stream);
-        var face = new Face(blob, 0);
-        var font = new HbFont(face);
-        font.SetScale(1000, 1000);
-        return font;
-    });
-
     /// <summary>The width of text shaped directly by HarfBuzz, in points at the given size.</summary>
-    private static double ShapedPoints(string text, double size)
-    {
-        using var buffer = new HbBuffer();
-        buffer.AddUtf16(text);
-        buffer.Direction = Direction.LeftToRight;
-        buffer.Script = Script.Devanagari;
-        ReferenceFont.Value.Shape(buffer, []);
-        return buffer.GlyphPositions.Sum(position => position.XAdvance) * size / 1000.0;
-    }
+    private static double ShapedPoints(string text, double size) => ReferenceShaping.Width(text) * size / 1000.0;
 
     private static bool IsMark(char c) =>
         CharUnicodeInfo.GetUnicodeCategory(c) is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark;

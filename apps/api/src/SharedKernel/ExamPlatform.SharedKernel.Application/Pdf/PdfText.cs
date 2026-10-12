@@ -4,25 +4,54 @@ using System.Text;
 namespace ExamPlatform.SharedKernel.Application.Pdf;
 
 /// <summary>
-/// Text rules for the hand-written PDF writer: which characters the built-in fonts can print, how text is escaped inside a PDF string, and how
-/// a line is measured, wrapped and shortened to fit a column.
+/// Text rules for the hand-written PDF writer: which characters the fonts can print, how text is escaped inside a PDF string, and how a line is
+/// measured, wrapped and shortened to fit a column.
 /// </summary>
 /// <remarks>
-/// The built-in fonts cover printable ASCII and the Latin-1 letters from 0xA0 to 0xFF. Anything else (Devanagari, for one) has no glyph, so
-/// it is refused or replaced rather than printed as a box. Measuring uses the real font widths, so wrapping never runs text past its column.
+/// The Helvetica faces cover printable ASCII and the Latin-1 letters from 0xA0 to 0xFF. The embedded font covers the Devanagari block (U+0900 to
+/// U+097F), with a zero width joiner or non-joiner allowed inside a Devanagari word. Anything else has no glyph, so it is refused or replaced
+/// rather than printed as a box. Measuring uses the real widths of both faces, so wrapping never runs text past its column.
 /// </remarks>
 public static class PdfText
 {
-    /// <summary>The mark that stands in for a character the built-in font cannot print.</summary>
+    /// <summary>The mark that stands in for a character the fonts cannot print.</summary>
     public const char Substitute = '?';
 
-    /// <summary>Whether every character of the text can be printed with the built-in fonts: printable ASCII and the Latin-1 letters from 0xA0 to 0xFF.</summary>
+    /// <summary>
+    /// Whether every character of the text can be printed: printable ASCII, the Latin-1 letters from 0xA0 to 0xFF, and Devanagari. A joiner
+    /// is printable only straight after a Devanagari character.
+    /// </summary>
     /// <param name="text">The text to print.</param>
-    /// <returns>True when nothing in the text needs a glyph the font lacks.</returns>
-    public static bool CanShow(string text) => text.All(c => c is >= ' ' and <= '~' || c is >= '\u00A0' and <= '\u00FF');
+    /// <returns>True when nothing in the text needs a glyph the fonts lack.</returns>
+    public static bool CanShow(string text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (IsJoiner(c))
+            {
+                if (i == 0 || !IsDevanagari(text[i - 1]))
+                    return false;
+            }
+            else if (!IsLatin(c) && !IsDevanagari(c))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>
-    /// Makes text printable: line breaks and tabs become spaces, runs of spaces collapse, and every character the font cannot print becomes
+    /// Whether every character of the text is printable ASCII or a Latin-1 letter: exactly what the Helvetica faces print, with no Devanagari.
+    /// For a document that must not use the embedded font.
+    /// </summary>
+    /// <param name="text">The text to print.</param>
+    /// <returns>True when the text uses no character beyond the Helvetica faces.</returns>
+    public static bool CanShowLatin(string text) => text.All(IsLatin);
+
+    /// <summary>
+    /// Makes text printable: line breaks and tabs become spaces, runs of spaces collapse, and every character the fonts cannot print becomes
     /// <see cref="Substitute"/>. A surrogate pair (one character outside the Basic Multilingual Plane) is replaced once, not twice.
     /// </summary>
     /// <param name="text">The text to make printable.</param>
@@ -32,16 +61,34 @@ public static class PdfText
         var builder = new StringBuilder(text.Length);
         foreach (var rune in text.EnumerateRunes())
         {
-            if (rune.Value is '\t' or '\r' or '\n')
+            var value = rune.Value;
+            if (value is '\t' or '\r' or '\n')
+            {
                 builder.Append(' ');
-            else if (rune.Value is >= 0x20 and <= 0x7E or >= 0xA0 and <= 0xFF)
-                builder.Append((char)rune.Value);
-            else
+                continue;
+            }
+
+            if (value > char.MaxValue)
+            {
                 builder.Append(Substitute);
+                continue;
+            }
+
+            var c = (char)value;
+            var keep = IsLatin(c) || IsDevanagari(c) || (IsJoiner(c) && builder.Length > 0 && IsDevanagari(builder[^1]));
+            builder.Append(keep ? c : Substitute);
         }
 
         return string.Join(' ', builder.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
+
+    /// <summary>The UTF-16 code units of the text in hexadecimal, four digits to a unit, as a PDF hex string or a CMap writes them.</summary>
+    /// <param name="text">The text to write.</param>
+    /// <returns>The hexadecimal digits.</returns>
+    internal static string Utf16Hex(string text) => string.Concat(text.Select(c => ((int)c).ToString("X4", CultureInfo.InvariantCulture)));
+
+    /// <summary>Whether a character is printable ASCII or a Latin-1 letter, the set the Helvetica faces print.</summary>
+    private static bool IsLatin(char c) => c is (>= ' ' and <= '~') or (>= '\u00A0' and <= '\u00FF');
 
     /// <summary>
     /// Escapes the characters that have a meaning inside a PDF literal string, so the text is printed as written.
@@ -126,7 +173,7 @@ public static class PdfText
     internal static bool IsDevanagari(char c) => c is >= 'ऀ' and <= 'ॿ';
 
     /// <summary>Whether a character is a zero width joiner or non-joiner, which shaping reads inside a Devanagari word.</summary>
-    internal static bool IsJoiner(char c) => c is '‌' or '‍';
+    internal static bool IsJoiner(char c) => c is '\u200C' or '\u200D';
 
     /// <summary>
     /// Whether a character attaches to the letter before it: a combining mark (a vowel sign, a virama, an anusvara) or a joiner. A line break

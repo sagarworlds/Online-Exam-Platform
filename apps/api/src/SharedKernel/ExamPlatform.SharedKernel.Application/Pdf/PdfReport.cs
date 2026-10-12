@@ -61,7 +61,7 @@ public sealed class PdfReport
         _page = NewPage();
     }
 
-    /// <summary>Whether any text had a character the built-in font cannot print, so it was replaced with a question mark.</summary>
+    /// <summary>Whether any text had a character the fonts cannot print, so it was replaced with a question mark.</summary>
     /// <remarks>
     /// A report that sets this should say so to its reader, because a question mark stands for a letter the file does not show. The CSV of the
     /// same figures carries the text in full.

@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Runtime.InteropServices;
 using HarfBuzzSharp;
 using HbBuffer = HarfBuzzSharp.Buffer;
 using HbFont = HarfBuzzSharp.Font;
@@ -42,8 +43,19 @@ internal sealed class DevanagariFont
     private DevanagariFont(byte[] data)
     {
         _data = data;
-        using var blob = Blob.FromStream(new MemoryStream(data, writable: false));
-        _face = new Face(blob, 0);
+
+        // HarfBuzz copies the font into memory it owns, so the face does not depend on the managed array staying where it is.
+        var handle = GCHandle.Alloc(data, GCHandleType.Pinned);
+        try
+        {
+            using var blob = new Blob(handle.AddrOfPinnedObject(), data.Length, MemoryMode.Duplicate);
+            _face = new Face(blob, 0);
+        }
+        finally
+        {
+            handle.Free();
+        }
+
         _font = new HbFont(_face);
         _font.SetScale(UnitsPerEm, UnitsPerEm);
         _metrics = ReadMetrics(_face, _font);
@@ -57,6 +69,9 @@ internal sealed class DevanagariFont
 
     /// <summary>The metrics a PDF font descriptor states for this font.</summary>
     public DevanagariMetrics Metrics => _metrics;
+
+    /// <summary>The number of glyphs in the font. Glyph IDs run from 0 to one less than this.</summary>
+    public int GlyphCount => _face.GlyphCount;
 
     /// <summary>
     /// Shapes a run of Devanagari text: the glyphs the font draws for it, after conjuncts are formed, vowel signs are moved to where they are

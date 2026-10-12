@@ -167,7 +167,8 @@ public class PdfDocumentTests
     [Fact]
     public void ATitleTheFontCannotPrint_IsRefused()
     {
-        Assert.Throws<ArgumentException>(() => new PdfDocument("अशा"));
+        // A Chinese character is neither Latin-1 nor Devanagari, so no font has a glyph for it.
+        Assert.Throws<ArgumentException>(() => new PdfDocument("漢字"));
     }
 
     [Fact]
@@ -175,7 +176,7 @@ public class PdfDocumentTests
     {
         var page = new PdfDocument("t").AddPage();
 
-        Assert.Throws<ArgumentException>(() => page.Text("अशा", PdfFont.Regular, 10, 72, 700));
+        Assert.Throws<ArgumentException>(() => page.Text("漢字", PdfFont.Regular, 10, 72, 700));
     }
 
     [Fact]
