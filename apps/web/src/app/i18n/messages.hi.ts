@@ -1032,6 +1032,12 @@ export const HI: Messages = {
   'analytics.sections.resultCount.one': '{count} परिणाम में',
   'analytics.sections.resultCount.other': '{count} परिणामों में',
 
+  // ---- report downloads, shared by the staff and candidate pages (FR-38) ----
+  'exports.downloadCsv': 'CSV के रूप में निर्यात करें',
+  'exports.downloadPdf': 'PDF के रूप में निर्यात करें',
+  'exports.preparing': 'फ़ाइल तैयार हो रही है…',
+  'exports.failed': 'फ़ाइल तैयार नहीं हो सकी, इसलिए कुछ निर्यात नहीं हुआ। कृपया फिर से प्रयास करें।',
+
   // ---- item analysis for staff (FR-37) ----
   'admin.items.title': 'प्रश्न विश्लेषण',
   'admin.items.hint': 'जारी परिणामों में हर प्रश्न का प्रदर्शन। किसी प्रश्न के आँकड़े तभी दिखते हैं जब पर्याप्त परीक्षार्थियों ने उसे हल किया हो, ताकि कोई आँकड़ा कुछ ही उत्तरों पर आधारित न हो।',
@@ -1077,9 +1083,6 @@ export const HI: Messages = {
   'admin.items.scores.averageTitle': 'औसत और माध्यिका',
   'admin.items.scores.meanMedianHelp': 'परीक्षार्थियों के प्रतिशत का औसत, ताकि हर परीक्षार्थी बराबर गिना जाए। माध्यिका बीच वाले परीक्षार्थी का प्रतिशत है; कुछ बहुत ऊँचे या बहुत नीचे परिणाम उसे नहीं खींचते।',
   'admin.items.scores.distributionHelp': 'हर दस प्रतिशत-अंक की श्रेणी में कितने परीक्षार्थी आते हैं। सबसे निचली श्रेणी में नकारात्मक अंकन से आए ऋणात्मक अंक भी हैं, और सबसे ऊपर की श्रेणी में पूरे अंक।',
-  'admin.items.export': 'CSV के रूप में निर्यात करें',
-  'admin.items.exporting': 'फ़ाइल तैयार हो रही है…',
-  'admin.items.exportError': 'फ़ाइल तैयार नहीं हो सकी, इसलिए कुछ निर्यात नहीं हुआ। कृपया फिर से प्रयास करें।',
   'admin.items.exportNote': 'फ़ाइल में वही आँकड़े हैं जो इस पेज पर हैं और इसमें कोई परीक्षार्थी नाम नहीं है। हर निर्यात को किसने और कब लिया, यह ऑडिट लॉग में दर्ज होता है।',
   // ---- institute branding and instruction templates (FR-41) ----
   'branding.title': 'संस्थान की ब्रांडिंग',

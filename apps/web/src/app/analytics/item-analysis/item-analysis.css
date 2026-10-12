@@ -13,6 +13,12 @@
   margin: 0.75rem 0 0;
 }
 
+.item-analysis__export-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .item-analysis__export .btn {
   min-height: 44px;
   display: inline-flex;

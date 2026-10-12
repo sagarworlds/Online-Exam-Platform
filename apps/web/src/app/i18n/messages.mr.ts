@@ -1032,6 +1032,12 @@ export const MR: Messages = {
   'analytics.sections.resultCount.one': '{count} निकालात',
   'analytics.sections.resultCount.other': '{count} निकालांत',
 
+  // ---- report downloads, shared by the staff and candidate pages (FR-38) ----
+  'exports.downloadCsv': 'CSV म्हणून निर्यात करा',
+  'exports.downloadPdf': 'PDF म्हणून निर्यात करा',
+  'exports.preparing': 'फाइल तयार होत आहे…',
+  'exports.failed': 'फाइल तयार होऊ शकली नाही, त्यामुळे काहीही निर्यात झाले नाही. कृपया पुन्हा प्रयत्न करा.',
+
   // ---- item analysis for staff (FR-37) ----
   'admin.items.title': 'प्रश्न विश्लेषण',
   'admin.items.hint': 'जाहीर झालेल्या निकालांमध्ये प्रत्येक प्रश्नाची कामगिरी. एखाद्या प्रश्नाचे आकडे तेव्हाच दिसतात जेव्हा पुरेसे परीक्षार्थी त्याला सामोरे गेलेले असतात, म्हणजे कोणताही आकडा मूठभर उत्तरांवर आधारित नसतो.',
@@ -1077,9 +1083,6 @@ export const MR: Messages = {
   'admin.items.scores.averageTitle': 'सरासरी आणि मध्यमान',
   'admin.items.scores.meanMedianHelp': 'उमेदवारांच्या टक्केवारींची सरासरी, जेणेकरून प्रत्येक उमेदवार सारखा मोजला जाईल. मध्यमान म्हणजे मधल्या उमेदवाराची टक्केवारी; काही खूप जास्त किंवा खूप कमी निकाल तिला ओढत नाहीत.',
   'admin.items.scores.distributionHelp': 'प्रत्येक दहा टक्के-गुणांच्या गटात किती उमेदवार येतात. सर्वात खालच्या गटात नकारात्मक गुणांकनामुळे आलेले ऋण गुणही असतात, आणि सर्वात वरच्या गटात पूर्ण गुण.',
-  'admin.items.export': 'CSV म्हणून निर्यात करा',
-  'admin.items.exporting': 'फाइल तयार होत आहे…',
-  'admin.items.exportError': 'फाइल तयार होऊ शकली नाही, त्यामुळे काहीही निर्यात झाले नाही. कृपया पुन्हा प्रयत्न करा.',
   'admin.items.exportNote': 'फाइलमध्ये हेच आकडे आहेत जे या पानावर आहेत आणि त्यात कोणत्याही परीक्षार्थीचे नाव नाही. प्रत्येक निर्यात कोणी आणि केव्हा घेतली, ते ऑडिट लॉगमध्ये नोंदवले जाते.',
   // ---- institute branding and instruction templates (FR-41) ----
   'branding.title': 'संस्थेची ब्रँडिंग',

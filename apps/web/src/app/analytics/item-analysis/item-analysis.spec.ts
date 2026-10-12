@@ -59,6 +59,7 @@ describe('ItemAnalysis', () => {
   afterEach(() => {
     httpMock.verify();
     localStorage.clear();
+    vi.restoreAllMocks();
   });
 
   it('shows a loading notice while the analysis is read', async () => {
@@ -183,42 +184,137 @@ describe('ItemAnalysis', () => {
     expect(root(fixture).querySelector('table')).not.toBeNull();
   });
 
+  it('offers a Download CSV and a Download PDF button, each named for the file it downloads', async () => {
+    const { fixture, request } = await start();
+    request.flush(analysis());
+    fixture.detectChanges();
+
+    const labels = [...root(fixture).querySelectorAll<HTMLButtonElement>('.item-analysis__export button')].map((b) => b.textContent?.trim());
+    expect(labels).toEqual(['Download CSV', 'Download PDF']);
+    expect(root(fixture).querySelector('.item-analysis__export [role="group"]')?.getAttribute('aria-label')).toBe('Item analysis');
+  });
+
   it('downloads the CSV under the name the server gave it, after recording nothing itself', async () => {
     const { fixture, request } = await start();
     request.flush(analysis());
     fixture.detectChanges();
-    Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:csv'), revokeObjectURL: vi.fn() });
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    const downloads = captureDownloads();
 
-    exportButton(fixture)?.click();
-    const exported = httpMock.expectOne((r) => r.url.endsWith('/v1/exams/e1/analytics/items/exports') && r.method === 'POST');
-    exported.flush(new Blob(['No.,Question\r\n'], { type: 'text/csv' }), {
-      headers: { 'content-disposition': 'attachment; filename="item-analysis-physics-final-20261010-0930.csv"' },
-    });
+    exportButton(fixture, 'Download CSV')?.click();
+    httpMock.expectOne((r) => r.url.endsWith('/v1/exams/e1/analytics/items/exports') && r.method === 'POST').flush(
+      new Blob(['No.,Question\r\n'], { type: 'text/csv' }),
+      { headers: { 'content-disposition': 'attachment; filename="item-analysis-physics-final-20261010-0930.csv"' } },
+    );
     fixture.detectChanges();
 
-    expect(click).toHaveBeenCalledTimes(1);
-    expect(URL.createObjectURL).toHaveBeenCalled();
-    click.mockRestore();
+    expect(downloads).toEqual(['item-analysis-physics-final-20261010-0930.csv']);
   });
 
-  it('says the export did not happen when the server refuses it, rather than offering a file', async () => {
+  it('downloads the PDF from its own route, under the name the server gave it', async () => {
+    const { fixture, request } = await start();
+    request.flush(analysis());
+    fixture.detectChanges();
+    const downloads = captureDownloads();
+
+    exportButton(fixture, 'Download PDF')?.click();
+    httpMock.expectOne((r) => r.url.endsWith('/v1/exams/e1/analytics/items/exports/pdf') && r.method === 'POST').flush(
+      new Blob(['%PDF-1.4'], { type: 'application/pdf' }),
+      { headers: { 'content-disposition': 'attachment; filename=item-analysis-physics-final-20261010-0930.pdf' } },
+    );
+    fixture.detectChanges();
+
+    expect(downloads).toEqual(['item-analysis-physics-final-20261010-0930.pdf']);
+  });
+
+  it('names the file itself when the server sends no file name', async () => {
+    const { fixture, request } = await start();
+    request.flush(analysis());
+    fixture.detectChanges();
+    const downloads = captureDownloads();
+
+    exportButton(fixture, 'Download PDF')?.click();
+    httpMock.expectOne((r) => r.url.endsWith('/v1/exams/e1/analytics/items/exports/pdf') && r.method === 'POST').flush(new Blob(['%PDF-1.4']));
+    fixture.detectChanges();
+
+    expect(downloads).toEqual(['item-analysis.pdf']);
+  });
+
+  it('disables both download buttons while one runs, so a second press starts no second request', async () => {
+    const { fixture, request } = await start();
+    request.flush(analysis());
+    fixture.detectChanges();
+    captureDownloads();
+
+    exportButton(fixture, 'Download CSV')?.click();
+    fixture.detectChanges();
+
+    const working = exportButton(fixture, 'Preparing the file…');
+    expect(working?.disabled).toBe(true);
+    expect(exportButton(fixture, 'Download PDF')?.disabled).toBe(true);
+    exportButton(fixture, 'Download PDF')?.click();
+    working?.click();
+    fixture.detectChanges();
+
+    const exports = httpMock.match((r) => r.url.includes('/analytics/items/exports'));
+    expect(exports).toHaveLength(1);
+    exports[0].flush(new Blob(['No.,Question\r\n']));
+    fixture.detectChanges();
+
+    expect(exportButton(fixture, 'Download CSV')?.disabled).toBe(false);
+    expect(exportButton(fixture, 'Download PDF')?.disabled).toBe(false);
+  });
+
+  it('shows the problem the server gave when a download is refused, and frees the buttons again', async () => {
     const { fixture, request } = await start();
     request.flush(analysis());
     fixture.detectChanges();
 
-    exportButton(fixture)?.click();
+    exportButton(fixture, 'Download PDF')?.click();
+    // A file request reads its error body as a blob, so the server's message is read out of it.
+    httpMock.expectOne((r) => r.url.endsWith('/v1/exams/e1/analytics/items/exports/pdf') && r.method === 'POST').flush(
+      new Blob(['{"title":"forbidden","detail":"You may not export this exam."}'], { type: 'application/problem+json' }),
+      { status: 403, statusText: 'Forbidden' },
+    );
+
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('[role="alert"]')?.textContent).toContain('You may not export this exam.');
+    });
+    expect(exportButton(fixture, 'Download PDF')?.disabled).toBe(false);
+  });
+
+  it('says the export did not happen when the server refuses it with no message, rather than offering a file', async () => {
+    const { fixture, request } = await start();
+    request.flush(analysis());
+    fixture.detectChanges();
+
+    exportButton(fixture, 'Download CSV')?.click();
     // The export asks for a file, so the server's error body reaches the page as a blob.
     httpMock
       .expectOne((r) => r.url.endsWith('/v1/exams/e1/analytics/items/exports') && r.method === 'POST')
       .flush(new Blob(['{"title":"Export refused"}'], { type: 'application/problem+json' }), { status: 500, statusText: 'Error' });
-    fixture.detectChanges();
 
-    expect(root(fixture).querySelector('[role="alert"]')?.textContent).toContain('nothing was exported');
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('[role="alert"]')?.textContent).toContain('nothing was exported');
+    });
   });
 
-  /** The export button, found by its label, since it is the only button of the page's export row. */
-  function exportButton(fixture: ComponentFixture<ItemAnalysis>): HTMLButtonElement | null {
-    return root(fixture).querySelector<HTMLButtonElement>('.item-analysis__export button');
+  /** The download button of the export row with this label. */
+  function exportButton(fixture: ComponentFixture<ItemAnalysis>, label: string): HTMLButtonElement | undefined {
+    return [...root(fixture).querySelectorAll<HTMLButtonElement>('.item-analysis__export button')].find((b) => b.textContent?.trim() === label);
+  }
+
+  /**
+   * Stubs the saving of a file, so each download is seen by the name it was given instead of being written to disk. Returns the names, in the
+   * order the downloads were saved.
+   */
+  function captureDownloads(): string[] {
+    const names: string[] = [];
+    Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:download'), revokeObjectURL: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      names.push(this.download);
+    });
+    return names;
   }
 });

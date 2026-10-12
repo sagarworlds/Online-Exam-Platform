@@ -1,11 +1,12 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DOCUMENT } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
-import { extractErrorMessage } from '../../shared/problem-details';
+import { extractBlobErrorMessage, extractErrorMessage } from '../../shared/problem-details';
 import { AnalyticsApiService } from '../analytics-api.service';
 import { CandidateAnalyticsDto, ScorePointDto } from '../analytics.models';
+import { ReportFormat, saveDownload } from '../report-download';
 import { plotTrend, TREND_MARGINS, TREND_SIZE, TrendPlot, TrendPoint } from '../trend-plot';
 
 /** What the page shows at any moment: the figures are being read, they are here, no result is released yet, or they could not be read. */
@@ -30,6 +31,7 @@ export interface DrawnResult {
 export class CandidateAnalytics {
   private readonly api = inject(AnalyticsApiService);
   private readonly i18n = inject(I18nService);
+  private readonly document = inject(DOCUMENT);
 
   protected readonly size = TREND_SIZE;
   protected readonly margins = TREND_MARGINS;
@@ -37,6 +39,10 @@ export class CandidateAnalytics {
   protected readonly view = signal<AnalyticsView>('loading');
   protected readonly analytics = signal<CandidateAnalyticsDto | null>(null);
   protected readonly errorMessage = signal<string | null>(null);
+
+  /** The format whose download is in flight, or null. While one runs, every download button is disabled, so no second export can start. */
+  protected readonly exporting = signal<ReportFormat | null>(null);
+  protected readonly exportError = signal<string | null>(null);
 
   /** The index into `drawn()` of the point under the pointer, or null when none is. */
   protected readonly hovered = signal<number | null>(null);
@@ -95,6 +101,36 @@ export class CandidateAnalytics {
   /** Opens the tooltip of the point at this index while the pointer is over it. Keyboard readers have the results list instead. */
   protected show(index: number): void {
     this.hovered.set(index);
+  }
+
+  /**
+   * Downloads the candidate's own analytics as a CSV or a PDF file (FR-38). A failed download says why, with the server's message when it gave
+   * one; a press while a download runs is ignored.
+   */
+  protected download(format: ReportFormat): void {
+    if (this.exporting() !== null) {
+      return;
+    }
+
+    this.exporting.set(format);
+    this.exportError.set(null);
+    const request = format === 'csv' ? this.api.exportMyAnalyticsCsv() : this.api.exportMyAnalyticsPdf();
+    request.subscribe({
+      next: (response) => {
+        this.exporting.set(null);
+        if (!saveDownload(response, `candidate-analytics.${format}`, this.document)) {
+          this.exportError.set(this.i18n.t('exports.failed'));
+        }
+      },
+      error: (error: unknown) => {
+        console.error(`Exporting the candidate analytics as ${format} failed`, error);
+        // The buttons stay disabled until the message is read, so a second press cannot race the message that is on its way.
+        void extractBlobErrorMessage(error, this.i18n.t('exports.failed')).then((message) => {
+          this.exporting.set(null);
+          this.exportError.set(message);
+        });
+      },
+    });
   }
 
   private load(): void {

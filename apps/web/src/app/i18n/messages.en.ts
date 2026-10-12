@@ -1038,6 +1038,12 @@ export const EN = {
   'analytics.sections.resultCount.one': 'In {count} result',
   'analytics.sections.resultCount.other': 'In {count} results',
 
+  // ---- report downloads, shared by the staff and candidate pages (FR-38) ----
+  'exports.downloadCsv': 'Download CSV',
+  'exports.downloadPdf': 'Download PDF',
+  'exports.preparing': 'Preparing the file…',
+  'exports.failed': 'The file could not be prepared, so nothing was exported. Please try again.',
+
   // ---- item analysis for staff (FR-37) ----
   'admin.items.title': 'Item analysis',
   'admin.items.hint': 'How each question performed among the released results. A question shows its figures only once enough candidates had it, so no figure rests on a handful of answers.',
@@ -1083,9 +1089,6 @@ export const EN = {
   'admin.items.scores.averageTitle': 'Mean and median',
   'admin.items.scores.meanMedianHelp': 'The average of the candidates\' percentages, so each candidate counts the same. The median is the percentage of the candidate in the middle; a few very high or very low results do not pull it.',
   'admin.items.scores.distributionHelp': 'How many candidates fall in each band of ten percentage points. The bottom band also holds negative scores from negative marking, and the top band holds full marks.',
-  'admin.items.export': 'Export as CSV',
-  'admin.items.exporting': 'Preparing the file…',
-  'admin.items.exportError': 'The file could not be prepared, so nothing was exported. Please try again.',
   'admin.items.exportNote': 'The file has the same figures as this page and names no candidate. Each export is recorded in the audit log with who took it and when.',
   // ---- institute branding and instruction templates (FR-41) ----
   'branding.title': 'Institute branding',

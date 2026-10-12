@@ -80,9 +80,14 @@
         </section>
 
         <div class="item-analysis__export">
-          <button type="button" class="btn" [disabled]="exporting()" (click)="exportCsv()">
-            {{ (exporting() ? 'admin.items.exporting' : 'admin.items.export') | t }}
-          </button>
+          <div class="item-analysis__export-buttons" role="group" [attr.aria-label]="'admin.items.title' | t">
+            <button type="button" class="btn" [disabled]="exporting() !== null" (click)="download('csv')">
+              {{ (exporting() === 'csv' ? 'exports.preparing' : 'exports.downloadCsv') | t }}
+            </button>
+            <button type="button" class="btn" [disabled]="exporting() !== null" (click)="download('pdf')">
+              {{ (exporting() === 'pdf' ? 'exports.preparing' : 'exports.downloadPdf') | t }}
+            </button>
+          </div>
           <p class="hint">{{ 'admin.items.exportNote' | t }}</p>
           @if (exportError()) {
             <p class="error-message" role="alert">{{ exportError() }}</p>
