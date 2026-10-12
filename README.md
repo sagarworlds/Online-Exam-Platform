@@ -232,6 +232,14 @@ A candidate who can see the answer key of their released result may say that the
 | Screens | A candidate's answer review shows the dispute window ("You can dispute an answer key until ..."), a **Dispute this answer key** button under each question while it is open, each dispute with how it was answered, and the result version beside the list of revisions. These strings are in the language catalogue in English, Hindi and Marathi (the Hindi and Marathi words for "answer key" and "dispute" are new to the catalogue and worth a native speaker's check). Staff get **Disputes** (`/admin/disputes`, `exam.manage`): open, accepted or rejected disputes grouped by question ("3 candidates dispute this question"), a **Reject** note form on each, and, for holders of `question.manage`, a **Correct the answer key** panel per question that shows the options with the current key chosen, asks for the reason every affected candidate will see, and reports how many results were rescored. |
 | Audit | `ExamRuntime.DisputeRaised`, `ExamRuntime.DisputeAccepted` and `ExamRuntime.DisputeRejected` are written to the audit log with the exam, candidate, question and dispute ids. The candidate's reason and staff's note stay on the dispute and out of the log. |
 
+#### Time per question for candidates under 18 (FR-36)
+
+A candidate's own analytics show how long they spent on each question, from the running total the exam page reports. For a candidate under 18 this is **off by default**: the platform has not yet had counsel's opinion on minors (exam-platform-requirements.md section 7; issue #11), and the decision is recorded in [docs/compliance/minors-time-per-question-exception.md](docs/compliance/minors-time-per-question-exception.md).
+
+| Setting | Meaning |
+|---------|---------|
+| `ExamRuntime:TimePerQuestion:MinorsEnabled` | `false` by default. While it is `false`, no time is stored for an attempt by a candidate under 18: the time report is checked as usual and then dropped, so nothing is written, and the candidate's own analytics carry no time figures at all (not zero). A candidate with no date of birth on record counts as under 18. Set it to `true` only with a recorded owner decision. It does not change the risk scan (`Proctoring:MinorsScanEnabled`, FR-27). |
+
 #### Review and approval of questions (FR-8)
 
 A question moves through `draft → in review → approved → retired`, with a thread of comments and decisions kept for each one (requirements, question metadata and FR-8). It is shown as a status badge on each question in the bank and as a **Review** button on the card that opens the thread and the steps the signed-in user may take.
