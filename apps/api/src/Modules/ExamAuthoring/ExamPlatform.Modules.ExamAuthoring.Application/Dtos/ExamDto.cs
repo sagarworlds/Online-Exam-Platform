@@ -67,5 +67,6 @@ public record ExamConfigDto(
     DateTime? ResultReleaseTime,
     MarkingScheme MarkingScheme,
     bool ContentProtection = true,
-    int FocusViolationLimit = 0
+    int FocusViolationLimit = 0,
+    int? PassingPercentage = null
 );

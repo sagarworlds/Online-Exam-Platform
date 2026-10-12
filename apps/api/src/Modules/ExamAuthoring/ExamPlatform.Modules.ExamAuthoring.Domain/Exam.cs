@@ -504,6 +504,40 @@ public class Exam : AggregateRoot
     }
 
     /// <summary>
+    /// Sets the share of the total marks a candidate needs to pass (FR-34). Like the attempt limit it may change after publishing: it changes
+    /// nothing a candidate is asked or scored, only whether a result says passed and whether a certificate may be issued on a pass.
+    /// </summary>
+    /// <param name="percent">The pass mark, from <see cref="ExamConfig.LowestPassingPercentage"/> to <see cref="ExamConfig.HighestPassingPercentage"/>.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The percent is outside the allowed range.</exception>
+    public void SetPassingPercentage(int percent, DateTime nowUtc)
+    {
+        EnsureNotArchived();
+
+        if (percent is < ExamConfig.LowestPassingPercentage or > ExamConfig.HighestPassingPercentage)
+            throw new InvalidExamConfigError(
+                $"The passing mark is a percentage from {ExamConfig.LowestPassingPercentage} to {ExamConfig.HighestPassingPercentage}.");
+
+        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
+        Config = Config with { PassingPercentage = percent, MarkingScheme = Config.MarkingScheme with { } };
+        UpdatedAt = nowUtc;
+    }
+
+    /// <summary>
+    /// Removes the pass mark. The exam then has no pass: results say nothing about passing, and no certificate is issued on a pass (FR-34).
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    public void ClearPassingPercentage(DateTime nowUtc)
+    {
+        EnsureNotArchived();
+
+        Config = Config with { PassingPercentage = null, MarkingScheme = Config.MarkingScheme with { } };
+        UpdatedAt = nowUtc;
+    }
+
+    /// <summary>
     /// Applies a proctoring profile (FR-46): sets the copy block and the violation limit together, to what the profile says. The settings
     /// stay editable one by one afterwards, in which case the exam reports its profile as custom. Like those settings it may change after
     /// publishing, because it changes nothing that is asked or scored.

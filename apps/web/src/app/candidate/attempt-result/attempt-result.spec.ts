@@ -230,15 +230,27 @@ describe('AttemptResult', () => {
       URL.revokeObjectURL = originalRevoke;
     });
 
-    it('is disabled, with the reason, while the result is held', async () => {
+    it('is offered while the result is held, since a pass before release is enough, and says it is refused until then', async () => {
       const fixture = await start();
       resultRequest().flush({ title: 'results_not_released', detail: 'Held.' }, { status: 409, statusText: 'Conflict' });
       attemptRequest().flush({ id: 'a1', review: { available: false, mode: 'Manual', availableFromUtc: null } });
       fixture.detectChanges();
 
-      const button = certificateButton(fixture);
-      expect(button?.disabled).toBe(true);
-      expect(root(fixture).querySelector(`#${button?.getAttribute('aria-describedby')}`)?.textContent).toContain('once your result is released');
+      expect(certificateButton(fixture)?.disabled).toBe(false);
+      expect(root(fixture).querySelector('#certificate-reason')?.textContent).toContain('or now if you passed the exam');
+    });
+
+    it('says the candidate passed when the exam has a pass mark and the score reaches it', async () => {
+      const fixture = await open(result({ passed: true }));
+
+      expect(textOf(fixture)).toContain('You passed this exam.');
+    });
+
+    it('says nothing about passing when the exam has no pass mark', async () => {
+      const fixture = await open(result({ passed: null }));
+
+      expect(textOf(fixture)).not.toContain('passed this exam');
+      expect(textOf(fixture)).not.toContain('did not pass this exam');
     });
 
     it('is disabled, with the reason, when the result was invalidated, which has no retry', async () => {

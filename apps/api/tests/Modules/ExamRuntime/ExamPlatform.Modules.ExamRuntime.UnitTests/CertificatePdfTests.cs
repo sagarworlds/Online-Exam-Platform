@@ -55,6 +55,15 @@ public class CertificatePdfTests
     }
 
     [Fact]
+    public void APassBeforeRelease_SaysThatTheCandidatePassed_AndPrintsNoScore()
+    {
+        var pdf = Text(CertificatePdf.Render(Details() with { Score = null, MaxScore = null }));
+
+        Assert.Contains("having passed it", pdf);
+        Assert.DoesNotContain("with a score of", pdf);
+    }
+
+    [Fact]
     public void TheCandidatesName_IsPrintedAsWritten()
     {
         var text = Text(CertificatePdf.Render(Details("Asha Kumar")));

@@ -1,0 +1,38 @@
+<div class="card">
+  <h2>{{ 'exams.passingMark.title' | t }}</h2>
+  @if (editable()) {
+    <form (submit)="save($event)" [attr.aria-label]="'exams.passingMark.title' | t">
+      <label class="inline-check">
+        <input type="checkbox" [checked]="hasMark()" (change)="toggle($any($event.target).checked)" />
+        {{ 'exams.passingMark.set' | t }}
+      </label>
+      @if (hasMark()) {
+        <div class="field">
+          <label for="passing-percentage">{{ 'exams.passingMark.field' | t }}</label>
+          <input
+            id="passing-percentage"
+            type="number"
+            inputmode="numeric"
+            step="1"
+            [attr.min]="lowest"
+            [attr.max]="highest"
+            [value]="numberText()"
+            (input)="typeNumber($any($event.target).value)"
+            [attr.aria-invalid]="parsed() === undefined"
+            aria-describedby="passing-percentage-hint"
+          />
+          <p id="passing-percentage-hint" class="hint">{{ 'exams.passingMark.rangeHint' | t: { lowest: lowest, highest: highest } }}</p>
+        </div>
+      }
+      <p class="hint">{{ 'exams.passingMark.defaultHint' | t }}</p>
+      @if (dirty()) {
+        <div class="actions">
+          <button type="submit" class="primary" [disabled]="busy() || parsed() === undefined">{{ 'common.save' | t }}</button>
+          <button type="button" (click)="discard()" [disabled]="busy()">{{ 'common.cancel' | t }}</button>
+        </div>
+      }
+    </form>
+  } @else {
+    <p>{{ 'exams.passingMark.readLine' | t: { state: readState() } }}</p>
+  }
+</div>

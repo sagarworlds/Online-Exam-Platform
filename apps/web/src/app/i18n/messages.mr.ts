@@ -295,6 +295,7 @@ export const MR: Messages = {
   'certificate.download': 'प्रमाणपत्र डाउनलोड करा',
   'certificate.downloading': 'तुमचे प्रमाणपत्र तयार होत आहे…',
   'certificate.reason.held': 'निकाल जाहीर झाल्यावर तुम्ही तुमचे प्रमाणपत्र डाउनलोड करू शकता.',
+  'certificate.reason.heldOrPassed': 'निकाल जाहीर झाल्यावर, किंवा तुम्ही परीक्षा उत्तीर्ण केली असल्यास आताच, तुम्ही तुमचे प्रमाणपत्र डाउनलोड करू शकता.',
   'certificate.reason.invalidated': 'हा निकाल रद्द झाला आहे, त्यामुळे त्याला प्रमाणपत्र नाही.',
   'certificate.nameMissing': 'प्रमाणपत्र मिळण्यापूर्वी तुमच्या प्रोफाइलमध्ये तुमचे नाव जोडा.',
   'certificate.unsupported': 'हे प्रमाणपत्र अजून तुमच्या नावातील किंवा परीक्षेच्या नावातील प्रत्येक अक्षर दाखवू शकत नाही. लॅटिन अक्षरे, अंक आणि सामान्य विरामचिन्हे समर्थित आहेत.',
@@ -304,6 +305,8 @@ export const MR: Messages = {
   'result.noAttempt': 'कोणताही प्रयत्न दिला नव्हता.',
   'result.loadError': 'तुमचा निकाल लोड होऊ शकला नाही. कृपया पुन्हा प्रयत्न करा.',
   'result.scoreLabel': 'गुण',
+  'result.passed': 'तुम्ही ही परीक्षा उत्तीर्ण झाला आहात.',
+  'result.notPassed': 'तुम्ही ही परीक्षा उत्तीर्ण झालेला नाही.',
   'result.rankLabel': '{count} पैकी क्रमांक',
   'result.percentileLabel': 'पर्सेंटाइल',
   'result.percentileHint': 'तुमचा गुण {count} निकालांपैकी {percent}% निकालांइतका किंवा त्याहून जास्त आहे.',
@@ -799,6 +802,7 @@ export const MR: Messages = {
   'exams.setting.proctoring': 'देखरेख',
   'exams.setting.copying': 'कॉपी आणि प्रिंट',
   'exams.setting.leaving': 'परीक्षा पान सोडणे',
+  'exams.setting.passingMark': 'उत्तीर्णतेचे गुण',
 
   // ---- exam editor: the one-line value of each setting, when its row is closed ----
   'exams.summary.release.scheduled': 'ठरलेल्या वेळेपासून',
@@ -932,6 +936,14 @@ export const MR: Messages = {
   'exams.leaving.readEnds.one': 'प्रयास {count} वेळा सोडल्यावर संपतो',
   'exams.leaving.readEnds.other': 'प्रयास {count} वेळा सोडल्यावर संपतो',
   'exams.leaving.readNotWatched': 'देखरेख नाही',
+  'exams.passingMark.title': 'उत्तीर्णतेचे गुण',
+  'exams.passingMark.set': 'या परीक्षेला उत्तीर्णतेचे गुण आहेत',
+  'exams.passingMark.field': 'उत्तीर्णतेचे गुण, एकूण गुणांची टक्केवारी',
+  'exams.passingMark.rangeHint': '{lowest} ते {highest} टक्के. जो परीक्षार्थी हे गाठतो तो उत्तीर्ण होतो: त्याच्या निकालात तसे लिहिले जाते, आणि निकाल जाहीर होण्यापूर्वीही तो प्रमाणपत्र डाउनलोड करू शकतो.',
+  'exams.passingMark.defaultHint': 'डीफॉल्टने बंद. उत्तीर्णतेचे गुण नसल्यास निकालात उत्तीर्ण किंवा अनुत्तीर्ण लिहिले जात नाही, आणि प्रमाणपत्र फक्त निकाल जाहीर झाल्यानंतर दिले जाते.',
+  'exams.passingMark.readLine': 'उत्तीर्णतेचे गुण: {state}',
+  'exams.passingMark.readSet': 'एकूण गुणांच्या {percent}%',
+  'exams.passingMark.readNone': 'नाही',
 
   // ---- exam editor: name and description ----
   'exams.details.formLabel': 'परीक्षेचे नाव आणि वर्णन',

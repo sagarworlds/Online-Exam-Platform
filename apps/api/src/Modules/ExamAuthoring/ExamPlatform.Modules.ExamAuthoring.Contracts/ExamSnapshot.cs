@@ -41,6 +41,9 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// <param name="Instructions">
 /// What the author wrote for candidates to read before they start (FR-41), or null for none. The instructions page shows it above the rules.
 /// </param>
+/// <param name="PassingPercentage">
+/// The share of the total marks a candidate needs to pass (FR-34), from 1 to 100; null when the exam has no pass mark, so nothing is judged a pass.
+/// </param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -64,7 +67,8 @@ public sealed record ExamSnapshot(
     bool ContentProtection = true,
     int FocusViolationLimit = 0,
     IReadOnlyList<string>? ProctoringNotice = null,
-    string? Instructions = null);
+    string? Instructions = null,
+    int? PassingPercentage = null);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>

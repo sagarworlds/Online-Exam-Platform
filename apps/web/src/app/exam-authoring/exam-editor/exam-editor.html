@@ -309,6 +309,27 @@
           />
         </div>
       </details>
+
+      <details class="setting">
+        <summary>
+          <h3 class="setting__name">{{ 'exams.setting.passingMark' | t }}</h3>
+          <span class="setting__value">
+            @if (e.config.passingPercentage; as percent) {
+              {{ 'exams.passingMark.readSet' | t: { percent: percent } }}
+            } @else {
+              {{ 'exams.passingMark.readNone' | t }}
+            }
+          </span>
+        </summary>
+        <div class="setting__body">
+          <app-exam-passing-percentage
+            [percent]="e.config.passingPercentage ?? null"
+            [editable]="canChangeRelease()"
+            [busy]="busy()"
+            (changed)="savePassingPercentage($event)"
+          />
+        </div>
+      </details>
     </section>
 
     @if (isDraft()) {

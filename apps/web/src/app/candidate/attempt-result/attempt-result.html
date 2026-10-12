@@ -25,9 +25,14 @@
         } @else {
           <p>{{ 'result.locked.whenReleased' | t }}</p>
         }
-        <!-- The certificate exists only for a released result, so while it is held the button is disabled and says why. -->
-        <button type="button" class="btn" disabled aria-describedby="certificate-reason">{{ 'certificate.download' | t }}</button>
-        <p class="hint" id="certificate-reason">{{ 'certificate.reason.held' | t }}</p>
+        <!-- A certificate exists for a released result, and for one that passed the exam's pass mark before release (FR-34). A refusal says why. -->
+        <button type="button" class="btn" [disabled]="certificateBusy()" [attr.aria-describedby]="certificateError() ? 'certificate-reason certificate-error' : 'certificate-reason'" (click)="downloadCertificate()">
+          {{ (certificateBusy() ? 'certificate.downloading' : 'certificate.download') | t }}
+        </button>
+        <p class="hint" id="certificate-reason">{{ 'certificate.reason.heldOrPassed' | t }}</p>
+        @if (certificateError(); as problem) {
+          <p class="error-message" id="certificate-error" role="alert">{{ problem }}</p>
+        }
       </div>
     }
 
@@ -45,6 +50,11 @@
         <p class="card__meta">
           {{ r.examName }}@if (r.number > 1) { · {{ 'common.attempt' | t: { number: r.number } }} }
         </p>
+
+        <!-- Shown only when the exam has a pass mark; without one the result says nothing about passing (FR-34). -->
+        @if (r.passed === true || r.passed === false) {
+          <p class="result-pass" role="status">{{ (r.passed ? 'result.passed' : 'result.notPassed') | t }}</p>
+        }
 
         <!-- The three headline figures, the same tiles the admin pages use for their totals. -->
         <div class="stat-grid result-headline">

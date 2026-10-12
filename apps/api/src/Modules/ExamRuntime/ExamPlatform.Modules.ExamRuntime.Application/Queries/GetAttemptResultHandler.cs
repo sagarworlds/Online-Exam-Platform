@@ -57,7 +57,8 @@ public sealed class GetAttemptResultHandler(AttemptAccess access, AttemptReviewB
             standing.Percentile,
             standing.CohortSize,
             provisional,
-            built.ResultVersion);
+            built.ResultVersion,
+            PassRule.Of(built.Score, built.MaxScore, exam.PassingPercentage));
     }
 
     private static SectionResultDto SectionOf(ReviewSectionDto section)

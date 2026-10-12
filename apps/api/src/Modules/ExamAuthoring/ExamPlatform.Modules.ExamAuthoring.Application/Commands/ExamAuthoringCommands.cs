@@ -121,3 +121,12 @@ public sealed record SetProctoringProfileCommand(Guid ExamId, string? Profile);
 /// <param name="ExamId">The exam.</param>
 /// <param name="FocusViolationLimit">The violations allowed, from 0 (not watched) to 20, or null if the caller did not send it.</param>
 public sealed record SetFocusViolationLimitCommand(Guid ExamId, int? FocusViolationLimit);
+
+/// <summary>Chooses the share of the total marks a candidate needs to pass (FR-34).</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="PassingPercentage">The pass mark, from 1 to 100, or null if the caller did not send it.</param>
+public sealed record SetPassingPercentageCommand(Guid ExamId, int? PassingPercentage);
+
+/// <summary>Removes the exam's pass mark (FR-34).</summary>
+/// <param name="ExamId">The exam.</param>
+public sealed record ClearPassingPercentageCommand(Guid ExamId);

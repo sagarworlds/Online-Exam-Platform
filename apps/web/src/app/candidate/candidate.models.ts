@@ -457,6 +457,8 @@ export interface AttemptResultDto {
   cohortSize: number;
   /** Whether the exam is still open, so the rank may still move. */
   provisional: boolean;
+  /** Whether the score reaches the exam's pass mark (FR-34); null when the exam has no pass mark. */
+  passed?: boolean | null;
   /** Which version of the result the score is: 1 as first submitted, one more for each revision (FR-31). */
   resultVersion: number;
 }

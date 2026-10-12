@@ -7,9 +7,10 @@ using ExamPlatform.SharedKernel.Application;
 namespace ExamPlatform.Modules.ExamRuntime.Application.Queries;
 
 /// <summary>
-/// Works out what a candidate's certificate says (FR-34). A certificate is issued only for a result the exam's author has released, the same
-/// gate the result page uses, so a certificate never shows a score that candidates may not yet see. The requirement's "passed" condition has no
-/// pass mark to test in the exam model, so it is not applied here.
+/// Works out what a candidate's certificate says (FR-34). A certificate is issued for a result the exam's author has released, the same gate
+/// the result page uses, or for an attempt that passed the exam's pass mark (the requirement's "passed or released"). A certificate shows the
+/// score only once the result is released, so a pass before release says that the candidate passed and gives no number. With no pass mark
+/// on the exam, a pass cannot be judged, and only a released result gets a certificate.
 /// </summary>
 public sealed class GetCertificateHandler(AttemptAccess access, IDisplayNameDirectory displayNames, Clock clock)
 {
@@ -21,7 +22,7 @@ public sealed class GetCertificateHandler(AttemptAccess access, IDisplayNameDire
     /// <exception cref="AttemptNotFoundError">No such attempt, or it is someone else's.</exception>
     /// <exception cref="AttemptNotSubmittedError">The attempt is still open.</exception>
     /// <exception cref="AttemptInvalidatedError">An administrator invalidated the result, so it has no certificate.</exception>
-    /// <exception cref="ResultsNotReleasedError">The exam's author has not released the results yet.</exception>
+    /// <exception cref="ResultsNotReleasedError">The exam's author has not released the results yet, and the candidate did not pass.</exception>
     /// <exception cref="CertificateNameMissingError">The candidate's account has no name to print.</exception>
     /// <exception cref="CertificateTextUnsupportedError">The name or the exam's name uses a character the certificate cannot show.</exception>
     public async Task<CertificateDetails> HandleAsync(Guid attemptId, Guid candidateId, CancellationToken cancellationToken)
@@ -34,7 +35,8 @@ public sealed class GetCertificateHandler(AttemptAccess access, IDisplayNameDire
             throw new AttemptNotSubmittedError();
 
         var availability = ResultRelease.AvailabilityOf(exam, clock.UtcNow);
-        if (!availability.Available)
+        var passed = PassRule.Of(attempt.Score.Value, attempt.MaxScore.Value, exam.PassingPercentage) == true;
+        if (!availability.Available && !passed)
             throw new ResultsNotReleasedError(availability.AvailableFromUtc);
 
         var names = await displayNames.GetDisplayNamesAsync([candidateId], cancellationToken);
@@ -45,12 +47,16 @@ public sealed class GetCertificateHandler(AttemptAccess access, IDisplayNameDire
         if (!CertificatePdf.CanShow(printedName) || !CertificatePdf.CanShow(exam.Name))
             throw new CertificateTextUnsupportedError();
 
+        // The score is printed only once the result is released; a pass before that says so without the number.
+        var printedScore = availability.Available ? (decimal?)attempt.Score.Value : null;
+        var printedMaxScore = availability.Available ? (decimal?)attempt.MaxScore.Value : null;
+
         return new CertificateDetails(
             printedName,
             exam.Name,
             attempt.SubmittedAtUtc ?? clock.UtcNow,
-            attempt.Score.Value,
-            attempt.MaxScore.Value,
+            printedScore,
+            printedMaxScore,
             attempt.Id);
     }
 }
