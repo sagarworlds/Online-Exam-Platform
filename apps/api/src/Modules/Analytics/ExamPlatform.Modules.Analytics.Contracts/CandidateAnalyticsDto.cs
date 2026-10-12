@@ -6,12 +6,14 @@ namespace ExamPlatform.Modules.Analytics.Contracts;
 /// <param name="Sections">How the candidate's answers fell in each section name across the exams, weakest accuracy first.</param>
 /// <param name="Topics">How the candidate's answers fell under each topic label of their questions, weakest accuracy first.</param>
 /// <param name="Time">How long the candidate spent per question, overall and by section.</param>
+/// <param name="Comparisons">How the candidate's best result at each exam compares with that exam's topper and average, oldest exam first (FR-36).</param>
 public sealed record CandidateAnalyticsDto(
     int ResultCount,
     IReadOnlyList<ScorePointDto> Trend,
     IReadOnlyList<SectionPerformanceDto> Sections,
     IReadOnlyList<TopicPerformanceDto> Topics,
-    TimePerQuestionDto Time);
+    TimePerQuestionDto Time,
+    IReadOnlyList<ExamComparisonDto> Comparisons);
 
 /// <summary>One released result on the score trend.</summary>
 /// <param name="AttemptId">The attempt the point is for.</param>
