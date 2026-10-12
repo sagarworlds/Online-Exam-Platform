@@ -103,9 +103,9 @@
         <summary>{{ 'attempt.helpSummary' | t }}</summary>
         <div class="exam-zoom actions" role="group" [attr.aria-label]="'attempt.display' | t">
           <button type="button" [attr.aria-pressed]="highContrast()" (click)="toggleHighContrast()">{{ 'attempt.highContrast' | t }}</button>
-          <button type="button" [disabled]="!canZoomOut()" (click)="zoomOut()" [attr.aria-label]="'attempt.smallerText' | t">A&minus;</button>
+          <button type="button" [disabled]="!canZoomOut()" (click)="zoomOut()" [attr.aria-label]="'A− ' + ('attempt.smallerText' | t)">A&minus;</button>
           <span class="hint" aria-live="polite">{{ zoom() * 100 | number: '1.0-0' }}%</span>
-          <button type="button" [disabled]="!canZoomIn()" (click)="zoomIn()" [attr.aria-label]="'attempt.largerText' | t">A+</button>
+          <button type="button" [disabled]="!canZoomIn()" (click)="zoomIn()" [attr.aria-label]="'A+ ' + ('attempt.largerText' | t)">A+</button>
           @if (!preview) {
             <button type="button" [attr.aria-pressed]="lowBandwidth.enabled()" aria-describedby="low-bandwidth-hint" (click)="toggleLowBandwidth()">{{ 'attempt.lowBandwidth' | t }}</button>
             <span id="low-bandwidth-hint" class="visually-hidden">{{ 'attempt.lowBandwidth.hint' | t }}</span>

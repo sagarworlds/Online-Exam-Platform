@@ -987,17 +987,26 @@ describe('ExamAttempt', () => {
 
     expect(buttonLabelled(fixture, 'A−')!.disabled).toBe(true);
     for (let i = 0; i < 5; i++) {
-      (root(fixture).querySelector('button[aria-label="Larger text"]') as HTMLButtonElement).click();
+      (root(fixture).querySelector('button[aria-label$="Larger text"]') as HTMLButtonElement).click();
       fixture.detectChanges();
     }
     expect(card().style.getPropertyValue('--exam-zoom')).toBe('1.5');
-    expect((root(fixture).querySelector('button[aria-label="Larger text"]') as HTMLButtonElement).disabled).toBe(true);
+    expect((root(fixture).querySelector('button[aria-label$="Larger text"]') as HTMLButtonElement).disabled).toBe(true);
     expect(localStorage.getItem('exam.textZoom')).toBe('1.5');
 
-    (root(fixture).querySelector('button[aria-label="Smaller text"]') as HTMLButtonElement).click();
+    (root(fixture).querySelector('button[aria-label$="Smaller text"]') as HTMLButtonElement).click();
     fixture.detectChanges();
     expect(card().style.getPropertyValue('--exam-zoom')).toBe('1.3');
     localStorage.removeItem('exam.textZoom');
+  });
+
+  it('names the zoom buttons with their visible A− and A+ first, then what they do, for voice control and screen readers', async () => {
+    const fixture = await open(attempt());
+    const zoomButton = (visible: string) =>
+      Array.from(root(fixture).querySelectorAll<HTMLButtonElement>('.exam-zoom button')).find((b) => b.textContent?.trim() === visible)!;
+
+    expect(zoomButton('A−').getAttribute('aria-label')).toBe('A− Smaller text');
+    expect(zoomButton('A+').getAttribute('aria-label')).toBe('A+ Larger text');
   });
 
   describe('an accommodation (FR-49)', () => {
@@ -1032,7 +1041,7 @@ describe('ExamAttempt', () => {
       const fixture = await open(accommodated(['large_text', 'high_contrast']));
 
       buttonLabelled(fixture, 'High contrast')?.click();
-      (root(fixture).querySelector('button[aria-label="Smaller text"]') as HTMLButtonElement).click();
+      (root(fixture).querySelector('button[aria-label$="Smaller text"]') as HTMLButtonElement).click();
       fixture.detectChanges();
 
       expect(root(fixture).querySelector('.page--contrast')).toBeNull();
