@@ -139,6 +139,9 @@ export class AttemptResult {
       case 'attempt_invalidated':
         this.certificateError.set(this.i18n.t('certificate.reason.invalidated'));
         return;
+      case 'certificate_not_issued':
+        this.certificateError.set(this.i18n.t('certificate.reason.notPassed'));
+        return;
       case 'certificate_name_missing':
         this.certificateError.set(this.i18n.t('certificate.nameMissing'));
         return;

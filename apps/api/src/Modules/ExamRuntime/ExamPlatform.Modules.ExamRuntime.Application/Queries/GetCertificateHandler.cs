@@ -1,3 +1,4 @@
+using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
@@ -7,10 +8,10 @@ using ExamPlatform.SharedKernel.Application;
 namespace ExamPlatform.Modules.ExamRuntime.Application.Queries;
 
 /// <summary>
-/// Works out what a candidate's certificate says (FR-34). A certificate is issued for a result the exam's author has released, the same gate
-/// the result page uses, or for an attempt that passed the exam's pass mark (the requirement's "passed or released"). A certificate shows the
-/// score only once the result is released, so a pass before release says that the candidate passed and gives no number. With no pass mark
-/// on the exam, a pass cannot be judged, and only a released result gets a certificate.
+/// Works out what a candidate's certificate says (FR-34). A certificate is issued only once the exam's author has released the result, the
+/// same gate the result page uses, so nobody learns a certificate, or a pass, before the result is out. Which certificate it is depends on the
+/// exam: with a pass mark, a candidate who reached it gets an achievement certificate with the score, and one who did not gets none; with no
+/// pass mark, every candidate gets a participation certificate, which names no score.
 /// </summary>
 public sealed class GetCertificateHandler(AttemptAccess access, IDisplayNameDirectory displayNames, Clock clock)
 {
@@ -22,7 +23,8 @@ public sealed class GetCertificateHandler(AttemptAccess access, IDisplayNameDire
     /// <exception cref="AttemptNotFoundError">No such attempt, or it is someone else's.</exception>
     /// <exception cref="AttemptNotSubmittedError">The attempt is still open.</exception>
     /// <exception cref="AttemptInvalidatedError">An administrator invalidated the result, so it has no certificate.</exception>
-    /// <exception cref="ResultsNotReleasedError">The exam's author has not released the results yet, and the candidate did not pass.</exception>
+    /// <exception cref="ResultsNotReleasedError">The exam's author has not released the results yet.</exception>
+    /// <exception cref="CertificateNotIssuedError">The exam has a pass mark and the candidate did not reach it.</exception>
     /// <exception cref="CertificateNameMissingError">The candidate's account has no name to print.</exception>
     /// <exception cref="CertificateTextUnsupportedError">The name or the exam's name uses a character the certificate cannot show.</exception>
     public async Task<CertificateDetails> HandleAsync(Guid attemptId, Guid candidateId, CancellationToken cancellationToken)
@@ -34,10 +36,12 @@ public sealed class GetCertificateHandler(AttemptAccess access, IDisplayNameDire
         if (attempt.Status != AttemptStatus.Submitted || attempt.Score is null || attempt.MaxScore is null)
             throw new AttemptNotSubmittedError();
 
+        // Nothing, not even a pass, is certified before the author releases the result.
         var availability = ResultRelease.AvailabilityOf(exam, clock.UtcNow);
-        var passed = PassRule.Of(attempt.Score.Value, attempt.MaxScore.Value, exam.PassingPercentage) == true;
-        if (!availability.Available && !passed)
+        if (!availability.Available)
             throw new ResultsNotReleasedError(availability.AvailableFromUtc);
+
+        var kind = KindOf(exam, attempt);
 
         var names = await displayNames.GetDisplayNamesAsync([candidateId], cancellationToken);
         if (!names.TryGetValue(candidateId, out var name) || string.IsNullOrWhiteSpace(name))
@@ -47,16 +51,29 @@ public sealed class GetCertificateHandler(AttemptAccess access, IDisplayNameDire
         if (!CertificatePdf.CanShow(printedName) || !CertificatePdf.CanShow(exam.Name))
             throw new CertificateTextUnsupportedError();
 
-        // The score is printed only once the result is released; a pass before that says so without the number.
-        var printedScore = availability.Available ? (decimal?)attempt.Score.Value : null;
-        var printedMaxScore = availability.Available ? (decimal?)attempt.MaxScore.Value : null;
+        // Only an achievement names the score; a participation certificate is given none.
+        var achieved = kind == CertificateKind.Achievement;
 
         return new CertificateDetails(
             printedName,
             exam.Name,
             attempt.SubmittedAtUtc ?? clock.UtcNow,
-            printedScore,
-            printedMaxScore,
+            kind,
+            achieved ? attempt.Score.Value : null,
+            achieved ? attempt.MaxScore.Value : null,
             attempt.Id);
+    }
+
+    /// <summary>
+    /// The certificate this released attempt earns. An exam with no pass mark gives participation to everyone. An exam with a pass mark gives
+    /// the achievement to a candidate who reached it, and no certificate to one who did not.
+    /// </summary>
+    private static CertificateKind KindOf(ExamSnapshot exam, Attempt attempt)
+    {
+        if (exam.PassingPercentage is null)
+            return CertificateKind.Participation;
+
+        var passed = PassRule.Of(attempt.Score!.Value, attempt.MaxScore!.Value, exam.PassingPercentage) == true;
+        return passed ? CertificateKind.Achievement : throw new CertificateNotIssuedError();
     }
 }
