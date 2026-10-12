@@ -538,8 +538,17 @@ export class ExamAttempt {
     this.markCurrentVisited();
   }
 
+  /**
+   * Moves to the next question. Next and Save & Next are disabled on the last question, and a control disabled while it has focus drops
+   * focus to the page. So when the move lands on the last question, focus goes to the line giving the question's position: it is never
+   * disabled, it is announced as the new question, and the next Tab goes to its first answer.
+   */
   protected next(): void {
-    this.goTo(this.position() + 1);
+    const from = this.position();
+    this.goTo(from + 1);
+    if (this.position() !== from && this.isLast()) {
+      afterNextRender(() => this.questionPosition()?.nativeElement.focus(), { injector: this.injector });
+    }
   }
 
   protected stayInSection(): void {

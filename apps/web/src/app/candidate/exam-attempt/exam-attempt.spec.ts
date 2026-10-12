@@ -161,6 +161,21 @@ describe('ExamAttempt', () => {
     expect(textOf(fixture)).toContain('Question 1 of 2');
   });
 
+  it.each(['Next', 'Save & Next'])(
+    'keeps focus on the question when %s reaches the last question, instead of dropping it to the page',
+    async (label) => {
+      const fixture = await open(attempt());
+      const button = buttonLabelled(fixture, label)!;
+      button.focus();
+      button.click();
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Question 2 of 2');
+      expect((buttonLabelled(fixture, label) as HTMLButtonElement).disabled).toBe(true);
+      expect(document.activeElement).toBe(root(fixture).querySelector('.question__meta'));
+    },
+  );
+
   it('numbers every question in a palette, marks the answered ones, and jumps to the one pressed', async () => {
     const fixture = await open(attempt());
 
