@@ -24,16 +24,25 @@ public class ExamItemAnalysisServiceTests
 
     /// <summary>
     /// A candidate who answered both questions, the first correctly if <paramref name="firstRight"/>, the second likewise. The paper carries
-    /// <paramref name="maxScore"/> marks; the default of eight is two questions of four marks each.
+    /// <paramref name="maxScore"/> marks; the default of eight is two questions of four marks each. The seconds are the times the page reported
+    /// for each question, or none when it reported nothing.
     /// </summary>
-    private AttemptResponses Sitting(int candidate, decimal score, bool firstRight, bool secondRight, DateTime? submitted = null, decimal maxScore = 8m) =>
+    private AttemptResponses Sitting(
+        int candidate,
+        decimal score,
+        bool firstRight,
+        bool secondRight,
+        DateTime? submitted = null,
+        decimal maxScore = 8m,
+        int? firstSeconds = null,
+        int? secondSeconds = null) =>
         new(
             Guid.NewGuid(),
             Id(candidate),
             submitted ?? Day,
             score,
             maxScore,
-            [new QuestionResponse(_q1, firstRight), new QuestionResponse(_q2, secondRight)]);
+            [new QuestionResponse(_q1, firstRight, firstSeconds), new QuestionResponse(_q2, secondRight, secondSeconds)]);
 
     private static Guid Id(int n) => new($"00000000-0000-0000-0000-{n:D12}");
 
@@ -201,5 +210,93 @@ public class ExamItemAnalysisServiceTests
             .Returns(Task.FromResult<IReadOnlyList<QuestionSnapshot>>([new QuestionSnapshot(_q1, "Q1", [])]));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => Service().GetAsync(_examId, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task BelowTheMinimumCohort_TheAverageTimeIsWithheld_EvenThoughTheCountIsShown()
+    {
+        Released(Sitting(1, 2m, true, true, firstSeconds: 30), Sitting(2, 1m, false, false, firstSeconds: 50));
+        QuestionTexts();
+
+        var time = (await Service(threshold: 10).GetAsync(_examId, CancellationToken.None)).Questions[0].Time;
+
+        Assert.Equal(2, time.CandidatesTimed);
+        Assert.Null(time.AverageSeconds);
+        Assert.Equal(ItemTimeStatus.BelowMinimumCohort, time.Status);
+    }
+
+    [Fact]
+    public async Task AtTheMinimumCohort_TheAverageTimeIsShown()
+    {
+        // Ten candidates timed at 10, 20 ... 100 seconds: the average is 55 and the question's figure is shown.
+        Released(Enumerable.Range(1, 10).Select(i => Sitting(i, i, true, true, firstSeconds: i * 10)).ToArray());
+        QuestionTexts();
+
+        var time = (await Service(threshold: 10).GetAsync(_examId, CancellationToken.None)).Questions[0].Time;
+
+        Assert.Equal(10, time.CandidatesTimed);
+        Assert.Equal(55m, time.AverageSeconds);
+        Assert.Equal(ItemTimeStatus.Shown, time.Status);
+    }
+
+    [Fact]
+    public async Task AQuestionNobodyWasTimedOn_HasNoAverage_AndSaysItHasNoTimes()
+    {
+        Released(Sitting(1, 2m, true, true), Sitting(2, 1m, false, false));
+        QuestionTexts();
+
+        var time = (await Service().GetAsync(_examId, CancellationToken.None)).Questions[0].Time;
+
+        Assert.Equal(0, time.CandidatesTimed);
+        Assert.Null(time.AverageSeconds);
+        Assert.Equal(ItemTimeStatus.NoTimes, time.Status);
+    }
+
+    [Fact]
+    public async Task TheExamAverage_IsOverItsTimedAnswersOnly_NotEveryAnswer()
+    {
+        // The timed answers are 10, 30 and 20. The third candidate has no times, so the average is 60 over 3 timed answers, not over all six.
+        Released(
+            Sitting(1, 2m, true, true, firstSeconds: 10, secondSeconds: 30),
+            Sitting(2, 1m, false, false, firstSeconds: 20),
+            Sitting(3, 0m, false, false));
+        QuestionTexts();
+
+        var time = (await Service().GetAsync(_examId, CancellationToken.None)).Time;
+
+        Assert.Equal(3, time.QuestionsTimed);
+        Assert.Equal(20m, time.AverageSeconds);
+    }
+
+    [Fact]
+    public async Task ACandidateWhoSatTwice_IsTimedByTheirBestResultOnly()
+    {
+        // Candidate 1's retake is the best result, so the 90 seconds of the earlier sitting is left out: the timed answers are 10 and 20.
+        Released(
+            Sitting(1, 2m, false, false, submitted: Day, firstSeconds: 90),
+            Sitting(1, 5m, true, true, submitted: Day.AddDays(1), firstSeconds: 10),
+            Sitting(2, 1m, false, false, firstSeconds: 20));
+        QuestionTexts();
+
+        var analysis = await Service(threshold: 2).GetAsync(_examId, CancellationToken.None);
+
+        Assert.Equal(2, analysis.Questions[0].Time.CandidatesTimed);
+        Assert.Equal(15m, analysis.Questions[0].Time.AverageSeconds);
+        Assert.Equal(2, analysis.Time.QuestionsTimed);
+        Assert.Equal(15m, analysis.Time.AverageSeconds);
+    }
+
+    [Fact]
+    public async Task WhileTheResultsAreHeld_NoTimeIsCounted_EvenIfTheAttemptsCarryOne()
+    {
+        // The held results are not read at all, so a reported time in them must not reach the figures.
+        _responses.ReadAsync(_examId, Arg.Any<CancellationToken>()).Returns(
+            new ExamResponses(_examId, "Physics", ResultsReleased: false, QuestionIds: [_q1, _q2], Attempts: [Sitting(1, 2m, true, true, firstSeconds: 30)]));
+
+        var analysis = await Service().GetAsync(_examId, CancellationToken.None);
+
+        Assert.Equal(0, analysis.CandidateCount);
+        Assert.Equal(0, analysis.Time.QuestionsTimed);
+        Assert.Null(analysis.Time.AverageSeconds);
     }
 }

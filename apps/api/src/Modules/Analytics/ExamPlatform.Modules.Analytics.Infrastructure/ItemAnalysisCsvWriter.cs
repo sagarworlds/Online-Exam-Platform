@@ -16,7 +16,9 @@ namespace ExamPlatform.Modules.Analytics.Infrastructure;
 /// </remarks>
 public sealed class ItemAnalysisCsvWriter : IItemAnalysisCsvWriter
 {
-    private static readonly string[] Header = ["No.", "Question", "Attempts", "Correct", "Difficulty (%)", "Discrimination", "Status"];
+    // The time columns come last, after the figures already in the file, so a reader that finds a column by its place keeps the same columns.
+    private static readonly string[] Header =
+        ["No.", "Question", "Attempts", "Correct", "Difficulty (%)", "Discrimination", "Status", "Average time (s)", "Time status"];
 
     /// <inheritdoc />
     public byte[] Write(ExamItemAnalysisDto analysis)
@@ -37,5 +39,7 @@ public sealed class ItemAnalysisCsvWriter : IItemAnalysisCsvWriter
         ReportFormatting.Figure(row.Difficulty * 100),
         ReportFormatting.Discrimination(row.Discrimination),
         ReportFormatting.ItemStatus(row, minimumCohortSize),
+        ReportFormatting.Figure(row.Time.AverageSeconds),
+        ReportFormatting.TimeStatus(row.Time, minimumCohortSize),
     ];
 }

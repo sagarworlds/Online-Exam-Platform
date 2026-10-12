@@ -11,10 +11,14 @@ public class ItemAnalysisPdfWriterTests
     // The summary of an analysis whose results are held or whose cohort has no marks: no figures, no bands.
     private static readonly ExamScoreSummaryDto NoScores = new(0, null, null, []);
 
-    private static ExamItemAnalysisDto Analysis(params ItemRowDto[] rows) =>
-        new(Guid.NewGuid(), "Physics", ResultsReleased: true, CandidateCount: 44, MinimumCohortSize: 30, GroupSize: 12, rows, NoScores);
+    // The empty time figures: the PDF table has no time column, so these only fill the record.
+    private static readonly ExamTimeSummaryDto NoTime = new(0, null);
+    private static readonly ItemTimeDto NoItemTime = new(0, null, ItemTimeStatus.NoTimes);
 
-    private static ItemRowDto Shown(int position, string text) => new(Guid.NewGuid(), position, text, 44, 31, 0.7045m, 0.4545m);
+    private static ExamItemAnalysisDto Analysis(params ItemRowDto[] rows) =>
+        new(Guid.NewGuid(), "Physics", ResultsReleased: true, CandidateCount: 44, MinimumCohortSize: 30, GroupSize: 12, rows, NoScores, NoTime);
+
+    private static ItemRowDto Shown(int position, string text) => new(Guid.NewGuid(), position, text, 44, 31, 0.7045m, 0.4545m, NoItemTime);
 
     private static string Text(byte[] pdf) => Encoding.Latin1.GetString(pdf);
 
@@ -44,7 +48,7 @@ public class ItemAnalysisPdfWriterTests
     public void AWithheldFigure_ShowsItsStatus_NotAZero()
     {
         // The status wraps inside its column, so only its opening words, which sit on the first line, are checked as one run.
-        var row = new ItemRowDto(Guid.NewGuid(), 1, "Thin", 12, 6, null, null);
+        var row = new ItemRowDto(Guid.NewGuid(), 1, "Thin", 12, 6, null, null, NoItemTime);
 
         var text = Text(new ItemAnalysisPdfWriter().Write(Analysis(row)));
 
@@ -68,7 +72,7 @@ public class ItemAnalysisPdfWriterTests
     [Fact]
     public void TheResultsNotReleased_SaysSo_AndDrawsNoTable()
     {
-        var analysis = new ExamItemAnalysisDto(Guid.NewGuid(), "Physics", ResultsReleased: false, CandidateCount: 0, MinimumCohortSize: 30, GroupSize: 12, [], NoScores);
+        var analysis = new ExamItemAnalysisDto(Guid.NewGuid(), "Physics", ResultsReleased: false, CandidateCount: 0, MinimumCohortSize: 30, GroupSize: 12, [], NoScores, NoTime);
 
         var text = Text(new ItemAnalysisPdfWriter().Write(analysis));
 
