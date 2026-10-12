@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, ElementRef, Injector, afterNextRender, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, ValidationErrors, Validators, AbstractControl } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
@@ -27,6 +27,9 @@ export class Register {
   private readonly authApi = inject(AuthApiService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly injector = inject(Injector);
+  /** Disabled while the request runs, which drops focus, so focus is put back on it when the request is refused. */
+  private readonly submitButton = viewChild<ElementRef<HTMLButtonElement>>('submitButton');
 
   protected readonly submitting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
@@ -90,6 +93,7 @@ export class Register {
         error: (error: unknown) => {
           this.submitting.set(false);
           this.errorMessage.set(extractErrorMessage(error));
+          afterNextRender(() => this.submitButton()?.nativeElement.focus(), { injector: this.injector });
         },
       });
   }

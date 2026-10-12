@@ -68,7 +68,7 @@
         @if (errorMessage()) {
           <p class="error-message" role="alert">{{ errorMessage() }}</p>
         }
-        <button type="submit" class="primary auth-submit" [disabled]="submitting()">{{ 'login.submit' | t }}</button>
+        <button #passwordSubmit type="submit" class="primary auth-submit" [disabled]="submitting()">{{ 'login.submit' | t }}</button>
       </form>
     } @else {
       <form [formGroup]="otpForm" (ngSubmit)="submitOtpRequest()" [attr.aria-busy]="submitting()" novalidate>
@@ -91,7 +91,7 @@
         @if (errorMessage()) {
           <p class="error-message" role="alert">{{ errorMessage() }}</p>
         }
-        <button type="submit" class="primary auth-submit" [disabled]="submitting()">{{ 'login.sendCode' | t }}</button>
+        <button #otpSubmit type="submit" class="primary auth-submit" [disabled]="submitting()">{{ 'login.sendCode' | t }}</button>
       </form>
     }
   </section>

@@ -132,6 +132,15 @@ describe('AttemptReview', () => {
     expect(textOf(fixture)).toContain('1 not answered');
   });
 
+  it('reads each question’s marks with their label, so a screen reader says what the figure means', async () => {
+    const fixture = await open(review());
+
+    const marks = Array.from(root(fixture).querySelectorAll('.review-question__marks')).map((el) => el.textContent?.replace(/\s+/g, ' ').trim());
+    expect(marks).toContain('Marks: +4');
+    // A label on a span is prohibited by ARIA, so the words are text instead.
+    expect(root(fixture).querySelector('.review-question__marks')?.hasAttribute('aria-label')).toBe(false);
+  });
+
   it('numbers the questions across sections and keeps each section heading', async () => {
     const fixture = await open(review());
 

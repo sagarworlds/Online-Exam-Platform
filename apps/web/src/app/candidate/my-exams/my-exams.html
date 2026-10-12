@@ -17,7 +17,7 @@
   } @else {
     @for (exam of exams(); track exam.examId) {
       <article class="card">
-        <h3 class="card__title">
+        <h3 class="card__title" [attr.id]="'exam-title-' + exam.examId" tabindex="-1">
           {{ exam.name }}
           <span class="badge" [class.badge--active]="exam.state === 'Open'" [class.badge--inactive]="exam.state !== 'Open'">
             {{ exam.state === 'NotOpen' ? ('myExams.state.notOpen' | t) : exam.state === 'Open' ? ('myExams.state.open' | t) : ('myExams.state.closed' | t) }}
@@ -53,7 +53,7 @@
               <a class="btn btn--primary" [routerLink]="['/my-exams', exam.examId, 'start']">{{ startLabel(exam) }}</a>
             }
             @if (canAskForAttempt(exam)) {
-              <button type="button" (click)="openRequestForm(exam)">{{ 'myExams.request.ask' | t }}</button>
+              <button type="button" [attr.id]="'request-attempt-' + exam.examId" (click)="openRequestForm(exam)">{{ 'myExams.request.ask' | t }}</button>
             }
           </div>
         }
@@ -83,8 +83,8 @@
               <p class="error-message" role="alert">{{ requestError() }}</p>
             }
             <div class="actions">
-              <button type="submit" class="primary" [disabled]="requestBusy()">{{ 'myExams.request.send' | t }}</button>
-              <button type="button" (click)="closeRequestForm()" [disabled]="requestBusy()">{{ 'common.cancel' | t }}</button>
+              <button type="submit" class="primary" [attr.id]="'request-send-' + exam.examId" [disabled]="requestBusy()">{{ 'myExams.request.send' | t }}</button>
+              <button type="button" (click)="closeRequestForm(exam)" [disabled]="requestBusy()">{{ 'common.cancel' | t }}</button>
             </div>
           </form>
         }

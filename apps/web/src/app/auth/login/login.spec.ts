@@ -182,6 +182,20 @@ describe('Login', () => {
       expect(alert?.nextElementSibling?.getAttribute('type')).toBe('submit');
     });
 
+    it('puts focus back on the sign-in button when the sign-in is refused, since the button was disabled while it ran', async () => {
+      const { fixture, compiled } = render();
+      fixture.componentInstance['passwordForm'].setValue({ email: 'a@b.com', password: 'wrong' });
+
+      fixture.componentInstance['submitPassword']();
+      TestBed.inject(HttpTestingController)
+        .expectOne((r) => r.url.endsWith('/auth/login'))
+        .flush({ detail: 'The email or password is incorrect.' }, { status: 401, statusText: 'Unauthorized' });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(compiled.querySelector('button.auth-submit'));
+    });
+
     it('shows the password as text only while the user asks to see it', () => {
       const { fixture, compiled } = render();
       const password = compiled.querySelector('#login-password') as HTMLInputElement;

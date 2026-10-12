@@ -914,6 +914,20 @@ describe('ExamEditor', () => {
         httpMock.expectNone((r) => r.method === 'DELETE');
       });
 
+      it('moves focus to Cancel when the confirmation opens, and back to Delete draft when it is cancelled', async () => {
+        const { fixture, root } = open();
+
+        press(fixture, root, 'Delete draft');
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(document.activeElement).toBe(button(root, 'Cancel'));
+
+        press(fixture, root, 'Cancel');
+        fixture.detectChanges();
+        await fixture.whenStable();
+        expect(document.activeElement).toBe(button(root, 'Delete draft'));
+      });
+
       it('shows the reason and stays on the page when the API refuses, such as when candidates were invited', () => {
         const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
         const { fixture, root } = open();

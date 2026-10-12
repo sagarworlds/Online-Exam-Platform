@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, Injector, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
@@ -73,6 +73,10 @@ export class ExamEditor {
   protected readonly summary = new ExamSettingsSummary(this.i18n);
   /** The sections heading, which the readiness list moves focus to so the author can add questions. */
   private readonly sectionsTitle = viewChild<ElementRef<HTMLElement>>('sectionsTitle');
+  /** The "Delete draft" button that opens the confirmation, and the Cancel button inside it: focus moves between them as it opens and closes. */
+  private readonly deleteOpener = viewChild<ElementRef<HTMLButtonElement>>('deleteOpener');
+  private readonly deleteCancel = viewChild<ElementRef<HTMLButtonElement>>('deleteCancel');
+  private readonly injector = inject(Injector);
 
   protected readonly exam = signal<ExamDto | null>(null);
   protected readonly bank = signal<QuestionDto[]>([]);
@@ -408,6 +412,18 @@ export class ExamEditor {
     this.run(this.examApi.editSection(this.examId, change.sectionId, { name: change.name, timeSeconds }));
   }
 
+  /** Opens the confirmation with focus on Cancel, so a stray Enter does not delete the draft. */
+  protected openDeleteConfirmation(): void {
+    this.confirmingDelete.set(true);
+    afterNextRender(() => this.deleteCancel()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /** Closes the confirmation without deleting, and gives focus back to the button that opened it. */
+  protected closeDeleteConfirmation(): void {
+    this.confirmingDelete.set(false);
+    afterNextRender(() => this.deleteOpener()?.nativeElement.focus(), { injector: this.injector });
+  }
+
   protected deleteDraft(): void {
     if (this.busy()) {
       return;
@@ -422,6 +438,8 @@ export class ExamEditor {
       error: (error: unknown) => {
         this.busy.set(false);
         this.errorMessage.set(extractErrorMessage(error));
+        // The confirmation's button was removed when the delete began, so focus is put back on the button that opens it.
+        afterNextRender(() => this.deleteOpener()?.nativeElement.focus(), { injector: this.injector });
       },
     });
   }

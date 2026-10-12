@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, ElementRef, Injector, afterNextRender, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
@@ -32,6 +32,10 @@ export class Login {
   private readonly authSession = inject(AuthSessionService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly injector = inject(Injector);
+  /** Each submit button is disabled while its request runs, which drops focus, so focus is put back on it when the request is refused. */
+  private readonly passwordSubmit = viewChild<ElementRef<HTMLButtonElement>>('passwordSubmit');
+  private readonly otpSubmit = viewChild<ElementRef<HTMLButtonElement>>('otpSubmit');
 
   protected readonly mode = signal<'password' | 'otp'>('password');
   protected readonly submitting = signal(false);
@@ -95,6 +99,7 @@ export class Login {
       error: (error: unknown) => {
         this.submitting.set(false);
         this.errorMessage.set(extractErrorMessage(error));
+        afterNextRender(() => this.passwordSubmit()?.nativeElement.focus(), { injector: this.injector });
       },
     });
   }
@@ -121,6 +126,7 @@ export class Login {
       error: (error: unknown) => {
         this.submitting.set(false);
         this.errorMessage.set(extractErrorMessage(error));
+        afterNextRender(() => this.otpSubmit()?.nativeElement.focus(), { injector: this.injector });
       },
     });
   }

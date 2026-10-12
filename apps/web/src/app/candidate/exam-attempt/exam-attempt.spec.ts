@@ -808,6 +808,21 @@ describe('ExamAttempt', () => {
     expect(root(fixture).querySelector('a')?.getAttribute('href')).toBe('/my-exams');
   });
 
+  it('moves focus to the result title once the attempt is submitted, since the submit buttons are gone', async () => {
+    const fixture = await open(attempt());
+
+    buttonLabelled(fixture, 'Submit exam')?.click();
+    fixture.detectChanges();
+    buttonLabelled(fixture, 'Yes, submit')?.click();
+    httpMock
+      .expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/submit'))
+      .flush(attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [], submittedAtUtc: '2026-10-05T04:40:00Z' }));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.activeElement).toBe(root(fixture).querySelector('.result h1'));
+  });
+
   it('waits for an answer still being saved before it submits, so the answer is in the score', async () => {
     const fixture = await open(attempt());
     radios(fixture)[1].click();

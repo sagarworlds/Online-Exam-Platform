@@ -135,6 +135,28 @@ describe('Register', () => {
     });
   });
 
+  it('puts focus back on the submit button when the API refuses the registration, since the button was disabled while it ran', async () => {
+    const { fixture, submitButton } = render();
+    fixture.componentInstance['form'].patchValue({
+      displayName: 'Ada',
+      destination: 'ada@example.com',
+      dateOfBirth: '2000-01-01',
+    });
+    fixture.detectChanges();
+
+    submitButton.click();
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/v1/auth/register`)
+      .flush(
+        { status: 400, title: 'invalid_date_of_birth', detail: 'Date of birth must be a real date in the past.' },
+        { status: 400, statusText: 'Bad Request' },
+      );
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.activeElement).toBe(submitButton);
+  });
+
   it('shows the server error when the API rejects the date of birth', () => {
     const { fixture, compiled, submitButton } = render();
 

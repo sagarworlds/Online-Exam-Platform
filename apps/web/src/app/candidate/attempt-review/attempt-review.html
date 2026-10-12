@@ -106,7 +106,7 @@
                 [class.badge--danger]="question.verdict === 'Wrong'"
                 [class.badge--inactive]="question.verdict === 'Unanswered'"
               >{{ verdictLabel(question.verdict) }}</span>
-              <span class="review-question__marks" [attr.aria-label]="'review.marks' | t">{{ formatMarks(question.marks) }}</span>
+              <span class="review-question__marks"><span class="visually-hidden">{{ 'review.marks' | t }}: </span>{{ formatMarks(question.marks) }}</span>
             </span>
           </div>
           <!-- The text is the API's sanitized HTML, rendered through Angular's own sanitizer as a second layer. -->
