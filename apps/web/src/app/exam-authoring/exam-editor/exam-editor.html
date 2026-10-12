@@ -319,10 +319,10 @@
           <span class="inline-confirm" role="alertdialog" [attr.aria-label]="deleteQuestion()">
             {{ deleteQuestion() }}
             <button type="button" class="btn--danger" (click)="deleteDraft()" [disabled]="busy()">{{ 'exams.editor.deleteDraft' | t }}</button>
-            <button type="button" (click)="confirmingDelete.set(false)">{{ 'common.cancel' | t }}</button>
+            <button #deleteCancel type="button" (click)="closeDeleteConfirmation()">{{ 'common.cancel' | t }}</button>
           </span>
         } @else {
-          <button type="button" (click)="confirmingDelete.set(true)" [disabled]="busy()">{{ 'exams.editor.deleteDraft' | t }}</button>
+          <button #deleteOpener type="button" (click)="openDeleteConfirmation()" [disabled]="busy()">{{ 'exams.editor.deleteDraft' | t }}</button>
         }
       </div>
     }

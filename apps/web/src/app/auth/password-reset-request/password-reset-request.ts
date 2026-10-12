@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, ElementRef, Injector, afterNextRender, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
@@ -14,6 +14,9 @@ import { MessageKey } from '../../i18n/messages.en';
 export class PasswordResetRequest {
   private readonly formBuilder = inject(FormBuilder);
   private readonly authApi = inject(AuthApiService);
+  private readonly injector = inject(Injector);
+  /** Disabled while the request runs, which drops focus, so focus is put back on it when the request is refused. */
+  private readonly submitButton = viewChild<ElementRef<HTMLButtonElement>>('submitButton');
 
   protected readonly submitting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
@@ -54,6 +57,7 @@ export class PasswordResetRequest {
       error: (error: unknown) => {
         this.submitting.set(false);
         this.errorMessage.set(extractErrorMessage(error));
+        afterNextRender(() => this.submitButton()?.nativeElement.focus(), { injector: this.injector });
       },
     });
   }

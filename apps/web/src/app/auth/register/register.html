@@ -68,7 +68,7 @@
     @if (errorMessage()) {
       <p class="error-message" role="alert">{{ errorMessage() }}</p>
     }
-    <button type="submit" class="primary auth-submit" [disabled]="submitting()">{{ 'register.submit' | t }}</button>
+    <button #submitButton type="submit" class="primary auth-submit" [disabled]="submitting()">{{ 'register.submit' | t }}</button>
   </form>
 
   <p class="link-row">

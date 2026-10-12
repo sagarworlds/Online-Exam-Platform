@@ -166,6 +166,8 @@ export class ExamAttempt {
   private readonly questionPosition = viewChild<ElementRef<HTMLElement>>('questionPosition');
   /** The pinned block: the time bar, and the submit confirmation under it when it is open. */
   private readonly pinnedBlock = viewChild<ElementRef<HTMLElement>>('pinnedBlock');
+  /** The result's title, shown once the attempt is submitted: focus goes there, since the control that was used is gone. */
+  private readonly resultTitle = viewChild<ElementRef<HTMLElement>>('resultTitle');
   private readonly doc = inject(DOCUMENT);
   /**
    * Keeps the page's scroll clearance level with the pinned block, so a control brought into view (by focus, the keyboard or the report
@@ -873,6 +875,8 @@ export class ExamAttempt {
         this.submitting.set(false);
         this.confirmingSubmit.set(false);
         this.show(submitted);
+        // The confirmation's buttons are removed with the attempt, so focus would otherwise fall back to the top of the page.
+        afterNextRender(() => this.resultTitle()?.nativeElement.focus(), { injector: this.injector });
       },
       error: (error: unknown) => {
         if (mayRetry && error instanceof HttpErrorResponse && error.status === 409) {

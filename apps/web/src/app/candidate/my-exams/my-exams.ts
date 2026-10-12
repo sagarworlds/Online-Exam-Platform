@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, ElementRef, Injector, afterNextRender, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
@@ -21,6 +21,8 @@ import { MAX_ATTEMPT_REQUEST_TEXT, MyExamDto } from '../candidate.models';
 export class MyExams {
   private readonly api = inject(CandidateApiService);
   private readonly i18n = inject(I18nService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   protected readonly exams = signal<MyExamDto[]>([]);
   protected readonly loading = signal(true);
@@ -81,17 +83,24 @@ export class MyExams {
     return this.resumableAttemptId(exam) !== null || exam.canStartAttempt || this.canAskForAttempt(exam);
   }
 
+  /** Opens the form in place of the button that asked for it, and puts focus in its first field, where the candidate starts. */
   protected openRequestForm(exam: MyExamDto): void {
     this.requestMessage.set('');
     this.requestError.set(null);
     this.requestingFor.set(exam.examId);
+    afterNextRender(() => this.element(`request-message-${exam.examId}`)?.focus(), { injector: this.injector });
   }
 
-  protected closeRequestForm(): void {
+  /** Puts the form away without sending anything, and gives focus back to the button that opened it. */
+  protected closeRequestForm(exam: MyExamDto): void {
     this.requestingFor.set(null);
+    afterNextRender(() => this.element(`request-attempt-${exam.examId}`)?.focus(), { injector: this.injector });
   }
 
-  /** Sends the request, then reads the list again so the card shows it waiting, whatever else changed meanwhile. */
+  /**
+   * Sends the request, then reads the list again so the card shows it waiting, whatever else changed meanwhile. The send button is disabled
+   * while the request runs, and a disabled control loses focus, so focus is put back on it when the request is refused.
+   */
   protected sendRequest(exam: MyExamDto): void {
     if (this.requestBusy()) {
       return;
@@ -103,11 +112,14 @@ export class MyExams {
       next: () => {
         this.requestBusy.set(false);
         this.requestingFor.set(null);
+        // The form goes, and the button that opened it goes once the list is read again, so focus moves to the exam's title that stays.
+        afterNextRender(() => this.element(`exam-title-${exam.examId}`)?.focus(), { injector: this.injector });
         this.reload();
       },
       error: (error: unknown) => {
         this.requestBusy.set(false);
         this.requestError.set(extractErrorMessage(error));
+        afterNextRender(() => this.element(`request-send-${exam.examId}`)?.focus(), { injector: this.injector });
       },
     });
   }
@@ -117,5 +129,13 @@ export class MyExams {
       next: (exams) => this.exams.set(exams),
       error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
     });
+  }
+
+  /**
+   * The element with this id on the page. Ids here come from the exam's id, which is a GUID that may start with a digit, so they are matched
+   * as attribute values: a CSS id selector would not parse.
+   */
+  private element<T extends HTMLElement = HTMLElement>(id: string): T | null {
+    return this.host.nativeElement.querySelector<T>(`[id="${id}"]`);
   }
 }

@@ -380,6 +380,46 @@ describe('MyExams', () => {
       httpMock.expectNone((r) => r.method === 'POST');
     });
 
+    it('moves focus into the request form when it opens, and back to its button when it is cancelled', async () => {
+      const { fixture, root } = openWith([exam({ ...used })]);
+      buttonIn(root, 'Ask for another attempt')!.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(document.activeElement).toBe(root.querySelector('textarea'));
+
+      buttonIn(root, 'Cancel')!.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(document.activeElement).toBe(buttonIn(root, 'Ask for another attempt'));
+    });
+
+    it('moves focus to the exam’s title once the request is sent, since the button that asked is gone', async () => {
+      const { fixture, root } = openWith([exam({ ...used })]);
+      buttonIn(root, 'Ask for another attempt')!.click();
+      fixture.detectChanges();
+      buttonIn(root, 'Send request')!.click();
+      httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/attempt-requests')).flush(request(), { status: 201, statusText: 'Created' });
+      httpMock.expectOne(isMyExams).flush([exam({ ...used, canRequestAttempt: false, attemptRequest: request() })]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(root.querySelector('#exam-title-e1'));
+    });
+
+    it('puts focus back on Send when the request is refused, since the button was disabled while it ran', async () => {
+      const { fixture, root } = openWith([exam({ ...used })]);
+      buttonIn(root, 'Ask for another attempt')!.click();
+      fixture.detectChanges();
+      buttonIn(root, 'Send request')!.click();
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.endsWith('/attempt-requests'))
+        .flush({ title: 'attempt_request_pending', detail: 'You already have a request for this exam waiting for an administrator.' }, { status: 409, statusText: 'Conflict' });
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(buttonIn(root, 'Send request'));
+    });
+
     it('says a request was declined, with the reason, and lets the candidate ask again', () => {
       const { root } = openWith([exam({ ...used, attemptRequest: request({ status: 'Declined', decisionNote: 'Speak to your teacher' }) })]);
 

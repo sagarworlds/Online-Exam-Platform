@@ -93,6 +93,15 @@
   box-shadow: var(--focus-ring);
 }
 
+/*
+ * The base rule for text inputs sets the border with more specificity than the focus rule above, so on focus the border never changed and the
+ * ring was the only cue, about 1.6:1 against the page (WCAG 1.4.11). This rule has more specificity than the base rule, so the border takes
+ * the primary colour on focus.
+ */
+.field input:not([type='radio']):not([type='checkbox']):focus {
+  border-color: var(--primary);
+}
+
 .field-hint {
   margin: 0;
   color: var(--text-muted);

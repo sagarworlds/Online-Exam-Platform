@@ -71,4 +71,18 @@ describe('PasswordResetRequest', () => {
     expect(alert?.textContent).toContain('Too many requests. Try again later.');
     expect(alert?.nextElementSibling?.getAttribute('type')).toBe('submit');
   });
+
+  it('puts focus back on the submit button when the request is refused, since the button was disabled while it ran', async () => {
+    const { fixture, compiled, httpMock } = render();
+    fixture.componentInstance['form'].setValue({ email: 'jane@example.com' });
+
+    (compiled.querySelector('button[type="submit"]') as HTMLButtonElement).click();
+    httpMock
+      .expectOne(requestUrl)
+      .flush({ detail: 'Too many requests. Try again later.' }, { status: 429, statusText: 'Too Many Requests' });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.activeElement).toBe(compiled.querySelector('button[type="submit"]'));
+  });
 });
