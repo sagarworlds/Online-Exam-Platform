@@ -135,6 +135,14 @@ export class CandidateApiService {
     return this.http.delete<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, CandidateApiService.background());
   }
 
+  /**
+   * Reports the running total of seconds the candidate has spent on one question of an open attempt (FR-36). The total is the whole of the
+   * time, not the time since the last report, so a repeat or a late report is harmless: the server keeps the highest it has been given.
+   */
+  recordQuestionTime(attemptId: string, questionId: string, seconds: number): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/questions/${questionId}/time`, { seconds }, CandidateApiService.background());
+  }
+
   /** Marks one question of an open attempt for review. Safe to repeat. */
   markForReview(attemptId: string, questionId: string): Observable<void> {
     return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/marks/${questionId}`, null, CandidateApiService.background());

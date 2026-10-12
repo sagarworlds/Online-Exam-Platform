@@ -15,18 +15,19 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
     // explicit DbSet.Update would flag every answer Modified.
     /// <inheritdoc />
     public Task<Attempt?> GetByIdAsync(Guid attemptId, CancellationToken cancellationToken) =>
-        // Seven sibling collections (Answers, Marks, Paper, Revisions, FocusViolations, Warnings, ClientSightings): split so EF Core issues one
-        // query per collection instead of joining all seven and returning their cartesian product.
+        // Eight sibling collections (Answers, Marks, QuestionTimes, Paper, Revisions, FocusViolations, Warnings, ClientSightings): split so EF Core
+        // issues one query per collection instead of joining all eight and returning their cartesian product.
         context.Attempts.AsSplitQuery()
-            .Include(a => a.Answers).Include(a => a.Marks).Include(a => a.Paper).Include(a => a.Revisions).Include(a => a.FocusViolations).Include(a => a.Warnings).Include(a => a.ClientSightings)
+            .Include(a => a.Answers).Include(a => a.Marks).Include(a => a.QuestionTimes).Include(a => a.Paper).Include(a => a.Revisions).Include(a => a.FocusViolations).Include(a => a.Warnings).Include(a => a.ClientSightings)
             .FirstOrDefaultAsync(a => a.Id == attemptId, cancellationToken);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListForCandidateAtExamAsync(Guid examId, Guid candidateId, CancellationToken cancellationToken) =>
         // Starting an exam again resumes an open attempt through this list, and what it shows is built from the attempt's
-        // answers and marks, so both are loaded: without the marks a resumed exam would forget what the candidate marked.
+        // answers and marks, so both are loaded: without the marks a resumed exam would forget what the candidate marked. The times are loaded
+        // too, so the page can carry on each question's running total from what the server holds.
         await context.Attempts.AsSplitQuery()
-            .Include(a => a.Answers).Include(a => a.Marks).Include(a => a.Paper).Include(a => a.FocusViolations).Include(a => a.Warnings).Include(a => a.ClientSightings)
+            .Include(a => a.Answers).Include(a => a.Marks).Include(a => a.QuestionTimes).Include(a => a.Paper).Include(a => a.FocusViolations).Include(a => a.Warnings).Include(a => a.ClientSightings)
             .Where(a => a.ExamId == examId && a.CandidateId == candidateId)
             .OrderBy(a => a.Number)
             .ToListAsync(cancellationToken);
@@ -78,9 +79,10 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
     /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListCountedForCandidateAsync(Guid candidateId, CancellationToken cancellationToken) =>
         // Read-only and untracked: the results are marked from these rows and never saved. The answers, paper and revisions are what
-        // the marks and the score are built from, so all three are loaded; the split query keeps the three collections from joining.
+        // the marks and the score are built from, and the times are what the time per question is read from, so all four are loaded; the
+        // split query keeps the four collections from joining.
         await context.Attempts.AsNoTracking().AsSplitQuery()
-            .Include(a => a.Answers).Include(a => a.Paper).Include(a => a.Revisions)
+            .Include(a => a.Answers).Include(a => a.Paper).Include(a => a.Revisions).Include(a => a.QuestionTimes)
             .Where(a => a.CandidateId == candidateId && a.Status == AttemptStatus.Submitted && a.InvalidatedAtUtc == null)
             .OrderBy(a => a.SubmittedAtUtc)
             .ToListAsync(cancellationToken);

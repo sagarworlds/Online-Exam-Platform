@@ -19,7 +19,7 @@ public class CandidateAnalyticsPdfWriterTests
     private static readonly CandidateAnalyticsDto Sample = new(
         2,
         [Point("Physics Mock", 37.75m, 80m, 47.19m), Point("Chemistry Test", 60m, 80m, 75m, Sep1.AddDays(7))],
-        [Section("Mechanics", 3, 5, 37.5m), Section("Organic", 6, 2, 75m)]);
+        [Section("Mechanics", 3, 5, 37.5m), Section("Organic", 6, 2, 75m)], [], new TimePerQuestionDto(0, null, []));
 
     private static string Text(byte[] pdf) => Encoding.Latin1.GetString(pdf);
 
@@ -47,7 +47,7 @@ public class CandidateAnalyticsPdfWriterTests
     [Fact]
     public void ACandidateWithNoResults_SaysSo_AndDrawsNoTables()
     {
-        var text = Text(new CandidateAnalyticsPdfWriter().Write(new CandidateAnalyticsDto(0, [], [])));
+        var text = Text(new CandidateAnalyticsPdfWriter().Write(new CandidateAnalyticsDto(0, [], [], [], new TimePerQuestionDto(0, null, []))));
 
         Assert.Contains("No results have been released to you yet", text, StringComparison.Ordinal);
         Assert.DoesNotContain("(Score trend) Tj", text, StringComparison.Ordinal);
@@ -58,7 +58,7 @@ public class CandidateAnalyticsPdfWriterTests
     public void ALongHistory_RunsOverSeveralPages_WithTheTrendHeaderOnEach()
     {
         var trend = Enumerable.Range(1, 150).Select(i => Point($"Mock {i}", i, 100, i, Sep1.AddDays(i))).ToArray();
-        var figures = new CandidateAnalyticsDto(trend.Length, trend, [Section("All", 1, 1, 50)]);
+        var figures = new CandidateAnalyticsDto(trend.Length, trend, [Section("All", 1, 1, 50)], [], new TimePerQuestionDto(0, null, []));
 
         var text = Text(new CandidateAnalyticsPdfWriter().Write(figures));
         var pages = Regex.Matches(text, @"/Type /Page\b").Count;
@@ -70,7 +70,7 @@ public class CandidateAnalyticsPdfWriterTests
     [Fact]
     public void AnExamName_InAScriptTheFontLacks_ShowsAMark_AndTheReportSaysWhy()
     {
-        var figures = new CandidateAnalyticsDto(1, [Point("अशा परीक्षा", 1, 2, 50)], []);
+        var figures = new CandidateAnalyticsDto(1, [Point("अशा परीक्षा", 1, 2, 50)], [], [], new TimePerQuestionDto(0, null, []));
 
         var text = Text(new CandidateAnalyticsPdfWriter().Write(figures));
 

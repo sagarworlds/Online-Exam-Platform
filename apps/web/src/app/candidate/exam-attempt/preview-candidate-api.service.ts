@@ -40,6 +40,10 @@ export class PreviewCandidateApiService extends CandidateApiService {
     return of(undefined);
   }
 
+  override recordQuestionTime(): Observable<void> {
+    return of(undefined);
+  }
+
   override unmarkForReview(): Observable<void> {
     return of(undefined);
   }

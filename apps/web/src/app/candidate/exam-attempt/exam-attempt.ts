@@ -14,6 +14,7 @@ import { FocusMonitor } from './focus-monitor';
 import { ReportIssue } from './report-issue';
 import { AnswerSync, isEmptyAnswer, PendingAnswer } from './answer-sync';
 import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-store';
+import { QuestionTimeTracker } from './question-time';
 import { PictureLoader } from '../../shared/rich-text/lazy-pictures';
 import { MathDirective } from '../../shared/rich-text/math.directive';
 
@@ -377,9 +378,17 @@ export class ExamAttempt {
   private timer: ReturnType<typeof setInterval> | null = null;
   private heartbeat: ReturnType<typeof setInterval> | null = null;
 
+  /**
+   * How long the candidate has each question on screen (FR-36). Counted on each tick and reported with the status heartbeat, and when the page
+   * is hidden or closed, so the server keeps the time per question. A preview reports nothing, as it saves nothing.
+   */
+  private readonly questionTime = new QuestionTimeTracker();
+
   constructor() {
     inject(DestroyRef).onDestroy(() => {
       this.stopTimer();
+      // Report what has been counted on the question on screen before the page goes; best effort, as the time is only a measure.
+      this.reportQuestionTimes();
       // Leaving the exam page must hand the clipboard, the menu and printing back, whatever the page was doing.
       this.guard.stop();
       // And stop counting departures: leaving this page is not leaving the exam once it is over.
@@ -417,6 +426,14 @@ export class ExamAttempt {
   @HostListener('document:fullscreenchange')
   protected onFullscreenChange(): void {
     this.inFullscreen.set(this.focus.isFullscreen);
+  }
+
+  @HostListener('document:visibilitychange')
+  protected onVisibilityChange(): void {
+    // A hidden page stops counting, so what was counted before it went out of view is reported now.
+    if (document.hidden) {
+      this.reportQuestionTimes();
+    }
   }
 
   /** Asks for full screen; must come from the candidate's own click. */
@@ -791,6 +808,9 @@ export class ExamAttempt {
 
     this.submitting.set(true);
     this.errorMessage.set(null);
+    // The time on the question on screen is reported as the attempt closes. It may land after the submit, which then refuses it: that loses only
+    // the last stretch of time, never an answer, so nothing waits on it.
+    this.reportQuestionTimes();
     // Every answer must have reached the server first, or the last one, chosen a moment before, can arrive after the attempt was scored and
     // be left out. With the connection down they cannot, so the candidate is told, and the answers stay on this device.
     const afterAnswers = (saved: boolean) => {
@@ -854,6 +874,12 @@ export class ExamAttempt {
     this.attempt.set(attempt);
     this.applyAccommodationFormats(attempt);
     this.focusViolations.set(attempt.focusViolations ?? 0);
+    // Each question carries on from the time the server already holds for it, so a reload does not start its count again from zero (FR-36).
+    for (const question of attempt.sections.flatMap((section) => section.questions)) {
+      if (question.timeSpentSeconds != null) {
+        this.questionTime.seed(question.id, question.timeSpentSeconds);
+      }
+    }
     this.stopTimer();
 
     if (attempt.status === 'InProgress') {
@@ -903,10 +929,38 @@ export class ExamAttempt {
       return;
     }
 
+    this.reportQuestionTimes();
     this.api.getAttemptStatus(this.attemptId).subscribe({
       next: (status) => this.applyStatus(status),
       error: () => undefined,
     });
+  }
+
+  /**
+   * Counts the time up to now toward the question on screen, but only while the candidate can be reading it: the attempt is not paused, the page
+   * is in view, and this is not a preview. Called on each tick and before each report, so a report carries the time up to that moment.
+   */
+  private countQuestionTime(): void {
+    const paused = (this.attempt()?.pausedAtUtc ?? null) !== null;
+    this.questionTime.advance(this.currentQuestion()?.id ?? null, Date.now(), !paused && !document.hidden && !this.preview);
+  }
+
+  /**
+   * Reports how long the candidate has had each question on screen, for the time-per-question analytics (FR-36). It is a measure, not an answer:
+   * nothing waits on it and nothing is shown. A report that fails is sent again with the next one, since each carries the whole total.
+   */
+  private reportQuestionTimes(): void {
+    if (this.attemptId === null || this.preview) {
+      return;
+    }
+
+    this.countQuestionTime();
+    for (const { questionId, seconds } of this.questionTime.pending()) {
+      this.api.recordQuestionTime(this.attemptId, questionId, seconds).subscribe({
+        next: () => this.questionTime.markReported(questionId, seconds),
+        error: (error: unknown) => console.warn('Could not report the time spent on a question; the next report carries it.', error),
+      });
+    }
   }
 
   private applyStatus(status: AttemptStatusDto): void {
@@ -959,6 +1013,8 @@ export class ExamAttempt {
 
     // While paused the clock is stopped at the moment of the pause, so what is left stays what it was.
     const pausedAt = attempt.pausedAtUtc ?? null;
+
+    this.countQuestionTime();
     const now = pausedAt === null ? Date.now() + this.clockOffsetMs : Date.parse(pausedAt);
     const remainingMs = Date.parse(attempt.deadlineUtc) - now;
     this.remainingSeconds.set(Math.max(0, Math.ceil(remainingMs / 1000)));

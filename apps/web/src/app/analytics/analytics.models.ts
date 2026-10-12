@@ -74,10 +74,42 @@ export interface ExamItemAnalysisDto {
   scores: ExamScoreSummaryDto;
 }
 
+/** How the candidate's answers fell under one topic label, across every released result (FR-36). */
+export interface TopicPerformanceDto {
+  name: string;
+  /** How many questions the candidate sat that carry the label; a question with two labels counts under both. */
+  questionCount: number;
+  correctCount: number;
+  wrongCount: number;
+  partialCount: number;
+  unansweredCount: number;
+  /** The share of answered questions under the topic that were fully correct, in percent; null when none was answered. */
+  accuracy: number | null;
+}
+
+/** How long the candidate spent on the questions of one section name (FR-36). */
+export interface SectionTimeDto {
+  name: string;
+  questionsTimed: number;
+  /** The average time per timed question, in seconds; null when none was timed. */
+  averageSeconds: number | null;
+}
+
+/** How long the candidate spent per question, overall and by section (FR-36). */
+export interface TimePerQuestionDto {
+  questionsTimed: number;
+  /** The average time per timed question, in seconds; null when no question was timed. */
+  averageSeconds: number | null;
+  sections: SectionTimeDto[];
+}
+
 /** A candidate's own performance across the exams they sat (FR-36). */
 export interface CandidateAnalyticsDto {
   resultCount: number;
   trend: ScorePointDto[];
   /** Weakest accuracy first. */
   sections: SectionPerformanceDto[];
+  /** Weakest accuracy first. */
+  topics: TopicPerformanceDto[];
+  time: TimePerQuestionDto;
 }

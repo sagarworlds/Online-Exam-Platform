@@ -83,6 +83,17 @@ describe('CandidateApiService', () => {
     });
   });
 
+  describe('recordQuestionTime', () => {
+    it('puts the running total of seconds on the question to the attempt’s question time, as the body', () => {
+      service.recordQuestionTime('a1', 'q2', 45).subscribe();
+
+      const request = httpMock.expectOne(`${environment.apiBaseUrl}/v1/me/attempts/a1/questions/q2/time`);
+      expect(request.request.method).toBe('PUT');
+      expect(request.request.body).toEqual({ seconds: 45 });
+      request.flush(null, { status: 204, statusText: 'No Content' });
+    });
+  });
+
   describe('reportIssue', () => {
     const created: MyIssueReportDto = {
       id: 'r1',

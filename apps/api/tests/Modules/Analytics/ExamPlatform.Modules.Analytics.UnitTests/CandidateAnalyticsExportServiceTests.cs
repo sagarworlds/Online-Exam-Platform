@@ -31,7 +31,7 @@ public class CandidateAnalyticsExportServiceTests
         var sectionList = Enumerable.Range(1, sections)
             .Select(i => new SectionPerformanceDto($"S{i}", 1, 1, 0, 0, 0, 100m))
             .ToList();
-        var figures = new CandidateAnalyticsDto(results, trend, sectionList);
+        var figures = new CandidateAnalyticsDto(results, trend, sectionList, [], new TimePerQuestionDto(0, null, []));
         _analytics.GetAsync(_candidate, Arg.Any<CancellationToken>()).Returns(figures);
         _csv.Write(figures).Returns(new byte[] { 1 });
         _pdf.Write(figures).Returns(new byte[] { 2 });

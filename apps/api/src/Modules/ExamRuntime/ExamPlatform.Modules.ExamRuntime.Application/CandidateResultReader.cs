@@ -57,11 +57,20 @@ public sealed class CandidateResultReader(IAttemptRepository attempts, IExamCata
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).Distinct().ToList();
         var questions = await questionBank.ReadAsync(attempt, questionIds, cancellationToken);
         var answers = attempt.Answers.ToDictionary(a => a.QuestionId);
+        var timeSpent = attempt.QuestionTimes.ToDictionary(t => t.QuestionId, t => t.Seconds);
 
-        var sections = exam.Sections
-            .OrderBy(s => s.Order)
-            .Select(section => SectionOf(section, exam, questions, answers))
-            .ToList();
+        var sections = new List<CandidateSectionResult>();
+        var questionResults = new List<CandidateQuestionResult>();
+        foreach (var section in exam.Sections.OrderBy(s => s.Order))
+        {
+            var marked = section.QuestionIds.Select(id => (Id: id, Mark: MarkOf(exam, questions, answers, id))).ToList();
+            sections.Add(SectionOf(section, marked.Select(m => m.Mark).ToList()));
+            questionResults.AddRange(marked.Select(m => new CandidateQuestionResult(
+                m.Id,
+                section.Id,
+                OutcomeOf(m.Mark.Verdict),
+                timeSpent.TryGetValue(m.Id, out var seconds) ? seconds : null)));
+        }
 
         // A counted attempt is always submitted and scored; the checks only satisfy the nullable columns' types.
         return new CandidateResult(
@@ -71,18 +80,12 @@ public sealed class CandidateResultReader(IAttemptRepository attempts, IExamCata
             attempt.SubmittedAtUtc ?? throw new InvalidOperationException("A submitted attempt always has a submission time."),
             attempt.Score ?? throw new InvalidOperationException("A submitted attempt always has a score."),
             attempt.MaxScore ?? throw new InvalidOperationException("A submitted attempt always has a maximum score."),
-            sections);
+            sections,
+            questionResults);
     }
 
-    private static CandidateSectionResult SectionOf(
-        ExamSectionSnapshot section,
-        ExamSnapshot exam,
-        IReadOnlyDictionary<Guid, QuestionSnapshot> questions,
-        IReadOnlyDictionary<Guid, AttemptAnswer> answers)
-    {
-        var marks = section.QuestionIds.Select(id => MarkOf(exam, questions, answers, id)).ToList();
-
-        return new CandidateSectionResult(
+    private static CandidateSectionResult SectionOf(ExamSectionSnapshot section, IReadOnlyList<QuestionMark> marks) =>
+        new(
             section.Id,
             section.Name,
             marks.Sum(m => m.Marks),
@@ -90,7 +93,16 @@ public sealed class CandidateResultReader(IAttemptRepository attempts, IExamCata
             marks.Count(m => m.Verdict == AnswerVerdict.Wrong),
             marks.Count(m => m.Verdict == AnswerVerdict.Partial),
             marks.Count(m => m.Verdict == AnswerVerdict.Unanswered));
-    }
+
+    // Maps the domain's verdict to the contract's outcome, so a caller never needs ExamRuntime's Domain to read how a question was answered.
+    private static CandidateQuestionOutcome OutcomeOf(AnswerVerdict verdict) => verdict switch
+    {
+        AnswerVerdict.Correct => CandidateQuestionOutcome.Correct,
+        AnswerVerdict.Partial => CandidateQuestionOutcome.Partial,
+        AnswerVerdict.Wrong => CandidateQuestionOutcome.Wrong,
+        AnswerVerdict.Unanswered => CandidateQuestionOutcome.Unanswered,
+        _ => throw new InvalidOperationException($"Unknown answer verdict {verdict}."),
+    };
 
     private static QuestionMark MarkOf(
         ExamSnapshot exam,

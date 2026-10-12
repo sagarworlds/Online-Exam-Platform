@@ -164,6 +164,76 @@
             </ul>
           }
         </section>
+
+        <section aria-labelledby="analytics-topics-heading">
+          <h2 id="analytics-topics-heading">{{ 'analytics.topics.title' | t }}</h2>
+          <p class="hint">{{ 'analytics.topics.hint' | t }}</p>
+
+          @if (a.topics.length === 0) {
+            <div class="card empty-state">{{ 'analytics.topics.none' | t }}</div>
+          } @else {
+            <ul class="analytics-topics">
+              @for (topic of a.topics; track topic.name) {
+                <li class="card analytics-topic">
+                  <h3>{{ topic.name }}</h3>
+                  <p class="card__meta">{{ questionCountText(topic.questionCount) }}</p>
+                  <dl>
+                    <div>
+                      <dt>{{ 'analytics.sections.accuracy' | t }}</dt>
+                      <dd>{{ topic.accuracy === null ? ('analytics.sections.noneAnswered' | t) : percent(topic.accuracy) }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ 'result.correct' | t }}</dt>
+                      <dd>{{ topic.correctCount }}</dd>
+                    </div>
+                    @if (topic.partialCount) {
+                      <div>
+                        <dt>{{ 'result.partial' | t }}</dt>
+                        <dd>{{ topic.partialCount }}</dd>
+                      </div>
+                    }
+                    <div>
+                      <dt>{{ 'result.wrong' | t }}</dt>
+                      <dd>{{ topic.wrongCount }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ 'result.unanswered' | t }}</dt>
+                      <dd>{{ topic.unansweredCount }}</dd>
+                    </div>
+                  </dl>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+
+        <section aria-labelledby="analytics-time-heading">
+          <h2 id="analytics-time-heading">{{ 'analytics.time.title' | t }}</h2>
+          <p class="hint">{{ 'analytics.time.hint' | t }}</p>
+
+          @if (a.time.questionsTimed === 0) {
+            <div class="card empty-state">{{ 'analytics.time.none' | t }}</div>
+          } @else {
+            <div class="card analytics-time">
+              <p class="analytics-time__average">
+                <span>{{ 'analytics.time.average' | t }}</span>
+                <strong>{{ seconds(a.time.averageSeconds) }}</strong>
+              </p>
+              <p class="card__meta">{{ timeBasisText(a.time.questionsTimed) }}</p>
+              @if (a.time.sections.length > 0) {
+                <h3>{{ 'analytics.time.bySection' | t }}</h3>
+                <ul class="analytics-time__sections">
+                  @for (section of a.time.sections; track section.name) {
+                    <li>
+                      <span>{{ section.name }}</span>
+                      <span>{{ seconds(section.averageSeconds) }}</span>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          }
+        </section>
       }
     }
   }
