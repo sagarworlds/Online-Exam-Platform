@@ -8,7 +8,7 @@ public class PassingPercentageSettingTests
 {
     private static readonly DateTime Now = new(2026, 10, 12, 9, 0, 0, DateTimeKind.Utc);
 
-    private static Exam DraftExam() => new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid());
+    private static Exam DraftExam() => new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid(), Now);
 
     [Fact]
     public void ANewExam_HasNoPassMark_SoNothingIsCalledAPass()

@@ -23,10 +23,10 @@ public class ExamScopePlacementGuardTests
     /// <summary>A draft exam limited to <paramref name="scope"/>, holding one question that is filed under Algebra.</summary>
     private (Exam Exam, Guid Question) DraftHolding(ExamScope scope)
     {
-        var exam = new Exam(null, "Maths mock", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid());
-        exam.SetScope(scope, new Dictionary<Guid, QuestionPlacement>());
+        var exam = new Exam(null, "Maths mock", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid(), Now);
+        exam.SetScope(scope, new Dictionary<Guid, QuestionPlacement>(), Now);
         var question = Guid.NewGuid();
-        exam.AddQuestion(exam.AddSection("S", null).Id, question, new QuestionPlacement(Maths, Algebra));
+        exam.AddQuestion(exam.AddSection("S", null, Now).Id, question, new QuestionPlacement(Maths, Algebra), Now);
         Serve(exam, question);
         return (exam, question);
     }
@@ -79,9 +79,9 @@ public class ExamScopePlacementGuardTests
     public async Task APublishedExam_NeverObjects_BecauseItsScopeIsFixedAndDeliveryDoesNotReadPlacement()
     {
         var question = Guid.NewGuid();
-        var exam = new Exam(null, "Published", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid());
-        exam.SetScope(ExamScope.ForChapters(Maths, [Algebra]), new Dictionary<Guid, QuestionPlacement>());
-        exam.AddQuestion(exam.AddSection("S", null).Id, question, new QuestionPlacement(Maths, Algebra));
+        var exam = new Exam(null, "Published", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid(), Now);
+        exam.SetScope(ExamScope.ForChapters(Maths, [Algebra]), new Dictionary<Guid, QuestionPlacement>(), Now);
+        exam.AddQuestion(exam.AddSection("S", null, Now).Id, question, new QuestionPlacement(Maths, Algebra), Now);
         exam.Schedule(Now.AddHours(1), Now.AddHours(4), null, null, null, Now);
         exam.Publish(Now);
         Serve(exam, question);

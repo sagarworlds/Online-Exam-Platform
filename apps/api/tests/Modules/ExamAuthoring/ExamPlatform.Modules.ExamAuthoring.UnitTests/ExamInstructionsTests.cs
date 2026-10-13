@@ -20,7 +20,7 @@ public class ExamInstructionsTests
     private readonly IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
     private readonly IRequestContext requestContext = Substitute.For<IRequestContext>();
     private readonly Clock clock = Substitute.For<Clock>();
-    private readonly Exam exam = new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid());
+    private readonly Exam exam = new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid(), Now);
 
     public ExamInstructionsTests()
     {

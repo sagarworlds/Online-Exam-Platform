@@ -44,7 +44,7 @@ public class SectionDrawRule
 
     private SectionDrawRule() { }
 
-    internal SectionDrawRule(Guid sectionId, int order, int count, Guid? bookId, Guid? chapterId, string? difficulty, string? topic)
+    internal SectionDrawRule(Guid sectionId, int order, int count, Guid? bookId, Guid? chapterId, string? difficulty, string? topic, DateTime nowUtc)
     {
         Id = Guid.NewGuid();
         SectionId = sectionId;
@@ -54,7 +54,7 @@ public class SectionDrawRule
         ChapterId = chapterId;
         Difficulty = difficulty;
         Topic = topic;
-        CreatedAt = DateTime.UtcNow;
+        CreatedAt = nowUtc;
     }
 
     /// <summary>Checks a rule's parts and puts them in the form they are stored in.</summary>

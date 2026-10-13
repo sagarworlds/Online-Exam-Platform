@@ -9,21 +9,23 @@ namespace ExamPlatform.Modules.ExamAuthoring.UnitTests;
 
 public class RemoveSectionHandlerTests
 {
+    private static readonly DateTime Now = new(2026, 10, 2, 9, 0, 0, DateTimeKind.Utc);
+
     private readonly IExamRepository repository = Substitute.For<IExamRepository>();
     private readonly IExamAuthoringUnitOfWork unitOfWork = Substitute.For<IExamAuthoringUnitOfWork>();
-    private readonly Exam exam = new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid());
+    private readonly Exam exam = new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid(), Now);
     private readonly RemoveSectionHandler handler;
 
     public RemoveSectionHandlerTests()
     {
         repository.GetByIdOrThrowAsync(exam.Id, Arg.Any<CancellationToken>()).Returns(exam);
-        handler = new RemoveSectionHandler(repository, unitOfWork);
+        handler = new RemoveSectionHandler(repository, unitOfWork, TestClock.At(Now));
     }
 
     [Fact]
     public async Task TakesTheSectionOut_AndSaves()
     {
-        var section = exam.AddSection("S", null);
+        var section = exam.AddSection("S", null, Now);
 
         await handler.HandleAsync(new RemoveSectionCommand(exam.Id, section.Id), CancellationToken.None);
 
