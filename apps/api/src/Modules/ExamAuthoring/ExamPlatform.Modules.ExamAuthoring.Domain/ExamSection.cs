@@ -20,23 +20,23 @@ public class ExamSection
 
     private ExamSection() { }
 
-    public ExamSection(Guid examId, string name, int? timeSeconds, int order)
+    public ExamSection(Guid examId, string name, int? timeSeconds, int order, DateTime nowUtc)
     {
         Id = Guid.NewGuid();
         ExamId = examId;
         Name = name;
         TimeSeconds = timeSeconds;
         Order = order;
-        CreatedAt = DateTime.UtcNow;
+        CreatedAt = nowUtc;
     }
 
-    public ExamQuestion AddQuestion(Guid questionVersionId, int order)
+    public ExamQuestion AddQuestion(Guid questionVersionId, int order, DateTime nowUtc)
     {
         var exists = _questions.Any(q => q.QuestionVersionId == questionVersionId);
         if (exists)
             throw new DuplicateQuestionError(questionVersionId, Id);
 
-        var question = new ExamQuestion(Id, questionVersionId, order);
+        var question = new ExamQuestion(Id, questionVersionId, order, nowUtc);
         _questions.Add(question);
         return question;
     }
@@ -46,19 +46,20 @@ public class ExamSection
 
     /// <summary>Adds a rule that draws questions for each candidate.</summary>
     /// <param name="count">How many to draw.</param>
+    /// <param name="nowUtc">The current instant.</param>
     /// <param name="bookId">Only questions of this book, or null for any.</param>
     /// <param name="chapterId">Only questions of this chapter, or null for any.</param>
     /// <param name="difficulty">Only this difficulty, or blank for any.</param>
     /// <param name="topic">Only this topic, or blank for any.</param>
     /// <returns>The rule as added.</returns>
     /// <exception cref="InvalidExamConfigError">A part of the rule is invalid, or the section already has the most rules it may.</exception>
-    public SectionDrawRule AddDrawRule(int count, Guid? bookId, Guid? chapterId, string? difficulty, string? topic)
+    public SectionDrawRule AddDrawRule(int count, Guid? bookId, Guid? chapterId, string? difficulty, string? topic, DateTime nowUtc)
     {
         if (_drawRules.Count >= MaxDrawRules)
             throw new InvalidExamConfigError($"A section can have at most {MaxDrawRules} draw rules.");
 
         var (book, chapter, level, cleanTopic) = SectionDrawRule.Clean(count, bookId, chapterId, difficulty, topic);
-        var rule = new SectionDrawRule(Id, _drawRules.Count + 1, count, book, chapter, level, cleanTopic);
+        var rule = new SectionDrawRule(Id, _drawRules.Count + 1, count, book, chapter, level, cleanTopic, nowUtc);
         _drawRules.Add(rule);
         return rule;
     }

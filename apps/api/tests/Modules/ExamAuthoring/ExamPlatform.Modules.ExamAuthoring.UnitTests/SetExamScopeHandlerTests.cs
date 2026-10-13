@@ -10,6 +10,8 @@ namespace ExamPlatform.Modules.ExamAuthoring.UnitTests;
 
 public class SetExamScopeHandlerTests
 {
+    private static readonly DateTime Now = new(2026, 10, 2, 9, 0, 0, DateTimeKind.Utc);
+
     private readonly IExamRepository repository = Substitute.For<IExamRepository>();
     private readonly IExamAuthoringUnitOfWork unitOfWork = Substitute.For<IExamAuthoringUnitOfWork>();
     private readonly IQuestionBank questionBank = Substitute.For<IQuestionBank>();
@@ -19,7 +21,7 @@ public class SetExamScopeHandlerTests
     private readonly Guid bookId = Guid.NewGuid();
     private readonly ChapterSnapshot algebra;
     private readonly ChapterSnapshot geometry;
-    private readonly Exam exam = new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid());
+    private readonly Exam exam = new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid(), Now);
 
     public SetExamScopeHandlerTests()
     {
@@ -30,7 +32,7 @@ public class SetExamScopeHandlerTests
             ((IReadOnlyCollection<Guid>)call[0]).Contains(bookId) ? new List<BookSnapshot> { book } : []);
 
         repository.GetByIdOrThrowAsync(exam.Id, Arg.Any<CancellationToken>()).Returns(exam);
-        handler = new SetExamScopeHandler(repository, unitOfWork, questionBank, new ExamScopeResolver(catalog), new ExamDtoFactory(catalog));
+        handler = new SetExamScopeHandler(repository, unitOfWork, questionBank, new ExamScopeResolver(catalog), new ExamDtoFactory(catalog), TestClock.At(Now));
     }
 
     private QuestionSnapshot Question(Guid id, ChapterSnapshot? chapter) =>
@@ -38,9 +40,9 @@ public class SetExamScopeHandlerTests
 
     private void PutInExam(params QuestionSnapshot[] questions)
     {
-        var section = exam.AddSection("S", null);
+        var section = exam.AddSection("S", null, Now);
         foreach (var q in questions)
-            exam.AddQuestion(section.Id, q.Id, new QuestionPlacement(q.BookId, q.ChapterId));
+            exam.AddQuestion(section.Id, q.Id, new QuestionPlacement(q.BookId, q.ChapterId), Now);
         questionBank.GetAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns(questions);
     }
 
@@ -85,7 +87,7 @@ public class SetExamScopeHandlerTests
     public async Task LiftingTheLimit_AlwaysWorks()
     {
         PutInExam(Question(Guid.NewGuid(), null));
-        exam.SetScope(ExamScope.Independent(), new Dictionary<Guid, QuestionPlacement>());
+        exam.SetScope(ExamScope.Independent(), new Dictionary<Guid, QuestionPlacement>(), Now);
 
         await handler.HandleAsync(new SetExamScopeCommand(exam.Id, new ExamScopeInput(ExamScopeType.Independent)), CancellationToken.None);
 

@@ -9,23 +9,25 @@ namespace ExamPlatform.Modules.ExamAuthoring.UnitTests;
 
 public class RemoveExamQuestionHandlerTests
 {
+    private static readonly DateTime Now = new(2026, 10, 2, 9, 0, 0, DateTimeKind.Utc);
+
     private readonly IExamRepository repository = Substitute.For<IExamRepository>();
     private readonly IExamAuthoringUnitOfWork unitOfWork = Substitute.For<IExamAuthoringUnitOfWork>();
-    private readonly Exam exam = new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid());
+    private readonly Exam exam = new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid(), Now);
     private readonly RemoveExamQuestionHandler handler;
 
     public RemoveExamQuestionHandlerTests()
     {
         repository.GetByIdOrThrowAsync(exam.Id, Arg.Any<CancellationToken>()).Returns(exam);
-        handler = new RemoveExamQuestionHandler(repository, unitOfWork);
+        handler = new RemoveExamQuestionHandler(repository, unitOfWork, TestClock.At(Now));
     }
 
     [Fact]
     public async Task TakesTheQuestionOutOfTheSection_AndSaves()
     {
-        var section = exam.AddSection("S", null);
+        var section = exam.AddSection("S", null, Now);
         var questionId = Guid.NewGuid();
-        exam.AddQuestion(section.Id, questionId, QuestionPlacement.Unfiled);
+        exam.AddQuestion(section.Id, questionId, QuestionPlacement.Unfiled, Now);
 
         await handler.HandleAsync(new RemoveExamQuestionCommand(exam.Id, section.Id, questionId), CancellationToken.None);
 
@@ -48,7 +50,7 @@ public class RemoveExamQuestionHandlerTests
     [Fact]
     public async Task ForAQuestionTheSectionDoesNotHold_ThrowsAndSavesNothing()
     {
-        var section = exam.AddSection("S", null);
+        var section = exam.AddSection("S", null, Now);
 
         await Assert.ThrowsAsync<QuestionNotInExamError>(() =>
             handler.HandleAsync(new RemoveExamQuestionCommand(exam.Id, section.Id, Guid.NewGuid()), CancellationToken.None));

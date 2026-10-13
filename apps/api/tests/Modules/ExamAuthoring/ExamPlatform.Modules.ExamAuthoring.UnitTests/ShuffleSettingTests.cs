@@ -14,12 +14,12 @@ public class ShuffleSettingTests
 {
     private static readonly DateTime Now = new(2026, 10, 3, 9, 0, 0, DateTimeKind.Utc);
 
-    private static Exam DraftExam() => new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid());
+    private static Exam DraftExam() => new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid(), Now);
 
     private static Exam PublishedExam()
     {
         var exam = DraftExam();
-        exam.AddQuestion(exam.AddSection("S", null).Id, Guid.NewGuid(), QuestionPlacement.Unfiled);
+        exam.AddQuestion(exam.AddSection("S", null, Now).Id, Guid.NewGuid(), QuestionPlacement.Unfiled, Now);
         exam.Schedule(Now.AddHours(1), Now.AddHours(4), null, null, null, Now);
         exam.Publish(Now);
         return exam;

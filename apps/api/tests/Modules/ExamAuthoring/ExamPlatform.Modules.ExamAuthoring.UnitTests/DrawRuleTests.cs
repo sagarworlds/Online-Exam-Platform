@@ -11,7 +11,7 @@ public class DrawRuleTests
 {
     private static readonly DateTime Now = new(2026, 10, 2, 9, 0, 0, DateTimeKind.Utc);
 
-    private static Exam NewExam() => new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid());
+    private static Exam NewExam() => new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid(), Now);
 
     private static Exam Scheduled(Exam exam)
     {
@@ -23,10 +23,10 @@ public class DrawRuleTests
     public void AddDrawRule_KeepsTheRule_AndNumbersRulesInOrder()
     {
         var exam = NewExam();
-        var section = exam.AddSection("A", null);
+        var section = exam.AddSection("A", null, Now);
 
-        var first = exam.AddDrawRule(section.Id, 5, null, null, "Easy", " Algebra ");
-        var second = exam.AddDrawRule(section.Id, 2, null, null, null, null);
+        var first = exam.AddDrawRule(section.Id, 5, null, null, "Easy", " Algebra ", Now);
+        var second = exam.AddDrawRule(section.Id, 2, null, null, null, null, Now);
 
         Assert.Equal(("easy", "algebra"), (first.Difficulty, first.Topic));
         Assert.Equal([1, 2], new[] { first.Order, second.Order });
@@ -38,50 +38,50 @@ public class DrawRuleTests
     public void AddDrawRule_RefusesACountOutsideOneToOneHundred(int count)
     {
         var exam = NewExam();
-        var section = exam.AddSection("A", null);
+        var section = exam.AddSection("A", null, Now);
 
-        Assert.Throws<InvalidExamConfigError>(() => exam.AddDrawRule(section.Id, count, null, null, null, null));
+        Assert.Throws<InvalidExamConfigError>(() => exam.AddDrawRule(section.Id, count, null, null, null, null, Now));
     }
 
     [Fact]
     public void AddDrawRule_RefusesAnUnknownDifficulty()
     {
         var exam = NewExam();
-        var section = exam.AddSection("A", null);
+        var section = exam.AddSection("A", null, Now);
 
-        Assert.Throws<InvalidExamConfigError>(() => exam.AddDrawRule(section.Id, 1, null, null, "impossible", null));
+        Assert.Throws<InvalidExamConfigError>(() => exam.AddDrawRule(section.Id, 1, null, null, "impossible", null, Now));
     }
 
     [Fact]
     public void AddDrawRule_RefusesAPublishedExam()
     {
         var exam = Scheduled(NewExam());
-        var section = exam.AddSection("A", null);
-        exam.AddQuestion(section.Id, Guid.NewGuid(), QuestionPlacement.Unfiled);
+        var section = exam.AddSection("A", null, Now);
+        exam.AddQuestion(section.Id, Guid.NewGuid(), QuestionPlacement.Unfiled, Now);
         exam.Publish(Now);
 
-        Assert.Throws<ExamNotDraftError>(() => exam.AddDrawRule(section.Id, 1, null, null, null, null));
+        Assert.Throws<ExamNotDraftError>(() => exam.AddDrawRule(section.Id, 1, null, null, null, null, Now));
     }
 
     [Fact]
     public void RemoveDrawRule_TakesItOut_AndRefusesAnUnknownOne()
     {
         var exam = NewExam();
-        var section = exam.AddSection("A", null);
-        var rule = exam.AddDrawRule(section.Id, 1, null, null, null, null);
+        var section = exam.AddSection("A", null, Now);
+        var rule = exam.AddDrawRule(section.Id, 1, null, null, null, null, Now);
 
-        exam.RemoveDrawRule(section.Id, rule.Id);
+        exam.RemoveDrawRule(section.Id, rule.Id, Now);
 
         Assert.Empty(section.DrawRules);
-        Assert.Throws<DrawRuleNotFoundError>(() => exam.RemoveDrawRule(section.Id, rule.Id));
+        Assert.Throws<DrawRuleNotFoundError>(() => exam.RemoveDrawRule(section.Id, rule.Id, Now));
     }
 
     [Fact]
     public void Publish_AcceptsAnExamWhoseOnlyQuestionsComeFromARule()
     {
         var exam = Scheduled(NewExam());
-        var section = exam.AddSection("A", null);
-        exam.AddDrawRule(section.Id, 3, null, null, null, null);
+        var section = exam.AddSection("A", null, Now);
+        exam.AddDrawRule(section.Id, 3, null, null, null, null, Now);
 
         exam.Publish(Now);
 
@@ -92,7 +92,7 @@ public class DrawRuleTests
     public void Publish_StillRefusesAnExamWithNeitherQuestionsNorRules()
     {
         var exam = Scheduled(NewExam());
-        exam.AddSection("A", null);
+        exam.AddSection("A", null, Now);
 
         Assert.Throws<InvalidExamConfigError>(() => exam.Publish(Now));
     }
@@ -102,9 +102,9 @@ public class DrawRuleTests
     {
         var book = Guid.NewGuid();
         var exam = NewExam();
-        var section = exam.AddSection("A", null);
-        var inBook = exam.AddDrawRule(section.Id, 1, null, null, null, null);
-        var elsewhere = exam.AddDrawRule(section.Id, 1, Guid.NewGuid(), null, null, null);
+        var section = exam.AddSection("A", null, Now);
+        var inBook = exam.AddDrawRule(section.Id, 1, null, null, null, null, Now);
+        var elsewhere = exam.AddDrawRule(section.Id, 1, Guid.NewGuid(), null, null, null, Now);
 
         var scoped = DrawRuleScoping.Apply(inBook, ExamScope.ForBook(book));
 
@@ -119,10 +119,10 @@ public class DrawRuleTests
         var chapters = new[] { Guid.NewGuid(), Guid.NewGuid() };
         var scope = ExamScope.ForChapters(book, chapters);
         var exam = NewExam();
-        var section = exam.AddSection("A", null);
-        var any = exam.AddDrawRule(section.Id, 1, null, null, null, null);
-        var one = exam.AddDrawRule(section.Id, 1, null, chapters[1], null, null);
-        var outside = exam.AddDrawRule(section.Id, 1, null, Guid.NewGuid(), null, null);
+        var section = exam.AddSection("A", null, Now);
+        var any = exam.AddDrawRule(section.Id, 1, null, null, null, null, Now);
+        var one = exam.AddDrawRule(section.Id, 1, null, chapters[1], null, null, Now);
+        var outside = exam.AddDrawRule(section.Id, 1, null, Guid.NewGuid(), null, null, Now);
 
         Assert.Equal(chapters, DrawRuleScoping.Apply(any, scope)!.ChapterIds);
         Assert.Equal(chapters[1], DrawRuleScoping.Apply(one, scope)!.ChapterId);
@@ -137,9 +137,9 @@ public class DrawRuleTests
         bank.FindAsync(Arg.Any<QuestionCriteria>(), Arg.Any<CancellationToken>())
             .Returns([new FoundQuestion(held, null, null), new FoundQuestion(Guid.NewGuid(), null, null)]);
         var exam = NewExam();
-        var section = exam.AddSection("A", null);
-        exam.AddQuestion(section.Id, held, QuestionPlacement.Unfiled);
-        exam.AddDrawRule(section.Id, 2, null, null, null, null);
+        var section = exam.AddSection("A", null, Now);
+        exam.AddQuestion(section.Id, held, QuestionPlacement.Unfiled, Now);
+        exam.AddDrawRule(section.Id, 2, null, null, null, null, Now);
 
         var error = await Assert.ThrowsAsync<DrawPoolTooSmallError>(() => new DrawPoolChecker(bank).EnsureFillableAsync(exam, CancellationToken.None));
 
@@ -153,8 +153,8 @@ public class DrawRuleTests
         bank.FindAsync(Arg.Any<QuestionCriteria>(), Arg.Any<CancellationToken>())
             .Returns([new FoundQuestion(Guid.NewGuid(), null, null), new FoundQuestion(Guid.NewGuid(), null, null)]);
         var exam = NewExam();
-        var section = exam.AddSection("A", null);
-        exam.AddDrawRule(section.Id, 2, null, null, null, null);
+        var section = exam.AddSection("A", null, Now);
+        exam.AddDrawRule(section.Id, 2, null, null, null, null, Now);
 
         await new DrawPoolChecker(bank).EnsureFillableAsync(exam, CancellationToken.None);
     }
