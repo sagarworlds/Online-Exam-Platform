@@ -30,6 +30,7 @@ public sealed record ExamItemAnalysisDto(
 /// <param name="Difficulty">The share of them who answered correctly, from 0 to 1; null while below the minimum cohort size.</param>
 /// <param name="Discrimination">The upper group's share correct less the lower group's, from -1 to 1; null while below the minimum, or when a group has no one to compare.</param>
 /// <param name="Time">How long the counted candidates spent on the question, and whether its average is shown.</param>
+/// <param name="DropOff">How far the counted candidates got to this question, and how many of them stopped at it (FR-37).</param>
 public sealed record ItemRowDto(
     Guid QuestionId,
     int Position,
@@ -38,7 +39,14 @@ public sealed record ItemRowDto(
     int CorrectCount,
     decimal? Difficulty,
     decimal? Discrimination,
-    ItemTimeDto Time);
+    ItemTimeDto Time,
+    ItemDropOffDto DropOff);
+
+/// <summary>How far the counted candidates got to one question, and where they stopped (FR-37 drop-off points).</summary>
+/// <param name="Reached">How many counted candidates got as far as the question: they answered it or a question after it. A candidate who answered nothing is not counted.</param>
+/// <param name="DroppedOff">How many of them stopped at this question: the clock ended their attempt with later questions still unanswered.</param>
+/// <param name="Rate">The share of those who reached it and stopped here, from 0 to 1; null while fewer than the minimum cohort size reached it.</param>
+public sealed record ItemDropOffDto(int Reached, int DroppedOff, decimal? Rate);
 
 /// <summary>How long the counted candidates spent on one question, and whether its average is shown (FR-37).</summary>
 /// <param name="CandidatesTimed">How many counted candidates have a reported time for the question. A candidate with no reported time is not counted as zero.</param>

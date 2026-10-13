@@ -99,7 +99,7 @@ public sealed class ExamResponseReader(IAttemptRepository attempts, IExamCatalog
                 var answer = answers.GetValueOrDefault(questionId);
                 var mark = AttemptScorer.Mark(paperExam, question, answer?.SelectedOptionIds ?? [], answer?.AnswerText);
                 var seconds = timeSpent.TryGetValue(questionId, out var reported) ? reported : (int?)null;
-                return new QuestionResponse(questionId, mark.Verdict == AnswerVerdict.Correct, seconds);
+                return new QuestionResponse(questionId, mark.Verdict == AnswerVerdict.Correct, Answered: answer is not null, seconds);
             })
             .ToList();
 
@@ -107,6 +107,7 @@ public sealed class ExamResponseReader(IAttemptRepository attempts, IExamCatalog
             attempt.Id,
             attempt.CandidateId,
             attempt.SubmittedAtUtc ?? throw new InvalidOperationException("A counted attempt always has a submission time."),
+            attempt.EndedByClock,
             attempt.Score ?? throw new InvalidOperationException("A submitted attempt always has a score."),
             attempt.MaxScore ?? throw new InvalidOperationException("A submitted attempt always has a maximum score."),
             responses);

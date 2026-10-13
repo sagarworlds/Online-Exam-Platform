@@ -89,7 +89,42 @@ public class ExamResponseReaderTests
         Assert.Equal(3m, attempt.Score);
         // Both questions carry 4 marks when right, so the paper had 8 marks available whatever the candidate answered.
         Assert.Equal(8m, attempt.MaxScore);
-        Assert.Equal(new[] { new QuestionResponse(_first.Id, true), new QuestionResponse(_second.Id, false) }, attempt.Questions);
+        Assert.Equal(new[] { new QuestionResponse(_first.Id, true, true), new QuestionResponse(_second.Id, false, true) }, attempt.Questions);
+        Assert.False(attempt.EndedByClock);
+    }
+
+    [Fact]
+    public async Task AQuestionLeftUnanswered_IsSaidSo_AndAnAttemptEndedByTheClockIsSaidToBeEndedByClock()
+    {
+        // The candidate answered the first question, then time ran out before they reached the second. The clock submitted the attempt.
+        var exam = ExamWith();
+        var attempt = Attempt.Start(exam.Id, Guid.NewGuid(), 1, Fixtures.Now, Fixtures.Now.AddMinutes(30));
+        attempt.RecordAnswer(_first.Id, _first.Correct(), Fixtures.Now);
+        attempt.Submit(Fixtures.Now.AddMinutes(31), 4m, 8m);
+        Counted(attempt);
+
+        var responses = await Reader.ReadAsync(exam.Id, CancellationToken.None);
+
+        var counted = Assert.Single(responses!.Attempts);
+        Assert.True(counted.EndedByClock);
+        Assert.Equal(new[] { new QuestionResponse(_first.Id, true, true), new QuestionResponse(_second.Id, false, false) }, counted.Questions);
+    }
+
+    [Fact]
+    public async Task AnAttemptEndedByAViolation_IsNotSaidToHaveEndedByTheClock()
+    {
+        // The candidate left the page too often, so the server ended the attempt: the same auto-submission, but not the clock.
+        var exam = ExamWith();
+        var attempt = Attempt.Start(exam.Id, Guid.NewGuid(), 1, Fixtures.Now, Fixtures.Now.AddMinutes(30));
+        attempt.RecordAnswer(_first.Id, _first.Correct(), Fixtures.Now);
+        attempt.Submit(Fixtures.Now.AddMinutes(10), 4m, 8m, endedByViolations: true);
+        Counted(attempt);
+
+        var responses = await Reader.ReadAsync(exam.Id, CancellationToken.None);
+
+        var counted = Assert.Single(responses!.Attempts);
+        Assert.True(attempt.AutoSubmitted);
+        Assert.False(counted.EndedByClock);
     }
 
     [Fact]
@@ -132,7 +167,7 @@ public class ExamResponseReaderTests
         var responses = await Reader.ReadAsync(exam.Id, CancellationToken.None);
 
         Assert.Equal(
-            new[] { new QuestionResponse(_first.Id, true, 40), new QuestionResponse(_second.Id, false, null) },
+            new[] { new QuestionResponse(_first.Id, true, true, 40), new QuestionResponse(_second.Id, false, true, null) },
             Assert.Single(responses!.Attempts).Questions);
     }
 }
