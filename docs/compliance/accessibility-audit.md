@@ -299,7 +299,7 @@ Each check is marked manual (run in the browser) or code read (from the source, 
 
 ## 6. Status on `main`, 2026-10-13
 
-Each finding was checked against the code on `main` (`f07334a`), with A-13 fixed on the branch that adds this section.
+Each finding was checked against the code on `main`, as of this section's date. A-13 and A-14 were fixed after the audit, and their rows say how.
 
 | ID | Status | Where |
 |---|---|---|
@@ -316,7 +316,7 @@ Each finding was checked against the code on `main` (`f07334a`), with A-13 fixed
 | A-11 | Open: owner decision, move focus to the first invalid field or add a polite live region. The page-level errors are `role="alert"`, but the field-level errors still have no live region and focus does not move | `login.html`, `register.html`, `password-reset-request.html` |
 | A-12 | Fixed: the marks label is visually hidden text, so the `aria-label` on the span is gone | `eae5289` |
 | A-13 | Fixed on this branch: Escape closes the trend tooltip, as WCAG 1.4.13 asks of hover content. The chart stays decorative, so keyboard users keep the results list. The points are not made focusable, because focusable children of an `aria-hidden` element fail axe | `candidate-analytics.ts` |
-| A-14 | Open: owner decision on whether the staff menu's sideways scroll at phone width meets 1.4.10 | `admin-sidebar.css` |
+| A-14 | Fixed on this branch: at 40rem and below the staff menu is a grid of two or more links to a row, and labels wrap inside their links, so nothing scrolls sideways. Measured on `/admin/questions`: at 320 px, 11 of 13 links were past the right edge and the strip scrolled 1,665 px; now none are, at 320, 360, 480 and 640 px. The desktop column is unchanged | `admin-sidebar.css` |
 
 ### Scan of the pages section 2.1 lists
 

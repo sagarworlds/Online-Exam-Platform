@@ -82,16 +82,17 @@
   white-space: normal;
 }
 
-/* A phone has no width to spare for a column; the same links become a horizontal, scrollable strip
-   above the page content instead, and the collapse toggle (nothing left to collapse into) is hidden. */
+/* A phone has no width to spare for a column, so the same links become a grid above the page content, two or more to a row. A label wraps
+   inside its link rather than running off the screen, so nothing scrolls sideways and every link is in view at 320px (WCAG 1.4.10 reflow).
+   The collapse toggle has nothing left to collapse into, so it is hidden. */
 @media (max-width: 40rem) {
   .admin-sidebar {
     position: static;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 7.5rem), 1fr));
     width: auto;
     max-height: none;
-    overflow-x: auto;
-    overflow-y: visible;
+    overflow: visible;
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
@@ -108,12 +109,14 @@
     display: inline;
   }
 
-  /* The links scroll sideways, so a link keeps its label rather than shrinking to its icon, and a label stays on one line. */
   .admin-sidebar__link {
-    flex-shrink: 0;
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
   }
 
+  /* A long word breaks inside its label, since a narrow cell can be narrower than the word. */
   .admin-sidebar__label {
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
 }
