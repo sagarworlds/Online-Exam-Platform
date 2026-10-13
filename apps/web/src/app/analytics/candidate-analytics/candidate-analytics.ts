@@ -1,5 +1,5 @@
 import { DatePipe, DOCUMENT } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, HostListener, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
@@ -117,6 +117,15 @@ export class CandidateAnalytics {
   /** Opens the tooltip of the point at this index while the pointer is over it. Keyboard readers have the results list instead. */
   protected show(index: number): void {
     this.hovered.set(index);
+  }
+
+  /**
+   * Closes an open tooltip on Escape. Content that appears on hover must be dismissible without moving the pointer (WCAG 1.4.13), and the
+   * pointer may be resting on the point. Closing is a no-op when no tooltip is open.
+   */
+  @HostListener('document:keydown.escape')
+  protected dismissTooltip(): void {
+    this.hovered.set(null);
   }
 
   /**
