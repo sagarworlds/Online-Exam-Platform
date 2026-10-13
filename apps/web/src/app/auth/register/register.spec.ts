@@ -102,6 +102,16 @@ describe('Register', () => {
     expect(compiled.querySelector('#register-display-name-error')?.textContent).toContain('Enter a display name.');
   });
 
+  it('moves focus to the first field that is marked invalid when submitted with mistakes (A-11)', async () => {
+    const { fixture, compiled, submitButton } = render();
+
+    submitButton.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.activeElement).toBe(compiled.querySelector('[aria-invalid="true"]'));
+  });
+
   it('asks for a contact on submit when it is left empty', () => {
     const { fixture, compiled, submitButton } = render();
 

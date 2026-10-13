@@ -1,4 +1,5 @@
 import { Component, ElementRef, Injector, afterNextRender, inject, signal, viewChild } from '@angular/core';
+import { focusFirstInvalidFieldAfterRender } from '../../shared/focus-first-invalid-field';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
@@ -15,6 +16,7 @@ export class PasswordResetRequest {
   private readonly formBuilder = inject(FormBuilder);
   private readonly authApi = inject(AuthApiService);
   private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   /** Disabled while the request runs, which drops focus, so focus is put back on it when the request is refused. */
   private readonly submitButton = viewChild<ElementRef<HTMLButtonElement>>('submitButton');
 
@@ -39,7 +41,11 @@ export class PasswordResetRequest {
 
   protected submit(): void {
     this.attempted.set(true);
-    if (this.form.invalid || this.submitting()) {
+    if (this.form.invalid) {
+      focusFirstInvalidFieldAfterRender(this.host, this.injector);
+      return;
+    }
+    if (this.submitting()) {
       return;
     }
 

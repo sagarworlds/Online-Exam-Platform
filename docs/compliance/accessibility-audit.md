@@ -299,7 +299,7 @@ Each check is marked manual (run in the browser) or code read (from the source, 
 
 ## 6. Status on `main`, 2026-10-13
 
-Each finding was checked against the code on `main`, as of this section's date. A-13 and A-14 were fixed after the audit, and their rows say how.
+Each finding was checked against the code on `main`, as of this section's date. A-06, A-11, A-13 and A-14 were fixed after the audit, and their rows say how.
 
 | ID | Status | Where |
 |---|---|---|
@@ -308,12 +308,12 @@ Each finding was checked against the code on `main`, as of this section's date. 
 | A-03 | Fixed | `8b7ddb5` |
 | A-04 | Fixed | `c7b2e95` |
 | A-05 | Fixed | `eae5289` |
-| A-06 | Open: owner decision, either the essential-time exception for the exam timer or an announced warning and an extension path | Not started |
+| A-06 | Partly fixed: the owner chose an announced warning. The candidate hears a warning at five minutes and at one minute left, and a time-up notice before the attempt closes. WCAG 2.2.1 also needs either an essential-time exception or a way to extend the time, and neither is in place, so this finding stays open for that part | `exam-attempt.ts`, `exam-attempt.html` |
 | A-07 | Fixed | `eae5289` |
 | A-08 | Fixed | `eae5289` |
 | A-09 | Fixed for sign-in, register and reset | `eae5289`, `9ca98ca` |
 | A-10 | Fixed | `eae5289` |
-| A-11 | Open: owner decision, move focus to the first invalid field or add a polite live region. The page-level errors are `role="alert"`, but the field-level errors still have no live region and focus does not move | `login.html`, `register.html`, `password-reset-request.html` |
+| A-11 | Fixed: when a sign-in, register or reset form is submitted with a missing or wrong field, focus moves to the first such field, and its error is read with it. Focus was chosen over a live region, since a live region announces the error but leaves the candidate at the submit button | `shared/focus-first-invalid-field.ts`, `login.ts`, `register.ts`, `password-reset-request.ts` |
 | A-12 | Fixed: the marks label is visually hidden text, so the `aria-label` on the span is gone | `eae5289` |
 | A-13 | Fixed on this branch: Escape closes the trend tooltip, as WCAG 1.4.13 asks of hover content. The chart stays decorative, so keyboard users keep the results list. The points are not made focusable, because focusable children of an `aria-hidden` element fail axe | `candidate-analytics.ts` |
 | A-14 | Fixed on this branch: at 40rem and below the staff menu is a grid of two or more links to a row, and labels wrap inside their links, so nothing scrolls sideways. Measured on `/admin/questions`: at 320 px, 11 of 13 links were past the right edge and the strip scrolled 1,665 px; now none are, at 320, 360, 480 and 640 px. The desktop column is unchanged | `admin-sidebar.css` |
