@@ -29,8 +29,23 @@
     <div class="card empty-state">{{ emptyMessage() }}</div>
   } @else {
     @for (group of groups(); track group.questionId) {
-      <section class="card" [attr.aria-labelledby]="'dispute-group-' + group.questionId">
-        <h3 class="card__title" [id]="'dispute-group-' + group.questionId">{{ heading(group) }}</h3>
+      <section class="card" [attr.aria-labelledby]="headingId(group)">
+        <!-- The action that settles the question sits beside the count it settles, not under the last of its disputes. -->
+        <div class="dispute-group__head">
+          <h3 class="card__title" [id]="headingId(group)">{{ heading(group) }}</h3>
+          @if (offersCorrection(group) && correctingQuestionId() !== group.questionId) {
+            <button
+              type="button"
+              class="primary"
+              #focusTarget
+              [attr.data-focus]="'correct:' + group.questionId"
+              (click)="startCorrecting(group)"
+            >
+              {{ correctButton(group) }}
+            </button>
+          }
+        </div>
+
         <!-- The question as it is now, from the API's sanitized HTML, run through Angular's sanitizer again before it is shown. -->
         @if (group.questionText) {
           <div class="rich-text" [appMath]="group.questionText"></div>
@@ -48,6 +63,17 @@
             <span aria-hidden="true">{{ correction.keyChanged ? '✓' : '–' }}</span>
             {{ correctionText(correction) }}
           </p>
+        }
+
+        <!-- The key panel sits under the question it changes, so the key and the question stay together above the candidates' reasons. -->
+        @if (correctingQuestionId() === group.questionId) {
+          <div class="dispute-group__correction">
+            <app-answer-key-correction
+              [questionId]="group.questionId"
+              (corrected)="onCorrected($event)"
+              (cancelled)="cancelCorrecting()"
+            />
+          </div>
         }
 
         <ul class="dispute-list">
@@ -166,28 +192,6 @@
             </li>
           }
         </ul>
-
-        @if (status() === 'open' && canCorrectKey() && group.open > 0) {
-          @if (correctingQuestionId() === group.questionId) {
-            <app-answer-key-correction
-              [questionId]="group.questionId"
-              (corrected)="onCorrected($event)"
-              (cancelled)="cancelCorrecting()"
-            />
-          } @else {
-            <div class="dispute__actions">
-              <button
-                type="button"
-                class="primary"
-                #focusTarget
-                [attr.data-focus]="'correct:' + group.questionId"
-                (click)="startCorrecting(group)"
-              >
-                {{ correctButton(group) }}
-              </button>
-            </div>
-          }
-        }
       </section>
     }
   }

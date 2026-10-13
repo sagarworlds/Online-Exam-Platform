@@ -230,14 +230,21 @@ describe('AttemptResult', () => {
       URL.revokeObjectURL = originalRevoke;
     });
 
-    it('is offered while the result is held, since a pass before release is enough, and says it is refused until then', async () => {
+    it('is disabled, with the reason, while the result is held, since a certificate waits for the release', async () => {
       const fixture = await start();
       resultRequest().flush({ title: 'results_not_released', detail: 'Held.' }, { status: 409, statusText: 'Conflict' });
       attemptRequest().flush({ id: 'a1', review: { available: false, mode: 'Manual', availableFromUtc: null } });
       fixture.detectChanges();
 
+      const button = certificateButton(fixture);
+      expect(button?.disabled).toBe(true);
+      expect(root(fixture).querySelector(`#${button?.getAttribute('aria-describedby')}`)?.textContent).toContain('once your result is released');
+    });
+
+    it('stays available once the result is out, even to a candidate who did not reach the pass mark, since they get a participation certificate', async () => {
+      const fixture = await open(result({ passed: false }));
+
       expect(certificateButton(fixture)?.disabled).toBe(false);
-      expect(root(fixture).querySelector('#certificate-reason')?.textContent).toContain('or now if you passed the exam');
     });
 
     it('says the candidate passed when the exam has a pass mark and the score reaches it', async () => {

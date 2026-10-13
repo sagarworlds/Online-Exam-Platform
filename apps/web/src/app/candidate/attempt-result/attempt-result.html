@@ -25,14 +25,9 @@
         } @else {
           <p>{{ 'result.locked.whenReleased' | t }}</p>
         }
-        <!-- A certificate exists for a released result, and for one that passed the exam's pass mark before release (FR-34). A refusal says why. -->
-        <button type="button" class="btn" [disabled]="certificateBusy()" [attr.aria-describedby]="certificateError() ? 'certificate-reason certificate-error' : 'certificate-reason'" (click)="downloadCertificate()">
-          {{ (certificateBusy() ? 'certificate.downloading' : 'certificate.download') | t }}
-        </button>
-        <p class="hint" id="certificate-reason">{{ 'certificate.reason.heldOrPassed' | t }}</p>
-        @if (certificateError(); as problem) {
-          <p class="error-message" id="certificate-error" role="alert">{{ problem }}</p>
-        }
+        <!-- A certificate is issued only once the result is released (FR-34), so while it is held the button is disabled and says why. -->
+        <button type="button" class="btn" disabled aria-describedby="certificate-reason">{{ 'certificate.download' | t }}</button>
+        <p class="hint" id="certificate-reason">{{ 'certificate.reason.held' | t }}</p>
       </div>
     }
 
@@ -133,6 +128,7 @@
           <a [routerLink]="['/attempt', r.attemptId, 'review']" class="btn btn--primary">{{ 'result.reviewAnswers' | t }}</a>
           <a [routerLink]="['/my-exams', r.examId, 'leaderboard']" class="btn">{{ 'leaderboard.title' | t }}</a>
           <a routerLink="/my-exams" class="btn">{{ 'common.backToMyExams' | t }}</a>
+          <!-- Every released result has a certificate: an achievement for a pass, otherwise a participation certificate (FR-34). -->
           <button type="button" class="btn" [disabled]="certificateBusy()" [attr.aria-describedby]="certificateError() ? 'certificate-error' : null" (click)="downloadCertificate()">
             {{ (certificateBusy() ? 'certificate.downloading' : 'certificate.download') | t }}
           </button>

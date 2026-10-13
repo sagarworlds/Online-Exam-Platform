@@ -3,17 +3,16 @@ using ExamPlatform.SharedKernel.Application.Pdf;
 
 namespace ExamPlatform.Modules.ExamRuntime.Application;
 
-/// <summary>What a certificate says (FR-34): who completed which exam, when, with what score, and the reference that identifies it.</summary>
+/// <summary>What a certificate says (FR-34): who took which exam, which kind of certificate it is, when, and the reference that identifies it.</summary>
 /// <param name="CandidateName">The candidate's name, as on their account.</param>
 /// <param name="ExamName">The exam's name.</param>
 /// <param name="CompletedOnUtc">When the attempt was submitted.</param>
-/// <param name="Score">
-/// The marks scored, as the released result says; null when the score is withheld because the candidate passed before the result was
-/// released (FR-34), so the certificate says only that they passed.
-/// </param>
-/// <param name="MaxScore">The marks available; null together with <paramref name="Score"/>.</param>
+/// <param name="Kind">Whether it certifies a pass or participation.</param>
+/// <param name="Score">The marks scored, for an achievement certificate; null for a participation certificate, which names no score.</param>
+/// <param name="MaxScore">The marks available, for an achievement certificate; null together with <paramref name="Score"/>.</param>
 /// <param name="AttemptId">The attempt the certificate is for; its id is printed on the certificate as the reference.</param>
-public sealed record CertificateDetails(string CandidateName, string ExamName, DateTime CompletedOnUtc, decimal? Score, decimal? MaxScore, Guid AttemptId);
+public sealed record CertificateDetails(
+    string CandidateName, string ExamName, DateTime CompletedOnUtc, CertificateKind Kind, decimal? Score, decimal? MaxScore, Guid AttemptId);
 
 /// <summary>
 /// Writes a certificate as a one-page PDF (FR-34). The page is drawn with the shared PDF writer, which uses the Helvetica font every PDF reader
@@ -44,7 +43,7 @@ public static class CertificatePdf
         if (!CanShow(details.CandidateName) || !CanShow(details.ExamName))
             throw new ArgumentException("The certificate text uses a character the built-in font cannot show.", nameof(details));
 
-        var document = new PdfDocument($"Certificate of Completion - {details.CandidateName}");
+        var document = new PdfDocument($"{TitleOf(details.Kind)} - {details.CandidateName}");
         var page = document.AddPage();
         BuildPage(page, details);
         return document.Build();
@@ -56,20 +55,25 @@ public static class CertificatePdf
         page.StrokeRectangle(36, 36, 523, 770, 2, Frame);
 
         var y = 730.0;
-        y = Text(page, "Certificate of Completion", PdfFont.Bold, 26, 72, y, 40);
+        y = Text(page, TitleOf(details.Kind), PdfFont.Bold, 26, 72, y, 40);
         y = Text(page, "This certifies that", PdfFont.Regular, 14, 72, y - 12, 26);
         y = Text(page, details.CandidateName, PdfFont.Bold, 24, 72, y - 8, 32);
-        y = Text(page, "has completed", PdfFont.Regular, 14, 72, y - 12, 26);
+        y = Text(page, VerbOf(details.Kind), PdfFont.Regular, 14, 72, y - 12, 26);
         y = Text(page, details.ExamName, PdfFont.Bold, 18, 72, y - 8, 24);
         var when = details.CompletedOnUtc.ToString("d MMMM yyyy", CultureInfo.InvariantCulture);
-        // A pass before release carries no score, so the certificate says only that the candidate passed, never a number they may not see yet.
+        // Only an achievement names a score: a participation certificate has none to name, so it is not given one.
         var finish = details.Score is { } score && details.MaxScore is { } maxScore
             ? $"on {when}, with a score of {Format(score)} out of {Format(maxScore)}."
-            : $"on {when}, having passed it.";
+            : $"on {when}.";
         Text(page, finish, PdfFont.Regular, 14, 72, y - 12, 26);
 
         Text(page, $"Certificate ID: {details.AttemptId.ToString("D").ToUpperInvariant()}", PdfFont.Regular, 10, 72, 70, 12);
     }
+
+    private static string TitleOf(CertificateKind kind) =>
+        kind == CertificateKind.Achievement ? "Certificate of Achievement" : "Certificate of Participation";
+
+    private static string VerbOf(CertificateKind kind) => kind == CertificateKind.Achievement ? "has passed" : "has taken part in";
 
     /// <summary>Writes a paragraph, wrapped to the text width, and returns the height left below it.</summary>
     private static double Text(PdfPage page, string text, PdfFont font, double size, double x, double y, double lineHeight)

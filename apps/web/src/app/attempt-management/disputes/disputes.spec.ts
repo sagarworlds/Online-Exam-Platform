@@ -737,6 +737,64 @@ describe('Disputes', () => {
 
       expect(correctButtons()).toHaveLength(0);
     });
+
+    it('is offered in the heading row of its question, before the question and its disputes', async () => {
+      await open([row('amy')]);
+
+      const group = groups()[0];
+      expect(group.firstElementChild?.classList).toContain('dispute-group__head');
+      expect(group.querySelector('.dispute-group__head button')?.textContent?.trim()).toBe(
+        'Correct the answer key — accepts 1 open dispute',
+      );
+    });
+
+    it('opens its panel under the question and above its disputes, and takes the action out of the heading while it is open', async () => {
+      await open([row('amy')]);
+
+      pressCorrect();
+      httpMock.expectOne(isQuestionGet('q1')).flush(question());
+      fixture.detectChanges();
+
+      const group = groups()[0];
+      const questionText = group.querySelector('.rich-text') as HTMLElement;
+      const panel = group.querySelector('.dispute-group__correction') as HTMLElement;
+      const list = group.querySelector('.dispute-list') as HTMLElement;
+      expect(panel.querySelector('app-answer-key-correction')).not.toBeNull();
+      expect(
+        questionText.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(panel.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(group.querySelector('.dispute-group__head button')).toBeNull();
+    });
+
+    it('keeps its panel open, with what was typed, when the last open dispute about the question is rejected meanwhile', async () => {
+      await open([row('amy')]);
+      pressCorrect();
+      httpMock.expectOne(isQuestionGet('q1')).flush(question());
+      fixture.detectChanges();
+      type(
+        root.querySelector('app-answer-key-correction textarea') as HTMLTextAreaElement,
+        'Checked again',
+      );
+
+      press('Reject…');
+      type(
+        root.querySelector('.dispute-reject textarea') as HTMLTextAreaElement,
+        'Rome was the capital then',
+      );
+      press('Reject dispute');
+      httpMock
+        .expectOne(isReject('amy'))
+        .flush(row('amy', { status: 'Rejected', resolutionNote: 'Rome was the capital then' }));
+      await settle();
+
+      const reason = root.querySelector(
+        'app-answer-key-correction textarea',
+      ) as HTMLTextAreaElement;
+      expect(reason).not.toBeNull();
+      expect(reason.value).toBe('Checked again');
+      expect(correctButtons()).toHaveLength(0);
+    });
   });
 
   describe('in another language', () => {

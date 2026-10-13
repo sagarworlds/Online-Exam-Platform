@@ -13,7 +13,7 @@ public class CertificatePdfTests
     private static readonly Guid Attempt = new("0a1b2c3d-0000-4000-8000-00000000000f");
 
     private static CertificateDetails Details(string name = "Asha Kumar", string exam = "Mathematics Mock Test") =>
-        new(name, exam, new DateTime(2026, 10, 12, 9, 0, 0, DateTimeKind.Utc), 37.75m, 80m, Attempt);
+        new(name, exam, new DateTime(2026, 10, 12, 9, 0, 0, DateTimeKind.Utc), CertificateKind.Achievement, 37.75m, 80m, Attempt);
 
     private static string Text(byte[] pdf) => Encoding.Latin1.GetString(pdf);
 
@@ -55,12 +55,23 @@ public class CertificatePdfTests
     }
 
     [Fact]
-    public void APassBeforeRelease_SaysThatTheCandidatePassed_AndPrintsNoScore()
+    public void AParticipationCertificate_IsTitledAsSuch_AndNamesNoScore()
     {
-        var pdf = Text(CertificatePdf.Render(Details() with { Score = null, MaxScore = null }));
+        var pdf = Text(CertificatePdf.Render(Details() with { Kind = CertificateKind.Participation, Score = null, MaxScore = null }));
 
-        Assert.Contains("having passed it", pdf);
+        Assert.Contains("Certificate of Participation", pdf);
+        Assert.Contains("has taken part in", pdf);
         Assert.DoesNotContain("with a score of", pdf);
+    }
+
+    [Fact]
+    public void AnAchievementCertificate_IsTitledAsSuch_AndNamesTheScore()
+    {
+        var pdf = Text(CertificatePdf.Render(Details()));
+
+        Assert.Contains("Certificate of Achievement", pdf);
+        Assert.Contains("has passed", pdf);
+        Assert.Contains("with a score of 37.75 out of 80", pdf);
     }
 
     [Fact]

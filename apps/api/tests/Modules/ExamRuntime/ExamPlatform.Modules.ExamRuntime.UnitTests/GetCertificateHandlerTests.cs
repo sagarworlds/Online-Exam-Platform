@@ -70,17 +70,13 @@ public class GetCertificateHandlerTests
     }
 
     [Fact]
-    public async Task AHeldResultThatPassed_GivesACertificateThatSaysSoWithoutAScore()
+    public async Task AHeldResultThatPassed_IsRefused_UntilTheResultIsReleased()
     {
-        // FR-34 "passed or released": a pass before the author releases the results is enough, but the score stays unprinted until release.
+        // FR-34: a certificate waits for the author's release, a pass included, so a certificate tells nobody the result before it is out.
         var exam = ExamWithPassMark(50, ExamResultReleaseMode.Manual);
         var attempt = SubmittedWithScore(exam, 4m);
 
-        var details = await Handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
-
-        Assert.Equal("Asha Kumar", details.CandidateName);
-        Assert.Null(details.Score);
-        Assert.Null(details.MaxScore);
+        await Assert.ThrowsAsync<ResultsNotReleasedError>(() => Handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None));
     }
 
     [Fact]
@@ -93,19 +89,33 @@ public class GetCertificateHandlerTests
     }
 
     [Fact]
-    public async Task AReleasedResultThatPassed_StillShowsTheScore()
+    public async Task AReleasedResultThatPassed_GivesAnAchievementCertificateWithTheScore()
     {
         var exam = ExamWithPassMark(50);
         var attempt = SubmittedWithScore(exam, 4m);
 
         var details = await Handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
 
+        Assert.Equal(CertificateKind.Achievement, details.Kind);
         Assert.Equal(4m, details.Score);
         Assert.Equal(4m, details.MaxScore);
     }
 
     [Fact]
-    public async Task AReleasedResult_GivesTheCandidatesNameTheExamTheScoreAndTheAttemptReference()
+    public async Task AReleasedResultThatDidNotPass_GivesAParticipationCertificateWithNoScore()
+    {
+        var exam = ExamWithPassMark(50);
+        var attempt = SubmittedWithScore(exam, 1m);
+
+        var details = await Handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+
+        Assert.Equal(CertificateKind.Participation, details.Kind);
+        Assert.Null(details.Score);
+        Assert.Null(details.MaxScore);
+    }
+
+    [Fact]
+    public async Task AReleasedResult_OfAnExamWithNoPassMark_GivesAParticipationCertificateWithNoScore()
     {
         var exam = ExamWith();
         var attempt = Submitted(exam);
@@ -114,8 +124,9 @@ public class GetCertificateHandlerTests
 
         Assert.Equal("Asha Kumar", details.CandidateName);
         Assert.Equal(exam.Name, details.ExamName);
-        Assert.Equal(4m, details.Score);
-        Assert.Equal(4m, details.MaxScore);
+        Assert.Equal(CertificateKind.Participation, details.Kind);
+        Assert.Null(details.Score);
+        Assert.Null(details.MaxScore);
         Assert.Equal(attempt.Id, details.AttemptId);
     }
 
