@@ -181,6 +181,20 @@ describe('CandidateAnalytics', () => {
     expect(root(fixture).querySelector('.trend__tip')).toBeNull();
   });
 
+  it('closes an open tooltip on Escape while the pointer stays on the point, so hover content can be dismissed (WCAG 1.4.13)', async () => {
+    const { fixture, request } = await start();
+    request.flush(analytics());
+    fixture.detectChanges();
+
+    root(fixture).querySelectorAll<SVGGElement>('.trend__point')[1].dispatchEvent(new Event('mouseenter'));
+    fixture.detectChanges();
+    expect(root(fixture).querySelector('.trend__tip')).not.toBeNull();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+    expect(root(fixture).querySelector('.trend__tip')).toBeNull();
+  });
+
   it('shows "No marks" for a result whose exam had no marks to earn, rather than a percentage', async () => {
     const { fixture, request } = await start();
 

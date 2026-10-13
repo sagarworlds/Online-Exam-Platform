@@ -4,7 +4,7 @@
 **Issue:** [#87, NFR-7 accessibility audit (WCAG 2.1 AA)](https://github.com/sagarworlds/Online-Exam-Platform/issues/87).
 **Date of audit:** 2026-10-12. **Audited base:** `e00e3a8` (the `origin/main` head when the audit started). **Line references:** checked against `origin/main` at `ad7f321`.
 **Branch:** `SP/audit/accessibility-wcag`.
-**Status:** audit only. No application source was changed. The findings below are for the owner to order and fix.
+**Status:** the audit recorded the findings below on 2026-10-12. Section 6 gives each finding's status on `main`, and the coverage of a later scan of the pages it did not reach.
 
 **Result.** The 17 audited page states do not meet WCAG 2.1 AA. There are 14 findings: 2 High, 9 Medium and 3 Low. Nine of them are Level A failures or Level A decisions, which AA conformance also requires. Automated checks (axe-core) found one violation. The manual checks found the rest, and most concern keyboard focus, which axe cannot judge.
 
@@ -294,3 +294,34 @@ Each check is marked manual (run in the browser) or code read (from the source, 
 2. Serve `apps/web/dist/web/browser` with an SPA fallback to `index.html`.
 3. In a scratch directory outside the repository, install `axe-core@4.14.0` and `playwright-core@1.56.0`. Launch Chromium with `executablePath: '/opt/pw-browsers/chromium'`. Register route mocks for `**/api/**`, shaped from the DTO records listed in section 1.1.
 4. Run axe with `runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] }` on each state in section 2, in both colour schemes. Then run the scripted checks in section 1.3.
+
+---
+
+## 6. Status on `main`, 2026-10-13
+
+Each finding was checked against the code on `main` (`f07334a`), with A-13 fixed on the branch that adds this section.
+
+| ID | Status | Where |
+|---|---|---|
+| A-01 | Fixed | `788a8d7` |
+| A-02 | Fixed | `c4d60af` |
+| A-03 | Fixed | `8b7ddb5` |
+| A-04 | Fixed | `c7b2e95` |
+| A-05 | Fixed | `eae5289` |
+| A-06 | Open: owner decision, either the essential-time exception for the exam timer or an announced warning and an extension path | Not started |
+| A-07 | Fixed | `eae5289` |
+| A-08 | Fixed | `eae5289` |
+| A-09 | Fixed for sign-in, register and reset | `eae5289`, `9ca98ca` |
+| A-10 | Fixed | `eae5289` |
+| A-11 | Open: owner decision, move focus to the first invalid field or add a polite live region. The page-level errors are `role="alert"`, but the field-level errors still have no live region and focus does not move | `login.html`, `register.html`, `password-reset-request.html` |
+| A-12 | Fixed: the marks label is visually hidden text, so the `aria-label` on the span is gone | `eae5289` |
+| A-13 | Fixed on this branch: Escape closes the trend tooltip, as WCAG 1.4.13 asks of hover content. The chart stays decorative, so keyboard users keep the results list. The points are not made focusable, because focusable children of an `aria-hidden` element fail axe | `candidate-analytics.ts` |
+| A-14 | Open: owner decision on whether the staff menu's sideways scroll at phone width meets 1.4.10 | `admin-sidebar.css` |
+
+### Scan of the pages section 2.1 lists
+
+On 2026-10-13, 33 of those pages were scanned in light and dark with axe-core, using the WCAG 2.x A and AA tags. API calls were answered by generic mocks: lists empty, and the branding read returning its object shape. Pages were not given real data.
+
+- **25 pages rendered without errors** and had no axe violations in either colour scheme. Their states are the empty or first-load states, so populated lists, rows and dialogs were not scanned.
+- **8 pages did not render fully** under those mocks, so their results are not evidence: `/profile`, `/notifications`, `/my-exams/00000000-0000-0000-0000-000000000001/leaderboard`, `/exams/00000000-0000-0000-0000-000000000001/risk-flags`, `/exams/00000000-0000-0000-0000-000000000001/preview`, `/admin/questions/00000000-0000-0000-0000-000000000001/edit`, `/admin/books/00000000-0000-0000-0000-000000000001`, `/admin/whatsapp`. Two of them reported violations, an unlabelled textarea on the question edit page and an empty `summary` on the WhatsApp page. Both come from the failed renders, and neither has been confirmed. These pages need the page-specific data described in section 1.1 before they can be judged.
+- **Not covered:** populated states, the other languages, and the exam-page states listed in section 2.1 (paused, terminated, time-up, offline sync, the focus-violation warnings and the report-issue form). Every page on the section 2.1 list was in this scan.
