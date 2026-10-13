@@ -21,6 +21,10 @@ import { MathDirective } from '../../shared/rich-text/math.directive';
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
 
+/** The times left at which a candidate is warned, once each, that time is short. Matches the countdown turning red at one minute. */
+const FIVE_MINUTE_WARNING_SECONDS = 300;
+const ONE_MINUTE_WARNING_SECONDS = 60;
+
 /** Where the warnings a candidate has dismissed are remembered, per attempt, so a reload does not show them again. Browser-only. */
 const dismissedWarningsKey = (attemptId: string) => `exam.dismissedWarnings.${attemptId}`;
 
@@ -209,6 +213,12 @@ export class ExamAttempt {
     return waiting && count > 0 ? this.i18n.plural('attempt.sync.waiting', count) : '';
   });
   protected readonly remainingSeconds = signal(0);
+  /** The warning that time is nearly up, spoken once at five minutes and again at one minute (A-06). Empty until the first warning. */
+  protected readonly timeWarning = signal('');
+  /** The notice that time has run out, set just before the page reloads the closed attempt (A-06). */
+  protected readonly timeUpNotice = signal('');
+  private warnedFiveMinutes = false;
+  private warnedOneMinute = false;
 
   /** The question text size, as a multiple of normal. */
   protected readonly zoom = signal<number>(loadZoomLevel());
@@ -1059,13 +1069,36 @@ export class ExamAttempt {
     this.countQuestionTime();
     const now = pausedAt === null ? Date.now() + this.clockOffsetMs : Date.parse(pausedAt);
     const remainingMs = Date.parse(attempt.deadlineUtc) - now;
-    this.remainingSeconds.set(Math.max(0, Math.ceil(remainingMs / 1000)));
+    const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+    this.remainingSeconds.set(remainingSeconds);
+
+    // A paused clock has nothing new to warn about, and a preview has no real time to run out.
+    if (pausedAt === null && !this.preview) {
+      this.announceTimeWarning(remainingSeconds);
+    }
 
     // A preview that runs out of time just shows zero: there is no attempt for the server to close, and reloading would redraw the paper.
     if (remainingMs <= 0 && pausedAt === null && !this.preview) {
-      // Out of time: the server closes the attempt when it is next read, and tells us the result.
+      // Out of time: the server closes the attempt when it is next read, and tells us the result. Said first, so a screen reader hears it.
+      this.timeUpNotice.set(this.i18n.t('attempt.warn.timeUp'));
       this.stopTimer();
       this.reload();
+    }
+  }
+
+  /**
+   * Speaks a warning once when the countdown reaches five minutes and again at one minute. The countdown changes every second, and a screen
+   * reader does not announce that, so without this a candidate would not hear that time is short (A-06). A page opened with under a minute
+   * left speaks only the one-minute warning.
+   */
+  private announceTimeWarning(remainingSeconds: number): void {
+    if (remainingSeconds <= ONE_MINUTE_WARNING_SECONDS && !this.warnedOneMinute) {
+      this.warnedOneMinute = true;
+      this.warnedFiveMinutes = true;
+      this.timeWarning.set(this.i18n.t('attempt.warn.oneMinute'));
+    } else if (remainingSeconds <= FIVE_MINUTE_WARNING_SECONDS && !this.warnedFiveMinutes) {
+      this.warnedFiveMinutes = true;
+      this.timeWarning.set(this.i18n.t('attempt.warn.fiveMinutes'));
     }
   }
 

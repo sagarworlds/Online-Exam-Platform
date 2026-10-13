@@ -97,6 +97,19 @@ describe('Login', () => {
     expect(hint?.textContent).toContain('Staff and admin accounts sign in with a password and a one-time code.');
   });
 
+  it('moves focus to the destination field when the one-time-code request is submitted empty (A-11)', async () => {
+    const fixture = TestBed.createComponent(Login);
+    fixture.detectChanges();
+    fixture.componentInstance['setMode']('otp');
+    fixture.detectChanges();
+
+    fixture.componentInstance['submitOtpRequest']();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.activeElement).toBe(fixture.nativeElement.querySelector('#login-otp-destination'));
+  });
+
   it('requesting an OTP navigates without putting the destination in the URL', () => {
     const httpMock = TestBed.inject(HttpTestingController);
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
@@ -145,6 +158,16 @@ describe('Login', () => {
       fixture.detectChanges();
       return { fixture, compiled: fixture.nativeElement as HTMLElement };
     }
+
+    it('moves focus to the first field that is missing, so the candidate lands on the mistake (A-11)', async () => {
+      const { fixture, compiled } = render();
+
+      fixture.componentInstance['submitPassword']();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(compiled.querySelector('#login-email'));
+    });
 
     it('says what is missing when submitted empty, and leaves the button usable', () => {
       const { fixture, compiled } = render();

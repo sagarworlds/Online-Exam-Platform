@@ -1,4 +1,5 @@
 import { Component, ElementRef, Injector, afterNextRender, inject, signal, viewChild } from '@angular/core';
+import { focusFirstInvalidFieldAfterRender } from '../../shared/focus-first-invalid-field';
 import { FormBuilder, ReactiveFormsModule, ValidationErrors, Validators, AbstractControl } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
@@ -28,6 +29,7 @@ export class Register {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   /** Disabled while the request runs, which drops focus, so focus is put back on it when the request is refused. */
   private readonly submitButton = viewChild<ElementRef<HTMLButtonElement>>('submitButton');
 
@@ -63,7 +65,11 @@ export class Register {
 
   protected submit(): void {
     this.attempted.set(true);
-    if (this.form.invalid || this.submitting()) {
+    if (this.form.invalid) {
+      focusFirstInvalidFieldAfterRender(this.host, this.injector);
+      return;
+    }
+    if (this.submitting()) {
       return;
     }
 

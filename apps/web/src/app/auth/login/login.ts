@@ -1,4 +1,5 @@
 import { Component, ElementRef, Injector, afterNextRender, inject, signal, viewChild } from '@angular/core';
+import { focusFirstInvalidFieldAfterRender } from '../../shared/focus-first-invalid-field';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
@@ -33,6 +34,7 @@ export class Login {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   /** Each submit button is disabled while its request runs, which drops focus, so focus is put back on it when the request is refused. */
   private readonly passwordSubmit = viewChild<ElementRef<HTMLButtonElement>>('passwordSubmit');
   private readonly otpSubmit = viewChild<ElementRef<HTMLButtonElement>>('otpSubmit');
@@ -86,7 +88,11 @@ export class Login {
 
   protected submitPassword(): void {
     this.attempted.set(true);
-    if (this.passwordForm.invalid || this.submitting()) {
+    if (this.passwordForm.invalid) {
+      focusFirstInvalidFieldAfterRender(this.host, this.injector);
+      return;
+    }
+    if (this.submitting()) {
       return;
     }
 
@@ -106,7 +112,11 @@ export class Login {
 
   protected submitOtpRequest(): void {
     this.attempted.set(true);
-    if (this.otpForm.invalid || this.submitting()) {
+    if (this.otpForm.invalid) {
+      focusFirstInvalidFieldAfterRender(this.host, this.injector);
+      return;
+    }
+    if (this.submitting()) {
       return;
     }
 

@@ -32,6 +32,16 @@ describe('PasswordResetRequest', () => {
     expect(compiled.textContent).toContain('Reset password');
   });
 
+  it('moves focus to the email field when submitted without one (A-11)', async () => {
+    const { fixture, compiled } = render();
+
+    (compiled.querySelector('button[type="submit"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.activeElement).toBe(compiled.querySelector('[aria-invalid="true"]'));
+  });
+
   it('names the problem with the email once submit is pressed, and sends nothing', () => {
     const { fixture, compiled, httpMock } = render();
 

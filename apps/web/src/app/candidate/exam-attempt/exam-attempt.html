@@ -91,6 +91,9 @@
       <p class="exam-protection-notice" role="status" aria-live="polite">{{ protectionNotice() }}</p>
       <!-- Always present for the same reason: answers kept on this device while the connection is down (FR-53). -->
       <p class="exam-sync" role="status" aria-live="polite" [class.exam-sync--active]="syncMessage() !== ''">{{ syncMessage() }}</p>
+      <!-- Spoken once at five minutes and at one minute left, and at time-up. The countdown changes every second and is not announced (A-06). -->
+      <p class="visually-hidden exam-time-warning" role="status" aria-live="polite">{{ timeWarning() }}</p>
+      <p class="visually-hidden exam-time-up" role="alert">{{ timeUpNotice() }}</p>
 
       <!-- Outside the paused branch below on purpose: a candidate who was stopped is the one most likely to have something to report. A preview has no real attempt to report from. -->
       @if (!preview) {

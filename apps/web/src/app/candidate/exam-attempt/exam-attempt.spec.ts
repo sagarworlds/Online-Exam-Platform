@@ -914,6 +914,44 @@ describe('ExamAttempt', () => {
     expect(textOf(fixture)).toContain('Time ran out');
   });
 
+  it('speaks a time warning at five minutes left, and a second one at one minute, and nothing else in between (A-06)', async () => {
+    const fixture = await open(attempt());
+    const warning = () => root(fixture).querySelector('.exam-time-warning')?.textContent?.trim();
+    expect(warning()).toBe('');
+
+    vi.advanceTimersByTime(25 * 60_000);
+    fixture.detectChanges();
+    expect(warning()).toBe('5 minutes left.');
+
+    vi.advanceTimersByTime(2 * 60_000);
+    fixture.detectChanges();
+    expect(warning()).toBe('5 minutes left.');
+
+    vi.advanceTimersByTime(2 * 60_000);
+    fixture.detectChanges();
+    expect(warning()).toBe('1 minute left.');
+  });
+
+  it('speaks only the one-minute warning when the page opens with under a minute left', async () => {
+    // The server says it is 04:59:15 and the deadline is 05:00, so 45 seconds are left and the five-minute warning was never due.
+    const fixture = await open(attempt({ serverTimeUtc: '2026-10-05T04:59:15Z' }));
+
+    expect(root(fixture).querySelector('.exam-time-warning')?.textContent?.trim()).toBe('1 minute left.');
+  });
+
+  it('says time is up before it reloads the closed attempt (A-06)', async () => {
+    const fixture = await open(attempt());
+
+    vi.advanceTimersByTime(30 * 60_000 + 1_000);
+    fixture.detectChanges();
+    expect(root(fixture).querySelector('.exam-time-up')?.textContent?.trim()).toBe(
+      'Time is up. Your answers are being submitted.',
+    );
+
+    const reload = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET');
+    reload.flush(attempt({ status: 'Submitted', autoSubmitted: true, score: 1, maxScore: 2, sections: [] }));
+  });
+
   it('reloads when a save is refused because the attempt has just ended', async () => {
     const fixture = await open(attempt());
 
