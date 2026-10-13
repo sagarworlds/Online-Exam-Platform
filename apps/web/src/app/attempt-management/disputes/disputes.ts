@@ -151,6 +151,11 @@ export class Disputes {
     this.fetch();
   }
 
+  /** The id of a group's heading, which the group's section names itself by. */
+  protected headingId(group: DisputeGroup): string {
+    return `dispute-group-${group.questionId}`;
+  }
+
   /** What to call a group: while disputes are open, how many still wait; otherwise, how many were about the question. */
   protected heading(group: DisputeGroup): string {
     if (this.status() !== 'open') {
@@ -164,6 +169,15 @@ export class Disputes {
   /** The button that opens the answer-key panel, saying how many open disputes the correction accepts. */
   protected correctButton(group: DisputeGroup): string {
     return this.i18n.plural('admin.disputes.correctOpen', group.open);
+  }
+
+  /**
+   * Whether a question's answer key can be corrected from this list: only on the open list, only for someone who may manage questions,
+   * and only while a dispute about the question still waits. The API checks the same things; this keeps the action from being offered
+   * where it cannot work.
+   */
+  protected offersCorrection(group: DisputeGroup): boolean {
+    return this.status() === 'open' && this.canCorrectKey() && group.open > 0;
   }
 
   protected emptyMessage(): string {

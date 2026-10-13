@@ -21,6 +21,29 @@
   border-radius: var(--radius-sm);
 }
 
+/* A question's heading and its correction action share one row. The action drops under the heading when the row is narrow, so it is
+   never pushed off the card. */
+.dispute-group__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.dispute-group__head .card__title {
+  margin: 0;
+}
+
+.dispute-group__head button {
+  min-height: 2.75rem;
+}
+
+.dispute-group__correction {
+  margin-bottom: 1rem;
+}
+
 .dispute__actions {
   display: flex;
   flex-wrap: wrap;
@@ -33,7 +56,8 @@
 }
 
 @media (max-width: 40rem) {
-  .dispute__actions button {
+  .dispute__actions button,
+  .dispute-group__head button {
     flex: 1 1 100%;
   }
 }
