@@ -16,7 +16,7 @@ public class ExamDetailsHandlerTests
     private readonly IExamRepository repository = Substitute.For<IExamRepository>();
     private readonly IExamAuthoringUnitOfWork unitOfWork = Substitute.For<IExamAuthoringUnitOfWork>();
     private readonly Clock clock = Substitute.For<Clock>();
-    private readonly Exam exam = new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid());
+    private readonly Exam exam = new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid(), Now);
 
     public ExamDetailsHandlerTests()
     {
@@ -63,9 +63,9 @@ public class ExamDetailsHandlerTests
     [Fact]
     public async Task EditingASection_SavesTheNewNameAndTimeLimit()
     {
-        var section = exam.AddSection("Old", null);
+        var section = exam.AddSection("Old", null, Now);
 
-        await new EditSectionHandler(repository, unitOfWork)
+        await new EditSectionHandler(repository, unitOfWork, clock)
             .HandleAsync(new EditSectionCommand(exam.Id, section.Id, "New", 900), CancellationToken.None);
 
         Assert.Equal("New", section.Name);
@@ -76,9 +76,9 @@ public class ExamDetailsHandlerTests
     [Fact]
     public async Task EditingASection_WithBadInput_ThrowsAndSavesNothing()
     {
-        var section = exam.AddSection("Old", null);
+        var section = exam.AddSection("Old", null, Now);
 
-        await Assert.ThrowsAsync<InvalidExamConfigError>(() => new EditSectionHandler(repository, unitOfWork)
+        await Assert.ThrowsAsync<InvalidExamConfigError>(() => new EditSectionHandler(repository, unitOfWork, clock)
             .HandleAsync(new EditSectionCommand(exam.Id, section.Id, "", 900), CancellationToken.None));
 
         Assert.Equal("Old", section.Name);

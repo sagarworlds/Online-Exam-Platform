@@ -11,6 +11,8 @@ namespace ExamPlatform.Modules.ExamAuthoring.UnitTests;
 
 public class CreateExamHandlerTests
 {
+    private static readonly DateTime Now = new(2026, 10, 2, 9, 0, 0, DateTimeKind.Utc);
+
     private static IBookCatalog CatalogWith(params BookSnapshot[] books)
     {
         var catalog = Substitute.For<IBookCatalog>();
@@ -22,7 +24,7 @@ public class CreateExamHandlerTests
     private static CreateExamHandler HandlerFor(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, IBookCatalog? catalog = null)
     {
         catalog ??= CatalogWith();
-        return new CreateExamHandler(repository, unitOfWork, new ExamScopeResolver(catalog), new ExamDtoFactory(catalog));
+        return new CreateExamHandler(repository, unitOfWork, new ExamScopeResolver(catalog), new ExamDtoFactory(catalog), TestClock.At(Now));
     }
 
     [Fact]

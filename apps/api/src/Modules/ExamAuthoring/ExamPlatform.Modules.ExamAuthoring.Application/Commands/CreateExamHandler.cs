@@ -2,6 +2,7 @@ using ExamPlatform.Modules.ExamAuthoring.Application.Dtos;
 using ExamPlatform.Modules.ExamAuthoring.Application.Ports;
 using ExamPlatform.Modules.ExamAuthoring.Domain;
 using ExamPlatform.Modules.ExamAuthoring.Domain.Exceptions;
+using ExamPlatform.SharedKernel.Application;
 
 namespace ExamPlatform.Modules.ExamAuthoring.Application.Commands;
 
@@ -10,7 +11,8 @@ public sealed class CreateExamHandler(
     IExamRepository examRepository,
     IExamAuthoringUnitOfWork unitOfWork,
     ExamScopeResolver scopeResolver,
-    ExamDtoFactory dtos)
+    ExamDtoFactory dtos,
+    Clock clock)
 {
     /// <summary>Creates the exam and persists it.</summary>
     /// <param name="command">The exam to create.</param>
@@ -37,11 +39,12 @@ public sealed class CreateExamHandler(
             command.Description,
             Exam.NotScheduledAt, // Scheduling is set afterwards, by ScheduleExamHandler
             Exam.NotScheduledAt,
-            command.CreatedBy
+            command.CreatedBy,
+            clock.UtcNow
         );
 
         // A new exam holds no questions yet, so there is nothing for the scope to leave outside it.
-        exam.SetScope(scope, new Dictionary<Guid, QuestionPlacement>());
+        exam.SetScope(scope, new Dictionary<Guid, QuestionPlacement>(), clock.UtcNow);
 
         examRepository.Add(exam);
         await unitOfWork.SaveChangesAsync(cancellationToken);

@@ -16,7 +16,7 @@ public class DeleteExamHandlerTests
     private readonly IExamRepository repository = Substitute.For<IExamRepository>();
     private readonly IExamAuthoringUnitOfWork unitOfWork = Substitute.For<IExamAuthoringUnitOfWork>();
     private readonly Clock clock = Substitute.For<Clock>();
-    private readonly Exam exam = new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid());
+    private readonly Exam exam = new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid(), Now);
 
     public DeleteExamHandlerTests()
     {
@@ -67,8 +67,8 @@ public class DeleteExamHandlerTests
     [Fact]
     public async Task APublishedExam_IsRefused_WithoutAskingTheGuards()
     {
-        var section = exam.AddSection("S", null);
-        exam.AddQuestion(section.Id, Guid.NewGuid(), QuestionPlacement.Unfiled);
+        var section = exam.AddSection("S", null, Now);
+        exam.AddQuestion(section.Id, Guid.NewGuid(), QuestionPlacement.Unfiled, Now);
         exam.Schedule(Now.AddDays(1), Now.AddDays(1).AddHours(3), null, null, 3600, Now);
         exam.Publish(Now);
         var guard = GuardSaying();

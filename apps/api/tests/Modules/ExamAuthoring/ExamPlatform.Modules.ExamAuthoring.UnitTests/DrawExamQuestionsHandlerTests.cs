@@ -12,24 +12,26 @@ namespace ExamPlatform.Modules.ExamAuthoring.UnitTests;
 /// <summary>Drawing a random selection of bank questions into a section: what is eligible, and that it is all or nothing.</summary>
 public class DrawExamQuestionsHandlerTests
 {
+    private static readonly DateTime Now = new(2026, 10, 2, 9, 0, 0, DateTimeKind.Utc);
+
     private readonly IExamRepository repository = Substitute.For<IExamRepository>();
     private readonly IExamAuthoringUnitOfWork unitOfWork = Substitute.For<IExamAuthoringUnitOfWork>();
     private readonly IQuestionBank bank = Substitute.For<IQuestionBank>();
     private readonly IQuestionPicker picker = Substitute.For<IQuestionPicker>();
-    private readonly Exam exam = new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid());
+    private readonly Exam exam = new(null, "Maths", null, Exam.NotScheduledAt, Exam.NotScheduledAt, Guid.NewGuid(), Now);
     private readonly ExamSection section;
     private readonly DrawExamQuestionsHandler handler;
 
     public DrawExamQuestionsHandlerTests()
     {
-        section = exam.AddSection("S", null);
+        section = exam.AddSection("S", null, Now);
         repository.GetByIdOrThrowAsync(exam.Id, Arg.Any<CancellationToken>()).Returns(exam);
         // The first ones, so a test knows which were drawn.
         picker.Pick(Arg.Any<IReadOnlyList<FoundQuestion>>(), Arg.Any<int>())
             .Returns(call => call.Arg<IReadOnlyList<FoundQuestion>>().Take(call.Arg<int>()).ToList());
         bank.GetAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<IReadOnlyCollection<Guid>>().Select(id => new QuestionSnapshot(id, $"text {id}", [])).ToList());
-        handler = new DrawExamQuestionsHandler(repository, unitOfWork, bank, picker);
+        handler = new DrawExamQuestionsHandler(repository, unitOfWork, bank, picker, TestClock.At(Now));
     }
 
     private void BankHolds(params FoundQuestion[] found) =>
@@ -68,7 +70,7 @@ public class DrawExamQuestionsHandlerTests
     {
         var already = Unfiled();
         var fresh = Unfiled();
-        exam.AddQuestion(section.Id, already.Id, QuestionPlacement.Unfiled);
+        exam.AddQuestion(section.Id, already.Id, QuestionPlacement.Unfiled, Now);
         BankHolds(already, fresh);
 
         var added = await handler.HandleAsync(new DrawExamQuestionsCommand(exam.Id, section.Id, 1), CancellationToken.None);
@@ -80,7 +82,7 @@ public class DrawExamQuestionsHandlerTests
     public async Task QuestionsOutsideTheExamsScope_AreNotDrawn()
     {
         var book = Guid.NewGuid();
-        exam.SetScope(ExamScope.ForBook(book), new Dictionary<Guid, QuestionPlacement>());
+        exam.SetScope(ExamScope.ForBook(book), new Dictionary<Guid, QuestionPlacement>(), Now);
         var inside = new FoundQuestion(Guid.NewGuid(), Guid.NewGuid(), book);
         var outside = new FoundQuestion(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         BankHolds(outside, inside);

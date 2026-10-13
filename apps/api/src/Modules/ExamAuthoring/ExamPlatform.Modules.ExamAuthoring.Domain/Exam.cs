@@ -42,7 +42,7 @@ public class Exam : AggregateRoot
 
     private Exam() : base(Guid.Empty) { }
 
-    public Exam(Guid? seriesId, string name, string? description, DateTime scheduledStartTime, DateTime scheduledEndTime, Guid createdBy)
+    public Exam(Guid? seriesId, string name, string? description, DateTime scheduledStartTime, DateTime scheduledEndTime, Guid createdBy, DateTime nowUtc)
         : base(Guid.NewGuid())
     {
         // The same rule as correcting the name later, so an exam can never be created with a name it could not be given.
@@ -54,8 +54,8 @@ public class Exam : AggregateRoot
         ScheduledStartTime = scheduledStartTime;
         ScheduledEndTime = scheduledEndTime;
         CreatedBy = createdBy;
-        CreatedAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+        CreatedAt = nowUtc;
+        UpdatedAt = nowUtc;
 
         AddDomainEvent(new ExamCreatedEvent(Id, Name, CreatedBy));
     }
@@ -84,10 +84,10 @@ public class Exam : AggregateRoot
         UpdatedAt = nowUtc;
     }
 
-    public void UpdateConfig(ExamConfig config)
+    public void UpdateConfig(ExamConfig config, DateTime nowUtc)
     {
         Config = config;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = nowUtc;
     }
 
     /// <summary>
@@ -168,30 +168,32 @@ public class Exam : AggregateRoot
 
     /// <summary>Appends a section to the exam.</summary>
     /// <param name="name">The section's name; leading and trailing whitespace is removed.</param>
+    /// <param name="nowUtc">The current instant.</param>
     /// <param name="timeSeconds">An optional time limit for the section.</param>
     /// <returns>The new section.</returns>
     /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
     /// <exception cref="InvalidExamConfigError">The name is blank or too long, or the time limit is not positive.</exception>
-    public ExamSection AddSection(string name, int? timeSeconds)
+    public ExamSection AddSection(string name, int? timeSeconds, DateTime nowUtc)
     {
         EnsureDraft();
 
         var trimmed = CleanSectionName(name, timeSeconds);
 
-        var section = new ExamSection(Id, trimmed, timeSeconds, _sections.Count + 1);
+        var section = new ExamSection(Id, trimmed, timeSeconds, _sections.Count + 1, nowUtc);
         _sections.Add(section);
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = nowUtc;
         return section;
     }
 
     /// <summary>Renames a section and sets its time limit.</summary>
     /// <param name="sectionId">The section to change.</param>
+    /// <param name="nowUtc">The current instant.</param>
     /// <param name="name">The section's new name; leading and trailing whitespace is removed.</param>
     /// <param name="timeSeconds">The section's new time limit, or <see langword="null"/> for none.</param>
     /// <exception cref="ExamNotDraftError">The exam is already published. A section's time limit changes how long a candidate has, so it is fixed with the rest of the exam.</exception>
     /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
     /// <exception cref="InvalidExamConfigError">The name is blank or too long, or the time limit is not positive.</exception>
-    public void EditSection(Guid sectionId, string? name, int? timeSeconds)
+    public void EditSection(Guid sectionId, string? name, int? timeSeconds, DateTime nowUtc)
     {
         EnsureDraft();
 
@@ -200,7 +202,7 @@ public class Exam : AggregateRoot
 
         section.Name = trimmed;
         section.TimeSeconds = timeSeconds;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = nowUtc;
     }
 
     /// <summary>
@@ -267,6 +269,7 @@ public class Exam : AggregateRoot
 
     /// <summary>Appends a question to a section.</summary>
     /// <param name="sectionId">The section to add it to.</param>
+    /// <param name="nowUtc">The current instant.</param>
     /// <param name="questionId">The question's id in the question bank.</param>
     /// <param name="placement">Where the question is filed in the bank, which the exam's scope is checked against.</param>
     /// <returns>The question as it now sits in the exam.</returns>
@@ -274,7 +277,7 @@ public class Exam : AggregateRoot
     /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
     /// <exception cref="QuestionOutsideExamScopeError">The question is not in the exam's book or chapters.</exception>
     /// <exception cref="DuplicateQuestionError">The question is already somewhere in this exam.</exception>
-    public ExamQuestion AddQuestion(Guid sectionId, Guid questionId, QuestionPlacement placement)
+    public ExamQuestion AddQuestion(Guid sectionId, Guid questionId, QuestionPlacement placement, DateTime nowUtc)
     {
         EnsureDraft();
 
@@ -288,13 +291,14 @@ public class Exam : AggregateRoot
         if (_sections.Any(s => s.Questions.Any(q => q.QuestionVersionId == questionId)))
             throw new DuplicateQuestionError(questionId, sectionId);
 
-        var question = section.AddQuestion(questionId, section.Questions.Count + 1);
-        UpdatedAt = DateTime.UtcNow;
+        var question = section.AddQuestion(questionId, section.Questions.Count + 1, nowUtc);
+        UpdatedAt = nowUtc;
         return question;
     }
 
     /// <summary>Adds a rule to a section that draws questions at random for each candidate who starts an attempt.</summary>
     /// <param name="sectionId">The section.</param>
+    /// <param name="nowUtc">The current instant.</param>
     /// <param name="count">How many to draw.</param>
     /// <param name="bookId">Only questions of this book, or null for any.</param>
     /// <param name="chapterId">Only questions of this chapter, or null for any.</param>
@@ -304,23 +308,24 @@ public class Exam : AggregateRoot
     /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
     /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
     /// <exception cref="InvalidExamConfigError">A part of the rule is invalid, or the section has the most rules it may.</exception>
-    public SectionDrawRule AddDrawRule(Guid sectionId, int count, Guid? bookId, Guid? chapterId, string? difficulty, string? topic)
+    public SectionDrawRule AddDrawRule(Guid sectionId, int count, Guid? bookId, Guid? chapterId, string? difficulty, string? topic, DateTime nowUtc)
     {
         EnsureDraft();
 
         var section = GetSection(sectionId) ?? throw new SectionNotFoundError(sectionId);
-        var rule = section.AddDrawRule(count, bookId, chapterId, difficulty, topic);
-        UpdatedAt = DateTime.UtcNow;
+        var rule = section.AddDrawRule(count, bookId, chapterId, difficulty, topic, nowUtc);
+        UpdatedAt = nowUtc;
         return rule;
     }
 
     /// <summary>Takes a draw rule out of a section.</summary>
     /// <param name="sectionId">The section.</param>
+    /// <param name="nowUtc">The current instant.</param>
     /// <param name="ruleId">The rule's id.</param>
     /// <exception cref="ExamNotDraftError">The exam is already published. A published exam may already have been sat, and its rules are what its papers are drawn from.</exception>
     /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
     /// <exception cref="DrawRuleNotFoundError">The section has no such rule.</exception>
-    public void RemoveDrawRule(Guid sectionId, Guid ruleId)
+    public void RemoveDrawRule(Guid sectionId, Guid ruleId, DateTime nowUtc)
     {
         EnsureDraft();
 
@@ -328,16 +333,17 @@ public class Exam : AggregateRoot
         if (!section.RemoveDrawRule(ruleId))
             throw new DrawRuleNotFoundError(ruleId, sectionId);
 
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = nowUtc;
     }
 
     /// <summary>Takes a question out of a section.</summary>
     /// <param name="sectionId">The section it is in.</param>
+    /// <param name="nowUtc">The current instant.</param>
     /// <param name="questionId">The question's id in the question bank.</param>
     /// <exception cref="ExamNotDraftError">The exam is already published. A published exam may already have been sat, and its questions are what its scores mean.</exception>
     /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
     /// <exception cref="QuestionNotInExamError">The section does not hold that question.</exception>
-    public void RemoveQuestion(Guid sectionId, Guid questionId)
+    public void RemoveQuestion(Guid sectionId, Guid questionId, DateTime nowUtc)
     {
         EnsureDraft();
 
@@ -345,11 +351,12 @@ public class Exam : AggregateRoot
         if (!section.RemoveQuestion(questionId))
             throw new QuestionNotInExamError(questionId, sectionId);
 
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = nowUtc;
     }
 
     /// <summary>Changes what the exam's questions may be drawn from.</summary>
     /// <param name="scope">The new scope. The caller has checked that its book and chapters exist and are open.</param>
+    /// <param name="nowUtc">The current instant.</param>
     /// <param name="placements">
     /// Where each question already in the exam is filed, by question id; one missing from it counts as not filed.
     /// </param>
@@ -357,7 +364,7 @@ public class Exam : AggregateRoot
     /// <exception cref="QuestionOutsideExamScopeError">
     /// The exam already holds questions the new scope would leave outside it. Refused rather than quietly dropping them.
     /// </exception>
-    public void SetScope(ExamScope scope, IReadOnlyDictionary<Guid, QuestionPlacement> placements)
+    public void SetScope(ExamScope scope, IReadOnlyDictionary<Guid, QuestionPlacement> placements, DateTime nowUtc)
     {
         EnsureDraft();
 
@@ -371,7 +378,7 @@ public class Exam : AggregateRoot
             throw new QuestionOutsideExamScopeError(outside);
 
         Scope = scope;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = nowUtc;
     }
 
     /// <summary>
@@ -591,9 +598,10 @@ public class Exam : AggregateRoot
     /// exam; they stay in the question bank, free to go into another section or exam.
     /// </summary>
     /// <param name="sectionId">The section to remove.</param>
+    /// <param name="nowUtc">The current instant.</param>
     /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
     /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
-    public void RemoveSection(Guid sectionId)
+    public void RemoveSection(Guid sectionId, DateTime nowUtc)
     {
         EnsureDraft();
 
@@ -606,7 +614,7 @@ public class Exam : AggregateRoot
         foreach (var remaining in _sections.OrderBy(s => s.Order))
             remaining.Order = order++;
 
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = nowUtc;
     }
 
     public ExamSection? GetSection(Guid sectionId) => _sections.FirstOrDefault(s => s.Id == sectionId);

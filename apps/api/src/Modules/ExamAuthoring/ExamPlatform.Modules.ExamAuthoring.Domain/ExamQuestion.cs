@@ -10,12 +10,12 @@ public class ExamQuestion
 
     private ExamQuestion() { }
 
-    public ExamQuestion(Guid sectionId, Guid questionVersionId, int order)
+    public ExamQuestion(Guid sectionId, Guid questionVersionId, int order, DateTime nowUtc)
     {
         Id = Guid.NewGuid();
         SectionId = sectionId;
         QuestionVersionId = questionVersionId;
         Order = order;
-        CreatedAt = DateTime.UtcNow;
+        CreatedAt = nowUtc;
     }
 }

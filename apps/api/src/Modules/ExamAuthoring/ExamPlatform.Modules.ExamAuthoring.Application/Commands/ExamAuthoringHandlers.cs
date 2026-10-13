@@ -39,7 +39,7 @@ public sealed class ScheduleExamHandler(IExamRepository repository, IExamAuthori
 }
 
 /// <summary>Handles <see cref="AddSectionCommand"/>.</summary>
-public sealed class AddSectionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
+public sealed class AddSectionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, Clock clock)
 {
     /// <summary>Adds the section and saves.</summary>
     /// <param name="command">The section to add.</param>
@@ -50,7 +50,7 @@ public sealed class AddSectionHandler(IExamRepository repository, IExamAuthoring
     public async Task<ExamSectionDto> HandleAsync(AddSectionCommand command, CancellationToken cancellationToken)
     {
         var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
-        var section = exam.AddSection(command.Name!, command.TimeSeconds);
+        var section = exam.AddSection(command.Name!, command.TimeSeconds, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return section.ToDto(new Dictionary<Guid, string>());
@@ -77,7 +77,7 @@ public sealed class UpdateExamDetailsHandler(IExamRepository repository, IExamAu
 }
 
 /// <summary>Handles <see cref="EditSectionCommand"/>.</summary>
-public sealed class EditSectionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
+public sealed class EditSectionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, Clock clock)
 {
     /// <summary>Renames the section, sets its time limit and saves.</summary>
     /// <param name="command">The new name and time limit.</param>
@@ -89,13 +89,13 @@ public sealed class EditSectionHandler(IExamRepository repository, IExamAuthorin
     public async Task HandleAsync(EditSectionCommand command, CancellationToken cancellationToken)
     {
         var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
-        exam.EditSection(command.SectionId, command.Name, command.TimeSeconds);
+        exam.EditSection(command.SectionId, command.Name, command.TimeSeconds, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
 
 /// <summary>Handles <see cref="RemoveSectionCommand"/>.</summary>
-public sealed class RemoveSectionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
+public sealed class RemoveSectionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, Clock clock)
 {
     /// <summary>Removes the section and the places its questions held, then saves. The questions stay in the bank.</summary>
     /// <param name="command">Which section to remove.</param>
@@ -106,13 +106,13 @@ public sealed class RemoveSectionHandler(IExamRepository repository, IExamAuthor
     public async Task HandleAsync(RemoveSectionCommand command, CancellationToken cancellationToken)
     {
         var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
-        exam.RemoveSection(command.SectionId);
+        exam.RemoveSection(command.SectionId, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
 
 /// <summary>Handles <see cref="AddExamQuestionCommand"/>.</summary>
-public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, IQuestionBank questionBank)
+public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, IQuestionBank questionBank, Clock clock)
 {
     /// <summary>Adds the bank question to the section and saves.</summary>
     /// <param name="command">Which question to add where.</param>
@@ -133,7 +133,7 @@ public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuth
         if (snapshot.UnusableReason is { } reason)
             throw new QuestionNotUsableError(command.QuestionId, reason);
 
-        var question = exam.AddQuestion(command.SectionId, command.QuestionId, new QuestionPlacement(snapshot.BookId, snapshot.ChapterId));
+        var question = exam.AddQuestion(command.SectionId, command.QuestionId, new QuestionPlacement(snapshot.BookId, snapshot.ChapterId), clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new ExamQuestionDto(question.Id, question.QuestionVersionId, question.Order, snapshot.Text);
@@ -142,7 +142,7 @@ public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuth
 
 /// <summary>Handles <see cref="DrawExamQuestionsCommand"/>.</summary>
 public sealed class DrawExamQuestionsHandler(
-    IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, IQuestionBank questionBank, IQuestionPicker picker)
+    IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, IQuestionBank questionBank, IQuestionPicker picker, Clock clock)
 {
     /// <summary>The most questions one draw may add, so a slip of a zero cannot fill a section with a whole bank.</summary>
     public const int MaxCount = 100;
@@ -185,7 +185,7 @@ public sealed class DrawExamQuestionsHandler(
 
         var chosen = picker.Pick(candidates, command.Count);
         foreach (var question in chosen)
-            exam.AddQuestion(command.SectionId, question.Id, new QuestionPlacement(question.BookId, question.ChapterId));
+            exam.AddQuestion(command.SectionId, question.Id, new QuestionPlacement(question.BookId, question.ChapterId), clock.UtcNow);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -199,7 +199,7 @@ public sealed class DrawExamQuestionsHandler(
 }
 
 /// <summary>Handles <see cref="AddDrawRuleCommand"/>.</summary>
-public sealed class AddDrawRuleHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
+public sealed class AddDrawRuleHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, Clock clock)
 {
     /// <summary>Adds the rule to the section and saves. Nothing is drawn now: each candidate's questions are drawn when they start.</summary>
     /// <param name="command">The rule to add.</param>
@@ -212,7 +212,7 @@ public sealed class AddDrawRuleHandler(IExamRepository repository, IExamAuthorin
     public async Task<DrawRuleDto> HandleAsync(AddDrawRuleCommand command, CancellationToken cancellationToken)
     {
         var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
-        var rule = exam.AddDrawRule(command.SectionId, command.Count, command.BookId, command.ChapterId, command.Difficulty, command.Topic);
+        var rule = exam.AddDrawRule(command.SectionId, command.Count, command.BookId, command.ChapterId, command.Difficulty, command.Topic, clock.UtcNow);
 
         // Refused now rather than at publish, while the author is looking at the rule they just typed.
         if (DrawRuleScoping.Apply(rule, exam.Scope) is null)
@@ -224,7 +224,7 @@ public sealed class AddDrawRuleHandler(IExamRepository repository, IExamAuthorin
 }
 
 /// <summary>Handles <see cref="RemoveDrawRuleCommand"/>.</summary>
-public sealed class RemoveDrawRuleHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
+public sealed class RemoveDrawRuleHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, Clock clock)
 {
     /// <summary>Takes the rule out of the section and saves.</summary>
     /// <param name="command">Which rule to remove from where.</param>
@@ -236,13 +236,13 @@ public sealed class RemoveDrawRuleHandler(IExamRepository repository, IExamAutho
     public async Task HandleAsync(RemoveDrawRuleCommand command, CancellationToken cancellationToken)
     {
         var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
-        exam.RemoveDrawRule(command.SectionId, command.RuleId);
+        exam.RemoveDrawRule(command.SectionId, command.RuleId, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
 
 /// <summary>Handles <see cref="RemoveExamQuestionCommand"/>.</summary>
-public sealed class RemoveExamQuestionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork)
+public sealed class RemoveExamQuestionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, Clock clock)
 {
     /// <summary>
     /// Takes the question out of the section and saves. The question itself stays in the bank; it is only no longer part of
@@ -257,7 +257,7 @@ public sealed class RemoveExamQuestionHandler(IExamRepository repository, IExamA
     public async Task HandleAsync(RemoveExamQuestionCommand command, CancellationToken cancellationToken)
     {
         var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
-        exam.RemoveQuestion(command.SectionId, command.QuestionId);
+        exam.RemoveQuestion(command.SectionId, command.QuestionId, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
@@ -328,7 +328,8 @@ public sealed class SetExamScopeHandler(
     IExamAuthoringUnitOfWork unitOfWork,
     IQuestionBank questionBank,
     ExamScopeResolver scopeResolver,
-    ExamDtoFactory dtos)
+    ExamDtoFactory dtos,
+    Clock clock)
 {
     /// <summary>Limits the exam to a book or chosen chapters, or lifts the limit.</summary>
     /// <param name="command">The new scope.</param>
@@ -347,7 +348,7 @@ public sealed class SetExamScopeHandler(
         var placements = (await questionBank.GetAsync(questionIds, cancellationToken))
             .ToDictionary(q => q.Id, q => new QuestionPlacement(q.BookId, q.ChapterId));
 
-        exam.SetScope(scope, placements);
+        exam.SetScope(scope, placements, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await dtos.ToDtoAsync(exam, cancellationToken);
