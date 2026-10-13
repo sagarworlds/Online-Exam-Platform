@@ -17,6 +17,7 @@ public sealed record ExamResponses(
 /// <param name="AttemptId">The attempt.</param>
 /// <param name="CandidateId">The candidate who sat it.</param>
 /// <param name="SubmittedAtUtc">When it was submitted; breaks ties between a candidate's attempts with the same score.</param>
+/// <param name="EndedByClock">Whether time ran out before the candidate submitted, rather than a violation or an administrator ending it (FR-37 drop-off).</param>
 /// <param name="Score">The marks scored, as the latest version of the result says.</param>
 /// <param name="MaxScore">The marks available on this attempt's paper, as the latest version of the result says. Drawn papers can differ in it.</param>
 /// <param name="Questions">Each question on this attempt's paper, with whether it was answered fully correctly. A question left unanswered is not correct.</param>
@@ -24,6 +25,7 @@ public sealed record AttemptResponses(
     Guid AttemptId,
     Guid CandidateId,
     DateTime SubmittedAtUtc,
+    bool EndedByClock,
     decimal Score,
     decimal MaxScore,
     IReadOnlyList<QuestionResponse> Questions);
@@ -31,8 +33,9 @@ public sealed record AttemptResponses(
 /// <summary>Whether one question was answered fully correctly on one attempt, and how long the candidate spent on it.</summary>
 /// <param name="QuestionId">The question.</param>
 /// <param name="Correct">True only when the candidate's answer was fully correct; partly right, wrong and unanswered are all false.</param>
+/// <param name="Answered">Whether the candidate left an answer to the question at all. An answer stays until it is cleared, so this is false for a question the candidate never answered.</param>
 /// <param name="TimeSpentSeconds">
 /// The running total of seconds the candidate spent on the question, as the page reported it; null when the page never reported on it. It is the
 /// same time the candidate's own result shows (FR-36).
 /// </param>
-public sealed record QuestionResponse(Guid QuestionId, bool Correct, int? TimeSpentSeconds = null);
+public sealed record QuestionResponse(Guid QuestionId, bool Correct, bool Answered, int? TimeSpentSeconds = null);

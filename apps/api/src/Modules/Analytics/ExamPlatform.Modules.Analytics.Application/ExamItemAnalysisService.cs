@@ -32,9 +32,10 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
         var answers = AnswersByQuestion(best);
         var seconds = SecondsByQuestion(best);
         var texts = await PreviewsAsync(read.QuestionIds, cancellationToken);
+        var drops = DropOffStatistics.Of(DropOffPapers(best));
 
         var rows = read.QuestionIds
-            .Select((questionId, index) => RowOf(questionId, index + 1, groups, answers, seconds, texts))
+            .Select((questionId, index) => RowOf(questionId, index + 1, groups, answers, seconds, texts, drops))
             .ToList();
 
         return new ExamItemAnalysisDto(
@@ -79,6 +80,15 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
     }
 
     /// <summary>
+    /// Each counted candidate's paper for the drop-off rule. Taken from the best attempt, as the other figures are, so a candidate who sat twice
+    /// stops at most once.
+    /// </summary>
+    private static IEnumerable<CandidatePaper> DropOffPapers(IReadOnlyList<AttemptResponsesOfCandidate> best) =>
+        best.Select(a => new CandidatePaper(
+            a.EndedByClock,
+            a.Questions.Select(q => new PaperQuestion(q.QuestionId, q.Answered)).ToList()));
+
+    /// <summary>
     /// Keeps each candidate's best counted attempt, so a candidate who sat an exam twice counts once. That is the same rule the leaderboard and
     /// the rank use (FR-32): a retake must not give one candidate two places in the cohort.
     /// </summary>
@@ -86,7 +96,7 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
         attempts
             .GroupBy(a => a.CandidateId)
             .Select(group => group.OrderByDescending(a => a.Score).ThenByDescending(a => a.SubmittedAtUtc).First())
-            .Select(a => new AttemptResponsesOfCandidate(a.CandidateId, a.Score, a.MaxScore, a.Questions))
+            .Select(a => new AttemptResponsesOfCandidate(a.CandidateId, a.EndedByClock, a.Score, a.MaxScore, a.Questions))
             .ToList();
 
     private static Dictionary<Guid, List<ItemAnswer>> AnswersByQuestion(IReadOnlyList<AttemptResponsesOfCandidate> best)
@@ -146,7 +156,8 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
         CohortGroups groups,
         IReadOnlyDictionary<Guid, List<ItemAnswer>> answers,
         IReadOnlyDictionary<Guid, List<int>> seconds,
-        IReadOnlyDictionary<Guid, string> texts)
+        IReadOnlyDictionary<Guid, string> texts,
+        IReadOnlyDictionary<Guid, DropOffCount> drops)
     {
         // A question of the exam that the bank cannot return is a fault to surface, not a row to leave blank.
         if (!texts.TryGetValue(questionId, out var text))
@@ -160,11 +171,15 @@ public sealed class ExamItemAnalysisService(IExamResponseReader responses, IQues
         var questionSeconds = seconds.TryGetValue(questionId, out var reported) ? reported : new List<int>();
         var time = TimedCohortRule.FigureOf(questionSeconds, policy.MinimumCohortSize);
 
+        // A question no candidate reached has no drop-off entry, which reads as nobody having reached it, so it has no share to show.
+        var dropOff = drops.GetValueOrDefault(questionId, new DropOffCount(0, 0));
+        var dropOffRow = new ItemDropOffDto(dropOff.Reached, dropOff.DroppedOff, DropOffStatistics.RateOf(dropOff, policy.MinimumCohortSize));
+
         return new ItemRowDto(
-            questionId, position, text, indices.Attempts, indices.CorrectCount, indices.Difficulty, indices.Discrimination, time);
+            questionId, position, text, indices.Attempts, indices.CorrectCount, indices.Difficulty, indices.Discrimination, time, dropOffRow);
     }
 
     /// <summary>A candidate's best counted attempt, reduced to what the analysis reads.</summary>
     private sealed record AttemptResponsesOfCandidate(
-        Guid CandidateId, decimal Score, decimal MaxScore, IReadOnlyList<QuestionResponse> Questions);
+        Guid CandidateId, bool EndedByClock, decimal Score, decimal MaxScore, IReadOnlyList<QuestionResponse> Questions);
 }

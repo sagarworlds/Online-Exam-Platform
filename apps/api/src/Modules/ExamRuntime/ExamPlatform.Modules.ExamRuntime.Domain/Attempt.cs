@@ -82,6 +82,12 @@ public sealed class Attempt : AggregateRoot
     public bool AutoSubmitted { get; private set; }
 
     /// <summary>
+    /// Whether time ran out before the candidate submitted, so the clock ended the attempt. Violations and administrators also end an attempt
+    /// and set <see cref="AutoSubmitted"/>, so this is the reading the item analysis needs for drop-off (FR-37).
+    /// </summary>
+    public bool EndedByClock => AutoSubmitted && !EndedByViolations && TerminatedByUserId is null;
+
+    /// <summary>
     /// Whether the attempt was ended by the server because the candidate left the exam page more often than the exam allows (FR-22),
     /// rather than by the candidate or by time running out. Such an attempt is also <see cref="AutoSubmitted"/>.
     /// </summary>

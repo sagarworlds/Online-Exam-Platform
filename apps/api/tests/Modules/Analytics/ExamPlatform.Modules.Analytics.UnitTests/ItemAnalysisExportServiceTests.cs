@@ -19,6 +19,7 @@ public class ItemAnalysisExportServiceTests
     private readonly IItemAnalysisPdfWriter _pdfWriter = Substitute.For<IItemAnalysisPdfWriter>();
     private readonly IAuditLogger _audit = Substitute.For<IAuditLogger>();
     private readonly FakeClock _clock = new(Now);
+    private static readonly ItemDropOffDto NoDropOff = new(0, 0, null);
 
     private ItemAnalysisExportService Service => new(_analysis, _writer, _pdfWriter, _audit, _clock);
 
@@ -28,7 +29,7 @@ public class ItemAnalysisExportServiceTests
     private void AnalysisOf(string examName = "Physics Final", int questions = 2)
     {
         var rows = Enumerable.Range(1, questions)
-            .Select(i => new ItemRowDto(Guid.NewGuid(), i, $"Q{i}", 44, 30, 0.5m, 0m, new ItemTimeDto(0, null, ItemTimeStatus.NoTimes)))
+            .Select(i => new ItemRowDto(Guid.NewGuid(), i, $"Q{i}", 44, 30, 0.5m, 0m, new ItemTimeDto(0, null, ItemTimeStatus.NoTimes), NoDropOff))
             .ToArray();
         _analysis.GetAsync(_examId, Arg.Any<CancellationToken>()).Returns(
             new ExamItemAnalysisDto(

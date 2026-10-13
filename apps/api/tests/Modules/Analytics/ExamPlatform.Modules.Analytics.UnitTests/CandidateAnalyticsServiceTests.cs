@@ -300,7 +300,7 @@ public class CandidateAnalyticsServiceTests
         new(Guid.NewGuid(), examId, examName, submittedAt ?? Day1, score, maxScore, []);
 
     private static AttemptResponses Sitting(Guid candidate, decimal score, decimal maxScore = 100m) =>
-        new(Guid.NewGuid(), candidate, Day1, score, maxScore, []);
+        new(Guid.NewGuid(), candidate, Day1, EndedByClock: false, score, maxScore, []);
 
     /// <summary>The candidate's own sitting followed by <paramref name="others"/> other candidates, each on a paper of 100 marks.</summary>
     private static List<AttemptResponses> CohortWith(Guid candidate, decimal ownScore, int others, decimal othersScore)

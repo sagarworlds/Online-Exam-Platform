@@ -11,6 +11,7 @@ public class ItemAnalysisCsvWriterTests
     /// <summary>The empty time figures: no candidate has a time, so there is no average and the status says so.</summary>
     private static readonly ExamTimeSummaryDto NoTime = new(0, null);
     private static readonly ItemTimeDto NoItemTime = new(0, null, ItemTimeStatus.NoTimes);
+    private static readonly ItemDropOffDto NoDropOff = new(0, 0, null);
 
     private static ExamItemAnalysisDto Analysis(params ItemRowDto[] rows) =>
         new(Guid.NewGuid(), "Physics", ResultsReleased: true, CandidateCount: 44, MinimumCohortSize: 30, GroupSize: 12, rows, new ExamScoreSummaryDto(0, null, null, []), NoTime);
@@ -20,17 +21,17 @@ public class ItemAnalysisCsvWriterTests
         Csv.Parse(Encoding.UTF8.GetString(bytes.AsSpan(3)));
 
     private static ItemRowDto Shown(int position, string text, decimal difficulty, decimal discrimination) =>
-        new(Guid.NewGuid(), position, text, 44, 31, difficulty, discrimination, NoItemTime);
+        new(Guid.NewGuid(), position, text, 44, 31, difficulty, discrimination, NoItemTime, NoDropOff);
 
     private static ItemRowDto Timed(int position, ItemTimeDto time) =>
-        new(Guid.NewGuid(), position, "Q", 44, 31, 0.7045m, 0.4545m, time);
+        new(Guid.NewGuid(), position, "Q", 44, 31, 0.7045m, 0.4545m, time, NoDropOff);
 
     [Fact]
     public void TheFile_HasAHeader_ThenOneRowPerQuestionInTheExamsOrder()
     {
         var bytes = new ItemAnalysisCsvWriter().Write(Analysis(
             Shown(1, "First", 0.7045m, 0.4545m),
-            new ItemRowDto(Guid.NewGuid(), 2, "Second", 12, 6, null, null, NoItemTime)));
+            new ItemRowDto(Guid.NewGuid(), 2, "Second", 12, 6, null, null, NoItemTime, NoDropOff)));
 
         var rows = ReadBack(bytes);
 
@@ -55,7 +56,7 @@ public class ItemAnalysisCsvWriterTests
     public void AWithheldFigure_IsAnEmptyCell_WithAStatusThatSaysWhy()
     {
         // A blank must never read as zero, so the status column says the figure is not shown, and by how many candidates it fell short.
-        var rows = ReadBack(new ItemAnalysisCsvWriter().Write(Analysis(new ItemRowDto(Guid.NewGuid(), 1, "Q", 12, 6, null, null, NoItemTime))));
+        var rows = ReadBack(new ItemAnalysisCsvWriter().Write(Analysis(new ItemRowDto(Guid.NewGuid(), 1, "Q", 12, 6, null, null, NoItemTime, NoDropOff))));
 
         Assert.Equal(string.Empty, rows[1][4]);
         Assert.Equal(string.Empty, rows[1][5]);

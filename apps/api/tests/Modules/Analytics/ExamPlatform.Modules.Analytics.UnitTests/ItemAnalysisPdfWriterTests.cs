@@ -14,11 +14,13 @@ public class ItemAnalysisPdfWriterTests
     // The empty time figures: the PDF table has no time column, so these only fill the record.
     private static readonly ExamTimeSummaryDto NoTime = new(0, null);
     private static readonly ItemTimeDto NoItemTime = new(0, null, ItemTimeStatus.NoTimes);
+    private static readonly ItemDropOffDto NoDropOff = new(0, 0, null);
 
     private static ExamItemAnalysisDto Analysis(params ItemRowDto[] rows) =>
         new(Guid.NewGuid(), "Physics", ResultsReleased: true, CandidateCount: 44, MinimumCohortSize: 30, GroupSize: 12, rows, NoScores, NoTime);
 
-    private static ItemRowDto Shown(int position, string text) => new(Guid.NewGuid(), position, text, 44, 31, 0.7045m, 0.4545m, NoItemTime);
+    private static ItemRowDto Shown(int position, string text) =>
+        new(Guid.NewGuid(), position, text, 44, 31, 0.7045m, 0.4545m, NoItemTime, NoDropOff);
 
     private static string Text(byte[] pdf) => Encoding.Latin1.GetString(pdf);
 
@@ -48,7 +50,7 @@ public class ItemAnalysisPdfWriterTests
     public void AWithheldFigure_ShowsItsStatus_NotAZero()
     {
         // The status wraps inside its column, so only its opening words, which sit on the first line, are checked as one run.
-        var row = new ItemRowDto(Guid.NewGuid(), 1, "Thin", 12, 6, null, null, NoItemTime);
+        var row = new ItemRowDto(Guid.NewGuid(), 1, "Thin", 12, 6, null, null, NoItemTime, NoDropOff);
 
         var text = Text(new ItemAnalysisPdfWriter().Write(Analysis(row)));
 

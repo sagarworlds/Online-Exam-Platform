@@ -40,9 +40,24 @@ public class ExamItemAnalysisServiceTests
             Guid.NewGuid(),
             Id(candidate),
             submitted ?? Day,
+            EndedByClock: false,
             score,
             maxScore,
-            [new QuestionResponse(_q1, firstRight, firstSeconds), new QuestionResponse(_q2, secondRight, secondSeconds)]);
+            [new QuestionResponse(_q1, firstRight, Answered: true, firstSeconds), new QuestionResponse(_q2, secondRight, Answered: true, secondSeconds)]);
+
+    /// <summary>
+    /// A paper that scored nothing, so only who answered what matters: the clock ended it or the candidate submitted it, and each question is
+    /// either answered or left blank.
+    /// </summary>
+    private AttemptResponses Paper(int candidate, bool endedByClock, bool firstAnswered, bool secondAnswered) =>
+        new(
+            Guid.NewGuid(),
+            Id(candidate),
+            Day,
+            endedByClock,
+            0m,
+            8m,
+            [new QuestionResponse(_q1, false, firstAnswered), new QuestionResponse(_q2, false, secondAnswered)]);
 
     private static Guid Id(int n) => new($"00000000-0000-0000-0000-{n:D12}");
 
@@ -99,6 +114,24 @@ public class ExamItemAnalysisServiceTests
         var first = analysis.Questions[0];
         Assert.Equal(2, first.Attempts);
         Assert.Equal(1, first.CorrectCount);
+    }
+
+    [Fact]
+    public async Task ACandidateWhoRanOutOfTime_DropsOffAtTheLastQuestionTheyAnswered()
+    {
+        // Candidate 1 answered the first question, then the clock ended the paper: they stopped at the first question. Candidate 2 answered both.
+        // Candidate 3 answered the first question and submitted the paper themselves, so did not drop off. Three candidates reached the first
+        // question and one reached the second; with a minimum of two, the first question's share is shown and the second's is withheld.
+        Released(
+            Paper(1, endedByClock: true, firstAnswered: true, secondAnswered: false),
+            Paper(2, endedByClock: true, firstAnswered: true, secondAnswered: true),
+            Paper(3, endedByClock: false, firstAnswered: true, secondAnswered: false));
+        QuestionTexts();
+
+        var analysis = await Service(threshold: 2).GetAsync(_examId, CancellationToken.None);
+
+        Assert.Equal(new ItemDropOffDto(3, 1, 0.3333m), analysis.Questions[0].DropOff);
+        Assert.Equal(new ItemDropOffDto(1, 0, null), analysis.Questions[1].DropOff);
     }
 
     [Fact]
