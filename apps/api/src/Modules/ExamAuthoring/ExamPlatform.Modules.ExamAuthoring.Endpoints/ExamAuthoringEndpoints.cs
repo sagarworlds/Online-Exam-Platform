@@ -141,6 +141,15 @@ public static class ExamAuthoringEndpoints
             .WithName("SetExamFocusViolationLimit")
             .WithDescription("Set how many times a candidate may leave the exam page before the attempt is ended; 0 turns the watch off");
 
+        exams.MapPut("/{examId:guid}/focus-warn-at", SetFocusWarnAt)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("SetExamFocusWarnAt")
+            .WithDescription("Set the departure from which a candidate is first warned, apart from the limit at which the attempt ends");
+
         exams.MapPut("/{examId:guid}/passing-percentage", SetPassingPercentage)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status400BadRequest)
@@ -318,6 +327,10 @@ public static class ExamAuthoringEndpoints
         Guid examId, FocusViolationLimitRequest request, SetFocusViolationLimitHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetFocusViolationLimitCommand(examId, request.FocusViolationLimit), ct));
 
+    private static async Task<IResult> SetFocusWarnAt(
+        Guid examId, FocusWarnAtRequest request, SetFocusWarnAtHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new SetFocusWarnAtCommand(examId, request.FocusWarnAt), ct));
+
     private static async Task<IResult> SetPassingPercentage(
         Guid examId, PassingPercentageRequest request, SetPassingPercentageHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(new SetPassingPercentageCommand(examId, request.PassingPercentage), ct));
@@ -462,6 +475,10 @@ public record ContentProtectionRequest(bool? ContentProtection);
 /// <summary>Request body for setting how many times a candidate may leave the exam page before the attempt is ended.</summary>
 /// <param name="FocusViolationLimit">The violations allowed, from 0 (the exam does not watch) to 20.</param>
 public record FocusViolationLimitRequest(int? FocusViolationLimit);
+
+/// <summary>Request body for setting the departure from which a candidate is first warned.</summary>
+/// <param name="FocusWarnAt">The departure to warn from: from 1 to one before the limit.</param>
+public record FocusWarnAtRequest(int? FocusWarnAt);
 
 /// <summary>Request body for setting the passing mark. The number is required: an empty body is a 400, not a removal.</summary>
 /// <param name="PassingPercentage">The pass mark, from 1 to 100.</param>

@@ -14,7 +14,8 @@ public record ExamConfig(
     MarkingScheme MarkingScheme,
     bool ContentProtection,
     int FocusViolationLimit,
-    int? PassingPercentage)
+    int? PassingPercentage,
+    int? FocusWarnAt = null)
 {
     /// <summary>The fewest attempts an exam can allow: every candidate can sit it once.</summary>
     public const int FewestAttempts = 1;
@@ -40,6 +41,10 @@ public record ExamConfig(
     // FocusViolationLimit: how many times a candidate may leave the exam page (switch tab or window, or leave full screen) before the
     // server ends the attempt (FR-22). 0 turns detection off. Off for a new exam: ending somebody's sitting is a proctoring choice
     // an author makes on purpose, together with the consent text that tells candidates about it, never a default.
+
+    // FocusWarnAt: the departure from which a candidate is first warned (FR-22). Null means the default for the limit, see FocusWarningPoint.
+    // A profile sets it together with the limit; changing the limit by itself puts it back to the default, because the warning the author
+    // chose may no longer fit the new limit.
 
     // PassingPercentage: the share of the total marks a candidate needs to pass, from 1 to 100. Null means the exam has no pass mark, so no
     // result says passed or failed and no certificate is issued on a pass (FR-34). The author sets it; nothing is passed by default.

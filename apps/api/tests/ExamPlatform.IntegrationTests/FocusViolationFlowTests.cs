@@ -54,6 +54,35 @@ public sealed class FocusViolationFlowTests(ApiFactory factory) : IClassFixture<
         Assert.Equal(0, (await ExamAsync(admin, examId)).GetProperty("config").GetProperty("focusViolationLimit").GetInt32());
     }
 
+    [Fact]
+    public async Task TheAuthor_SetsTheWarningPointApartFromTheLimit_AndTheLimitIsUnchanged()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var examId = await PublishedExamAsync(admin);
+        await admin.PutAsJsonAsync($"/v1/exams/{examId}/focus-violation-limit", new { focusViolationLimit = 5 });
+
+        var set = await admin.PutAsJsonAsync($"/v1/exams/{examId}/focus-warn-at", new { focusWarnAt = 2 });
+
+        Assert.Equal(HttpStatusCode.OK, set.StatusCode);
+        var config = (await ExamAsync(admin, examId)).GetProperty("config");
+        Assert.Equal(2, config.GetProperty("focusWarnAt").GetInt32());
+        Assert.Equal(5, config.GetProperty("focusViolationLimit").GetInt32());
+    }
+
+    [Fact]
+    public async Task AWarningPointAtOrAfterTheLimit_IsA400_AndTheOldOneStays()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var examId = await PublishedExamAsync(admin);
+        await admin.PutAsJsonAsync($"/v1/exams/{examId}/focus-violation-limit", new { focusViolationLimit = 5 });
+        await admin.PutAsJsonAsync($"/v1/exams/{examId}/focus-warn-at", new { focusWarnAt = 2 });
+
+        var response = await admin.PutAsJsonAsync($"/v1/exams/{examId}/focus-warn-at", new { focusWarnAt = 5 });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(2, (await ExamAsync(admin, examId)).GetProperty("config").GetProperty("focusWarnAt").GetInt32());
+    }
+
     [Theory]
     [InlineData("{}")]
     [InlineData("{\"focusViolationLimit\": -1}")]

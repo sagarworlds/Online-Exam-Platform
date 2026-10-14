@@ -122,6 +122,11 @@ public sealed record SetProctoringProfileCommand(Guid ExamId, string? Profile);
 /// <param name="FocusViolationLimit">The violations allowed, from 0 (not watched) to 20, or null if the caller did not send it.</param>
 public sealed record SetFocusViolationLimitCommand(Guid ExamId, int? FocusViolationLimit);
 
+/// <summary>Chooses the departure from which a candidate is first warned, apart from the limit at which the attempt ends (FR-22).</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="FocusWarnAt">The departure to warn from, or null if the caller did not send it.</param>
+public sealed record SetFocusWarnAtCommand(Guid ExamId, int? FocusWarnAt);
+
 /// <summary>Chooses the share of the total marks a candidate needs to pass (FR-34).</summary>
 /// <param name="ExamId">The exam.</param>
 /// <param name="PassingPercentage">The pass mark, from 1 to 100, or null if the caller did not send it.</param>

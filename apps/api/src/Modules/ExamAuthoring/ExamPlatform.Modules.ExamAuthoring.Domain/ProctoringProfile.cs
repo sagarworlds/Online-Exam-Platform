@@ -14,6 +14,10 @@ namespace ExamPlatform.Modules.ExamAuthoring.Domain;
 /// <param name="Available">Whether an author can choose it. A profile that promises something not built yet is listed but not offered.</param>
 /// <param name="UnavailableReason">Why it cannot be chosen yet; null when it can.</param>
 /// <param name="CaptureMedia">Whether the profile uses the camera or records the screen. A candidate under 18 is never held to such a profile (see <see cref="ProctoringProfiles.ForCandidate"/>).</param>
+/// <param name="FocusWarnAt">
+/// The departure from which the candidate is first warned (FR-22, tabSwitchWarnLimit), or null for the default for the limit. It is set apart
+/// from the limit, so a profile can warn earlier or later than the default without changing when the attempt ends.
+/// </param>
 public sealed record ProctoringProfile(
     string Id,
     string Name,
@@ -22,11 +26,12 @@ public sealed record ProctoringProfile(
     int FocusViolationLimit,
     bool Available = true,
     string? UnavailableReason = null,
-    bool CaptureMedia = false);
+    bool CaptureMedia = false,
+    int? FocusWarnAt = null);
 
 /// <summary>
 /// The profiles the platform knows. A profile is data, so adding one changes this list and nothing that runs an exam: the runtime reads
-/// the two settings a profile sets, never a profile's name.
+/// the settings a profile sets, never a profile's name.
 /// </summary>
 public static class ProctoringProfiles
 {
@@ -45,7 +50,8 @@ public static class ProctoringProfiles
         "Browser lock",
         "Copy, paste, right-click and print are turned off, and leaving the exam page is counted: the attempt ends after " + BrowserLockViolationLimit + " times. The default for minors.",
         true,
-        BrowserLockViolationLimit);
+        BrowserLockViolationLimit,
+        FocusWarnAt: FocusWarningPoint.WarnFrom);
 
     /// <summary>Every profile, in the order an author sees them.</summary>
     public static readonly IReadOnlyList<ProctoringProfile> All =
@@ -53,9 +59,11 @@ public static class ProctoringProfiles
         Off,
         BrowserLock,
         new("BROWSER_CAMERA", "Browser lock and camera", "Browser lock, plus webcam snapshots at intervals, with consent.", true, BrowserLockViolationLimit,
-            Available: false, UnavailableReason: "Webcam snapshots (FR-24) are not built yet, so this profile cannot be chosen.", CaptureMedia: true),
+            Available: false, UnavailableReason: "Webcam snapshots (FR-24) are not built yet, so this profile cannot be chosen.", CaptureMedia: true,
+            FocusWarnAt: FocusWarningPoint.WarnFrom),
         new("FULL", "Full proctoring", "Browser lock, camera and screen capture, with a human review queue.", true, BrowserLockViolationLimit,
-            Available: false, UnavailableReason: "Webcam snapshots (FR-24) and screen capture (FR-25) are not built yet, so this profile cannot be chosen.", CaptureMedia: true),
+            Available: false, UnavailableReason: "Webcam snapshots (FR-24) and screen capture (FR-25) are not built yet, so this profile cannot be chosen.", CaptureMedia: true,
+            FocusWarnAt: FocusWarningPoint.WarnFrom),
     ];
 
     /// <summary>Finds a profile by its id, ignoring case.</summary>
@@ -66,12 +74,19 @@ public static class ProctoringProfiles
 
     /// <summary>
     /// The id of the profile an exam's settings amount to, or <see cref="Custom"/> when an author set them one by one and they match none.
-    /// Worked out from the settings rather than stored, so the two cannot disagree.
+    /// Worked out from the settings rather than stored, so the two cannot disagree. The warning point counts as a setting: a profile matches
+    /// only when candidates would be warned at the same departure, so a changed warning point reports the exam as custom.
     /// </summary>
     /// <param name="contentProtection">Whether copy, paste, right-click and print are turned off.</param>
     /// <param name="focusViolationLimit">The violation limit, 0 when not watched.</param>
-    public static string IdFor(bool contentProtection, int focusViolationLimit) =>
-        All.FirstOrDefault(p => p.Available && p.ContentProtection == contentProtection && p.FocusViolationLimit == focusViolationLimit)?.Id ?? Custom;
+    /// <param name="focusWarnAt">The departure the exam warns from, or null for the default for the limit.</param>
+    public static string IdFor(bool contentProtection, int focusViolationLimit, int? focusWarnAt) =>
+        All.FirstOrDefault(p =>
+            p.Available
+            && p.ContentProtection == contentProtection
+            && p.FocusViolationLimit == focusViolationLimit
+            && FocusWarningPoint.Effective(focusViolationLimit, p.FocusWarnAt) == FocusWarningPoint.Effective(focusViolationLimit, focusWarnAt))
+        ?.Id ?? Custom;
 
     /// <summary>
     /// The profile a candidate is actually held to. The minors' default (requirements section 7.2): a candidate under 18 is never watched
@@ -93,10 +108,18 @@ public static class ProctoringProfiles
 /// </summary>
 public static class ProctoringNotice
 {
+    /// <summary>The departures the notice can name in words, from the first up to the most violations an exam can allow.</summary>
+    private static readonly string[] Ordinals =
+    [
+        "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth",
+        "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth", "twentieth",
+    ];
+
     /// <summary>The notice as short sentences, in the order they matter.</summary>
     /// <param name="contentProtection">Whether copy, paste, right-click and print are turned off.</param>
     /// <param name="focusViolationLimit">The violation limit, 0 when not watched.</param>
-    public static IReadOnlyList<string> For(bool contentProtection, int focusViolationLimit)
+    /// <param name="focusWarnAt">The departure the exam warns from, or null for the default for the limit; the notice says what the exam does.</param>
+    public static IReadOnlyList<string> For(bool contentProtection, int focusViolationLimit, int? focusWarnAt = null)
     {
         // Always true of every exam, so always said (FR-26).
         var lines = new List<string>
@@ -113,7 +136,7 @@ public static class ProctoringNotice
                 "Stay on the exam page and in full screen. Switching to another tab or window, or leaving full screen, is recorded. "
                 + (focusViolationLimit == 1
                     ? "The exam is submitted for you the first time you leave."
-                    : WarningSentence(FocusWarningPoint.For(focusViolationLimit), focusViolationLimit)));
+                    : WarningSentence(FocusWarningPoint.Effective(focusViolationLimit, focusWarnAt), focusViolationLimit)));
         }
 
         // Said as plainly as what is collected: nothing else is, and a person should not have to wonder.
@@ -122,12 +145,11 @@ public static class ProctoringNotice
     }
 
     /// <summary>
-    /// Says when the candidate is first warned and when the attempt ends, so the warning is not a surprise. The warning point is at most
-    /// the third departure, so only the second and third are named as ordinals.
+    /// Says when the candidate is first warned and when the attempt ends, so the warning is not a surprise.
     /// </summary>
-    /// <param name="warnAt">The departure from which the candidate is warned; 1 means every departure.</param>
+    /// <param name="warnAt">The departure from which the candidate is warned; 1 means every departure. From 1 to the limit less one.</param>
     /// <param name="limit">The departure that ends the attempt.</param>
     private static string WarningSentence(int warnAt, int limit) =>
-        (warnAt == 1 ? "You are warned each time you leave. " : $"You are warned from the {(warnAt == 2 ? "second" : "third")} time you leave. ")
+        (warnAt == 1 ? "You are warned each time you leave. " : $"You are warned from the {Ordinals[warnAt - 1]} time you leave. ")
         + $"If you leave {limit} times, the exam is submitted for you with the answers saved so far.";
 }
