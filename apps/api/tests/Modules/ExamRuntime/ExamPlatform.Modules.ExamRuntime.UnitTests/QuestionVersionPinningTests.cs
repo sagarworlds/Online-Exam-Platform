@@ -106,7 +106,7 @@ public class QuestionVersionPinningTests
         var disputes = Substitute.For<IDisputeRepository>();
         disputes.ListOpenForQuestionAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns([]);
 
-        var changed = await new AttemptRescorer(attempts, catalog, _bank, disputes, unitOfWork, Substitute.For<IRequestContext>(), new FakeClock(Fixtures.Now), Substitute.For<IInAppNotifier>())
+        var changed = await new AttemptRescorer(attempts, catalog, _bank, disputes, unitOfWork, Substitute.For<IRequestContext>(), new FakeClock(Fixtures.Now), Substitute.For<IInAppNotifier>(), new ProctorPolicy())
             .RescoreForQuestionAsync(v1.Id, "Key corrected", CancellationToken.None);
 
         Assert.Equal(1, changed);

@@ -8,7 +8,7 @@ using ExamPlatform.Modules.QuestionBank.Contracts;
 namespace ExamPlatform.Modules.ExamRuntime.Application.Queries;
 
 /// <summary>Shows staff the questions one attempt consisted of.</summary>
-public sealed class GetAttemptPaperHandler(IExamCatalog catalog, IAttemptRepository attempts, IQuestionBank questionBank)
+public sealed class GetAttemptPaperHandler(IExamCatalog catalog, IAttemptRepository attempts, IQuestionBank questionBank, IProctorPolicy proctorPolicy)
 {
     /// <summary>
     /// Builds the paper of an attempt: the drawn one if the exam draws, otherwise the exam's fixed questions, in the order and with the
@@ -29,7 +29,7 @@ public sealed class GetAttemptPaperHandler(IExamCatalog catalog, IAttemptReposit
 
         var exam = await catalog.FindAsync(examId, cancellationToken) ?? throw new ExamContentUnavailableError();
         var fixedIds = exam.Sections.SelectMany(s => s.QuestionIds).ToHashSet();
-        var paper = exam.For(attempt);
+        var paper = exam.For(attempt, proctorPolicy);
 
         var ids = paper.Sections.SelectMany(s => s.QuestionIds).ToList();
         var questions = await questionBank.ReadAsync(attempt, ids, cancellationToken);

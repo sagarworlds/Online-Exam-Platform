@@ -77,7 +77,7 @@ public class PaperDrawerTests
         var drawn = Guid.NewGuid();
         attempt.SetPaper([(section.Id, drawn)]);
 
-        var seen = exam.For(attempt);
+        var seen = exam.For(attempt, new ProctorPolicy());
 
         Assert.Equal([drawn], seen.Sections[0].QuestionIds);
         Assert.Empty(exam.Sections[0].QuestionIds);

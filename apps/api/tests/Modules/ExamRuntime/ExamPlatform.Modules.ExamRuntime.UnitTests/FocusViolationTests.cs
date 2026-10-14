@@ -32,7 +32,7 @@ public class FocusViolationTests
     private RecordFocusViolationHandler Handler()
     {
         var closer = new AttemptCloser(_bank, _unitOfWork, _clock);
-        return new RecordFocusViolationHandler(new AttemptAccess(_attempts, _catalog, closer, _clock), closer, _unitOfWork, _clock);
+        return new RecordFocusViolationHandler(new AttemptAccess(_attempts, _catalog, closer, _clock, new ProctorPolicy()), closer, _unitOfWork, _clock);
     }
 
     private Attempt OpenAttempt()

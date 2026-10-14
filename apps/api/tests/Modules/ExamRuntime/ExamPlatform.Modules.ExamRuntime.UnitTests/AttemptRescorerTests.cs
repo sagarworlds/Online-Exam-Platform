@@ -27,7 +27,7 @@ public class AttemptRescorerTests
     {
         _disputes.ListOpenForQuestionAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns([]);
         _requestContext.UserId.Returns(_staff);
-        _rescorer = new AttemptRescorer(_attempts, _catalog, _bank, _disputes, _unitOfWork, _requestContext, _clock, _notifier);
+        _rescorer = new AttemptRescorer(_attempts, _catalog, _bank, _disputes, _unitOfWork, _requestContext, _clock, _notifier, new ProctorPolicy());
     }
 
     private static Attempt SubmittedAttempt(Guid examId, QuestionSnapshot question, Guid chosenOption, decimal score, decimal maxScore)

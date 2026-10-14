@@ -15,7 +15,8 @@ public sealed class MyExamsHandler(
     IExtraAttemptGrantRepository grants,
     IAttemptRequestRepository requests,
     IAccommodationRepository accommodations,
-    Clock clock)
+    Clock clock,
+    IProctorPolicy proctorPolicy)
 {
     /// <summary>Returns the exams the user accepted an invitation to, soonest first, each with every attempt they have made at it.</summary>
     /// <param name="userId">The signed-in candidate.</param>
@@ -43,7 +44,7 @@ public sealed class MyExamsHandler(
                 var request = latestRequests.GetValueOrDefault(e.Id);
                 var accommodation = accommodated.GetValueOrDefault(e.Id);
                 // The rules as this candidate sits the exam: an accommodation may lift the page-leaving limit (FR-49).
-                var theirRules = AccommodationPolicy.Apply(e, accommodation?.AlternateFormats ?? []);
+                var theirRules = proctorPolicy.Resolve(e, accommodation?.AlternateFormats ?? []);
 
                 return new MyExamDto(
                     e.Id,

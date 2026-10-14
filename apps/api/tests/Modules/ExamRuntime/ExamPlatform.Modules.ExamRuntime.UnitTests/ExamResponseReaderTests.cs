@@ -22,7 +22,7 @@ public class ExamResponseReaderTests
     private readonly QuestionSnapshot _first = Fixtures.Question("First");
     private readonly QuestionSnapshot _second = Fixtures.Question("Second");
 
-    private ExamResponseReader Reader => new(_attempts, _catalog, _bank, _clock);
+    private ExamResponseReader Reader => new(_attempts, _catalog, _bank, _clock, new ProctorPolicy());
 
     private ExamSnapshot ExamWith(ExamResultReleaseMode mode = ExamResultReleaseMode.Instant, DateTime? releaseTime = null)
     {

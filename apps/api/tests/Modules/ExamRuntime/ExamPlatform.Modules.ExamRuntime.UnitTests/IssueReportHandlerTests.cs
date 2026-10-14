@@ -24,7 +24,7 @@ public class IssueReportHandlerTests
     private readonly IExamRuntimeUnitOfWork _unitOfWork = Substitute.For<IExamRuntimeUnitOfWork>();
     private readonly QuestionSnapshot _question = Fixtures.Question("2 + 2?");
 
-    private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock);
+    private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock, new ProctorPolicy());
 
     private ReportIssueHandler Report => new(Access, _reports, _unitOfWork, _clock);
 

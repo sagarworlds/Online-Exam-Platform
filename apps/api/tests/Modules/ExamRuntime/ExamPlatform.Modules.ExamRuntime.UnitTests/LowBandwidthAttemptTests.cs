@@ -32,7 +32,7 @@ public class LowBandwidthAttemptTests
 
     private static string Image(byte[] bytes, string alt) => $"<img src=\"data:image/png;base64,{Convert.ToBase64String(bytes)}\" alt=\"{alt}\">";
 
-    private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock);
+    private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock, new ProctorPolicy());
 
     private (ExamSnapshot Exam, Attempt Attempt) OpenAttempt(Guid? owner = null)
     {

@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
+using ExamPlatform.Modules.ExamRuntime.Application;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
 using ExamPlatform.Modules.ExamRuntime.Domain;
@@ -32,7 +33,7 @@ public class AttemptPaperViewTests
                 .OfType<QuestionSnapshot>().ToList());
     }
 
-    private GetAttemptPaperHandler Handler => new(_catalog, _attempts, _bank);
+    private GetAttemptPaperHandler Handler => new(_catalog, _attempts, _bank, new ProctorPolicy());
 
     private Attempt AttemptWithPaper(Guid examId)
     {

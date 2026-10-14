@@ -73,6 +73,8 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<IAttemptSignalSource, AttemptSignalSource>();
 
         services.AddScoped<AttemptCloser>();
+        // Stateless: the same rules for every candidate, so one instance serves the whole process.
+        services.TryAddSingleton<IProctorPolicy, ProctorPolicy>();
         services.AddScoped<AttemptViewBuilder>();
         services.AddScoped<AttemptReviewBuilder>();
         services.AddScoped<AttemptAccess>();

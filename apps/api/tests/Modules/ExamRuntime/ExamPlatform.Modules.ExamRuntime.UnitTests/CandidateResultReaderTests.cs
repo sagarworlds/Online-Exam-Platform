@@ -58,7 +58,7 @@ public class CandidateResultReaderTests
         _attempts.ListCountedForCandidateAsync(_candidate, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<Attempt>>(attempts));
 
-    private CandidateResultReader Reader => new(_attempts, _catalog, _bank, _clock, new QuestionTimeWithholding(_ages, new QuestionTimePolicy(_minorsEnabled)));
+    private CandidateResultReader Reader => new(_attempts, _catalog, _bank, _clock, new QuestionTimeWithholding(_ages, new QuestionTimePolicy(_minorsEnabled)), new ProctorPolicy());
 
     public CandidateResultReaderTests()
     {
@@ -213,7 +213,7 @@ public class CandidateResultReaderTests
         var attempt = Attempt.Start(exam.Id, _candidate, 1, Fixtures.Now, Fixtures.Now.AddMinutes(30));
         attempt.SetPaper([(exam.Sections[0].Id, _right.Id)]);
         attempt.RecordAnswer(_right.Id, _right.Correct(), Fixtures.Now);
-        var paper = exam.For(attempt);
+        var paper = exam.For(attempt, new ProctorPolicy());
         var result = AttemptScorer.Score(paper, new Dictionary<Guid, QuestionSnapshot> { [_right.Id] = _right }, attempt.Answers.ToList());
         attempt.Submit(Fixtures.Now.AddMinutes(10), result.Score, result.MaxScore);
         CountedForCandidate(attempt);

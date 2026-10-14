@@ -58,7 +58,7 @@ public class AttemptReviewTests
     }
 
     private AttemptReviewBuilder Builder => new(_bank, _clock);
-    private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock);
+    private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock, new ProctorPolicy());
     private GetAttemptReviewHandler Handler => new(Access, Builder, _disputes, new DisputePolicy(7), _clock);
 
     private static ReviewQuestionDto Question(AttemptReviewDto review, string text) =>
