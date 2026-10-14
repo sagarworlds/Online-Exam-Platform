@@ -13,12 +13,16 @@ namespace ExamPlatform.IntegrationTests;
 /// </summary>
 public sealed class ProctoringRiskFlagFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
-    /// <summary>A candidate under 18 who has accepted the invite. Nothing in the platform stops a minor sitting an exam without consent today.</summary>
+    /// <summary>
+    /// A candidate under 18 who has accepted the invite, with a guardian's confirmed link in place. FR-43 refuses a minor's new attempt
+    /// until a guardian has confirmed the link, so the link is set up before the candidate sits.
+    /// </summary>
     internal static async Task<HttpClient> EnrollMinorAsync(ApiFactory factory, HttpClient admin, Guid examId)
     {
         var email = UniqueEmail();
         var invite = await InviteAsync(admin, examId, email);
         var user = await factory.SignInAsAsync("Candidate", email, dateOfBirth: new DateOnly(2012, 6, 1));
+        await factory.ConfirmGuardianLinkAsync(admin, user.UserId, email);
         var client = ClientAs(factory, user);
         (await client.PostAsJsonAsync("/v1/invites/accept", new { code = CodeFromLink(invite.GetProperty("inviteLink").GetString()!) })).EnsureSuccessStatusCode();
         return client;
