@@ -2,6 +2,7 @@ using ExamPlatform.Modules.ExamRuntime.Application.Dtos;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
 using ExamPlatform.SharedKernel.Application;
+using ExamPlatform.SharedKernel.Domain;
 using ExamPlatform.SharedKernel.Domain.Exceptions;
 
 namespace ExamPlatform.Modules.ExamRuntime.Application.Commands;
@@ -35,18 +36,19 @@ public sealed class RecordFocusViolationHandler(AttemptAccess access, AttemptClo
             if (attempt.Status != AttemptStatus.InProgress)
                 throw new AttemptNotInProgressError();
 
-            return new FocusViolationResultDto(attempt.FocusViolations.Count, 0, AttemptEnded: false);
+            return new FocusViolationResultDto(attempt.FocusViolations.Count, 0, AttemptEnded: false, WarnAt: 0);
         }
 
         var count = attempt.RecordFocusViolation(kind, clock.UtcNow);
+        var warnAt = FocusWarningPoint.For(limit);
         if (count >= limit)
         {
             // Saves the violation together with the close, so the attempt never ends without the record that ended it.
             await closer.CloseForViolationsAsync(attempt, exam, cancellationToken);
-            return new FocusViolationResultDto(count, limit, AttemptEnded: true);
+            return new FocusViolationResultDto(count, limit, AttemptEnded: true, warnAt);
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
-        return new FocusViolationResultDto(count, limit, AttemptEnded: false);
+        return new FocusViolationResultDto(count, limit, AttemptEnded: false, warnAt);
     }
 }

@@ -495,7 +495,10 @@ export class ExamAttempt {
         }
         if (result.limit > 0) {
           this.focusViolations.set(result.violations);
-          this.focusWarning.set(warningFor(result.violations, result.limit, this.i18n.t));
+          // Departures before the warning point pass without a notice; the count above still shows them (requirements section 8).
+          this.focusWarning.set(
+            result.violations >= result.warnAt ? warningFor(result.violations, result.limit, this.i18n.t) : null,
+          );
         }
       },
       error: (error: unknown) => {

@@ -1471,17 +1471,17 @@ describe('ExamAttempt', () => {
     });
 
     it('reports a departure to the server, then warns with how many are left, until dismissed', async () => {
-      const fixture = await open(attempt({ focusViolationLimit: 3 }));
+      const fixture = await open(attempt({ focusViolationLimit: 5, focusViolations: 2 }));
 
       leave();
       const report = httpMock.expectOne(isReport);
       expect(report.request.body).toEqual({ kind: 'WindowBlurred' });
-      report.flush({ violations: 1, limit: 3, attemptEnded: false });
+      report.flush({ violations: 3, limit: 5, attemptEnded: false, warnAt: 3 });
       fixture.detectChanges();
 
       expect(warning(fixture)?.getAttribute('role')).toBe('alert');
-      expect(warning(fixture)?.textContent).toContain('You left the exam page (1 of 3 allowed). If you leave 2 more times, the exam will be submitted.');
-      expect(textOf(fixture)).toContain('you have left 1 of 3 times allowed');
+      expect(warning(fixture)?.textContent).toContain('You left the exam page (3 of 5 allowed). If you leave 2 more times, the exam will be submitted.');
+      expect(textOf(fixture)).toContain('you have left 3 of 5 times allowed');
 
       (warning(fixture)?.querySelector('button') as HTMLButtonElement).click();
       fixture.detectChanges();
@@ -1492,10 +1492,21 @@ describe('ExamAttempt', () => {
       const fixture = await open(attempt({ focusViolationLimit: 3, focusViolations: 1 }));
 
       leave();
-      httpMock.expectOne(isReport).flush({ violations: 2, limit: 3, attemptEnded: false });
+      httpMock.expectOne(isReport).flush({ violations: 2, limit: 3, attemptEnded: false, warnAt: 2 });
       fixture.detectChanges();
 
       expect(warning(fixture)?.textContent).toContain('If you leave once more, the exam will be submitted.');
+    });
+
+    it('does not warn before the warning point, though the count still shows the departure', async () => {
+      const fixture = await open(attempt({ focusViolationLimit: 5 }));
+
+      leave();
+      httpMock.expectOne(isReport).flush({ violations: 1, limit: 5, attemptEnded: false, warnAt: 3 });
+      fixture.detectChanges();
+
+      expect(warning(fixture)).toBeNull();
+      expect(textOf(fixture)).toContain('you have left 1 of 5 times allowed');
     });
 
     it('counts the next trip away only after the candidate is back', async () => {
@@ -1503,18 +1514,18 @@ describe('ExamAttempt', () => {
 
       leave();
       leave();
-      httpMock.expectOne(isReport).flush({ violations: 1, limit: 5, attemptEnded: false });
+      httpMock.expectOne(isReport).flush({ violations: 1, limit: 5, attemptEnded: false, warnAt: 3 });
       comeBack();
       leave();
 
-      httpMock.expectOne(isReport).flush({ violations: 2, limit: 5, attemptEnded: false });
+      httpMock.expectOne(isReport).flush({ violations: 2, limit: 5, attemptEnded: false, warnAt: 3 });
     });
 
     it('shows the result when the departure reached the limit and the server ended the attempt', async () => {
       const fixture = await open(attempt({ focusViolationLimit: 2, focusViolations: 1 }));
 
       leave();
-      httpMock.expectOne(isReport).flush({ violations: 2, limit: 2, attemptEnded: true });
+      httpMock.expectOne(isReport).flush({ violations: 2, limit: 2, attemptEnded: true, warnAt: 1 });
       httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET').flush(
         attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [], autoSubmitted: true, endedByViolations: true, focusViolationLimit: 2, focusViolations: 2 }),
       );
