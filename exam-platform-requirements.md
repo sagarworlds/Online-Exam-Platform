@@ -246,7 +246,7 @@ Proctoring is a **policy profile** attached to each exam. Adding a profile must 
 ```json
 {
   "id": "BROWSER_LOCK",
-  "fullscreenRequired": true,
+  "fullscreenRequired": false,
   "tabSwitchWarnLimit": 3,
   "tabSwitchTerminateLimit": 5,
   "blockClipboard": true,
