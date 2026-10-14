@@ -14,7 +14,7 @@ import { ItemSortKey, SortDirection, sortItemRows } from './item-analysis-sort';
 export type ItemAnalysisView = 'loading' | 'ready' | 'held' | 'empty' | 'error';
 
 /** The columns the reader can sort by, in the order the sort buttons show them. */
-export const ITEM_SORT_KEYS: readonly ItemSortKey[] = ['position', 'attempts', 'difficulty', 'discrimination'];
+export const ITEM_SORT_KEYS: readonly ItemSortKey[] = ['position', 'attempts', 'difficulty', 'discrimination', 'time', 'dropOff'];
 
 /** The message that names each sort column; typed so a key missing from the messages does not compile. */
 const SORT_LABEL_KEYS = {
@@ -22,11 +22,14 @@ const SORT_LABEL_KEYS = {
   attempts: 'admin.items.sort.attempts',
   difficulty: 'admin.items.sort.difficulty',
   discrimination: 'admin.items.sort.discrimination',
+  time: 'admin.items.sort.time',
+  dropOff: 'admin.items.sort.dropOff',
 } as const satisfies Record<ItemSortKey, MessageKey>;
 
 /**
- * Admin page: how each question of one exam performed among the released results (FR-37), with the difficulty and discrimination indices. A
- * question's indices are not shown until enough candidates had it; the page says so rather than showing a figure drawn from a few answers.
+ * Admin page: how each question of one exam performed among the released results (FR-37), with the difficulty and discrimination indices, the
+ * average time, and where candidates stopped. A question's figures are not shown until enough candidates had it; the page says so rather than
+ * showing a figure drawn from a few answers.
  */
 @Component({
   selector: 'app-item-analysis',
@@ -138,6 +141,22 @@ export class ItemAnalysis {
   /** A percentage of the marks as the page shows it, or the words for a figure that is not shown. */
   protected percentText(value: number | null): string {
     return value === null ? this.i18n.t('admin.items.notShown') : `${value}%`;
+  }
+
+  /** A time in seconds as the page shows it, or the words for a figure that is not shown, so a withheld average is never read as zero. */
+  protected secondsText(value: number | null): string {
+    return value === null ? this.i18n.t('admin.items.notShown') : this.i18n.t('admin.items.seconds', { seconds: value });
+  }
+
+  /**
+   * How many counted candidates stopped at the question, with their share of those who reached it. The count is always shown, as the attempts
+   * are; only the share is withheld, and the cell says so rather than showing a blank that could be read as none.
+   */
+  protected droppedOffText(row: ItemRowDto): string {
+    const { droppedOff, rate } = row.dropOff;
+    return rate === null
+      ? `${droppedOff} (${this.i18n.t('admin.items.notShown')})`
+      : `${droppedOff} (${Math.round(rate * 100)}%)`;
   }
 
   /**

@@ -17,10 +17,41 @@ describe('ItemAnalysis', () => {
     minimumCohortSize: 30,
     groupSize: 11,
     questions: [
-      { questionId: 'q1', position: 1, text: 'What is force?', attempts: 40, correctCount: 30, difficulty: 0.75, discrimination: 0.4 },
-      { questionId: 'q2', position: 2, text: 'Define work', attempts: 12, correctCount: 6, difficulty: null, discrimination: null },
-      { questionId: 'q3', position: 3, text: 'Unit of power', attempts: 40, correctCount: 0, difficulty: 0, discrimination: -0.1 },
+      {
+        questionId: 'q1',
+        position: 1,
+        text: 'What is force?',
+        attempts: 40,
+        correctCount: 30,
+        difficulty: 0.75,
+        discrimination: 0.4,
+        time: { candidatesTimed: 40, averageSeconds: 42.5, status: 'Shown' },
+        dropOff: { reached: 40, droppedOff: 3, rate: 0.075 },
+      },
+      {
+        questionId: 'q2',
+        position: 2,
+        text: 'Define work',
+        attempts: 12,
+        correctCount: 6,
+        difficulty: null,
+        discrimination: null,
+        time: { candidatesTimed: 12, averageSeconds: null, status: 'BelowMinimumCohort' },
+        dropOff: { reached: 12, droppedOff: 4, rate: null },
+      },
+      {
+        questionId: 'q3',
+        position: 3,
+        text: 'Unit of power',
+        attempts: 40,
+        correctCount: 0,
+        difficulty: 0,
+        discrimination: -0.1,
+        time: { candidatesTimed: 40, averageSeconds: 18.2, status: 'Shown' },
+        dropOff: { reached: 40, droppedOff: 0, rate: 0 },
+      },
     ],
+    time: { questionsTimed: 92, averageSeconds: 33.1 },
     scores: {
       count: 40,
       meanPercentOfMarks: 58.4,
@@ -83,6 +114,44 @@ describe('ItemAnalysis', () => {
     // A question with fewer candidates than the minimum has no figures to show, only the counts.
     expect(rows[1].textContent).toContain('Not shown');
     expect(rows[1].textContent).toContain('12');
+  });
+
+  it('shows each question\'s average time and where candidates stopped, and says why a figure is not shown', async () => {
+    const { fixture, request } = await start();
+    request.flush(analysis());
+    fixture.detectChanges();
+
+    const section = root(fixture).querySelector('.item-analysis__stats') as HTMLElement;
+    expect(section.textContent).toContain('33.1 s');
+
+    const rows = root(fixture).querySelectorAll<HTMLTableRowElement>('.item-table tbody tr');
+    // Columns: No., Question, Attempts, Correct, Difficulty, Discrimination, Average time, Reached, Dropped off.
+    const cellsOf = (row: HTMLTableRowElement) => [...row.querySelectorAll('td')].map((td) => td.textContent?.trim());
+    expect(cellsOf(rows[0]).slice(6)).toEqual(['42.5 s', '40', '3 (8%)']);
+    // The count of who stopped still shows, while its share is withheld with the words, never a blank.
+    expect(cellsOf(rows[1]).slice(6)).toEqual(['Not shown', '12', '4 (Not shown)']);
+    expect(cellsOf(rows[2]).slice(6)).toEqual(['18.2 s', '40', '0 (0%)']);
+  });
+
+  it('sorts by the share who stopped, with a withheld share last, and by the average time', async () => {
+    const { fixture, request } = await start();
+    request.flush(analysis());
+    fixture.detectChanges();
+    const sortBy = (label: string) =>
+      [...root(fixture).querySelectorAll<HTMLButtonElement>('.item-analysis__sort-button')].find((b) => b.textContent?.includes(label))?.click();
+    const firstPosition = () => root(fixture).querySelector('.item-table tbody tr td:first-child')?.textContent?.trim();
+
+    sortBy('Drop-off share');
+    fixture.detectChanges();
+    // Shares 0%, then 8%, and question 2 (no share shown) last.
+    expect(firstPosition()).toBe('3');
+    expect(root(fixture).querySelectorAll('.item-table tbody tr td:first-child')[2]?.textContent?.trim()).toBe('2');
+
+    sortBy('Average time');
+    fixture.detectChanges();
+    // Times: 18.2 s, then 42.5 s, and the withheld average last.
+    expect(firstPosition()).toBe('3');
+    expect(root(fixture).querySelectorAll('.item-table tbody tr td:first-child')[2]?.textContent?.trim()).toBe('2');
   });
 
   it('sorts by a column, and turns the direction over when the same column is chosen again', async () => {

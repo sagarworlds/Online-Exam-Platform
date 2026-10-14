@@ -26,6 +26,9 @@ public class ItemAnalysisCsvWriterTests
     private static ItemRowDto Timed(int position, ItemTimeDto time) =>
         new(Guid.NewGuid(), position, "Q", 44, 31, 0.7045m, 0.4545m, time, NoDropOff);
 
+    private static ItemRowDto Dropped(int position, ItemDropOffDto dropOff) =>
+        new(Guid.NewGuid(), position, "Q", 44, 31, 0.7045m, 0.4545m, NoItemTime, dropOff);
+
     [Fact]
     public void TheFile_HasAHeader_ThenOneRowPerQuestionInTheExamsOrder()
     {
@@ -36,7 +39,11 @@ public class ItemAnalysisCsvWriterTests
         var rows = ReadBack(bytes);
 
         Assert.Equal(
-            new[] { "No.", "Question", "Attempts", "Correct", "Difficulty (%)", "Discrimination", "Status", "Average time (s)", "Time status" },
+            new[]
+            {
+                "No.", "Question", "Attempts", "Correct", "Difficulty (%)", "Discrimination", "Status", "Average time (s)", "Time status",
+                "Reached", "Dropped off", "Drop-off (%)", "Drop-off status",
+            },
             rows[0]);
         Assert.Equal("1", rows[1][0]);
         Assert.Equal("2", rows[2][0]);
@@ -91,12 +98,36 @@ public class ItemAnalysisCsvWriterTests
     }
 
     [Fact]
+    public void AShownDropOff_GivesTheReachedCount_TheDroppedCount_AndTheShareToTwoDecimals()
+    {
+        // 40 reached the question and 3 stopped there: 3 / 40 is 7.5 per cent.
+        var rows = ReadBack(new ItemAnalysisCsvWriter().Write(Analysis(Dropped(1, new ItemDropOffDto(40, 3, 0.075m)))));
+
+        Assert.Equal("40", rows[1][9]);
+        Assert.Equal("3", rows[1][10]);
+        Assert.Equal("7.5", rows[1][11]);
+        Assert.Equal("Shown", rows[1][12]);
+    }
+
+    [Fact]
+    public void AWithheldDropOff_IsAnEmptyShare_WithAStatusThatSaysWhy_AndTheCountsStillShow()
+    {
+        // A question few candidates reached has counts a reader can use, but no share: a share from a handful of candidates would mislead.
+        var rows = ReadBack(new ItemAnalysisCsvWriter().Write(Analysis(Dropped(1, new ItemDropOffDto(12, 4, null)))));
+
+        Assert.Equal("12", rows[1][9]);
+        Assert.Equal("4", rows[1][10]);
+        Assert.Equal(string.Empty, rows[1][11]);
+        Assert.Equal("Not shown: fewer than 30 candidates reached the question", rows[1][12]);
+    }
+
+    [Fact]
     public void AQuestionTextWithCommasAndQuotes_IsQuoted_SoItStaysInItsColumn()
     {
         var rows = ReadBack(new ItemAnalysisCsvWriter().Write(Analysis(Shown(1, "Define \"work\", in joules", 0.5m, 0m))));
 
         Assert.Equal("Define \"work\", in joules", rows[1][1]);
-        Assert.Equal(9, rows[1].Count);
+        Assert.Equal(13, rows[1].Count);
     }
 
     [Fact]

@@ -63,6 +63,17 @@ internal static class ReportFormatting
     };
 
     /// <summary>
+    /// Says why a question's drop-off share is withheld, in words a reader can filter on, so a blank is never taken for zero (FR-37).
+    /// </summary>
+    /// <param name="dropOff">The question's drop-off figure.</param>
+    /// <param name="minimumCohortSize">How many candidates must reach a question before its drop-off share is shown.</param>
+    /// <returns>The status: that the share is shown, or why it is not.</returns>
+    public static string DropOffStatus(ItemDropOffDto dropOff, int minimumCohortSize) =>
+        dropOff.Rate is null
+            ? $"Not shown: fewer than {Count(minimumCohortSize)} candidates reached the question"
+            : "Shown";
+
+    /// <summary>
     /// Spreadsheet programs run a cell that begins with <c>=</c>, <c>+</c>, <c>-</c> or <c>@</c> as a formula, so text beginning that way could
     /// execute something when the file is opened. A leading apostrophe makes the program show the text instead. Applied to text only: the
     /// figures are numbers and their minus signs must stay.

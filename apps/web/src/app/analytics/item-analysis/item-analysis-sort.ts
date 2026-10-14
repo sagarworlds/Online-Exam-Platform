@@ -1,7 +1,7 @@
 import { ItemRowDto } from '../analytics.models';
 
 /** The columns the item analysis can be sorted by. */
-export type ItemSortKey = 'position' | 'attempts' | 'difficulty' | 'discrimination';
+export type ItemSortKey = 'position' | 'attempts' | 'difficulty' | 'discrimination' | 'time' | 'dropOff';
 
 /** The order the rows are in: ascending or descending. */
 export type SortDirection = 'asc' | 'desc';
@@ -17,6 +17,10 @@ function valueOf(row: ItemRowDto, key: ItemSortKey): number | null {
       return row.difficulty;
     case 'discrimination':
       return row.discrimination;
+    case 'time':
+      return row.time.averageSeconds;
+    case 'dropOff':
+      return row.dropOff.rate;
   }
 }
 

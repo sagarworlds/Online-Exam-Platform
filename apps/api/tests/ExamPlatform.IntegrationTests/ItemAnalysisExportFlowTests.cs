@@ -71,7 +71,9 @@ public sealed class ItemAnalysisExportFlowTests(ApiFactory factory) : IClassFixt
         var bytes = await response.Content.ReadAsByteArrayAsync();
         Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF }, bytes.Take(3));
         var text = Encoding.UTF8.GetString(bytes.AsSpan(3));
-        Assert.StartsWith("No.,Question,Attempts,Correct,Difficulty (%),Discrimination,Status,Average time (s),Time status\r\n", text);
+        Assert.StartsWith(
+            "No.,Question,Attempts,Correct,Difficulty (%),Discrimination,Status,Average time (s),Time status,Reached,Dropped off,Drop-off (%),Drop-off status\r\n",
+            text);
         Assert.Contains("Q1", text);
     }
 
