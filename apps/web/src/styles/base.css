@@ -105,6 +105,14 @@ code {
   font-size: 0.9rem;
 }
 
+/* The links under a form are tap targets, so each is at least 44px tall (the team's touch rule, as on the header). Text links are inline by
+   default, so the height only takes effect once the link is an inline-flex box. */
+.link-row > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
