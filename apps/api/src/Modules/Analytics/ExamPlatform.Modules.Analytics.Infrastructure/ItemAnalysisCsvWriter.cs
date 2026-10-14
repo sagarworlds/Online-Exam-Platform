@@ -16,9 +16,13 @@ namespace ExamPlatform.Modules.Analytics.Infrastructure;
 /// </remarks>
 public sealed class ItemAnalysisCsvWriter : IItemAnalysisCsvWriter
 {
-    // The time columns come last, after the figures already in the file, so a reader that finds a column by its place keeps the same columns.
+    // The time and drop-off columns come last, after the figures already in the file, so a reader that finds a column by its place keeps the
+    // same columns. Each group ends with its status column, so a withheld figure always says why.
     private static readonly string[] Header =
-        ["No.", "Question", "Attempts", "Correct", "Difficulty (%)", "Discrimination", "Status", "Average time (s)", "Time status"];
+    [
+        "No.", "Question", "Attempts", "Correct", "Difficulty (%)", "Discrimination", "Status", "Average time (s)", "Time status",
+        "Reached", "Dropped off", "Drop-off (%)", "Drop-off status",
+    ];
 
     /// <inheritdoc />
     public byte[] Write(ExamItemAnalysisDto analysis)
@@ -41,5 +45,9 @@ public sealed class ItemAnalysisCsvWriter : IItemAnalysisCsvWriter
         ReportFormatting.ItemStatus(row, minimumCohortSize),
         ReportFormatting.Figure(row.Time.AverageSeconds),
         ReportFormatting.TimeStatus(row.Time, minimumCohortSize),
+        ReportFormatting.Count(row.DropOff.Reached),
+        ReportFormatting.Count(row.DropOff.DroppedOff),
+        ReportFormatting.Figure(row.DropOff.Rate * 100),
+        ReportFormatting.DropOffStatus(row.DropOff, minimumCohortSize),
     ];
 }

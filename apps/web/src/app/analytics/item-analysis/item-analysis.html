@@ -51,6 +51,10 @@
                 <dt>{{ 'admin.items.scores.median' | t }}</dt>
                 <dd>{{ percentText(a.scores.medianPercentOfMarks) }}</dd>
               </div>
+              <div>
+                <dt>{{ 'admin.items.time.average' | t }}</dt>
+                <dd>{{ secondsText(a.time.averageSeconds) }}</dd>
+              </div>
             </dl>
 
             <div class="table-wrap">
@@ -122,6 +126,9 @@
                 <th scope="col">{{ 'admin.items.col.correct' | t }}</th>
                 <th scope="col">{{ 'admin.items.col.difficulty' | t }}</th>
                 <th scope="col">{{ 'admin.items.col.discrimination' | t }}</th>
+                <th scope="col">{{ 'admin.items.col.time' | t }}</th>
+                <th scope="col">{{ 'admin.items.col.reached' | t }}</th>
+                <th scope="col">{{ 'admin.items.col.droppedOff' | t }}</th>
               </tr>
             </thead>
             <tbody>
@@ -133,6 +140,9 @@
                   <td [attr.data-label]="'admin.items.col.correct' | t">{{ row.correctCount }}</td>
                   <td [attr.data-label]="'admin.items.col.difficulty' | t">{{ difficultyText(row) }}</td>
                   <td [attr.data-label]="'admin.items.col.discrimination' | t">{{ discriminationText(row) }}</td>
+                  <td [attr.data-label]="'admin.items.col.time' | t">{{ secondsText(row.time.averageSeconds) }}</td>
+                  <td [attr.data-label]="'admin.items.col.reached' | t">{{ row.dropOff.reached }}</td>
+                  <td [attr.data-label]="'admin.items.col.droppedOff' | t">{{ droppedOffText(row) }}</td>
                 </tr>
               }
             </tbody>
@@ -156,6 +166,14 @@
           <div>
             <dt>{{ 'admin.items.scores.distribution' | t }}</dt>
             <dd>{{ 'admin.items.scores.distributionHelp' | t }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.items.col.time' | t }}</dt>
+            <dd>{{ 'admin.items.timeHelp' | t: { count: a.minimumCohortSize } }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'admin.items.col.droppedOff' | t }}</dt>
+            <dd>{{ 'admin.items.dropOffHelp' | t: { count: a.minimumCohortSize } }}</dd>
           </div>
         </dl>
       }

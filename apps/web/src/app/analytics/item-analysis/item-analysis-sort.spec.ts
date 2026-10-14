@@ -10,6 +10,15 @@ describe('sortItemRows', () => {
     correctCount: 0,
     difficulty,
     discrimination,
+    time: { candidatesTimed: 30, averageSeconds: 20, status: 'Shown' },
+    dropOff: { reached: 30, droppedOff: 0, rate: 0 },
+  });
+
+  /** A row with its average time and its drop-off share set, the figures the two newest columns sort by. */
+  const withTimeAndDropOff = (position: number, averageSeconds: number | null, rate: number | null): ItemRowDto => ({
+    ...row(position, 0.5, 0),
+    time: { candidatesTimed: 30, averageSeconds, status: averageSeconds === null ? 'BelowMinimumCohort' : 'Shown' },
+    dropOff: { reached: 30, droppedOff: 0, rate },
   });
 
   const positions = (rows: ItemRowDto[]) => rows.map((r) => r.position);
@@ -32,6 +41,20 @@ describe('sortItemRows', () => {
 
     expect(positions(sortItemRows(rows, 'discrimination', 'asc'))).toEqual([4, 2, 1, 3]);
     expect(positions(sortItemRows(rows, 'discrimination', 'desc'))).toEqual([2, 4, 1, 3]);
+  });
+
+  it('sorts by average time, with a withheld average last whichever way the column runs', () => {
+    const rows = [withTimeAndDropOff(1, 40, 0), withTimeAndDropOff(2, null, 0), withTimeAndDropOff(3, 12.5, 0)];
+
+    expect(positions(sortItemRows(rows, 'time', 'asc'))).toEqual([3, 1, 2]);
+    expect(positions(sortItemRows(rows, 'time', 'desc'))).toEqual([1, 3, 2]);
+  });
+
+  it('sorts by the drop-off share, with a withheld share last whichever way the column runs', () => {
+    const rows = [withTimeAndDropOff(1, 20, 0.2), withTimeAndDropOff(2, 20, null), withTimeAndDropOff(3, 20, 0.05)];
+
+    expect(positions(sortItemRows(rows, 'dropOff', 'asc'))).toEqual([3, 1, 2]);
+    expect(positions(sortItemRows(rows, 'dropOff', 'desc'))).toEqual([1, 3, 2]);
   });
 
   it('keeps the exam order between rows that tie on the column', () => {

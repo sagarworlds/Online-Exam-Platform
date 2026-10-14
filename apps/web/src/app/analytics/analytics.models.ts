@@ -37,6 +37,43 @@ export interface ItemRowDto {
   difficulty: number | null;
   /** The upper group's share correct less the lower group's, from -1 to 1; null while withheld. */
   discrimination: number | null;
+  /** How long the counted candidates spent on the question, and whether its average is shown (FR-37). */
+  time: ItemTimeDto;
+  /** How far the counted candidates got to the question, and how many stopped at it (FR-37). */
+  dropOff: ItemDropOffDto;
+}
+
+/**
+ * Why a question's average time is shown or withheld (FR-37). The values are the API's enum names, as the API writes them: a withheld
+ * average is never read as zero.
+ */
+export type ItemTimeStatus = 'Shown' | 'BelowMinimumCohort' | 'NoTimes';
+
+/** How long the counted candidates spent on one question (FR-37). */
+export interface ItemTimeDto {
+  /** How many counted candidates have a reported time for the question; a candidate with none is not counted as zero. */
+  candidatesTimed: number;
+  /** The average time in seconds, to one decimal place; null unless the status is Shown. */
+  averageSeconds: number | null;
+  status: ItemTimeStatus;
+}
+
+/** How far the counted candidates got to one question, and where they stopped (FR-37 drop-off points). */
+export interface ItemDropOffDto {
+  /** How many counted candidates got as far as the question: they answered it or one after it. */
+  reached: number;
+  /** How many of them stopped at this question: the clock ended their attempt with later questions still unanswered. */
+  droppedOff: number;
+  /** The share of those who reached it and stopped here, from 0 to 1; null while fewer than the minimum cohort size reached it. */
+  rate: number | null;
+}
+
+/** The average time per question across an exam's counted candidates (FR-37). */
+export interface ExamTimeSummaryDto {
+  /** How many question answers across the counted candidates have a reported time. */
+  questionsTimed: number;
+  /** The average over those timed answers, in seconds, to one decimal place; null when none was timed. */
+  averageSeconds: number | null;
 }
 
 /** One band of an exam's score distribution (FR-37), in percent of the marks on each paper. */
@@ -72,6 +109,8 @@ export interface ExamItemAnalysisDto {
   groupSize: number;
   questions: ItemRowDto[];
   scores: ExamScoreSummaryDto;
+  /** The average time per question across the counted candidates (FR-37); with no figures while the results are held. */
+  time: ExamTimeSummaryDto;
 }
 
 /** How the candidate's answers fell under one topic label, across every released result (FR-36). */

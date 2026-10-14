@@ -11,10 +11,10 @@ namespace ExamPlatform.Modules.Analytics.Infrastructure;
 /// </summary>
 /// <remarks>
 /// The table is in the exam's order, and its header repeats on each page so every page reads alone. A question's text is the same short preview
-/// the CSV carries, so the two files list the same questions. The average time per question is in the CSV only: the table already fills the
-/// width between the margins, so another column would mean re-laying out every existing one. Hindi and Marathi questions are drawn with the
-/// embedded Devanagari font; a question with a character that is neither Latin nor Devanagari shows a question mark, and the report ends with
-/// a line that says so.
+/// the CSV carries, so the two files list the same questions. The average time per question and the drop-off figures are in the CSV only: the
+/// table already fills the width between the margins, so another column would mean re-laying out every existing one. Hindi and Marathi
+/// questions are drawn with the embedded Devanagari font; a question with a character that is neither Latin nor Devanagari shows a question
+/// mark, and the report ends with a line that says so.
 /// </remarks>
 public sealed class ItemAnalysisPdfWriter : IItemAnalysisPdfWriter
 {
