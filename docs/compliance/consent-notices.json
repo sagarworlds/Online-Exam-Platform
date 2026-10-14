@@ -14,7 +14,7 @@
     "OP-C Grievance officer name, e-mail and postal address, in every notice that asks for them (data map OP2).",
     "OP-D Retention periods, in the privacy notice (data map OP1).",
     "OP-E Processor list and locations, in the privacy and WhatsApp notices (data map section 4 and OP3, OP4).",
-    "OP-F Enforcement: the terms (rule 5), the privacy notice (children) and the guardian consent describe guardian consent before exam access. The code does not enforce this yet (data map gap G3, FR-43). Do not publish those texts until it is enforced, or change them.",
+    "OP-F Enforcement: the terms (rule 5), the privacy notice (children) and the guardian consent describe guardian consent before exam access. Since FR-43 (PR #267), an under-18 candidate cannot start an attempt until a guardian has confirmed the link to them. Nothing checks a guardian's consent to a notice version: EnsureConsentAsync has no caller (data map gap G3). Counsel decides whether the link confirmation meets what those texts promise. Do not publish them until it does, or change them.",
     "OP-G Hosting: decide the address or hash for each version and language before the first consent is recorded.",
     "OP-H Language in the ledger: one NoticeVersion holds one content reference, so Hindi needs its own row or a language field. Decide this in the seeding follow-up.",
     "OP-I Marathi: the interface has Marathi (mr), and no Marathi text is drafted (data map gap G15).",
@@ -32,7 +32,7 @@
       "effectiveFrom": "to be decided at publication",
       "contentReference": "to be decided (see ledgerMapping)",
       "reviewNotes": [
-        "Rule 5 describes the intended rule. The code does not block an under-18 candidate until a guardian has consented (FR-43, data map G3). Do not publish rule 5 as written until that is built, or change it.",
+        "Rule 5 describes the intended rule. An under-18 candidate cannot start an attempt until a guardian has confirmed the link to them (FR-43, PR #267). Nothing checks that the guardian has agreed to these terms (data map gap G3). Do not publish rule 5 as written until counsel confirms that the link confirmation is enough, or change it.",
         "Rule 6 needs the grievance officer (OP-C).",
         "The rules of use do not mention proctoring, which is not built (milestone M6)."
       ],
@@ -190,7 +190,7 @@
       "contentReference": "to be decided (see ledgerMapping)",
       "reviewNotes": [
         "The guardian gives this consent, so the ledger row has the guardian as given-by and the candidate as subject.",
-        "The text says exam access waits for consent. The code does not check it yet (data map G3, FR-43). Do not publish until it is enforced, or change the text.",
+        "The text says exam access waits for consent. Exam access waits for a guardian to confirm the link (FR-43, PR #267), but no consent record is checked (data map gap G3). Do not publish until counsel confirms that the link confirmation is enough, or change the text.",
         "Check that the guardian portal's consent and withdrawal path matches this text (FR-45).",
         "Consent request e-mails currently carry the candidate's e-mail address to the guardian. Counsel to confirm that this is acceptable."
       ],
