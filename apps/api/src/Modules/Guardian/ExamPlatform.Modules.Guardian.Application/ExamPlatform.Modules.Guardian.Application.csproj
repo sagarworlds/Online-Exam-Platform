@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
+    <ProjectReference Include="..\ExamPlatform.Modules.Guardian.Contracts\ExamPlatform.Modules.Guardian.Contracts.csproj" />
     <ProjectReference Include="..\ExamPlatform.Modules.Guardian.Domain\ExamPlatform.Modules.Guardian.Domain.csproj" />
   </ItemGroup>
 </Project>

@@ -6,6 +6,7 @@ using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
+using ExamPlatform.Modules.Guardian.Contracts;
 using ExamPlatform.Modules.Identity.Application;
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Contracts;
@@ -36,6 +37,9 @@ public class AttemptHandlerTests
     private readonly HashSet<Guid> _attemptsSatAsMinor = [];
     private bool _minorsEnabled;
 
+    // Whether a candidate under 18 has a guardian who confirmed the link (FR-43). Substitutes answer false by default, so a test sets it only when it matters.
+    private readonly IGuardianLinkDirectory _guardians = Substitute.For<IGuardianLinkDirectory>();
+
     private readonly QuestionSnapshot _q1 = Fixtures.Question("First");
     private readonly QuestionSnapshot _q2 = Fixtures.Question("Second");
     private readonly ExamSnapshot _exam;
@@ -63,7 +67,7 @@ public class AttemptHandlerTests
     private AttemptViewBuilder Views => new(_bank, _clock);
     private AttemptCloser Closer => new(_bank, _unitOfWork, _clock);
     private AttemptAccess Access => new(_attempts, _catalog, Closer, _clock);
-    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _accommodations, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _bank, _clock, _client);
+    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _accommodations, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _bank, _clock, _client, _ages, _guardians);
     private SaveAnswerHandler Save => new(Access, _bank, _unitOfWork, _clock);
     private ClearAnswerHandler Clear => new(Access, _unitOfWork, _clock);
     private MarkQuestionHandler Mark => new(Access, _unitOfWork, _clock);
@@ -84,6 +88,53 @@ public class AttemptHandlerTests
     }
 
     // ---- start -------------------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Start_ForACandidateUnder18WithNoConfirmedGuardian_IsRefused_AndNothingIsCreated()
+    {
+        _ages.IsMinorOnAsync(_candidate, Fixtures.Now, Arg.Any<CancellationToken>()).Returns(true);
+        _guardians.HasConfirmedGuardianAsync(_candidate, Arg.Any<CancellationToken>()).Returns(false);
+
+        var error = await Assert.ThrowsAsync<GuardianConsentRequiredError>(() => Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None));
+
+        Assert.Equal("guardian_consent_required", error.ErrorCode);
+        _attempts.DidNotReceive().Add(Arg.Any<Attempt>());
+    }
+
+    [Fact]
+    public async Task Start_ForACandidateUnder18WithAConfirmedGuardian_Starts()
+    {
+        _ages.IsMinorOnAsync(_candidate, Fixtures.Now, Arg.Any<CancellationToken>()).Returns(true);
+        _guardians.HasConfirmedGuardianAsync(_candidate, Arg.Any<CancellationToken>()).Returns(true);
+
+        var dto = await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
+
+        Assert.Equal(AttemptStatus.InProgress, dto.Status);
+    }
+
+    [Fact]
+    public async Task Start_ForAnAdult_DoesNotAskAboutAGuardian()
+    {
+        _ages.IsMinorOnAsync(_candidate, Fixtures.Now, Arg.Any<CancellationToken>()).Returns(false);
+
+        await Start.HandleAsync(_exam.Id, _candidate, true, CancellationToken.None);
+
+        await _guardians.DidNotReceive().HasConfirmedGuardianAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Resume_ForACandidateUnder18WithNoConfirmedGuardian_StillReturnsTheAttemptInProgress()
+    {
+        // The guardian rule guards the start. A guardian who revokes the link mid-exam must not throw the candidate out of an attempt begun.
+        var open = OpenAttempt();
+        _ages.IsMinorOnAsync(_candidate, Fixtures.Now, Arg.Any<CancellationToken>()).Returns(true);
+        _guardians.HasConfirmedGuardianAsync(_candidate, Arg.Any<CancellationToken>()).Returns(false);
+
+        var dto = await Start.HandleAsync(_exam.Id, _candidate, false, CancellationToken.None);
+
+        Assert.Equal(open.Id, dto.Id);
+        Assert.Equal(AttemptStatus.InProgress, dto.Status);
+    }
 
     [Fact]
     public async Task Start_CreatesAnAttemptWithTheServerDeadline_AndShowsTheQuestionsWithoutTheAnswerKey()

@@ -7,6 +7,8 @@ using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
+using ExamPlatform.Modules.Guardian.Contracts;
+using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Invite.Contracts;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using NSubstitute;
@@ -153,7 +155,7 @@ public class ExtraAttemptHandlerTests
 
     private AttemptViewBuilder Views => new(_bank, _clock);
     private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock);
-    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _accommodations, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _bank, _clock, _client);
+    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _accommodations, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _bank, _clock, _client, Substitute.For<ICandidateAgeDirectory>(), Substitute.For<IGuardianLinkDirectory>());
     private GrantExtraAttemptHandler Grant => new(_catalog, _roster, _attempts, _grants, _accommodations, _unitOfWork, _clock);
 
     /// <summary>An attempt the candidate has already made: submitted unless <paramref name="open"/>.</summary>

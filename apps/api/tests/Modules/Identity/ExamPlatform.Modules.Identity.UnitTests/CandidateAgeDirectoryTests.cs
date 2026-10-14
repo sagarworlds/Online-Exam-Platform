@@ -23,6 +23,33 @@ public class CandidateAgeDirectoryTests
             .Returns(Task.FromResult<IReadOnlyDictionary<Guid, DateOnly>>(users.ToDictionary(u => u.Id, u => u.Dob)));
 
     [Fact]
+    public async Task IsMinorOn_ForACandidateUnder18OnTheDay_IsTrue()
+    {
+        var candidate = Guid.NewGuid();
+        DatesOfBirth((candidate, new DateOnly(2010, 1, 1)));
+
+        Assert.True(await _directory.IsMinorOnAsync(candidate, Start, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task IsMinorOn_ForAnAdult_IsFalse()
+    {
+        var candidate = Guid.NewGuid();
+        DatesOfBirth((candidate, new DateOnly(1990, 1, 1)));
+
+        Assert.False(await _directory.IsMinorOnAsync(candidate, Start, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task IsMinorOn_ForACandidateWithNoDateOfBirthOnRecord_IsTrue()
+    {
+        // Fails safe, as the attempt question does: the platform cannot show this candidate is an adult.
+        DatesOfBirth();
+
+        Assert.True(await _directory.IsMinorOnAsync(Guid.NewGuid(), Start, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task AnAttemptSatByAMinor_IsReported()
     {
         var candidate = Guid.NewGuid();

@@ -55,6 +55,7 @@
   </Folder>
   <Folder Name="/src/Modules/Guardian/">
     <Project Path="src/Modules/Guardian/ExamPlatform.Modules.Guardian.Application/ExamPlatform.Modules.Guardian.Application.csproj" />
+    <Project Path="src/Modules/Guardian/ExamPlatform.Modules.Guardian.Contracts/ExamPlatform.Modules.Guardian.Contracts.csproj" />
     <Project Path="src/Modules/Guardian/ExamPlatform.Modules.Guardian.Domain/ExamPlatform.Modules.Guardian.Domain.csproj" />
     <Project Path="src/Modules/Guardian/ExamPlatform.Modules.Guardian.Endpoints/ExamPlatform.Modules.Guardian.Endpoints.csproj" />
     <Project Path="src/Modules/Guardian/ExamPlatform.Modules.Guardian.Infrastructure/ExamPlatform.Modules.Guardian.Infrastructure.csproj" />
