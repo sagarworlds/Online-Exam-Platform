@@ -3,6 +3,8 @@ using ExamPlatform.Modules.ExamRuntime.Application.Dtos;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
+using ExamPlatform.Modules.Guardian.Contracts;
+using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Invite.Contracts;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
@@ -23,7 +25,9 @@ public sealed class StartAttemptHandler(
     PaperDrawer paperDrawer,
     IQuestionBank questionBank,
     Clock clock,
-    IClientInfo clientInfo)
+    IClientInfo clientInfo,
+    ICandidateAgeDirectory ages,
+    IGuardianLinkDirectory guardians)
 {
     /// <summary>
     /// Starts the attempt. Calling it again while an attempt is open is how a candidate resumes: it returns that attempt with its
@@ -42,6 +46,7 @@ public sealed class StartAttemptHandler(
     /// <exception cref="ExamNotOpenError">The window has not opened yet.</exception>
     /// <exception cref="ExamClosedError">The window, or the late-entry cutoff, has passed.</exception>
     /// <exception cref="PaperCannotBeDrawnError">A draw rule of the exam finds fewer questions than it needs.</exception>
+    /// <exception cref="GuardianConsentRequiredError">The candidate is under 18 and no guardian has confirmed the link to them.</exception>
     /// <exception cref="ConcurrencyConflictError">Another request started the same attempt at the same moment.</exception>
     public async Task<AttemptDto> HandleAsync(Guid examId, Guid candidateId, bool instructionsAcknowledged, CancellationToken cancellationToken)
     {
@@ -72,6 +77,10 @@ public sealed class StartAttemptHandler(
         if (!AttemptAllowance.CanStartAnother(exam.MaxAttempts, theirs.Count, granted))
             return await views.BuildAsync(latest!, exam.For(latest!), cancellationToken);
 
+        // Checked after the allowance, so "nothing left" is still answered first, and before the instructions and the time checks, so a
+        // minor without a guardian is told why they cannot start.
+        await EnsureMinorHasGuardianAsync(candidateId, cancellationToken);
+
         // Checked here, after the cases that need no new attempt, so resuming and "nothing left" stay safe to repeat. The server
         // enforces it, not just the page, because the acknowledgment is the point of FR-17 and a client can be bypassed.
         if (!instructionsAcknowledged)
@@ -97,6 +106,20 @@ public sealed class StartAttemptHandler(
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await views.BuildAsync(attempt, exam.For(attempt), cancellationToken);
+    }
+
+    /// <summary>
+    /// Refuses a new attempt by a candidate who is under 18 today unless a guardian has confirmed the link to them. The age rule, and its
+    /// fail-safe for a candidate with no date of birth on record, belong to Identity.
+    /// </summary>
+    /// <exception cref="GuardianConsentRequiredError">The candidate is a minor and no guardian has confirmed the link.</exception>
+    private async Task EnsureMinorHasGuardianAsync(Guid candidateId, CancellationToken cancellationToken)
+    {
+        if (!await ages.IsMinorOnAsync(candidateId, clock.UtcNow, cancellationToken))
+            return;
+
+        if (!await guardians.HasConfirmedGuardianAsync(candidateId, cancellationToken))
+            throw new GuardianConsentRequiredError();
     }
 
     private Attempt Begin(ExamSnapshot exam, Guid candidateId, int number)

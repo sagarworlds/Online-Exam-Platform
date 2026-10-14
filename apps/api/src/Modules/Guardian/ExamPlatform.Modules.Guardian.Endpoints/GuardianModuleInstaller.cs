@@ -2,6 +2,7 @@ using ExamPlatform.Modules.Guardian.Application;
 using ExamPlatform.Modules.Guardian.Application.Commands;
 using ExamPlatform.Modules.Guardian.Application.Ports;
 using ExamPlatform.Modules.Guardian.Application.Queries;
+using ExamPlatform.Modules.Guardian.Contracts;
 using ExamPlatform.Modules.Guardian.Infrastructure;
 using ExamPlatform.Modules.Guardian.Infrastructure.Email;
 using ExamPlatform.SharedKernel.Application;
@@ -28,6 +29,7 @@ public sealed class GuardianModuleInstaller : IModuleInstaller
 
         services.AddScoped<IGuardianRepository, EFGuardianRepository>();
         services.AddScoped<IGuardianUnitOfWork, GuardianUnitOfWork>();
+        services.AddScoped<IGuardianLinkDirectory, GuardianLinkDirectory>();
 
         services.AddScoped<CreateGuardianHandler>();
         services.AddScoped<IGuardianConsentNotifier, SmtpGuardianConsentNotifier>();

@@ -23,9 +23,7 @@ public sealed class CandidateAgeDirectory(IUserRepository users) : ICandidateAge
         var minors = new HashSet<Guid>();
         foreach (var attempt in attempts)
         {
-            // A candidate with no date of birth on record is a minor for this purpose: see the contract's remarks.
-            if (!datesOfBirth.TryGetValue(attempt.CandidateId, out var dateOfBirth)
-                || User.BandOn(dateOfBirth, attempt.StartedAtUtc) == AgeBand.Minor)
+            if (IsMinorOn(DateOfBirthOf(datesOfBirth, attempt.CandidateId), attempt.StartedAtUtc))
             {
                 minors.Add(attempt.AttemptId);
             }
@@ -33,4 +31,20 @@ public sealed class CandidateAgeDirectory(IUserRepository users) : ICandidateAge
 
         return minors;
     }
+
+    /// <inheritdoc />
+    public async Task<bool> IsMinorOnAsync(Guid candidateId, DateTime onUtc, CancellationToken cancellationToken)
+    {
+        var datesOfBirth = await users.ListDatesOfBirthAsync([candidateId], cancellationToken);
+        return IsMinorOn(DateOfBirthOf(datesOfBirth, candidateId), onUtc);
+    }
+
+    // Null when no date of birth is on record. Not the dictionary's default value: that would be 0001-01-01, which reads as an adult.
+    private static DateOnly? DateOfBirthOf(IReadOnlyDictionary<Guid, DateOnly> datesOfBirth, Guid candidateId) =>
+        datesOfBirth.TryGetValue(candidateId, out var dateOfBirth) ? dateOfBirth : null;
+
+    // The one place the minors rule is judged. A candidate with no date of birth on record is a minor, because the platform cannot show
+    // they are an adult, so the rule fails safe; see the contract's remarks.
+    private static bool IsMinorOn(DateOnly? dateOfBirth, DateTime onUtc) =>
+        dateOfBirth is not { } known || User.BandOn(known, onUtc) == AgeBand.Minor;
 }
