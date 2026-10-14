@@ -21,7 +21,8 @@ public sealed class AttemptRescorer(
     IExamRuntimeUnitOfWork unitOfWork,
     IRequestContext requestContext,
     Clock clock,
-    IInAppNotifier inAppNotifier)
+    IInAppNotifier inAppNotifier,
+    IProctorPolicy proctorPolicy)
     : IAttemptRescorer
 {
     /// <inheritdoc />
@@ -48,7 +49,7 @@ public sealed class AttemptRescorer(
             foreach (var attempt in group)
             {
                 // The exam as this attempt actually sat it (its drawn paper, if it drew one), under the now-corrected key.
-                var examForAttempt = exam.For(attempt);
+                var examForAttempt = exam.For(attempt, proctorPolicy);
                 // Every other question stays at the version the attempt sat; only the corrected one moves to its new version (FR-7).
                 if (corrected is not null && attempt.QuestionVersions.Count > 0 && attempt.QuestionVersionOf(questionId) != corrected.VersionNumber)
                 {

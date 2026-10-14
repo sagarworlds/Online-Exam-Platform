@@ -505,8 +505,32 @@ public class Exam : AggregateRoot
         if (limit is < ExamConfig.NoViolationLimit or > ExamConfig.MostViolations)
             throw new InvalidExamConfigError($"The violation limit is from {ExamConfig.NoViolationLimit} (not watched) to {ExamConfig.MostViolations}.");
 
+        // The warning point goes back to its default: one the author chose for the old limit may be too late for this one.
         // The nested MarkingScheme is copied as well, for the reason given in Schedule.
-        Config = Config with { FocusViolationLimit = limit, MarkingScheme = Config.MarkingScheme with { } };
+        Config = Config with { FocusViolationLimit = limit, FocusWarnAt = null, MarkingScheme = Config.MarkingScheme with { } };
+        UpdatedAt = nowUtc;
+    }
+
+    /// <summary>
+    /// Sets the departure from which a candidate is first warned, separately from the limit at which the attempt ends (FR-22). Like the limit
+    /// it may change after publishing, because it changes nothing a candidate is asked or scored, only when they are told.
+    /// </summary>
+    /// <param name="warnAt">The departure to warn from: from the first to one before the limit, see <see cref="FocusWarningPoint.IsAllowed"/>.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The exam does not watch for departures, or the warning point is outside the allowed range.</exception>
+    public void SetFocusWarnAt(int warnAt, DateTime nowUtc)
+    {
+        EnsureNotArchived();
+
+        var limit = Config.FocusViolationLimit;
+        if (limit <= ExamConfig.NoViolationLimit)
+            throw new InvalidExamConfigError("Set a violation limit first; an exam that does not watch for departures has no warning point.");
+        if (!FocusWarningPoint.IsAllowed(warnAt, limit))
+            throw new InvalidExamConfigError($"The warning point must be from 1 to {FocusWarningPoint.LatestWarnAt(limit)} for a limit of {limit}.");
+
+        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
+        Config = Config with { FocusWarnAt = warnAt, MarkingScheme = Config.MarkingScheme with { } };
         UpdatedAt = nowUtc;
     }
 
@@ -567,6 +591,7 @@ public class Exam : AggregateRoot
         {
             ContentProtection = profile.ContentProtection,
             FocusViolationLimit = profile.FocusViolationLimit,
+            FocusWarnAt = profile.FocusWarnAt,
             MarkingScheme = Config.MarkingScheme with { },
         };
         UpdatedAt = nowUtc;

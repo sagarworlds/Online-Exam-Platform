@@ -33,7 +33,7 @@ public class AttemptModerationTests
     }
 
     private AttemptCloser Closer => new(_bank, _unitOfWork, _clock);
-    private StaffAttemptAccess Access => new(_attempts, _catalog, new AttemptAccess(_attempts, _catalog, Closer, _clock));
+    private StaffAttemptAccess Access => new(_attempts, _catalog, new AttemptAccess(_attempts, _catalog, Closer, _clock, new ProctorPolicy()), new ProctorPolicy());
 
     private Attempt OpenAttempt(int minutes = 30)
     {
@@ -390,7 +390,7 @@ public class AttemptModerationTests
         var attempt = OpenAttempt();
         attempt.Submit(Fixtures.Now.AddMinutes(2), 1, 1);
         attempt.Invalidate(_admin, "Cheating", Fixtures.Now.AddMinutes(3));
-        var access = new AttemptAccess(_attempts, _catalog, Closer, _clock);
+        var access = new AttemptAccess(_attempts, _catalog, Closer, _clock, new ProctorPolicy());
 
         await Assert.ThrowsAsync<AttemptInvalidatedError>(
             () => new GetAttemptReviewHandler(access, new AttemptReviewBuilder(_bank, _clock), Substitute.For<IDisputeRepository>(), new DisputePolicy(7), _clock).HandleAsync(attempt.Id, _candidate, CancellationToken.None));
@@ -402,7 +402,7 @@ public class AttemptModerationTests
         var attempt = OpenAttempt();
         attempt.Warn("First", _admin, Fixtures.Now.AddMinutes(1));
         attempt.Pause(Fixtures.Now.AddMinutes(2));
-        var access = new AttemptAccess(_attempts, _catalog, Closer, _clock);
+        var access = new AttemptAccess(_attempts, _catalog, Closer, _clock, new ProctorPolicy());
 
         var status = await new GetAttemptStatusHandler(access, _clock, new FakeClientInfo(), _unitOfWork).HandleAsync(attempt.Id, _candidate, CancellationToken.None);
 
@@ -417,7 +417,7 @@ public class AttemptModerationTests
     public async Task TheHeartbeat_OfSomeoneElsesAttempt_IsNotFound()
     {
         var attempt = OpenAttempt();
-        var access = new AttemptAccess(_attempts, _catalog, Closer, _clock);
+        var access = new AttemptAccess(_attempts, _catalog, Closer, _clock, new ProctorPolicy());
 
         await Assert.ThrowsAsync<AttemptNotFoundError>(
             () => new GetAttemptStatusHandler(access, _clock, new FakeClientInfo(), _unitOfWork).HandleAsync(attempt.Id, Guid.NewGuid(), CancellationToken.None));
@@ -429,7 +429,7 @@ public class AttemptModerationTests
         var attempt = OpenAttempt(minutes: 30);
         attempt.Pause(Fixtures.Now.AddMinutes(10));
         _clock.UtcNow = Fixtures.Now.AddHours(3);
-        var access = new AttemptAccess(_attempts, _catalog, Closer, _clock);
+        var access = new AttemptAccess(_attempts, _catalog, Closer, _clock, new ProctorPolicy());
 
         var (loaded, _) = await access.LoadOwnedAsync(attempt.Id, _candidate, CancellationToken.None);
 

@@ -31,7 +31,7 @@ public class GetLeaderboardHandlerTests
 
     private ExamSnapshot _exam = null!;
 
-    private GetLeaderboardHandler Handler => new(_catalog, _enrollments, _attempts, _batches, _names, new SubjectMarks(_bank, _subjects), _clock);
+    private GetLeaderboardHandler Handler => new(_catalog, _enrollments, _attempts, _batches, _names, new SubjectMarks(_bank, _subjects, new ProctorPolicy()), _clock);
 
     public GetLeaderboardHandlerTests()
     {

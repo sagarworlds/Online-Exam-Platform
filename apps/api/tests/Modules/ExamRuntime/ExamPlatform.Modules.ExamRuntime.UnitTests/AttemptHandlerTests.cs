@@ -66,8 +66,8 @@ public class AttemptHandlerTests
 
     private AttemptViewBuilder Views => new(_bank, _clock);
     private AttemptCloser Closer => new(_bank, _unitOfWork, _clock);
-    private AttemptAccess Access => new(_attempts, _catalog, Closer, _clock);
-    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _accommodations, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _bank, _clock, _client, _ages, _guardians);
+    private AttemptAccess Access => new(_attempts, _catalog, Closer, _clock, new ProctorPolicy());
+    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _accommodations, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _bank, _clock, _client, _ages, _guardians, new ProctorPolicy());
     private SaveAnswerHandler Save => new(Access, _bank, _unitOfWork, _clock);
     private ClearAnswerHandler Clear => new(Access, _unitOfWork, _clock);
     private MarkQuestionHandler Mark => new(Access, _unitOfWork, _clock);
@@ -751,7 +751,7 @@ public class AttemptHandlerTests
         _catalog.FindPublishedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns([_exam]);
         _attempts.ListForCandidateAsync(_candidate, Arg.Any<CancellationToken>()).Returns([attempt]);
 
-        var exams = await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _accommodations, _clock).HandleAsync(_candidate, CancellationToken.None);
+        var exams = await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _accommodations, _clock, new ProctorPolicy()).HandleAsync(_candidate, CancellationToken.None);
 
         var item = Assert.Single(exams);
         Assert.Equal(attempt.Id, item.AttemptId);
@@ -768,7 +768,7 @@ public class AttemptHandlerTests
         _catalog.FindPublishedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns([_exam]);
         _attempts.ListForCandidateAsync(_candidate, Arg.Any<CancellationToken>()).Returns([]);
 
-        var exams = await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _accommodations, _clock).HandleAsync(_candidate, CancellationToken.None);
+        var exams = await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _accommodations, _clock, new ProctorPolicy()).HandleAsync(_candidate, CancellationToken.None);
 
         var item = Assert.Single(exams);
         Assert.Null(item.AttemptId);

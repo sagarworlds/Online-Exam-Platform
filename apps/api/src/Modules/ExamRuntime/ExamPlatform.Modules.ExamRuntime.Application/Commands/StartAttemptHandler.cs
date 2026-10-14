@@ -27,7 +27,8 @@ public sealed class StartAttemptHandler(
     Clock clock,
     IClientInfo clientInfo,
     ICandidateAgeDirectory ages,
-    IGuardianLinkDirectory guardians)
+    IGuardianLinkDirectory guardians,
+    IProctorPolicy proctorPolicy)
 {
     /// <summary>
     /// Starts the attempt. Calling it again while an attempt is open is how a candidate resumes: it returns that attempt with its
@@ -63,7 +64,7 @@ public sealed class StartAttemptHandler(
         // closed here and its result returned, and starting the next is a separate, deliberate request.
         if (latest is { Status: AttemptStatus.InProgress })
         {
-            var theirExam = exam.For(latest);
+            var theirExam = exam.For(latest, proctorPolicy);
             await access.CloseIfExpiredAsync(latest, theirExam, cancellationToken);
 
             // Resuming from another address or device is exactly what multi-login detection looks for (FR-26): note it, and keep it.
@@ -75,7 +76,7 @@ public sealed class StartAttemptHandler(
 
         var granted = await grants.CountAsync(examId, candidateId, cancellationToken);
         if (!AttemptAllowance.CanStartAnother(exam.MaxAttempts, theirs.Count, granted))
-            return await views.BuildAsync(latest!, exam.For(latest!), cancellationToken);
+            return await views.BuildAsync(latest!, exam.For(latest!, proctorPolicy), cancellationToken);
 
         // Checked after the allowance, so "nothing left" is still answered first, and before the instructions and the time checks, so a
         // minor without a guardian is told why they cannot start.
@@ -99,13 +100,13 @@ public sealed class StartAttemptHandler(
             attempt.SetPaper(await paperDrawer.DrawAsync(exam, cancellationToken));
 
         // Which version of each question this attempt sits is fixed now, so editing a question later cannot change this attempt (FR-7).
-        var paperIds = exam.For(attempt).Sections.SelectMany(s => s.QuestionIds).Distinct().ToList();
+        var paperIds = exam.For(attempt, proctorPolicy).Sections.SelectMany(s => s.QuestionIds).Distinct().ToList();
         attempt.PinQuestionVersions((await questionBank.GetAsync(paperIds, cancellationToken)).ToDictionary(q => q.Id, q => q.VersionNumber));
 
         attempts.Add(attempt);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return await views.BuildAsync(attempt, exam.For(attempt), cancellationToken);
+        return await views.BuildAsync(attempt, exam.For(attempt, proctorPolicy), cancellationToken);
     }
 
     /// <summary>

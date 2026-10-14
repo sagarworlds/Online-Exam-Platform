@@ -17,7 +17,7 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 /// attempt. Each question is read at the version its attempt sat, so a key corrected after a candidate sat the exam does not change how
 /// that candidate's answer is judged.
 /// </remarks>
-public sealed class ExamResponseReader(IAttemptRepository attempts, IExamCatalog catalog, IQuestionBank questionBank, Clock clock) : IExamResponseReader
+public sealed class ExamResponseReader(IAttemptRepository attempts, IExamCatalog catalog, IQuestionBank questionBank, Clock clock, IProctorPolicy proctorPolicy) : IExamResponseReader
 {
     /// <inheritdoc />
     public async Task<ExamResponses?> ReadAsync(Guid examId, CancellationToken cancellationToken)
@@ -31,7 +31,7 @@ public sealed class ExamResponseReader(IAttemptRepository attempts, IExamCatalog
             return new ExamResponses(exam.Id, exam.Name, ResultsReleased: false, QuestionIds: OrderOf(exam, []), Attempts: []);
 
         var counted = await attempts.ListCountedForExamAsync(examId, cancellationToken);
-        var papers = counted.Select(attempt => (Attempt: attempt, Exam: exam.For(attempt))).ToList();
+        var papers = counted.Select(attempt => (Attempt: attempt, Exam: exam.For(attempt, proctorPolicy))).ToList();
         var questions = await ReadQuestionsAsync(papers, cancellationToken);
 
         var responses = papers

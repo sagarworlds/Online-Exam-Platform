@@ -56,7 +56,7 @@ public class AttemptResultTests
         _attempts.ListBestScoresOfOtherCandidatesAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<decimal>>(bests));
 
-    private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock);
+    private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock, new ProctorPolicy());
     private GetAttemptResultHandler Handler => new(Access, new AttemptReviewBuilder(_bank, _clock), _attempts, _clock);
 
     public AttemptResultTests()

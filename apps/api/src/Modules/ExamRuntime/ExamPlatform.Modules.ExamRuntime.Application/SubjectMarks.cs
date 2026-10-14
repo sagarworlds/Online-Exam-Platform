@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
+using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
 using ExamPlatform.Modules.QuestionBank.Contracts;
@@ -9,7 +10,7 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 /// The marks each attempt earned in each subject of the exam (FR-35): the questions are grouped by the subject of their book, and marked the
 /// same way the review marks them, so a subject board and the overall board cannot disagree about a question.
 /// </summary>
-public sealed class SubjectMarks(IQuestionBank questionBank, IQuestionSubjects questionSubjects)
+public sealed class SubjectMarks(IQuestionBank questionBank, IQuestionSubjects questionSubjects, IProctorPolicy proctorPolicy)
 {
     /// <summary>Marks the given attempts by subject.</summary>
     /// <param name="exam">The exam, whose marking scheme applies.</param>
@@ -20,7 +21,7 @@ public sealed class SubjectMarks(IQuestionBank questionBank, IQuestionSubjects q
     public async Task<SubjectTable> BuildAsync(ExamSnapshot exam, IReadOnlyList<Attempt> attempts, CancellationToken cancellationToken)
     {
         // Each attempt is marked against its own paper, so a drawn paper is read as the candidate sat it.
-        var papers = attempts.ToDictionary(a => a.Id, a => (Attempt: a, Exam: exam.For(a)));
+        var papers = attempts.ToDictionary(a => a.Id, a => (Attempt: a, Exam: exam.For(a, proctorPolicy)));
         var questionIds = papers.Values.SelectMany(p => p.Exam.Sections.SelectMany(s => s.QuestionIds)).Distinct().ToList();
         var subjectOf = await questionSubjects.GetSubjectsAsync(questionIds, cancellationToken);
         var snapshots = await ReadPapersAsync(papers.Values, questionBank, cancellationToken);

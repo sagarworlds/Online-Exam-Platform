@@ -44,6 +44,10 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// <param name="PassingPercentage">
 /// The share of the total marks a candidate needs to pass (FR-34), from 1 to 100; null when the exam has no pass mark, so nothing is judged a pass.
 /// </param>
+/// <param name="FocusWarnAt">
+/// The departure from which a candidate is first warned (FR-22), or null for the default for <paramref name="FocusViolationLimit"/>.
+/// The attempt still ends at the limit; this only moves the warning.
+/// </param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -68,7 +72,8 @@ public sealed record ExamSnapshot(
     int FocusViolationLimit = 0,
     IReadOnlyList<string>? ProctoringNotice = null,
     string? Instructions = null,
-    int? PassingPercentage = null);
+    int? PassingPercentage = null,
+    int? FocusWarnAt = null);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>

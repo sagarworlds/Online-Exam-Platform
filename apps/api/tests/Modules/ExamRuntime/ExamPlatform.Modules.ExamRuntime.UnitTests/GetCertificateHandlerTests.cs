@@ -47,7 +47,7 @@ public class GetCertificateHandlerTests
             .Returns(Task.FromResult<IReadOnlyDictionary<Guid, string>>(name is null ? new Dictionary<Guid, string>() : new Dictionary<Guid, string> { [_candidate] = name }));
 
     private GetCertificateHandler Handler =>
-        new(new AttemptAccess(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock), _names, _clock);
+        new(new AttemptAccess(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock, new ProctorPolicy()), _names, _clock);
 
     public GetCertificateHandlerTests()
     {

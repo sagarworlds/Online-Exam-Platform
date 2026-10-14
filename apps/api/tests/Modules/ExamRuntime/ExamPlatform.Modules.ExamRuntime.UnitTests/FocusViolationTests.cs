@@ -32,7 +32,7 @@ public class FocusViolationTests
     private RecordFocusViolationHandler Handler()
     {
         var closer = new AttemptCloser(_bank, _unitOfWork, _clock);
-        return new RecordFocusViolationHandler(new AttemptAccess(_attempts, _catalog, closer, _clock), closer, _unitOfWork, _clock);
+        return new RecordFocusViolationHandler(new AttemptAccess(_attempts, _catalog, closer, _clock, new ProctorPolicy()), closer, _unitOfWork, _clock);
     }
 
     private Attempt OpenAttempt()
@@ -109,6 +109,35 @@ public class FocusViolationTests
         Assert.Equal(new(1, 3, false, 2), result);
         Assert.Equal(AttemptStatus.InProgress, attempt.Status);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AConfiguredWarningPoint_WarnsFromThatDeparture_NotFromTheDefault()
+    {
+        // The default for a limit of 5 is the third departure; the author chose the second, so the candidate is warned one departure sooner.
+        _exam = _exam with { FocusViolationLimit = 5, FocusWarnAt = 2 };
+        var attempt = OpenAttempt();
+
+        var result = await Handler().HandleAsync(attempt.Id, _candidate, FocusViolationKind.TabHidden, CancellationToken.None);
+        var second = await Handler().HandleAsync(attempt.Id, _candidate, FocusViolationKind.TabHidden, CancellationToken.None);
+
+        Assert.Equal(new(1, 5, false, 2), result);
+        Assert.Equal(new(2, 5, false, 2), second);
+    }
+
+    [Fact]
+    public async Task AConfiguredWarningPoint_DoesNotMoveWhereTheAttemptEnds()
+    {
+        _exam = _exam with { FocusViolationLimit = 4, FocusWarnAt = 1 };
+        var attempt = OpenAttempt();
+        attempt.RecordFocusViolation(FocusViolationKind.TabHidden, Fixtures.Now);
+        attempt.RecordFocusViolation(FocusViolationKind.TabHidden, Fixtures.Now);
+        attempt.RecordFocusViolation(FocusViolationKind.TabHidden, Fixtures.Now);
+
+        var result = await Handler().HandleAsync(attempt.Id, _candidate, FocusViolationKind.TabHidden, CancellationToken.None);
+
+        Assert.Equal(new(4, 4, true, 1), result);
+        Assert.Equal(AttemptStatus.Submitted, attempt.Status);
     }
 
     [Fact]

@@ -480,7 +480,7 @@ public class AttemptRequestHandlerTests
         _requests.LatestForCandidateAsync(_candidate, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyDictionary<Guid, AttemptRequest>>(latest is null ? new Dictionary<Guid, AttemptRequest>() : new Dictionary<Guid, AttemptRequest> { [_exam.Id] = latest }));
 
-        return Assert.Single(await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, _requests, _accommodations, _clock).HandleAsync(_candidate, CancellationToken.None));
+        return Assert.Single(await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, _requests, _accommodations, _clock, new ProctorPolicy()).HandleAsync(_candidate, CancellationToken.None));
     }
 
     [Fact]

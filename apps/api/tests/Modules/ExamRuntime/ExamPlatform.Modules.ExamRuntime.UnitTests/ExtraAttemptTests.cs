@@ -154,8 +154,8 @@ public class ExtraAttemptHandlerTests
     }
 
     private AttemptViewBuilder Views => new(_bank, _clock);
-    private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock);
-    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _accommodations, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _bank, _clock, _client, Substitute.For<ICandidateAgeDirectory>(), Substitute.For<IGuardianLinkDirectory>());
+    private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock, new ProctorPolicy());
+    private StartAttemptHandler Start => new(_catalog, _enrollments, _attempts, _grants, _accommodations, _unitOfWork, Access, Views, new PaperDrawer(_bank, new RandomQuestionPicker()), _bank, _clock, _client, Substitute.For<ICandidateAgeDirectory>(), Substitute.For<IGuardianLinkDirectory>(), new ProctorPolicy());
     private GrantExtraAttemptHandler Grant => new(_catalog, _roster, _attempts, _grants, _accommodations, _unitOfWork, _clock);
 
     /// <summary>An attempt the candidate has already made: submitted unless <paramref name="open"/>.</summary>
@@ -545,7 +545,7 @@ public class ExtraAttemptHandlerTests
         _grants.CountsForCandidateAsync(_candidate, Arg.Any<CancellationToken>())
             .Returns(granted > 0 ? new Dictionary<Guid, int> { [_exam.Id] = granted } : new Dictionary<Guid, int>());
 
-        return Assert.Single(await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _accommodations, _clock).HandleAsync(_candidate, CancellationToken.None));
+        return Assert.Single(await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _accommodations, _clock, new ProctorPolicy()).HandleAsync(_candidate, CancellationToken.None));
     }
 
     [Fact]

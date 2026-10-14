@@ -53,6 +53,8 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("GET", "/v1/proctoring-profiles", RbacCatalog.PermissionCodes.ExamRead, null),
         new("PUT", "/v1/exams/{examId:guid}/focus-violation-limit", RbacCatalog.PermissionCodes.ExamManage,
             new { focusViolationLimit = 3 }),
+        new("PUT", "/v1/exams/{examId:guid}/focus-warn-at", RbacCatalog.PermissionCodes.ExamManage,
+            new { focusWarnAt = 2 }),
         new("PUT", "/v1/exams/{examId:guid}/passing-percentage", RbacCatalog.PermissionCodes.ExamManage,
             new { passingPercentage = 40 }),
         new("DELETE", "/v1/exams/{examId:guid}/passing-percentage", RbacCatalog.PermissionCodes.ExamManage, null),

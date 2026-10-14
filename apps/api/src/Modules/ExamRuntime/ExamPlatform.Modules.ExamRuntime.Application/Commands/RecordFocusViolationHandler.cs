@@ -40,7 +40,8 @@ public sealed class RecordFocusViolationHandler(AttemptAccess access, AttemptClo
         }
 
         var count = attempt.RecordFocusViolation(kind, clock.UtcNow);
-        var warnAt = FocusWarningPoint.For(limit);
+        // The warning and the end are set apart: the author's warning point if they chose one, otherwise the default for the limit.
+        var warnAt = FocusWarningPoint.Effective(limit, exam.FocusWarnAt);
         if (count >= limit)
         {
             // Saves the violation together with the close, so the attempt never ends without the record that ended it.

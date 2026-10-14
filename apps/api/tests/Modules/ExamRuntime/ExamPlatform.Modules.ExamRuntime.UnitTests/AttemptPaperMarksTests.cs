@@ -36,7 +36,7 @@ public class AttemptPaperMarksTests
         _attempts.GetByIdAsync(_attempt.Id, Arg.Any<CancellationToken>()).Returns(_attempt);
     }
 
-    private GetAttemptPaperHandler Handler => new(_catalog, _attempts, _bank);
+    private GetAttemptPaperHandler Handler => new(_catalog, _attempts, _bank, new ProctorPolicy());
 
     private async Task<AttemptPaperQuestionDto> QuestionAsync(Guid id)
     {

@@ -521,6 +521,29 @@ public sealed class SetFocusViolationLimitHandler(IExamRepository repository, IE
     }
 }
 
+/// <summary>Handles <see cref="SetFocusWarnAtCommand"/>.</summary>
+public sealed class SetFocusWarnAtHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
+{
+    /// <summary>Sets the departure from which a candidate is first warned. It must come after the first departure and before the one that ends the attempt.</summary>
+    /// <param name="command">The new warning point.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamArchivedError">The exam is archived.</exception>
+    /// <exception cref="InvalidExamConfigError">The warning point was not sent, the exam does not watch, or the point is outside the allowed range.</exception>
+    public async Task<ExamDto> HandleAsync(SetFocusWarnAtCommand command, CancellationToken cancellationToken)
+    {
+        // The same rule as the limit: a body without the number is a 400 about the missing value, never a silent default.
+        if (command.FocusWarnAt is null)
+            throw new InvalidExamConfigError("Send the departure to warn from.");
+
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.SetFocusWarnAt(command.FocusWarnAt.Value, clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await dtos.ToDtoAsync(exam, cancellationToken);
+    }
+}
+
 /// <summary>Handles <see cref="SetPassingPercentageCommand"/>.</summary>
 public sealed class SetPassingPercentageHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, ExamDtoFactory dtos, Clock clock)
 {

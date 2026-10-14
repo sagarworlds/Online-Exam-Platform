@@ -1,5 +1,6 @@
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.ExamRuntime.Application.Dtos;
+using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
 using ExamPlatform.SharedKernel.Application;
@@ -11,7 +12,7 @@ namespace ExamPlatform.Modules.ExamRuntime.Application.Queries;
 /// attempt is built in memory, handed to the same view builder a real attempt goes through, and dropped, so a preview cannot create an
 /// attempt, use up anybody's allowance, appear in a list, or change a score.
 /// </summary>
-public sealed class PreviewExamHandler(IExamCatalog catalog, AttemptViewBuilder views, PaperDrawer paperDrawer, Clock clock)
+public sealed class PreviewExamHandler(IExamCatalog catalog, AttemptViewBuilder views, PaperDrawer paperDrawer, Clock clock, IProctorPolicy proctorPolicy)
 {
     /// <summary>How long a preview runs when the exam has no time limit; it only sets the countdown the page shows.</summary>
     private static readonly TimeSpan UntimedPreview = TimeSpan.FromHours(24);
@@ -36,6 +37,6 @@ public sealed class PreviewExamHandler(IExamCatalog catalog, AttemptViewBuilder 
         if (PaperDrawer.Draws(exam))
             attempt.SetPaper(await paperDrawer.DrawAsync(exam, cancellationToken));
 
-        return await views.BuildAsync(attempt, exam.For(attempt), cancellationToken);
+        return await views.BuildAsync(attempt, exam.For(attempt, proctorPolicy), cancellationToken);
     }
 }

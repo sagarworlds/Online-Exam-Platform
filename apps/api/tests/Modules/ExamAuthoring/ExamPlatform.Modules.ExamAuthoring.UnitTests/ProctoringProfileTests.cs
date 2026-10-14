@@ -6,6 +6,7 @@ using ExamPlatform.Modules.ExamAuthoring.Domain;
 using ExamPlatform.Modules.ExamAuthoring.Domain.Exceptions;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
+using ExamPlatform.SharedKernel.Domain;
 using NSubstitute;
 
 namespace ExamPlatform.Modules.ExamAuthoring.UnitTests;
@@ -55,7 +56,14 @@ public class ProctoringProfileTests
     [InlineData(false, 3, ProctoringProfiles.Custom)]
     [InlineData(true, 3, ProctoringProfiles.Custom)]
     public void TheProfileOfAnExam_IsWhicheverOneItsSettingsMatch_ElseCustom(bool protection, int limit, string expected) =>
-        Assert.Equal(expected, ProctoringProfiles.IdFor(protection, limit));
+        Assert.Equal(expected, ProctoringProfiles.IdFor(protection, limit, focusWarnAt: null));
+
+    [Theory]
+    [InlineData(3, "BROWSER_LOCK")]
+    [InlineData(2, ProctoringProfiles.Custom)]
+    [InlineData(4, ProctoringProfiles.Custom)]
+    public void AWarningPointOtherThanTheProfilesIsCustom_BecauseTheProfileDoesNotSayIt(int warnAt, string expected) =>
+        Assert.Equal(expected, ProctoringProfiles.IdFor(true, ProctoringProfiles.BrowserLockViolationLimit, warnAt));
 
     // ---- the notice -----------------------------------------------------------------------------------------
 
@@ -81,6 +89,22 @@ public class ProctoringProfileTests
     [InlineData(3, "If you leave 3 times, the exam is submitted for you with the answers saved so far.")]
     public void TheNotice_NamesTheViolationLimit_BecauseItCanEndTheAttempt(int limit, string expected) =>
         Assert.Contains(ProctoringNotice.For(false, limit), l => l.Contains(expected, StringComparison.Ordinal));
+
+    [Fact]
+    public void TheNotice_SaysTheThirdDeparture_WhenNoWarningPointIsSet() =>
+        Assert.Contains(ProctoringNotice.For(false, 5), l => l.Contains("You are warned from the third time you leave.", StringComparison.Ordinal));
+
+    [Theory]
+    [InlineData(1, "You are warned each time you leave.")]
+    [InlineData(2, "You are warned from the second time you leave.")]
+    [InlineData(4, "You are warned from the fourth time you leave.")]
+    public void TheNotice_SaysTheWarningPointTheAuthorSet_AndTheLimitStillEndsTheAttempt(int warnAt, string expected)
+    {
+        var notice = ProctoringNotice.For(false, 5, warnAt);
+
+        Assert.Contains(notice, l => l.Contains(expected, StringComparison.Ordinal));
+        Assert.Contains(notice, l => l.Contains("If you leave 5 times, the exam is submitted", StringComparison.Ordinal));
+    }
 
     [Fact]
     public void TheNotice_DoesNotMentionTheViolationLimitWhenNothingIsWatched() =>
@@ -109,11 +133,21 @@ public class ProctoringProfileTests
         Assert.True(exam.Config.ContentProtection);
         Assert.Equal(ProctoringProfiles.BrowserLockViolationLimit, exam.Config.FocusViolationLimit);
         Assert.Equal(Now.AddMinutes(5), exam.UpdatedAt);
-        Assert.Equal("BROWSER_LOCK", ProctoringProfiles.IdFor(exam.Config.ContentProtection, exam.Config.FocusViolationLimit));
+        Assert.Equal("BROWSER_LOCK", ProctoringProfiles.IdFor(exam.Config.ContentProtection, exam.Config.FocusViolationLimit, exam.Config.FocusWarnAt));
     }
 
     [Fact]
-    public void ApplyingOff_TurnsBothSettingsOff()
+    public void ApplyingBrowserLock_WarnsFromTheThirdDeparture_AsItsProfileSays()
+    {
+        var exam = DraftExam();
+
+        exam.SetProctoringProfile("BROWSER_LOCK", Now);
+
+        Assert.Equal(FocusWarningPoint.WarnFrom, exam.Config.FocusWarnAt);
+    }
+
+    [Fact]
+    public void ApplyingOff_TurnsBothSettingsOff_AndClearsTheWarningPoint()
     {
         var exam = DraftExam();
         exam.SetProctoringProfile("BROWSER_LOCK", Now);
@@ -122,6 +156,7 @@ public class ProctoringProfileTests
 
         Assert.False(exam.Config.ContentProtection);
         Assert.Equal(0, exam.Config.FocusViolationLimit);
+        Assert.Null(exam.Config.FocusWarnAt);
     }
 
     [Fact]
@@ -133,7 +168,9 @@ public class ProctoringProfileTests
 
         exam.SetProctoringProfile("BROWSER_LOCK", Now);
 
-        Assert.Equal(before with { ContentProtection = true, FocusViolationLimit = ProctoringProfiles.BrowserLockViolationLimit }, exam.Config);
+        Assert.Equal(
+            before with { ContentProtection = true, FocusViolationLimit = ProctoringProfiles.BrowserLockViolationLimit, FocusWarnAt = FocusWarningPoint.WarnFrom },
+            exam.Config);
     }
 
     [Fact]
@@ -144,7 +181,7 @@ public class ProctoringProfileTests
 
         exam.SetFocusViolationLimit(2, Now);
 
-        Assert.Equal(ProctoringProfiles.Custom, ProctoringProfiles.IdFor(exam.Config.ContentProtection, exam.Config.FocusViolationLimit));
+        Assert.Equal(ProctoringProfiles.Custom, ProctoringProfiles.IdFor(exam.Config.ContentProtection, exam.Config.FocusViolationLimit, exam.Config.FocusWarnAt));
     }
 
     [Theory]

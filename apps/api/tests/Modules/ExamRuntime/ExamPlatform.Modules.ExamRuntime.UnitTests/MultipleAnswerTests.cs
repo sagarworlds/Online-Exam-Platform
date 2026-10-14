@@ -154,7 +154,7 @@ public class MultipleAnswerHandlerTests
                 new[] { _multi, _single }.Where(q => call.Arg<IReadOnlyCollection<Guid>>().Contains(q.Id)).ToList()));
     }
 
-    private SaveAnswerHandler Save => new(new AttemptAccess(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock), _bank, _unitOfWork, _clock);
+    private SaveAnswerHandler Save => new(new AttemptAccess(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock, new ProctorPolicy()), _bank, _unitOfWork, _clock);
 
     [Fact]
     public async Task ASetOfOptions_IsSavedForAMultipleAnswerQuestion()

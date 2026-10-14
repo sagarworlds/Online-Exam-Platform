@@ -10,11 +10,11 @@ internal static class ProctoringMapping
     /// <param name="config">The exam's configuration.</param>
     public static ProctoringDto For(ExamConfig config)
     {
-        var id = ProctoringProfiles.IdFor(config.ContentProtection, config.FocusViolationLimit);
+        var id = ProctoringProfiles.IdFor(config.ContentProtection, config.FocusViolationLimit, config.FocusWarnAt);
         return new ProctoringDto(
             id,
             ProctoringProfiles.Find(id)?.Name ?? "Custom",
-            ProctoringNotice.For(config.ContentProtection, config.FocusViolationLimit));
+            ProctoringNotice.For(config.ContentProtection, config.FocusViolationLimit, config.FocusWarnAt));
     }
 
     /// <summary>A profile as an author chooses it, with the notice candidates would be shown under it.</summary>
@@ -28,5 +28,6 @@ internal static class ProctoringMapping
             profile.UnavailableReason,
             profile.ContentProtection,
             profile.FocusViolationLimit,
-            ProctoringNotice.For(profile.ContentProtection, profile.FocusViolationLimit));
+            ProctoringNotice.For(profile.ContentProtection, profile.FocusViolationLimit, profile.FocusWarnAt),
+            profile.FocusWarnAt);
 }

@@ -230,7 +230,7 @@ public class AttemptShuffleHandlerTests
     }
 
     private AttemptViewBuilder Views => new(_bank, _clock);
-    private GetAttemptReviewHandler Review => new(new AttemptAccess(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock), new AttemptReviewBuilder(_bank, _clock), NoDisputes(), new DisputePolicy(7), _clock);
+    private GetAttemptReviewHandler Review => new(new AttemptAccess(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock, new ProctorPolicy()), new AttemptReviewBuilder(_bank, _clock), NoDisputes(), new DisputePolicy(7), _clock);
 
     private static IDisputeRepository NoDisputes()
     {

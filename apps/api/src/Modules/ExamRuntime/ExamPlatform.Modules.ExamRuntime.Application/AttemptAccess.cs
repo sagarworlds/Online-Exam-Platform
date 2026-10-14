@@ -10,7 +10,7 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 /// Finds the attempt a candidate is acting on and makes sure it is current: an open attempt whose deadline has
 /// passed is closed here, so no handler ever works on an attempt that should already be over.
 /// </summary>
-public sealed class AttemptAccess(IAttemptRepository attempts, IExamCatalog catalog, AttemptCloser closer, Clock clock)
+public sealed class AttemptAccess(IAttemptRepository attempts, IExamCatalog catalog, AttemptCloser closer, Clock clock, IProctorPolicy proctorPolicy)
 {
     /// <summary>Loads one of the candidate's own attempts together with its exam, closing it first if time has run out.</summary>
     /// <param name="attemptId">The attempt.</param>
@@ -30,7 +30,7 @@ public sealed class AttemptAccess(IAttemptRepository attempts, IExamCatalog cata
             ?? throw new ExamContentUnavailableError();
 
         // The exam as this attempt sees it: its drawn paper, if the exam draws one.
-        exam = exam.For(attempt);
+        exam = exam.For(attempt, proctorPolicy);
         await CloseIfExpiredAsync(attempt, exam, cancellationToken);
         return (attempt, exam);
     }

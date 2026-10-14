@@ -216,6 +216,9 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
                             b1.Property<int>("FocusViolationLimit")
                                 .HasColumnType("integer");
 
+                            b1.Property<int?>("FocusWarnAt")
+                                .HasColumnType("integer");
+
                             b1.Property<int>("MaxAttempts")
                                 .HasColumnType("integer");
 

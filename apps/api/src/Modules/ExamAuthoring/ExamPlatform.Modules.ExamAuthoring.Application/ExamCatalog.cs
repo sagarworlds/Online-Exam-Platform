@@ -63,9 +63,10 @@ public sealed class ExamCatalog(IExamRepository repository) : IExamCatalog
             exam.Config.MarkingScheme.PartialCredit,
             exam.Config.ContentProtection,
             exam.Config.FocusViolationLimit,
-            ProctoringNotice.For(exam.Config.ContentProtection, exam.Config.FocusViolationLimit),
+            ProctoringNotice.For(exam.Config.ContentProtection, exam.Config.FocusViolationLimit, exam.Config.FocusWarnAt),
             exam.Instructions,
-            exam.Config.PassingPercentage);
+            exam.Config.PassingPercentage,
+            exam.Config.FocusWarnAt);
 
     // Spelled out rather than cast, so a mode added to one enum and forgotten in the other fails loudly here
     // instead of quietly meaning something else to the other module.

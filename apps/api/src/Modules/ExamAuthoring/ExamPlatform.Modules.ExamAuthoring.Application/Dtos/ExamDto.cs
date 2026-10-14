@@ -43,6 +43,7 @@ public record ProctoringDto(string Profile, string ProfileName, IReadOnlyList<st
 /// <param name="ContentProtection">Whether it turns copy, paste, right-click and print off.</param>
 /// <param name="FocusViolationLimit">How many departures from the exam page it allows; 0 means not watched.</param>
 /// <param name="Notice">What candidates would be told under it.</param>
+/// <param name="FocusWarnAt">The departure from which candidates are warned, or null for the default for the limit.</param>
 public record ProctoringProfileDto(
     string Id,
     string Name,
@@ -51,7 +52,8 @@ public record ProctoringProfileDto(
     string? UnavailableReason,
     bool ContentProtection,
     int FocusViolationLimit,
-    IReadOnlyList<string> Notice);
+    IReadOnlyList<string> Notice,
+    int? FocusWarnAt = null);
 
 /// DTO for exam configuration.
 public record ExamConfigDto(
@@ -68,5 +70,6 @@ public record ExamConfigDto(
     MarkingScheme MarkingScheme,
     bool ContentProtection = true,
     int FocusViolationLimit = 0,
-    int? PassingPercentage = null
+    int? PassingPercentage = null,
+    int? FocusWarnAt = null
 );

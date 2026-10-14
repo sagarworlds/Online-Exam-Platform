@@ -28,7 +28,7 @@ public class DisputeHandlerTests
     private readonly IInAppNotifier _inApp = Substitute.For<IInAppNotifier>();
     private readonly QuestionSnapshot _question = Fixtures.Question("2 + 2?");
 
-    private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock);
+    private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock, new ProctorPolicy());
 
     private RaiseDisputeHandler Raise(int windowDays = 7) => new(Access, _disputes, _unitOfWork, new DisputePolicy(windowDays), _clock);
 

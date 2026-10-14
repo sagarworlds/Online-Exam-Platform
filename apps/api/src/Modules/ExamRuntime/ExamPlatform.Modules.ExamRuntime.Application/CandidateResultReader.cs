@@ -18,7 +18,7 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 /// the translations, which a summary of marks never needs.
 /// </remarks>
 public sealed class CandidateResultReader(
-    IAttemptRepository attempts, IExamCatalog catalog, IQuestionBank questionBank, Clock clock, QuestionTimeWithholding withholding) : ICandidateResultReader
+    IAttemptRepository attempts, IExamCatalog catalog, IQuestionBank questionBank, Clock clock, QuestionTimeWithholding withholding, IProctorPolicy proctorPolicy) : ICandidateResultReader
 {
     /// <inheritdoc />
     public async Task<IReadOnlyList<CandidateResult>> ListReleasedAsync(Guid candidateId, CancellationToken cancellationToken)
@@ -38,7 +38,7 @@ public sealed class CandidateResultReader(
             if (!ResultRelease.IsReleased(exam, now))
                 continue;
 
-            results.Add(await BuildAsync(attempt, exam.For(attempt), withheld.Contains(attempt.Id), cancellationToken));
+            results.Add(await BuildAsync(attempt, exam.For(attempt, proctorPolicy), withheld.Contains(attempt.Id), cancellationToken));
         }
 
         return results;

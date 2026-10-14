@@ -14,7 +14,7 @@ namespace ExamPlatform.Modules.ExamRuntime.Application.Commands;
 /// attempt id that belongs to another exam answers like a missing one, and it is closed first if its time has run out, so no action is
 /// ever taken on an attempt that should already be over.
 /// </summary>
-public sealed class StaffAttemptAccess(IAttemptRepository attempts, IExamCatalog catalog, AttemptAccess access)
+public sealed class StaffAttemptAccess(IAttemptRepository attempts, IExamCatalog catalog, AttemptAccess access, IProctorPolicy proctorPolicy)
 {
     /// <summary>Loads the attempt with its exam, closing it first if time has run out.</summary>
     /// <param name="examId">The exam named in the route.</param>
@@ -29,7 +29,7 @@ public sealed class StaffAttemptAccess(IAttemptRepository attempts, IExamCatalog
             throw new AttemptNotFoundError();
 
         var exam = await catalog.FindAsync(examId, cancellationToken) ?? throw new ExamContentUnavailableError();
-        exam = exam.For(attempt);
+        exam = exam.For(attempt, proctorPolicy);
         await access.CloseIfExpiredAsync(attempt, exam, cancellationToken);
         return (attempt, exam);
     }

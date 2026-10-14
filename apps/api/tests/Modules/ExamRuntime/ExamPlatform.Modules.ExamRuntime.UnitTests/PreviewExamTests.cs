@@ -27,7 +27,7 @@ public class PreviewExamTests
     }
 
     private PreviewExamHandler Handler() =>
-        new(_catalog, new AttemptViewBuilder(_bank, _clock), new PaperDrawer(_bank, new RandomQuestionPicker()), _clock);
+        new(_catalog, new AttemptViewBuilder(_bank, _clock), new PaperDrawer(_bank, new RandomQuestionPicker()), _clock, new ProctorPolicy());
 
     private ExamSnapshot Exam(bool published, int? durationSeconds = 1800)
     {

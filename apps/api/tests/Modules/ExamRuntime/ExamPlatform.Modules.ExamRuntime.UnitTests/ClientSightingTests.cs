@@ -38,7 +38,7 @@ public class ClientSightingTests
         return attempt;
     }
 
-    private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock);
+    private AttemptAccess Access => new(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock, new ProctorPolicy());
 
     // ---- the attempt ----------------------------------------------------------------------------------
 
@@ -174,7 +174,7 @@ public class ClientSightingTests
         var attempt = OpenAttempt();
         attempt.NoteClient("203.0.113.10", "device-a", Fixtures.Now);
         attempt.NoteClient("198.51.100.7", "device-b", Fixtures.Now.AddMinutes(4));
-        var staff = new StaffAttemptAccess(_attempts, _catalog, Access);
+        var staff = new StaffAttemptAccess(_attempts, _catalog, Access, new ProctorPolicy());
 
         var rows = await new ListAttemptClientsHandler(staff).HandleAsync(_exam.Id, attempt.Id, CancellationToken.None);
 

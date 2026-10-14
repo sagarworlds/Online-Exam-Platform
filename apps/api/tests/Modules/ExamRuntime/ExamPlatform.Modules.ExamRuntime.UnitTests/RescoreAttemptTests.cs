@@ -32,7 +32,7 @@ public class RescoreAttemptTests
     }
 
     private RescoreAttemptHandler Handler =>
-        new(new StaffAttemptAccess(_attempts, _catalog, new AttemptAccess(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock)),
+        new(new StaffAttemptAccess(_attempts, _catalog, new AttemptAccess(_attempts, _catalog, new AttemptCloser(_bank, _unitOfWork, _clock), _clock, new ProctorPolicy()), new ProctorPolicy()),
             _bank, _unitOfWork, _clock);
 
     /// <summary>A submitted attempt that answered both questions correctly, with the score it was stored with.</summary>

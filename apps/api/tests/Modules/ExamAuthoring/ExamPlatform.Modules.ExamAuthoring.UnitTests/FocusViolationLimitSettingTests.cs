@@ -5,6 +5,7 @@ using ExamPlatform.Modules.ExamAuthoring.Domain;
 using ExamPlatform.Modules.ExamAuthoring.Domain.Exceptions;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Application;
+using ExamPlatform.SharedKernel.Domain;
 using NSubstitute;
 
 namespace ExamPlatform.Modules.ExamAuthoring.UnitTests;
@@ -92,6 +93,108 @@ public class FocusViolationLimitSettingTests
         Assert.Throws<ExamArchivedError>(() => exam.SetFocusViolationLimit(3, Now));
     }
 
+    // ---- the warning point, set apart from the limit (FR-22) -----------------------------------------
+
+    [Fact]
+    public void TheWarningPoint_IsTheDefaultForTheLimit_UntilTheAuthorSetsIt()
+    {
+        var exam = DraftExam();
+        exam.SetFocusViolationLimit(5, Now);
+
+        Assert.Null(exam.Config.FocusWarnAt);
+        Assert.Equal(3, FocusWarningPoint.Effective(exam.Config.FocusViolationLimit, exam.Config.FocusWarnAt));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(4)]
+    public void TheAuthor_CanWarnFromAnyDepartureBeforeTheLimit_AndTheLimitIsUnchanged(int warnAt)
+    {
+        var exam = DraftExam();
+        exam.SetFocusViolationLimit(5, Now);
+
+        exam.SetFocusWarnAt(warnAt, Now.AddMinutes(5));
+
+        Assert.Equal(warnAt, exam.Config.FocusWarnAt);
+        Assert.Equal(5, exam.Config.FocusViolationLimit);
+        Assert.Equal(Now.AddMinutes(5), exam.UpdatedAt);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(5)]
+    [InlineData(6)]
+    public void AWarningPointOutsideTheRange_IsRefused_AndTheOldOneStays(int warnAt)
+    {
+        var exam = DraftExam();
+        exam.SetFocusViolationLimit(5, Now);
+        exam.SetFocusWarnAt(2, Now);
+
+        var error = Assert.Throws<InvalidExamConfigError>(() => exam.SetFocusWarnAt(warnAt, Now));
+
+        Assert.Equal("invalid_exam_config", error.ErrorCode);
+        Assert.Equal(2, exam.Config.FocusWarnAt);
+    }
+
+    [Fact]
+    public void AWarningPoint_CannotBeSetWhileTheExamDoesNotWatch()
+    {
+        var exam = DraftExam();
+
+        Assert.Throws<InvalidExamConfigError>(() => exam.SetFocusWarnAt(1, Now));
+
+        Assert.Null(exam.Config.FocusWarnAt);
+    }
+
+    [Fact]
+    public void ALimitOfOne_LeavesOnlyTheFirstDepartureToWarnFrom()
+    {
+        var exam = DraftExam();
+        exam.SetFocusViolationLimit(1, Now);
+
+        exam.SetFocusWarnAt(1, Now);
+
+        Assert.Throws<InvalidExamConfigError>(() => exam.SetFocusWarnAt(2, Now));
+        Assert.Equal(1, exam.Config.FocusWarnAt);
+    }
+
+    [Fact]
+    public void ChangingTheLimit_PutsTheWarningPointBackToItsDefault()
+    {
+        var exam = DraftExam();
+        exam.SetFocusViolationLimit(5, Now);
+        exam.SetFocusWarnAt(2, Now);
+
+        exam.SetFocusViolationLimit(4, Now);
+
+        Assert.Null(exam.Config.FocusWarnAt);
+    }
+
+    [Fact]
+    public void SettingTheWarningPoint_ChangesNothingElseInTheConfig()
+    {
+        var exam = DraftExam();
+        exam.SetMaxAttempts(3, Now);
+        exam.SetFocusViolationLimit(5, Now);
+        var before = exam.Config;
+
+        exam.SetFocusWarnAt(2, Now);
+
+        Assert.Equal(before with { FocusWarnAt = 2 }, exam.Config);
+    }
+
+    [Fact]
+    public void AnArchivedExam_RefusesTheWarningPoint()
+    {
+        var exam = PublishedExam();
+        exam.SetFocusViolationLimit(5, Now);
+        exam.Status = ExamStatus.Archived;
+
+        Assert.Throws<ExamArchivedError>(() => exam.SetFocusWarnAt(2, Now));
+    }
+
     // ---- the handler ------------------------------------------------------------------------------
 
     private readonly IExamRepository repository = Substitute.For<IExamRepository>();
@@ -118,6 +221,34 @@ public class FocusViolationLimitSettingTests
     {
         var error = await Assert.ThrowsAsync<InvalidExamConfigError>(
             () => Handler().HandleAsync(new SetFocusViolationLimitCommand(Guid.NewGuid(), null), CancellationToken.None));
+
+        Assert.Equal("invalid_exam_config", error.ErrorCode);
+        await repository.DidNotReceive().GetByIdOrThrowAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    private SetFocusWarnAtHandler WarnAtHandler() => new(repository, unitOfWork, new ExamDtoFactory(Substitute.For<IBookCatalog>()), clock);
+
+    [Fact]
+    public async Task TheWarnAtHandler_SavesTheWarningPoint_AndReportsItInTheExam()
+    {
+        var exam = DraftExam();
+        exam.SetFocusViolationLimit(5, Now);
+        repository.GetByIdOrThrowAsync(exam.Id, Arg.Any<CancellationToken>()).Returns(exam);
+        clock.UtcNow.Returns(Now);
+
+        var dto = await WarnAtHandler().HandleAsync(new SetFocusWarnAtCommand(exam.Id, 2), CancellationToken.None);
+
+        Assert.Equal(2, dto.Config.FocusWarnAt);
+        Assert.Equal(5, dto.Config.FocusViolationLimit);
+        await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AMissingWarningPoint_IsRefusedWithAReason_AndNothingIsLoadedOrSaved()
+    {
+        var error = await Assert.ThrowsAsync<InvalidExamConfigError>(
+            () => WarnAtHandler().HandleAsync(new SetFocusWarnAtCommand(Guid.NewGuid(), null), CancellationToken.None));
 
         Assert.Equal("invalid_exam_config", error.ErrorCode);
         await repository.DidNotReceive().GetByIdOrThrowAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
