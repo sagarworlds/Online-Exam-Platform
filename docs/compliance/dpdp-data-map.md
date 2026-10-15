@@ -12,20 +12,20 @@
 
 Each open point needs a decision. The pull request lists the same points.
 
-| # | Open point | Who decides |
-|---|---|---|
-| OP1 | Retention period for every row. No period is set in the code, the requirements or the public privacy page. Every row says "To be decided by the owner". | Owner, counsel |
-| OP2 | Grievance officer name, e-mail and postal address (FR-48; section 7.3). Not in the repo. The contact section of `apps/web/public/privacy.html` still has placeholders. | Owner |
-| OP3 | Processor locations: the Render region (not set in `render.yaml`), the Neon region (the operator's choice), Brevo's storage, and Meta's local-storage setting for the Indian number. The web sources behind the earlier draft could not be opened, and in this session the Brevo, Render and Neon sites could not be reached either. Treat every location claim in section 4 as unverified. | Owner, counsel |
-| OP4 | Data-processing agreements with Render, Neon, Brevo and Meta, and with the operator's SMTP provider if one is used. None is in the repo. | Owner, counsel |
-| OP5 | Cross-border transfer. NFR-12 says it is off by default. Several processors hold data outside India (section 4). The exception is recorded separately in `docs/compliance/nfr-12-exception.md`. | Counsel |
-| OP6 | Candidates under 18. Client sightings, focus violations and accommodation notes are kept for every candidate, including children. Counsel's opinion (issue #11) decides whether this is allowed, and for how long. | Counsel |
-| OP7 | Guardian consent before exam access (FR-43) is partly enforced: since PR #267, an under-18 candidate cannot start an attempt until a guardian has confirmed the link. Consent to a notice version is not checked (G3). The consent notices must not be published until counsel confirms the link is enough, or their text changes. | Owner |
-| OP8 | Full date of birth is stored (`Users`). Decide whether an age band is enough (data minimisation). | Owner, counsel |
-| OP9 | Staff may list unspent login and registration codes (`IsRevealableToStaff`). Decide who may do it. Each read is audited, but the audit entry does not record which code. | Owner |
-| OP10 | Candidate passwords. The public privacy page says "a password if you use one", and the password-reset handler sets a hash on any account. Confirm whether candidates can hold a password. | Owner |
-| OP11 | The public privacy page makes retention, deletion and processor statements that this map does not back (G14). Reconcile the page with sections 3 to 5. | Counsel, owner |
-| OP12 | FR-50 asks the roster file to carry a name and, for minors, a guardian contact. The code reads an e-mail and an optional phone only (section 3.3). Decide which one is right. | Owner |
+| # | Open point | Who decides | Status (2026-10-15) |
+|---|---|---|---|
+| OP1 | Retention period for every row. No period is set in the code, the requirements or the public privacy page. Every row says "To be decided by the owner". | Owner, counsel | Open. The owner proposes the periods and counsel confirms (decided 2026-10-15). A draft table is in [retention-proposal.md](retention-proposal.md). |
+| OP2 | Grievance officer name, e-mail and postal address (FR-48; section 7.3). Not in the repo. The contact section of `apps/web/public/privacy.html` still has placeholders. | Owner | Open. The owner has not yet given the officer's name, the address or the answer time. |
+| OP3 | Processor locations: the Render region (not set in `render.yaml`), the Neon region (the operator's choice), Brevo's storage, and Meta's local-storage setting for the Indian number. The web sources behind the earlier draft could not be opened, and in this session the Brevo, Render and Neon sites could not be reached either. Treat every location claim in section 4 as unverified. | Owner, counsel | Open. |
+| OP4 | Data-processing agreements with Render, Neon, Brevo and Meta, and with the operator's SMTP provider if one is used. None is in the repo. | Owner, counsel | Open. |
+| OP5 | Cross-border transfer. NFR-12 says it is off by default. Several processors hold data outside India (section 4). The exception is recorded separately in `docs/compliance/nfr-12-exception.md`. | Counsel | Open. |
+| OP6 | Candidates under 18. Client sightings, focus violations and accommodation notes are kept for every candidate, including children. Counsel's opinion (issue #11) decides whether this is allowed, and for how long. | Counsel | Open. Not needed for an adults-only pilot (decided 2026-10-15), but needed before candidates under 18 are admitted. |
+| OP7 | Guardian consent before exam access (FR-43) is partly enforced: since PR #267, an under-18 candidate cannot start an attempt until a guardian has confirmed the link. Consent to a notice version is not checked (G3). The consent notices must not be published until counsel confirms the link is enough, or their text changes. | Owner | Open. As for OP6. |
+| OP8 | Full date of birth is stored (`Users`). Decide whether an age band is enough (data minimisation). | Owner, counsel | Decided 2026-10-15: keep the full date of birth. Counsel is asked to confirm it meets data minimisation (counsel brief, question 18). |
+| OP9 | Staff may list unspent login and registration codes (`IsRevealableToStaff`). Decide who may do it. Each read is audited, but the audit entry does not record which code. | Owner | Decided 2026-10-15: keep the page for the Super Admin only, and record which code was shown in the audit entry. If counsel's answer to question 12 is no, switch it off in production. |
+| OP10 | Candidate passwords. The public privacy page says "a password if you use one", and the password-reset handler sets a hash on any account. Confirm whether candidates can hold a password. | Owner | Decided 2026-10-15: candidates may set a password, as the code allows. |
+| OP11 | The public privacy page makes retention, deletion and processor statements that this map does not back (G14). Reconcile the page with sections 3 to 5. | Counsel, owner | Open. |
+| OP12 | FR-50 asks the roster file to carry a name and, for minors, a guardian contact. Staff add members one at a time with an e-mail and an optional phone (section 3.3). Decide which one is right. | Owner | Decided 2026-10-15: the roster carries an e-mail and an optional phone only, and FR-50 now says so. The code has no CSV import (members are added one at a time), which section 3.3 now states. |
 
 ## 1. Summary
 
@@ -33,7 +33,7 @@ Each open point needs a decision. The pull request lists the same points.
 |---|---|---|---|---|---|
 | Identity | Name, e-mail, phone, exact date of birth, password hash (if set), sign-in codes, session IP address and device signature | Candidates, staff | Meta (phone codes); Brevo or SMTP (e-mail codes) | Kept; no removal | Plain-text login codes (G5); full date of birth (OP8) |
 | Admin | Actor id and role, action, free-text metadata | Staff; candidates as actors | Nothing | Kept; no purge | Free-text metadata (G10) |
-| Batch | E-mail, phone, candidate link, registration times | Candidates | Brevo or SMTP; Meta (if phone invitations are on) | Soft-deleted only; kept | Roster lacks name and guardian contact (OP12) |
+| Batch | E-mail, phone, candidate link, registration times | Candidates | Brevo or SMTP; Meta (if phone invitations are on) | Soft-deleted only; kept | Roster is an e-mail and an optional phone, by decision (OP12) |
 | Invite | E-mail, invitation codes (stored unhashed), invitation status | Candidates | Brevo or SMTP; Meta (if on) | Soft-deleted only; kept | Codes not hashed (G6) |
 | Guardian | Guardian name, e-mail and phone; candidate e-mail; hashed verification token | Guardians; candidates under 18 | Brevo or SMTP | Kept; no removal | Link confirmation checked at attempt start (FR-43, PR #267); consent not checked (G3) |
 | Consent | Consent grants and withdrawals, with the notice version | Candidates; guardians | Nothing | Never deleted | Ledger not enforced (G3) |
@@ -83,7 +83,7 @@ Source: `Batch/ExamPlatform.Modules.Batch.Domain/` (Batch, BatchMember, MemberCo
 |---|---|---|---|---|---|---|
 | `Batches` | Name (free text, which could name a person), description, status, maximum members, created-by user id, exam id | Staff who create batches | Grouping candidates for an exam (FR-50) | To be decided by the owner | Soft-deleted only (`IsDeleted`); rows kept | Hosting |
 | `BatchMembers` | E-mail (trimmed and lower-cased), phone (optional, spaces and dashes removed), candidate user id once registered, registration status, invite-sent and registration-completed times, soft-delete flag | Candidates on a roster | Enrolling candidates; sending invitations | To be decided by the owner | Soft-deleted only; kept. One active member per e-mail per batch | Hosting; Brevo or SMTP (invitation e-mail); Meta WhatsApp (phone, when invitations on WhatsApp are on) |
-| Roster import (no table) | E-mail and optional phone for each row, read by the roster validator | Candidates | Creating batch members | Not kept beyond the batch member rows | Reads an e-mail and an optional phone only. It does not read a name or a guardian contact (OP12). No table holds the uploaded file | None |
+| Adding members (no table) | E-mail and optional phone for each member, entered one at a time by staff | Candidates | Creating batch members | Not kept beyond the batch member rows | There is no CSV import. Staff add a member with an e-mail and an optional phone (`POST /v1/batches/{id}/members`). `RosterValidator` checks a list of such entries, but nothing calls it yet. No name or guardian contact is taken (OP12, decided 2026-10-15) | None |
 
 ### 3.4 Invite (`Invite`)
 
@@ -220,12 +220,12 @@ The public privacy page names Meta, and calls the others "hosting and database p
 5. **Login and registration codes in plain text (G5).** `OtpChallenges.RevealableCode` holds the code in plain text until the challenge is used or superseded. An expired, unused code keeps it. Staff can list these codes (OP9).
 6. **Invitation codes are not hashed (G6).** `InviteCodes.Code` is stored as given. The same value is sent in the link and in WhatsApp messages.
 7. **Data residency is not pinned (G7).** `render.yaml` sets no region. The Neon region is the operator's choice. Processor locations are unverified (section 4; OP3, OP5). The NFR-12 exception note covers the current providers.
-8. **Full date of birth (G8).** `Users` stores the exact date of birth. The privacy page says it is used to tell whether a candidate is under 18. An age band would meet that purpose (OP8).
+8. **Full date of birth (G8).** `Users` stores the exact date of birth. The privacy page says it is used to tell whether a candidate is under 18. An age band would meet that purpose (OP8). The owner decided on 2026-10-15 to keep the full date, because the 18th-birthday rules need the exact age, and counsel is asked to confirm that this meets data minimisation.
 9. **Browser storage (G9).** The sign-in token, which contains the e-mail, stays in localStorage. The visited-question list for each attempt stays in localStorage, and the app does not delete it. The privacy page describes both under "On your device", but it does not say how long they remain.
 10. **Audit metadata (G10).** Metadata is free text, and no purge job exists. Reasons, warning text and names of exams and batches are kept for as long as the log is kept.
 11. **Free text may hold personal data about other people (G11).** Warnings, dispute reasons, issue messages, attempt request messages, accommodation notes, review comments and grant reasons are free text. Nothing redacts or reviews them.
 12. **Logs (G12).** Masking covers OTP and WhatsApp contact details. Not checked: exception messages and request logs for e-mail addresses or codes. No log sink or retention is set in the repo, and NFR-13 (180 days in India) is not implemented.
-13. **Roster import (G13).** FR-50 asks for a name and, for minors, a guardian contact. The code reads neither (OP12).
+13. **Roster import (G13).** FR-50 asked for a name and, for minors, a guardian contact. The owner decided on 2026-10-15 that the roster carries an e-mail and an optional phone only, and FR-50 now says so (OP12). The CSV import itself is not built: staff add members one at a time.
 14. **Public privacy page (G14).** `apps/web/public/privacy.html` says personal data is deleted once it is no longer needed (its section 7). It also has placeholders for the operator and grievance contact, and does not name Render, Neon or Brevo. Its statements must match this map (OP11).
 15. **Language coverage (G15).** The interface has English, Hindi and Marathi. The consent notices in the separate consent PR cover English and Hindi only.
 

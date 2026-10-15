@@ -37,7 +37,9 @@ The three suppressions are method-level `SuppressMessage` attributes with a writ
 ### Dependencies
 
 - **NuGet.** `dotnet list package --vulnerable` exits 0 even when it finds a vulnerable package (checked with SDK 10.0.112). The gate therefore reads the JSON report, and it also requires the text report's project lines. If either is in an unexpected shape, the gate fails. On 2026-10-10 no project in the solution had a known-vulnerable package (72 projects). A throwaway project with `Newtonsoft.Json` 9.0.1 made the gate fail, as intended.
-- **npm.** `npm audit --audit-level=high` found one high advisory, in `source-map-js` 1.2.1 (a development dependency of the build tooling). A non-breaking fix updated it to 1.2.2 in `apps/web/package-lock.json`. One low advisory remains, in `katex` (prototype pollution, fixed only by katex 0.19.0, which is a breaking change). It does not fail the high gate. Upgrading katex is a product decision and is not made here.
+- **npm.** `npm audit --audit-level=high` found one high advisory, in `source-map-js` 1.2.1 (a development dependency of the build tooling). A non-breaking fix updated it to 1.2.2 in `apps/web/package-lock.json`. One low advisory remains, in `katex` (prototype pollution, fixed only by katex 0.19.0, which is a breaking change). It does not fail the high gate.
+- **Decision, 2026-10-15: accepted until after the pilot.** The owner accepted the low advisory and chose not to upgrade katex before the pilot. Maths is exam content, so a change in how it renders is a bigger risk to candidates than a low advisory is to the platform. The gate stays at high, so a high or critical advisory in `katex` or anywhere else still fails the build.
+- **Revisit** after the pilot, or sooner if the advisory is raised to moderate or above. An upgrade needs a check that maths renders the same across real questions (fractions, roots, matrices and the Hindi and Marathi questions) before it ships.
 
 ## Security headers
 
@@ -130,4 +132,6 @@ What keeps the paper back is access control:
 - A candidate has no attempt before the window opens, so no candidate route returns the paper early.
 - Staff can open `GET /v1/exams/{examId}/preview` (FR-15, `ManageAttempts`) at any time. It returns the questions as a candidate would see them, without answer keys, and nothing is stored. Staff can therefore read the paper before the start time. That is intended, but the requirement's wording does not allow for it.
 
-So candidates are kept from the paper before the start, but by access control rather than encryption. The owner decides whether access control is accepted as the control, with the exception and its reason recorded, or whether the paper is released by a step at the start time, such as a key issued only when the window opens. The content-protection setting is a different control: it turns off copy, paste and print (FR-23).
+So candidates are kept from the paper before the start, but by access control rather than encryption. The content-protection setting is a different control: it turns off copy, paste and print (FR-23).
+
+**Decision, 2026-10-15:** the owner accepted access control as the control for the pilot. The exception, what it covers and when to revisit it are in [nfr-5-paper-before-start-exception.md](nfr-5-paper-before-start-exception.md).

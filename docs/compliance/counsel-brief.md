@@ -48,19 +48,25 @@ Requirements context: section 7 (India compliance) and section 8 (configurable p
 
 16. Review the draft notices in [consent-notices.json](consent-notices.json): terms of use, privacy notice and proctoring data processing, plus two proposed notices (WhatsApp messages, and guardian consent for a candidate under 18). Note any text that is not accurate for this platform, and the open points listed at the top of that file.
 
+### G. Added on 2026-10-15
+
+17. **An edge provider in front of the platform.** A web application firewall or content delivery network, such as Cloudflare, would see every request and response, personal data included, and would be another processor. Is that acceptable under the DPDP Act and Rules, and is cross-border transfer allowed for it? If it is not, is the application's own protection (rate limits, security headers, authorization checks) enough for the pilot, with the exception recorded? The options and costs are in [waf-decision.md](waf-decision.md).
+18. **Date of birth.** The platform stores each candidate's full date of birth, because the rules around the 18th birthday (a guardian's link ending, consent passing to the candidate) need the exact age. Does that meet data minimisation? If it must store less, such as an age band, how should the platform tell when a candidate turns 18?
+
 ## What the engineering team does with the answers
 
 - Answers to A and B decide whether FR-24, FR-25 and FR-27 can be built for under-18 candidates, and in which form. They are a precondition for M6.
 - Answers to C set the retention jobs (FR-47), which are not built.
 - Answers to D and E set the access rules for accommodation notes and the region settings in `render.yaml` and the database configuration.
 - Answer 16 is the last step before the consent notices are seeded with real addresses (see the open list in the notices draft).
+- Answer 17 decides the web application firewall option (`waf-decision.md`). Answer 18 confirms or changes the date-of-birth field (data map, OP8).
 
 ## Recording the opinion
 
 When the opinion arrives, record it on issue #11 with:
 
 - the date, and who gave it (counsel's name and firm);
-- one line per question, A1 to F16, with the answer or "not answered";
+- one line per question, A1 to G18, with the answer or "not answered";
 - anything the opinion makes a condition, with an owner for each condition;
 - the link to the file or letter.
 

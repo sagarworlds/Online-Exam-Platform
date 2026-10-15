@@ -33,6 +33,8 @@ At the defaults that gives **1,000 answer saves per second** (20,000 / 20) and *
 second** (20,000 / 120). Set `LOAD_SAVE_RPS` or `LOAD_QUESTION_RPS` to override the derived rate, as
 a smoke run does.
 
+**Owner decision, 2026-10-15:** use these defaults for the first run. Real figures replace them once the first schools are known, and the year-2 peak (requirements section 17, question 1) decides when the exam runtime becomes its own service. A smoke run may change the numbers before then.
+
 Each virtual user signs in as its own candidate, one account per VU. The pool therefore needs at
 least as many accounts as the VU ceiling, which is the rate itself (one second of latency per
 arrival). The script refuses to start otherwise.

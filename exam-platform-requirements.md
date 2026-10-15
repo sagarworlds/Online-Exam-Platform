@@ -166,7 +166,7 @@ Tags: **[MVP]** required for v1 launch, **[P2]** after launch.
 - **FR-42 [MVP]** In-exam "report an issue" button.
 
 ### 5.10 Batches, Invites, Accommodations
-- **FR-50 [MVP]** Batches/institutes as first-class entities; roster import via CSV (name, email/phone, batch, guardian contact for minors).
+- **FR-50 [MVP]** Batches/institutes as first-class entities; roster import via CSV (email and optional phone, into a chosen batch). The roster carries no name or guardian contact: a candidate's name comes from their own account, and a minor's guardian is linked through the guardian flow (FR-43, FR-45).
 - **FR-50a [MVP]** Invite lifecycle: single-use links/codes, expiry, revoke, rate limits.
 - **FR-49 [MVP]** Accommodations per candidate per exam: extra time, reader/scribe flag, alternate formats.
 - **FR-51 [MVP]** Multi-language UI and content (English + Hindi first, extensible).
