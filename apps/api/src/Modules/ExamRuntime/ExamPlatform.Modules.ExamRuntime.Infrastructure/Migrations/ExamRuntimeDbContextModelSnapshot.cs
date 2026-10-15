@@ -198,6 +198,34 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
                     b.ToTable("AttemptAnswers", "examRuntime");
                 });
 
+            modelBuilder.Entity("ExamPlatform.Modules.ExamRuntime.Domain.AttemptAnswerSequence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("QuestionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<long>("Value")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttemptId", "QuestionId")
+                        .IsUnique();
+
+                    b.ToTable("AttemptAnswerSequences", "examRuntime");
+                });
+
             modelBuilder.Entity("ExamPlatform.Modules.ExamRuntime.Domain.AttemptClientSighting", b =>
                 {
                     b.Property<Guid>("Id")
@@ -614,6 +642,15 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ExamPlatform.Modules.ExamRuntime.Domain.AttemptAnswerSequence", b =>
+                {
+                    b.HasOne("ExamPlatform.Modules.ExamRuntime.Domain.Attempt", null)
+                        .WithMany("AnswerSequences")
+                        .HasForeignKey("AttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ExamPlatform.Modules.ExamRuntime.Domain.AttemptClientSighting", b =>
                 {
                     b.HasOne("ExamPlatform.Modules.ExamRuntime.Domain.Attempt", null)
@@ -679,6 +716,8 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
 
             modelBuilder.Entity("ExamPlatform.Modules.ExamRuntime.Domain.Attempt", b =>
                 {
+                    b.Navigation("AnswerSequences");
+
                     b.Navigation("Answers");
 
                     b.Navigation("ClientSightings");

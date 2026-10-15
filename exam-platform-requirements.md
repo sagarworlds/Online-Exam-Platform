@@ -365,7 +365,7 @@ Invited → Enrolled → [Consent check] → System Check → Instructions
 **Timer rules:**
 - The server stores `end_time` (including accommodation extra time). The client only displays it.
 - The client resyncs via heartbeat; requests after `end_time` (plus a small documented grace) are rejected with `AttemptExpiredError`.
-- Answer saves are idempotent (`idempotency_key`); replays are safe.
+- Answer saves are idempotent: each write to a question's answer carries a per-question sequence number, and the server applies it only if the number is higher than the one it holds (ADR 0004). A replay, or a late copy of an older write, is safe.
 - Comment the *why* of the grace period and clock-skew handling in code.
 
 ---

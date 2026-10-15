@@ -26,13 +26,28 @@ public sealed class SaveAnswerHandler(
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="InvalidAnswerError">The question is not in the exam, or the option is not one of its options.</exception>
     public Task HandleAsync(Guid attemptId, Guid candidateId, Guid questionId, Guid optionId, CancellationToken cancellationToken) =>
-        HandleAsync(attemptId, candidateId, questionId, [optionId], cancellationToken);
+        HandleAsync(attemptId, candidateId, questionId, [optionId], sequence: null, cancellationToken);
+
+    /// <summary>Checks the answer belongs to the exam and records it, replacing any earlier answer to the question. For a client that sends no sequence number.</summary>
+    /// <param name="attemptId">The attempt.</param>
+    /// <param name="candidateId">The signed-in candidate.</param>
+    /// <param name="questionId">The question answered.</param>
+    /// <param name="optionIds">The options chosen: exactly one for a single-answer question, one or more for a multiple-answer one.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <inheritdoc cref="HandleAsync(Guid, Guid, Guid, IReadOnlyCollection{Guid}, long?, CancellationToken)" path="/exception"/>
+    public Task HandleAsync(
+        Guid attemptId, Guid candidateId, Guid questionId, IReadOnlyCollection<Guid> optionIds, CancellationToken cancellationToken) =>
+        HandleAsync(attemptId, candidateId, questionId, optionIds, sequence: null, cancellationToken);
 
     /// <summary>Checks the answer belongs to the exam and records it, replacing any earlier answer to the question.</summary>
     /// <param name="attemptId">The attempt.</param>
     /// <param name="candidateId">The signed-in candidate.</param>
     /// <param name="questionId">The question answered.</param>
     /// <param name="optionIds">The options chosen: exactly one for a single-answer question, one or more for a multiple-answer one.</param>
+    /// <param name="sequence">
+    /// The client's sequence number for this write, or null from a client that sends none. The save is applied only if it is higher than the one
+    /// held for the question, so a request that arrives late cannot undo a newer answer (NFR-4, ADR 0004).
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="AttemptNotFoundError">No such attempt, or it is someone else's.</exception>
     /// <exception cref="AttemptNotInProgressError">The attempt is already submitted, or its time has just run out and it was closed.</exception>
@@ -42,8 +57,9 @@ public sealed class SaveAnswerHandler(
     /// </exception>
     /// <exception cref="SectionLockedError">The exam locks sections and the question is in a section the candidate is not in.</exception>
     /// <exception cref="ConcurrencyConflictError">The same answer was saved twice at the same moment.</exception>
+    /// <exception cref="StaleAnswerError">The sequence number is not higher than the one held for the question; nothing was saved.</exception>
     public Task HandleAsync(
-        Guid attemptId, Guid candidateId, Guid questionId, IReadOnlyCollection<Guid> optionIds, CancellationToken cancellationToken) =>
+        Guid attemptId, Guid candidateId, Guid questionId, IReadOnlyCollection<Guid> optionIds, long? sequence, CancellationToken cancellationToken) =>
         RecordAsync(attemptId, candidateId, questionId, (attempt, exam, question) =>
         {
             var chosen = optionIds.Distinct().ToList();
@@ -61,7 +77,7 @@ public sealed class SaveAnswerHandler(
                 throw new InvalidAnswerError();
 
             SectionLock.EnsureQuestionReachable(exam, attempt, questionId);
-            attempt.RecordAnswer(questionId, chosen, clock.UtcNow);
+            attempt.RecordAnswer(questionId, chosen, clock.UtcNow, sequence);
         }, cancellationToken);
 
     /// <summary>
@@ -78,13 +94,32 @@ public sealed class SaveAnswerHandler(
     /// <exception cref="InvalidAnswerError">The question is not in the exam, is not a text question, or the text is blank or too long.</exception>
     /// <exception cref="SectionLockedError">The exam locks sections and the question is in a section the candidate is not in.</exception>
     public Task HandleTextAsync(Guid attemptId, Guid candidateId, Guid questionId, string? text, CancellationToken cancellationToken) =>
+        HandleTextAsync(attemptId, candidateId, questionId, text, sequence: null, cancellationToken);
+
+    /// <summary>
+    /// Checks the question is in the exam and is a text question, then records what the candidate typed for it, replacing any earlier answer,
+    /// if the sequence number is higher than the one held for the question (NFR-4, ADR 0004).
+    /// </summary>
+    /// <param name="attemptId">The attempt.</param>
+    /// <param name="candidateId">The signed-in candidate.</param>
+    /// <param name="questionId">The question answered.</param>
+    /// <param name="text">What the candidate typed.</param>
+    /// <param name="sequence">The client's sequence number for this write, or null from a client that sends none.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="AttemptNotFoundError">No such attempt, or it is someone else's.</exception>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already submitted, or its time has just run out and it was closed.</exception>
+    /// <exception cref="InvalidAnswerError">The question is not in the exam, is not a text question, or the text is blank or too long.</exception>
+    /// <exception cref="SectionLockedError">The exam locks sections and the question is in a section the candidate is not in.</exception>
+    /// <exception cref="StaleAnswerError">The sequence number is not higher than the one held for the question; nothing was saved.</exception>
+    public Task HandleTextAsync(
+        Guid attemptId, Guid candidateId, Guid questionId, string? text, long? sequence, CancellationToken cancellationToken) =>
         RecordAsync(attemptId, candidateId, questionId, (attempt, exam, question) =>
         {
             if (!question.IsTextAnswer)
                 throw new InvalidAnswerError();
 
             SectionLock.EnsureQuestionReachable(exam, attempt, questionId);
-            attempt.RecordTextAnswer(questionId, text, clock.UtcNow);
+            attempt.RecordTextAnswer(questionId, text, clock.UtcNow, sequence);
         }, cancellationToken);
 
     // The steps both kinds of answer share: lock the attempt, load it, check the question is in its exam, let the caller check and record

@@ -371,6 +371,19 @@ The exam page saves each answer as it is chosen and does not wait for the reply,
 | The warning | The marked paper adds up the marks of its questions and, when a submitted attempt's stored score is not that total, says so above the paper with a **Rescore this attempt** button. |
 | Not covered | The locks are taken for saving an answer, clearing one and submitting. Marking for review, moving between sections and the page-leaving report do not change the score and take no lock; an attempt closed because time ran out or by an administrator is not locked either. |
 
+#### Answer saves that arrive late or out of order (NFR-4)
+
+A save that timed out in the browser, or whose reply was lost, can still be alive in the network and reach the server after the retry, or after the candidate has changed their mind. The server used to take each write in the order it arrived, so a late copy could replace a newer answer, remove one, or bring back an answer the candidate had cleared. Every write to an answer now carries a sequence number. The design and the alternatives are in [ADR 0004](docs/adr/0004-answer-save-sequence-numbers.md).
+
+| What | Rule |
+|------|------|
+| The number | `PUT /v1/me/attempts/{id}/answers/{questionId}` takes `"sequence": n` in the body, and `DELETE` of the same route takes `?sequence=n`. It is a whole number from 1 to 9007199254740991 (2^53 − 1). The page gives each new answer to a question the number one above the highest it knows for that question, and a repeat of the same write keeps its number. A number outside the range is refused with `400 invalid_attempt`. |
+| The rule | The server keeps the highest number applied to each question, in `AttemptAnswerSequences`, apart from the answer so that a clear keeps its number. A write is applied only if its number is **higher** than the one held. Otherwise nothing changes and the reply is `409 answer_superseded`, whose body carries `currentSequence`, the number held. |
+| Clients that send no number | An older page still works. Its write is applied as the newest and takes the next number up, so the order stays the order of arrival. |
+| What the page does | Each question in an attempt response carries `answerSequence`, the number held (null when nothing was written), and the page numbers from it, so a reload, a new device or cleared storage never starts again from one. When a write it still wants is refused as superseded, it sends it again above `currentSequence`, and it does not put the choice back. A write that a newer choice has replaced is dropped. After five immediate retries in a row it waits with the usual delays. |
+| Two writes at the same moment | The number's row is unique per attempt and question and has a row version, so two writes to one question at the same moment cannot both be applied. The second gets `409 concurrency_conflict`, which the page treats as "send again", not as a refusal. |
+| Load test | `tests/load/answer-save.js` sends a number with each save, so the run measures the check and the extra write. |
+
 #### Extra attempts
 
 Every candidate has **one attempt** at an exam unless its author allows more (see [Attempts allowed](#attempts-allowed) below). When a candidate asks for another (a power cut, a dropped connection), an administrator gives them one on **Candidates and attempts** (`/exams/:id/attempts`, linked from a published exam; needs `exam.manage`). The candidate then sees "Start attempt 2" on My exams, and each attempt is numbered, scored and reviewed on its own. My exams lists every attempt and marks the highest-scoring submitted one as **Best** once there are two to compare (the earlier one on a tie); nothing is stored as the exam's official score.

@@ -68,6 +68,7 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock, 
         var answers = attempt.Answers.ToDictionary(a => a.QuestionId);
         var marked = attempt.Marks.Select(m => m.QuestionId).ToHashSet();
         var timeSpent = attempt.QuestionTimes.ToDictionary(t => t.QuestionId, t => (int?)t.Seconds);
+        var sequences = attempt.AnswerSequences.ToDictionary(s => s.QuestionId, s => (long?)s.Value);
 
         return exam.Sections
             .OrderBy(s => s.Order)
@@ -93,7 +94,8 @@ public sealed class AttemptViewBuilder(IQuestionBank questionBank, Clock clock, 
                         chosenIds,
                         question.IsTextAnswer,
                         answer?.AnswerText,
-                        timeSpent.GetValueOrDefault(id));
+                        timeSpent.GetValueOrDefault(id),
+                        sequences.GetValueOrDefault(id));
                 }).ToList()))
             .ToList();
     }

@@ -21,6 +21,10 @@ public sealed record AttemptOptionDto(Guid Id, string Text);
 /// The running total of seconds the candidate has spent on the question so far, as the page last reported it; null when it has never been reported.
 /// The page carries on counting from it, so a reload does not start the count again from zero.
 /// </param>
+/// <param name="AnswerSequence">
+/// The highest sequence number the server has applied to this question's answer (a save or a clear); null when nothing was ever written to it.
+/// The page sends its next write above it, so a reload does not start the numbering again from one (NFR-4, ADR 0004).
+/// </param>
 public sealed record AttemptQuestionDto(
     Guid Id,
     string Text,
@@ -31,7 +35,8 @@ public sealed record AttemptQuestionDto(
     IReadOnlyList<Guid>? SelectedOptionIds = null,
     bool IsTextAnswer = false,
     string? AnswerText = null,
-    int? TimeSpentSeconds = null);
+    int? TimeSpentSeconds = null,
+    long? AnswerSequence = null);
 
 /// <summary>A section of the exam as a candidate sees it.</summary>
 /// <param name="Id">The section's id.</param>

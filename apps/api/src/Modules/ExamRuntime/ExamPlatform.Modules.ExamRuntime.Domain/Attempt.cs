@@ -19,6 +19,7 @@ public sealed class Attempt : AggregateRoot
     private readonly List<AttemptAnswer> _answers = [];
     private readonly List<AttemptMark> _marks = [];
     private readonly List<AttemptQuestionTime> _questionTimes = [];
+    private readonly List<AttemptAnswerSequence> _answerSequences = [];
     private readonly List<AttemptQuestion> _paper = [];
     private readonly List<AttemptResultRevision> _revisions = [];
     private readonly List<AttemptFocusViolation> _focusViolations = [];
@@ -143,6 +144,12 @@ public sealed class Attempt : AggregateRoot
     /// absent. See <see cref="RecordQuestionTime"/>.
     /// </summary>
     public IReadOnlyList<AttemptQuestionTime> QuestionTimes => _questionTimes.AsReadOnly();
+
+    /// <summary>
+    /// The highest sequence number applied to each question's answer; a question nothing was ever written to is absent. A write to an answer
+    /// is applied only when its number is higher (NFR-4, ADR 0004). See <see cref="AttemptAnswerSequence"/>.
+    /// </summary>
+    public IReadOnlyList<AttemptAnswerSequence> AnswerSequences => _answerSequences.AsReadOnly();
 
     /// <summary>
     /// The questions drawn for this attempt, section by section. Empty when the exam has no draw rules, in which case the exam's
@@ -319,10 +326,13 @@ public sealed class Attempt : AggregateRoot
     /// <param name="questionId">The question answered.</param>
     /// <param name="selectedOptionId">The option chosen.</param>
     /// <param name="nowUtc">The current instant.</param>
+    /// <param name="sequence">The client's sequence number for this write, or null from a client that sends none; see <see cref="AttemptAnswerSequence"/>.</param>
     /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
     /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
-    public void RecordAnswer(Guid questionId, Guid selectedOptionId, DateTime nowUtc) =>
-        RecordAnswer(questionId, [selectedOptionId], nowUtc);
+    /// <exception cref="InvalidAttemptError">The sequence number is outside the range a client may send.</exception>
+    /// <exception cref="StaleAnswerError">The sequence number is not higher than the one held for the question.</exception>
+    public void RecordAnswer(Guid questionId, Guid selectedOptionId, DateTime nowUtc, long? sequence = null) =>
+        RecordAnswer(questionId, [selectedOptionId], nowUtc, sequence);
 
     /// <summary>
     /// Saves the options a candidate chose for a question, replacing an earlier choice for the same question. The set is the answer:
@@ -332,16 +342,21 @@ public sealed class Attempt : AggregateRoot
     /// <param name="questionId">The question answered.</param>
     /// <param name="selectedOptionIds">The options chosen; repeats are ignored, and at least one is needed (to take an answer back, clear it).</param>
     /// <param name="nowUtc">The current instant.</param>
-    /// <exception cref="InvalidAttemptError">No option was given.</exception>
+    /// <param name="sequence">The client's sequence number for this write, or null from a client that sends none; see <see cref="AttemptAnswerSequence"/>.</param>
+    /// <exception cref="InvalidAttemptError">No option was given, or the sequence number is outside the range a client may send.</exception>
     /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
     /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
-    public void RecordAnswer(Guid questionId, IReadOnlyCollection<Guid> selectedOptionIds, DateTime nowUtc)
+    /// <exception cref="StaleAnswerError">The sequence number is not higher than the one held for the question.</exception>
+    public void RecordAnswer(Guid questionId, IReadOnlyCollection<Guid> selectedOptionIds, DateTime nowUtc, long? sequence = null)
     {
         EnsureOpen(nowUtc);
 
         var chosen = selectedOptionIds.Distinct().ToList();
         if (chosen.Count == 0)
             throw new InvalidAttemptError("An answer needs at least one option; to take an answer back, clear it.");
+
+        // After every other check, so a write refused for another reason does not use up its sequence number.
+        ClaimAnswerSequence(questionId, sequence);
 
         var existing = _answers.FirstOrDefault(a => a.QuestionId == questionId);
         if (existing is null)
@@ -357,10 +372,12 @@ public sealed class Attempt : AggregateRoot
     /// <param name="questionId">The question answered.</param>
     /// <param name="text">What the candidate typed; surrounding spaces are removed. It must not be blank and must fit <see cref="TypedAnswer.MaxLength"/>.</param>
     /// <param name="nowUtc">The current instant.</param>
-    /// <exception cref="InvalidAttemptError">The answer is blank or longer than <see cref="TypedAnswer.MaxLength"/>.</exception>
+    /// <param name="sequence">The client's sequence number for this write, or null from a client that sends none; see <see cref="AttemptAnswerSequence"/>.</param>
+    /// <exception cref="InvalidAttemptError">The answer is blank or longer than <see cref="TypedAnswer.MaxLength"/>, or the sequence number is outside the range a client may send.</exception>
     /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
     /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
-    public void RecordTextAnswer(Guid questionId, string? text, DateTime nowUtc)
+    /// <exception cref="StaleAnswerError">The sequence number is not higher than the one held for the question.</exception>
+    public void RecordTextAnswer(Guid questionId, string? text, DateTime nowUtc, long? sequence = null)
     {
         EnsureOpen(nowUtc);
 
@@ -369,6 +386,8 @@ public sealed class Attempt : AggregateRoot
             throw new InvalidAttemptError("A typed answer needs some text; to take an answer back, clear it.");
         if (typed.Length > TypedAnswer.MaxLength)
             throw new InvalidAttemptError($"A typed answer must be at most {TypedAnswer.MaxLength} characters.");
+
+        ClaimAnswerSequence(questionId, sequence);
 
         var existing = _answers.FirstOrDefault(a => a.QuestionId == questionId);
         if (existing is null)
@@ -385,13 +404,22 @@ public sealed class Attempt : AggregateRoot
     /// The answer is removed rather than kept with an empty choice, so everything that reads answers keeps meaning
     /// "a candidate chose this option": a cleared question is neither scored nor treated as answered.
     /// </remarks>
+    /// <remarks>
+    /// A clear takes a sequence number like a save, and keeps it even when there was nothing to clear, so a save sent before the clear that
+    /// arrives after it cannot bring the answer back.
+    /// </remarks>
     /// <param name="questionId">The question to clear.</param>
     /// <param name="nowUtc">The current instant.</param>
+    /// <param name="sequence">The client's sequence number for this write, or null from a client that sends none; see <see cref="AttemptAnswerSequence"/>.</param>
     /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
     /// <exception cref="AttemptTimeExpiredError">The deadline has passed.</exception>
-    public void ClearAnswer(Guid questionId, DateTime nowUtc)
+    /// <exception cref="InvalidAttemptError">The sequence number is outside the range a client may send.</exception>
+    /// <exception cref="StaleAnswerError">The sequence number is not higher than the one held for the question.</exception>
+    public void ClearAnswer(Guid questionId, DateTime nowUtc, long? sequence = null)
     {
         EnsureOpen(nowUtc);
+
+        ClaimAnswerSequence(questionId, sequence);
 
         var existing = _answers.FirstOrDefault(a => a.QuestionId == questionId);
         if (existing is not null)
@@ -703,6 +731,26 @@ public sealed class Attempt : AggregateRoot
     }
 
     /// <summary>The one rule every change to an open attempt shares: it must still be open, not paused, and its time must not have run out.</summary>
+    // Takes the sequence number for a write to a question's answer, or refuses the write as out of date (NFR-4, ADR 0004). A write that
+    // names its number must be higher than the one held. A write that names none, from a client older than sequence numbers, is the newest
+    // by arrival, as every write was before them, so it takes the next number up and the order stays what it was.
+    private void ClaimAnswerSequence(Guid questionId, long? sequence)
+    {
+        if (sequence is < 1 or > AttemptAnswerSequence.MaxValue)
+            throw new InvalidAttemptError($"An answer's sequence number must be between 1 and {AttemptAnswerSequence.MaxValue}.");
+
+        var held = _answerSequences.FirstOrDefault(s => s.QuestionId == questionId);
+        var heldValue = held?.Value ?? 0;
+        if (sequence <= heldValue)
+            throw new StaleAnswerError(heldValue);
+
+        var claimed = sequence ?? Math.Min(heldValue + 1, AttemptAnswerSequence.MaxValue);
+        if (held is null)
+            _answerSequences.Add(new AttemptAnswerSequence(Id, questionId, claimed));
+        else if (claimed > heldValue)
+            held.RaiseTo(claimed);
+    }
+
     private void EnsureOpen(DateTime nowUtc)
     {
         if (Status != AttemptStatus.InProgress)

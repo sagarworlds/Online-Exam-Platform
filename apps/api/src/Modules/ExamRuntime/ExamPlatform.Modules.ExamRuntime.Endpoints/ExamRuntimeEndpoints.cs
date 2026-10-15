@@ -20,7 +20,12 @@ public sealed record StartAttemptRequest(bool InstructionsAcknowledged = false);
 /// <param name="OptionId">The option the candidate chose, for a question that takes one answer.</param>
 /// <param name="OptionIds">The options the candidate chose, for a multiple-answer question; when given, it is used instead of <paramref name="OptionId"/>.</param>
 /// <param name="Text">The answer the candidate typed, for a text question. When given, it is the answer and the options are ignored.</param>
-public sealed record SaveAnswerRequest(Guid? OptionId = null, IReadOnlyList<Guid>? OptionIds = null, string? Text = null);
+/// <param name="Sequence">
+/// The client's number for this write to the question, from 1, higher for each newer answer and the same for a repeat of one (NFR-4, ADR 0004).
+/// The save is applied only if it is higher than the number the server holds for the question; otherwise the answer is 409 with
+/// <c>answer_superseded</c> and the number held. Left out by a client that sends none, whose save is then taken as the newest.
+/// </param>
+public sealed record SaveAnswerRequest(Guid? OptionId = null, IReadOnlyList<Guid>? OptionIds = null, string? Text = null, long? Sequence = null);
 
 /// <summary>Body of <c>PUT /v1/me/attempts/{attemptId}/questions/{questionId}/time</c> (FR-36).</summary>
 /// <param name="Seconds">The running total the candidate has spent on the question so far, in seconds, as the page measured it. The server keeps it no higher than the time since the attempt began.</param>
@@ -198,7 +203,7 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict)
             .WithName("SaveAnswer")
-            .WithDescription("Save the option chosen for one question of an open attempt");
+            .WithDescription("Save the option chosen for one question of an open attempt. With a sequence number, a save older than the one held is refused with 409 answer_superseded and the number held");
 
         me.MapDelete("/attempts/{attemptId:guid}/answers/{questionId:guid}", ClearAnswer)
             .Produces(StatusCodes.Status204NoContent)
@@ -206,7 +211,7 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict)
             .WithName("ClearAnswer")
-            .WithDescription("Take back the option chosen for one question of an open attempt, so it counts as unanswered");
+            .WithDescription("Take back the option chosen for one question of an open attempt, so it counts as unanswered. With a sequence number (query), a clear older than the one held is refused with 409 answer_superseded and the number held");
 
         me.MapPut("/attempts/{attemptId:guid}/questions/{questionId:guid}/time", RecordQuestionTime)
             .Produces(StatusCodes.Status204NoContent)
@@ -656,7 +661,7 @@ public static class ExamRuntimeEndpoints
         // A typed answer, for a text question, is the whole answer; it is checked there, so a blank one is refused.
         if (request.Text is not null)
         {
-            await handler.HandleTextAsync(attemptId, user.GetUserId(), questionId, request.Text, ct);
+            await handler.HandleTextAsync(attemptId, user.GetUserId(), questionId, request.Text, request.Sequence, ct);
             return Results.NoContent();
         }
 
@@ -664,14 +669,15 @@ public static class ExamRuntimeEndpoints
         IReadOnlyCollection<Guid> chosen = request.OptionIds is { Count: > 0 } ids ? ids
             : request.OptionId is { } id ? new[] { id }
             : Array.Empty<Guid>();
-        await handler.HandleAsync(attemptId, user.GetUserId(), questionId, chosen, ct);
+        await handler.HandleAsync(attemptId, user.GetUserId(), questionId, chosen, request.Sequence, ct);
         return Results.NoContent();
     }
 
+    // A clear has no body, so its sequence number travels in the query: DELETE .../answers/{questionId}?sequence=7.
     private static async Task<IResult> ClearAnswer(
-        Guid attemptId, Guid questionId, ClaimsPrincipal user, ClearAnswerHandler handler, CancellationToken ct)
+        Guid attemptId, Guid questionId, long? sequence, ClaimsPrincipal user, ClearAnswerHandler handler, CancellationToken ct)
     {
-        await handler.HandleAsync(attemptId, user.GetUserId(), questionId, ct);
+        await handler.HandleAsync(attemptId, user.GetUserId(), questionId, sequence, ct);
         return Results.NoContent();
     }
 
