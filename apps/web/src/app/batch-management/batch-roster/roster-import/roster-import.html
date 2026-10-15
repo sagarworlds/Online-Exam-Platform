@@ -1,0 +1,43 @@
+<section class="card" aria-label="Import a roster">
+  <h3>Import a roster</h3>
+  <p class="hint">
+    Choose a CSV file with one candidate per row: the e-mail address, then the phone number if there is one. A first row naming
+    the columns (<code>email</code>, <code>phone</code>) is optional, and other columns are ignored. A file takes up to
+    {{ maxRows }} rows; for more, import it in parts. Save a spreadsheet as CSV first.
+  </p>
+
+  @if (error()) {
+    <p class="error-message" role="alert">{{ error() }}</p>
+  }
+
+  <div class="actions">
+    <button type="button" class="btn" (click)="picker.click()" [disabled]="busy()">
+      {{ busy() ? 'Importing…' : 'Import from a CSV file…' }}
+    </button>
+    <input #picker type="file" hidden accept=".csv,text/csv" aria-label="Roster file" (change)="onFilePicked($event)" />
+  </div>
+
+  @if (result(); as report) {
+    <div role="status">
+      <p [class]="report.added.length > 0 ? 'success-message' : 'hint'">
+        {{ report.added.length }} candidate{{ report.added.length === 1 ? '' : 's' }} added{{
+          report.skipped.length > 0 ? ', ' + report.skipped.length + ' row' + (report.skipped.length === 1 ? '' : 's') + ' left out' : ''
+        }}.
+      </p>
+      @if (report.ignoredColumns.length > 0) {
+        <p class="hint">These columns are not used: {{ report.ignoredColumns.join(', ') }}.</p>
+      }
+      @if (report.skipped.length > 0) {
+        <p>
+          These rows were not added. Correct them and import a file holding only those rows, so the candidates already added are not
+          repeated.
+        </p>
+        <ul class="import-report">
+          @for (row of report.skipped; track row.row) {
+            <li>Row {{ row.row }}: {{ row.message }}</li>
+          }
+        </ul>
+      }
+    </div>
+  }
+</section>

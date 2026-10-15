@@ -48,4 +48,12 @@ describe('BatchApiService', () => {
     const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/batches/${batchId}/activate`);
     expect(req.request.method).toBe('POST');
   });
+
+  it('should import a roster as csv text to the batch', () => {
+    service.importRoster('batch-123', 'email\r\namy@example.com\r\n').subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/batches/batch-123/members/import`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ csv: 'email\r\namy@example.com\r\n' });
+  });
 });
