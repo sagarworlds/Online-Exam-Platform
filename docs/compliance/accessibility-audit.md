@@ -335,3 +335,9 @@ The same harness, with the same generic or page-specific API mocks, was run agai
 - **The other 25 pages in Hindi and Marathi.** 100 runs (25 pages, 2 languages, 2 colour schemes), with no axe violations and no console or page errors. They used the generic mocks, so their lists are still empty.
 - **Judged 'incomplete' items, none of them new.** The admin sidebar toggle and the rich-text toolbar buttons are the two cases from the paragraph above. The question list also has a decorative `✗` glyph inside a badge, which is `aria-hidden`, so its words carry the meaning. It was reported the same way in English.
 - **Still not covered:** populated states of the 25 generic pages, open dialogs and forms inside the populated pages, and the exam-page states in section 2.1, in any language.
+
+### Standalone links at phone width, 2026-10-14
+
+The #87 comments left "standalone text links (16 to 22px)" open. A measurement at 360 px, with the API mocked, looked at each visible link that is not inside running text, on 11 routes: the three sign-in, register and reset pages, and the candidate and staff pages (my exams, my performance, profile, notifications, the admin home, exams, questions and WhatsApp settings). The signed-in pages had no such link under 44 px. The three signed-out pages had five links at 20.4 to 21.6 px: "Forgot password?", "Create an account", "Privacy policy" (twice), "Already have an account? Log in" and "I already have a reset code".
+
+They now have a 44 px tall box, the same rule as the header links: `.link-row > a` in `styles/base.css` and `.field-link` in `styles/components.css`. After the change, every measured link is 44 px or taller at 360 px, and no page scrolls sideways at 360 or 1280 px. The 16 px links mentioned in #87 were not found on these routes. The exam page, the review page, the guardian portal and the other signed-in routes were not part of this measurement.

@@ -227,7 +227,11 @@
   gap: 0.5rem;
 }
 
+/* The "Forgot password?" link beside a field label. It is a tap target, so it is at least 44px tall, as the links under a form are. */
 .field-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   font-size: 0.85rem;
 }
 
