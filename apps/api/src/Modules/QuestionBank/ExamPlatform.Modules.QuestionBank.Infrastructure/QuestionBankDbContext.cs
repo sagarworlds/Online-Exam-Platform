@@ -14,7 +14,7 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure;
 /// options, answers and version history) is stored encrypted (#57); see <see cref="ContentConverters"/>.
 /// </summary>
 /// <param name="options">The context options.</param>
-/// <param name="cipher">The cipher that encrypts and decrypts content; its key ring lives in this database (see <see cref="QuestionContentCipher"/>).</param>
+/// <param name="cipher">The cipher that encrypts and decrypts content; its key ring lives in this database, each entry encrypted with a key held outside it (see <see cref="QuestionContentCipher"/>).</param>
 public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext> options, QuestionContentCipher cipher)
     : DbContext(options), IDataProtectionKeyContext
 {

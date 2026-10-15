@@ -3,6 +3,7 @@ using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Endpoints.OtpDelivery;
 using ExamPlatform.Modules.Identity.Endpoints.RateLimiting;
 using ExamPlatform.Modules.Invite.Infrastructure.WhatsApp;
+using ExamPlatform.SharedKernel.Infrastructure.KeyRing;
 using ExamPlatform.SharedKernel.Infrastructure.Sms;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -30,6 +31,12 @@ public sealed class ProductionHostFactory(
     bool allowCapturingSender = false,
     IReadOnlyDictionary<string, string?>? extraSettings = null) : WebApplicationFactory<Program>
 {
+    /// <summary>
+    /// A key for protecting the Data Protection key ring (NFR-5, #86): 32 bytes in base64, for tests only. Outside Development the host
+    /// refuses to start without one, so a Production host in a test has to carry one, as a deployment does.
+    /// </summary>
+    public const string KeyRingKey = "KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKio=";
+
     /// <inheritdoc />
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -41,6 +48,7 @@ public sealed class ProductionHostFactory(
             ["Jwt:SigningKey"] = "integration-test-only-signing-key-at-least-32-bytes",
             ["Jwt:Issuer"] = "exam-platform-tests",
             ["Jwt:Audience"] = "exam-platform-tests-clients",
+            ["DataProtection:KeyEncryptionKey"] = KeyRingKey,
         };
         if (otpProvider is not null)
         {
@@ -117,6 +125,32 @@ public sealed class StartupGuardTests
         var response = await client.GetAsync("/v1/health");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(null)]
+    public void NonDevelopment_WithoutAKeyRingKey_FailsAtStartupNamingTheSetting(string? blank)
+    {
+        // A deployment that skipped the key would otherwise work, with the keys that open the question content stored beside it (NFR-5, #86).
+        using var factory = SmtpHostWith((KeyRingProtectionOptions.KeySettingName, blank));
+
+        var failure = AssertStartupFails<KeyRingProtectionOptions>(factory);
+
+        Assert.Contains(KeyRingProtectionOptions.KeySettingName, failure.Message);
+        Assert.Contains("openssl rand -base64 32", failure.Message);
+    }
+
+    [Fact]
+    public void NonDevelopment_WithAKeyRingKeyThatIsNotAKey_FailsAtStartup_WithoutRepeatingIt()
+    {
+        const string notAKey = "this-is-not-a-32-byte-key";
+        using var factory = SmtpHostWith((KeyRingProtectionOptions.KeySettingName, notAKey));
+
+        var failure = AssertStartupFails<KeyRingProtectionOptions>(factory);
+
+        Assert.Contains(KeyRingProtectionOptions.KeySettingName, failure.Message);
+        Assert.DoesNotContain(notAKey, failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -9,9 +9,10 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Encryption;
 /// place (<see cref="QuestionContentBackfill"/>).
 /// </summary>
 /// <remarks>
-/// The keys live in Postgres (see the QuestionBank module installer), so every replica decrypts with the same key ring. The key ring
-/// sits in the same database as the ciphertext, so a copy of the database alone does not protect the content; that residual risk is stated
-/// in the pull request, and the keys should be wrapped by a key outside the database before launch.
+/// The keys live in Postgres (see the QuestionBank module installer), so every replica decrypts with the same key ring. The ring sits in
+/// the same database as the ciphertext, so each of its entries is itself encrypted with a key held outside the database (NFR-5, #86; see
+/// <see cref="KeyRingReprotection"/> and ADR 0003). A copy of the database alone then opens nothing. A copy taken before that change still
+/// holds the keys in the clear, and rotating the keys is what would retire them.
 /// </remarks>
 public sealed class QuestionContentCipher(IDataProtectionProvider protection)
 {

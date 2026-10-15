@@ -8,11 +8,13 @@ using ExamPlatform.Modules.QuestionBank.Infrastructure.Encryption;
 using ExamPlatform.Modules.QuestionBank.Infrastructure.Repositories;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure;
+using ExamPlatform.SharedKernel.Infrastructure.KeyRing;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace ExamPlatform.Modules.QuestionBank.Endpoints;
 
@@ -30,12 +32,20 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
             .AddInterceptors(sp.GetRequiredService<DomainEventsSaveChangesInterceptor>()));
 
         // Question content is encrypted at rest (NFR-5, #57). The key ring is kept in Postgres, so every replica decrypts with the same keys;
-        // the application name keeps the ring the same across deployments that share the database.
+        // the application name keeps the ring the same across deployments that share the database. Each entry of the ring is itself encrypted
+        // with a key held outside the database (NFR-5, #86), so a copy of the database alone does not open the content. The wrapping is applied
+        // after the repository is chosen, and the key is asked for only when the ring is first used (see ProtectedXmlRepository).
         services.AddDataProtection()
             .SetApplicationName("ExamPlatform")
-            .PersistKeysToDbContext<QuestionBankDbContext>();
+            .PersistKeysToDbContext<QuestionBankDbContext>()
+            .ProtectKeyRing();
         services.AddSingleton<QuestionContentCipher>();
         services.AddScoped<QuestionContentBackfill>();
+        // The protector is passed as a factory, so a run on an empty key ring never asks for the key (see KeyRingReprotection).
+        services.AddScoped(provider => new KeyRingReprotection(
+            provider.GetRequiredService<QuestionBankDbContext>(),
+            () => provider.GetRequiredService<IKeyRingProtector>(),
+            provider.GetRequiredService<ILogger<KeyRingReprotection>>()));
         services.AddScoped<IQuestionContentEncryptionStatus, QuestionContentEncryptionStatus>();
         services.AddScoped<ReadContentEncryptionStatusHandler>();
 
@@ -101,6 +111,10 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
     {
         var db = services.GetRequiredService<QuestionBankDbContext>();
         await db.Database.MigrateAsync(cancellationToken);
+
+        // First, so that the backfill below, which is the first thing to use the keys, finds a protected ring, and so that a ring stored in the
+        // clear before #86 does not stay that way. It is idempotent, and a database with no key ring entries asks for no key (ADR 0003).
+        await services.GetRequiredService<KeyRingReprotection>().RunAsync(cancellationToken);
 
         // Before any replica serves questions: the encryption backfill turns plaintext content that predates #57 into ciphertext, so a
         // question is never read as plaintext. It is idempotent, so a run on an already encrypted bank changes nothing.

@@ -13,6 +13,7 @@
 | npm audit | `npm audit --audit-level=high`, step in the web job | a high or critical advisory in `apps/web` |
 | Access tests (OWASP A01) | `M3AuthorizationTests`, section "one candidate reading another candidate's attempt" | a candidate can read another candidate's attempt, its status, review, result, certificate or analytics |
 | API security headers | `SecurityHeadersTests`, `ProductionHostTests` | a response loses a header, or HSTS is not one year |
+| Key ring protection (encryption at rest, #86) | `KeyRingProtectionTests`, `KeyRingProtectionOptionsValidatorTests`, `KeyRingProtectionFlowTests`, `StartupGuardTests` | the key ring is stored in the clear outside Development, a restart cannot read it, a wrong or missing key makes a new key instead of stopping the host, or a host starts without the key |
 | Deployed headers | `scripts/security/check-security-headers.sh` through `.github/workflows/security-headers.yml` (weekly and on demand) | the static site or the API serves a header that fails the policy, or a repository variable is not set |
 
 ### Analyzers
@@ -100,7 +101,17 @@ Several per-resource isolation tests already existed (`AttemptResultFlowTests`, 
 
 ## Encryption at rest
 
-Question content is encrypted by `QuestionContentCipher` through the ASP.NET Core Data Protection key ring (#215, with the backfill in `QuestionContentBackfill`). Nothing in this change alters that. The question-paper release rule (encrypted until exam start) is not changed here.
+Question content is encrypted by `QuestionContentCipher` through the ASP.NET Core Data Protection key ring (#215, with the backfill in `QuestionContentBackfill`). The question-paper release rule (encrypted until exam start) is not changed here.
+
+### The key ring (#86)
+
+The key ring is stored in the same Postgres database as the ciphertext, so until #86 a copy of the database held the content and the keys that open it. Now each key ring entry is encrypted with AES-256-GCM under `DataProtection:KeyEncryptionKey`, a key held in the host's environment and not in the database. The decision, the alternatives and what it does not cover are in `docs/adr/0003-key-ring-protection.md`.
+
+- Outside Development the host refuses to start without the key, and refuses a key that is not 32 bytes of base64.
+- Existing keys that were stored in the clear keep working and are rewritten under the key when migrate-and-seed runs. Nothing already encrypted is re-encrypted.
+- A wrong or missing key stops the host. It never makes a new key, which would leave the content unreadable.
+- **Not covered:** copies of the database taken before the change still hold the keys in the clear. The key sits in Render's environment, so dashboard access opens it. Losing the key loses the content, so it has to be backed up apart from the database (the restore runbook for #85 must say how).
+- The tests that need the database (`KeyRingProtectionFlowTests`) run in CI through Testcontainers.
 
 ## Not verified here
 
