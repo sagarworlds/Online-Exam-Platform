@@ -16,6 +16,8 @@ public class BatchErrorContractTests
         { new DuplicateMemberError(), "duplicate_member", 409 },
         { new InvalidBatchConfigError("A batch needs a name."), "invalid_batch_config", 400 },
         { new InvalidBatchMemberError("A member needs a valid e-mail address."), "invalid_batch_member", 400 },
+        { new RosterTooLargeError(1000), "roster_too_large", 400 },
+        { new RosterUnreadableError("The file is empty."), "roster_unreadable", 400 },
     };
 
     [Theory]

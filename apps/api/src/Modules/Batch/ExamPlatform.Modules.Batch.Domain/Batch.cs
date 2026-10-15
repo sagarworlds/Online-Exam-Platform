@@ -60,27 +60,129 @@ public class Batch : AggregateRoot
     /// <exception cref="InvalidBatchConfigError">The batch is full.</exception>
     public void AddMember(string email, string? phone, DateTime nowUtc)
     {
+        // One path for a single add and for a file of rows, so the two can never disagree about who may sit.
+        var result = TryAddMember(email, phone, nowUtc, out var member);
+        switch (result)
+        {
+            case SeatResult.Added:
+                UpdatedAt = nowUtc;
+                AddDomainEvent(new BatchMemberAddedEvent(Id, member!.Id));
+                return;
+            case SeatResult.MissingEmail:
+            case SeatResult.InvalidEmail:
+                throw new InvalidBatchMemberError("A member needs a valid e-mail address.");
+            case SeatResult.InvalidPhone:
+                throw new InvalidBatchMemberError("The phone number is not valid.");
+            case SeatResult.AlreadyInBatch:
+                throw new DuplicateMemberError();
+            case SeatResult.BatchFull:
+                throw new InvalidBatchConfigError("Batch has reached maximum member capacity.");
+            default:
+                throw new InvalidOperationException($"Unhandled seat result '{result}'.");
+        }
+    }
+
+    /// <summary>
+    /// Gives the rows of a roster file seats in the batch, one by one (FR-50). A row that cannot be seated is skipped
+    /// and reported; it never stops the rest. The seats are given in file order, so when the batch fills up the first
+    /// rows keep theirs.
+    /// </summary>
+    /// <remarks>
+    /// Raises one <see cref="BatchRosterImportedEvent"/> for the whole file instead of one event per member: an import
+    /// can hold a thousand rows, and each audit entry is a separate write.
+    /// </remarks>
+    /// <param name="rows">The rows of the file, in file order, each with its number.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns>One result per row, in the same order, saying what happened to it.</returns>
+    public IReadOnlyList<RosterRowResult> ImportMembers(IReadOnlyList<RosterRow> rows, DateTime nowUtc)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        var results = new List<RosterRowResult>(rows.Count);
+        var addedIds = new List<Guid>();
+        // The first row of the file that took each address. A repeat inside the file is a different case from an
+        // address that was already in the batch, and the report should name the row to compare it with.
+        var firstRowOfAddress = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var row in rows)
+        {
+            if (MemberContact.TryNormalizeEmail(row.Email, out var normalizedEmail)
+                && firstRowOfAddress.TryGetValue(normalizedEmail, out var firstRow))
+            {
+                results.Add(new RosterRowResult(row.Row, RosterRowOutcome.RepeatedInFile, FirstRow: firstRow));
+                continue;
+            }
+
+            var result = TryAddMember(row.Email, row.Phone, nowUtc, out var member);
+            if (result == SeatResult.Added)
+            {
+                firstRowOfAddress[member!.Email] = row.Row;
+                addedIds.Add(member.Id);
+            }
+
+            results.Add(new RosterRowResult(row.Row, ToOutcome(result), member?.Id));
+        }
+
+        if (addedIds.Count > 0)
+        {
+            UpdatedAt = nowUtc;
+            AddDomainEvent(new BatchRosterImportedEvent(Id, addedIds));
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Checks one address and phone number against the batch's rules and, when they pass, adds the member. Raises no
+    /// event and throws nothing for a bad row: the caller decides whether a refusal is an error or a line in a report.
+    /// </summary>
+    private SeatResult TryAddMember(string? email, string? phone, DateTime nowUtc, out BatchMember? member)
+    {
+        member = null;
+
+        if (string.IsNullOrWhiteSpace(email))
+            return SeatResult.MissingEmail;
         if (!MemberContact.TryNormalizeEmail(email, out var normalizedEmail))
-            throw new InvalidBatchMemberError("A member needs a valid e-mail address.");
+            return SeatResult.InvalidEmail;
 
         string? normalizedPhone = null;
         if (!string.IsNullOrWhiteSpace(phone))
         {
             if (!MemberContact.TryNormalizePhone(phone, out var cleaned))
-                throw new InvalidBatchMemberError("The phone number is not valid.");
+                return SeatResult.InvalidPhone;
             normalizedPhone = cleaned;
         }
 
         if (_members.Any(m => m.Email == normalizedEmail && !m.IsDeleted))
-            throw new DuplicateMemberError();
+            return SeatResult.AlreadyInBatch;
 
         if (_members.Count(m => !m.IsDeleted) >= MaxMembers)
-            throw new InvalidBatchConfigError("Batch has reached maximum member capacity.");
+            return SeatResult.BatchFull;
 
-        var member = new BatchMember(Id, normalizedEmail, normalizedPhone, nowUtc);
+        member = new BatchMember(Id, normalizedEmail, normalizedPhone, nowUtc);
         _members.Add(member);
-        UpdatedAt = nowUtc;
-        AddDomainEvent(new BatchMemberAddedEvent(Id, member.Id));
+        return SeatResult.Added;
+    }
+
+    private static RosterRowOutcome ToOutcome(SeatResult result) => result switch
+    {
+        SeatResult.Added => RosterRowOutcome.Added,
+        SeatResult.MissingEmail => RosterRowOutcome.MissingEmail,
+        SeatResult.InvalidEmail => RosterRowOutcome.InvalidEmail,
+        SeatResult.InvalidPhone => RosterRowOutcome.InvalidPhone,
+        SeatResult.AlreadyInBatch => RosterRowOutcome.AlreadyInBatch,
+        SeatResult.BatchFull => RosterRowOutcome.BatchFull,
+        _ => throw new InvalidOperationException($"Unhandled seat result '{result}'."),
+    };
+
+    private enum SeatResult
+    {
+        Added,
+        MissingEmail,
+        InvalidEmail,
+        InvalidPhone,
+        AlreadyInBatch,
+        BatchFull,
     }
 
     /// <summary>Takes a member out of the batch.</summary>

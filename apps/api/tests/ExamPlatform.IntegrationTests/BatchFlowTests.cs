@@ -193,6 +193,122 @@ public class BatchFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task ImportRoster_SeatsTheGoodRows_AndReportsTheBadOnesByRowNumber()
+    {
+        using var client = AuthorizedClient(await factory.SignInAsAsync("SuperAdmin"));
+        var batchId = await CreateBatchAsync(client, maxMembers: 10);
+        var first = UniqueEmail();
+        var second = UniqueEmail();
+
+        var response = await ImportRosterAsync(client, batchId, $"email,phone,name\r\n{first},+91 98765 43210,Amy\r\nnot-an-address,,Bad\r\n{second.ToUpperInvariant()},,Ben\r\n");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var report = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal([2, 4], report.GetProperty("added").EnumerateArray().Select(a => a.GetProperty("row").GetInt32()));
+        var skipped = Assert.Single(report.GetProperty("skipped").EnumerateArray());
+        Assert.Equal(3, skipped.GetProperty("row").GetInt32());
+        Assert.Equal("invalid_email", skipped.GetProperty("code").GetString());
+        Assert.Equal(["name"], report.GetProperty("ignoredColumns").EnumerateArray().Select(c => c.GetString()!.ToLowerInvariant()));
+
+        // The report names rows, never addresses, and the seats are really stored (read back in a new request).
+        Assert.DoesNotContain("@", await response.Content.ReadAsStringAsync());
+        var members = await client.GetFromJsonAsync<JsonElement>($"/v1/batches/{batchId}/members");
+        var stored = members.EnumerateArray().Select(m => m.GetProperty("email").GetString()!).Order().ToArray();
+        Assert.Equal(new[] { first, second }.Order(), stored);
+    }
+
+    [Fact]
+    public async Task ImportRoster_TheSameFileTwice_SecondTimeSeatsNobodyAndSaysSo()
+    {
+        using var client = AuthorizedClient(await factory.SignInAsAsync("SuperAdmin"));
+        var batchId = await CreateBatchAsync(client, maxMembers: 10);
+        var csv = $"{UniqueEmail()}\r\n{UniqueEmail()}\r\n";
+        (await ImportRosterAsync(client, batchId, csv)).EnsureSuccessStatusCode();
+
+        var response = await ImportRosterAsync(client, batchId, csv);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var report = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Empty(report.GetProperty("added").EnumerateArray());
+        Assert.All(report.GetProperty("skipped").EnumerateArray(), s => Assert.Equal("already_in_batch", s.GetProperty("code").GetString()));
+        var members = await client.GetFromJsonAsync<JsonElement>($"/v1/batches/{batchId}/members");
+        Assert.Equal(2, members.GetArrayLength());
+    }
+
+    [Fact]
+    public async Task ImportRoster_WhenTheBatchFillsUp_KeepsTheFirstRowsAndReportsTheRest()
+    {
+        using var client = AuthorizedClient(await factory.SignInAsAsync("SuperAdmin"));
+        var batchId = await CreateBatchAsync(client, maxMembers: 2);
+
+        var response = await ImportRosterAsync(client, batchId, $"{UniqueEmail()}\r\n{UniqueEmail()}\r\n{UniqueEmail()}\r\n");
+
+        var report = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal([1, 2], report.GetProperty("added").EnumerateArray().Select(a => a.GetProperty("row").GetInt32()));
+        var skipped = Assert.Single(report.GetProperty("skipped").EnumerateArray());
+        Assert.Equal((3, "batch_full"), (skipped.GetProperty("row").GetInt32(), skipped.GetProperty("code").GetString()));
+    }
+
+    [Fact]
+    public async Task ImportRoster_UnknownBatch_Returns404WithTitleBatchNotFound()
+    {
+        using var client = AuthorizedClient(await factory.SignInAsAsync("SuperAdmin"));
+
+        var response = await ImportRosterAsync(client, Guid.NewGuid(), UniqueEmail());
+
+        await AssertProblemAsync(response, HttpStatusCode.NotFound, "batch_not_found");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("email\r\n")]
+    [InlineData("phone\r\n+919876543210\r\n")]
+    public async Task ImportRoster_WithAFileThatHasNothingToImport_Returns400WithTitleRosterUnreadable(string csv)
+    {
+        using var client = AuthorizedClient(await factory.SignInAsAsync("SuperAdmin"));
+        var batchId = await CreateBatchAsync(client, maxMembers: 5);
+
+        var response = await ImportRosterAsync(client, batchId, csv);
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "roster_unreadable");
+    }
+
+    [Fact]
+    public async Task ImportRoster_WithoutABody_Returns400WithTitleRosterUnreadable()
+    {
+        using var client = AuthorizedClient(await factory.SignInAsAsync("SuperAdmin"));
+        var batchId = await CreateBatchAsync(client, maxMembers: 5);
+
+        var response = await client.PostAsJsonAsync($"/v1/batches/{batchId}/members/import", new { });
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "roster_unreadable");
+    }
+
+    [Fact]
+    public async Task ImportRoster_WithMoreRowsThanOneImportTakes_Returns400_AndSeatsNobody()
+    {
+        using var client = AuthorizedClient(await factory.SignInAsAsync("SuperAdmin"));
+        var batchId = await CreateBatchAsync(client, maxMembers: 2000);
+        var csv = string.Join("\r\n", Enumerable.Range(1, 1001).Select(i => $"bulk{i}-{Guid.NewGuid():N}@example.com"));
+
+        var response = await ImportRosterAsync(client, batchId, csv);
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "roster_too_large");
+        var members = await client.GetFromJsonAsync<JsonElement>($"/v1/batches/{batchId}/members");
+        Assert.Equal(0, members.GetArrayLength());
+    }
+
+    [Fact]
+    public async Task ImportRoster_WithoutAuth_ReturnsUnauthorized()
+    {
+        using var client = factory.CreateClient();
+
+        var response = await ImportRosterAsync(client, Guid.NewGuid(), UniqueEmail());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task CreateBatch_WithZeroMaxMembers_Returns400()
     {
         using var client = AuthorizedClient(await factory.SignInAsAsync("SuperAdmin"));
@@ -211,6 +327,11 @@ public class BatchFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
     private static Task<HttpResponseMessage> AddMemberAsync(HttpClient client, Guid batchId, string email, string? phone = null) =>
         client.PostAsJsonAsync($"/v1/batches/{batchId}/members", new AddBatchMemberRequest(email, phone));
+
+    private static Task<HttpResponseMessage> ImportRosterAsync(HttpClient client, Guid batchId, string csv) =>
+        client.PostAsJsonAsync($"/v1/batches/{batchId}/members/import", new ImportRosterRequest(csv));
+
+    private static string UniqueEmail() => $"roster-{Guid.NewGuid():N}@example.com";
 
     private static async Task AssertProblemAsync(HttpResponseMessage response, HttpStatusCode status, string errorCode)
     {
