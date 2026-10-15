@@ -38,6 +38,34 @@ public sealed class OtpCodesEndpointTests(ApiFactory factory) : IClassFixture<Ap
     }
 
     [Fact]
+    public async Task EveryRead_IsOnTheAuditTrail_NamingTheCodeShownByChallengeAndPurpose_NotByValue()
+    {
+        var candidate = await factory.SignInAsAsync("Candidate");
+        using var anonymous = factory.CreateClient();
+        var request = await anonymous.PostAsJsonAsync(
+            "/v1/auth/otp/request", new { channel = "Email", destination = candidate.Email });
+        request.EnsureSuccessStatusCode();
+        var challengeId = (await request.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("otpChallengeId").GetGuid();
+        var superAdmin = await factory.SignInAsAsync("SuperAdmin");
+        using var admin = AuthorizedClient(superAdmin.AccessToken);
+
+        var codes = await admin.GetFromJsonAsync<JsonElement>($"/v1/admin/otp-codes?destination={Uri.EscapeDataString(candidate.Email)}");
+        Assert.Single(codes.EnumerateArray());
+
+        var audit = await admin.GetFromJsonAsync<JsonElement>(
+            $"/v1/admin/audit-logs?entityType=OtpChallenge&actorUserId={superAdmin.UserId}");
+        var entry = Assert.Single(audit.EnumerateArray(), e => e.GetProperty("action").GetString() == "Identity.OtpCodesViewed");
+
+        // Exact values, so a code or an address in any of them would fail the test: the trail names the
+        // code by its challenge and purpose, and is no second place the code can be read.
+        var metadata = entry.GetProperty("metadata");
+        Assert.Equal(3, metadata.EnumerateObject().Count());
+        Assert.Equal("1", metadata.GetProperty("count").GetString());
+        Assert.Equal("True", metadata.GetProperty("filtered").GetString());
+        Assert.Equal($"{challengeId}:Login", metadata.GetProperty("challenges").GetString());
+    }
+
+    [Fact]
     public async Task ARequestForAnUnknownDestination_ShowsNoCode()
     {
         var destination = $"nobody-{Guid.NewGuid():N}@tests.local";

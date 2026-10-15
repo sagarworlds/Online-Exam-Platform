@@ -19,9 +19,9 @@ public class ListOutstandingOtpsHandlerTests
         _handler = new ListOutstandingOtpsHandler(_challenges, _audit, new FakeClock(Now));
     }
 
-    private static OtpChallenge Challenge(string destination, string code) =>
+    private static OtpChallenge Challenge(string destination, string code, OtpPurpose purpose = OtpPurpose.Login) =>
         OtpChallenge.Issue(
-            Guid.NewGuid(), OtpChannel.Email, destination, "hash", OtpPurpose.Login, Now, TimeSpan.FromMinutes(10),
+            Guid.NewGuid(), OtpChannel.Email, destination, "hash", purpose, Now, TimeSpan.FromMinutes(10),
             revealableCode: code);
 
     [Fact]
@@ -75,6 +75,44 @@ public class ListOutstandingOtpsHandlerTests
                 && e.Metadata["count"] == "2"
                 && e.Metadata["filtered"] == "True"
                 && !e.Metadata.Values.Any(v => v.Contains("111111") || v.Contains("222222"))),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_RecordsWhichCodesWereShown_ByChallengeAndPurpose_NeverByValueOrDestination()
+    {
+        var login = Challenge("login-person@example.com", "111111", OtpPurpose.Login);
+        var registration = Challenge("new-person@example.com", "222222", OtpPurpose.Registration);
+        _challenges
+            .ListRevealableAsync(Arg.Any<string?>(), Now, Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns([login, registration]);
+
+        await _handler.HandleAsync(new ListOutstandingOtpsQuery(null, Guid.NewGuid(), "SuperAdmin"), CancellationToken.None);
+
+        // The key and the pair format are what a reviewer reads, so the test spells them out.
+        await _audit.Received(1).RecordAsync(
+            Arg.Is<AuditEntry>(e =>
+                e.Metadata["challenges"] == $"{login.Id}:Login,{registration.Id}:Registration"
+                && !e.Metadata.Values.Any(v =>
+                    v.Contains("111111") || v.Contains("222222")
+                    || v.Contains("login-person") || v.Contains("new-person"))),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenNoCodeIsShown_RecordsAnEmptyList_SoTheReadIsStillOnTheTrail()
+    {
+        _challenges
+            .ListRevealableAsync(Arg.Any<string?>(), Now, Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns([]);
+
+        await _handler.HandleAsync(new ListOutstandingOtpsQuery(null, Guid.NewGuid(), "SuperAdmin"), CancellationToken.None);
+
+        await _audit.Received(1).RecordAsync(
+            Arg.Is<AuditEntry>(e =>
+                e.Metadata["count"] == "0"
+                && e.Metadata["filtered"] == "False"
+                && e.Metadata["challenges"] == string.Empty),
             Arg.Any<CancellationToken>());
     }
 }
