@@ -12,7 +12,7 @@ So **18 decisions are settled** and recorded below, each with the file that now 
 
 ### Corrections to the first version
 
-- **D10 said the roster importer reads an e-mail and an optional phone.** There is no CSV importer. Staff add batch members one at a time (`POST /v1/batches/{id}/members`), `RosterValidator` has no caller outside its own tests, and issue [#42](https://github.com/sagarworlds/Online-Exam-Platform/issues/42) was closed without the import. The decision stands (the roster carries an e-mail and an optional phone only), but the import itself is missing. It is tracked in [#273](https://github.com/sagarworlds/Online-Exam-Platform/issues/273) and is on the engineering list below.
+- **D10 said the roster importer reads an e-mail and an optional phone, but there was no importer.** Staff could only add batch members one at a time (`POST /v1/batches/{id}/members`), `RosterValidator` had no caller outside its own tests, and issue [#42](https://github.com/sagarworlds/Online-Exam-Platform/issues/42) was closed without the import. The decision stands (the roster carries an e-mail and an optional phone only). The import is now built, in [#273](https://github.com/sagarworlds/Online-Exam-Platform/issues/273), and `RosterValidator` is gone: the batch itself judges each row.
 - **Action A7 said to close milestones M1 and M3.** GitHub shows M1, M2 and M3 closed on 2026-10-14, so A7 is removed.
 
 ## Still open
@@ -57,7 +57,7 @@ Reply with the decision number and your choice, for example `D13 B`. Where a dec
 | D3 | Retention periods ([#79](https://github.com/sagarworlds/Online-Exam-Platform/issues/79)) | **A.** You propose a period for each row of the data map, and counsel confirms | `docs/compliance/retention-proposal.md` | **You:** edit the proposed periods (A13). Then I build the retention job (#79) and finish the privacy notice text (#269) |
 | D5 | Marathi consent text ([#269](https://github.com/sagarworlds/Online-Exam-Platform/issues/269)) | **A.** Translate after counsel finalises the English and Hindi, so it is translated once; a Marathi speaker reviews it | #269 | Waits for counsel (D1) |
 | D6 | WhatsApp notices | **A.** Keep WhatsApp off until opt-in and opt-out records exist | `docs/additional-functionality.md` | The `WhatsAppNotices` purpose arrives with #269, and the records with the next piece of FR-39 |
-| D7 | The unspent-codes page | **A.** Keep it for the Super Admin only, and record which code was shown in each read's audit entry (the challenge and its purpose, never the code) | `docs/additional-functionality.md`, data map OP9 | Built on this branch: each read's audit entry now lists the challenge and purpose of every code shown. If counsel's answer to question 12 is no, switch the page off in production |
+| D7 | The unspent-codes page | **A.** Keep it for the Super Admin only, and record which code was shown in each read's audit entry (the challenge and its purpose, never the code) | `docs/additional-functionality.md`, data map OP9 | Built and merged in [#274](https://github.com/sagarworlds/Online-Exam-Platform/pull/274): each read's audit entry now lists the challenge and purpose of every code shown. If counsel's answer to question 12 is no, switch the page off in production |
 | D8 | Passwords for candidates | **A.** Candidates may set a password, as the code allows | data map OP10 | None |
 | D9 | Date of birth or age band | **A.** Keep the full date of birth, because the 18th-birthday rules need the exact age | data map OP8, counsel brief question 18 | Counsel confirms it meets data minimisation |
 | D10 | Roster file fields | **A.** The roster carries an e-mail and an optional phone only. A candidate's name comes from their account, and a minor's guardian is linked through the guardian flow | `exam-platform-requirements.md` (FR-50), data map OP12 | The CSV import is not built (see the corrections above). It is on the engineering list below. Revisit when candidates under 18 are admitted |
@@ -68,15 +68,15 @@ Reply with the decision number and your choice, for example `D13 B`. Where a dec
 | D17 | The katex advisory | **A.** Accept the low advisory until after the pilot | `docs/compliance/nfr-5-security-checks.md` | Revisit after the pilot |
 | D18 | The exam time limit and WCAG 2.2.1 | **A.** Record the limit as essential. Extra time stays an accommodation | `docs/compliance/accessibility-audit.md` (A-06 closed) | Confirm it with whoever signs off accessibility (D19) |
 | D19 | Accessibility sign-off, browsers and devices ([#87](https://github.com/sagarworlds/Online-Exam-Platform/issues/87), [#88](https://github.com/sagarworlds/Online-Exam-Platform/issues/88)) | **A.** A manual pass by you and volunteers, automated runs on Chromium, Firefox and WebKit, and a few real phones | `docs/compliance/accessibility-manual-checklist.md` | **You:** run the pass and the phone checks (A10). Engineering sets up the three-engine runs (below) |
-| D20 | NFR-4: an idempotency key on answer saves | **B.** Add a sequence number to answer saves, so the server ignores a save older than the one it holds | NFR-4, `docs/adr/0004-answer-save-sequence-numbers.md` | Built on this branch. Old clients keep working. The load test (#84) now sends the numbers, so it measures the real save |
+| D20 | NFR-4: an idempotency key on answer saves | **B.** Add a sequence number to answer saves, so the server ignores a save older than the one it holds | NFR-4, `docs/adr/0004-answer-save-sequence-numbers.md` | Built and merged in [#274](https://github.com/sagarworlds/Online-Exam-Platform/pull/274). Old clients keep working. The load test (#84) now sends the numbers, so it measures the real save |
 | D21 | Policy choices made where the requirements were silent | **Confirmed.** N6, B2, B4 and B8 stand as built | `docs/additional-functionality.md` | None |
 
 ## What engineering does next
 
 | Item | Depends on |
 |---|---|
-| The unspent-codes audit entry (D7) and the answer-save sequence number (D20): built on this branch, and waiting to be merged | Your word to open the pull request, and A1 for the key-ring change that is already on the branch |
-| The CSV roster import (FR-50, found missing, [#273](https://github.com/sagarworlds/Online-Exam-Platform/issues/273)), with a validation report | Nothing. The fields are decided (D10) |
+| The unspent-codes audit entry (D7) and the answer-save sequence number (D20): merged in [#274](https://github.com/sagarworlds/Online-Exam-Platform/pull/274) | A1, for the key-ring change that went in with it, before the next deploy |
+| The CSV roster import (FR-50, [#273](https://github.com/sagarworlds/Online-Exam-Platform/issues/273)), with a report of the rows left out: built, and waiting for its pull request | Your word to open the pull request |
 | Test accounts for the load test: a way to create thousands of candidates that share a password and are enrolled in the load-test exam (found missing: nothing creates them, and registration sends a code to each address) | Staging (A14), for the full run. A smoke run needs 5 and can be done by hand |
 | A safe way to create the first administrator in a deployed environment (found missing: only the Development bootstrap exists, and staging needs one) | Your say on the approach |
 | Automated browser runs on Chromium, Firefox and WebKit (D19, #88) | Nothing |

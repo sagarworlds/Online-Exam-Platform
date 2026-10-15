@@ -66,7 +66,7 @@
 |---|---|---|
 | The paper is written and reviewed in the question bank, and the exam is published | | Waiting on you |
 | The pilot is rehearsed on staging with a few real devices | | Waiting on staging |
-| The roster is in. Members are added one at a time | The CSV import (FR-50) is not built. It saves time above a few dozen candidates | Engineering |
+| The roster is in | Staff import it as a CSV (FR-50, up to 1,000 rows at a time) from the batch roster page, and the report lists any rows that were left out. Check the member count against the school's list | Waiting on the roster |
 | Staff who will run it have an account, with a second factor | | Waiting on you |
 | Someone answers candidates who report a problem during the exam | The report-an-issue queue (FR-42) is staffed | Waiting on you |
 
