@@ -7,7 +7,7 @@ on pull requests.
 | Script | Path | Request | Threshold (p95) |
 |---|---|---|---|
 | `question-load.js` | Loading a question: the candidate's paper at an attempt | `GET /v1/me/attempts/{attemptId}` | under 500 ms |
-| `answer-save.js` | Saving an answer | `PUT /v1/me/attempts/{attemptId}/answers/{questionId}` | under 300 ms |
+| `answer-save.js` | Saving an answer, with its sequence number (NFR-4) | `PUT /v1/me/attempts/{attemptId}/answers/{questionId}` | under 300 ms |
 
 Both scripts also require: under 1% failed requests on the measured endpoint, zero dropped
 arrivals, and more than 99% of checks passing. A run that misses any of these fails.

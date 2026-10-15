@@ -276,3 +276,34 @@ function requiredText(env, name) {
   }
   return String(value);
 }
+
+/**
+ * The sequence number the attempt already holds for each question (NFR-1, NFR-4, ADR 0004), so a virtual user's first save to a question goes
+ * above it. The candidate client does the same when it reads an attempt. A question nothing was written to holds none, which counts as 0.
+ *
+ * @param {object} attempt The AttemptDto the start call returned.
+ * @returns {Record<string, number>} The held number for each question id.
+ */
+export function heldSequences(attempt) {
+  const held = {};
+  for (const section of attempt.sections || []) {
+    for (const question of section.questions || []) {
+      held[question.id] = Number.isInteger(question.answerSequence) ? question.answerSequence : 0;
+    }
+  }
+  return held;
+}
+
+/**
+ * The sequence number for a virtual user's next save to a question: one above the last it sent, which is recorded. The server applies a save
+ * only if its number is higher than the one it holds, so every save must carry a new one, as the candidate client's does for a new answer.
+ *
+ * @param {Record<string, number>} sequences The numbers so far, changed in place.
+ * @param {string} questionId The question about to be saved.
+ * @returns {number} The number to send.
+ */
+export function nextSequence(sequences, questionId) {
+  const next = (sequences[questionId] || 0) + 1;
+  sequences[questionId] = next;
+  return next;
+}

@@ -3,7 +3,9 @@
  *
  * Each virtual user signs in as its own test candidate and starts that candidate's attempt. Each
  * iteration then saves one answer, PUT /v1/me/attempts/{attemptId}/answers/{questionId} with
- * {optionId}, which is the autosave the candidate client sends as they click.
+ * {optionId, sequence}, which is the autosave the candidate client sends as they click. The sequence
+ * number (NFR-4) goes one higher for each save to a question, as the client's does, so the run
+ * measures the save the platform really does: the check against the number held, and its write.
  *
  * Only single-choice questions are saved. See `singleChoiceAnswers` in lib/plan.js for why the
  * other kinds are left out.
@@ -15,7 +17,9 @@ import { check } from 'k6';
 import {
   arrivalRateScenario,
   assertPoolCovers,
+  heldSequences,
   maxVUsFor,
+  nextSequence,
   pickAnswer,
   planFromEnv,
   readRunConfig,
@@ -42,15 +46,18 @@ export const options = {
   },
 };
 
-// Module state persists for the life of a virtual user: the session, its answerable questions, and a save counter.
+// Module state persists for the life of a virtual user: the session, its answerable questions, a save counter, and the sequence number last
+// sent for each question.
 let session = null;
 let answers = [];
+let sequences = {};
 let step = 0;
 
 export default function () {
   if (session === null) {
     session = openSession(run, __VU - 1);
     answers = singleChoiceAnswers(session.attempt);
+    sequences = heldSequences(session.attempt);
   }
 
   const { questionId, optionId } = pickAnswer(answers, step);
@@ -58,7 +65,7 @@ export default function () {
 
   const res = http.put(
     `${run.baseUrl}/v1/me/attempts/${session.attemptId}/answers/${questionId}`,
-    JSON.stringify({ optionId }),
+    JSON.stringify({ optionId, sequence: nextSequence(sequences, questionId) }),
     requestParams(session.token, 'answer_save'),
   );
   check(res, { 'answer saved (204)': (r) => r.status === 204 });
