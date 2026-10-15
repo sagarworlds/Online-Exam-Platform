@@ -2,12 +2,15 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { Observable } from 'rxjs';
 
-/** What the answer queue needs of the API: the ways an answer is saved. */
+/**
+ * What the answer queue needs of the API: the ways an answer is saved. Each write carries the sequence number the queue gave it, so the
+ * server can refuse a late copy of an older one (NFR-4).
+ */
 export interface AnswerSyncApi {
-  saveAnswer(attemptId: string, questionId: string, optionId: string): Observable<void>;
-  saveAnswers(attemptId: string, questionId: string, optionIds: string[]): Observable<void>;
-  saveText(attemptId: string, questionId: string, text: string): Observable<void>;
-  clearAnswer(attemptId: string, questionId: string): Observable<void>;
+  saveAnswer(attemptId: string, questionId: string, optionId: string, sequence: number): Observable<void>;
+  saveAnswers(attemptId: string, questionId: string, optionIds: string[], sequence: number): Observable<void>;
+  saveText(attemptId: string, questionId: string, text: string, sequence: number): Observable<void>;
+  clearAnswer(attemptId: string, questionId: string, sequence: number): Observable<void>;
 }
 
 /**
@@ -26,6 +29,11 @@ export interface PendingAnswer {
   text: string | null;
   /** The text the server last confirmed for a text question, so a refusal can put the page back to it. */
   confirmedText: string | null;
+  /**
+   * The number this write carries: higher than the last one for the question, and the same for every repeat of this write. The server applies a
+   * write only if its number is higher than the one it holds, so a copy of an older write that arrives late changes nothing (NFR-4).
+   */
+  sequence: number;
 }
 
 /** How the page tells the queue about a choice: a set of options, or the text typed for a text question. */
@@ -63,21 +71,53 @@ export const RETRY_DELAYS_MS = [2_000, 4_000, 8_000, 16_000, 30_000] as const;
 
 const storageKey = (attemptId: string) => `exam.pendingAnswers.${attemptId}`;
 
+/** How many times in a row a write is sent again above a number the server holds before the queue waits instead; another writer would have to keep winning. */
+const MAX_REISSUES = 5;
+
+/** What a problem response from the API carries: its code in `title`, and for `answer_superseded` the number the server holds. */
+interface ProblemBody {
+  title?: unknown;
+  currentSequence?: unknown;
+}
+
+function problemOf(error: unknown): ProblemBody | null {
+  return error instanceof HttpErrorResponse && error.status === 409 && typeof error.error === 'object' ? (error.error as ProblemBody | null) : null;
+}
+
+/**
+ * The number the server holds for a question, when it turned a write down because that number was not higher than the one it has
+ * (409 `answer_superseded`); null for any other failure. The write was not applied, and the queue sends it again above this number if the
+ * candidate still wants it.
+ */
+export function heldSequence(error: unknown): number | null {
+  const problem = problemOf(error);
+  return problem?.title === 'answer_superseded' && typeof problem.currentSequence === 'number' ? problem.currentSequence : null;
+}
+
 /**
  * Whether the server turned the request down for a reason that waiting will not change (an attempt that is over, a locked section, a
- * question that is not in the attempt). A connection that is down, a server that is busy or waking, or a request that was too soon or
- * too many are not refusals: the answer is kept and sent again.
+ * question that is not in the attempt). A connection that is down, a server that is busy or waking, a request that was too soon or
+ * too many, or one that lost a race with another change to the same answer (409 `concurrency_conflict`) are not refusals: the answer is
+ * kept and sent again.
  */
 export function isRefusal(error: unknown): boolean {
-  return error instanceof HttpErrorResponse && error.status >= 400 && error.status < 500 && ![401, 408, 429].includes(error.status);
+  return (
+    error instanceof HttpErrorResponse &&
+    error.status >= 400 &&
+    error.status < 500 &&
+    ![401, 408, 429].includes(error.status) &&
+    problemOf(error)?.title !== 'concurrency_conflict'
+  );
 }
 
 /**
  * Saves a candidate's answers without losing them to a bad connection (FR-53, resumable autosave). A choice shows at once and joins a
  * queue that holds only the latest choice for each question; the queue sends them one at a time, and when the connection is down or the
  * server is not answering it keeps them, tries again with a growing delay and as soon as the browser says it is online again, and
- * remembers them on this device, so closing or reloading the page does not lose them either. Saving an answer is idempotent on the
- * server, so a repeat is harmless. Only a refusal (see `isRefusal`) puts a choice back.
+ * remembers them on this device, so closing or reloading the page does not lose them either. Every write carries a sequence number, higher
+ * for each newer answer to a question and the same for each repeat of one, and the server applies a write only if its number is higher than
+ * the one it holds: a late copy of an older write changes nothing, and a write that was refused as older is sent again above the number the
+ * server holds (NFR-4, ADR 0004). Only a refusal (see `isRefusal`) puts a choice back.
  */
 export class AnswerSync {
   /** How many choices are waiting to reach the server. */
@@ -87,6 +127,10 @@ export class AnswerSync {
   readonly waiting = signal(false);
 
   private readonly pending = new Map<string, PendingAnswer>();
+  /** The highest number the server is known to hold for each question, or this queue has given a write: the next write goes above it. */
+  private readonly sequences = new Map<string, number>();
+  /** How many times in a row each write was sent again above a number the server held; not kept across a reload. */
+  private readonly reissued = new WeakMap<PendingAnswer, number>();
   private readonly settledWaiters: ((ok: boolean) => void)[] = [];
   private readonly onOnline = () => this.flush();
   private running = false;
@@ -104,6 +148,16 @@ export class AnswerSync {
     return [...this.pending.values()];
   }
 
+  /**
+   * Tells the queue the number the server holds for a question, as it read with the attempt, so a page that was reloaded numbers its next
+   * write above it and not from one again. A number lower than one already known changes nothing.
+   */
+  observe(questionId: string, sequence: number | null | undefined): void {
+    if (typeof sequence === 'number' && sequence > (this.sequences.get(questionId) ?? 0)) {
+      this.sequences.set(questionId, sequence);
+    }
+  }
+
   /** Queues a choice, replacing any earlier one for the question that has not been sent, and starts sending. */
   enqueue(change: AnswerChange): void {
     const waiting = this.pending.get(change.questionId);
@@ -115,6 +169,7 @@ export class AnswerSync {
       // The server's last word stays what it was across choices that never reached it, for options and for typed text alike.
       confirmed: waiting?.confirmed ?? change.previous,
       confirmedText: waiting ? waiting.confirmedText : (change.previousText ?? null),
+      sequence: this.nextSequence(change.questionId),
     });
     this.changed();
     this.flush();
@@ -201,6 +256,22 @@ export class AnswerSync {
   }
 
   private failed(answer: PendingAnswer, error: unknown): void {
+    const held = heldSequence(error);
+    if (held !== null) {
+      // Not applied, because the server already holds a write at least as new. A late copy of an old write ends up here and nobody is
+      // listening for it. A write the candidate still wants goes again above that number, so a second tab or a lost number cannot make
+      // it vanish; one that was replaced meanwhile is dropped, as the newer one speaks for itself.
+      this.observe(answer.questionId, held);
+      if (this.pending.get(answer.questionId) === answer && this.reissue(answer)) {
+        // Another writer keeps getting there first: the write now carries a number above theirs, and goes again after a delay.
+        this.retryLater();
+        return;
+      }
+
+      this.sendNext();
+      return;
+    }
+
     if (isRefusal(error)) {
       // Only a choice that is still the latest is put back; a newer one for the same question will speak for itself.
       if (this.pending.get(answer.questionId) === answer) {
@@ -213,6 +284,11 @@ export class AnswerSync {
       return;
     }
 
+    this.retryLater();
+  }
+
+  /** Stops sending for now and tries again after a growing delay: the server was not reached, or could not take the write yet. */
+  private retryLater(): void {
     this.running = false;
     this.waiting.set(true);
     this.failures++;
@@ -220,16 +296,38 @@ export class AnswerSync {
     this.settle(false);
   }
 
+  /**
+   * Gives a write the candidate still wants a number above the one the server holds, so it can be sent again.
+   * @returns Whether it has now been given one too many times in a row, and so should wait before it is sent again.
+   */
+  private reissue(answer: PendingAnswer): boolean {
+    answer.sequence = this.nextSequence(answer.questionId);
+    this.changed();
+
+    const times = (this.reissued.get(answer) ?? 0) + 1;
+    this.reissued.set(answer, times);
+    return times > MAX_REISSUES;
+  }
+
+  /** The next number for a question: one above the highest known, which is then recorded. */
+  private nextSequence(questionId: string): number {
+    const next = (this.sequences.get(questionId) ?? 0) + 1;
+    this.sequences.set(questionId, next);
+    return next;
+  }
+
   private send(answer: PendingAnswer): Observable<void> {
     const { api, attemptId } = this.options;
     if (isEmptyAnswer(answer)) {
-      return api.clearAnswer(attemptId, answer.questionId);
+      return api.clearAnswer(attemptId, answer.questionId, answer.sequence);
     }
     if (answer.text !== null) {
-      return api.saveText(attemptId, answer.questionId, answer.text);
+      return api.saveText(attemptId, answer.questionId, answer.text, answer.sequence);
     }
 
-    return answer.multiple ? api.saveAnswers(attemptId, answer.questionId, answer.optionIds) : api.saveAnswer(attemptId, answer.questionId, answer.optionIds[0]);
+    return answer.multiple
+      ? api.saveAnswers(attemptId, answer.questionId, answer.optionIds, answer.sequence)
+      : api.saveAnswer(attemptId, answer.questionId, answer.optionIds[0], answer.sequence);
   }
 
   private scheduleRetry(): void {
@@ -277,8 +375,11 @@ export class AnswerSync {
       const stored: unknown = JSON.parse(localStorage.getItem(storageKey(this.options.attemptId)) ?? '[]');
       for (const entry of Array.isArray(stored) ? stored : []) {
         if (isPendingAnswer(entry)) {
-          // Entries saved before text answers existed have no text, which is the same as none.
-          this.pending.set(entry.questionId, { ...entry, text: entry.text ?? null, confirmedText: entry.confirmedText ?? null });
+          // Entries saved before text answers existed have no text, which is the same as none. Entries saved before sequence numbers existed
+          // have none either, and are given the next one up.
+          const sequence = typeof entry.sequence === 'number' ? entry.sequence : this.nextSequence(entry.questionId);
+          this.observe(entry.questionId, sequence);
+          this.pending.set(entry.questionId, { ...entry, text: entry.text ?? null, confirmedText: entry.confirmedText ?? null, sequence });
         }
       }
     } catch {
@@ -293,8 +394,11 @@ function isIdList(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((id) => typeof id === 'string');
 }
 
-function isPendingAnswer(value: unknown): value is PendingAnswer {
-  const entry = value as Partial<PendingAnswer> | null;
+/** What is kept on the device. An entry saved before sequence numbers existed has no number. */
+type StoredAnswer = Omit<PendingAnswer, 'sequence'> & { sequence?: number };
+
+function isPendingAnswer(value: unknown): value is StoredAnswer {
+  const entry = value as Partial<StoredAnswer> | null;
   return (
     typeof entry === 'object' &&
     entry !== null &&
@@ -303,7 +407,8 @@ function isPendingAnswer(value: unknown): value is PendingAnswer {
     isIdList(entry.optionIds) &&
     isIdList(entry.confirmed) &&
     isOptionalText(entry.text) &&
-    isOptionalText(entry.confirmedText)
+    isOptionalText(entry.confirmedText) &&
+    (entry.sequence === undefined || typeof entry.sequence === 'number')
   );
 }
 
