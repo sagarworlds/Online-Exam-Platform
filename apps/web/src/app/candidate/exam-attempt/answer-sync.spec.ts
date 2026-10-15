@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subject } from 'rxjs';
 import { afterEach, beforeEach, vi } from 'vitest';
-import { AnswerSync, AnswerSyncApi, PendingAnswer, RETRY_DELAYS_MS, isRefusal } from './answer-sync';
+import { AnswerSync, AnswerSyncApi, PendingAnswer, RETRY_DELAYS_MS, heldSequence, isRefusal } from './answer-sync';
 
 interface Call {
   kind: 'save' | 'saveSet' | 'saveText' | 'clear';
@@ -9,6 +9,8 @@ interface Call {
   optionIds: string[];
   /** The typed answer, for a `saveText` call. */
   text?: string;
+  /** The sequence number the write carried. */
+  sequence: number;
   reply: Subject<void>;
 }
 
@@ -16,30 +18,37 @@ interface Call {
 class FakeApi implements AnswerSyncApi {
   readonly calls: Call[] = [];
 
-  saveAnswer(_attemptId: string, questionId: string, optionId: string) {
-    return this.record('save', questionId, [optionId]);
+  saveAnswer(_attemptId: string, questionId: string, optionId: string, sequence: number) {
+    return this.record('save', questionId, [optionId], sequence);
   }
 
-  saveAnswers(_attemptId: string, questionId: string, optionIds: string[]) {
-    return this.record('saveSet', questionId, optionIds);
+  saveAnswers(_attemptId: string, questionId: string, optionIds: string[], sequence: number) {
+    return this.record('saveSet', questionId, optionIds, sequence);
   }
 
-  saveText(_attemptId: string, questionId: string, text: string) {
-    return this.record('saveText', questionId, [], text);
+  saveText(_attemptId: string, questionId: string, text: string, sequence: number) {
+    return this.record('saveText', questionId, [], sequence, text);
   }
 
-  clearAnswer(_attemptId: string, questionId: string) {
-    return this.record('clear', questionId, []);
+  clearAnswer(_attemptId: string, questionId: string, sequence: number) {
+    return this.record('clear', questionId, [], sequence);
   }
 
-  private record(kind: Call['kind'], questionId: string, optionIds: string[], text?: string) {
+  private record(kind: Call['kind'], questionId: string, optionIds: string[], sequence: number, text?: string) {
     const reply = new Subject<void>();
-    this.calls.push({ kind, questionId, optionIds, text, reply });
+    this.calls.push({ kind, questionId, optionIds, text, sequence, reply });
     return reply;
   }
 }
 
 const failure = (status: number) => new HttpErrorResponse({ status, statusText: 'x' });
+
+/** A problem response, as the API writes one: the error code in `title`, and any extra facts beside it. */
+const problem = (status: number, title: string, extra: Record<string, unknown> = {}) =>
+  new HttpErrorResponse({ status, statusText: 'x', error: { title, ...extra } });
+
+/** The server's answer to a write it did not apply because it already holds a number at least as high. */
+const superseded = (held: number) => problem(409, 'answer_superseded', { currentSequence: held });
 
 describe('AnswerSync (FR-53 resumable autosave)', () => {
   let api: FakeApi;
@@ -59,6 +68,11 @@ describe('AnswerSync (FR-53 resumable autosave)', () => {
 
   const fail = async (call: Call, status = 0) => {
     call.reply.error(failure(status));
+    await settle();
+  };
+
+  const failWith = async (call: Call, error: HttpErrorResponse) => {
+    call.reply.error(error);
     await settle();
   };
 
@@ -189,7 +203,7 @@ describe('AnswerSync (FR-53 resumable autosave)', () => {
     it('reads an entry saved before text answers existed as a choice', () => {
       localStorage.setItem('exam.pendingAnswers.a1', JSON.stringify([{ questionId: 'q1', optionIds: ['o1'], multiple: false, confirmed: [] }]));
 
-      expect(create(true).entries()).toEqual([{ questionId: 'q1', optionIds: ['o1'], multiple: false, confirmed: [], text: null, confirmedText: null }]);
+      expect(create(true).entries()).toEqual([{ questionId: 'q1', optionIds: ['o1'], multiple: false, confirmed: [], text: null, confirmedText: null, sequence: 1 }]);
     });
   });
 
@@ -256,6 +270,204 @@ describe('AnswerSync (FR-53 resumable autosave)', () => {
     });
   });
 
+  describe('sequence numbers (NFR-4, ADR 0004)', () => {
+    it('numbers each write to a question one higher than the last, and each question from one', async () => {
+      const sync = create();
+
+      sync.enqueue(change('q1', ['o1']));
+      await succeed(api.calls[0]);
+      sync.enqueue(change('q1', ['o2'], ['o1']));
+      await succeed(api.calls[1]);
+      sync.enqueue(change('q2', ['o9']));
+
+      expect(api.calls.map((c) => [c.questionId, c.sequence])).toEqual([
+        ['q1', 1],
+        ['q1', 2],
+        ['q2', 1],
+      ]);
+    });
+
+    it('gives a choice that replaces one not yet sent the higher number, and never sends the lower', async () => {
+      const sync = create();
+      sync.enqueue(change('q1', ['o1']));
+      sync.enqueue(change('q1', ['o2'], ['o1']));
+      sync.enqueue(change('q1', ['o3'], ['o2']));
+
+      await succeed(api.calls[0]);
+      await succeed(api.calls[1]);
+
+      expect(api.calls.map((c) => [c.optionIds[0], c.sequence])).toEqual([
+        ['o1', 1],
+        ['o3', 3],
+      ]);
+    });
+
+    it('sends a write again with the same number, because the repeat of a write is not a newer write', async () => {
+      const sync = create();
+      sync.enqueue(change('q1', ['o1']));
+
+      await fail(api.calls[0], 503);
+      await settle(RETRY_DELAYS_MS[0]);
+
+      expect(api.calls.map((c) => c.sequence)).toEqual([1, 1]);
+    });
+
+    it('numbers the next write above the number the server holds, so a reload does not start again from one', () => {
+      const sync = create();
+      sync.observe('q1', 7);
+
+      sync.enqueue(change('q1', ['o1']));
+
+      expect(api.calls[0].sequence).toBe(8);
+    });
+
+    it('never lowers a number it knows because a read of the attempt is older', () => {
+      const sync = create();
+      sync.observe('q1', 7);
+      sync.observe('q1', 3);
+      sync.observe('q1', null);
+      sync.observe('q1', undefined);
+
+      sync.enqueue(change('q1', ['o1']));
+
+      expect(api.calls[0].sequence).toBe(8);
+    });
+
+    it('keeps the number of a write waiting on the device, and numbers the next one above it', async () => {
+      const sync = create(true);
+      sync.enqueue(change('q1', ['o1']));
+      await fail(api.calls[0]);
+      sync.dispose();
+
+      const reloaded = create(true);
+      reloaded.enqueue(change('q1', ['o2'], ['o1']));
+
+      expect(JSON.parse(localStorage.getItem('exam.pendingAnswers.a1') ?? '[]')).toMatchObject([{ questionId: 'q1', sequence: 2 }]);
+      expect(api.calls.map((c) => c.sequence)).toEqual([1, 2]);
+    });
+
+    describe('when the server says it already holds a newer write (409 answer_superseded)', () => {
+      it('sends the write the candidate still wants again, above the number the server holds, and does not put the choice back', async () => {
+        const sync = create();
+        sync.enqueue(change('q1', ['o2'], ['o1']));
+
+        await failWith(api.calls[0], superseded(5));
+
+        expect(refused).toEqual([]);
+        expect(api.calls.map((c) => [c.optionIds[0], c.sequence])).toEqual([
+          ['o2', 1],
+          ['o2', 6],
+        ]);
+        await succeed(api.calls[1]);
+        expect(sync.pendingCount()).toBe(0);
+        expect(sync.waiting()).toBe(false);
+      });
+
+      it('does the same for a clear', async () => {
+        const sync = create();
+        sync.enqueue(change('q1', [], ['o1']));
+
+        await failWith(api.calls[0], superseded(4));
+
+        expect(api.calls.map((c) => [c.kind, c.sequence])).toEqual([
+          ['clear', 1],
+          ['clear', 5],
+        ]);
+      });
+
+      it('drops a write that a newer choice has replaced, since the newer one carries its own number', async () => {
+        const sync = create();
+        sync.enqueue(change('q1', ['o2'], ['o1']));
+        sync.enqueue(change('q1', ['o3'], ['o2']));
+
+        await failWith(api.calls[0], superseded(1));
+
+        expect(refused).toEqual([]);
+        expect(api.calls.map((c) => [c.optionIds[0], c.sequence])).toEqual([
+          ['o2', 1],
+          ['o3', 2],
+        ]);
+      });
+
+      it('remembers the number so the next choice goes above it too', async () => {
+        const sync = create();
+        sync.enqueue(change('q1', ['o2'], ['o1']));
+        await failWith(api.calls[0], superseded(9));
+        await succeed(api.calls[1]);
+
+        sync.enqueue(change('q1', ['o3'], ['o2']));
+
+        expect(api.calls[2].sequence).toBe(11);
+      });
+
+      it('keeps the number it sent again on the device', async () => {
+        const sync = create(true);
+        sync.enqueue(change('q1', ['o2'], ['o1']));
+
+        await failWith(api.calls[0], superseded(5));
+
+        expect(JSON.parse(localStorage.getItem('exam.pendingAnswers.a1') ?? '[]')).toMatchObject([{ questionId: 'q1', sequence: 6 }]);
+      });
+
+      it('waits and tries again, as for any failure, when another writer keeps getting there first', async () => {
+        const sync = create();
+        sync.enqueue(change('q1', ['o2'], ['o1']));
+
+        // Five times in a row the write goes again above a number that was already taken.
+        for (let held = 10; held < 15; held++) {
+          await failWith(api.calls[api.calls.length - 1], superseded(held));
+        }
+        expect(api.calls).toHaveLength(6);
+
+        // The sixth refusal does not loop: the answer is kept, and sent again after a delay.
+        await failWith(api.calls[5], superseded(20));
+        expect(api.calls).toHaveLength(6);
+        expect(sync.waiting()).toBe(true);
+        expect(sync.pendingCount()).toBe(1);
+        expect(refused).toEqual([]);
+
+        // The write that waits already carries a number above the one the server held, so the next try is not refused for it again.
+        await settle(RETRY_DELAYS_MS[0]);
+        expect(api.calls).toHaveLength(7);
+        expect(api.calls[6].sequence).toBe(21);
+      });
+    });
+
+    describe('when the write lost a race with another change to the same answer (409 concurrency_conflict)', () => {
+      it('keeps the choice and sends it again after a delay, instead of putting it back', async () => {
+        const sync = create();
+        sync.enqueue(change('q1', ['o2'], ['o1']));
+
+        await failWith(api.calls[0], problem(409, 'concurrency_conflict'));
+
+        expect(refused).toEqual([]);
+        expect(sync.waiting()).toBe(true);
+        expect(sync.pendingCount()).toBe(1);
+        await settle(RETRY_DELAYS_MS[0]);
+        expect(api.calls.map((c) => c.sequence)).toEqual([1, 1]);
+      });
+    });
+
+    describe('heldSequence and isRefusal', () => {
+      it('reads the number from an answer_superseded problem, and from nothing else', () => {
+        expect(heldSequence(superseded(12))).toBe(12);
+        expect(heldSequence(problem(409, 'attempt_not_in_progress'))).toBeNull();
+        expect(heldSequence(problem(409, 'answer_superseded'))).toBeNull();
+        expect(heldSequence(problem(409, 'answer_superseded', { currentSequence: '12' }))).toBeNull();
+        expect(heldSequence(problem(400, 'answer_superseded', { currentSequence: 12 }))).toBeNull();
+        expect(heldSequence(new HttpErrorResponse({ status: 409, statusText: 'x', error: 'text' }))).toBeNull();
+        expect(heldSequence(new HttpErrorResponse({ status: 409, statusText: 'x' }))).toBeNull();
+        expect(heldSequence(new Error('x'))).toBeNull();
+      });
+
+      it('does not count a lost race as a refusal, but still counts an attempt that is over', () => {
+        expect(isRefusal(problem(409, 'concurrency_conflict'))).toBe(false);
+        expect(isRefusal(problem(409, 'attempt_not_in_progress'))).toBe(true);
+        expect(isRefusal(failure(409))).toBe(true);
+      });
+    });
+  });
+
   describe('when the server refuses', () => {
     it.each([400, 403, 404, 409])('puts the choice back to what the server last had, for a %d, and goes on', async (status) => {
       const sync = create();
@@ -264,7 +476,7 @@ describe('AnswerSync (FR-53 resumable autosave)', () => {
 
       await fail(api.calls[0], status);
 
-      expect(refused).toEqual([{ questionId: 'q1', optionIds: ['o2'], multiple: false, confirmed: ['o1'], text: null, confirmedText: null }]);
+      expect(refused).toEqual([{ questionId: 'q1', optionIds: ['o2'], multiple: false, confirmed: ['o1'], text: null, confirmedText: null, sequence: 1 }]);
       expect(sync.pendingCount()).toBe(1);
       expect(sync.waiting()).toBe(false);
       expect(api.calls.map((c) => c.questionId)).toEqual(['q1', 'q2']);
@@ -304,7 +516,7 @@ describe('AnswerSync (FR-53 resumable autosave)', () => {
       const reloaded = create(true);
 
       expect(reloaded.pendingCount()).toBe(1);
-      expect(reloaded.entries()).toEqual([{ questionId: 'q1', optionIds: ['o1'], multiple: false, confirmed: ['o0'], text: null, confirmedText: null }]);
+      expect(reloaded.entries()).toEqual([{ questionId: 'q1', optionIds: ['o1'], multiple: false, confirmed: ['o0'], text: null, confirmedText: null, sequence: 1 }]);
       reloaded.flush();
       expect(api.calls).toHaveLength(2);
       await succeed(api.calls[1]);

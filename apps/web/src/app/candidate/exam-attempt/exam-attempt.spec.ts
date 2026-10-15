@@ -210,11 +210,57 @@ describe('ExamAttempt', () => {
     radios(fixture)[1].click();
     const save = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q1'));
     expect(save.request.method).toBe('PUT');
-    expect(save.request.body).toEqual({ optionId: 'o2' });
+    expect(save.request.body).toEqual({ optionId: 'o2', sequence: 1 });
     save.flush(null);
     fixture.detectChanges();
 
     expect(textOf(fixture)).toContain('2 of 2 answered');
+  });
+
+  describe('sequence numbers on saves (NFR-4)', () => {
+    it('numbers the first write above the number the server holds, so a reload does not start again from one', async () => {
+      const held = attempt();
+      held.sections[0].questions[0].answerSequence = 7;
+      const fixture = await open(held);
+
+      radios(fixture)[1].click();
+
+      const save = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q1'));
+      expect(save.request.body).toEqual({ optionId: 'o2', sequence: 8 });
+      save.flush(null);
+    });
+
+    it('numbers each question from the number the server holds for that question', async () => {
+      const held = attempt();
+      held.sections[0].questions[0].answerSequence = 4;
+      const fixture = await open(held);
+
+      radios(fixture)[1].click();
+      httpMock.expectOne((r) => r.url.endsWith('/answers/q1')).flush(null);
+      buttonLabelled(fixture, 'Next')?.click();
+      fixture.detectChanges();
+      radios(fixture)[1].click();
+
+      // The second question has had no writes, so its first is number 1, whatever the first has reached.
+      const save = httpMock.expectOne((r) => r.url.endsWith('/answers/q2'));
+      expect(save.request.body).toEqual({ optionId: 'o4', sequence: 1 });
+      save.flush(null);
+    });
+
+    it('sends a write again above the number the server holds when it says it already has a newer one, without putting the choice back', async () => {
+      const fixture = await open(attempt());
+      radios(fixture)[1].click();
+
+      httpMock
+        .expectOne((r) => r.url.endsWith('/answers/q1'))
+        .flush({ title: 'answer_superseded', currentSequence: 5 }, { status: 409, statusText: 'Conflict' });
+      fixture.detectChanges();
+
+      const again = httpMock.expectOne((r) => r.url.endsWith('/answers/q1'));
+      expect(again.request.body).toEqual({ optionId: 'o2', sequence: 6 });
+      expect(radios(fixture).map((r) => r.checked)).toEqual([false, true]);
+      again.flush(null);
+    });
   });
 
   describe('a typed answer to a text question', () => {
@@ -249,7 +295,7 @@ describe('ExamAttempt', () => {
 
       const save = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q3'));
       expect(save.request.method).toBe('PUT');
-      expect(save.request.body).toEqual({ text: 'Paris' });
+      expect(save.request.body).toEqual({ text: 'Paris', sequence: 1 });
       save.flush(null);
       fixture.detectChanges();
       expect(textOf(fixture)).toContain('1 of 1 answered');
@@ -372,7 +418,7 @@ describe('ExamAttempt', () => {
       expect(radios(fixture).map((r) => r.checked)).toEqual([false, true]);
       const resent = answerCalls();
       expect(resent).toHaveLength(1);
-      expect(resent[0].request.body).toEqual({ optionId: 'o4' });
+      expect(resent[0].request.body).toEqual({ optionId: 'o4', sequence: 1 });
       resent[0].flush(null, { status: 204, statusText: 'No Content' });
       expect(localStorage.getItem('exam.pendingAnswers.a1')).toBeNull();
     });
@@ -443,7 +489,7 @@ describe('ExamAttempt', () => {
       const save = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q1'));
 
       expect(save.request.method).toBe('PUT');
-      expect(save.request.body).toEqual({ optionIds: ['o1', 'o2'] });
+      expect(save.request.body).toEqual({ optionIds: ['o1', 'o2'], sequence: 1 });
       save.flush(null);
       expect(boxes(fixture).map((b) => b.checked)).toEqual([true, true, false]);
     });
@@ -455,7 +501,7 @@ describe('ExamAttempt', () => {
       fixture.detectChanges();
 
       const save = httpMock.expectOne((r) => r.url.endsWith('/answers/q1'));
-      expect(save.request.body).toEqual({ optionIds: ['o2'] });
+      expect(save.request.body).toEqual({ optionIds: ['o2'], sequence: 1 });
       save.flush(null);
     });
 
@@ -467,6 +513,8 @@ describe('ExamAttempt', () => {
 
       const call = httpMock.expectOne((r) => r.url.endsWith('/answers/q1'));
       expect(call.request.method).toBe('DELETE');
+      // A clear has no body, so its sequence number is in the query.
+      expect(call.request.params.get('sequence')).toBe('1');
       call.flush(null, { status: 204, statusText: 'No Content' });
       fixture.detectChanges();
       expect(textOf(fixture)).toContain('0 of 1 answered');
@@ -1904,7 +1952,7 @@ describe('ExamAttempt', () => {
 
       expect(radios(fixture).map((r) => r.checked)).toEqual([false, true]);
       const resent = httpMock.expectOne((r) => r.url.endsWith('/answers/q1'));
-      expect(resent.request.body).toEqual({ optionId: 'o2' });
+      expect(resent.request.body).toEqual({ optionId: 'o2', sequence: 1 });
       resent.flush(null, { status: 204, statusText: 'No Content' });
     });
 

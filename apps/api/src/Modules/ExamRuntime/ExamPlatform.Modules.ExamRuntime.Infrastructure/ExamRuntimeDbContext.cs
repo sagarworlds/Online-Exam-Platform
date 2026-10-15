@@ -66,6 +66,9 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             b.HasMany(a => a.QuestionTimes).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(a => a.QuestionTimes).HasField("_questionTimes").UsePropertyAccessMode(PropertyAccessMode.Field);
 
+            b.HasMany(a => a.AnswerSequences).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
+            b.Navigation(a => a.AnswerSequences).HasField("_answerSequences").UsePropertyAccessMode(PropertyAccessMode.Field);
+
             b.HasMany(a => a.Paper).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(a => a.Paper).HasField("_paper").UsePropertyAccessMode(PropertyAccessMode.Field);
 
@@ -142,6 +145,20 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             // At most one mark per question: marking twice at once cannot leave two rows, and the loser is a harmless conflict.
             // The index also serves loading an attempt's marks.
             b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
+        });
+
+        modelBuilder.Entity<AttemptAnswerSequence>(b =>
+        {
+            b.ToTable("AttemptAnswerSequences");
+            b.HasKey(x => x.Id);
+
+            // One number per question: two first writes racing for the same question cannot leave two rows, and the loser is a conflict
+            // the page sends again. The index also serves loading an attempt's numbers.
+            b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();
+
+            // Optimistic concurrency on xmin: two writes to the same question at the same moment cannot both pass the "higher than the
+            // number held" check, because the second finds the row changed and is reported as a conflict, which the page sends again.
+            b.Property<uint>(RowVersionPropertyName).IsRowVersion();
         });
 
         modelBuilder.Entity<AttemptQuestionTime>(b =>

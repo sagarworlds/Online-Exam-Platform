@@ -308,7 +308,7 @@ Each finding was checked against the code on `main`, as of this section's date. 
 | A-03 | Fixed | `8b7ddb5` |
 | A-04 | Fixed | `c7b2e95` |
 | A-05 | Fixed | `eae5289` |
-| A-06 | Partly fixed: the owner chose an announced warning. The candidate hears a warning at five minutes and at one minute left, and a time-up notice before the attempt closes. WCAG 2.2.1 also needs either an essential-time exception or a way to extend the time, and neither is in place, so this finding stays open for that part | `exam-attempt.ts`, `exam-attempt.html` |
+| A-06 | Fixed. The owner chose an announced warning: the candidate hears a warning at five minutes and at one minute left, and a time-up notice before the attempt closes. On 2026-10-15 the owner also recorded the time limit as essential under WCAG 2.2.1, with extra time as an accommodation (see "Time limit and WCAG 2.2.1, 2026-10-15" below) | `exam-attempt.ts`, `exam-attempt.html` |
 | A-07 | Fixed | `eae5289` |
 | A-08 | Fixed | `eae5289` |
 | A-09 | Fixed for sign-in, register and reset | `eae5289`, `9ca98ca` |
@@ -341,3 +341,12 @@ The same harness, with the same generic or page-specific API mocks, was run agai
 The #87 comments left "standalone text links (16 to 22px)" open. A measurement at 360 px, with the API mocked, looked at each visible link that is not inside running text, on 11 routes: the three sign-in, register and reset pages, and the candidate and staff pages (my exams, my performance, profile, notifications, the admin home, exams, questions and WhatsApp settings). The signed-in pages had no such link under 44 px. The three signed-out pages had five links at 20.4 to 21.6 px: "Forgot password?", "Create an account", "Privacy policy" (twice), "Already have an account? Log in" and "I already have a reset code".
 
 They now have a 44 px tall box, the same rule as the header links: `.link-row > a` in `styles/base.css` and `.field-link` in `styles/components.css`. After the change, every measured link is 44 px or taller at 360 px, and no page scrolls sideways at 360 or 1280 px. The 16 px links mentioned in #87 were not found on these routes. The exam page, the review page, the guardian portal and the other signed-in routes were not part of this measurement.
+
+### Time limit and WCAG 2.2.1, 2026-10-15
+
+Finding A-06 asked the owner to record the exam timer as essential, or to add a way to extend the time. **Decision, 2026-10-15:** the owner records that the exam's time limit is essential to the assessment. WCAG 2.2.1 (Timing Adjustable, Level A) allows a time limit when it is essential and extending it would invalidate the activity. The platform relies on that exception. It is the owner's judgement, and no accessibility auditor has reviewed it.
+
+- **What the candidate gets.** A warning at five minutes left and again at one minute left, both announced, and a time-up notice before the attempt closes (the earlier part of A-06, fixed).
+- **The adjustment.** Staff can give a candidate extra time as an accommodation (FR-49). It is set before the attempt, and the deadline the server holds includes it (`StartAttemptHandler.cs:91-93`).
+- **Not offered.** A way for a candidate to turn off, adjust or extend their own time during the exam.
+- **Revisit when** a school, a regulator or an external auditor does not accept the exception, or when an exam is set up where the time limit is not part of what is measured, such as practice. The reasoning above is about an assessment, not about practice.

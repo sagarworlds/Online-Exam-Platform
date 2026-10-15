@@ -13,6 +13,7 @@
 | npm audit | `npm audit --audit-level=high`, step in the web job | a high or critical advisory in `apps/web` |
 | Access tests (OWASP A01) | `M3AuthorizationTests`, section "one candidate reading another candidate's attempt" | a candidate can read another candidate's attempt, its status, review, result, certificate or analytics |
 | API security headers | `SecurityHeadersTests`, `ProductionHostTests` | a response loses a header, or HSTS is not one year |
+| Key ring protection (encryption at rest, #86) | `KeyRingProtectionTests`, `KeyRingProtectionOptionsValidatorTests`, `KeyRingProtectionFlowTests`, `StartupGuardTests` | the key ring is stored in the clear outside Development, a restart cannot read it, a wrong or missing key makes a new key instead of stopping the host, or a host starts without the key |
 | Deployed headers | `scripts/security/check-security-headers.sh` through `.github/workflows/security-headers.yml` (weekly and on demand) | the static site or the API serves a header that fails the policy, or a repository variable is not set |
 
 ### Analyzers
@@ -36,7 +37,9 @@ The three suppressions are method-level `SuppressMessage` attributes with a writ
 ### Dependencies
 
 - **NuGet.** `dotnet list package --vulnerable` exits 0 even when it finds a vulnerable package (checked with SDK 10.0.112). The gate therefore reads the JSON report, and it also requires the text report's project lines. If either is in an unexpected shape, the gate fails. On 2026-10-10 no project in the solution had a known-vulnerable package (72 projects). A throwaway project with `Newtonsoft.Json` 9.0.1 made the gate fail, as intended.
-- **npm.** `npm audit --audit-level=high` found one high advisory, in `source-map-js` 1.2.1 (a development dependency of the build tooling). A non-breaking fix updated it to 1.2.2 in `apps/web/package-lock.json`. One low advisory remains, in `katex` (prototype pollution, fixed only by katex 0.19.0, which is a breaking change). It does not fail the high gate. Upgrading katex is a product decision and is not made here.
+- **npm.** `npm audit --audit-level=high` found one high advisory, in `source-map-js` 1.2.1 (a development dependency of the build tooling). A non-breaking fix updated it to 1.2.2 in `apps/web/package-lock.json`. One low advisory remains, in `katex` (prototype pollution, fixed only by katex 0.19.0, which is a breaking change). It does not fail the high gate.
+- **Decision, 2026-10-15: accepted until after the pilot.** The owner accepted the low advisory and chose not to upgrade katex before the pilot. Maths is exam content, so a change in how it renders is a bigger risk to candidates than a low advisory is to the platform. The gate stays at high, so a high or critical advisory in `katex` or anywhere else still fails the build.
+- **Revisit** after the pilot, or sooner if the advisory is raised to moderate or above. An upgrade needs a check that maths renders the same across real questions (fractions, roots, matrices and the Hindi and Marathi questions) before it ships.
 
 ## Security headers
 
@@ -100,7 +103,17 @@ Several per-resource isolation tests already existed (`AttemptResultFlowTests`, 
 
 ## Encryption at rest
 
-Question content is encrypted by `QuestionContentCipher` through the ASP.NET Core Data Protection key ring (#215, with the backfill in `QuestionContentBackfill`). Nothing in this change alters that. The question-paper release rule (encrypted until exam start) is not changed here.
+Question content is encrypted by `QuestionContentCipher` through the ASP.NET Core Data Protection key ring (#215, with the backfill in `QuestionContentBackfill`). The question-paper release rule (encrypted until exam start) is not changed here.
+
+### The key ring (#86)
+
+The key ring is stored in the same Postgres database as the ciphertext, so until #86 a copy of the database held the content and the keys that open it. Now each key ring entry is encrypted with AES-256-GCM under `DataProtection:KeyEncryptionKey`, a key held in the host's environment and not in the database. The decision, the alternatives and what it does not cover are in `docs/adr/0003-key-ring-protection.md`.
+
+- Outside Development the host refuses to start without the key, and refuses a key that is not 32 bytes of base64.
+- Existing keys that were stored in the clear keep working and are rewritten under the key when migrate-and-seed runs. Nothing already encrypted is re-encrypted.
+- A wrong or missing key stops the host. It never makes a new key, which would leave the content unreadable.
+- **Not covered:** copies of the database taken before the change still hold the keys in the clear. The key sits in Render's environment, so dashboard access opens it. Losing the key loses the content, so it has to be backed up apart from the database (the restore runbook for #85 must say how).
+- The tests that need the database (`KeyRingProtectionFlowTests`) run in CI through Testcontainers.
 
 ## Not verified here
 
@@ -119,4 +132,6 @@ What keeps the paper back is access control:
 - A candidate has no attempt before the window opens, so no candidate route returns the paper early.
 - Staff can open `GET /v1/exams/{examId}/preview` (FR-15, `ManageAttempts`) at any time. It returns the questions as a candidate would see them, without answer keys, and nothing is stored. Staff can therefore read the paper before the start time. That is intended, but the requirement's wording does not allow for it.
 
-So candidates are kept from the paper before the start, but by access control rather than encryption. The owner decides whether access control is accepted as the control, with the exception and its reason recorded, or whether the paper is released by a step at the start time, such as a key issued only when the window opens. The content-protection setting is a different control: it turns off copy, paste and print (FR-23).
+So candidates are kept from the paper before the start, but by access control rather than encryption. The content-protection setting is a different control: it turns off copy, paste and print (FR-23).
+
+**Decision, 2026-10-15:** the owner accepted access control as the control for the pilot. The exception, what it covers and when to revisit it are in [nfr-5-paper-before-start-exception.md](nfr-5-paper-before-start-exception.md).

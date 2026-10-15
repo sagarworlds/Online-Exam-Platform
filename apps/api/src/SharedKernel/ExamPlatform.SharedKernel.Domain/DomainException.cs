@@ -8,8 +8,17 @@ namespace ExamPlatform.SharedKernel.Domain;
 /// </summary>
 public abstract class DomainException : Exception
 {
+    private static readonly IReadOnlyDictionary<string, object?> NoExtensions = new Dictionary<string, object?>();
+
     /// <summary>A short, stable, machine-readable code identifying this error kind (e.g. "otp_expired").</summary>
     public abstract string ErrorCode { get; }
+
+    /// <summary>
+    /// Extra machine-readable facts the API boundary adds to the error response, for an error whose caller can act on more than its code
+    /// (for example, the sequence number the server already holds, so a client can send a newer one). None by default. Values must be
+    /// safe to show to the caller, and a key must not be one the boundary sets itself (such as <c>traceId</c>).
+    /// </summary>
+    public virtual IReadOnlyDictionary<string, object?> Extensions => NoExtensions;
 
     /// <summary>
     /// The HTTP status code the API boundary should map this error to. Declared

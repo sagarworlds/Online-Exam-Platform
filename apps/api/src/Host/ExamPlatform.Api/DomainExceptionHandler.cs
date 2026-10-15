@@ -35,7 +35,13 @@ public sealed class DomainExceptionHandler(ILogger<DomainExceptionHandler> logge
             Detail = domainException.Message,
             Instance = httpContext.Request.Path,
         };
-        // The same trace id the request's logs carry, so a caller can quote it when reporting a failure.
+        foreach (var (key, value) in domainException.Extensions)
+        {
+            problem.Extensions[key] = value;
+        }
+
+        // The same trace id the request's logs carry, so a caller can quote it when reporting a failure. Set last, so an error's own
+        // extensions can never replace it.
         problem.Extensions["traceId"] = httpContext.TraceIdentifier;
 
         httpContext.Response.StatusCode = domainException.HttpStatusCode;

@@ -7,7 +7,7 @@ on pull requests.
 | Script | Path | Request | Threshold (p95) |
 |---|---|---|---|
 | `question-load.js` | Loading a question: the candidate's paper at an attempt | `GET /v1/me/attempts/{attemptId}` | under 500 ms |
-| `answer-save.js` | Saving an answer | `PUT /v1/me/attempts/{attemptId}/answers/{questionId}` | under 300 ms |
+| `answer-save.js` | Saving an answer, with its sequence number (NFR-4) | `PUT /v1/me/attempts/{attemptId}/answers/{questionId}` | under 300 ms |
 
 Both scripts also require: under 1% failed requests on the measured endpoint, zero dropped
 arrivals, and more than 99% of checks passing. A run that misses any of these fails.
@@ -32,6 +32,8 @@ The requirements do not state an expected peak. These scripts take section 9's t
 At the defaults that gives **1,000 answer saves per second** (20,000 / 20) and **167 paper reads per
 second** (20,000 / 120). Set `LOAD_SAVE_RPS` or `LOAD_QUESTION_RPS` to override the derived rate, as
 a smoke run does.
+
+**Owner decision, 2026-10-15:** use these defaults for the first run. Real figures replace them once the first schools are known, and the year-2 peak (requirements section 17, question 1) decides when the exam runtime becomes its own service. A smoke run may change the numbers before then.
 
 Each virtual user signs in as its own candidate, one account per VU. The pool therefore needs at
 least as many accounts as the VU ceiling, which is the rate itself (one second of latency per

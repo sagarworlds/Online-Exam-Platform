@@ -71,9 +71,9 @@ ASP.NET Core already emits `http.server.request.duration` on its own meter (`Mic
 
 ## Decisions for the owner
 
-1. **Where logs are stored, and for how long.** Choose a log store that is hosted in India (NFR-12 and NFR-13), configure its retention to at least 180 days, and set `LogRetention:Days` to match. The NFR-12 exception already records that Render-hosted logs are outside India (`docs/compliance/nfr-12-exception.md`), so the store choice has to settle that too. Counsel should confirm the 180-day figure itself.
+1. **Where logs are stored, and for how long.** Choose a log store that is hosted in India (NFR-12 and NFR-13), configure its retention to at least 180 days, and set `LogRetention:Days` to match. The NFR-12 exception already records that Render-hosted logs are outside India (`docs/compliance/nfr-12-exception.md`), so the store choice has to settle that too. Counsel should confirm the 180-day figure itself. **Decided 2026-10-15:** the store is to be hosted in India with retention of at least 180 days. Which store is not chosen yet. The routes, and what must be confirmed with each provider before choosing, are in [compliance/log-store-options.md](compliance/log-store-options.md).
 2. **The development OTP log line.** `LoggingOtpSender` writes the code so that a developer can sign in, including the bootstrap administrator, whose second factor is a code. Removing it means finding another development route first.
-3. **Client IP addresses.** The request line does not record them, because an IP address is personal data under the DPDP Act. Whether security logs need them is a decision for the owner with counsel.
+3. **Client IP addresses.** The request line does not record them, because an IP address is personal data under the DPDP Act. Whether security logs need them is a decision for the owner with counsel. **Decided 2026-10-15:** no change. Addresses stay out of the request logs, and no counsel question is raised about recording them.
 4. **Exporting metrics.** Choose an exporter when there is somewhere to send them.
 
 ## Audit, 2026-10-12

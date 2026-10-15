@@ -15,19 +15,21 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
     // explicit DbSet.Update would flag every answer Modified.
     /// <inheritdoc />
     public Task<Attempt?> GetByIdAsync(Guid attemptId, CancellationToken cancellationToken) =>
-        // Eight sibling collections (Answers, Marks, QuestionTimes, Paper, Revisions, FocusViolations, Warnings, ClientSightings): split so EF Core
-        // issues one query per collection instead of joining all eight and returning their cartesian product.
+        // Nine sibling collections (Answers, AnswerSequences, Marks, QuestionTimes, Paper, Revisions, FocusViolations, Warnings, ClientSightings): split so
+        // EF Core issues one query per collection instead of joining all nine and returning their cartesian product. The sequence numbers are
+        // loaded because every save and clear checks its own number against the one held (NFR-4, ADR 0004).
         context.Attempts.AsSplitQuery()
-            .Include(a => a.Answers).Include(a => a.Marks).Include(a => a.QuestionTimes).Include(a => a.Paper).Include(a => a.Revisions).Include(a => a.FocusViolations).Include(a => a.Warnings).Include(a => a.ClientSightings)
+            .Include(a => a.Answers).Include(a => a.AnswerSequences).Include(a => a.Marks).Include(a => a.QuestionTimes).Include(a => a.Paper).Include(a => a.Revisions).Include(a => a.FocusViolations).Include(a => a.Warnings).Include(a => a.ClientSightings)
             .FirstOrDefaultAsync(a => a.Id == attemptId, cancellationToken);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListForCandidateAtExamAsync(Guid examId, Guid candidateId, CancellationToken cancellationToken) =>
         // Starting an exam again resumes an open attempt through this list, and what it shows is built from the attempt's
         // answers and marks, so both are loaded: without the marks a resumed exam would forget what the candidate marked. The times are loaded
-        // too, so the page can carry on each question's running total from what the server holds.
+        // too, so the page can carry on each question's running total from what the server holds, and the sequence numbers, so the page can
+        // number its next write above the one the server holds.
         await context.Attempts.AsSplitQuery()
-            .Include(a => a.Answers).Include(a => a.Marks).Include(a => a.QuestionTimes).Include(a => a.Paper).Include(a => a.FocusViolations).Include(a => a.Warnings).Include(a => a.ClientSightings)
+            .Include(a => a.Answers).Include(a => a.AnswerSequences).Include(a => a.Marks).Include(a => a.QuestionTimes).Include(a => a.Paper).Include(a => a.FocusViolations).Include(a => a.Warnings).Include(a => a.ClientSightings)
             .Where(a => a.ExamId == examId && a.CandidateId == candidateId)
             .OrderBy(a => a.Number)
             .ToListAsync(cancellationToken);

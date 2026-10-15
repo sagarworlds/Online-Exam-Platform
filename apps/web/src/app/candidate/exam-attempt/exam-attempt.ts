@@ -934,6 +934,8 @@ export class ExamAttempt {
       if (question.timeSpentSeconds != null) {
         this.questionTime.seed(question.id, question.timeSpentSeconds);
       }
+      // And each answer's next write is numbered above the one the server holds, so a reload does not start the numbering again from one (NFR-4).
+      this.sync?.observe(question.id, question.answerSequence);
     }
     this.stopTimer();
 

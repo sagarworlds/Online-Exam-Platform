@@ -115,24 +115,31 @@ export class CandidateApiService {
     return this.http.post<MyIssueReportDto>(`${this.baseUrl}/attempts/${attemptId}/issues`, { category, message, questionId });
   }
 
-  /** Saves (or changes) the option chosen for one question of an open attempt. */
-  saveAnswer(attemptId: string, questionId: string, optionId: string): Observable<void> {
-    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { optionId }, CandidateApiService.background());
+  /**
+   * Saves (or changes) the option chosen for one question of an open attempt. A `sequence` number, higher for each newer answer to the
+   * question, lets the server refuse a late copy of an older save (NFR-4); without one the save is taken as the newest.
+   */
+  saveAnswer(attemptId: string, questionId: string, optionId: string, sequence?: number): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { optionId, sequence }, CandidateApiService.background());
   }
 
   /** Saves the set of options chosen for a multiple-answer question, replacing any earlier choice. At least one is needed; to take an answer back, clear it. */
-  saveAnswers(attemptId: string, questionId: string, optionIds: string[]): Observable<void> {
-    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { optionIds }, CandidateApiService.background());
+  saveAnswers(attemptId: string, questionId: string, optionIds: string[], sequence?: number): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { optionIds, sequence }, CandidateApiService.background());
   }
 
   /** Saves what the candidate typed for a text question, replacing any earlier answer. A blank one is refused: to take it back, clear it. */
-  saveText(attemptId: string, questionId: string, text: string): Observable<void> {
-    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { text }, CandidateApiService.background());
+  saveText(attemptId: string, questionId: string, text: string, sequence?: number): Observable<void> {
+    return this.http.put<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, { text, sequence }, CandidateApiService.background());
   }
 
-  /** Takes back the option chosen for one question, so it counts as unanswered again. Safe to repeat. */
-  clearAnswer(attemptId: string, questionId: string): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`, CandidateApiService.background());
+  /** Takes back the option chosen for one question, so it counts as unanswered again. The `sequence` number goes in the query, as a clear has no body. */
+  clearAnswer(attemptId: string, questionId: string, sequence?: number): Observable<void> {
+    const options = CandidateApiService.background();
+    return this.http.delete<void>(
+      `${this.baseUrl}/attempts/${attemptId}/answers/${questionId}`,
+      sequence === undefined ? options : { ...options, params: { sequence } },
+    );
   }
 
   /**

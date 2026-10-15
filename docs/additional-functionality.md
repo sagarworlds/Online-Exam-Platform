@@ -92,12 +92,14 @@ Things the requirements do ask for are not listed here, however they were done. 
 
 **S4. Start-up refusals, safety nets and developer helpers.** The host refuses to start without a one-time-code provider (and without WhatsApp's settings once WhatsApp is switched on), and refuses a log-only code sender outside Development, so a code can never end up in a production log. Asking for a code for an unknown or locked address gets the same answer as a real request (a decoy challenge is stored), so replies do not reveal who has an account. A test fails if a module's migrations stop describing its model, and architecture tests keep the module boundaries. In Development, codes are written (masked) to the log and the log says why a sign-in got none, and a first administrator can be created from user-secrets. These support NFR-5, NFR-6 and NFR-11 rather than add behaviour.
 
-## Decisions waiting for the owner
+## Decisions for the owner
 
-1. **WhatsApp consent (N2, N3).** The privacy page says WhatsApp notices go only to people who agreed to them, and WhatsApp's own policy requires the same, but the platform records no such agreement (there is no consent purpose for it). Everything ships off, and turning it on is the operator's statement that those people agreed. Opt-in and opt-out records are the next piece of FR-39.
-2. **The unspent-codes page (N8).** It shows credentials to anyone holding `identity.otp.read`. Decide whether it should exist in production, especially now that codes can be delivered on WhatsApp.
-3. **Hosting region (S1).** Moving to an India region is the open question 4 the requirements left for the owner.
-4. **Policy choices made while the requirements were silent (N6, B2, B4, B8).** Marking the best attempt, shuffling later attempts, locking a question's answers once answered, and the dispute rules (seven days, once per question, accepted only by a correction) are reasonable, but they are choices; confirm or change them.
+The full list, with the options and what each unblocks, is in [owner-decisions.md](owner-decisions.md). These four are decided or recorded.
+
+1. **WhatsApp consent (N2, N3).** The privacy page says WhatsApp notices go only to people who agreed to them, and WhatsApp's own policy requires the same, but the platform records no such agreement (there is no consent purpose for it). Everything ships off, and turning it on is the operator's statement that those people agreed. Opt-in and opt-out records are the next piece of FR-39. **Decided 2026-10-15:** keep WhatsApp off until opt-in and opt-out records exist.
+2. **The unspent-codes page (N8).** It shows credentials to anyone holding `identity.otp.read`. **Decided 2026-10-15:** keep it, for the Super Admin only (the only role that holds the permission), and record which code was shown in each read's audit entry. If counsel's answer to question 12 in [the counsel brief](compliance/counsel-brief.md) is no, switch the page off in production.
+3. **Hosting region (S1).** Moving to an India region is the open question 4 the requirements left for the owner. **Decided earlier:** keep Render and Neon and record the data-location exception ([nfr-12-exception.md](compliance/nfr-12-exception.md)). Counsel has not reviewed it. On 2026-10-15 the owner also chose paid plans for a staging environment now, with the production plans to be chosen before the pilot ([runbooks/staging.md](runbooks/staging.md)).
+4. **Policy choices made while the requirements were silent (N6, B2, B4, B8).** **Confirmed 2026-10-15.** Marking the best attempt, shuffling later attempts, locking a question's answers once answered, and the dispute rules (seven days, once per question, accepted only by a correction) stand as built.
 
 ## Keeping this list current
 

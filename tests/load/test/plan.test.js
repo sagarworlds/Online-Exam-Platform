@@ -6,7 +6,9 @@ import {
   accountEmail,
   arrivalRateScenario,
   assertPoolCovers,
+  heldSequences,
   maxVUsFor,
+  nextSequence,
   pickAnswer,
   planFromEnv,
   positiveInt,
@@ -196,4 +198,23 @@ test('pickAnswer rotates questions, then changes the option on each pass, so eac
 
 test('pickAnswer refuses to run with nothing to answer', () => {
   assert.throws(() => pickAnswer([], 0), /no single-choice question/);
+});
+
+test('heldSequences reads the number each question already holds, and counts a question with none as 0', () => {
+  const attempt = {
+    sections: [
+      { id: 's1', questions: [{ id: 'q1', answerSequence: 7 }, { id: 'q2', answerSequence: null }] },
+      { id: 's2', questions: [{ id: 'q3' }] },
+    ],
+  };
+  assert.deepEqual(heldSequences(attempt), { q1: 7, q2: 0, q3: 0 });
+  assert.deepEqual(heldSequences({}), {});
+});
+
+test('nextSequence goes one above the held number, then one above each save, per question', () => {
+  const sequences = { q1: 7 };
+  assert.equal(nextSequence(sequences, 'q1'), 8);
+  assert.equal(nextSequence(sequences, 'q1'), 9);
+  assert.equal(nextSequence(sequences, 'q2'), 1);
+  assert.deepEqual(sequences, { q1: 9, q2: 1 });
 });

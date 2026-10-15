@@ -50,6 +50,57 @@ describe('CandidateApiService', () => {
     });
   });
 
+  describe('saving and clearing an answer (NFR-4, sequence numbers)', () => {
+    const url = `${environment.apiBaseUrl}/v1/me/attempts/a1/answers/q1`;
+
+    it('sends the sequence number in the body of a save of one option', () => {
+      service.saveAnswer('a1', 'q1', 'o1', 3).subscribe();
+
+      const request = httpMock.expectOne(url);
+      expect(request.request.method).toBe('PUT');
+      expect(request.request.body).toEqual({ optionId: 'o1', sequence: 3 });
+      request.flush(null, { status: 204, statusText: 'No Content' });
+    });
+
+    it('sends the sequence number in the body of a save of a set of options, and of typed text', () => {
+      service.saveAnswers('a1', 'q1', ['o1', 'o2'], 4).subscribe();
+      const set = httpMock.expectOne(url);
+      expect(set.request.body).toEqual({ optionIds: ['o1', 'o2'], sequence: 4 });
+      set.flush(null, { status: 204, statusText: 'No Content' });
+
+      service.saveText('a1', 'q1', 'Paris', 5).subscribe();
+      const text = httpMock.expectOne(url);
+      expect(text.request.body).toEqual({ text: 'Paris', sequence: 5 });
+      text.flush(null, { status: 204, statusText: 'No Content' });
+    });
+
+    it('leaves the sequence number out when it is not given, as a client from before sequence numbers did', () => {
+      service.saveAnswer('a1', 'q1', 'o1').subscribe();
+
+      const request = httpMock.expectOne(url);
+      expect(Object.keys(JSON.parse(JSON.stringify(request.request.body)))).toEqual(['optionId']);
+      request.flush(null, { status: 204, statusText: 'No Content' });
+    });
+
+    it('puts the sequence number of a clear in the query, as a clear has no body', () => {
+      service.clearAnswer('a1', 'q1', 6).subscribe();
+
+      const request = httpMock.expectOne((r) => r.url === url);
+      expect(request.request.method).toBe('DELETE');
+      expect(request.request.params.get('sequence')).toBe('6');
+      request.flush(null, { status: 204, statusText: 'No Content' });
+    });
+
+    it('sends a clear without a query when no sequence number is given', () => {
+      service.clearAnswer('a1', 'q1').subscribe();
+
+      const request = httpMock.expectOne(url);
+      expect(request.request.method).toBe('DELETE');
+      expect(request.request.params.keys()).toEqual([]);
+      request.flush(null, { status: 204, statusText: 'No Content' });
+    });
+  });
+
   describe('getAttempt', () => {
     it('reads the attempt as it is by default', () => {
       service.getAttempt('a1').subscribe();

@@ -165,6 +165,11 @@ export interface AttemptQuestionDto {
    * reported on it. The page carries on counting from it, so a reload does not start the count again from zero (FR-36).
    */
   timeSpentSeconds?: number | null;
+  /**
+   * The highest sequence number the server has applied to this question's answer, a save or a clear; null or absent when nothing was ever
+   * written to it. The page numbers its next write above it, so a reload does not start the numbering again from one (NFR-4).
+   */
+  answerSequence?: number | null;
 }
 
 /** A section of the exam. */
