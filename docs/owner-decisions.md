@@ -12,7 +12,7 @@ So **18 decisions are settled** and recorded below, each with the file that now 
 
 ### Corrections to the first version
 
-- **D10 said the roster importer reads an e-mail and an optional phone.** There is no CSV importer. Staff add batch members one at a time (`POST /v1/batches/{id}/members`), `RosterValidator` has no caller outside its own tests, and issue [#42](https://github.com/sagarworlds/Online-Exam-Platform/issues/42) was closed without the import. The decision stands (the roster carries an e-mail and an optional phone only), but the import itself is missing and is on the engineering list below.
+- **D10 said the roster importer reads an e-mail and an optional phone.** There is no CSV importer. Staff add batch members one at a time (`POST /v1/batches/{id}/members`), `RosterValidator` has no caller outside its own tests, and issue [#42](https://github.com/sagarworlds/Online-Exam-Platform/issues/42) was closed without the import. The decision stands (the roster carries an e-mail and an optional phone only), but the import itself is missing. It is tracked in [#273](https://github.com/sagarworlds/Online-Exam-Platform/issues/273) and is on the engineering list below.
 - **Action A7 said to close milestones M1 and M3.** GitHub shows M1, M2 and M3 closed on 2026-10-14, so A7 is removed.
 
 ## Still open
@@ -76,7 +76,7 @@ Reply with the decision number and your choice, for example `D13 B`. Where a dec
 | Item | Depends on |
 |---|---|
 | The unspent-codes audit entry (D7) and the answer-save sequence number (D20): built on this branch, and waiting to be merged | Your word to open the pull request, and A1 for the key-ring change that is already on the branch |
-| The CSV roster import (FR-50, found missing), with a validation report | Nothing. The fields are decided (D10) |
+| The CSV roster import (FR-50, found missing, [#273](https://github.com/sagarworlds/Online-Exam-Platform/issues/273)), with a validation report | Nothing. The fields are decided (D10) |
 | Test accounts for the load test: a way to create thousands of candidates that share a password and are enrolled in the load-test exam (found missing: nothing creates them, and registration sends a code to each address) | Staging (A14), for the full run. A smoke run needs 5 and can be done by hand |
 | A safe way to create the first administrator in a deployed environment (found missing: only the Development bootstrap exists, and staging needs one) | Your say on the approach |
 | Automated browser runs on Chromium, Firefox and WebKit (D19, #88) | Nothing |

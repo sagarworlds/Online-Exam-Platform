@@ -225,7 +225,7 @@ The public privacy page names Meta, and calls the others "hosting and database p
 10. **Audit metadata (G10).** Metadata is free text, and no purge job exists. Reasons, warning text and names of exams and batches are kept for as long as the log is kept.
 11. **Free text may hold personal data about other people (G11).** Warnings, dispute reasons, issue messages, attempt request messages, accommodation notes, review comments and grant reasons are free text. Nothing redacts or reviews them.
 12. **Logs (G12).** Masking covers OTP and WhatsApp contact details. Not checked: exception messages and request logs for e-mail addresses or codes. No log sink or retention is set in the repo, and NFR-13 (180 days in India) is not implemented.
-13. **Roster import (G13).** FR-50 asked for a name and, for minors, a guardian contact. The owner decided on 2026-10-15 that the roster carries an e-mail and an optional phone only, and FR-50 now says so (OP12). The CSV import itself is not built: staff add members one at a time.
+13. **Roster import (G13).** FR-50 asked for a name and, for minors, a guardian contact. The owner decided on 2026-10-15 that the roster carries an e-mail and an optional phone only, and FR-50 now says so (OP12). The CSV import itself is not built: staff add members one at a time (issue #273).
 14. **Public privacy page (G14).** `apps/web/public/privacy.html` says personal data is deleted once it is no longer needed (its section 7). It also has placeholders for the operator and grievance contact, and does not name Render, Neon or Brevo. Its statements must match this map (OP11).
 15. **Language coverage (G15).** The interface has English, Hindi and Marathi. The consent notices in the separate consent PR cover English and Hindi only.
 
