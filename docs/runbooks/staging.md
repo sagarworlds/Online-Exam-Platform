@@ -10,7 +10,7 @@ Render's and Neon's screens change. Where a step below does not match what you s
 
 1. **Synthetic data only.** Never copy production data into staging. Staging sits on the same providers as production, outside India (`docs/compliance/nfr-12-exception.md`), and nobody has agreed to their data being used for tests.
 2. **Its own secrets.** Generate a new `Jwt__SigningKey` and a new `DataProtection__KeyEncryptionKey`. Do not reuse production's. A copy of a staging database must never open production content, and the other way round. Keep staging's key-ring key in the password manager too, labelled as staging.
-3. **Its own e-mail.** Use a separate Brevo API key and sender. Give the load-test accounts addresses that cannot receive mail (for example on the reserved `.invalid` domain), so nobody real is e-mailed.
+3. **Its own e-mail.** Use a separate Brevo API key and sender, so staging never sends from the production sender. The big pool of load-test accounts is meant to be created by a tool, not through the web form (see "The test accounts"), and its addresses should be ones that cannot receive mail (for example on the reserved `.invalid` domain), so nobody real is e-mailed. The few accounts made by hand through the form need addresses you can read, because registration sends a code to the address.
 4. **Production mode.** Run it with `ASPNETCORE_ENVIRONMENT=Production`, so it has the same start-up checks, headers and limits as production. A Development host behaves differently and would measure something else.
 5. **Staging only for load tests.** The scripts must never point at production.
 
@@ -49,7 +49,7 @@ This is a gap, and it will matter again for any new environment. A safe way to c
 
 ## The test accounts
 
-`tests/load/README.md` asks for a pool of candidate accounts that share one password, are enrolled in the load-test exam, and need no second factor. **Nothing in the repository creates them.** Registration sends a code to the address, so the web form cannot create thousands of accounts. A smoke run needs 5 accounts and can be done by hand. The full 2x run needs 20,000 at the defaults (D12), so it waits for a seeding tool, which is on the engineering list.
+`tests/load/README.md` asks for a pool of candidate accounts that share one password, are enrolled in the load-test exam, and need no second factor. **Nothing in the repository creates them.** Registration sends a code to the address, so the web form cannot create thousands of accounts. A smoke run needs 5 accounts and can be done by hand, through the web form, with addresses you can read (for example plus-addresses of your own mailbox), one shared password, and an invitation to the load-test exam accepted for each. The full 2x run needs 20,000 at the defaults (D12), so it waits for a seeding tool, which is on the engineering list.
 
 ## Checks before the first run
 
