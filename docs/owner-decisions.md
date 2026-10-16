@@ -67,7 +67,7 @@ Reply with the decision number and your choice, for example `D13 B`. Where a dec
 | D16 | The question paper before the exam starts | **A.** Accept access control as the control for the pilot, and record the exception | `docs/compliance/nfr-5-paper-before-start-exception.md` | Ask the penetration test (A4) to look at it |
 | D17 | The katex advisory | **A.** Accept the low advisory until after the pilot | `docs/compliance/nfr-5-security-checks.md` | Revisit after the pilot |
 | D18 | The exam time limit and WCAG 2.2.1 | **A.** Record the limit as essential. Extra time stays an accommodation | `docs/compliance/accessibility-audit.md` (A-06 closed) | Confirm it with whoever signs off accessibility (D19) |
-| D19 | Accessibility sign-off, browsers and devices ([#87](https://github.com/sagarworlds/Online-Exam-Platform/issues/87), [#88](https://github.com/sagarworlds/Online-Exam-Platform/issues/88)) | **A.** A manual pass by you and volunteers, automated runs on Chromium, Firefox and WebKit, and a few real phones | `docs/compliance/accessibility-manual-checklist.md` | **You:** run the pass and the phone checks (A10). Engineering sets up the three-engine runs (below) |
+| D19 | Accessibility sign-off, browsers and devices ([#87](https://github.com/sagarworlds/Online-Exam-Platform/issues/87), [#88](https://github.com/sagarworlds/Online-Exam-Platform/issues/88)) | **A.** A manual pass by you and volunteers, automated runs on Chromium, Firefox and WebKit, and a few real phones | `docs/compliance/accessibility-manual-checklist.md` | **You:** run the pass and the phone checks (A10). The three-engine runs are built ([#279](https://github.com/sagarworlds/Online-Exam-Platform/pull/279)) |
 | D20 | NFR-4: an idempotency key on answer saves | **B.** Add a sequence number to answer saves, so the server ignores a save older than the one it holds | NFR-4, `docs/adr/0004-answer-save-sequence-numbers.md` | Built and merged in [#274](https://github.com/sagarworlds/Online-Exam-Platform/pull/274). Old clients keep working. The load test (#84) now sends the numbers, so it measures the real save |
 | D21 | Policy choices made where the requirements were silent | **Confirmed.** N6, B2, B4 and B8 stand as built | `docs/additional-functionality.md` | None |
 
@@ -79,7 +79,7 @@ Reply with the decision number and your choice, for example `D13 B`. Where a dec
 | The CSV roster import (FR-50, [#273](https://github.com/sagarworlds/Online-Exam-Platform/issues/273)), with a report of the rows left out: merged in [#275](https://github.com/sagarworlds/Online-Exam-Platform/pull/275) | Nothing left |
 | Test accounts for the load test (`--create-load-test-candidates` and `--enrol-load-test-candidates`, [ADR 0006](adr/0006-load-test-candidate-pool.md)): merged in [#277](https://github.com/sagarworlds/Online-Exam-Platform/pull/277). They create and enrol thousands of candidates on addresses that cannot exist, and refuse to run unless switched on | Staging (A14), for the full run |
 | A safe way to create the first administrator in a deployed environment (`--create-first-administrator`, [ADR 0005](adr/0005-first-administrator-job.md)): merged in [#276](https://github.com/sagarworlds/Online-Exam-Platform/pull/276), with no password to store | The e-mail it sends needs the mail settings (A14 for staging) |
-| Automated browser runs on Chromium, Firefox and WebKit (D19, #88) | Nothing |
+| Automated browser runs on Chromium, Firefox and WebKit (D19, #88): built in [#279](https://github.com/sagarworlds/Online-Exam-Platform/pull/279). Three CI jobs, 11 tests each, with the API stubbed in the browser | Nothing left. The real-phone checks are A10 |
 | The retention job (#79) and the privacy notice text (#269) | The edited retention periods (A13) and counsel (D1) |
 | The restore runbook and ADR (#85) | D13 |
 | The consent notices in the ledger (#269), including Marathi | Counsel (D1), D4 |
@@ -131,6 +131,7 @@ These are engineering choices. They need no answer, but you can object.
 
 - Which regional languages come after English, Hindi and Marathi, and in what order (requirements section 17, question 3).
 - The year-2 peak, which decides when the exam runtime is split into its own service (section 17, question 1).
+- Browser runs against a real API and database, of the administrator screens, and in Hindi and Marathi. The three-engine runs stub the API and cover the candidate screens in English only (README, "Browser Tests"). Not scheduled.
 
 ## Keeping this current
 

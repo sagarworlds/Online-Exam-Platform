@@ -1,6 +1,6 @@
 # Accessibility: the manual pass
 
-**Decision:** D19 in `docs/owner-decisions.md`, answered 2026-10-15. The owner and a few volunteers run this pass. Engineering sets up automated runs on Chromium, Firefox and WebKit, and the owner checks a few real phones.
+**Decision:** D19 in `docs/owner-decisions.md`, answered 2026-10-15. The owner and a few volunteers run this pass. The automated runs on Chromium, Firefox and WebKit are in CI (`apps/web/e2e`, README "Browser Tests"), and the owner checks a few real phones.
 **Issues:** [#87, NFR-7 accessibility audit](https://github.com/sagarworlds/Online-Exam-Platform/issues/87) and [#88, NFR-8 browser compatibility](https://github.com/sagarworlds/Online-Exam-Platform/issues/88).
 **Why it is needed:** the automated audit (`accessibility-audit.md`) is clean and every finding is fixed, but a program cannot judge what a screen reader says or whether a flow makes sense without a mouse. Section 7 of that audit lists what was never run: no screen reader, one browser (Chromium), mock data, and several pages and exam states.
 
