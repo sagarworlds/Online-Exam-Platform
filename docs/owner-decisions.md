@@ -60,7 +60,7 @@ Reply with the decision number and your choice, for example `D13 B`. Where a dec
 | D7 | The unspent-codes page | **A.** Keep it for the Super Admin only, and record which code was shown in each read's audit entry (the challenge and its purpose, never the code) | `docs/additional-functionality.md`, data map OP9 | Built and merged in [#274](https://github.com/sagarworlds/Online-Exam-Platform/pull/274): each read's audit entry now lists the challenge and purpose of every code shown. If counsel's answer to question 12 is no, switch the page off in production |
 | D8 | Passwords for candidates | **A.** Candidates may set a password, as the code allows | data map OP10 | None |
 | D9 | Date of birth or age band | **A.** Keep the full date of birth, because the 18th-birthday rules need the exact age | data map OP8, counsel brief question 18 | Counsel confirms it meets data minimisation |
-| D10 | Roster file fields | **A.** The roster carries an e-mail and an optional phone only. A candidate's name comes from their account, and a minor's guardian is linked through the guardian flow | `exam-platform-requirements.md` (FR-50), data map OP12 | The CSV import is not built (see the corrections above). It is on the engineering list below. Revisit when candidates under 18 are admitted |
+| D10 | Roster file fields | **A.** The roster carries an e-mail and an optional phone only. A candidate's name comes from their account, and a minor's guardian is linked through the guardian flow | `exam-platform-requirements.md` (FR-50), data map OP12 | The CSV import is built ([#273](https://github.com/sagarworlds/Online-Exam-Platform/issues/273), merged in [#275](https://github.com/sagarworlds/Online-Exam-Platform/pull/275)). Revisit when candidates under 18 are admitted |
 | D11 | Hosting plan | **A.** Paid Render and Neon for a staging environment now. Decide the production plans before the pilot | `docs/runbooks/staging.md`, `docs/additional-functionality.md` (S1) | **You:** create the staging services (A14). Then the load test (#84) and the restore drill (#85) can run |
 | D12 | Expected load for the load test | **A.** Use the script defaults for the first run: 10,000 concurrent candidates at peak, tested at 2x, a save every 20 seconds, the whole cohort opening its paper within 2 minutes | `tests/load/README.md` | Runs when staging exists. Real figures replace the defaults once the first schools are known |
 | D14 | Log store and client IP addresses ([#89](https://github.com/sagarworlds/Online-Exam-Platform/issues/89)) | **A.** An India-hosted log store with retention of at least 180 days. Client IP addresses stay out of the request logs | `docs/observability.md`, `docs/compliance/log-store-options.md` | **You:** choose the store after counsel answers question 15 (A15) |
@@ -75,8 +75,8 @@ Reply with the decision number and your choice, for example `D13 B`. Where a dec
 
 | Item | Depends on |
 |---|---|
-| The unspent-codes audit entry (D7) and the answer-save sequence number (D20): merged in [#274](https://github.com/sagarworlds/Online-Exam-Platform/pull/274) | A1, for the key-ring change that went in with it, before the next deploy |
-| The CSV roster import (FR-50, [#273](https://github.com/sagarworlds/Online-Exam-Platform/issues/273)), with a report of the rows left out: built, and waiting for its pull request | Your word to open the pull request |
+| The unspent-codes audit entry (D7) and the answer-save sequence number (D20): merged in [#274](https://github.com/sagarworlds/Online-Exam-Platform/pull/274) | Nothing left. A1 is done |
+| The CSV roster import (FR-50, [#273](https://github.com/sagarworlds/Online-Exam-Platform/issues/273)), with a report of the rows left out: merged in [#275](https://github.com/sagarworlds/Online-Exam-Platform/pull/275) | Nothing left |
 | Test accounts for the load test: a way to create thousands of candidates that share a password and are enrolled in the load-test exam (found missing: nothing creates them, and registration sends a code to each address) | Staging (A14), for the full run. A smoke run needs 5 and can be done by hand |
 | A safe way to create the first administrator in a deployed environment (found missing: only the Development bootstrap exists, and staging needs one) | Your say on the approach |
 | Automated browser runs on Chromium, Firefox and WebKit (D19, #88) | Nothing |
@@ -91,7 +91,6 @@ These need no decision, only you or an account of yours.
 
 | # | Action | Why | Where |
 |---|---|---|---|
-| A1 | Check that `DataProtection__KeyEncryptionKey` exists on the Render API service, and copy its value to a password manager, apart from the database backups. | The key-ring change (#86, commit `11fb9bd`) cannot deploy without it, and losing it loses the question content. | `docs/deploy-render.md`, step 5 |
 | A2 | Set the GitHub repository variables `PUBLIC_WEB_URL` and `PUBLIC_API_URL`. | The weekly security-header check stays red until both are set. | #86 |
 | A3 | Set the static site's security headers, in the Render Dashboard or in `render.yaml` once Render's syntax is checked. | The site sends none yet. The weekly check reports what is actually served. | `docs/compliance/nfr-5-security-checks.md` |
 | A4 | Book a penetration test, and ask it to look at the paper-before-start exception (D16). | NFR-5 asks for a security test with no findings, and the automated checks do not replace one. | #86 |
@@ -107,6 +106,8 @@ These need no decision, only you or an account of yours.
 | A15 | Choose a log store after counsel answers question 15 (D14). | #89 cannot be finished without one. | `docs/compliance/log-store-options.md` |
 
 A7 (close milestones M1 and M3) is done: GitHub shows M1, M2 and M3 closed on 2026-10-14.
+
+A1 (the key-ring key on Render) is done, as reported by the owner on 2026-10-16. The first deploy of the key-ring change failed because the API service had no `DataProtection__KeyEncryptionKey` (the log said `DataProtection:KeyEncryptionKey is not set`; the previous version kept serving), so the owner added it and kept a copy in a password manager. Engineering cannot see Render, so this rests on the owner's word.
 
 ## What I decide myself
 

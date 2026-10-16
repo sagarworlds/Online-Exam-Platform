@@ -31,7 +31,7 @@
 
 | Gate | Source | Status |
 |---|---|---|
-| The key that protects the question-content keys exists on Render and is in a password manager, and the key-ring change is deployed | A1, [#86](https://github.com/sagarworlds/Online-Exam-Platform/issues/86), `docs/adr/0003-key-ring-protection.md` | Built on the working branch, not merged. Waiting on you (A1) |
+| The key that protects the question-content keys exists on Render and is in a password manager, and the key-ring change is deployed | A1, [#86](https://github.com/sagarworlds/Online-Exam-Platform/issues/86), `docs/adr/0003-key-ring-protection.md` | Merged in [#274](https://github.com/sagarworlds/Online-Exam-Platform/pull/274). A1 is done, as reported by the owner on 2026-10-16; engineering cannot see Render, so the key's presence is not checked here |
 | Static-site security headers are set, and the weekly header check is green | A2, A3, `nfr-5-security-checks.md` | Waiting on you |
 | A penetration test has run and its findings are fixed or accepted in writing | A4 | Waiting on you |
 | The WAF decision is recorded | D15, `waf-decision.md`, brief question 17 | Waiting on you and counsel |
