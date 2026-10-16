@@ -10,24 +10,6 @@
     <p class="success-message">Question saved.</p>
   }
 
-  @if (repeat(); as pending) {
-    <section class="card" role="alert" aria-label="Question already in the bank">
-      <h2>This question is already in the bank</h2>
-      <p>The bank has a question with this wording and these options:</p>
-      <ul>
-        @for (match of pending.matches; track match.id) {
-          @if (match.sameOptions) {
-            <li>{{ match.preview }} <span class="badge">{{ match.status }}</span></li>
-          }
-        }
-      </ul>
-      <div class="actions">
-        <button type="button" (click)="addAnyway()" [disabled]="saving()">Add it anyway</button>
-        <button type="button" class="primary" (click)="dismissRepeat()">Don't add it</button>
-      </div>
-    </section>
-  }
-
   <form class="card question-form" [formGroup]="form" (ngSubmit)="submit()" aria-label="New question">
     <h2>New question</h2>
 
@@ -46,6 +28,25 @@
 
     <button type="submit" class="primary" [disabled]="form.invalid || !placementComplete() || saving()">Save question</button>
   </form>
+
+  <!-- Directly under the Save button, where the author is looking when the bank refuses the question; focus moves here (QuestionBank.showRepeat). -->
+  @if (repeat(); as pending) {
+    <section #repeatCard class="card question-repeat" role="alert" tabindex="-1" aria-labelledby="question-repeat-heading">
+      <h2 id="question-repeat-heading">This question is already in the bank</h2>
+      <p>The bank has a question with this wording and these {{ pending.request.isTextAnswer ? 'accepted answers' : 'options' }}:</p>
+      <ul>
+        @for (match of pending.matches; track match.id) {
+          @if (match.sameOptions) {
+            <li>{{ match.preview }} <span class="badge">{{ match.status }}</span></li>
+          }
+        }
+      </ul>
+      <div class="actions">
+        <button type="button" (click)="addAnyway()" [disabled]="saving()">Add it anyway</button>
+        <button type="button" class="primary" (click)="dismissRepeat()">Don't add it</button>
+      </div>
+    </section>
+  }
 
   <app-question-transfer [filter]="exportFilter()" (imported)="onImported()" />
 

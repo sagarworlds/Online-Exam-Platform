@@ -307,7 +307,7 @@ An illegal step (approving a draft, putting a draft forward twice, restoring a q
 |------|------|
 | What counts as the same | Two questions are the same when the **words** of the wording match, ignoring case, spacing, punctuation and formatting ("What is 2 + 2?" = "what is  2+2"), **and** their options match as a set, in any order. The wording is kept as a hash of its letters and digits (`Questions.TextKey`, indexed), set whenever the text is, so finding a repeat is one index lookup. A question with no readable words, such as a picture alone, has no key and never matches. |
 | Same wording, other options | Reported but never blocked: "Which of these is prime?" is asked with many different options. |
-| Creating | A question that repeats one in the bank is refused (`409 duplicate_question`) unless the request carries `"allowDuplicate": true`. The form looks up what it repeats, shows it, and offers **Add it anyway** or **Don't add it**. |
+| Creating | A question that repeats one in the bank is refused (`409 duplicate_question`) unless the request carries `"allowDuplicate": true`. The form looks up what it repeats and shows it directly under the **Save question** button, with focus on it, so it is in view on a long form; it offers **Add it anyway** or **Don't add it**. A text question is looked up by its accepted answers, as the bank compares them. |
 | Importing | A row that repeats a question in the bank, or an earlier row of the same file, is **left out and reported** in `duplicates` (row and why), apart from `rejected` rows that are not valid questions. `"allowDuplicates": true`, or the "Import questions the bank already has" box, imports them anyway. |
 | Checking beforehand | `POST /v1/questions/duplicates` (`question.read`) with `{ text, options, excludeQuestionId? }` lists up to ten matches, those with the same options first, each with a preview, status and `sameOptions`. |
 | Turning it off | `QuestionBank:RefuseDuplicates` (default `true`) set to `false` makes a deployment accept repeats without asking. The check endpoint always works. |
@@ -1058,7 +1058,7 @@ npm run e2e:typecheck               # checks the tests and the fake API against 
 
 A machine that already has a Chromium can use it instead of downloading one: `E2E_CHROMIUM_PATH=/path/to/chromium npm run e2e -- --project=chromium`. CI runs each engine as its own job (`Browser tests (chromium)`, `(firefox)`, `(webkit)`).
 
-**Against the real API.** The stub cannot show that the page and the API agree, so a second run drives the same candidate journey with nothing stubbed (`apps/web/e2e/fullstack`). It starts the API as a developer runs it (the Development environment, which migrates its own database and writes each sign-in code to its log), serves the built app with `/api` sent to it, and sets up through the real administrator API: it signs in as a new administrator, writes questions, builds and publishes an exam, then registers a candidate and enrols them with an invitation. The browser then signs the candidate in with the one-time code it reads from the API's log, sits the exam, and the test checks what the API holds (the score, the sequence number of each answer). It needs Postgres, and runs one test at a time, so that the next code in the log is the one just asked for.
+**Against the real API.** The stub cannot show that the page and the API agree, so a second run drives the same candidate journey with nothing stubbed (`apps/web/e2e/fullstack`). It starts the API as a developer runs it (the Development environment, which migrates its own database and writes each sign-in code to its log), serves the built app with `/api` sent to it, and sets up through the real administrator API: it signs in as a new administrator, writes questions, builds and publishes an exam, then registers a candidate and enrols them with an invitation. The browser then signs the candidate in with the one-time code it reads from the API's log, sits the exam, and the test checks what the API holds (the score, the sequence number of each answer). A second spec drives an administrator screen the same way: it is handed the administrator's session, adds a question to the question bank twice, and checks that the warning that the bank already has it is in view and has focus (`question-bank.spec.ts`). It needs Postgres, and runs one test at a time, so that the next code in the log is the one just asked for.
 
 ```bash
 cd apps/api && dotnet build src/Host/ExamPlatform.Api -c Release
@@ -1070,7 +1070,7 @@ npm run e2e:fullstack -- --project=fullstack-firefox   # one engine
 
 CI runs it as one job, `Browser tests against the real API`, with a Postgres service, on all three engines.
 
-Not covered: the administrator screens, and Hindi and Marathi.
+Not covered: the administrator screens other than the question bank's warning for a repeated question, and Hindi and Marathi.
 
 ---
 

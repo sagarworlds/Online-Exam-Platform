@@ -809,6 +809,51 @@ describe('QuestionBank', () => {
       expect(root.querySelector('.error-message')).toBeNull();
     });
 
+    it('puts the warning below the Save button, where the author is looking, not above the long form', () => {
+      const { root } = submitRepeat();
+
+      const form = root.querySelector('form') as HTMLFormElement;
+      const warning = root.querySelector('.question-repeat') as HTMLElement;
+
+      expect(form.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      // Nothing but the form lies between the form and its warning, so the two are on screen together.
+      expect(form.nextElementSibling).toBe(warning);
+    });
+
+    it('moves focus to the warning, which brings it into view', () => {
+      const { root } = submitRepeat();
+
+      expect(document.activeElement).toBe(root.querySelector('.question-repeat'));
+    });
+
+    it('names the accepted answers, and asks the bank about them, when the question is a text question', () => {
+      const fixture = create();
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      (fixture.componentInstance as unknown as { form: FormGroup }).form.controls['text'].setValue('Capital of France?');
+      const type = root.querySelector<HTMLSelectElement>('#question-type') as HTMLSelectElement;
+      type.value = 'text';
+      type.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      const answer = root.querySelector<HTMLInputElement>('input[aria-label="Accepted answer 1"]') as HTMLInputElement;
+      answer.value = 'Paris';
+      answer.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      httpMock.expectOne(isCreate).flush({ title: 'duplicate_question' }, { status: 409, statusText: 'Conflict' });
+
+      // A text question has no options, so what the bank compares are its accepted answers; asked about none, it would find nothing.
+      const check = httpMock.expectOne(isCheck);
+      expect(check.request.body).toEqual({ text: 'Capital of France?', options: ['Paris'] });
+      check.flush([{ id: 'q1', preview: 'Capital of France?', sameOptions: true, status: 'approved', chapterId: null }]);
+      fixture.detectChanges();
+
+      const warning = root.querySelector('.question-repeat') as HTMLElement;
+      expect(warning.textContent).toContain('these accepted answers');
+      expect(warning.querySelectorAll('li').length).toBe(1);
+    });
+
     it('asks the bank which questions it repeats, by the wording and the option texts it sent', () => {
       const fixture = create();
       httpMock.expectOne(isList).flush([]);

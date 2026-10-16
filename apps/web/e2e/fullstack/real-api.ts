@@ -110,6 +110,11 @@ export class RealApi {
     await this.http.dispose();
   }
 
+  /** The administrator's session token, for a test that drives an administrator screen: the page is handed it instead of signing in. */
+  administratorToken(): Promise<string> {
+    return this.administrator();
+  }
+
   /** Writes the questions, builds an exam from them, schedules it to be open now, and publishes it. */
   async publishExam(name: string, questions: QuestionSpec[]): Promise<PublishedExam> {
     const admin = await this.administrator();
