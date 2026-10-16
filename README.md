@@ -1040,16 +1040,25 @@ npm run lint
 npm test -- --coverage --watch=false
 ```
 
-### End-to-End Testing
+### Browser Tests (Chromium, Firefox, WebKit)
 
-Playwright tests verify full user workflows (registration → exam creation → invitations):
+Playwright runs the same journeys in the three browser engines (NFR-8, D19): signing in (including by keyboard alone), sitting a short exam from the instructions to the score, reloading in the middle of an exam, and installing the app (manifest, service worker, the app shell offline). WebKit is the engine Safari is built on, not Safari itself, so real phones and Safari are still checked by hand (`docs/compliance/accessibility-manual-checklist.md`).
+
+The API is stubbed inside the browser (`apps/web/e2e/support/fake-api.ts`), so no API, database or Docker is needed. The fake API answers only what the app is expected to ask: a call it does not know fails the test. The tests run against the production build, served by a small static server (`apps/web/e2e/serve.mjs`).
 
 ```bash
 cd apps/web
 
-# Requires both API and frontend running
-npm run e2e
+npm run build                       # the tests run against the production build
+npx playwright install --with-deps  # once: downloads Chromium, Firefox and WebKit
+npm run e2e                         # all three engines
+npm run e2e -- --project=firefox    # one engine
+npm run e2e:typecheck               # checks the tests and the fake API against the app's own types
 ```
+
+A machine that already has a Chromium can use it instead of downloading one: `E2E_CHROMIUM_PATH=/path/to/chromium npm run e2e -- --project=chromium`. CI runs each engine as its own job (`Browser tests (chromium)`, `(firefox)`, `(webkit)`).
+
+Not covered: a run against a real API and database (the stub cannot show that the two agree; the API's own integration tests cover its side), the administrator screens, and Hindi and Marathi.
 
 ---
 
