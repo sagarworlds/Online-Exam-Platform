@@ -20,6 +20,12 @@ public interface IUserRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<bool> AnyInRoleAsync(string roleName, CancellationToken cancellationToken);
 
+    /// <summary>Which of the given e-mail addresses already belong to an account, without loading the accounts.</summary>
+    /// <param name="emails">The addresses to look up, matched exactly as sign-in matches them.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The addresses that have an account, as they were given.</returns>
+    Task<IReadOnlySet<string>> ListExistingEmailsAsync(IReadOnlyCollection<string> emails, CancellationToken cancellationToken);
+
     /// <summary>Loads a user by phone number, or null if none exists.</summary>
     /// <param name="phoneNumber">The phone number to search for.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

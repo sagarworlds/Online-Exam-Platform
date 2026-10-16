@@ -1,6 +1,7 @@
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.Invite.Application;
 using ExamPlatform.Modules.Invite.Application.Commands;
+using ExamPlatform.Modules.Invite.Endpoints.Operations;
 using ExamPlatform.Modules.Invite.Application.Ports;
 using ExamPlatform.Modules.Invite.Application.Queries;
 using ExamPlatform.Modules.Invite.Contracts;
@@ -8,6 +9,7 @@ using ExamPlatform.Modules.Invite.Infrastructure;
 using ExamPlatform.Modules.Invite.Infrastructure.Email;
 using ExamPlatform.Modules.Invite.Infrastructure.WhatsApp;
 using ExamPlatform.SharedKernel.Application;
+using ExamPlatform.SharedKernel.Application.LoadTest;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
@@ -52,6 +54,10 @@ public sealed class InviteModuleInstaller : IModuleInstaller
         services.AddSingleton<IInviteLinkBuilder, ConfigurationInviteLinkBuilder>();
 
         services.AddScoped<CreateInviteHandler>();
+        // The load test's candidate pool (ADR 0006): refused unless LoadTest:Enabled is set for the run, on staging only.
+        services.AddOptions<LoadTestSeedingOptions>().Bind(configuration.GetSection(LoadTestSeedingOptions.SectionName));
+        services.AddScoped<EnrolLoadTestCandidatesHandler>();
+        services.AddOperatorCommand<EnrolLoadTestCandidatesCommand>(EnrolLoadTestCandidatesCommand.CommandFlag);
         services.AddScoped<ListInvitesHandler>();
         services.AddScoped<GenerateInviteCodeHandler>();
         services.AddScoped<AcceptInviteHandler>();

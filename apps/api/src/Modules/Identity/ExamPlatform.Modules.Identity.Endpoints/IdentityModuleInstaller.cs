@@ -15,6 +15,7 @@ using ExamPlatform.Modules.Identity.Endpoints.Retention;
 using ExamPlatform.Modules.Identity.Infrastructure;
 using ExamPlatform.Modules.Identity.Infrastructure.Repositories;
 using ExamPlatform.SharedKernel.Application;
+using ExamPlatform.SharedKernel.Application.LoadTest;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -95,7 +96,11 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<AssignRoleHandler>();
         // The first-administrator job (ADR 0005): the handler holds the rules, the command reads the command line.
         services.AddScoped<ProvisionFirstAdministratorHandler>();
-        services.AddScoped<IOperatorCommand, CreateFirstAdministratorCommand>();
+        services.AddOperatorCommand<CreateFirstAdministratorCommand>(CreateFirstAdministratorCommand.CommandFlag);
+        // The load test's candidate pool (ADR 0006): refused unless LoadTest:Enabled is set for the run, on staging only.
+        services.AddOptions<LoadTestSeedingOptions>().Bind(configuration.GetSection(LoadTestSeedingOptions.SectionName));
+        services.AddScoped<ProvisionLoadTestCandidatesHandler>();
+        services.AddOperatorCommand<CreateLoadTestCandidatesCommand>(CreateLoadTestCandidatesCommand.CommandFlag);
         services.AddScoped<LogoutHandler>();
         services.AddScoped<UpdateProfileHandler>();
         services.AddScoped<GetProfileHandler>();
