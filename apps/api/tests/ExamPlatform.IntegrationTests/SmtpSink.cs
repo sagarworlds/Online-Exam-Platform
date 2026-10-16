@@ -57,6 +57,12 @@ internal sealed class SmtpSink : IAsyncDisposable
             // Disposed before the loop reached its first accept, so the listener was already stopped: also nothing to serve.
             // A test that never connects (a notifier with no mail server configured) finishes fast enough to hit this.
         }
+        catch (SocketException) when (_stop.IsCancellationRequested)
+        {
+            // Disposed while the first accept was starting, so the socket was closed under it. Linux reports that as a socket error
+            // ("Invalid argument" or "Operation canceled") and not as a cancellation. Dispose cancels before it stops the listener, so a
+            // stop in progress is what the filter checks; a socket error with no stop requested is a real fault and still surfaces.
+        }
     }
 
     private async Task ServeAsync(TcpClient client)
