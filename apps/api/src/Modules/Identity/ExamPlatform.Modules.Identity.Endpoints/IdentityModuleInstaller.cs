@@ -8,6 +8,7 @@ using ExamPlatform.Modules.Identity.Application.Sessions;
 using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Identity.Endpoints.Authentication;
 using ExamPlatform.Modules.Identity.Endpoints.Authorization;
+using ExamPlatform.Modules.Identity.Endpoints.Operations;
 using ExamPlatform.Modules.Identity.Endpoints.OtpDelivery;
 using ExamPlatform.Modules.Identity.Endpoints.RateLimiting;
 using ExamPlatform.Modules.Identity.Endpoints.Retention;
@@ -92,6 +93,9 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<RequestPasswordResetHandler>();
         services.AddScoped<ResetPasswordHandler>();
         services.AddScoped<AssignRoleHandler>();
+        // The first-administrator job (ADR 0005): the handler holds the rules, the command reads the command line.
+        services.AddScoped<ProvisionFirstAdministratorHandler>();
+        services.AddScoped<IOperatorCommand, CreateFirstAdministratorCommand>();
         services.AddScoped<LogoutHandler>();
         services.AddScoped<UpdateProfileHandler>();
         services.AddScoped<GetProfileHandler>();

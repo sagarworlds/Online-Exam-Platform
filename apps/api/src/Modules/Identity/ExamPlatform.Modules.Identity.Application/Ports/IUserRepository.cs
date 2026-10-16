@@ -15,6 +15,11 @@ public interface IUserRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken);
 
+    /// <summary>Whether any user, active or not, holds the named role.</summary>
+    /// <param name="roleName">The role's unique name, such as <c>SuperAdmin</c>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<bool> AnyInRoleAsync(string roleName, CancellationToken cancellationToken);
+
     /// <summary>Loads a user by phone number, or null if none exists.</summary>
     /// <param name="phoneNumber">The phone number to search for.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

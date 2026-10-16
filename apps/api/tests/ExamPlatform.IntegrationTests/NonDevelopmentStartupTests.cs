@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using ExamPlatform.Modules.Consent.Infrastructure;
 using ExamPlatform.Modules.Identity.Domain.Rbac;
 using ExamPlatform.Modules.Identity.Infrastructure;
@@ -194,49 +193,9 @@ public sealed class NonDevelopmentStartupTests(PostgresServerFixture postgres) :
             string.Join(',', roles));
     }
 
-    // Runs the real Host binary exactly as a deployment job would, as a separate process, so the
-    // test covers the command-line flag, the early return before the web host starts, and the
-    // exit code. Only the connection string is set; the rest is the Production default.
-    private static async Task<JobRun> RunMigrateAndSeedJobAsync(
-        string connectionString, IReadOnlyDictionary<string, string>? extraEnvironment = null)
-    {
-        var startInfo = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet")
-        {
-            WorkingDirectory = AppContext.BaseDirectory,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
-        startInfo.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "ExamPlatform.Api.dll"));
-        startInfo.ArgumentList.Add("--migrate-and-seed");
-        startInfo.Environment["ASPNETCORE_ENVIRONMENT"] = "Production";
-        startInfo.Environment["DOTNET_ENVIRONMENT"] = "Production";
-        startInfo.Environment["ConnectionStrings__Postgres"] = connectionString;
-        foreach (var (key, value) in extraEnvironment ?? new Dictionary<string, string>())
-        {
-            startInfo.Environment[key] = value;
-        }
-
-        using var process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("The Host process could not be started.");
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-
-        var stdout = process.StandardOutput.ReadToEndAsync(timeout.Token);
-        var stderr = process.StandardError.ReadToEndAsync(timeout.Token);
-        try
-        {
-            await process.WaitForExitAsync(timeout.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            process.Kill(entireProcessTree: true);
-            throw new TimeoutException("The Host did not exit after migrating and seeding; it must return before app.Run().");
-        }
-
-        return new JobRun(process.ExitCode, await stdout + await stderr);
-    }
-
-    private sealed record JobRun(int ExitCode, string Output);
+    private static Task<JobRun> RunMigrateAndSeedJobAsync(
+        string connectionString, IReadOnlyDictionary<string, string>? extraEnvironment = null) =>
+        HostJob.RunAsync(["--migrate-and-seed"], connectionString, extraEnvironment);
 
     private sealed record SeededData(
         int PermissionCount, int RoleCount, int GrantCount, int NoticeVersionCount, string PermissionIds, string RoleIds);

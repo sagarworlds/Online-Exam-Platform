@@ -1,3 +1,4 @@
+using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Exceptions;
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Domain;
@@ -29,9 +30,9 @@ public static class IdentityBootstrapSeeder
     /// <summary>
     /// The date of birth stored for the administrator. The account model requires one (it drives the
     /// age band used for guardian consent) but a staff account has no meaningful value, so this is a
-    /// fixed adult placeholder.
+    /// fixed adult placeholder, the same one the first-administrator job uses.
     /// </summary>
-    public static readonly DateOnly PlaceholderDateOfBirth = new(1980, 1, 1);
+    public static readonly DateOnly PlaceholderDateOfBirth = ProvisionFirstAdministratorHandler.PlaceholderDateOfBirth;
 
     /// <summary>
     /// Creates an active SuperAdmin with the configured email and password, unless an account with
