@@ -93,6 +93,9 @@ test.describe('a candidate sitting an exam against the real API', () => {
     const first = await shownQuestion(page);
     await choose(page, first.right);
     await page.getByRole('button', { name: text('attempt.saveNext'), exact: false }).click();
+    // The page draws the next question a moment after the click, so what is on screen is read only once it has changed: read at once, it
+    // can still be the first question (this test failed on CI that way), and a page that never moved on fails here, saying so.
+    await expect(page.locator('.question__text')).not.toContainText(first.text);
     const second = await shownQuestion(page);
     expect(second.text).not.toBe(first.text);
     await choose(page, second.wrong);
