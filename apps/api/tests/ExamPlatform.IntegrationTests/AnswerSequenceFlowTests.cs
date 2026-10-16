@@ -177,6 +177,11 @@ public sealed class AnswerSequenceFlowTests(ApiFactory factory) : IClassFixture<
         using var sitting = await StartedAsync();
         long sequence = 0;
 
+        // What happened in every round so far. This test once failed on CI and could not be reproduced, so a failure now says how the
+        // rounds went and not only where the last one ended: the answers of both writes, what the server held, and whether the same
+        // read a moment later agreed (a write that lands late reads differently the second time; a wrong final state does not).
+        var history = new List<string>();
+
         for (var round = 0; round < 12; round++)
         {
             var older = ++sequence;
@@ -188,31 +193,59 @@ public sealed class AnswerSequenceFlowTests(ApiFactory factory) : IClassFixture<
                 SaveAsync(sitting, sitting.Question.OptionB, newer));
 
             var applied = new List<long>();
+            var outcomes = new List<string>();
             for (var i = 0; i < results.Length; i++)
             {
                 var number = i == 0 ? older : newer;
                 if (results[i].StatusCode == HttpStatusCode.NoContent)
                 {
                     applied.Add(number);
+                    outcomes.Add($"write {number} applied");
                     continue;
                 }
 
                 // A write that is not applied is refused, not failed: either a newer one got there first, or it lost a race for the
                 // same question and the client sends it again.
-                Assert.Equal(HttpStatusCode.Conflict, results[i].StatusCode);
-                var problem = await results[i].Content.ReadFromJsonAsync<JsonElement>();
-                Assert.Contains(problem.GetProperty("title").GetString(), new[] { "answer_superseded", "concurrency_conflict" });
+                var title = results[i].StatusCode == HttpStatusCode.Conflict
+                    ? (await results[i].Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString()
+                    : await results[i].Content.ReadAsStringAsync();
+                outcomes.Add($"write {number} answered {(int)results[i].StatusCode} {title}");
+                Assert.True(
+                    results[i].StatusCode == HttpStatusCode.Conflict && (title is "answer_superseded" or "concurrency_conflict"),
+                    $"Round {round}: {string.Join("; ", outcomes)}.{Environment.NewLine}{Describe(history)}");
             }
 
             // Whatever happened, the answer held is the one with the highest number that was applied: the older write never wins.
-            Assert.NotEmpty(applied);
+            var held = await HeldAsync(sitting);
+            history.Add($"round {round}: {string.Join("; ", outcomes)}; the server then held {Label(sitting.Question, held)}");
+            Assert.True(applied.Count > 0, $"Round {round}: neither write was applied.{Environment.NewLine}{Describe(history)}");
+
             var highest = applied.Max();
             var expectedOption = highest == older ? sitting.Question.OptionA : sitting.Question.OptionB;
-            Assert.Equal((expectedOption, highest), await HeldAsync(sitting));
+            if (held != (expectedOption, highest))
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(500));
+                var later = await HeldAsync(sitting);
+                Assert.Fail(
+                    $"Round {round}: expected {Label(sitting.Question, (expectedOption, highest))}, but the server held {Label(sitting.Question, held)}. " +
+                    $"Read again 500 ms later it held {Label(sitting.Question, later)}.{Environment.NewLine}{Describe(history)}" +
+                    $"{Environment.NewLine}Recent server errors:{Environment.NewLine}{ServerErrorLog.Snapshot()}");
+            }
 
             // If the newer write lost a race, the client sends it again above the number held, as the page does.
             if (highest == older)
                 sequence = older;
         }
+    }
+
+    private static string Describe(IEnumerable<string> history) => "How the rounds went:" + Environment.NewLine + string.Join(Environment.NewLine, history);
+
+    /// <summary>The held answer in words, naming the options A and B as the test does, so a report reads without looking ids up.</summary>
+    private static string Label(Question question, (Guid? Selected, long? Sequence) held)
+    {
+        var option = held.Selected == question.OptionA ? "option A"
+            : held.Selected == question.OptionB ? "option B"
+            : held.Selected is null ? "no option" : $"option {held.Selected}";
+        return $"{option} at number {(held.Sequence is null ? "none" : held.Sequence.ToString())}";
     }
 }
