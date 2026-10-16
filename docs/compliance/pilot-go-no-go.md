@@ -58,7 +58,7 @@
 | The exam time limit is recorded as essential | D18, audit finding A-06 | Done: `accessibility-audit.md` |
 | The manual pass with a screen reader and a keyboard-only session is done, and its findings are fixed | D19, A10, `accessibility-manual-checklist.md`, [#87](https://github.com/sagarworlds/Online-Exam-Platform/issues/87) | Waiting on you and volunteers |
 | The exam runs on iOS Safari and Android Chrome | D19, A10, [#88](https://github.com/sagarworlds/Online-Exam-Platform/issues/88) | Waiting on you |
-| The automated browser runs pass on Chromium, Firefox and WebKit | D19, #88 | Done in [#279](https://github.com/sagarworlds/Online-Exam-Platform/pull/279): three CI jobs, `Browser tests (chromium)`, `(firefox)` and `(webkit)`, run 11 tests each on every push (sign-in, sitting an exam, installing the app), and all passed on their first run. The API is stubbed in them, so they show the pages work in each engine, not that page and API agree. WebKit is not Safari, so the iOS Safari and Android Chrome row above still waits on you |
+| The automated browser runs pass on Chromium, Firefox and WebKit | D19, #88 | Done in [#279](https://github.com/sagarworlds/Online-Exam-Platform/pull/279): three CI jobs, `Browser tests (chromium)`, `(firefox)` and `(webkit)`, run 11 tests each on every push (sign-in, sitting an exam, installing the app), and all passed on their first run. The API is stubbed in them, so they show the pages work in each engine, not that page and API agree; a fourth job, `Browser tests against the real API`, runs the candidate journey on all three engines against the real API and a real Postgres, and covers that. WebKit is not Safari, so the iOS Safari and Android Chrome row above still waits on you |
 
 ## 5. The pilot exam itself
 

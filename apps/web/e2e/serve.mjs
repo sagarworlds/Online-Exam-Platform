@@ -4,12 +4,15 @@
 //
 // It is a test helper, not a deployment: it listens on the loopback address only and never serves a path outside the build folder.
 import { createReadStream, existsSync, statSync } from 'node:fs';
-import { createServer } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(fileURLToPath(new URL('../dist/web/browser', import.meta.url)));
 const port = Number(process.env.E2E_PORT ?? 4300);
+// When set, a request under /api goes to the real API at this address, as a static host's rewrite rule sends it in a deployment; the
+// path loses its /api prefix on the way. When not set, nothing answers for the API (see below).
+const apiUrl = process.env.E2E_API_URL ? new URL(process.env.E2E_API_URL) : null;
 
 const contentTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -30,6 +33,27 @@ if (!existsSync(join(root, 'index.html'))) {
   process.exit(1);
 }
 
+/** Sends a request on to the real API and its answer back, unchanged. */
+function forwardToApi(request, response, pathname, search) {
+  const upstream = httpRequest(
+    {
+      hostname: apiUrl.hostname,
+      port: apiUrl.port,
+      method: request.method,
+      path: pathname.slice('/api'.length) + search,
+      headers: { ...request.headers, host: apiUrl.host },
+    },
+    (answer) => {
+      response.writeHead(answer.statusCode ?? 502, answer.headers);
+      answer.pipe(response);
+    },
+  );
+  upstream.on('error', () => {
+    response.writeHead(502).end();
+  });
+  request.pipe(upstream);
+}
+
 /** The file a request path names inside the build folder, or null when it would leave the folder. */
 function resolveFile(urlPath) {
   const requested = normalize(join(root, decodeURIComponent(urlPath)));
@@ -37,7 +61,12 @@ function resolveFile(urlPath) {
 }
 
 const server = createServer((request, response) => {
-  const { pathname } = new URL(request.url ?? '/', 'http://localhost');
+  const { pathname, search } = new URL(request.url ?? '/', 'http://localhost');
+
+  if (apiUrl !== null && pathname.startsWith('/api/')) {
+    forwardToApi(request, response, pathname, search);
+    return;
+  }
 
   let file;
   try {
@@ -52,8 +81,8 @@ const server = createServer((request, response) => {
     return;
   }
 
-  // The API lives on another service behind the same address in a real deployment; nothing here answers for it, so a test that wants
-  // API answers stubs them in the browser, and one that does not sees the API as unreachable.
+  // The API lives on another service behind the same address in a real deployment. With no API address given, nothing here answers for
+  // it, so a test that wants API answers stubs them in the browser, and one that does not sees the API as unreachable.
   if (pathname.startsWith('/api/')) {
     response.writeHead(404).end();
     return;

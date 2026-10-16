@@ -9,7 +9,8 @@
     "test": "ng test",
     "lint": "ng lint",
     "e2e": "playwright test",
-    "e2e:typecheck": "tsc -p e2e"
+    "e2e:typecheck": "tsc -p e2e",
+    "e2e:fullstack": "playwright test --config playwright.fullstack.config.ts"
   },
   "private": true,
   "packageManager": "npm@10.9.9",

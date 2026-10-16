@@ -1058,7 +1058,19 @@ npm run e2e:typecheck               # checks the tests and the fake API against 
 
 A machine that already has a Chromium can use it instead of downloading one: `E2E_CHROMIUM_PATH=/path/to/chromium npm run e2e -- --project=chromium`. CI runs each engine as its own job (`Browser tests (chromium)`, `(firefox)`, `(webkit)`).
 
-Not covered: a run against a real API and database (the stub cannot show that the two agree; the API's own integration tests cover its side), the administrator screens, and Hindi and Marathi.
+**Against the real API.** The stub cannot show that the page and the API agree, so a second run drives the same candidate journey with nothing stubbed (`apps/web/e2e/fullstack`). It starts the API as a developer runs it (the Development environment, which migrates its own database and writes each sign-in code to its log), serves the built app with `/api` sent to it, and sets up through the real administrator API: it signs in as a new administrator, writes questions, builds and publishes an exam, then registers a candidate and enrols them with an invitation. The browser then signs the candidate in with the one-time code it reads from the API's log, sits the exam, and the test checks what the API holds (the score, the sequence number of each answer). It needs Postgres, and runs one test at a time, so that the next code in the log is the one just asked for.
+
+```bash
+cd apps/api && dotnet build src/Host/ExamPlatform.Api -c Release
+cd ../web && npm run build
+# Postgres as the Development settings name it (database, user and password "examplatform", on localhost:5432), or any other:
+E2E_POSTGRES="Host=localhost;Port=5432;Database=mydb;Username=me;Password=secret" npm run e2e:fullstack
+npm run e2e:fullstack -- --project=fullstack-firefox   # one engine
+```
+
+CI runs it as one job, `Browser tests against the real API`, with a Postgres service, on all three engines.
+
+Not covered: the administrator screens, and Hindi and Marathi.
 
 ---
 
