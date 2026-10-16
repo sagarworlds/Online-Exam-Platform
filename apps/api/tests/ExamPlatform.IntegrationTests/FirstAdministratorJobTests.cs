@@ -90,6 +90,21 @@ public sealed class FirstAdministratorJobTests(PostgresServerFixture postgres) :
     }
 
     [Fact]
+    public async Task WithNoSignInCodeDeliveryConfigured_RefusesInsteadOfCrashing()
+    {
+        // A job started with only a connection string, as --migrate-and-seed is: outside Development the delivery settings are
+        // required, and the job has to say so rather than die with a stack trace.
+        var connectionString = await MigratedDatabaseAsync();
+
+        var run = await HostJob.RunAsync([CreateFlag, AdminEmail], connectionString);
+
+        Assert.Equal(2, run.ExitCode);
+        Assert.Contains("Nothing was created", run.Output);
+        await using var identity = IdentityContext(connectionString);
+        Assert.Equal(0, await identity.Users.CountAsync());
+    }
+
+    [Fact]
     public async Task OnADatabaseNobodyMigratedYet_SaysToRunMigrateAndSeedFirst()
     {
         var connectionString = await postgres.CreateDatabaseAsync();

@@ -31,9 +31,9 @@ dotnet ExamPlatform.Api.dll --create-first-administrator <e-mail address>
 - **It checks that mail can be sent before creating anything**, when the host delivers codes by e-mail. An account made while no mail can go out would have a password nobody knows.
 - **It is recorded.** One audit entry, `Identity.FirstAdministratorProvisioned`, names the account by id. It has no actor (nobody was signed in) and no address (NFR-6).
 - **It never prints the address.** The log carries the masked form (`j***@example.org`), as the sign-in code log does.
-- **Exit codes:** 0 when the administrator was created, 2 when the job refused and changed nothing (no address, an address that is not one plain address, no mail server, no tables yet, no roles yet, a Super Admin already exists, or the address is taken). An unexpected failure is thrown, so the process fails loudly.
+- **Exit codes:** 0 when the administrator was created, 2 when the job refused and changed nothing (no address, an address that is not one plain address, no sign-in code delivery set up or no mail server, no tables yet, no roles yet, a Super Admin already exists, or the address is taken). An unexpected failure is thrown, so the process fails loudly.
 
-The seam is `IOperatorCommand` (SharedKernel.Application). A module registers its commands in its own installer and the Host runs the one whose flag is among its arguments, then exits before the web host starts. The Host knows no module's commands (ADR 0001, Open/Closed). It is the place for later one-off jobs, such as creating the load-test accounts.
+The seam is `IOperatorCommand` (SharedKernel.Application). A module registers each command and its flag in its own installer (`AddOperatorCommand`). The Host picks the registered flag that is among its arguments, builds only that command, runs it, and exits before the web host starts. The flag is kept apart from the command so that nothing else is built: building every command to read its flag once crashed a job that lacked a setting another command needs. The Host knows no module's commands (ADR 0001, Open/Closed). The load-test accounts are the second use (ADR 0006).
 
 The development bootstrap of ADR 0002 is unchanged and still Development-only.
 
@@ -60,4 +60,4 @@ The development bootstrap of ADR 0002 is unchanged and still Development-only.
 ## Follow-ups
 
 - Recovering an environment whose only administrator has lost their mailbox is not covered. A second command (for example one that changes the address of an existing Super Admin) would be the place, if it is ever needed.
-- The load-test accounts for staging (`docs/runbooks/staging.md`, "The test accounts") can be a second operator command on the same seam.
+- The load-test accounts for staging are the second operator commands on the same seam: [ADR 0006](./0006-load-test-candidate-pool.md).

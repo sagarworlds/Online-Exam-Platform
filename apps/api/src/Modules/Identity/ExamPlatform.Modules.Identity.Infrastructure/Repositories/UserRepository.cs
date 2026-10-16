@@ -31,6 +31,14 @@ public sealed class UserRepository(IdentityDbContext context) : IUserRepository
         context.Users.AnyAsync(u => u.Roles.Any(r => r.Name == roleName), cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlySet<string>> ListExistingEmailsAsync(IReadOnlyCollection<string> emails, CancellationToken cancellationToken) =>
+        (await context.Users.AsNoTracking()
+            .Where(u => u.Email != null && emails.Contains(u.Email))
+            .Select(u => u.Email!)
+            .ToListAsync(cancellationToken))
+        .ToHashSet(StringComparer.Ordinal);
+
+    /// <inheritdoc />
     public Task<User?> GetByPhoneAsync(string phoneNumber, CancellationToken cancellationToken) =>
         Loaded().FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber, cancellationToken);
 

@@ -5,6 +5,7 @@ using ExamPlatform.Modules.Identity.Domain;
 using ExamPlatform.Modules.Identity.Endpoints.OtpDelivery;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Infrastructure.Email;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -19,7 +20,7 @@ namespace ExamPlatform.Modules.Identity.Endpoints.Operations;
 /// <see cref="ProvisionFirstAdministratorHandler"/>.
 /// </summary>
 public sealed class CreateFirstAdministratorCommand(
-    ProvisionFirstAdministratorHandler handler,
+    IServiceProvider services,
     IMailSender mailSender,
     IOptions<OtpDeliveryOptions> otpDelivery,
     ILogger<CreateFirstAdministratorCommand> logger) : IOperatorCommand
@@ -31,12 +32,9 @@ public sealed class CreateFirstAdministratorCommand(
     public const int Refused = 2;
 
     /// <inheritdoc />
-    public string Flag => CommandFlag;
-
-    /// <inheritdoc />
     public async Task<int> RunAsync(IReadOnlyList<string> args, CancellationToken cancellationToken)
     {
-        var email = AddressAfterFlag(args);
+        var email = OperatorArguments.ValueOf(args, CommandFlag);
         if (email is null)
         {
             logger.LogError("Usage: {Flag} <e-mail address of the first administrator>. Nothing was created.", CommandFlag);
@@ -46,7 +44,22 @@ public sealed class CreateFirstAdministratorCommand(
         // Checked before anything is created: the password-setup link is the only way in, so an account made while no
         // mail can be sent would exist with a password nobody knows. With the development log provider the link is
         // written to the log instead, which is how a developer reads it.
-        if (otpDelivery.Value.Provider == OtpDeliveryOptions.Smtp && !mailSender.IsConfigured)
+        OtpDeliveryOptions delivery;
+        try
+        {
+            delivery = otpDelivery.Value;
+        }
+        catch (OptionsValidationException ex)
+        {
+            // A job started with only a connection string has no delivery settings, and outside Development they are required.
+            logger.LogError(
+                "Sign-in codes cannot be delivered with the current settings ({Reasons}), so the first administrator's password-setup " +
+                "e-mail could not be sent. Nothing was created. Set the mail settings (docs/deploy-render.md, step 5) and run the command again.",
+                string.Join("; ", ex.Failures));
+            return Refused;
+        }
+
+        if (delivery.Provider == OtpDeliveryOptions.Smtp && !mailSender.IsConfigured)
         {
             logger.LogError(
                 "No mail server is configured, so the first administrator's password-setup e-mail could not be sent. " +
@@ -57,6 +70,8 @@ public sealed class CreateFirstAdministratorCommand(
         var masked = ContactMasker.Mask(OtpChannel.Email, email);
         try
         {
+            // Resolved here, not injected: the handler reaches the code sender, which cannot be built until delivery is set up.
+            var handler = services.GetRequiredService<ProvisionFirstAdministratorHandler>();
             await handler.HandleAsync(new ProvisionFirstAdministratorCommand(email), cancellationToken);
         }
         catch (InvalidAdministratorEmailError ex)
@@ -93,20 +108,5 @@ public sealed class CreateFirstAdministratorCommand(
             "expires soon. If it does not arrive, check the mail settings and use 'Forgot password' on the sign-in page.",
             masked);
         return 0;
-    }
-
-    // The address is the argument right after the flag, and it is never another flag.
-    private static string? AddressAfterFlag(IReadOnlyList<string> args)
-    {
-        for (var i = 0; i < args.Count - 1; i++)
-        {
-            if (string.Equals(args[i], CommandFlag, StringComparison.Ordinal))
-            {
-                var next = args[i + 1];
-                return next.StartsWith("--", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(next) ? null : next;
-            }
-        }
-
-        return null;
     }
 }
