@@ -681,7 +681,7 @@ ASPNETCORE_ENVIRONMENT=Development dotnet run \
 
 This happens because `Database:MigrateAndSeedOnStartup` is `true` in the Development environment. It is `false` everywhere else; see [Migrate and Seed a Deployed Environment](#migrate-and-seed-a-deployed-environment).
 
-**First administrator (optional):** staff sign in with a password plus a second-factor code, and nothing in the app creates a staff account, so a fresh development database has no administrator. To get one, store its credentials in [user-secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) before the first run (the password stays out of the repository):
+**First administrator (optional):** staff sign in with a password plus a second-factor code, and nothing in the app creates a staff account, so a fresh development database has no administrator. (A deployed environment gets its first administrator from a job instead, with no password to store: see [Create the First Administrator of a Deployed Environment](#create-the-first-administrator-of-a-deployed-environment).) To get one in development, store its credentials in [user-secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) before the first run (the password stays out of the repository):
 
 ```bash
 cd apps/api
@@ -963,6 +963,20 @@ ASPNETCORE_ENVIRONMENT=Production ConnectionStrings__Postgres="Host=...;Database
 It applies every module's pending migrations and seeders, logs `Migrated and seeded <Module>` for each, and exits with code 0 without starting the web host, so the connection string is the only setting it needs. Run it as a pre-deploy job or an init container, and as **one** process at a time: two concurrent runs can race on the unique indexes of `Roles.Name` and `Permissions.Code`. Seeding only ever adds missing data, so running it on every deploy is safe. Permissions are copied into the access token at sign-in, so users get a newly added permission the next time they sign in.
 
 `Database:MigrateAndSeedOnStartup` does the same at the start of a normal run. Leave it `false` (the default outside Development) when several replicas start together. The reasoning is in [ADR 0002](./docs/adr/0002-migrations-and-reference-data-seeding.md).
+
+#### Create the First Administrator of a Deployed Environment
+
+A new deployed environment has no staff account, and the development bootstrap above is ignored outside Development. After `--migrate-and-seed` has run, run the Host once more with the address of the person who will administer it:
+
+```bash
+dotnet ExamPlatform.Api.dll --create-first-administrator name@example.org
+```
+
+Run it where the API's own settings are present (on Render, the service's shell or a one-off job, so the database and mail settings are the service's). Type the address exactly as the person will sign in with it: sign-in matches an address exactly.
+
+There is no password to supply. The job creates an active Super Admin with a random password that nobody sees, and e-mails the address the usual password-setup link. The person copies the code from it into the site's `/password-reset/confirm` page, chooses a password, signs in, and enters the second-factor code sent to the same address. The job logs the address only in masked form (`n***@example.org`); check that it is the one you meant before you wait for the e-mail.
+
+It refuses, changes nothing and exits with code 2 when: no address is given or it is not one plain address; no mail server is configured (the e-mail is the only way in); the database has no tables or roles yet (run `--migrate-and-seed` first); an account already uses the address; or a Super Admin already exists. The last rule is deliberate: the job gives an environment its first administrator and can never add another. If the e-mail does not arrive, fix the mail settings and use **Forgot password** on the sign-in page. Run it as one process at a time. The reasoning is in [ADR 0005](./docs/adr/0005-first-administrator-job.md).
 
 #### View Migrations
 

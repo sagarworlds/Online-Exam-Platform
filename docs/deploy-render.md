@@ -118,7 +118,7 @@ On `exam-platform-api` > **Environment**, fill in every value marked `sync: fals
 1. Open `<the API's real address>/v1/health` directly in a browser tab. It should answer `Healthy`. After a sleep this can take a minute. If it 404s or times out, the service failed to start — check its **Logs** before going further.
 2. In the API's **Logs**, look for `Migrated and seeded <Module>` once per module.
 3. Open the website and sign in as a candidate with an e-mail address that exists in your data. The code arrives by e-mail.
-4. Sign in as the administrator (password, then an e-mailed code). The administrator's address must be one you can read.
+4. Sign in as the administrator (password, then an e-mailed code). The administrator's address must be one you can read. If you started from an empty database instead of copying data in, there is no administrator yet: from the API's **Shell**, run `cd /app && dotnet ExamPlatform.Api.dll --create-first-administrator <the address>`, open the e-mail it sends, paste its code into the site's `/password-reset/confirm` page, and choose a password (README, "Create the First Administrator of a Deployed Environment").
 5. Open an exam you created earlier to confirm the data came across.
 
 ## Step 8 (optional). Send phone sign-in codes on WhatsApp
