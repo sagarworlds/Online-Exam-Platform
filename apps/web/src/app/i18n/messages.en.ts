@@ -232,6 +232,8 @@ export const EN = {
   'attempt.protect': 'Copying, pasting, right-click and printing are turned off during this exam.',
   'attempt.focus':
     'Stay on this page. Leaving it, or leaving full screen, is recorded: you have left {violations} of {limit} times allowed, and the exam is submitted when you reach {limit}.',
+  'attempt.webcam.on': 'Your camera is on. A photo is taken every two minutes and kept for the organisers.',
+  'attempt.webcam.denied': 'Your camera is off, so no photos are being taken. Tell the organisers if you meant to allow it.',
   'attempt.fullscreen': 'Enter full screen',
   'attempt.organiserMessage': 'Message from the exam organiser:',
   'attempt.paused.title': 'Your exam is paused',
