@@ -1,5 +1,5 @@
 import { AbstractControl, FormArray, FormBuilder, FormControl, ValidationErrors, Validators } from '@angular/forms';
-import { QUESTION_LIMITS, QuestionDifficulty, QuestionDto, QuestionLanguage, QuestionType } from './question.models';
+import { CreateQuestionRequest, QUESTION_LIMITS, QuestionDifficulty, QuestionDto, QuestionLanguage, QuestionType } from './question.models';
 
 /** One option row of the question form. `id` is the existing option's id when editing, and '' for a new option. */
 function newOptionGroup(formBuilder: FormBuilder, id = '', text = '', pinned = false, correct = false) {
@@ -196,6 +196,15 @@ export function toAcceptedAnswers(form: QuestionForm): string[] {
     return [];
   }
   return acceptedAnswerValues(form).map((answer) => answer.trim()).filter((answer) => answer.length > 0);
+}
+
+/**
+ * The answers the bank compares when it decides whether a question repeats another (FR-9): a multiple-choice question's option texts, and
+ * a text question's accepted answers, since a text question has no options. The API's "same question" rule reads these two the same way,
+ * so asking it about the options of a text question, which are none, would find no match for a question it has just refused.
+ */
+export function answersToCompare(request: CreateQuestionRequest): string[] {
+  return request.isTextAnswer ? (request.acceptedAnswers ?? []) : request.options.map((option) => option.text);
 }
 
 /** The options as a new question sends them: no ids, the chosen one marked correct. A text question has none. */

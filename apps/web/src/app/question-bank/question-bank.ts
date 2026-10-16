@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { afterNextRender, Component, computed, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { BookApiService } from '../book-management/book-api.service';
 import { ANY_CLASS, bookOptionLabel, booksInClass, classChoicesOf } from '../book-management/book-class';
@@ -9,6 +9,7 @@ import { ContentEncryptionStatusPanel } from './content-encryption-status/conten
 import { QuestionApiService } from './question-api.service';
 import { QuestionCard } from './question-card/question-card';
 import {
+  answersToCompare,
   createQuestionForm,
   newOption,
   setAcceptedAnswers,
@@ -53,6 +54,10 @@ export class QuestionBank {
   private readonly formBuilder = inject(FormBuilder);
   private readonly api = inject(QuestionApiService);
   private readonly bookApi = inject(BookApiService);
+  private readonly injector = inject(Injector);
+
+  /** The warning that the bank already has the question, once it is on the page. */
+  private readonly repeatCard = viewChild<ElementRef<HTMLElement>>('repeatCard');
 
   protected readonly unfiled = UNFILED;
   protected readonly questions = signal<QuestionDto[]>([]);
@@ -264,10 +269,16 @@ export class QuestionBank {
     });
   }
 
-  /** Looks up what the refused question repeats, so the author can see it before deciding. */
+  /**
+   * Looks up what the refused question repeats, so the author can see it before deciding. The warning is below the Save button and takes
+   * focus, which also scrolls it into view: the form is long, and a warning anywhere else on the page is out of sight when Save is pressed.
+   */
   private showRepeat(request: CreateQuestionRequest, refusal: unknown): void {
-    this.api.duplicates(request.text, request.options.map((o) => o.text)).subscribe({
-      next: (matches) => this.repeat.set({ request, matches }),
+    this.api.duplicates(request.text, answersToCompare(request)).subscribe({
+      next: (matches) => {
+        this.repeat.set({ request, matches });
+        afterNextRender(() => this.repeatCard()?.nativeElement.focus(), { injector: this.injector });
+      },
       // The refusal itself is the message when the list of matches cannot be had.
       error: () => this.errorMessage.set(extractErrorMessage(refusal)),
     });

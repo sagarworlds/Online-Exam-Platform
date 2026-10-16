@@ -1,5 +1,6 @@
 import { FormBuilder } from '@angular/forms';
 import {
+  answersToCompare,
   createQuestionForm,
   fillQuestionForm,
   setAcceptedAnswers,
@@ -9,7 +10,7 @@ import {
   toIsTextAnswer,
   toNewOptions,
 } from './question-form';
-import { QUESTION_LIMITS, QuestionDto } from './question.models';
+import { CreateQuestionRequest, QUESTION_LIMITS, QuestionDto } from './question.models';
 
 const base: QuestionDto = {
   id: 'q1',
@@ -146,5 +147,25 @@ describe('question form: loading a question for editing', () => {
     expect(toIsTextAnswer(form)).toBe(false);
     expect(toAcceptedAnswers(form)).toEqual([]);
     expect(toNewOptions(form).map((option) => option.text)).toEqual(['Paris', 'Rome']);
+  });
+
+  describe('the answers the bank compares for a repeated question (FR-9)', () => {
+    const request = (extra: Partial<CreateQuestionRequest>): CreateQuestionRequest => ({
+      text: 'Capital of France?', options: [], chapterId: null, difficulty: null, topics: [], allowsMultiple: false, ...extra,
+    });
+
+    it('are the option texts of a multiple-choice question', () => {
+      const asked = request({ options: [{ text: 'Paris', isCorrect: true, isPinned: false }, { text: 'Rome', isCorrect: false, isPinned: false }] });
+
+      expect(answersToCompare(asked)).toEqual(['Paris', 'Rome']);
+    });
+
+    it('are the accepted answers of a text question, which has no options', () => {
+      expect(answersToCompare(request({ isTextAnswer: true, acceptedAnswers: ['Paris', 'paris france'] }))).toEqual(['Paris', 'paris france']);
+    });
+
+    it('are none for a text question that sent no accepted answers', () => {
+      expect(answersToCompare(request({ isTextAnswer: true }))).toEqual([]);
+    });
   });
 });
