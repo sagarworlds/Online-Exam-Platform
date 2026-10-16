@@ -27,6 +27,14 @@ internal static class ServerErrorLog
         }
     }
 
+    /// <summary>The recent errors as one text, for a test that fails without a failing response to attach them to.</summary>
+    /// <returns>The recorded error entries, separated by a line, or a note that there were none.</returns>
+    public static string Snapshot()
+    {
+        var recent = Recent.ToArray();
+        return recent.Length == 0 ? "(none logged)" : string.Join(Environment.NewLine + "---" + Environment.NewLine, recent);
+    }
+
     /// <summary>
     /// Throws when the response is not a success, and says what the server answered and which errors it logged around the same time.
     /// </summary>
