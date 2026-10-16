@@ -43,9 +43,13 @@ Copy the production list in `docs/deploy-render.md`, step 5, with these differen
 
 ## The first administrator
 
-A fresh deployed database has no staff account. The development bootstrap administrator is honoured in Development only (ADR 0002, decision 5), and nothing else creates one. The production guide assumes the administrator arrives with the data copied from a local database into Neon (`docs/deploy-render.md`, steps 2 and 7). Do the same for staging, with a local database that holds only synthetic data and the bootstrap administrator (README, "First administrator"), copied with the same dump and restore commands.
+A fresh deployed database has no staff account, and the development bootstrap administrator is honoured in Development only (ADR 0002, decision 5). Do not copy a local database in for this (as production did, `docs/deploy-render.md`, steps 2 and 7): create the first administrator with the job built for it ([ADR 0005](../adr/0005-first-administrator-job.md)).
 
-This is a gap, and it will matter again for any new environment. A safe way to create the first administrator in a deployed environment is not built. It is on the engineering list in `docs/owner-decisions.md`.
+1. Check that the API has started once and logged `Migrated and seeded <Module>` for every module (the check list below), and that the staging mail settings are set (`Brevo__ApiKey`, `Brevo__SenderEmail`). The job refuses to run without a mail server, because the e-mail it sends is the only way in.
+2. In the staging API's shell (or as a one-off job, on the paid plan), run: `cd /app && dotnet ExamPlatform.Api.dll --create-first-administrator <the address>`. Use an address you can read, in the case you will sign in with.
+3. The log says `Created the first administrator` with the address masked. Open the e-mail, copy its code, open the staging site's `/password-reset/confirm` page, paste the code and choose a password. Then sign in at `/login`: a second code is e-mailed to the same address.
+
+No password is typed, stored or logged at any step. The job works once: it refuses when a Super Admin exists. It is described in the README ("Create the First Administrator of a Deployed Environment").
 
 ## The test accounts
 

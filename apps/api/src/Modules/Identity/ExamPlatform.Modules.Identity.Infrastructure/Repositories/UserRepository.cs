@@ -27,6 +27,10 @@ public sealed class UserRepository(IdentityDbContext context) : IUserRepository
         Loaded().FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
     /// <inheritdoc />
+    public Task<bool> AnyInRoleAsync(string roleName, CancellationToken cancellationToken) =>
+        context.Users.AnyAsync(u => u.Roles.Any(r => r.Name == roleName), cancellationToken);
+
+    /// <inheritdoc />
     public Task<User?> GetByPhoneAsync(string phoneNumber, CancellationToken cancellationToken) =>
         Loaded().FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber, cancellationToken);
 

@@ -66,7 +66,7 @@ Periods run from the moment named in "The clock starts".
 
 | Store | Personal data | Purpose | Proposed period | The clock starts | Basis | Note |
 |---|---|---|---|---|---|---|
-| `Attempts`, `AttemptQuestions`, `AttemptAnswers`, `AttemptMarks` | Candidate id, answers, scores, times | Results, certificates, the candidate's own history | As long as the account exists, then removed with it | The account's removal | Proposal | See question 1 |
+| `Attempts`, `AttemptQuestions`, `AttemptAnswers`, `AttemptAnswerSequences`, `AttemptMarks` | Candidate id, answers, scores, times | Results, certificates, the candidate's own history | As long as the account exists, then removed with it | The account's removal | Proposal | See question 1 |
 | `AttemptResultRevisions` | Previous and new score, reason | Explaining a changed score | With the attempt | | Proposal | |
 | `ExtraAttemptGrants` | Candidate, exam, reason | Explaining an extra attempt | With the attempt | | Proposal | |
 | `AttemptClientSightings` | IP address, device signature | Noticing a device change (FR-26) | 90 days | After results are released | Proposal | Sensitive for candidates under 18 (OP6). Counsel question 8 |

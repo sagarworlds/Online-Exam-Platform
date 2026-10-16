@@ -102,7 +102,7 @@ On `exam-platform-api` > **Environment**, fill in every value marked `sync: fals
 `DataProtection__KeyEncryptionKey` is generated for you too, and it is the one setting you must keep a copy of. Question content is encrypted with keys that are stored in the database, and this key protects those keys, so a copy of the database alone opens nothing (NFR-5, `docs/adr/0003-key-ring-protection.md`).
 
 - **Copy its value from the Environment page into a password manager now, and keep it apart from the database backups.** If it is lost or replaced, the API refuses to start with `A key ring entry is protected with key …, which this deployment does not have`, and the question content cannot be decrypted. Nothing in the database can recover it.
-- The API refuses to start without it, so a deploy that lacks it fails and the previous version keeps serving. `render.yaml` declares it as generated, but check the API's **Environment** page before merging a change that needs it: if it is not listed, or the log says `DataProtection:KeyEncryptionKey is not set`, add it by hand, as 32 random bytes in base64, for example the output of `openssl rand -base64 32`.
+- The API refuses to start without it, so a deploy that lacks it fails and the previous version keeps serving. `render.yaml` declares it as generated, but Render only creates a generated value when the Blueprint is synced, so a service that existed before the setting was declared never gets one (production's did not: the first deploy that needed the key failed for this reason in October 2026, and the previous version kept serving). Check the API's **Environment** page before merging a change that needs it: if it is not listed, or the log says `DataProtection:KeyEncryptionKey is not set`, add it by hand, as 32 random bytes in base64, for example the output of `openssl rand -base64 32`.
 - The first start after the key is added protects the keys already in the database, and the log says `Protected N of N Data Protection key ring entries with DataProtection:KeyEncryptionKey`. Questions already in the bank stay readable.
 - Copies of the database taken before that start still hold those keys in the clear. Delete old dumps and backups that you no longer need.
 
@@ -118,7 +118,7 @@ On `exam-platform-api` > **Environment**, fill in every value marked `sync: fals
 1. Open `<the API's real address>/v1/health` directly in a browser tab. It should answer `Healthy`. After a sleep this can take a minute. If it 404s or times out, the service failed to start — check its **Logs** before going further.
 2. In the API's **Logs**, look for `Migrated and seeded <Module>` once per module.
 3. Open the website and sign in as a candidate with an e-mail address that exists in your data. The code arrives by e-mail.
-4. Sign in as the administrator (password, then an e-mailed code). The administrator's address must be one you can read.
+4. Sign in as the administrator (password, then an e-mailed code). The administrator's address must be one you can read. If you started from an empty database instead of copying data in, there is no administrator yet: from the API's **Shell**, run `cd /app && dotnet ExamPlatform.Api.dll --create-first-administrator <the address>`, open the e-mail it sends, paste its code into the site's `/password-reset/confirm` page, and choose a password (README, "Create the First Administrator of a Deployed Environment").
 5. Open an exam you created earlier to confirm the data came across.
 
 ## Step 8 (optional). Send phone sign-in codes on WhatsApp

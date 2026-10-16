@@ -290,6 +290,20 @@ if (migrateAndSeedOnly)
     return;
 }
 
+// An operator command (ADR 0005) is a one-off job like --migrate-and-seed: it runs against the database as a separate
+// process and the host ends before the web server starts. Where Database:MigrateAndSeedOnStartup is on, the schema step above has
+// already run in this process, so a single run can migrate and then provision.
+using (var commandScope = app.Services.CreateScope())
+{
+    var operatorCommand = commandScope.ServiceProvider.GetServices<IOperatorCommand>()
+        .FirstOrDefault(command => args.Contains(command.Flag, StringComparer.Ordinal));
+    if (operatorCommand is not null)
+    {
+        Environment.ExitCode = await operatorCommand.RunAsync(args, CancellationToken.None);
+        return;
+    }
+}
+
 app.Run();
 
 /// <summary>Composition root entry point, exposed for <c>WebApplicationFactory&lt;Program&gt;</c> in integration tests.</summary>

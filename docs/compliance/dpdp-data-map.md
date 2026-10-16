@@ -77,7 +77,7 @@ Source: `Admin/ExamPlatform.Modules.Admin.Domain/AuditLog.cs` and `Admin/ExamPla
 
 ### 3.3 Batch (`Batch`)
 
-Source: `Batch/ExamPlatform.Modules.Batch.Domain/` (Batch, BatchMember, MemberContact, RosterValidator).
+Source: `Batch/ExamPlatform.Modules.Batch.Domain/` (Batch, BatchMember, MemberContact) and `Batch/ExamPlatform.Modules.Batch.Application/RosterFile.cs` (the CSV roster reader).
 
 | Store | Personal data held | Whose | Purpose | Retention | Current behaviour | Processor |
 |---|---|---|---|---|---|---|
@@ -140,6 +140,7 @@ Source: `ExamRuntime/ExamPlatform.Modules.ExamRuntime.Domain/` and `ExamRuntime/
 |---|---|---|---|---|---|---|
 | `Attempts` | Candidate user id, exam id, attempt number, start, deadline, pause, submit and end times, status, auto-submit and ended-by-violations flags, acknowledged notice text (free text), accommodation copy, score and max score, staff ids and reasons for termination or invalidation | Candidates; staff who moderated | Running, timing and scoring an attempt | To be decided by the owner | Kept | Hosting |
 | `AttemptQuestions`, `AttemptAnswers`, `AttemptMarks` | Question order, selected option ids, answer text, answer time, questions marked for review, time marked | Candidates (their answers) | Scoring; saving answers and resuming (NFR-4) | To be decided by the owner | Kept. Candidate answers are personal data and are kept with the results | Hosting |
+| `AttemptAnswerSequences` | Attempt id, question id, and the number of the latest answer save accepted for that question | Candidates | Ignoring an answer save that arrives after a newer one (NFR-4) | Removed with its attempt | Kept with the attempt. It holds no answer content, only a counter | Hosting |
 | `AttemptClientSightings` | IP address, device signature, time seen, reason (for example, the device changed) | Candidates | Noticing that an attempt moved to another device or network (FR-26) | To be decided by the owner | Kept; no removal. Sensitive for minors (OP6, G4) | Hosting |
 | `AttemptFocusViolations` | Kind of violation (for example, leaving the exam page or full screen), time | Candidates | Evidence for reviewers and disputes (FR-22) | To be decided by the owner | Kept. Sensitive for minors (OP6, G4) | Hosting |
 | `AttemptWarnings` | Warning text (free text written by staff), staff user id, time | Candidates and staff | Warning the candidate during an exam; disputes (FR-29) | To be decided by the owner | Kept | Hosting |

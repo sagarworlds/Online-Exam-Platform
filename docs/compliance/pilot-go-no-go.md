@@ -31,7 +31,7 @@
 
 | Gate | Source | Status |
 |---|---|---|
-| The key that protects the question-content keys exists on Render and is in a password manager, and the key-ring change is deployed | A1, [#86](https://github.com/sagarworlds/Online-Exam-Platform/issues/86), `docs/adr/0003-key-ring-protection.md` | Built on the working branch, not merged. Waiting on you (A1) |
+| The key that protects the question-content keys exists on Render and is in a password manager, and the key-ring change is deployed | A1, [#86](https://github.com/sagarworlds/Online-Exam-Platform/issues/86), `docs/adr/0003-key-ring-protection.md` | Merged in [#274](https://github.com/sagarworlds/Online-Exam-Platform/pull/274). A1 is done, as reported by the owner on 2026-10-16; engineering cannot see Render, so the key's presence is not checked here |
 | Static-site security headers are set, and the weekly header check is green | A2, A3, `nfr-5-security-checks.md` | Waiting on you |
 | A penetration test has run and its findings are fixed or accepted in writing | A4 | Waiting on you |
 | The WAF decision is recorded | D15, `waf-decision.md`, brief question 17 | Waiting on you and counsel |
@@ -44,7 +44,7 @@
 |---|---|---|
 | A staging environment exists | D11, A14, `docs/runbooks/staging.md` | Waiting on you |
 | The load test passes at 2x: question load under 500 ms and answer save under 300 ms at p95, under 1% failed, no dropped arrivals | [#84](https://github.com/sagarworlds/Online-Exam-Platform/issues/84), `tests/load/README.md` | Waiting on staging. Nothing creates the test accounts yet (engineering) |
-| Answer saves tolerate a delayed older save (NFR-4) | D20, `docs/adr/0004-answer-save-sequence-numbers.md` | Built on the working branch, not merged |
+| Answer saves tolerate a delayed older save (NFR-4) | D20, `docs/adr/0004-answer-save-sequence-numbers.md` | Merged in [#274](https://github.com/sagarworlds/Online-Exam-Platform/pull/274) |
 | A restore drill has been run, and the recovery point and recovery time are recorded | [#85](https://github.com/sagarworlds/Online-Exam-Platform/issues/85), D13, `docs/runbooks/staging.md` | Waiting on staging and D13 |
 | Logs are kept for 180 days in the chosen store | [#89](https://github.com/sagarworlds/Online-Exam-Platform/issues/89), D14, A15 | Waiting on counsel (question 15) and you |
 | Someone watches the exam window, and knows where to look | [#93](https://github.com/sagarworlds/Online-Exam-Platform/issues/93), `docs/observability.md` (no alerts are defined) | Waiting on you |
@@ -67,7 +67,7 @@
 | The paper is written and reviewed in the question bank, and the exam is published | | Waiting on you |
 | The pilot is rehearsed on staging with a few real devices | | Waiting on staging |
 | The roster is in | Staff import it as a CSV (FR-50, up to 1,000 rows at a time) from the batch roster page, and the report lists any rows that were left out. Check the member count against the school's list | Waiting on the roster |
-| Staff who will run it have an account, with a second factor | | Waiting on you |
+| Staff who will run it have an account, with a second factor | The first administrator is created with `--create-first-administrator` ([ADR 0005](../adr/0005-first-administrator-job.md)) and adds the others in the app | Waiting on you |
 | Someone answers candidates who report a problem during the exam | The report-an-issue queue (FR-42) is staffed | Waiting on you |
 
 ## The rule
