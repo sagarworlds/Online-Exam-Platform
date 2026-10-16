@@ -3,11 +3,9 @@
 
   <app-content-encryption-status />
 
+  <!-- Why the page could not load something; what happened to the form's Save is shown under the form instead. -->
   @if (errorMessage()) {
     <p class="error-message">{{ errorMessage() }}</p>
-  }
-  @if (saved()) {
-    <p class="success-message">Question saved.</p>
   }
 
   <form class="card question-form" [formGroup]="form" (ngSubmit)="submit()" aria-label="New question">
@@ -29,7 +27,16 @@
     <button type="submit" class="primary" [disabled]="form.invalid || !placementComplete() || saving()">Save question</button>
   </form>
 
-  <!-- Directly under the Save button, where the author is looking when the bank refuses the question; focus moves here (QuestionBank.showRepeat). -->
+  <!--
+    What happened to Save, directly under the Save button, where the author is looking: the form is long, so a message at the top of the
+    page is out of sight when Save is pressed. A refusal takes focus (QuestionBank.focusOnceRendered), which also scrolls it into view.
+  -->
+  @if (saved()) {
+    <p class="success-message" role="status">Question saved.</p>
+  }
+  @if (saveError()) {
+    <p #saveFailure class="error-message" role="alert" tabindex="-1">{{ saveError() }}</p>
+  }
   @if (repeat(); as pending) {
     <section #repeatCard class="card question-repeat" role="alert" tabindex="-1" aria-labelledby="question-repeat-heading">
       <h2 id="question-repeat-heading">This question is already in the bank</h2>

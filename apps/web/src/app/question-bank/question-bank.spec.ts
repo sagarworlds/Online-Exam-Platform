@@ -778,6 +778,91 @@ describe('QuestionBank', () => {
     expect(root.textContent).toContain('Exactly one option must be marked correct.');
   });
 
+  // The form is long and Save is at its bottom, so what happened to Save has to be shown beside it: at the top of the page it is out of sight.
+  describe('what happened to Save is shown under the form', () => {
+    const isCreate = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/questions');
+    const isCheck = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/questions/duplicates');
+
+    function press() {
+      const fixture = create();
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      fill(fixture, 'Capital of France?', ['Paris', 'Rome']);
+      (root.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      const save = () => (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      const form = root.querySelector('form') as HTMLFormElement;
+      save();
+      return { fixture, root, form, save };
+    }
+
+    it('says the question was saved directly under the Save button, as a status', () => {
+      const { fixture, form } = press();
+
+      httpMock.expectOne(isCreate).flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+
+      const saved = form.nextElementSibling as HTMLElement;
+      expect(saved.className).toContain('success-message');
+      expect(saved.getAttribute('role')).toBe('status');
+      expect(saved.textContent).toContain('Question saved.');
+    });
+
+    it('shows why a save was refused directly under the Save button and moves focus to it', () => {
+      const { fixture, form } = press();
+
+      httpMock.expectOne(isCreate).flush({ title: 'invalid_question', detail: 'The question text must be at most 4000 characters.' }, { status: 400, statusText: 'Bad Request' });
+      fixture.detectChanges();
+
+      const refusal = form.nextElementSibling as HTMLElement;
+      expect(refusal.className).toContain('error-message');
+      expect(refusal.getAttribute('role')).toBe('alert');
+      expect(refusal.textContent).toContain('The question text must be at most 4000 characters.');
+      expect(document.activeElement).toBe(refusal);
+    });
+
+    it('shows the refusal there too when the bank cannot say what the question repeats', () => {
+      const { fixture, form } = press();
+
+      httpMock.expectOne(isCreate).flush({ title: 'duplicate_question', detail: 'The question bank already has a question with this wording.' }, { status: 409, statusText: 'Conflict' });
+      httpMock.expectOne(isCheck).flush({ title: 'server_error' }, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      const refusal = form.nextElementSibling as HTMLElement;
+      expect(refusal.className).toContain('error-message');
+      expect(refusal.textContent).toContain('The question bank already has a question with this wording.');
+      expect(document.activeElement).toBe(refusal);
+    });
+
+    it('takes the refusal away when the next save is accepted, so the two are never shown together', () => {
+      const { fixture, root, form, save } = press();
+      httpMock.expectOne(isCreate).flush({ title: 'invalid_question', detail: 'Try again.' }, { status: 400, statusText: 'Bad Request' });
+      fixture.detectChanges();
+
+      save();
+      httpMock.expectOne(isCreate).flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+
+      expect(root.querySelector('.error-message')).toBeNull();
+      expect((form.nextElementSibling as HTMLElement).textContent).toContain('Question saved.');
+    });
+
+    it('keeps the reason the page could not load something at the top, above the form', () => {
+      const fixture = create();
+      httpMock.expectOne(isList).flush({ title: 'server_error', detail: 'The questions could not be read.' }, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      const problem = root.querySelector('.error-message') as HTMLElement;
+      const form = root.querySelector('form') as HTMLFormElement;
+      expect(problem.textContent).toContain('The questions could not be read.');
+      expect(form.compareDocumentPosition(problem) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    });
+  });
+
   describe('a question the bank already has (FR-9)', () => {
     const isCreate = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/questions');
     const isCheck = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/questions/duplicates');
