@@ -79,7 +79,7 @@ Reply with the decision number and your choice, for example `D13 B`. Where a dec
 | The CSV roster import (FR-50, [#273](https://github.com/sagarworlds/Online-Exam-Platform/issues/273)), with a report of the rows left out: merged in [#275](https://github.com/sagarworlds/Online-Exam-Platform/pull/275) | Nothing left |
 | Test accounts for the load test (`--create-load-test-candidates` and `--enrol-load-test-candidates`, [ADR 0006](adr/0006-load-test-candidate-pool.md)): merged in [#277](https://github.com/sagarworlds/Online-Exam-Platform/pull/277). They create and enrol thousands of candidates on addresses that cannot exist, and refuse to run unless switched on | Staging (A14), for the full run |
 | A safe way to create the first administrator in a deployed environment (`--create-first-administrator`, [ADR 0005](adr/0005-first-administrator-job.md)): merged in [#276](https://github.com/sagarworlds/Online-Exam-Platform/pull/276), with no password to store | The e-mail it sends needs the mail settings (A14 for staging) |
-| Automated browser runs on Chromium, Firefox and WebKit (D19, #88): built in [#279](https://github.com/sagarworlds/Online-Exam-Platform/pull/279). Three CI jobs, 11 tests each, with the API stubbed in the browser | Nothing left. The real-phone checks are A10 |
+| Automated browser runs on Chromium, Firefox and WebKit (D19, #88): built in [#279](https://github.com/sagarworlds/Online-Exam-Platform/pull/279). Three CI jobs, 11 tests each, with the API stubbed in the browser, and a fourth that runs the candidate journey on all three engines against the real API and a real Postgres | Nothing left. The real-phone checks are A10 |
 | The under-18 default in the exam runtime (the one open box on [#255](https://github.com/sagarworlds/Online-Exam-Platform/issues/255): a candidate under 18 never gets camera or screen capture, whatever the profile says), built with the optional webcam snapshots (FR-24, [#72](https://github.com/sagarworlds/Online-Exam-Platform/issues/72)) and screen capture (FR-25, [#73](https://github.com/sagarworlds/Online-Exam-Platform/issues/73)), both P2 and not started. The exam does not store its profile yet, so the runtime cannot tell a camera profile from BROWSER_LOCK until #72 does | Counsel's opinion on minors (D1, #11), which can relax the rule in one place (`ProctoringProfiles.ForCandidate`), and the retention periods for captured media (A13) |
 | The retention job (#79) and the privacy notice text (#269) | The edited retention periods (A13) and counsel (D1) |
 | The restore runbook and ADR (#85) | D13 |
@@ -132,7 +132,7 @@ These are engineering choices. They need no answer, but you can object.
 
 - Which regional languages come after English, Hindi and Marathi, and in what order (requirements section 17, question 3).
 - The year-2 peak, which decides when the exam runtime is split into its own service (section 17, question 1).
-- Browser runs against a real API and database, of the administrator screens, and in Hindi and Marathi. The three-engine runs stub the API and cover the candidate screens in English only (README, "Browser Tests"). Not scheduled.
+- Browser runs of the administrator screens, and in Hindi and Marathi. The three-engine runs cover the candidate screens in English only (README, "Browser Tests"). Not scheduled.
 
 ## Keeping this current
 
