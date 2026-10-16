@@ -43,7 +43,7 @@
 | Gate | Source | Status |
 |---|---|---|
 | A staging environment exists | D11, A14, `docs/runbooks/staging.md` | Waiting on you |
-| The load test passes at 2x: question load under 500 ms and answer save under 300 ms at p95, under 1% failed, no dropped arrivals | [#84](https://github.com/sagarworlds/Online-Exam-Platform/issues/84), `tests/load/README.md` | Waiting on staging. Nothing creates the test accounts yet (engineering) |
+| The load test passes at 2x: question load under 500 ms and answer save under 300 ms at p95, under 1% failed, no dropped arrivals | [#84](https://github.com/sagarworlds/Online-Exam-Platform/issues/84), `tests/load/README.md` | Waiting on staging. The test accounts are created by `--create-load-test-candidates` and `--enrol-load-test-candidates` ([ADR 0006](../adr/0006-load-test-candidate-pool.md)) |
 | Answer saves tolerate a delayed older save (NFR-4) | D20, `docs/adr/0004-answer-save-sequence-numbers.md` | Merged in [#274](https://github.com/sagarworlds/Online-Exam-Platform/pull/274) |
 | A restore drill has been run, and the recovery point and recovery time are recorded | [#85](https://github.com/sagarworlds/Online-Exam-Platform/issues/85), D13, `docs/runbooks/staging.md` | Waiting on staging and D13 |
 | Logs are kept for 180 days in the chosen store | [#89](https://github.com/sagarworlds/Online-Exam-Platform/issues/89), D14, A15 | Waiting on counsel (question 15) and you |
