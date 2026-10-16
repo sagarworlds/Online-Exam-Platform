@@ -149,6 +149,8 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             new { examId = Guid.NewGuid(), name = "Authorization Test Batch", maxMembers = 10 }),
         new("POST", "/v1/batches/{batchId}/members", RbacCatalog.PermissionCodes.BatchManage,
             new { email = "member@example.com" }),
+        new("POST", "/v1/batches/{batchId}/members/import", RbacCatalog.PermissionCodes.BatchManage,
+            new { csv = "member@example.com" }),
         new("POST", "/v1/batches/{batchId}/activate", RbacCatalog.PermissionCodes.BatchManage, null),
         new("POST", "/v1/batches/{batchId}/close", RbacCatalog.PermissionCodes.BatchManage, null),
         new("GET", "/v1/batches", RbacCatalog.PermissionCodes.BatchRead, null),

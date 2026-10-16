@@ -4,11 +4,12 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { BatchApiService } from '../batch-api.service';
 import { BatchMemberDto } from '../batch.models';
+import { RosterImport } from './roster-import/roster-import';
 
 @Component({
   selector: 'app-batch-roster',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, RosterImport],
   template: `
     <div class="page page--wide">
       <h1>Batch Roster</h1>
@@ -44,6 +45,8 @@ import { BatchMemberDto } from '../batch.models';
           <div class="error-message">{{ error }}</div>
         }
       </div>
+
+      <app-roster-import [batchId]="batchId" (imported)="loadMembers()" />
 
       <div>
         <h3>Members ({{ members.length }})</h3>

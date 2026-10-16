@@ -35,6 +35,13 @@ public static class BatchEndpoints
             .WithName("AddBatchMember")
             .WithDescription("Add a member to a batch");
 
+        batches.MapPost("/{batchId}/members/import", ImportBatchRoster)
+            .RequireAuthorization(BatchPermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ImportBatchRoster")
+            .WithDescription("Add the candidates in a CSV roster to a batch; a bad row is reported and skipped, not the whole import");
+
         batches.MapPost("/{batchId}/activate", ActivateBatch)
             .RequireAuthorization(BatchPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -103,6 +110,13 @@ public static class BatchEndpoints
         return Results.NoContent();
     }
 
+    private static async Task<IResult> ImportBatchRoster(
+        Guid batchId,
+        ImportRosterRequest request,
+        ImportBatchRosterHandler handler,
+        CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new ImportBatchRosterCommand(batchId, request.Csv ?? string.Empty), ct));
+
     private static async Task<IResult> ActivateBatch(
         Guid batchId,
         ActivateBatchHandler handler,
@@ -139,3 +153,7 @@ public record CreateBatchRequest(
 public record AddBatchMemberRequest(
     string Email,
     string? Phone = null);
+
+/// <summary>Request DTO for importing a roster into a batch.</summary>
+/// <param name="Csv">The CSV text: an e-mail address and optionally a phone number per row, with an optional header row.</param>
+public record ImportRosterRequest(string? Csv = null);

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
-import { BatchDto, CreateBatchRequest, BatchMemberDto, AddBatchMemberRequest } from './batch.models';
+import { BatchDto, CreateBatchRequest, BatchMemberDto, AddBatchMemberRequest, ImportRosterResult } from './batch.models';
 
 @Injectable({ providedIn: 'root' })
 export class BatchApiService {
@@ -20,6 +20,11 @@ export class BatchApiService {
 
   addMember(batchId: string, request: AddBatchMemberRequest) {
     return this.http.post<void>(`${this.apiUrl}/${batchId}/members`, request);
+  }
+
+  /** Adds the candidates in a CSV roster (FR-50). A bad row is reported and skipped; only an unreadable or oversized file is refused. */
+  importRoster(batchId: string, csv: string) {
+    return this.http.post<ImportRosterResult>(`${this.apiUrl}/${batchId}/members/import`, { csv });
   }
 
   getBatchMembers(batchId: string) {

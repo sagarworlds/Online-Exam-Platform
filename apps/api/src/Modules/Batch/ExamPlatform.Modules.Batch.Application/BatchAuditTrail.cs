@@ -13,6 +13,7 @@ public sealed class BatchAuditTrail(IAuditLogger auditLogger, IRequestContext re
       IDomainEventHandler<BatchActivatedEvent>,
       IDomainEventHandler<BatchClosedEvent>,
       IDomainEventHandler<BatchMemberAddedEvent>,
+      IDomainEventHandler<BatchRosterImportedEvent>,
       IDomainEventHandler<BatchMemberRemovedEvent>
 {
     /// <inheritdoc />
@@ -34,6 +35,19 @@ public sealed class BatchAuditTrail(IAuditLogger auditLogger, IRequestContext re
     /// <inheritdoc />
     public Task HandleAsync(BatchMemberAddedEvent domainEvent, CancellationToken cancellationToken) =>
         RecordAsync("Batch.MemberAdded", domainEvent.BatchId, new Dictionary<string, string> { ["memberId"] = domainEvent.MemberId.ToString() }, cancellationToken);
+
+    /// <inheritdoc />
+    public Task HandleAsync(BatchRosterImportedEvent domainEvent, CancellationToken cancellationToken) =>
+        RecordAsync(
+            "Batch.RosterImported",
+            domainEvent.BatchId,
+            new Dictionary<string, string>
+            {
+                ["addedCount"] = domainEvent.MemberIds.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                // The ids of the members seated, so a seat can be traced to the import that gave it. Ids, never addresses (NFR-6).
+                ["memberIds"] = string.Join(',', domainEvent.MemberIds),
+            },
+            cancellationToken);
 
     /// <inheritdoc />
     public Task HandleAsync(BatchMemberRemovedEvent domainEvent, CancellationToken cancellationToken) =>

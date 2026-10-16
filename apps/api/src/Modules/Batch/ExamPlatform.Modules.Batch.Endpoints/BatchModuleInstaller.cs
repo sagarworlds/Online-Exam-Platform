@@ -35,6 +35,7 @@ public sealed class BatchModuleInstaller : IModuleInstaller
 
         services.AddScoped<CreateBatchHandler>();
         services.AddScoped<AddBatchMemberHandler>();
+        services.AddScoped<ImportBatchRosterHandler>();
         services.AddScoped<ActivateBatchHandler>();
         services.AddScoped<CloseBatchHandler>();
         services.AddScoped<ListBatchesHandler>();

@@ -76,6 +76,29 @@ public sealed class ExamPlatformAuditTrailFlowTests(ApiFactory factory) : IClass
     }
 
     [Fact]
+    public async Task ARosterImport_IsAuditedOnce_WithTheIdsOfTheMembersSeated_AndNeverTheAddresses()
+    {
+        var (client, staff) = await StaffAsync();
+        var create = await client.PostAsJsonAsync("/v1/batches", new CreateBatchRequest(Guid.NewGuid(), "Imported Batch", null, 10));
+        var batchId = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        var emails = new[] { UniqueEmail(), UniqueEmail(), UniqueEmail() };
+
+        var response = await client.PostAsJsonAsync($"/v1/batches/{batchId}/members/import", new ImportRosterRequest(string.Join("\r\n", emails) + "\r\nnot-an-address"));
+        response.EnsureSuccessStatusCode();
+        var memberIds = (await response.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("added").EnumerateArray().Select(a => a.GetProperty("memberId").GetGuid().ToString()).ToArray();
+
+        var entries = await EntriesForAsync(batchId);
+        var imported = Assert.Single(entries, e => e.Action == "Batch.RosterImported");
+        Assert.Equal(staff.UserId, imported.ActorUserId);
+        Assert.Equal("3", imported.Metadata["addedCount"]);
+        Assert.Equal(memberIds, imported.Metadata["memberIds"].Split(','));
+        // One entry for the file, not one per member.
+        Assert.DoesNotContain(entries, e => e.Action == "Batch.MemberAdded");
+        Assert.All(entries, e => Assert.DoesNotContain("@", string.Join(' ', e.Metadata.Values)));
+    }
+
+    [Fact]
     public async Task InviteChanges_AreAudited_WithTheInviterThenTheCandidate_AndNeverTheAddress()
     {
         var (admin, staff) = await StaffAsync();
