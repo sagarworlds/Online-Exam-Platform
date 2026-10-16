@@ -1,0 +1,19 @@
+{
+  // Type-checks the browser tests and the app's own types they import (the API's DTOs), so a change to a DTO that the fake API
+  // no longer matches fails `npm run e2e:typecheck` instead of passing silently. Nothing here is built into the app.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["./**/*.ts", "../playwright.config.ts"]
+}

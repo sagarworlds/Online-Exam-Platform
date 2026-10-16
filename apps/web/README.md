@@ -46,13 +46,14 @@ ng test
 
 ## Running end-to-end tests
 
-For end-to-end (e2e) testing, run:
+For the browser tests (Playwright, on Chromium, Firefox and WebKit), build the app and run:
 
 ```bash
-ng e2e
+npm run build
+npm run e2e
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+The Angular CLI has no end-to-end runner of its own, so `ng e2e` does nothing here. The setup, what the tests cover and how to run one engine are in the repository README under "Browser Tests".
 
 ## Additional Resources
 
