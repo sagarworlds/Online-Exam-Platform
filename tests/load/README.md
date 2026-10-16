@@ -45,6 +45,7 @@ arrival). The script refuses to start otherwise.
    margin. Saves to an attempt that is no longer in progress are refused, so a short exam makes the
    late part of the run measure refusals. Use a fresh exam for each run.
 2. **Candidates.** Create `LOAD_TEST_ACCOUNT_COUNT` accounts that match `LOAD_TEST_EMAIL_PATTERN`
+   (two jobs do this and the enrolment: `docs/runbooks/staging.md`, "The test accounts"; the pattern must end in `.invalid`)
    (`{n}` is replaced by 1, 2, 3, ...). They must share one password and be enrolled in the exam,
    which the start call checks along with the exam being published. They must not need a second
    factor: the Candidate role has `RequiresTwoFactor` set to false.

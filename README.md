@@ -978,6 +978,19 @@ There is no password to supply. The job creates an active Super Admin with a ran
 
 It refuses, changes nothing and exits with code 2 when: no address is given or it is not one plain address; no mail server is configured (the e-mail is the only way in); the database has no tables or roles yet (run `--migrate-and-seed` first); an account already uses the address; or a Super Admin already exists. The last rule is deliberate: the job gives an environment its first administrator and can never add another. If the e-mail does not arrive, fix the mail settings and use **Forgot password** on the sign-in page. Run it as one process at a time. The reasoning is in [ADR 0005](./docs/adr/0005-first-administrator-job.md).
 
+#### Create the Load Test's Candidate Pool (Staging Only)
+
+The load test (`tests/load/README.md`) signs in a different candidate for each virtual user, so a staging environment needs thousands of candidate accounts that share one password and are enrolled in the load-test exam. Two jobs create them ([ADR 0006](./docs/adr/0006-load-test-candidate-pool.md)). Run them after `--migrate-and-seed`, once the exam is published:
+
+```bash
+LoadTest__Enabled=true LoadTest__Password="<the shared password>" dotnet ExamPlatform.Api.dll \
+  --create-load-test-candidates --count 20000 --email-pattern "candidate-{n}@staging-load.invalid"
+LoadTest__Enabled=true dotnet ExamPlatform.Api.dll \
+  --enrol-load-test-candidates --exam <exam id> --count 20000 --email-pattern "candidate-{n}@staging-load.invalid"
+```
+
+They do nothing unless `LoadTest__Enabled` is `true`, which belongs to a staging job's run and nowhere else. The pattern must contain `{n}` once and end in `.invalid`, a domain that cannot exist, so a pool account is never a real person. The password comes from the environment, not the command line, must meet the password policy, and is never printed. Each job prints counts only and can be run again: a second run adds only what is missing. Up to 50,000 accounts. The steps for staging are in `docs/runbooks/staging.md`.
+
 #### View Migrations
 
 ```bash

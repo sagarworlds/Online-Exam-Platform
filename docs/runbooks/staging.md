@@ -53,7 +53,22 @@ No password is typed, stored or logged at any step. The job works once: it refus
 
 ## The test accounts
 
-`tests/load/README.md` asks for a pool of candidate accounts that share one password, are enrolled in the load-test exam, and need no second factor. **Nothing in the repository creates them.** Registration sends a code to the address, so the web form cannot create thousands of accounts. A smoke run needs 5 accounts and can be done by hand, through the web form, with addresses you can read (for example plus-addresses of your own mailbox), one shared password, and an invitation to the load-test exam accepted for each. The full 2x run needs 20,000 at the defaults (D12), so it waits for a seeding tool, which is on the engineering list.
+`tests/load/README.md` asks for a pool of candidate accounts that share one password, are enrolled in the load-test exam, and need no second factor. Two jobs create it ([ADR 0006](../adr/0006-load-test-candidate-pool.md)); registration sends a code to each address, so the web form cannot. Run them once the staging API has started, the first administrator has published the load-test exam, and you have its id.
+
+1. Choose the pattern and the pool size. The pattern must contain `{n}` once and end in `.invalid`, which cannot exist, so a pool account is never a real person: for example `candidate-{n}@staging-load.invalid`. The pool is the size the run needs (`LOAD_TEST_ACCOUNT_COUNT`: 20,000 at the defaults (D12), 5 for a smoke run). Use the same pattern and the same password for the GitHub `staging` secrets `LOAD_TEST_EMAIL_PATTERN` and `LOAD_TEST_PASSWORD`.
+2. For this run only, set `LoadTest__Enabled=true` and `LoadTest__Password=<the shared password>` in the environment the job runs in (the staging API's own, on the paid plan). The password must meet the password policy. **Remove both afterwards.** The jobs refuse to do anything unless `LoadTest__Enabled` is set, and it is not in `render.yaml`.
+3. Create the accounts, then enrol them in the exam:
+
+   ```sh
+   cd /app
+   dotnet ExamPlatform.Api.dll --create-load-test-candidates --count 20000 --email-pattern "candidate-{n}@staging-load.invalid"
+   dotnet ExamPlatform.Api.dll --enrol-load-test-candidates --exam <the exam id> --count 20000 --email-pattern "candidate-{n}@staging-load.invalid"
+   ```
+
+   On a developer machine with the database alongside, the first took 9 seconds and the second 107 seconds for 20,000. Against the staging database the second will take longer, because it makes two lookups for each account. Each prints its counts (never an address or the password) and can be run again: a second run adds only what is missing.
+4. Run the smoke settings in `tests/load/README.md` first. A pool is for one exam: a fresh exam for each run needs `--enrol-load-test-candidates` again with its id (the accounts are reused).
+
+A job exits with code 2 and changes nothing when it is switched off, the pattern or count is wrong, the password is missing or too weak, the roles are not seeded (run `--migrate-and-seed` first), or the exam does not exist.
 
 ## Checks before the first run
 

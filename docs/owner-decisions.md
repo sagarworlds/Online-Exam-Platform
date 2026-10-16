@@ -77,7 +77,7 @@ Reply with the decision number and your choice, for example `D13 B`. Where a dec
 |---|---|
 | The unspent-codes audit entry (D7) and the answer-save sequence number (D20): merged in [#274](https://github.com/sagarworlds/Online-Exam-Platform/pull/274) | Nothing left. A1 is done |
 | The CSV roster import (FR-50, [#273](https://github.com/sagarworlds/Online-Exam-Platform/issues/273)), with a report of the rows left out: merged in [#275](https://github.com/sagarworlds/Online-Exam-Platform/pull/275) | Nothing left |
-| Test accounts for the load test: a way to create thousands of candidates that share a password and are enrolled in the load-test exam (found missing: nothing creates them, and registration sends a code to each address) | Staging (A14), for the full run. A smoke run needs 5 and can be done by hand |
+| Test accounts for the load test (`--create-load-test-candidates` and `--enrol-load-test-candidates`, [ADR 0006](adr/0006-load-test-candidate-pool.md)): built, and waiting for its pull request. They create and enrol thousands of candidates on addresses that cannot exist, and refuse to run unless switched on | Your word to open the pull request. Staging (A14), for the full run |
 | A safe way to create the first administrator in a deployed environment (`--create-first-administrator`, [ADR 0005](adr/0005-first-administrator-job.md)): built, with no password to store, and waiting for its pull request | Your word to open the pull request. The e-mail it sends needs the mail settings (A14 for staging) |
 | Automated browser runs on Chromium, Firefox and WebKit (D19, #88) | Nothing |
 | The retention job (#79) and the privacy notice text (#269) | The edited retention periods (A13) and counsel (D1) |
