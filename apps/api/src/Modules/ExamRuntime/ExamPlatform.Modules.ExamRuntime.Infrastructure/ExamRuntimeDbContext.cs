@@ -25,6 +25,9 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
     /// <summary>The problems candidates reported from inside an exam (FR-42).</summary>
     public DbSet<IssueReport> IssueReports => Set<IssueReport>();
 
+    /// <summary>The webcam photos taken of candidates while they sat an exam (FR-24).</summary>
+    public DbSet<AttemptWebcamPhoto> WebcamPhotos => Set<AttemptWebcamPhoto>();
+
     /// <summary>Which scheduled e-mails were already sent, so the notification run never sends one twice (FR-39).</summary>
     public DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
 
@@ -201,6 +204,17 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
 
             // An attempt's violations are read together with the attempt, oldest first, and counted against the exam's limit.
             b.HasIndex(x => new { x.AttemptId, x.OccurredAtUtc });
+        });
+
+        modelBuilder.Entity<AttemptWebcamPhoto>(b =>
+        {
+            b.ToTable("AttemptWebcamPhotos");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Image).IsRequired();
+
+            // A photo goes with its attempt: no attempt, no photo. Photos are read by attempt, oldest first, and counted against the limit.
+            b.HasOne<Attempt>().WithMany().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.AttemptId, x.CapturedAtUtc });
         });
 
         modelBuilder.Entity<AttemptResultRevision>(b =>

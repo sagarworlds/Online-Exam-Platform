@@ -11,6 +11,7 @@ import { TranslatePipe } from '../../i18n/translate.pipe';
 import { BLOCKED_MESSAGE_KEYS, BlockedAction, ContentGuard } from './content-guard';
 import { shortcutFor } from './exam-shortcuts';
 import { FocusMonitor } from './focus-monitor';
+import { WebcamSnapshotter, WebcamState } from './webcam-snapshotter';
 import { ReportIssue } from './report-issue';
 import { AnswerSync, isEmptyAnswer, PendingAnswer } from './answer-sync';
 import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-store';
@@ -275,6 +276,19 @@ export class ExamAttempt {
 
   private readonly focus = new FocusMonitor(inject(DOCUMENT), (kind) => this.reportDeparture(kind));
 
+  /** Whether the camera is taking photos, was refused, or is not in use (FR-24). Shown so the candidate always knows. */
+  protected readonly webcamState = signal<WebcamState>('off');
+
+  /** Takes the webcam photos when the server's policy says this attempt has them; it does nothing otherwise. */
+  private readonly webcam = new WebcamSnapshotter(
+    typeof navigator === 'undefined' ? undefined : navigator.mediaDevices,
+    (photo) => this.sendWebcamPhoto(photo),
+    (state) => this.webcamState.set(state),
+  );
+
+  /** Whether the policy has been asked for in this page, so reloading the attempt after a save does not ask, or switch the camera on, again. */
+  private webcamPolicyAsked = false;
+
   /** Whether to offer full screen: the exam watches, the browser allows it, and the candidate is not in it. */
   protected readonly canOfferFullscreen = computed(() => this.watchFocus() && this.focus.canEnterFullscreen && !this.inFullscreen());
 
@@ -411,6 +425,8 @@ export class ExamAttempt {
       this.guard.stop();
       // And stop counting departures: leaving this page is not leaving the exam once it is over.
       this.focus.stop();
+      // And switch the camera off, so its light goes out the moment the exam page does.
+      this.webcam.stop();
       clearTimeout(this.noticeTimer);
       // What is still waiting stays on this device for the next time the attempt is opened.
       this.sync?.dispose();
@@ -949,10 +965,43 @@ export class ExamAttempt {
       if (!this.preview) {
         this.heartbeat = setInterval(() => this.checkStatus(), this.lowBandwidth.heartbeatMs());
       }
+      this.startWebcamIfAsked(attempt.id);
     } else {
       // The attempt is over: nothing more can be saved to it, so nothing is kept waiting.
       this.sync?.discard();
+      this.webcam.stop();
     }
+  }
+
+  /**
+   * Asks the server whether this attempt takes webcam photos (FR-24) and, if so, switches the camera on. The server decides, not the page:
+   * it answers no for a candidate under 18 and for an exam that does not ask, so the browser is never asked for the camera in those cases.
+   */
+  private startWebcamIfAsked(attemptId: string): void {
+    if (this.preview || this.webcamPolicyAsked) {
+      return;
+    }
+
+    this.webcamPolicyAsked = true;
+    this.api.getWebcamPolicy(attemptId).subscribe({
+      next: (policy) => {
+        if (policy.enabled) {
+          void this.webcam.start(policy.intervalSeconds);
+        }
+      },
+      // Without an answer no camera is switched on: photos are only ever taken on the server's word.
+      error: () => (this.webcamPolicyAsked = false),
+    });
+  }
+
+  private sendWebcamPhoto(photo: Blob): void {
+    const attempt = this.attempt();
+    if (attempt === null || !this.isOpen()) {
+      return;
+    }
+
+    // A photo the server refuses (the attempt ended, or it arrived too soon) is dropped; the next interval brings another.
+    this.api.uploadWebcamPhoto(attempt.id, photo).subscribe({ error: () => undefined });
   }
 
   /**

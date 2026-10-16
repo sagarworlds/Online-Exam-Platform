@@ -10,6 +10,7 @@ import {
   AttemptStatusDto,
   FocusViolationKind,
   FocusViolationResultDto,
+  WebcamPolicyDto,
   IssueCategory,
   LeaderboardBoardKey,
   LeaderboardDto,
@@ -180,6 +181,19 @@ export class CandidateApiService {
    */
   reportFocusViolation(attemptId: string, kind: FocusViolationKind): Observable<FocusViolationResultDto> {
     return this.http.post<FocusViolationResultDto>(`${this.baseUrl}/attempts/${attemptId}/focus-violations`, { kind }, CandidateApiService.background());
+  }
+
+  /** Asks whether the exam page should take webcam photos in this attempt, and how often (FR-24). Silent: it is not something the candidate waits for. */
+  getWebcamPolicy(attemptId: string): Observable<WebcamPolicyDto> {
+    return this.http.get<WebcamPolicyDto>(`${this.baseUrl}/attempts/${attemptId}/webcam-policy`, CandidateApiService.background());
+  }
+
+  /** Sends one webcam photo (a JPEG). Silent, because it runs on a timer; a photo that fails is simply not kept, and the next one follows. */
+  uploadWebcamPhoto(attemptId: string, photo: Blob): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/attempts/${attemptId}/webcam-photos`, photo, {
+      ...CandidateApiService.background(),
+      headers: { 'Content-Type': 'image/jpeg' },
+    });
   }
 
   /** Ends the attempt and returns it with its score. Safe to repeat. */

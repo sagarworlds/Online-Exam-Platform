@@ -578,14 +578,28 @@ An exam's proctoring settings (copy block, FR-23; page-leaving limit, FR-22) can
 
 | What | Rule |
 |------|------|
-| Profiles | `OFF` (nothing turned off or watched: practice and chapter tests) and `BROWSER_LOCK` (copy block on, and the attempt ends after 5 departures from the page: the default for minors). `BROWSER_CAMERA` and `FULL` are listed by `GET /v1/proctoring-profiles` (`exam.read`) but are not available: the webcam snapshots (FR-24) and screen capture (FR-25) they promise are not built, and offering them would make the notice claim something untrue. Choosing one is a `400` that says so. |
+| Profiles | `OFF` (nothing turned off or watched: practice and chapter tests) and `BROWSER_LOCK` (copy block on, and the attempt ends after 5 departures from the page: the default for minors). `BROWSER_CAMERA` (browser lock plus a webcam photo every 120 seconds, adults only) can be chosen once webcam snapshots (FR-24) are in. `FULL` is listed by `GET /v1/proctoring-profiles` (`exam.read`) but is not available: screen capture (FR-25) is not built, and offering it would make the notice claim something untrue. Choosing it is a `400` that says so. |
 | Applying one | `PUT /v1/exams/{examId}/proctoring-profile` (`exam.manage`, `{ "profile": "BROWSER_LOCK" }`, ignoring case) sets both settings together, from the exam editor's **Proctoring** card. A missing, unknown or unavailable profile is a `400` and nothing changes; an archived exam refuses it. Like the settings it sets, it may change after publishing. |
 | Custom | The profile is worked out from the settings, not stored, so the two cannot disagree. The two cards below stay for fine-tuning; once the settings match no preset, the exam reports `CUSTOM`. A new exam, with the copy block on and no limit, is custom. |
 | The notice | `ProctoringNotice` writes it from the settings: that the IP address and device signature are recorded (always, FR-26); that copying, pasting, right-click and printing are turned off (when the copy block is on); the departure limit and that reaching it submits the exam (when watched); and that no camera, microphone or screen recording is used. The exam's DTO (`proctoring.notice`) and the instruction rules of the candidate's exam list (`rules.proctoringNotice`) carry it, and the instructions page shows exactly that text, wording nothing about proctoring itself. When a collection is added later, its sentence is added in this one place and every exam says so. |
 | What was acknowledged | The attempt keeps the notice the candidate acknowledged as they started (`Attempt.AcknowledgedNotice`), exactly as shown, so a dispute can show what they were told, even if the exam's settings or the wording change afterwards. An attempt that began before this was kept has none. |
 | Runtime | The runtime never reads a profile's name: it reads the two settings a profile sets, so adding a profile changes the catalogue and nothing that runs an exam. |
-| Not built | Camera and screen profiles (FR-24, FR-25); resolving a policy per candidate from their age (an accommodation already lifts the page-leaving limit for a screen reader user, see Accommodations, FR-49); guardian consent for minors (the guardian flow, FR-43 to FR-45); a required full-screen setting. |
+| Not built | Screen capture and the `FULL` profile (FR-25); resolving a policy per candidate from their age (an accommodation already lifts the page-leaving limit for a screen reader user, see Accommodations, FR-49); guardian consent for minors (the guardian flow, FR-43 to FR-45); a required full-screen setting. |
 | Migration | `AttemptAcknowledgedNotice` adds `AcknowledgedNotice` to `examRuntime.Attempts`. |
+
+#### Webcam snapshots (FR-24)
+
+An exam on the `BROWSER_CAMERA` profile takes a photo of the candidate at intervals while they sit it. It is an opt-in the author makes by choosing the profile; no exam takes photos by default. **Building this does not settle the legal question on #11.** Requirements section 7.2 asks for counsel's opinion before FR-24 is built for minors, so this slice is adults only and must not be released until counsel has answered.
+
+| What | Rule |
+|------|------|
+| Who is photographed | The exam's `WebcamSnapshots` setting must be on, and the candidate must have been 18 or over when the attempt started. A candidate whose date of birth cannot be found counts as a minor, so the rule fails safe. The rule is one class, `WebcamEligibility`, so counsel's answer changes it in one place. |
+| Policy | `GET /v1/me/attempts/{attemptId}/webcam-policy` tells the exam page `{ enabled, intervalSeconds }`. The page asks for the camera only when `enabled` is true, so a minor is never prompted. |
+| Storing | `POST /v1/me/attempts/{attemptId}/webcam-photos` takes one JPEG body (`image/jpeg`, up to 200 KB, starting with the JPEG signature). It is `409 webcam_not_required` for an exam that takes no photos or a minor, `409 attempt_not_in_progress` once the attempt ends, `429 webcam_photo_too_soon` less than 60 seconds after the last, and `409 webcam_photo_limit` after 500 photos. The time kept is the server's. Photos are rows in `examRuntime.AttemptWebcamPhotos`, deleted with the attempt. |
+| Staff | `GET /v1/exams/{examId}/attempts/{attemptId}/webcam-photos` lists photos without the images, and `.../{photoId}` returns one (`exam.manage`, `Cache-Control: private, no-store`). There is no review screen yet. |
+| The notice | When photos are taken the candidate notice says so, the interval, that they are seen by the organisers, and that candidates under 18 are not photographed. The exam page shows when the camera is on, and says so if the candidate refuses it. A refusal does not stop the exam. |
+| Not built | A review screen for photos (FR-27), face-presence checks, a retention period for photos (FR-47, which waits on owner decision A13), storage outside the database, and guardian consent for minors. |
+| Migrations | `ExamWebcamSnapshots` adds `Config_WebcamSnapshots` to `examAuthoring.Exams`. `AttemptWebcamPhotos` creates `examRuntime.AttemptWebcamPhotos`. |
 
 #### Sitting an exam: clearing a response and marking for review
 

@@ -250,6 +250,9 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
                             b1.Property<int?>("TotalTimeSeconds")
                                 .HasColumnType("integer");
 
+                            b1.Property<bool>("WebcamSnapshots")
+                                .HasColumnType("boolean");
+
                             b1.HasKey("ExamId");
 
                             b1.ToTable("Exams", "examAuthoring");

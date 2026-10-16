@@ -61,7 +61,7 @@ describe('ExamAttempt', () => {
   const buttonLabelled = (fixture: ComponentFixture<ExamAttempt>, label: string) =>
     Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes(label));
 
-  async function open(initial: AttemptDto, onRead?: (request: TestRequest) => void) {
+  async function open(initial: AttemptDto, onRead?: (request: TestRequest) => void, webcamEnabled = false) {
     await TestBed.configureTestingModule({
       imports: [ExamAttempt],
       providers: [
@@ -79,7 +79,15 @@ describe('ExamAttempt', () => {
     onRead?.(read);
     read.flush(initial);
     fixture.detectChanges();
+    answerWebcamPolicy(webcamEnabled);
     return fixture;
+  }
+
+  /** The page asks once, as an attempt opens, whether it takes webcam photos (FR-24); most tests are not about that. */
+  function answerWebcamPolicy(enabled: boolean, intervalSeconds = 120) {
+    for (const request of httpMock.match((r) => r.method === 'GET' && r.url.endsWith('/v1/me/attempts/a1/webcam-policy'))) {
+      request.flush({ enabled, intervalSeconds: enabled ? intervalSeconds : 0 });
+    }
   }
 
   beforeEach(() => {
@@ -2100,6 +2108,46 @@ describe('ExamAttempt', () => {
       } finally {
         Reflect.deleteProperty(document, 'hidden');
       }
+    });
+  });
+  describe('webcam photos (FR-24)', () => {
+    const stubCamera = (getUserMedia: () => Promise<MediaStream>) =>
+      Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia } });
+    const stream = () => ({ getTracks: () => [{ stop: vi.fn() }] }) as unknown as MediaStream;
+
+    afterEach(() => Reflect.deleteProperty(navigator, 'mediaDevices'));
+
+    it('does not ask for the camera when the server says no photos are taken', async () => {
+      const getUserMedia = vi.fn(() => Promise.resolve(stream()));
+      stubCamera(getUserMedia);
+
+      const fixture = await open(attempt());
+
+      expect(getUserMedia).not.toHaveBeenCalled();
+      expect(textOf(fixture)).not.toContain('camera');
+    });
+
+    it('switches the camera on when the server says photos are taken, and tells the candidate', async () => {
+      const getUserMedia = vi.fn(() => Promise.resolve(stream()));
+      stubCamera(getUserMedia);
+
+      const fixture = await open(attempt(), undefined, true);
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(getUserMedia).toHaveBeenCalledTimes(1);
+      expect(textOf(fixture)).toContain('Your camera is on.');
+    });
+
+    it('says no photos are being taken when the candidate refuses the camera, and the exam carries on', async () => {
+      stubCamera(() => Promise.reject(new Error('NotAllowedError')));
+
+      const fixture = await open(attempt(), undefined, true);
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Your camera is off, so no photos are being taken.');
+      expect(radios(fixture).length).toBeGreaterThan(0);
     });
   });
 });
