@@ -172,12 +172,12 @@ describe('App', () => {
     });
 
     it('shows an administrator a sidebar with the admin areas their permissions open', () => {
-      signIn(['question.manage', 'question.read', 'exam.read', 'invite.manage']);
+      signIn(['question.manage', 'question.read', 'exam.read', 'student.read']);
 
       const compiled = render();
 
       const sidebarLinks = Array.from(compiled.querySelectorAll('.admin-sidebar a')).map((a) => a.getAttribute('aria-label'));
-      expect(sidebarLinks).toEqual(expect.arrayContaining(['Questions', 'Exams', 'Invites']));
+      expect(sidebarLinks).toEqual(expect.arrayContaining(['Questions', 'Exams', 'Students']));
       expect(sidebarLinks).not.toContain('Batches');
       expect(sidebarLinks).not.toContain('Guardians');
       // The top nav keeps only the links every signed-in user gets, admin or not.

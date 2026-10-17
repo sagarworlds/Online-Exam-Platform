@@ -23,14 +23,14 @@ describe('AdminHome', () => {
       'question.manage',
       'question.read',
       'exam.read',
-      'invite.manage',
+      'student.read',
       'batch.manage',
       'guardian.link.manage',
       'identity.otp.read',
       'admin.whatsapp.test',
     ]).textContent;
 
-    for (const label of ['Questions', 'Books', 'Exams', 'Invites', 'Batches', 'Guardians', 'Candidate codes', 'WhatsApp test']) {
+    for (const label of ['Questions', 'Books', 'Exams', 'Students', 'Batches', 'Guardians', 'Candidate codes', 'WhatsApp test']) {
       expect(text).toContain(label);
     }
   });
@@ -44,7 +44,7 @@ describe('AdminHome', () => {
   });
 
   it('keeps the WhatsApp test from a user without its permission, however many others they hold', () => {
-    const page = render(['question.manage', 'question.read', 'exam.read', 'invite.manage', 'identity.otp.read']);
+    const page = render(['question.manage', 'question.read', 'exam.read', 'student.read', 'identity.otp.read']);
 
     expect(page.textContent).not.toContain('WhatsApp test');
     expect(page.querySelector('a[href="/admin/whatsapp"]')).toBeNull();
@@ -54,7 +54,7 @@ describe('AdminHome', () => {
     const page = render(['question.read']);
 
     expect(page.textContent).toContain('Questions');
-    expect(page.textContent).not.toContain('Invites');
+    expect(page.textContent).not.toContain('Students');
     expect(page.querySelector('a')?.getAttribute('href')).toBe('/admin/questions');
   });
 
@@ -86,10 +86,10 @@ describe('AdminHome', () => {
   });
 
   it('shows each open area as a whole-row link, with the icon the sidebar uses for it', () => {
-    const page = render(['question.read', 'invite.manage']);
+    const page = render(['question.read', 'student.read']);
     const rows = Array.from(page.querySelectorAll<HTMLAnchorElement>('a.admin-area'));
 
-    expect(rows.map((a) => a.getAttribute('href'))).toEqual(['/admin/questions', '/invites']);
+    expect(rows.map((a) => a.getAttribute('href'))).toEqual(['/admin/questions', '/students']);
     expect(rows.every((a) => a.querySelector('app-admin-icon') !== null)).toBe(true);
   });
 

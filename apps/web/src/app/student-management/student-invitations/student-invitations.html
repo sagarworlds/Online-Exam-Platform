@@ -1,0 +1,40 @@
+@if (errorMessage()) {
+  <p class="error-message" role="alert">{{ errorMessage() }}</p>
+}
+
+<ul class="invite-rows">
+  @for (invite of invites(); track invite.id) {
+    <li class="invite-row">
+      <h4 class="card__title">
+        {{ examLabel(invite) }}
+        <span class="badge" [class]="badgeClass(invite.status)">{{ invite.status }}</span>
+      </h4>
+      <p class="card__meta">Invited {{ invite.sentAt | date: 'medium' }}</p>
+      @if (invite.status === 'Pending') {
+        <!-- Several rows can carry the same button, so each is named for its exam; the visible label starts the name. -->
+        <div class="actions">
+          <button
+            type="button"
+            (click)="copyCode(invite)"
+            [disabled]="generatingFor() !== null"
+            [attr.aria-label]="(handovers()[invite.id] ? 'Get another code' : 'Copy invite code') + ' for ' + examLabel(invite)"
+          >
+            {{ handovers()[invite.id] ? 'Get another code' : 'Copy invite code' }}
+          </button>
+          <button type="button" (click)="revoke(invite)" [attr.aria-label]="'Revoke the invitation to ' + examLabel(invite)">Revoke</button>
+        </div>
+        @if (handovers()[invite.id]; as handover) {
+          <app-invite-handover
+            [code]="handover.code"
+            [link]="handover.link"
+            [email]="invite.email"
+            [expiresAt]="handover.expiresAt"
+            [autoCopy]="true"
+            [dismissible]="true"
+            (dismissed)="hide(invite.id)"
+          />
+        }
+      }
+    </li>
+  }
+</ul>

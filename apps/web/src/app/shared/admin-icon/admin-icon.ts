@@ -1,7 +1,7 @@
 import { Component, input } from '@angular/core';
 
 /** The icon keys an {@link AdminIcon} knows how to draw; see {@link AdminSection.icon}. */
-export type AdminIconName = 'question' | 'book' | 'exam' | 'attempt-request' | 'dispute' | 'issue' | 'invite' | 'batch' | 'guardian' | 'otp' | 'whatsapp' | 'brand' | 'template';
+export type AdminIconName = 'question' | 'book' | 'exam' | 'attempt-request' | 'dispute' | 'issue' | 'invite' | 'student' | 'batch' | 'guardian' | 'otp' | 'whatsapp' | 'brand' | 'template';
 
 /**
  * One of the admin sidebar's icons, drawn as a small inline outline (the same hand-drawn stroke style as the
@@ -44,6 +44,10 @@ export type AdminIconName = 'question' | 'book' | 'exam' | 'attempt-request' | '
         @case ('invite') {
           <rect x="3" y="5" width="18" height="14" rx="2" />
           <path d="m3.5 6.5 8.5 7 8.5-7" />
+        }
+        @case ('student') {
+          <circle cx="12" cy="8" r="3.5" />
+          <path d="M5 20a7 7 0 0 1 14 0" />
         }
         @case ('batch') {
           <circle cx="9" cy="8" r="3" />

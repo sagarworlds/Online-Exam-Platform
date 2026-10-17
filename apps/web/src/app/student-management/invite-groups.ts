@@ -1,4 +1,4 @@
-import { InviteDto, InviteStatus } from '../invite.models';
+import { InviteDto, InviteStatus } from '../invite-management/invite.models';
 
 /** The statuses in the order a group's summary lists them: what still needs staff first, then how the rest ended. */
 export const INVITE_STATUS_ORDER: readonly InviteStatus[] = ['Pending', 'Accepted', 'Declined', 'Expired', 'Revoked'];

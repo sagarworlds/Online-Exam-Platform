@@ -40,7 +40,7 @@ export const PAGE_TITLE_KEYS: Readonly<Record<string, MessageKey>> = {
   'exams/:id/attempts': 'exams.editor.candidatesLink',
   'exams/:id/preview': 'pageTitle.exam',
   batches: 'admin.area.batches.name',
-  invites: 'admin.area.invites.name',
+  students: 'admin.area.students.name',
 };
 
 /**

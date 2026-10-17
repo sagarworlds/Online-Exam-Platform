@@ -1,0 +1,110 @@
+@if (loading()) {
+  <p role="status">Loading…</p>
+} @else if (loadError()) {
+  <p class="error-message" role="alert">{{ loadError() }}</p>
+} @else if (student(); as current) {
+  @if (!canEdit()) {
+    <dl class="profile-facts">
+      <div><dt>Name</dt><dd>{{ current.displayName }}</dd></div>
+      <div><dt>E-mail address</dt><dd>{{ current.email ?? '—' }}</dd></div>
+      <div><dt>Mobile number</dt><dd>{{ current.phoneNumber ?? '—' }}</dd></div>
+      <div><dt>Date of birth</dt><dd>{{ current.dateOfBirth }} ({{ current.ageBand }})</dd></div>
+    </dl>
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-label]="'Profile of ' + current.displayName" [attr.aria-busy]="saving()">
+      <div class="field">
+        <label [for]="'student-name-' + current.id">Name</label>
+        <input
+          [id]="'student-name-' + current.id"
+          type="text"
+          formControlName="displayName"
+          autocomplete="off"
+          [attr.aria-invalid]="nameError() ? 'true' : null"
+          [attr.aria-describedby]="nameError() ? 'student-name-error-' + current.id : null"
+        />
+        @if (nameError(); as message) {
+          <p class="field-error" [id]="'student-name-error-' + current.id">{{ message }}</p>
+        }
+      </div>
+
+      <div class="field">
+        <label [for]="'student-email-' + current.id">E-mail address</label>
+        <input
+          [id]="'student-email-' + current.id"
+          type="email"
+          formControlName="email"
+          autocomplete="off"
+          [attr.aria-describedby]="'student-email-hint-' + current.id"
+        />
+        <p class="field-hint" [id]="'student-email-hint-' + current.id">
+          The student signs in with a code sent here. Their invitations move to the new address.
+        </p>
+      </div>
+
+      <div class="field">
+        <label [for]="'student-phone-' + current.id">Mobile number</label>
+        <input
+          [id]="'student-phone-' + current.id"
+          type="tel"
+          formControlName="phoneNumber"
+          autocomplete="off"
+          [attr.aria-describedby]="'student-phone-hint-' + current.id"
+        />
+        <p class="field-hint" [id]="'student-phone-hint-' + current.id">
+          Sign-in finds the number exactly as it is saved, so write it the way the student types it, for example +91 98000 00000.
+        </p>
+      </div>
+
+      @if (noContact()) {
+        <p class="field-error" role="alert">Keep an e-mail address or a mobile number: without one the student cannot get a sign-in code.</p>
+      }
+
+      <div class="field">
+        <label [for]="'student-dob-' + current.id">Date of birth</label>
+        <input
+          [id]="'student-dob-' + current.id"
+          type="date"
+          formControlName="dateOfBirth"
+          [max]="today"
+          [attr.aria-invalid]="dateOfBirthError() ? 'true' : null"
+          [attr.aria-describedby]="dateOfBirthError() ? 'student-dob-error-' + current.id : null"
+        />
+        @if (dateOfBirthError(); as message) {
+          <p class="field-error" [id]="'student-dob-error-' + current.id">{{ message }}</p>
+        }
+        <p class="field-hint">{{ current.ageBand === 'Minor' ? 'Now a minor: guardian consent applies.' : 'Now an adult.' }}</p>
+      </div>
+
+      @if (saveError()) {
+        <p class="error-message" role="alert">{{ saveError() }}</p>
+      }
+
+      @if (confirming()) {
+        <div class="profile-confirm" role="group" [attr.aria-labelledby]="'student-confirm-heading-' + current.id">
+          <p class="profile-confirm__heading" [id]="'student-confirm-heading-' + current.id">Before you save</p>
+          <ul>
+            @for (consequence of consequences(); track consequence) {
+              <li>{{ consequence }}</li>
+            }
+          </ul>
+          <div class="actions">
+            <button #confirmButton type="button" class="primary" (click)="save()" [disabled]="saving()">Confirm and save</button>
+            <button type="button" (click)="cancelConfirmation()">Keep editing</button>
+          </div>
+        </div>
+      } @else {
+        <button type="submit" class="primary" [disabled]="saving() || changes().length === 0">
+          {{ saving() ? 'Saving…' : 'Save changes' }}
+        </button>
+      }
+    </form>
+  }
+
+  @if (result()) {
+    <div #resultNotice class="success-message" role="status" tabindex="-1">
+      @for (line of resultLines(); track line) {
+        <p>{{ line }}</p>
+      }
+    </div>
+  }
+}

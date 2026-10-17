@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { InviteDto, InviteStatus } from '../invite.models';
+import { InviteDto, InviteStatus } from '../invite-management/invite.models';
 import { groupByStudent, studentKey } from './invite-groups';
 
 let counter = 0;

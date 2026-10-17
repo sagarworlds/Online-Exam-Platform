@@ -1,37 +1,27 @@
-/* One bar above the groups: how many there are, and the two ways to fold them all at once. */
-.invite-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem 1rem;
-  margin-bottom: 0.75rem;
+.student-search {
+  max-width: 28rem;
 }
 
-.invite-toolbar__summary {
-  margin: 0;
+.student-summary {
+  margin: 0 0 0.75rem;
   color: var(--text-muted);
   font-size: 0.9rem;
 }
 
-.invite-toolbar .actions {
-  margin: 0;
-}
-
 /* A student's card has no padding of its own: the heading is a button across the whole card, so the card is as easy to hit as it is wide. */
-.invite-group {
+.student-row {
   padding: 0;
   overflow: hidden;
 }
 
-.invite-group__title {
+.student-row__title {
   margin: 0;
   font-size: 1rem;
 }
 
-/* A grid, not a row that wraps: on a phone the status badges drop to a second line under the address instead of wherever the wrap leaves them.
+/* A grid, not a row that wraps: on a phone the badges drop to a second line under the name instead of wherever the wrap leaves them.
    The global button style centres its content, hence the explicit start alignment. */
-.invite-group__toggle {
+.student-row__toggle {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
@@ -49,77 +39,73 @@
   text-align: start;
 }
 
-.invite-group__chevron {
+.student-row__chevron {
   width: 1rem;
   color: var(--text-muted);
 }
 
-/* The address takes the room there is and breaks inside a long one, so the card never grows wider than a phone. */
-.invite-group__who {
+/* The name takes the room there is and breaks inside a long address, so the card never grows wider than a phone. */
+.student-row__who {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.invite-group__email {
+.student-row__name {
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-.invite-group__count {
+.student-row__meta {
   color: var(--text-muted);
   font-size: 0.85rem;
   font-weight: 400;
+  overflow-wrap: anywhere;
 }
 
-.invite-group__statuses {
+.student-row__statuses {
   display: flex;
   flex-wrap: wrap;
   grid-column: 2;
   gap: 0.25rem;
 }
 
-.invite-group__statuses .badge {
+.student-row__statuses .badge {
   margin-inline-start: 0;
 }
 
-.invite-group__toggle[aria-expanded='true'] {
+.student-row__toggle[aria-expanded='true'] {
   border-bottom: 1px solid var(--border);
 }
 
-.invite-rows {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.invite-row {
+.student-row__section {
   padding: 1rem 1.25rem;
 }
 
-.invite-row + .invite-row {
+.student-row__section + .student-row__section {
   border-top: 1px solid var(--border);
 }
 
-.invite-row > :last-child {
-  margin-bottom: 0;
+.student-row__section > h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
 }
 
-/* With room, the statuses sit at the end of the line instead of under the address. */
+/* With room, the badges sit at the end of the line instead of under the name. */
 @media (min-width: 40rem) {
-  .invite-group__toggle {
+  .student-row__toggle {
     grid-template-columns: auto 1fr auto;
   }
 
-  .invite-group__statuses {
+  .student-row__statuses {
     grid-column: auto;
     justify-content: flex-end;
   }
 }
 
 @media (max-width: 40rem) {
-  .invite-group__toggle,
-  .invite-row {
+  .student-row__toggle,
+  .student-row__section {
     padding-inline: 1rem;
   }
 }

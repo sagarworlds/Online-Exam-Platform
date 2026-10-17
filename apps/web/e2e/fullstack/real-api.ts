@@ -174,8 +174,17 @@ export class RealApi {
 
   /** Registers a new candidate (with the code the API logs) and has them accept an invitation to the exam. */
   async enrolNewCandidate(exam: PublishedExam): Promise<EnrolledCandidate> {
+    const candidate = await this.registerCandidate();
+    const invite = await this.send<{ inviteLink: string }>('POST', '/v1/invites', await this.administrator(), { examId: exam.id, email: candidate.email });
+    const code = decodeURIComponent(invite.inviteLink.slice(invite.inviteLink.indexOf('code=') + 'code='.length));
+    await this.send('POST', '/v1/invites/accept', candidate.accessToken, { code });
+
+    return candidate;
+  }
+
+  /** Registers a new candidate with the code the API logs, and signs them in. They have no invitation and sit no exam. */
+  async registerCandidate(): Promise<EnrolledCandidate> {
     const email = `candidate-${randomUUID().replaceAll('-', '')}@e2e.test`;
-    const admin = await this.administrator();
 
     const mark = this.codes.mark();
     const registered = await this.send<RegisterCandidateResponse>('POST', '/v1/auth/register', null, {
@@ -189,13 +198,14 @@ export class RealApi {
       otpChallengeId: registered.otpChallengeId,
       code: await this.codes.nextAfter(mark),
     });
-    const accessToken = verified.accessToken ?? '';
 
-    const invite = await this.send<{ inviteLink: string }>('POST', '/v1/invites', admin, { examId: exam.id, email });
-    const code = decodeURIComponent(invite.inviteLink.slice(invite.inviteLink.indexOf('code=') + 'code='.length));
-    await this.send('POST', '/v1/invites/accept', accessToken, { code });
+    return { email, accessToken: verified.accessToken ?? '' };
+  }
 
-    return { email, accessToken };
+  /** Whether the API still accepts a session token. Staff changing a student's address or number ends their sessions, so it stops. */
+  async isSignedIn(accessToken: string): Promise<boolean> {
+    const response = await this.http.fetch('/v1/me/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
+    return response.ok();
   }
 
   /** Invites an address to the exam, as an administrator does on the Invite a candidate page. The invitation stays pending: nobody accepts it. */

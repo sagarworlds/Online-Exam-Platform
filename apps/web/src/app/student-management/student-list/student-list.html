@@ -1,0 +1,99 @@
+<div class="page page--wide">
+  <div class="page-header">
+    <h1>Students</h1>
+    @if (canInvite) {
+      <a routerLink="/invites/create" class="btn btn--primary">Invite a candidate</a>
+    }
+  </div>
+
+  <div class="field student-search" role="search">
+    <label for="student-search">Search students</label>
+    <input
+      id="student-search"
+      type="search"
+      autocomplete="off"
+      placeholder="Name, e-mail address or mobile number"
+      [value]="search()"
+      (input)="onSearch($any($event.target).value)"
+    />
+  </div>
+
+  @if (notice()) {
+    <p #noticeElement class="success-message" role="status" tabindex="-1">{{ notice() }}</p>
+  }
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+
+  @if (loading()) {
+    <p role="status">Loading…</p>
+  } @else if (rows().length === 0) {
+    <div class="card empty-state">{{ search().trim() ? 'No students match that search.' : 'No students yet.' }}</div>
+  } @else {
+    <p class="student-summary">{{ summary() }}</p>
+    @if (truncated()) {
+      <p class="field-hint">Showing the first 200 students by name. Search to find someone else.</p>
+    }
+
+    @for (row of rows(); track row.key) {
+      <section class="card student-row" [attr.aria-labelledby]="'student-heading-' + $index">
+        <h2 class="student-row__title" [attr.id]="'student-heading-' + $index">
+          <button
+            type="button"
+            class="student-row__toggle"
+            [attr.aria-expanded]="isOpen(row)"
+            [attr.aria-controls]="'student-panel-' + $index"
+            (click)="toggle(row)"
+          >
+            <span class="student-row__chevron" aria-hidden="true">{{ isOpen(row) ? '▾' : '▸' }}</span>
+            <span class="student-row__who">
+              <span class="student-row__name">{{ row.title }}</span>
+              @if (row.account && contact(row)) {
+                <span class="student-row__meta">{{ contact(row) }}</span>
+              }
+              <span class="student-row__meta">{{ invitationCount(row) }}</span>
+            </span>
+            <span class="student-row__statuses">
+              @if (!row.account) {
+                <span class="badge badge--inactive">Not registered yet</span>
+              } @else if (row.account.status !== 'Active') {
+                <span class="badge badge--inactive">{{ row.account.status }}</span>
+              }
+              @if (row.invitations) {
+                @for (entry of row.invitations.statusCounts; track entry.status) {
+                  <span class="badge" [class]="badgeClass(entry.status)">{{ entry.count }} {{ entry.status }}</span>
+                }
+              }
+            </span>
+          </button>
+        </h2>
+
+        <div class="student-row__panel" [attr.id]="'student-panel-' + $index">
+          @if (isOpen(row)) {
+            @if (row.account; as account) {
+              <section class="student-row__section" [attr.aria-labelledby]="'student-profile-heading-' + $index">
+                <h3 [attr.id]="'student-profile-heading-' + $index">Profile</h3>
+                <app-student-profile [studentId]="account.id" [canEdit]="canManage" (saved)="onProfileSaved($event)" />
+              </section>
+            }
+
+            @if (row.invitations; as group) {
+              <section class="student-row__section" [attr.aria-labelledby]="'student-invites-heading-' + $index">
+                <h3 [attr.id]="'student-invites-heading-' + $index">Invitations</h3>
+                <app-student-invitations [invites]="group.invites" (revoked)="onInvitationRevoked()" />
+              </section>
+            }
+
+            @if (!row.account && canInvite) {
+              <section class="student-row__section" [attr.aria-labelledby]="'student-address-heading-' + $index">
+                <h3 [attr.id]="'student-address-heading-' + $index">Invited address</h3>
+                <app-invited-address [email]="row.title" (changed)="onAddressChanged(row, $event)" />
+              </section>
+            }
+          }
+        </div>
+      </section>
+    }
+  }
+</div>

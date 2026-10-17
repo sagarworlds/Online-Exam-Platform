@@ -184,9 +184,16 @@ export const routes: Routes = [
     loadComponent: () => import('./batch-management/batch-roster/batch-roster').then((m) => m.BatchRoster),
   },
   {
+    path: 'students',
+    canActivate: [permissionGuard(Permission.StudentRead)],
+    loadComponent: () => import('./student-management/student-list/student-list').then((m) => m.StudentList),
+  },
+  {
+    // The invitations page became the students page, which holds every invitation under the student it was sent to. Links and bookmarks
+    // to the old address land there.
     path: 'invites',
-    canActivate: [permissionGuard(Permission.InviteManage)],
-    loadComponent: () => import('./invite-management/invite-list/invite-list').then((m) => m.InviteList),
+    pathMatch: 'full',
+    redirectTo: 'students',
   },
   {
     path: 'invites/create',

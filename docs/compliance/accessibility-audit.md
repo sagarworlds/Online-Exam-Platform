@@ -83,7 +83,7 @@ Axe "incomplete" items on several states were judged one by one. Section 5 recor
 Every item here was outside the page list given for this audit, or was not reachable with the mocks used. None was run, so none is claimed as checked.
 
 - **Sign-in and account flows:** the one-time-code verification step (`/verify-otp`, which the one-time-code sign-in leads to), the password reset confirmation (`/password-reset/confirm`), profile (`/profile`), consent (`/consent`), notifications (`/notifications`) and the forbidden page (`/forbidden`). The request forms themselves were covered.
-- **Invitations and batches:** `/invite`, `/invites`, `/invites/create`, `/batches`, `/batches/create`, `/batches/:id/roster`.
+- **Invitations and batches:** `/invite`, `/students` (the page that was `/invites`), `/invites/create`, `/batches`, `/batches/create`, `/batches/:id/roster`.
 - **Guardian portal:** `/guardian`, `/guardian/register`, `/guardian/confirm-link`, `/guardian/link-candidate`.
 - **Candidate pages not on the list:** the leaderboard (`/my-exams/:id/leaderboard`).
 - **Staff pages not on the list:** the exam builder (`/exams/create`), exam attempts (`/exams/:id/attempts`), scheduler (`/exams/:id/schedule`), risk flags (`/exams/:id/risk-flags`), preview (`/exams/:id/preview`), question bank (`/admin/questions`, `/admin/questions/:id/edit`), books (`/admin/books`, `/admin/books/:id`), attempt requests, disputes and issue reports (`/admin/attempt-requests`, `/admin/disputes`, `/admin/issue-reports`), OTP codes, WhatsApp test, branding and instruction templates.

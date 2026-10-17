@@ -1,0 +1,448 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { vi } from 'vitest';
+import { AuthSessionService } from '../../auth/auth-session.service';
+import { StudentList } from './student-list';
+
+describe('StudentList', () => {
+  let httpMock: HttpTestingController;
+
+  const asha = { id: 'a1', displayName: 'Asha Rao', email: 'asha@example.com', phoneNumber: '+919800000000', status: 'Active' };
+  const ben = { id: 'a2', displayName: 'Ben Das', email: 'ben@example.com', phoneNumber: null, status: 'Active' };
+
+  const invite = (id: string, email: string, examName: string, status = 'Pending') => ({
+    id,
+    email,
+    examName,
+    status,
+    sentAt: `2026-10-0${id.replace(/\D/g, '') || '1'}T00:00:00Z`,
+  });
+
+  const isStudents = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/admin/students');
+  const isInvites = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/invites');
+  const isLookup = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/admin/students/lookup');
+
+  function configure(permissions: string[]) {
+    TestBed.configureTestingModule({
+      imports: [StudentList],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: AuthSessionService, useValue: { hasPermission: (code: string) => permissions.includes(code) } },
+      ],
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+  }
+
+  /** Opens the page and answers its first read. `holders` answers the lookup, when the page makes one. */
+  function open(
+    answers: { students?: unknown[]; invites?: unknown[]; holders?: unknown[] } = {},
+    permissions = ['student.read', 'student.manage', 'invite.manage'],
+  ) {
+    configure(permissions);
+    const fixture = TestBed.createComponent(StudentList);
+    fixture.detectChanges();
+    answerRead(answers);
+    fixture.detectChanges();
+    return { fixture, root: fixture.nativeElement as HTMLElement };
+  }
+
+  function answerRead(answers: { students?: unknown[]; invites?: unknown[]; holders?: unknown[] }) {
+    httpMock.expectOne(isStudents).flush(answers.students ?? []);
+    if (permissions().includes('invite.manage')) {
+      httpMock.expectOne(isInvites).flush(answers.invites ?? []);
+    }
+    const lookups = httpMock.match(isLookup);
+    for (const lookup of lookups) {
+      lookup.flush(answers.holders ?? []);
+    }
+  }
+
+  const permissions = () => {
+    const session = TestBed.inject(AuthSessionService);
+    return ['student.read', 'student.manage', 'invite.manage'].filter((code) => session.hasPermission(code));
+  };
+
+  afterEach(() => {
+    httpMock.verify();
+    vi.useRealTimers();
+  });
+
+  const rowFor = (root: HTMLElement, title: string) =>
+    Array.from(root.querySelectorAll<HTMLElement>('section.student-row')).find((s) => s.querySelector('.student-row__name')?.textContent?.trim() === title)!;
+  const toggleOf = (root: HTMLElement, title: string) => rowFor(root, title).querySelector<HTMLButtonElement>('.student-row__toggle')!;
+  const titles = (root: HTMLElement) => Array.from(root.querySelectorAll('.student-row__name')).map((n) => n.textContent?.trim());
+
+  it('lists the students, then the invited addresses nobody has registered with', () => {
+    const { root } = open({
+      students: [asha, ben],
+      invites: [invite('1', 'asha@example.com', 'Maths'), invite('2', 'newcomer@example.com', 'Maths')],
+    });
+
+    expect(titles(root)).toEqual(['Asha Rao', 'Ben Das', 'newcomer@example.com']);
+    expect(rowFor(root, 'newcomer@example.com').textContent).toContain('Not registered yet');
+    expect(rowFor(root, 'Asha Rao').textContent).not.toContain('Not registered yet');
+  });
+
+  it("shows a student's contact details and how many invitations they have, with each status", () => {
+    const { root } = open({
+      students: [asha],
+      invites: [invite('1', 'asha@example.com', 'Maths'), invite('2', 'ASHA@example.com', 'Physics', 'Accepted')],
+    });
+
+    const header = toggleOf(root, 'Asha Rao').textContent!;
+    expect(header).toContain('asha@example.com · +919800000000');
+    expect(header).toContain('2 invitations');
+    expect(header).toContain('1 Pending');
+    expect(header).toContain('1 Accepted');
+    expect(rowFor(root, 'Ben Das')).toBeUndefined();
+  });
+
+  it('says so when a student has no invitations', () => {
+    const { root } = open({ students: [ben] });
+
+    expect(toggleOf(root, 'Ben Das').textContent).toContain('No invitations');
+  });
+
+  it('flags an account that is not active', () => {
+    const { root } = open({ students: [{ ...ben, status: 'Suspended' }] });
+
+    expect(toggleOf(root, 'Ben Das').textContent).toContain('Suspended');
+  });
+
+  it('says how many students there are and how many invitations are waiting', () => {
+    const { root } = open({
+      students: [asha],
+      invites: [invite('1', 'asha@example.com', 'Maths'), invite('2', 'x@example.com', 'Maths'), invite('3', 'y@example.com', 'Maths', 'Revoked')],
+    });
+
+    expect(root.querySelector('.student-summary')?.textContent?.trim()).toBe('3 students · 2 invitations pending');
+  });
+
+  describe('asking which invited addresses have an account', () => {
+    it('asks about the invited addresses the listed accounts do not hold, once', () => {
+      configure(['student.read', 'student.manage', 'invite.manage']);
+      const fixture = TestBed.createComponent(StudentList);
+      fixture.detectChanges();
+      httpMock.expectOne(isStudents).flush([asha]);
+      httpMock.expectOne(isInvites).flush([invite('1', 'asha@example.com', 'Maths'), invite('2', 'far@example.com', 'Maths'), invite('3', 'far@example.com', 'Physics')]);
+
+      const lookup = httpMock.expectOne(isLookup);
+      expect(lookup.request.body).toEqual({ emails: ['far@example.com'] });
+      lookup.flush([]);
+    });
+
+    it('shows an invited address as the student who holds it, not as unregistered, when the list stopped short of them', () => {
+      const { root } = open({
+        students: [asha],
+        invites: [invite('1', 'far@example.com', 'Maths')],
+        holders: [{ id: 'a9', displayName: 'Zoya Far', email: 'far@example.com', phoneNumber: null, status: 'Active' }],
+      });
+
+      expect(titles(root)).toEqual(['Asha Rao', 'Zoya Far']);
+      expect(root.textContent).not.toContain('Not registered yet');
+      expect(rowFor(root, 'Zoya Far').textContent).toContain('1 invitation');
+    });
+
+    it('makes no lookup when every invited address already has a listed account', () => {
+      const { root } = open({ students: [asha], invites: [invite('1', 'asha@example.com', 'Maths')] });
+
+      httpMock.expectNone(isLookup);
+      expect(titles(root)).toEqual(['Asha Rao']);
+    });
+  });
+
+  describe('opening a student', () => {
+    it('shows their profile and invitations, and folds them away again', () => {
+      const { fixture, root } = open({ students: [asha], invites: [invite('1', 'asha@example.com', 'Maths Final')] });
+      const toggle = toggleOf(root, 'Asha Rao');
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+      expect(root.querySelector('app-student-profile')).toBeNull();
+
+      toggle.click();
+      fixture.detectChanges();
+      httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/admin/students/a1')).flush({
+        ...asha,
+        dateOfBirth: '2000-01-01',
+        ageBand: 'Adult',
+      });
+      fixture.detectChanges();
+
+      expect(toggle.getAttribute('aria-expanded')).toBe('true');
+      expect(root.querySelector(`[id="${toggle.getAttribute('aria-controls')}"] app-student-profile`)).not.toBeNull();
+      expect(root.textContent).toContain('Maths Final');
+
+      toggle.click();
+      fixture.detectChanges();
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+      expect(root.querySelector('app-student-profile')).toBeNull();
+    });
+
+    it('lets staff who may manage students edit the profile, and staff who may only read it see it plain', () => {
+      const writer = open({ students: [asha] });
+      toggleOf(writer.root, 'Asha Rao').click();
+      writer.fixture.detectChanges();
+      httpMock.expectOne((r) => r.url.endsWith('/v1/admin/students/a1')).flush({ ...asha, dateOfBirth: '2000-01-01', ageBand: 'Adult' });
+      writer.fixture.detectChanges();
+      expect(writer.root.querySelector('form')).not.toBeNull();
+    });
+
+    it('shows a read-only profile to staff who may not manage students', () => {
+      const { fixture, root } = open({ students: [asha] }, ['student.read', 'invite.manage']);
+      toggleOf(root, 'Asha Rao').click();
+      fixture.detectChanges();
+      httpMock.expectOne((r) => r.url.endsWith('/v1/admin/students/a1')).flush({ ...asha, dateOfBirth: '2000-01-01', ageBand: 'Adult' });
+      fixture.detectChanges();
+
+      expect(root.querySelector('app-student-profile form')).toBeNull();
+      expect(root.querySelector('app-student-profile dl')?.textContent).toContain('2000-01-01');
+    });
+
+    it('reads the list again after the profile is saved, so the header shows the new details', () => {
+      const { fixture, root } = open({ students: [asha] });
+      toggleOf(root, 'Asha Rao').click();
+      fixture.detectChanges();
+      httpMock.expectOne((r) => r.url.endsWith('/v1/admin/students/a1')).flush({ ...asha, dateOfBirth: '2000-01-01', ageBand: 'Adult' });
+      fixture.detectChanges();
+
+      const name = root.querySelector<HTMLInputElement>('#student-name-a1')!;
+      name.value = 'Asha R. Rao';
+      name.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Save changes')!.click();
+      httpMock
+        .expectOne((r) => r.method === 'PUT' && r.url.endsWith('/v1/admin/students/a1'))
+        .flush({ student: { ...asha, displayName: 'Asha R. Rao', dateOfBirth: '2000-01-01', ageBand: 'Adult' }, changed: ['name'], invitationsMoved: 0, signedOut: false });
+      answerRead({ students: [{ ...asha, displayName: 'Asha R. Rao' }] });
+      fixture.detectChanges();
+
+      expect(titles(root)).toEqual(['Asha R. Rao']);
+      // The row stays open, with the form the staff member was using, and says what happened.
+      expect(toggleOf(root, 'Asha R. Rao').getAttribute('aria-expanded')).toBe('true');
+      expect(root.querySelector('app-student-profile [role="status"]')?.textContent).toContain('Saved: name.');
+    });
+
+    it('keeps the student on the page, with what was done to them, when their new address no longer matches the search', () => {
+      vi.useFakeTimers();
+      const { fixture, root } = open({ students: [asha] });
+      const search = root.querySelector<HTMLInputElement>('#student-search')!;
+      search.value = 'asha@example.com';
+      search.dispatchEvent(new Event('input'));
+      vi.advanceTimersByTime(300);
+      httpMock.expectOne(isStudents).flush([asha]);
+      httpMock.expectOne(isInvites).flush([]);
+      fixture.detectChanges();
+      toggleOf(root, 'Asha Rao').click();
+      fixture.detectChanges();
+      httpMock.expectOne((r) => r.url.endsWith('/v1/admin/students/a1')).flush({ ...asha, dateOfBirth: '2000-01-01', ageBand: 'Adult' });
+      fixture.detectChanges();
+
+      const email = root.querySelector<HTMLInputElement>('#student-email-a1')!;
+      email.value = 'other@example.org';
+      email.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Save changes')!.click();
+      fixture.detectChanges();
+      Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Confirm and save')!.click();
+      httpMock
+        .expectOne((r) => r.method === 'PUT' && r.url.endsWith('/v1/admin/students/a1'))
+        .flush({
+          student: { ...asha, email: 'other@example.org', dateOfBirth: '2000-01-01', ageBand: 'Adult' },
+          changed: ['email'],
+          invitationsMoved: 0,
+          signedOut: true,
+        });
+      // The search still says the old address, so the API no longer finds the student.
+      httpMock.expectOne(isStudents).flush([]);
+      httpMock.expectOne(isInvites).flush([]);
+      fixture.detectChanges();
+
+      expect(titles(root)).toEqual(['Asha Rao']);
+      expect(toggleOf(root, 'Asha Rao').getAttribute('aria-expanded')).toBe('true');
+      expect(root.querySelector('app-student-profile [role="status"]')?.textContent).toContain('Saved: e-mail address.');
+
+      // A new search starts the list afresh.
+      search.value = 'nobody';
+      search.dispatchEvent(new Event('input'));
+      vi.advanceTimersByTime(300);
+      httpMock.expectOne(isStudents).flush([]);
+      httpMock.expectOne(isInvites).flush([]);
+      fixture.detectChanges();
+      expect(titles(root)).toEqual([]);
+    });
+
+    it('reads the list again after an invitation is revoked', () => {
+      const { fixture, root } = open({ students: [asha], invites: [invite('1', 'asha@example.com', 'Maths Final')] });
+      toggleOf(root, 'Asha Rao').click();
+      fixture.detectChanges();
+      httpMock.expectOne((r) => r.url.endsWith('/v1/admin/students/a1')).flush({ ...asha, dateOfBirth: '2000-01-01', ageBand: 'Adult' });
+      fixture.detectChanges();
+
+      Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Revoke')!.click();
+      httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites/1/revoke')).flush(null, { status: 204, statusText: 'No Content' });
+      answerRead({ students: [asha], invites: [invite('1', 'asha@example.com', 'Maths Final', 'Revoked')] });
+      fixture.detectChanges();
+
+      expect(toggleOf(root, 'Asha Rao').getAttribute('aria-expanded')).toBe('true');
+      expect(toggleOf(root, 'Asha Rao').textContent).toContain('1 Revoked');
+    });
+  });
+
+  describe('an address nobody has registered with', () => {
+    const invitedOnly = { invites: [invite('1', 'newcomer@example.com', 'Maths Final')] };
+
+    it('shows its invitations and a way to correct the address, but no profile', () => {
+      const { fixture, root } = open(invitedOnly);
+
+      toggleOf(root, 'newcomer@example.com').click();
+      fixture.detectChanges();
+
+      const row = rowFor(root, 'newcomer@example.com');
+      expect(row.textContent).toContain('Maths Final');
+      expect(row.querySelector('app-invited-address')).not.toBeNull();
+      expect(row.querySelector('app-student-profile')).toBeNull();
+    });
+
+    it('moves the invitations to the corrected address, says so above the list, and reads the list again', () => {
+      const { fixture, root } = open(invitedOnly);
+      toggleOf(root, 'newcomer@example.com').click();
+      fixture.detectChanges();
+
+      const field = root.querySelector<HTMLInputElement>('app-invited-address input[type="email"]')!;
+      field.value = 'right@example.com';
+      field.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      root.querySelector<HTMLButtonElement>('app-invited-address button[type="submit"]')!.click();
+      httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites/change-email')).flush({ changed: 1 });
+      answerRead({ invites: [invite('1', 'right@example.com', 'Maths Final')] });
+      fixture.detectChanges();
+
+      expect(root.querySelector('.success-message')?.textContent).toContain('Moved 1 invitation from newcomer@example.com to right@example.com.');
+      expect(titles(root)).toEqual(['right@example.com']);
+    });
+
+    it('is not offered to staff who may not manage invitations', () => {
+      const { fixture, root } = open({}, ['student.read']);
+
+      expect(root.textContent).not.toContain('Invite a candidate');
+      httpMock.expectNone(isInvites);
+      expect(fixture.componentInstance).toBeTruthy();
+    });
+  });
+
+  describe('searching', () => {
+    beforeEach(() => vi.useFakeTimers());
+
+    function typeSearch(fixture: ReturnType<typeof open>['fixture'], text: string) {
+      const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('#student-search')!;
+      input.value = text;
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    }
+
+    it('waits for a pause in typing, then asks the API with what was typed', () => {
+      const { fixture } = open({ students: [asha, ben] });
+
+      typeSearch(fixture, 'b');
+      typeSearch(fixture, 'be');
+      typeSearch(fixture, 'ben');
+      httpMock.expectNone(isStudents);
+      vi.advanceTimersByTime(300);
+
+      const request = httpMock.expectOne(isStudents);
+      expect(request.request.params.get('search')).toBe('ben');
+      request.flush([ben]);
+      httpMock.expectOne(isInvites).flush([]);
+      fixture.detectChanges();
+
+      expect(titles(fixture.nativeElement)).toEqual(['Ben Das']);
+    });
+
+    it('keeps the invited addresses that contain the search and drops the others', () => {
+      const { fixture } = open({ students: [], invites: [invite('1', 'ben.invited@example.com', 'Maths'), invite('2', 'asha.invited@example.com', 'Maths')] });
+      expect(titles(fixture.nativeElement)).toHaveLength(2);
+
+      typeSearch(fixture, 'ASHA');
+      vi.advanceTimersByTime(300);
+      httpMock.expectOne(isStudents).flush([]);
+      httpMock.expectOne(isInvites).flush([invite('1', 'ben.invited@example.com', 'Maths'), invite('2', 'asha.invited@example.com', 'Maths')]);
+      httpMock.match(isLookup).forEach((lookup) => lookup.flush([]));
+      fixture.detectChanges();
+
+      expect(titles(fixture.nativeElement)).toEqual(['asha.invited@example.com']);
+    });
+
+    it('counts only the invitations of the students the search leaves on the page, not everything the API holds', () => {
+      const { fixture } = open({ students: [asha, ben] });
+
+      typeSearch(fixture, 'asha');
+      vi.advanceTimersByTime(300);
+      httpMock.expectOne(isStudents).flush([asha]);
+      httpMock.expectOne(isInvites).flush([invite('1', 'asha@example.com', 'Maths'), invite('2', 'ben@example.com', 'Maths'), invite('3', 'ben@example.com', 'Physics')]);
+      // Ben holds an account the search did not match, and his address does not contain what was typed.
+      httpMock.expectOne(isLookup).flush([ben]);
+      fixture.detectChanges();
+
+      expect(titles(fixture.nativeElement)).toEqual(['Asha Rao']);
+      expect((fixture.nativeElement as HTMLElement).querySelector('.student-summary')?.textContent?.trim()).toBe('1 student · 1 invitation pending');
+    });
+
+    it('says nothing matched, rather than showing an empty page', () => {
+      const { fixture } = open({ students: [asha] });
+
+      typeSearch(fixture, 'nobody');
+      vi.advanceTimersByTime(300);
+      httpMock.expectOne(isStudents).flush([]);
+      httpMock.expectOne(isInvites).flush([]);
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('No students match that search.');
+    });
+
+    it('lets a newer search replace one still on its way, so a slow old answer cannot win', () => {
+      const { fixture } = open({ students: [asha, ben] });
+
+      typeSearch(fixture, 'asha');
+      vi.advanceTimersByTime(300);
+      const first = httpMock.expectOne(isStudents);
+      const firstInvites = httpMock.expectOne(isInvites);
+
+      typeSearch(fixture, 'ben');
+      vi.advanceTimersByTime(300);
+      expect(first.cancelled).toBe(true);
+      expect(firstInvites.cancelled).toBe(true);
+      httpMock.expectOne(isStudents).flush([ben]);
+      httpMock.expectOne(isInvites).flush([]);
+      fixture.detectChanges();
+
+      expect(titles(fixture.nativeElement)).toEqual(['Ben Das']);
+    });
+  });
+
+  it('says there are no students when there are none and nothing was searched', () => {
+    const { root } = open({});
+
+    expect(root.textContent).toContain('No students yet.');
+  });
+
+  it('warns that the list stopped at 200 when it did', () => {
+    const many = Array.from({ length: 200 }, (_, n) => ({ id: `s${n}`, displayName: `Student ${n}`, email: `s${n}@example.com`, phoneNumber: null, status: 'Active' }));
+    const { root } = open({ students: many });
+
+    expect(root.textContent).toContain('Showing the first 200 students by name.');
+  });
+
+  it("shows the API's message when the list cannot be read", () => {
+    configure(['student.read', 'invite.manage']);
+    const fixture = TestBed.createComponent(StudentList);
+    fixture.detectChanges();
+    httpMock.expectOne(isStudents).flush({ title: 'forbidden', detail: 'You may not see students.' }, { status: 403, statusText: 'Forbidden' });
+    httpMock.match(isInvites).forEach((r) => r.cancelled || r.flush([]));
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('[role="alert"]')?.textContent).toContain('You may not see students.');
+  });
+});

@@ -5,7 +5,7 @@ import { AdminSidebar } from './admin-sidebar';
 
 const sections: AdminSection[] = [
   { label: 'admin.area.questions.name', description: 'admin.area.questions.description', path: '/admin/questions', permission: 'question.manage', icon: 'question' },
-  { label: 'admin.area.invites.name', description: 'admin.area.invites.description', path: '/invites', permission: 'invite.manage', icon: 'invite' },
+  { label: 'admin.area.students.name', description: 'admin.area.students.description', path: '/students', permission: 'student.read', icon: 'student' },
 ];
 
 describe('AdminSidebar', () => {
@@ -27,9 +27,9 @@ describe('AdminSidebar', () => {
   it('renders one link per section, labelled and reachable', () => {
     const links = Array.from(root.querySelectorAll('.admin-sidebar__link')) as HTMLAnchorElement[];
 
-    expect(links.map((a) => a.querySelector('.admin-sidebar__label')?.textContent?.trim())).toEqual(['Questions', 'Invites']);
+    expect(links.map((a) => a.querySelector('.admin-sidebar__label')?.textContent?.trim())).toEqual(['Questions', 'Students']);
     expect(links[0].getAttribute('href')).toBe('/admin/questions');
-    expect(links[1].getAttribute('href')).toBe('/invites');
+    expect(links[1].getAttribute('href')).toBe('/students');
   });
 
   it('starts expanded', () => {
@@ -43,9 +43,9 @@ describe('AdminSidebar', () => {
 
     expect(root.querySelector('.admin-sidebar--collapsed')).not.toBeNull();
     const links = Array.from(root.querySelectorAll('.admin-sidebar__link')) as HTMLAnchorElement[];
-    expect(links.map((a) => a.getAttribute('href'))).toEqual(['/admin/questions', '/invites']);
-    expect(links.map((a) => a.getAttribute('aria-label'))).toEqual(['Questions', 'Invites']);
-    expect(links.map((a) => a.getAttribute('title'))).toEqual(['Questions', 'Invites']);
+    expect(links.map((a) => a.getAttribute('href'))).toEqual(['/admin/questions', '/students']);
+    expect(links.map((a) => a.getAttribute('aria-label'))).toEqual(['Questions', 'Students']);
+    expect(links.map((a) => a.getAttribute('title'))).toEqual(['Questions', 'Students']);
     expect(root.querySelector('button')!.getAttribute('aria-expanded')).toBe('false');
   });
 
