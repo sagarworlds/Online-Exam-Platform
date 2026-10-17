@@ -473,6 +473,10 @@ export const HI: Messages = {
   'admin.sidebar.areas': 'प्रशासन क्षेत्र',
   'admin.sidebar.expand': 'प्रशासन मेनू खोलें',
   'admin.sidebar.collapse': 'प्रशासन मेनू बंद करें',
+  'admin.group.content': 'सामग्री',
+  'admin.group.exams': 'परीक्षाएँ',
+  'admin.group.people': 'लोग',
+  'admin.group.reviews': 'समीक्षाएँ',
   'admin.area.questions.name': 'प्रश्न',
   'admin.area.questions.description': 'प्रश्न लिखें, सही उत्तर चिह्नित करें और उनकी समीक्षा करें।',
   'admin.area.books.name': 'पुस्तकें',
@@ -495,6 +499,12 @@ export const HI: Messages = {
   'admin.area.candidateCodes.description': 'जिस परीक्षार्थी का साइन-इन कोड प्रतीक्षा में है, वह कोड पढ़ें।',
   'admin.area.whatsappTest.name': 'व्हाट्सऐप जाँच',
   'admin.area.whatsappTest.description': 'जाँचें कि व्हाट्सऐप संदेश भेज सकता है, और यदि नहीं भेज सकता तो ठीक-ठीक कारण देखें।',
+  'admin.area.settings.name': 'सेटिंग',
+  'admin.area.settings.description': 'ब्रांडिंग, निर्देश टेम्पलेट, व्हाट्सऐप जाँच और परीक्षार्थी कोड।',
+
+  // ---- settings: the page that lists the admin pages needed now and then ----
+  'admin.settings.title': 'सेटिंग',
+  'admin.settings.intro': 'ऐसे पृष्ठ जिनकी ज़रूरत कभी-कभार ही पड़ती है। आपको वही पृष्ठ दिखते हैं जिन्हें आपका खाता खोल सकता है।',
 
   // ---- candidate codes ----
   'admin.codes.title': 'परीक्षार्थी कोड',
@@ -1189,7 +1199,8 @@ export const HI: Messages = {
   'exams.instructions.choose': 'टेम्पलेट चुनें',
   'exams.instructions.apply': 'टेम्पलेट का पाठ कॉपी करें',
   'exams.instructions.replaceWarning': 'कॉपी करने पर ऊपर का पाठ टेम्पलेट के पाठ से बदल जाएगा। टेम्पलेट स्वयं नहीं बदलता।',
-  'exams.instructions.noTemplates': 'अभी कोई टेम्पलेट नहीं है। एडमिन मेनू में निर्देश टेम्पलेट के अंतर्गत एक बनाएँ।',
+  'exams.instructions.noTemplates': 'अभी कोई टेम्पलेट नहीं है। एडमिन मेनू में सेटिंग के अंतर्गत निर्देश टेम्पलेट में एक बनाएँ।',
+  'exams.instructions.manageTemplates': 'निर्देश टेम्पलेट प्रबंधित करें',
   'exams.instructions.loadFailed': 'टेम्पलेट लोड नहीं हो सके।',
   'exams.instructions.summarySet': 'लिखे हुए',
   'exams.instructions.summaryNone': 'कोई नहीं',

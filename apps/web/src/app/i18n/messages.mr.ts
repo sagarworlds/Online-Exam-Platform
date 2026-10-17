@@ -473,6 +473,10 @@ export const MR: Messages = {
   'admin.sidebar.areas': 'प्रशासन विभाग',
   'admin.sidebar.expand': 'प्रशासन मेनू उघडा',
   'admin.sidebar.collapse': 'प्रशासन मेनू बंद करा',
+  'admin.group.content': 'मजकूर',
+  'admin.group.exams': 'परीक्षा',
+  'admin.group.people': 'लोक',
+  'admin.group.reviews': 'पुनरावलोकने',
   'admin.area.questions.name': 'प्रश्न',
   'admin.area.questions.description': 'प्रश्न लिहा, बरोबर उत्तर चिन्हांकित करा आणि त्यांचे पुनरावलोकन करा.',
   'admin.area.books.name': 'पुस्तके',
@@ -495,6 +499,12 @@ export const MR: Messages = {
   'admin.area.candidateCodes.description': 'परीक्षार्थीची प्रतीक्षा असलेला साइन-इन कोड वाचा.',
   'admin.area.whatsappTest.name': 'व्हॉट्सअॅप चाचणी',
   'admin.area.whatsappTest.description': 'व्हॉट्सअॅप संदेश पाठवू शकते का ते तपासा, आणि पाठवू शकत नसेल तर नेमके कारण पाहा.',
+  'admin.area.settings.name': 'सेटिंग्ज',
+  'admin.area.settings.description': 'ब्रँडिंग, सूचना साचे, व्हॉट्सअॅप चाचणी आणि परीक्षार्थी कोड.',
+
+  // ---- settings: the page that lists the admin pages needed now and then ----
+  'admin.settings.title': 'सेटिंग्ज',
+  'admin.settings.intro': 'ज्या पानांची गरज फक्त अधूनमधून पडते. तुमचे खाते जी पाने उघडू शकते, तीच तुम्हाला दिसतात.',
 
   // ---- candidate codes ----
   'admin.codes.title': 'परीक्षार्थी कोड',
@@ -1189,7 +1199,8 @@ export const MR: Messages = {
   'exams.instructions.choose': 'साचा निवडा',
   'exams.instructions.apply': 'साच्याचा मजकूर कॉपी करा',
   'exams.instructions.replaceWarning': 'कॉपी केल्यास वरील मजकूर साच्याच्या मजकुराने बदलेल. साचा स्वतः बदलत नाही.',
-  'exams.instructions.noTemplates': 'अजून साचे नाहीत. प्रशासक मेनूमध्ये सूचना साचे अंतर्गत एक तयार करा.',
+  'exams.instructions.noTemplates': 'अजून साचे नाहीत. प्रशासक मेनूमधील सेटिंग्जमध्ये सूचना साचे येथे एक तयार करा.',
+  'exams.instructions.manageTemplates': 'सूचना साचे व्यवस्थापित करा',
   'exams.instructions.loadFailed': 'साचे लोड करता आले नाहीत.',
   'exams.instructions.summarySet': 'लिहिलेल्या',
   'exams.instructions.summaryNone': 'नाही',

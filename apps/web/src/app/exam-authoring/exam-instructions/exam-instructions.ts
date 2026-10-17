@@ -1,4 +1,7 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { Permission } from '../../auth/admin-sections';
+import { AuthSessionService } from '../../auth/auth-session.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { InstructionTemplateDto, MAX_INSTRUCTIONS_LENGTH } from '../../instruction-templates/instruction-template.models';
 
@@ -9,11 +12,13 @@ import { InstructionTemplateDto, MAX_INSTRUCTIONS_LENGTH } from '../../instructi
  */
 @Component({
   selector: 'app-exam-instructions',
-  imports: [TranslatePipe],
+  imports: [RouterLink, TranslatePipe],
   templateUrl: './exam-instructions.html',
   styleUrl: './exam-instructions.css',
 })
 export class ExamInstructions {
+  private readonly authSession = inject(AuthSessionService);
+
   /** The text the exam has now, or null for none. */
   readonly instructions = input<string | null>(null);
   /** Whether the text can be changed; true only for a draft. */
@@ -31,6 +36,12 @@ export class ExamInstructions {
   readonly templateChosen = output<string>();
 
   protected readonly maxLength = MAX_INSTRUCTIONS_LENGTH;
+
+  /**
+   * Whether to link to the templates page. It is offered here because the page is no longer on the admin menu's top level (it sits under
+   * Settings), and only to those the page's route lets in.
+   */
+  protected readonly canManageTemplates = computed(() => this.authSession.hasPermission(Permission.ExamManage));
 
   /** What the author has typed but not saved; null means the text the exam has now. */
   private readonly pending = signal<string | null>(null);

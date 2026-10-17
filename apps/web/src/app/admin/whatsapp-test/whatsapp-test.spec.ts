@@ -13,7 +13,7 @@ import {
 } from '@angular/router';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { routes } from '../../app.routes';
-import { ADMIN_SECTIONS, Permission } from '../../auth/admin-sections';
+import { Permission, SETTINGS_PAGES } from '../../auth/admin-sections';
 import { AuthSessionService } from '../../auth/auth-session.service';
 import { I18nService, englishTranslate } from '../../i18n/i18n.service';
 import { MessageKey } from '../../i18n/messages.en';
@@ -1260,11 +1260,11 @@ describe('WhatsApp test route and navigation', () => {
     expect(Permission.WhatsAppTest).toBe('admin.whatsapp.test');
   });
 
-  it('is offered in the admin areas under the same permission and address as its route', () => {
-    const section = ADMIN_SECTIONS.find((s) => s.label === 'admin.area.whatsappTest.name')!;
+  it('is offered among the Settings pages under the same permission and address as its route', () => {
+    const section = SETTINGS_PAGES.find((s) => s.label === 'admin.area.whatsappTest.name')!;
 
     expect(section).toBeDefined();
-    expect(section.permission).toBe(Permission.WhatsAppTest);
+    expect(section.permissions).toEqual([Permission.WhatsAppTest]);
     expect(section.path).toBe('/admin/whatsapp');
     expect(section.path).toBe(`/${route.path}`);
     expect(section.icon).toBe('whatsapp');

@@ -9,16 +9,27 @@
     <span aria-hidden="true">{{ collapsed() ? '»' : '«' }}</span>
   </button>
 
-  @for (section of sections(); track section.path) {
-    <a
-      [routerLink]="section.path"
-      routerLinkActive="active"
-      class="admin-sidebar__link"
-      [title]="section.label | t"
-      [attr.aria-label]="section.label | t"
+  @for (group of menu(); track $index) {
+    <div
+      class="admin-sidebar__group"
+      [attr.role]="group.heading ? 'group' : null"
+      [attr.aria-labelledby]="group.heading ? group.headingId : null"
     >
-      <app-admin-icon [name]="section.icon" class="admin-sidebar__icon" />
-      <span class="admin-sidebar__label">{{ section.label | t }}</span>
-    </a>
+      @if (group.heading; as heading) {
+        <p class="admin-sidebar__heading" [id]="group.headingId">{{ heading | t }}</p>
+      }
+      @for (link of group.links; track link.section.path) {
+        <a
+          [routerLink]="link.section.path"
+          class="admin-sidebar__link"
+          [class.active]="link.current()"
+          [title]="link.section.label | t"
+          [attr.aria-label]="link.section.label | t"
+        >
+          <app-admin-icon [name]="link.section.icon" class="admin-sidebar__icon" />
+          <span class="admin-sidebar__label">{{ link.section.label | t }}</span>
+        </a>
+      }
+    </div>
   }
 </nav>

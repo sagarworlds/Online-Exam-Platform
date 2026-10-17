@@ -2,7 +2,7 @@ import { Component, computed, effect, inject } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
-import { ADMIN_SECTIONS } from './auth/admin-sections';
+import { openAdminGroups } from './auth/admin-sections';
 import { AuthSessionService } from './auth/auth-session.service';
 import { BrandingService } from './branding/branding.service';
 import { SignOutService } from './auth/sign-out.service';
@@ -50,10 +50,8 @@ export class App {
       });
   }
 
-  /** The admin areas this user's permissions open; empty for a candidate, so the nav shows no admin links to them. */
-  protected readonly adminSections = computed(() =>
-    ADMIN_SECTIONS.filter((section) => this.authSession.hasPermission(section.permission)),
-  );
+  /** The admin areas this user's permissions open, in their groups; empty for a candidate, so the nav shows no admin links to them. */
+  protected readonly adminGroups = computed(() => openAdminGroups(this.authSession));
 
   protected readonly health = toSignal(this.healthService.checkHealth(), {
     initialValue: { state: 'checking' as const, reason: null },

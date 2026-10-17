@@ -29,6 +29,7 @@ export const PAGE_TITLE_KEYS: Readonly<Record<string, MessageKey>> = {
   'admin/questions': 'admin.area.questions.name',
   'admin/questions/:id/edit': 'pageTitle.questionEdit',
   'admin/books': 'admin.area.books.name',
+  'admin/settings': 'admin.settings.title',
   'admin/otp-codes': 'admin.area.candidateCodes.name',
   'admin/whatsapp': 'whatsapp.title',
   'admin/attempt-requests': 'admin.requests.title',

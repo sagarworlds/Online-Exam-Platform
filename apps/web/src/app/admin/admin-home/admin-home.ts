@@ -1,21 +1,21 @@
 import { Component, computed, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
-import { ADMIN_SECTIONS } from '../../auth/admin-sections';
+import { openAdminGroups } from '../../auth/admin-sections';
 import { AuthSessionService } from '../../auth/auth-session.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
-import { AdminIcon } from '../../shared/admin-icon/admin-icon';
+import { AdminAreaList } from '../admin-area-list/admin-area-list';
 
-/** The admin landing page: a row for every admin area the signed-in user's permissions open, with the icon the sidebar uses for it. */
+/**
+ * The admin landing page: a row for every admin area the signed-in user's permissions open, under the same headings the sidebar uses.
+ * A heading shows only when the user may open something under it.
+ */
 @Component({
   selector: 'app-admin-home',
-  imports: [RouterLink, AdminIcon, TranslatePipe],
+  imports: [AdminAreaList, TranslatePipe],
   templateUrl: './admin-home.html',
   styleUrl: './admin-home.css',
 })
 export class AdminHome {
   private readonly authSession = inject(AuthSessionService);
 
-  protected readonly sections = computed(() =>
-    ADMIN_SECTIONS.filter((section) => this.authSession.hasPermission(section.permission)),
-  );
+  protected readonly groups = computed(() => openAdminGroups(this.authSession));
 }

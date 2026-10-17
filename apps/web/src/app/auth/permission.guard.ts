@@ -10,6 +10,19 @@ import { AuthSessionService } from './auth-session.service';
  * on the client, so the API checks the same permission on every call and is what actually protects the data.
  */
 export function permissionGuard(permission: string): CanActivateFn {
+  return guardedBy((authSession) => authSession.hasPermission(permission));
+}
+
+/**
+ * Like {@link permissionGuard}, for a page that several permissions open (such as the Settings page, which lists pages with different
+ * permissions): holding any one of them is enough. Nobody is let in by an empty list.
+ */
+export function anyPermissionGuard(permissions: readonly string[]): CanActivateFn {
+  return guardedBy((authSession) => authSession.hasAnyPermission(permissions));
+}
+
+/** The guard both of the above build: where a visitor goes is the same, only the question of who may enter differs. */
+function guardedBy(mayEnter: (authSession: AuthSessionService) => boolean): CanActivateFn {
   return (_route, state) => {
     const authSession = inject(AuthSessionService);
     const router = inject(Router);
@@ -18,6 +31,6 @@ export function permissionGuard(permission: string): CanActivateFn {
       return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
     }
 
-    return authSession.hasPermission(permission) ? true : router.createUrlTree(['/forbidden']);
+    return mayEnter(authSession) ? true : router.createUrlTree(['/forbidden']);
   };
 }

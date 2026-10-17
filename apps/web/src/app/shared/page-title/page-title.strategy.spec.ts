@@ -39,6 +39,16 @@ describe('PageTitleStrategy', () => {
     expect(title).toHaveBeenLastCalledWith(`Log in · ${APP_TITLE}`);
   });
 
+  it('names the Settings page by its own heading, so the tab and the page agree', () => {
+    const title = setTitle();
+
+    strategy().updateTitle(snapshotOn('admin/settings'));
+    TestBed.flushEffects();
+
+    expect(PAGE_TITLE_KEYS['admin/settings']).toBe('admin.settings.title');
+    expect(title).toHaveBeenLastCalledWith(`Settings · ${APP_TITLE}`);
+  });
+
   it('keeps the app name alone for a page with no name of its own', () => {
     const title = setTitle();
 

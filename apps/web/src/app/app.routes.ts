@@ -1,8 +1,8 @@
 import { Routes } from '@angular/router';
-import { Permission } from './auth/admin-sections';
+import { Permission, SETTINGS_SECTION } from './auth/admin-sections';
 import { authGuard } from './auth/auth.guard';
 import { landingGuard } from './auth/landing-route';
-import { permissionGuard } from './auth/permission.guard';
+import { anyPermissionGuard, permissionGuard } from './auth/permission.guard';
 import { CandidateApiService } from './candidate/candidate-api.service';
 import { PreviewCandidateApiService } from './candidate/exam-attempt/preview-candidate-api.service';
 
@@ -124,6 +124,12 @@ export const routes: Routes = [
     path: 'exams/:id',
     canActivate: [permissionGuard(Permission.ExamRead)],
     loadComponent: () => import('./exam-authoring/exam-editor/exam-editor').then((m) => m.ExamEditor),
+  },
+  {
+    // Lists the admin pages needed only now and then (they keep their own addresses below). Open to whoever may open any one of them.
+    path: 'admin/settings',
+    canActivate: [anyPermissionGuard(SETTINGS_SECTION.permissions)],
+    loadComponent: () => import('./admin/settings/settings').then((m) => m.Settings),
   },
   {
     path: 'admin/otp-codes',

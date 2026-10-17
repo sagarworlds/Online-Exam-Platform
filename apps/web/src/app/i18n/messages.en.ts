@@ -479,6 +479,10 @@ export const EN = {
   'admin.sidebar.areas': 'Admin areas',
   'admin.sidebar.expand': 'Expand admin menu',
   'admin.sidebar.collapse': 'Collapse admin menu',
+  'admin.group.content': 'Content',
+  'admin.group.exams': 'Exams',
+  'admin.group.people': 'People',
+  'admin.group.reviews': 'Reviews',
   'admin.area.questions.name': 'Questions',
   'admin.area.questions.description': 'Write questions, mark the correct answer and review them.',
   'admin.area.books.name': 'Books',
@@ -501,6 +505,12 @@ export const EN = {
   'admin.area.candidateCodes.description': 'Read the sign-in code a candidate is waiting for.',
   'admin.area.whatsappTest.name': 'WhatsApp test',
   'admin.area.whatsappTest.description': 'Check that WhatsApp can send, and see exactly why not if it cannot.',
+  'admin.area.settings.name': 'Settings',
+  'admin.area.settings.description': 'Branding, instruction templates, the WhatsApp test and candidate codes.',
+
+  // ---- settings: the page that lists the admin pages needed now and then ----
+  'admin.settings.title': 'Settings',
+  'admin.settings.intro': 'Pages you need only now and then. You see the ones your account may open.',
 
   // ---- candidate codes ----
   'admin.codes.title': 'Candidate codes',
@@ -1195,7 +1205,8 @@ export const EN = {
   'exams.instructions.choose': 'Choose a template',
   'exams.instructions.apply': 'Copy the template’s text',
   'exams.instructions.replaceWarning': 'Copying replaces the text above with the template’s text. The template itself does not change.',
-  'exams.instructions.noTemplates': 'There are no templates yet. Create one under Instruction templates in the admin menu.',
+  'exams.instructions.noTemplates': 'There are no templates yet. Create one under Settings, then Instruction templates, in the admin menu.',
+  'exams.instructions.manageTemplates': 'Manage instruction templates',
   'exams.instructions.loadFailed': 'The templates could not be loaded.',
   'exams.instructions.summarySet': 'Written',
   'exams.instructions.summaryNone': 'None',
