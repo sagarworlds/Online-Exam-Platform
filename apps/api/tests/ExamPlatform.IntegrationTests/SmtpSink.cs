@@ -110,8 +110,12 @@ internal sealed class SmtpSink : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        // The accept loop ends before the listener is stopped. Stopping the listener while the loop is starting an accept is a race that
+        // the .NET listener reports in several ways (an InvalidOperationException, an ObjectDisposedException, a SocketException, and a
+        // NullReferenceException from inside AcceptSocketAsync when Stop clears the socket the accept is about to read), and catching each
+        // one only waits for the next. Cancelling ends a pending accept, and a cancelled token ends the next one, so by the time the loop
+        // has finished there is nothing left to race the stop.
         await _stop.CancelAsync();
-        _listener.Stop();
         try
         {
             await _loop;
@@ -119,6 +123,10 @@ internal sealed class SmtpSink : IAsyncDisposable
         catch (ObjectDisposedException)
         {
             // The listener was already torn down.
+        }
+        finally
+        {
+            _listener.Stop();
         }
     }
 }
