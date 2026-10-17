@@ -110,6 +110,20 @@ public sealed class InviteFlowTests(ApiFactory factory) : IClassFixture<ApiFacto
         Assert.Contains(list.EnumerateArray(), i => i.GetProperty("email").GetString() == email);
     }
 
+    [Fact]
+    public async Task List_NamesTheExamOfEachInvite()
+    {
+        var (admin, examId) = await AdminWithPublishedExamAsync("Chemistry Midterm");
+        var email = UniqueEmail();
+        await InviteAsync(admin, examId, email);
+
+        var list = await admin.GetFromJsonAsync<JsonElement>("/v1/invites");
+
+        // The staff screen groups invitations by student and says which exam each is for, so the listing carries the name.
+        var listed = list.EnumerateArray().Single(i => i.GetProperty("email").GetString() == email);
+        Assert.Equal("Chemistry Midterm", listed.GetProperty("examName").GetString());
+    }
+
     // ---- accepting --------------------------------------------------------------------------------
 
     [Fact]
