@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { FormGroup } from '@angular/forms';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { vi } from 'vitest';
 import { QuestionBank } from './question-bank';
 import { QuestionUsageDto } from './question.models';
 
@@ -909,6 +910,58 @@ describe('QuestionBank', () => {
       const { root } = submitRepeat();
 
       expect(document.activeElement).toBe(root.querySelector('.question-repeat'));
+    });
+
+    describe('bringing the warning wholly into view', () => {
+      // jsdom has no layout and no scrollIntoView, so the page's geometry is given: where the warning is and how tall the screen is.
+      let scrolled: ReturnType<typeof vi.fn>;
+
+      function onAScreen(height: number, warning: { top: number; bottom: number }) {
+        scrolled = vi.fn();
+        Element.prototype.scrollIntoView = scrolled as unknown as Element['scrollIntoView'];
+        vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(height);
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ ...warning, left: 0, right: 0, x: 0, y: warning.top, width: 0, height: warning.bottom - warning.top, toJSON: () => ({}) });
+      }
+
+      afterEach(() => {
+        vi.restoreAllMocks();
+        delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+      });
+
+      it('puts a warning that is only partly on screen in the middle of it, not flush against the edge', () => {
+        onAScreen(720, { top: 450, bottom: 721 });
+
+        const { root } = submitRepeat();
+
+        expect(scrolled).toHaveBeenCalledTimes(1);
+        expect(scrolled.mock.contexts[0]).toBe(root.querySelector('.question-repeat'));
+        expect(scrolled).toHaveBeenCalledWith({ block: 'center' });
+      });
+
+      it('does the same for a warning above the top of the screen', () => {
+        onAScreen(720, { top: -20, bottom: 250 });
+
+        submitRepeat();
+
+        expect(scrolled).toHaveBeenCalledWith({ block: 'center' });
+      });
+
+      it('leaves a warning that is already wholly on screen where it is', () => {
+        onAScreen(720, { top: 300, bottom: 600 });
+
+        const { root } = submitRepeat();
+
+        expect(scrolled).not.toHaveBeenCalled();
+        expect(document.activeElement).toBe(root.querySelector('.question-repeat'));
+      });
+
+      it('shows the top of a warning that is taller than the screen, so its heading is not lost', () => {
+        onAScreen(600, { top: 100, bottom: 800 });
+
+        submitRepeat();
+
+        expect(scrolled).toHaveBeenCalledWith({ block: 'start' });
+      });
     });
 
     it('names the accepted answers, and asks the bank about them, when the question is a text question', () => {

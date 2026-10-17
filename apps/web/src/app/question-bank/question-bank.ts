@@ -296,9 +296,29 @@ export class QuestionBank {
     this.focusOnceRendered(this.saveFailure);
   }
 
-  /** Moves focus to a message the page has just shown, which also scrolls it into view. The message exists only after the next render. */
+  /** Moves focus to a message the page has just shown and brings all of it into view. The message exists only after the next render. */
   private focusOnceRendered(message: Signal<ElementRef<HTMLElement> | undefined>): void {
-    afterNextRender(() => message()?.nativeElement.focus(), { injector: this.injector });
+    afterNextRender(
+      () => {
+        const element = message()?.nativeElement;
+        if (element) {
+          // Focus does not scroll here: when a message is only partly on screen, browsers differ in how far focus moves it (WebKit leaves it
+          // flush against the screen's edge, a pixel short), so the page is scrolled below, the same way in every engine.
+          element.focus({ preventScroll: true });
+          this.revealWhole(element);
+        }
+      },
+      { injector: this.injector },
+    );
+  }
+
+  /** Scrolls an element that is not wholly on screen to the middle of it, or to its top when it is taller than the screen. */
+  private revealWhole(element: HTMLElement): void {
+    const { top, bottom } = element.getBoundingClientRect();
+    const screenHeight = element.ownerDocument.documentElement.clientHeight;
+    if (top < 0 || bottom > screenHeight) {
+      element.scrollIntoView({ block: bottom - top > screenHeight ? 'start' : 'center' });
+    }
   }
 
   protected toggleSelected(id: string, selected: boolean): void {
