@@ -132,6 +132,7 @@ These are engineering choices. They need no answer, but you can object.
 
 - Which regional languages come after English, Hindi and Marathi, and in what order (requirements section 17, question 3).
 - The year-2 peak, which decides when the exam runtime is split into its own service (section 17, question 1).
+- The certificate names "Online Exam Platform" as its issuer and has no signature line, because the platform stores no institute name, logo or signatory. If the institutes want their own name and a signatory on it, that needs a setting for each. Not scheduled.
 - Browser runs of the administrator screens, and in Hindi and Marathi. The three-engine runs cover the candidate screens in English only, plus one administrator check, what the question bank says after Save: the warning for a repeated question, the "saved" message and a refusal (README, "Browser Tests"). Not scheduled.
 
 ## Keeping this current

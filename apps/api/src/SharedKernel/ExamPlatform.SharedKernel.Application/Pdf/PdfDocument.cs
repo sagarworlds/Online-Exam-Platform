@@ -5,13 +5,14 @@ namespace ExamPlatform.SharedKernel.Application.Pdf;
 
 /// <summary>
 /// A PDF document of one or more A4 pages, written by hand: the header, the objects, and a cross-reference table computed from the real byte
-/// offsets. Latin text uses the two standard Helvetica faces, which need no file. Devanagari uses one embedded font, Noto Sans Devanagari, which
-/// is written into the file only when the document draws Devanagari text (FR-38).
+/// offsets. Latin text uses the standard Helvetica faces, which need no file, and, when a page asks for them, the standard Times faces. Devanagari
+/// uses one embedded font, Noto Sans Devanagari, which is written into the file only when the document draws Devanagari text (FR-38).
 /// </summary>
 /// <remarks>
 /// Object numbers are fixed by the layout, so the first page of a one-page document has the same numbers the certificate has always used: the
 /// catalogue is 1, the page tree 2, the pages from 3, the two fonts after them, the page contents after those, and the document information
-/// last. The Devanagari font, when a document has any, takes the numbers after the information. Every string is escaped, so a name with
+/// last. The Devanagari font, when a document has any, takes the numbers after the information, and the Times faces, for the ones a document uses,
+/// the numbers after that, so a document that uses neither is written exactly as it always was. Every string is escaped, so a name with
 /// brackets or a backslash cannot break the file. Every character of the file is below 0x100, so Latin-1 writes each one as the single byte the
 /// offsets count; the font file is a binary stream and is carried the same way.
 /// </remarks>
@@ -26,6 +27,7 @@ public sealed class PdfDocument
     private readonly string _title;
     private readonly List<PdfPage> _pages = [];
     private readonly DevanagariGlyphs _glyphs = new();
+    private readonly HashSet<PdfFont> _faces = [];
 
     /// <summary>Starts an empty document. Pages are added with <see cref="AddPage"/>.</summary>
     /// <param name="title">The document's title, shown in the reader's title bar and kept in the file's information.</param>
@@ -42,10 +44,11 @@ public sealed class PdfDocument
     public int PageCount => _pages.Count;
 
     /// <summary>Adds an empty A4 page after the existing ones.</summary>
+    /// <param name="orientation">Which way the page is turned; portrait unless the page asks for landscape.</param>
     /// <returns>The page, to draw on until the document is built.</returns>
-    public PdfPage AddPage()
+    public PdfPage AddPage(PdfPageOrientation orientation = PdfPageOrientation.Portrait)
     {
-        var page = new PdfPage(_glyphs);
+        var page = new PdfPage(_glyphs, _faces, orientation);
         _pages.Add(page);
         return page;
     }
@@ -99,7 +102,13 @@ public sealed class PdfDocument
         // The Devanagari font is named only in a document that draws it, so a Latin-only document is written as it always was.
         var fonts = $"/F1 {regularFont} 0 R /F2 {boldFont} 0 R" + (_glyphs.Any ? $" /F3 {devanagariFont} 0 R" : string.Empty);
 
-        var objects = new List<string>(info + DevanagariFontObjects.Count)
+        // The Times faces come last, after the Devanagari font, and only the ones a page drew with are named, so adding them moved nothing.
+        var firstTimes = devanagariFont + (_glyphs.Any ? DevanagariFontObjects.Count : 0);
+        var timesFaces = TimesFaces.Where(face => _faces.Contains(face.Font)).ToList();
+        for (var i = 0; i < timesFaces.Count; i++)
+            fonts += $" /{timesFaces[i].Resource} {firstTimes + i} 0 R";
+
+        var objects = new List<string>(info + DevanagariFontObjects.Count + TimesFaces.Length)
         {
             "<< /Type /Catalog /Pages 2 0 R >>",
             $"<< /Type /Pages /Kids [{string.Join(' ', Enumerable.Range(0, n).Select(i => $"{3 + i} 0 R"))}] /Count {n} >>",
@@ -108,7 +117,7 @@ public sealed class PdfDocument
         for (var i = 0; i < n; i++)
         {
             objects.Add(
-                $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {PageWidth} {PageHeight}] " +
+                $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {_pages[i].Width} {_pages[i].Height}] " +
                 $"/Resources << /Font << {fonts} >> >> /Contents {firstContent + i} 0 R >>");
         }
 
@@ -126,8 +135,19 @@ public sealed class PdfDocument
         if (_glyphs.Any)
             objects.AddRange(DevanagariFontObjects.For(_glyphs, devanagariFont));
 
+        foreach (var face in timesFaces)
+            objects.Add($"<< /Type /Font /Subtype /Type1 /BaseFont /{face.BaseFont} /Encoding /WinAnsiEncoding >>");
+
         return objects;
     }
+
+    /// <summary>The Times faces in the order their objects are written, with the name a page's resources know each by and its PDF base font.</summary>
+    private static readonly (PdfFont Font, string Resource, string BaseFont)[] TimesFaces =
+    [
+        (PdfFont.TimesRoman, "F4", "Times-Roman"),
+        (PdfFont.TimesBold, "F5", "Times-Bold"),
+        (PdfFont.TimesItalic, "F6", "Times-Italic"),
+    ];
 
     /// <summary>
     /// The title as a PDF string. A title in Latin-1 is a literal string, as it always was. Any other title (one with Devanagari, say) is UTF-16 in
@@ -145,9 +165,22 @@ public sealed class PdfPage
 {
     private readonly StringBuilder _content = new();
     private readonly DevanagariGlyphs _glyphs;
+    private readonly HashSet<PdfFont> _faces;
 
-    /// <summary>Starts a page that records its Devanagari glyphs in the document's registry.</summary>
-    internal PdfPage(DevanagariGlyphs glyphs) => _glyphs = glyphs;
+    /// <summary>Starts a page that records its Devanagari glyphs, and the faces it draws with, in the document's registries.</summary>
+    internal PdfPage(DevanagariGlyphs glyphs, HashSet<PdfFont> faces, PdfPageOrientation orientation)
+    {
+        _glyphs = glyphs;
+        _faces = faces;
+        Width = orientation == PdfPageOrientation.Landscape ? PdfDocument.PageHeight : PdfDocument.PageWidth;
+        Height = orientation == PdfPageOrientation.Landscape ? PdfDocument.PageWidth : PdfDocument.PageHeight;
+    }
+
+    /// <summary>The page's width, in points.</summary>
+    public int Width { get; }
+
+    /// <summary>The page's height, in points.</summary>
+    public int Height { get; }
 
     /// <summary>The page's content stream, as the PDF operators that draw it.</summary>
     internal string Content => _content.ToString();
@@ -167,7 +200,7 @@ public sealed class PdfPage
         if (!PdfText.CanShow(text))
             throw new ArgumentException("The text uses a character the fonts cannot show.", nameof(text));
 
-        var face = font == PdfFont.Bold ? "F2" : "F1";
+        var face = ResourceOf(font);
         var segments = PdfText.Segments(text);
         if (segments.Count == 0)
         {
@@ -188,6 +221,111 @@ public sealed class PdfPage
 
             _content.Append($"BT /{face} {Num(size)} Tf {Num(pen)} {Num(y)} Td ({PdfText.Escape(segment.Text)}) Tj ET\n");
             pen += PdfText.Width(segment.Text, font, size);
+        }
+    }
+
+    /// <summary>
+    /// Draws one line of Latin text in a colour, with optional letter spacing. The colour and the spacing are set inside a saved graphics
+    /// state, so neither reaches what is drawn after. Letter spacing does not apply to Devanagari, which is drawn glyph by glyph.
+    /// </summary>
+    /// <param name="text">The text, printable (see <see cref="PdfText.CanShow"/>); it is printed as written.</param>
+    /// <param name="font">The face to set the Latin text in.</param>
+    /// <param name="size">The font size in points.</param>
+    /// <param name="x">The left edge of the text, in points from the page's left edge.</param>
+    /// <param name="y">The baseline, in points from the page's bottom edge.</param>
+    /// <param name="color">The colour of the text.</param>
+    /// <param name="characterSpacing">The extra space after each character, in points; zero for none.</param>
+    /// <exception cref="ArgumentException">The text has a character the fonts cannot print.</exception>
+    public void Text(string text, PdfFont font, double size, double x, double y, PdfColor color, double characterSpacing = 0)
+    {
+        _content.Append($"q {Color(color)} rg {Num(characterSpacing)} Tc\n");
+
+        // Letters set far apart read as separate words to a reader that copies or searches the page, so a spaced line says what it spells.
+        var spaced = characterSpacing != 0;
+        if (spaced)
+            _content.Append($"/Span << /ActualText <FEFF{PdfText.Utf16Hex(text)}> >> BDC\n");
+
+        Text(text, font, size, x, y);
+        if (spaced)
+            _content.Append("EMC\n");
+
+        _content.Append("Q\n");
+    }
+
+    /// <summary>Draws one line of Latin text centred on a vertical line, in a colour, with optional letter spacing.</summary>
+    /// <param name="text">The text, printable (see <see cref="PdfText.CanShow"/>); it is printed as written.</param>
+    /// <param name="font">The face to set the Latin text in.</param>
+    /// <param name="size">The font size in points.</param>
+    /// <param name="centerX">The x of the line the text is centred on, in points from the page's left edge.</param>
+    /// <param name="y">The baseline, in points from the page's bottom edge.</param>
+    /// <param name="color">The colour of the text.</param>
+    /// <param name="characterSpacing">The extra space after each character, in points; zero for none.</param>
+    /// <exception cref="ArgumentException">The text has a character the fonts cannot print.</exception>
+    public void TextCentered(string text, PdfFont font, double size, double centerX, double y, PdfColor color, double characterSpacing = 0)
+    {
+        var width = PdfText.Width(text, font, size, characterSpacing);
+        Text(text, font, size, centerX - width / 2, y, color, characterSpacing);
+    }
+
+    /// <summary>Fills a circle with a solid colour.</summary>
+    /// <param name="centerX">The centre's x, in points.</param>
+    /// <param name="centerY">The centre's y, in points.</param>
+    /// <param name="radius">The radius, in points; must be positive.</param>
+    /// <param name="color">The fill's colour.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="radius"/> is not positive.</exception>
+    public void FillCircle(double centerX, double centerY, double radius, PdfColor color)
+    {
+        _content.Append($"q {Color(color)} rg {CirclePath(centerX, centerY, radius)} f Q\n");
+    }
+
+    /// <summary>Draws the outline of a circle.</summary>
+    /// <param name="centerX">The centre's x, in points.</param>
+    /// <param name="centerY">The centre's y, in points.</param>
+    /// <param name="radius">The radius, in points; must be positive.</param>
+    /// <param name="lineWidth">The stroke's width, in points.</param>
+    /// <param name="color">The stroke's colour.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="radius"/> is not positive.</exception>
+    public void StrokeCircle(double centerX, double centerY, double radius, double lineWidth, PdfColor color)
+    {
+        _content.Append($"q {Color(color)} RG {Num(lineWidth)} w {CirclePath(centerX, centerY, radius)} S Q\n");
+    }
+
+    /// <summary>
+    /// A circle as four Bezier curves. The control points sit 0.5523 of a radius along each tangent, which keeps the curve within a fraction
+    /// of a percent of a true circle.
+    /// </summary>
+    private static string CirclePath(double cx, double cy, double r)
+    {
+        if (r <= 0)
+            throw new ArgumentOutOfRangeException(nameof(r), "A circle needs a positive radius.");
+
+        const double Kappa = 0.5522847498;
+        var k = Kappa * r;
+        return $"{Num(cx + r)} {Num(cy)} m " +
+               $"{Num(cx + r)} {Num(cy + k)} {Num(cx + k)} {Num(cy + r)} {Num(cx)} {Num(cy + r)} c " +
+               $"{Num(cx - k)} {Num(cy + r)} {Num(cx - r)} {Num(cy + k)} {Num(cx - r)} {Num(cy)} c " +
+               $"{Num(cx - r)} {Num(cy - k)} {Num(cx - k)} {Num(cy - r)} {Num(cx)} {Num(cy - r)} c " +
+               $"{Num(cx + k)} {Num(cy - r)} {Num(cx + r)} {Num(cy - k)} {Num(cx + r)} {Num(cy)} c h";
+    }
+
+    /// <summary>The name a page's resources know a face by, noting that the document uses it if it is one of the Times faces.</summary>
+    private string ResourceOf(PdfFont font)
+    {
+        switch (font)
+        {
+            case PdfFont.Bold:
+                return "F2";
+            case PdfFont.TimesRoman:
+                _faces.Add(font);
+                return "F4";
+            case PdfFont.TimesBold:
+                _faces.Add(font);
+                return "F5";
+            case PdfFont.TimesItalic:
+                _faces.Add(font);
+                return "F6";
+            default:
+                return "F1";
         }
     }
 

@@ -114,7 +114,23 @@ public static class PdfText
         return units * size / 1000.0;
     }
 
-    /// <summary>The width of Latin text in thousandths of an em, from the Helvetica metrics.</summary>
+    /// <summary>
+    /// The width of a line of text, in points, when extra space follows each Latin character (letter spacing). The space falls after every
+    /// character, so the line's visible width has one gap fewer than it has characters. Devanagari is drawn glyph by glyph and takes no letter
+    /// spacing.
+    /// </summary>
+    /// <param name="text">Printable text (see <see cref="CanShow"/>).</param>
+    /// <param name="font">The face the Latin text is set in.</param>
+    /// <param name="size">The font size in points.</param>
+    /// <param name="characterSpacing">The extra space after each Latin character, in points.</param>
+    /// <returns>The width in points.</returns>
+    public static double Width(string text, PdfFont font, double size, double characterSpacing)
+    {
+        var spaced = Segments(text).Where(segment => !segment.Devanagari).Sum(segment => segment.Text.Length);
+        return Width(text, font, size) + characterSpacing * Math.Max(spaced - 1, 0);
+    }
+
+    /// <summary>The width of Latin text in thousandths of an em, from the Helvetica or Times metrics.</summary>
     private static int LatinUnits(string text, PdfFont font)
     {
         var units = 0;
