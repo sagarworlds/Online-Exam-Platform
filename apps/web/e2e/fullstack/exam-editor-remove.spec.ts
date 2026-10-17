@@ -5,6 +5,10 @@ import { RealApi, type DraftExam, type QuestionSpec } from './real-api';
 // Taking a question or a section out of a draft exam: a trash icon, then a question the author answers, and only then does the real API
 // remove anything. The API decides what is left afterwards, so the page and the API are tested together; nothing is stubbed.
 
+// A target is meant to be 44 px (2.75rem). Browsers lay it out in fractions of a pixel, and Firefox measures it as 43.99997, so the check
+// allows half a pixel, as the other browser specs do.
+const MIN_TARGET_PX = 43.5;
+
 let api: RealApi;
 
 test.beforeAll(async ({ playwright }) => {
@@ -87,15 +91,15 @@ test.describe('removing from a draft exam', () => {
 
     const icon = trashFor(page, first.text);
     const box = await icon.boundingBox();
-    expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
-    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(box?.width ?? 0).toBeGreaterThanOrEqual(MIN_TARGET_PX);
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(MIN_TARGET_PX);
 
     await icon.click();
     const asked = page.getByRole('alertdialog');
     await expect(asked).toBeInViewport({ ratio: 1 });
     for (const name of ['Remove', 'Cancel']) {
       const target = await asked.getByRole('button', { name, exact: true }).boundingBox();
-      expect(target?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect(target?.height ?? 0).toBeGreaterThanOrEqual(MIN_TARGET_PX);
     }
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
