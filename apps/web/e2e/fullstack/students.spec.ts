@@ -153,7 +153,10 @@ test.describe('the Students page', () => {
     await openStudents(page, student.email);
     await toggle(page, student.email).click();
 
-    const profile = row(page, student.email);
+    // The search names this one student, so their row is the only row. It is not found by their address: once saved, the row's heading
+    // shows the new one, and a locator that filters on the old address would lose the row as soon as the page has read the list again.
+    const profile = page.locator('section.student-row');
+    await expect(profile).toHaveCount(1);
     await profile.getByLabel('E-mail address').fill(moved);
     await profile.getByRole('button', { name: 'Save changes' }).click();
     await expect(profile.getByText('Their invitations move to it.')).toBeVisible();
