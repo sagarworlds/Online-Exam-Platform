@@ -4,5 +4,6 @@
     <ProjectReference Include="..\..\..\SharedKernel\ExamPlatform.SharedKernel.Application\ExamPlatform.SharedKernel.Application.csproj" />
     <ProjectReference Include="..\ExamPlatform.Modules.Identity.Contracts\ExamPlatform.Modules.Identity.Contracts.csproj" />
     <ProjectReference Include="..\..\Admin\ExamPlatform.Modules.Admin.Contracts\ExamPlatform.Modules.Admin.Contracts.csproj" />
+    <ProjectReference Include="..\..\Invite\ExamPlatform.Modules.Invite.Contracts\ExamPlatform.Modules.Invite.Contracts.csproj" />
   </ItemGroup>
 </Project>

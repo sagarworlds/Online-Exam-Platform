@@ -45,4 +45,12 @@ describe('InviteApiService', () => {
     const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/invites/invite-123/revoke`);
     expect(req.request.method).toBe('POST');
   });
+
+  it('moves the invitations of one address to another', () => {
+    service.changeEmail('old@example.com', 'new@example.com').subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/invites/change-email`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ currentEmail: 'old@example.com', newEmail: 'new@example.com' });
+  });
 });

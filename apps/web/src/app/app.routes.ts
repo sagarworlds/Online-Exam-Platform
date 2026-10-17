@@ -1,8 +1,8 @@
 import { Routes } from '@angular/router';
-import { Permission } from './auth/admin-sections';
+import { Permission, SETTINGS_SECTION } from './auth/admin-sections';
 import { authGuard } from './auth/auth.guard';
 import { landingGuard } from './auth/landing-route';
-import { permissionGuard } from './auth/permission.guard';
+import { anyPermissionGuard, permissionGuard } from './auth/permission.guard';
 import { CandidateApiService } from './candidate/candidate-api.service';
 import { PreviewCandidateApiService } from './candidate/exam-attempt/preview-candidate-api.service';
 
@@ -126,6 +126,12 @@ export const routes: Routes = [
     loadComponent: () => import('./exam-authoring/exam-editor/exam-editor').then((m) => m.ExamEditor),
   },
   {
+    // Lists the admin pages needed only now and then (they keep their own addresses below). Open to whoever may open any one of them.
+    path: 'admin/settings',
+    canActivate: [anyPermissionGuard(SETTINGS_SECTION.permissions)],
+    loadComponent: () => import('./admin/settings/settings').then((m) => m.Settings),
+  },
+  {
     path: 'admin/otp-codes',
     canActivate: [permissionGuard(Permission.OtpRead)],
     loadComponent: () => import('./admin/otp-codes/otp-codes').then((m) => m.OtpCodes),
@@ -184,9 +190,16 @@ export const routes: Routes = [
     loadComponent: () => import('./batch-management/batch-roster/batch-roster').then((m) => m.BatchRoster),
   },
   {
+    path: 'students',
+    canActivate: [permissionGuard(Permission.StudentRead)],
+    loadComponent: () => import('./student-management/student-list/student-list').then((m) => m.StudentList),
+  },
+  {
+    // The invitations page became the students page, which holds every invitation under the student it was sent to. Links and bookmarks
+    // to the old address land there.
     path: 'invites',
-    canActivate: [permissionGuard(Permission.InviteManage)],
-    loadComponent: () => import('./invite-management/invite-list/invite-list').then((m) => m.InviteList),
+    pathMatch: 'full',
+    redirectTo: 'students',
   },
   {
     path: 'invites/create',

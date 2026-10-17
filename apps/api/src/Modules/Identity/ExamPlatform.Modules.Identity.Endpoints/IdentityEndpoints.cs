@@ -19,6 +19,7 @@ public static class IdentityEndpoints
     public static void MapIdentityEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapDataRequestEndpoints();
+        endpoints.MapStudentEndpoints();
 
         var auth = endpoints.MapGroup("/v1/auth").WithTags("Identity");
 

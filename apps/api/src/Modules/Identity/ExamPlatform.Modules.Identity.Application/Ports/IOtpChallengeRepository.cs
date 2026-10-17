@@ -25,6 +25,16 @@ public interface IOtpChallengeRepository
         string destination, OtpPurpose purpose, DateTime nowUtc, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Loads, for update, every challenge issued to a user, whatever its purpose and wherever the code was sent, that could still be
+    /// verified: not consumed, not superseded, and not yet expired at <paramref name="nowUtc"/>. A challenge keeps the user it was issued
+    /// to, so a code sent to an address the user has since given up still signs them in unless it is ended with the rest.
+    /// </summary>
+    /// <param name="userId">The user the challenges were issued to.</param>
+    /// <param name="nowUtc">The current instant; a challenge expiring exactly at it still counts, as in <see cref="GetOutstandingAsync"/>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<OtpChallenge>> GetOutstandingForUserAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Lists the challenges whose code staff may still read: one is kept, not yet consumed,
     /// superseded, expired or locked out. Newest first.
     /// </summary>

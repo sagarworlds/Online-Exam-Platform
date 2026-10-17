@@ -1,0 +1,4 @@
+/* The explanation sits above the field with room between them, so the label reads as the start of the form and not as part of the text. */
+.invited-address__hint {
+  margin: 0 0 0.75rem;
+}

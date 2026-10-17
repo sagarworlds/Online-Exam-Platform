@@ -63,6 +63,9 @@ public sealed class InviteModuleInstaller : IModuleInstaller
         services.AddScoped<AcceptInviteHandler>();
         services.AddScoped<DeclineInviteHandler>();
         services.AddScoped<RevokeInviteHandler>();
+        // The one place invitations are moved to a new address: staff reach it through the handler, Identity through the contract.
+        services.AddScoped<IInviteAddressChanger, InviteAddressChanger>();
+        services.AddScoped<ChangeInviteEmailHandler>();
         services.AddDomainEventHandlers(typeof(InviteAuditTrail).Assembly);
     }
 

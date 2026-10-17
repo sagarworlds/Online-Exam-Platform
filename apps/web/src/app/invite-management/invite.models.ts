@@ -48,3 +48,14 @@ export interface GenerateInviteCodeRequest {
 export interface AcceptInviteRequest {
   code: string;
 }
+
+/** The body of POST /v1/invites/change-email: moves every invitation sent to one address to another. */
+export interface ChangeInviteEmailRequest {
+  currentEmail: string;
+  newEmail: string;
+}
+
+/** How many invitations moved. */
+export interface ChangeInviteEmailResult {
+  changed: number;
+}

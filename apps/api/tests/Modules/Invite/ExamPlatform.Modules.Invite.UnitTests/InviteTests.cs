@@ -257,6 +257,72 @@ public class InviteTests
         Assert.False(unused.IsValid(Now.AddMinutes(2)));
     }
 
+    // ---- changing the address ---------------------------------------------------------------
+
+    [Fact]
+    public void ChangeEmail_ChangesTheAddress_StampsTheUpdate_AndRaisesTheEvent()
+    {
+        var invite = NewInvite();
+
+        invite.ChangeEmail("  new@example.com ", Now.AddHours(1));
+
+        Assert.Equal("new@example.com", invite.Email);
+        Assert.Equal(Now.AddHours(1), invite.UpdatedAt);
+        var raised = Assert.Single(invite.DomainEvents.OfType<InviteEmailChangedEvent>());
+        Assert.Equal(invite.Id, raised.InviteId);
+        Assert.Equal(invite.ExamId, raised.ExamId);
+        Assert.Equal("new@example.com", raised.Email);
+    }
+
+    [Fact]
+    public void ChangeEmail_KeepsTheStatusAndTheCodes()
+    {
+        var invite = NewInvite();
+        var code = invite.GenerateCode(24, Now);
+
+        invite.ChangeEmail("new@example.com", Now);
+
+        Assert.Equal(InviteStatus.Pending, invite.Status);
+        Assert.Same(code, Assert.Single(invite.Codes));
+    }
+
+    [Fact]
+    public void ChangeEmail_WorksOnAnInviteThatIsNoLongerPending()
+    {
+        var invite = NewInvite();
+        invite.Revoke(Now);
+
+        invite.ChangeEmail("new@example.com", Now);
+
+        Assert.Equal("new@example.com", invite.Email);
+        Assert.Equal(InviteStatus.Revoked, invite.Status);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ChangeEmail_ToABlankAddress_Throws(string blank)
+    {
+        var invite = NewInvite();
+
+        Assert.Throws<InvalidInviteEmailError>(() => invite.ChangeEmail(blank, Now));
+
+        Assert.Equal(Email, invite.Email);
+    }
+
+    [Fact]
+    public void AfterTheAddressChanges_OnlyTheAccountHoldingTheNewAddressCanAccept()
+    {
+        var invite = NewInvite();
+        var code = invite.GenerateCode(72, Now).Code;
+        invite.ChangeEmail("new@example.com", Now);
+
+        Assert.Throws<InviteEmailMismatchError>(() => invite.Accept(code, UserId, Email, Now));
+
+        invite.Accept(code, UserId, "New@Example.com", Now);
+        Assert.Equal(InviteStatus.Accepted, invite.Status);
+    }
+
     [Fact]
     public void Revoke_Twice_ThrowsStateError()
     {

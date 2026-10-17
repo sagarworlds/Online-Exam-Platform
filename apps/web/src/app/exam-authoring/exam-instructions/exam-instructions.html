@@ -48,6 +48,12 @@
           </button>
         </div>
       }
+
+      @if (canManageTemplates()) {
+        <div class="link-row">
+          <a routerLink="/admin/instruction-templates">{{ 'exams.instructions.manageTemplates' | t }}</a>
+        </div>
+      }
     </div>
   } @else {
     @if (instructions(); as text) {

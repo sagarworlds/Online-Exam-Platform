@@ -172,16 +172,82 @@ describe('App', () => {
     });
 
     it('shows an administrator a sidebar with the admin areas their permissions open', () => {
-      signIn(['question.manage', 'question.read', 'exam.read', 'invite.manage']);
+      signIn(['question.manage', 'question.read', 'exam.read', 'student.read']);
 
       const compiled = render();
 
       const sidebarLinks = Array.from(compiled.querySelectorAll('.admin-sidebar a')).map((a) => a.getAttribute('aria-label'));
-      expect(sidebarLinks).toEqual(expect.arrayContaining(['Questions', 'Exams', 'Invites']));
+      expect(sidebarLinks).toEqual(expect.arrayContaining(['Questions', 'Exams', 'Students']));
       expect(sidebarLinks).not.toContain('Batches');
       expect(sidebarLinks).not.toContain('Guardians');
       // The top nav keeps only the links every signed-in user gets, admin or not.
       expect(topNavLinks()).not.toContain('Questions');
+    });
+
+    describe('the admin sidebar', () => {
+      const sidebarLinks = (compiled: HTMLElement) => Array.from(compiled.querySelectorAll('.admin-sidebar a')).map((a) => a.getAttribute('aria-label'));
+      const sidebarHeadings = (compiled: HTMLElement) =>
+        Array.from(compiled.querySelectorAll('.admin-sidebar .admin-sidebar__heading')).map((heading) => heading.textContent?.trim());
+
+      it('groups the areas under headings, in order, and names only the groups the user may open something in', () => {
+        signIn(['question.manage', 'question.read', 'exam.read', 'student.read']);
+
+        const compiled = render();
+
+        expect(sidebarHeadings(compiled)).toEqual(['Content', 'Exams', 'People']);
+        expect(sidebarLinks(compiled)).toEqual(['Questions', 'Books', 'Exams', 'Students']);
+      });
+
+      it('offers the reviews to whoever manages exams, with Settings last and under no heading', () => {
+        signIn(['exam.read', 'exam.manage']);
+
+        const compiled = render();
+
+        expect(sidebarHeadings(compiled)).toEqual(['Exams', 'Reviews']);
+        expect(sidebarLinks(compiled)).toEqual(['Exams', 'Attempt requests', 'Disputes', 'Reported issues', 'Settings']);
+      });
+
+      it.each(['exam.manage', 'admin.whatsapp.test', 'identity.otp.read'])(
+        'offers a user whose only permission is %s the Settings entry, and no empty group or heading',
+        (permission) => {
+          signIn([permission]);
+
+          const compiled = render();
+
+          expect(sidebarLinks(compiled)).toContain('Settings');
+          expect(compiled.querySelector('.admin-sidebar a[href="/admin/settings"]')).not.toBeNull();
+          for (const group of Array.from(compiled.querySelectorAll('.admin-sidebar__group'))) {
+            expect(group.querySelector('a')).not.toBeNull();
+          }
+        },
+      );
+
+      it('offers a user who may open only a Settings page nothing but Settings, under no heading at all', () => {
+        signIn(['identity.otp.read']);
+
+        const compiled = render();
+
+        expect(sidebarLinks(compiled)).toEqual(['Settings']);
+        expect(sidebarHeadings(compiled)).toEqual([]);
+        expect(compiled.querySelector('.admin-sidebar [role="group"]')).toBeNull();
+      });
+
+      it('keeps the pages gathered under Settings out of the sidebar, even for a user who may open all of them', () => {
+        signIn(['exam.manage', 'admin.whatsapp.test', 'identity.otp.read']);
+
+        const links = sidebarLinks(render());
+
+        for (const name of ['Branding', 'Instruction templates', 'WhatsApp test', 'Candidate codes']) {
+          expect(links).not.toContain(name);
+        }
+        expect(links).toContain('Settings');
+      });
+
+      it('keeps Settings from a user who may open none of its pages', () => {
+        signIn(['question.manage', 'question.read', 'exam.read', 'invite.manage', 'batch.manage']);
+
+        expect(sidebarLinks(render())).not.toContain('Settings');
+      });
     });
   });
 

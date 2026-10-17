@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
   AcceptInviteRequest,
+  ChangeInviteEmailRequest,
+  ChangeInviteEmailResult,
   CreateInviteRequest,
   GenerateInviteCodeRequest,
   InviteCodeDto,
@@ -43,5 +45,11 @@ export class InviteApiService {
 
   revokeInvite(inviteId: string): Observable<void> {
     return this.http.post<void>(`${this.apiUrl}/${inviteId}/revoke`, {});
+  }
+
+  /** Moves every invitation sent to `currentEmail` (in any status) to `newEmail`; only the account holding the new address can accept one. */
+  changeEmail(currentEmail: string, newEmail: string): Observable<ChangeInviteEmailResult> {
+    const request: ChangeInviteEmailRequest = { currentEmail, newEmail };
+    return this.http.post<ChangeInviteEmailResult>(`${this.apiUrl}/change-email`, request);
   }
 }

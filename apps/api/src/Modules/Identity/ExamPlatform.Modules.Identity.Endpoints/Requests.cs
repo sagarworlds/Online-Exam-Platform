@@ -32,3 +32,14 @@ public sealed record UpdateProfileRequest(string DisplayName);
 
 /// <summary>Request body for <c>POST /v1/admin/users/{userId}/roles</c>.</summary>
 public sealed record AssignRoleRequest(Guid RoleId);
+
+/// <summary>Request body for <c>PUT /v1/admin/students/{studentId}</c>: the profile as it should be, every field sent.</summary>
+/// <param name="DisplayName">The name to show; it cannot be blank.</param>
+/// <param name="Email">The e-mail address to sign in with, or blank for none.</param>
+/// <param name="PhoneNumber">The mobile number to sign in with, or blank for none.</param>
+/// <param name="DateOfBirth">The date of birth, as <c>yyyy-MM-dd</c>.</param>
+public sealed record UpdateStudentRequest(string? DisplayName, string? Email, string? PhoneNumber, DateOnly? DateOfBirth);
+
+/// <summary>Request body for <c>POST /v1/admin/students/lookup</c>.</summary>
+/// <param name="Emails">The e-mail addresses to look for, at most 200.</param>
+public sealed record FindStudentsRequest(IReadOnlyCollection<string?>? Emails);

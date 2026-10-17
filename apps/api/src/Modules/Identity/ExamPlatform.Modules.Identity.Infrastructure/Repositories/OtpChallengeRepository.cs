@@ -23,6 +23,15 @@ public sealed class OtpChallengeRepository(IdentityDbContext context) : IOtpChal
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<OtpChallenge>> GetOutstandingForUserAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken) =>
+        await context.OtpChallenges
+            .Where(c => c.UserId == userId
+                && c.ConsumedAtUtc == null
+                && c.SupersededAtUtc == null
+                && c.ExpiresAtUtc >= nowUtc)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<OtpChallenge>> ListRevealableAsync(
         string? destinationContains, DateTime nowUtc, int take, CancellationToken cancellationToken)
     {

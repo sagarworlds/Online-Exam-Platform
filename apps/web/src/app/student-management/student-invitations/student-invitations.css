@@ -1,0 +1,21 @@
+.invite-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.invite-row {
+  padding: 1rem 0;
+}
+
+.invite-row + .invite-row {
+  border-top: 1px solid var(--border);
+}
+
+.invite-row:first-child {
+  padding-top: 0;
+}
+
+.invite-row > :last-child {
+  margin-bottom: 0;
+}

@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { AuthSessionService } from '../../auth/auth-session.service';
 import { InstructionTemplateDto } from '../../instruction-templates/instruction-template.models';
 import { ExamInstructions } from './exam-instructions';
 
@@ -83,5 +85,46 @@ describe('ExamInstructions', () => {
 
     expect(root.textContent).toContain('There are no templates yet.');
     expect(root.querySelector('#exam-instructions-template')).toBeNull();
+  });
+
+  it('says where to make a template: under Settings, since the page is no longer on the menu’s top level', () => {
+    create({ instructions: null, templates: [] });
+
+    expect(root.textContent).toContain('Create one under Settings, then Instruction templates, in the admin menu.');
+  });
+
+  describe('the link to the instruction templates page', () => {
+    function createFor(permissions: string[], inputs: Parameters<typeof create>[0] = { instructions: null, templates: [] }): void {
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([]),
+          { provide: AuthSessionService, useValue: { hasPermission: (code: string) => permissions.includes(code) } },
+        ],
+      });
+      create(inputs);
+    }
+
+    const link = () => root.querySelector<HTMLAnchorElement>('a[href="/admin/instruction-templates"]');
+
+    it.each([
+      ['no template yet', []],
+      ['a template to pick', [template]],
+    ])('is offered to a user who may manage exams, with %s', (_what, templates) => {
+      createFor(['exam.manage'], { instructions: null, templates });
+
+      expect(link()?.textContent?.trim()).toBe('Manage instruction templates');
+    });
+
+    it('is kept from a user who may not manage exams, since the page would turn them away', () => {
+      createFor(['exam.read']);
+
+      expect(link()).toBeNull();
+    });
+
+    it('is not there once the exam is published, when no template can be used any more', () => {
+      createFor(['exam.manage'], { instructions: 'Sit quietly.', editable: false });
+
+      expect(link()).toBeNull();
+    });
   });
 });

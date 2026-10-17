@@ -124,6 +124,106 @@ public sealed class InviteFlowTests(ApiFactory factory) : IClassFixture<ApiFacto
         Assert.Equal("Chemistry Midterm", listed.GetProperty("examName").GetString());
     }
 
+    // ---- changing the address on a student's invitations --------------------------------------
+
+    [Fact]
+    public async Task ChangeEmail_MovesEveryInvitationOfTheAddress_AndLeavesOtherStudentsAlone()
+    {
+        var (admin, examId) = await AdminWithPublishedExamAsync("Maths Final");
+        var (_, otherExamId) = await AdminWithPublishedExamAsync("Physics Quiz");
+        var oldEmail = UniqueEmail();
+        var newEmail = UniqueEmail();
+        var bystander = UniqueEmail();
+        await InviteAsync(admin, examId, oldEmail);
+        // The same address written in capitals is the same address.
+        await InviteAsync(admin, otherExamId, oldEmail.ToUpperInvariant());
+        await InviteAsync(admin, examId, bystander);
+
+        var response = await admin.PostAsJsonAsync("/v1/invites/change-email", new { currentEmail = oldEmail, newEmail });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(2, (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("changed").GetInt32());
+        var addresses = (await admin.GetFromJsonAsync<JsonElement>("/v1/invites"))
+            .EnumerateArray().Select(i => i.GetProperty("email").GetString()!).ToList();
+        Assert.Equal(2, addresses.Count(address => address == newEmail));
+        Assert.DoesNotContain(addresses, address => string.Equals(address, oldEmail, StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(bystander, addresses);
+    }
+
+    [Fact]
+    public async Task ChangeEmail_AfterwardsOnlyTheHolderOfTheNewAddressCanAcceptTheInvitation()
+    {
+        var (admin, examId) = await AdminWithPublishedExamAsync();
+        var oldEmail = UniqueEmail();
+        var newEmail = UniqueEmail();
+        var code = CodeFromLink((await InviteAsync(admin, examId, oldEmail)).GetProperty("inviteLink").GetString()!);
+        (await admin.PostAsJsonAsync("/v1/invites/change-email", new { currentEmail = oldEmail, newEmail })).EnsureSuccessStatusCode();
+        var (formerHolder, _) = await factory.CandidateClientAsync(oldEmail);
+        var (newHolder, _) = await factory.CandidateClientAsync(newEmail);
+
+        await AssertProblemAsync(
+            await formerHolder.PostAsJsonAsync("/v1/invites/accept", new { code }), HttpStatusCode.Forbidden, "invite_email_mismatch");
+
+        // The code the invitation already carries still works, for the address that now holds it.
+        Assert.Equal(HttpStatusCode.OK, (await newHolder.PostAsJsonAsync("/v1/invites/accept", new { code })).StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangeEmail_ToTheSameAddress_Returns400()
+    {
+        var (admin, examId) = await AdminWithPublishedExamAsync();
+        var email = UniqueEmail();
+        await InviteAsync(admin, examId, email);
+
+        var response = await admin.PostAsJsonAsync("/v1/invites/change-email", new { currentEmail = email, newEmail = email.ToUpperInvariant() });
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invite_email_unchanged");
+    }
+
+    [Fact]
+    public async Task ChangeEmail_ForAnAddressNobodyInvited_Returns404()
+    {
+        using var admin = await factory.AdminClientAsync();
+
+        var response = await admin.PostAsJsonAsync("/v1/invites/change-email", new { currentEmail = UniqueEmail(), newEmail = UniqueEmail() });
+
+        await AssertProblemAsync(response, HttpStatusCode.NotFound, "no_invites_for_email");
+    }
+
+    [Theory]
+    [InlineData("not-an-email")]
+    [InlineData("")]
+    public async Task ChangeEmail_ToAnInvalidAddress_Returns400(string newEmail)
+    {
+        var (admin, examId) = await AdminWithPublishedExamAsync();
+        var email = UniqueEmail();
+        await InviteAsync(admin, examId, email);
+
+        var response = await admin.PostAsJsonAsync("/v1/invites/change-email", new { currentEmail = email, newEmail });
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_invite_email");
+    }
+
+    [Fact]
+    public async Task ChangeEmail_ByACandidate_Returns403()
+    {
+        var (candidate, _) = await factory.CandidateClientAsync(UniqueEmail());
+
+        var response = await candidate.PostAsJsonAsync("/v1/invites/change-email", new { currentEmail = UniqueEmail(), newEmail = UniqueEmail() });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangeEmail_WithoutAuth_Returns401()
+    {
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/v1/invites/change-email", new { currentEmail = "a@example.com", newEmail = "b@example.com" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     // ---- accepting --------------------------------------------------------------------------------
 
     [Fact]

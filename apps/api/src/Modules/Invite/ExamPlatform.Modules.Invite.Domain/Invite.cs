@@ -179,6 +179,26 @@ public class Invite : AggregateRoot
         AddDomainEvent(new InviteRevokedEvent(Id, ExamId, Email));
     }
 
+    /// <summary>
+    /// Changes the address the invite is for, to correct a mistake or to follow a person who moved to another address. It works in
+    /// every status: for a pending invite, only the account holding the new address can accept it from now on (<see cref="Accept"/>
+    /// compares against this address); for any other it changes the address staff see. Nobody is enrolled or un-enrolled by it,
+    /// since an accepted invite is tied to the account that accepted it. The invite's codes are untouched.
+    /// </summary>
+    /// <param name="newEmail">The new address, already checked to be a valid e-mail address.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="InvalidInviteEmailError">The address is blank.</exception>
+    public void ChangeEmail(string newEmail, DateTime nowUtc)
+    {
+        if (string.IsNullOrWhiteSpace(newEmail))
+            throw new InvalidInviteEmailError();
+
+        Email = newEmail.Trim();
+        UpdatedAt = nowUtc;
+
+        AddDomainEvent(new InviteEmailChangedEvent(Id, ExamId, Email));
+    }
+
     public void SoftDelete(DateTime nowUtc)
     {
         IsDeleted = true;

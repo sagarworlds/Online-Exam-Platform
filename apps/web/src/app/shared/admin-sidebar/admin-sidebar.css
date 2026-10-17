@@ -36,6 +36,40 @@
   color: var(--text);
 }
 
+/* A group is a run of links under a heading. A thin rule sets each group after the first apart from the one above it, whether or not it
+   has a heading (Settings has none). */
+.admin-sidebar__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.admin-sidebar__group + .admin-sidebar__group {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border);
+}
+
+.admin-sidebar__heading {
+  margin: 0;
+  padding: 0.2rem 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* The collapsed rail has no room for words. The heading is hidden from the eye only, the way .visually-hidden does it, so a screen reader
+   still reads it and the group is still named by it. */
+.admin-sidebar--collapsed .admin-sidebar__heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .admin-sidebar__link {
   display: flex;
   align-items: center;
@@ -82,14 +116,13 @@
   white-space: normal;
 }
 
-/* A phone has no width to spare for a column, so the same links become a grid above the page content, two or more to a row. A label wraps
-   inside its link rather than running off the screen, so nothing scrolls sideways and every link is in view at 320px (WCAG 1.4.10 reflow).
-   The collapse toggle has nothing left to collapse into, so it is hidden. */
+/* A phone has no width to spare for a column, so the same links become a grid above the page content, two or more to a row, group by group.
+   A label wraps inside its link rather than running off the screen, so nothing scrolls sideways and every link is in view at 320px (WCAG
+   1.4.10 reflow). The collapse toggle has nothing left to collapse into, so it is hidden, and the headings and labels show whatever the
+   desktop rail was last left as. */
 @media (max-width: 40rem) {
   .admin-sidebar {
     position: static;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 7.5rem), 1fr));
     width: auto;
     max-height: none;
     overflow: visible;
@@ -103,6 +136,23 @@
 
   .admin-sidebar__toggle {
     display: none;
+  }
+
+  .admin-sidebar__group {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 7.5rem), 1fr));
+  }
+
+  .admin-sidebar__heading,
+  .admin-sidebar--collapsed .admin-sidebar__heading {
+    position: static;
+    grid-column: 1 / -1;
+    width: auto;
+    height: auto;
+    padding: 0.2rem 0.55rem;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
   }
 
   .admin-sidebar--collapsed .admin-sidebar__label {

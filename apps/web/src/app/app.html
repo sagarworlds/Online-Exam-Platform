@@ -39,8 +39,8 @@
 </header>
 
 <div class="shell">
-  @if (adminSections().length > 0) {
-    <app-admin-sidebar [sections]="adminSections()" />
+  @if (adminGroups().length > 0) {
+    <app-admin-sidebar [groups]="adminGroups()" />
   }
   <main class="shell__content" id="main-content" tabindex="-1">
     <router-outlet />

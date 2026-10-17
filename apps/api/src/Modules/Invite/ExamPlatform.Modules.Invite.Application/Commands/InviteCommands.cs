@@ -26,3 +26,8 @@ public sealed record DeclineInviteCommand(Guid InviteId, string? Email);
 /// <summary>Revokes an invite and all of its codes.</summary>
 /// <param name="InviteId">The invite to revoke.</param>
 public sealed record RevokeInviteCommand(Guid InviteId);
+
+/// <summary>Changes the address on every invitation sent to one address, so a student's invitations stay together under their new address.</summary>
+/// <param name="CurrentEmail">The address the invitations were sent to.</param>
+/// <param name="NewEmail">The address they are to have.</param>
+public sealed record ChangeInviteEmailCommand(string? CurrentEmail, string? NewEmail);
