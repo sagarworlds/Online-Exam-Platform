@@ -2,10 +2,12 @@ using System.Security.Claims;
 using ExamPlatform.Modules.ExamRuntime.Application;
 using ExamPlatform.Modules.ExamRuntime.Application.Commands;
 using ExamPlatform.Modules.ExamRuntime.Application.Dtos;
+using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
 using ExamPlatform.SharedKernel.Application.Security;
+using ExamPlatform.SharedKernel.Domain;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -254,6 +256,24 @@ public static class ExamRuntimeEndpoints
             .WithName("RecordFocusViolation")
             .WithDescription("Report that the candidate left the exam page; the server counts it and ends the attempt when the exam's limit is reached");
 
+        me.MapGet("/attempts/{attemptId:guid}/webcam-policy", GetWebcamPolicy)
+            .Produces<WebcamPolicyDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("GetWebcamPolicy")
+            .WithDescription("Whether the exam page takes webcam photos in this attempt, and how often; never for a candidate under 18");
+
+        me.MapPost("/attempts/{attemptId:guid}/webcam-photos", RecordWebcamPhoto)
+            .Accepts<byte[]>(WebcamSnapshotPolicy.ContentType)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .WithName("RecordWebcamPhoto")
+            .WithDescription("Store a webcam photo (a JPEG body) taken by the exam page, when the exam takes them and the candidate is an adult");
+
         me.MapPost("/attempts/{attemptId:guid}/submit", SubmitAttempt)
             .Produces<AttemptDto>()
             .Produces(StatusCodes.Status401Unauthorized)
@@ -276,6 +296,24 @@ public static class ExamRuntimeEndpoints
 
         // What an administrator can do to an attempt in progress or just finished (FR-29). Each route names the exam as well as the
         // attempt, so an attempt of another exam is a 404, and each is audited by the events the attempt raises.
+        exams.MapGet("/{examId:guid}/attempts/{attemptId:guid}/webcam-photos", ListWebcamPhotos)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<IReadOnlyList<WebcamPhotoSummary>>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("ListWebcamPhotos")
+            .WithDescription("List the webcam photos taken in an attempt, oldest first, without the images");
+
+        exams.MapGet("/{examId:guid}/attempts/{attemptId:guid}/webcam-photos/{photoId:guid}", GetWebcamPhoto)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces(StatusCodes.Status200OK, contentType: WebcamSnapshotPolicy.ContentType)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("GetWebcamPhoto")
+            .WithDescription("Read one webcam photo of an attempt");
+
         exams.MapPost("/{examId:guid}/attempts/{attemptId:guid}/rescore", RescoreAttempt)
             .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
             .Produces<AttemptSummaryDto>()
@@ -719,6 +757,43 @@ public static class ExamRuntimeEndpoints
             throw new InvalidAttemptError("Say how the page was left: TabHidden, WindowBlurred or FullscreenExited.");
 
         return Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), kind, ct));
+    }
+
+    private static async Task<IResult> GetWebcamPolicy(Guid attemptId, ClaimsPrincipal user, GetWebcamPolicyHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct));
+
+    private static async Task<IResult> RecordWebcamPhoto(
+        Guid attemptId, HttpRequest request, ClaimsPrincipal user, RecordWebcamPhotoHandler handler, CancellationToken ct)
+    {
+        if (!string.Equals(request.ContentType, WebcamSnapshotPolicy.ContentType, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidAttemptError("Send the photo as image/jpeg.");
+
+        // Read one byte past the limit, so an oversize photo is told apart from one that is exactly at it without buffering what a client sends.
+        var buffer = new MemoryStream();
+        var chunk = new byte[8192];
+        int read;
+        while ((read = await request.Body.ReadAsync(chunk, ct)) > 0)
+        {
+            buffer.Write(chunk, 0, read);
+            if (buffer.Length > WebcamSnapshotPolicy.MaxImageBytes)
+                throw new InvalidAttemptError($"The photo is larger than {WebcamSnapshotPolicy.MaxImageBytes / 1024} KB.");
+        }
+
+        await handler.HandleAsync(attemptId, user.GetUserId(), buffer.ToArray(), ct);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> ListWebcamPhotos(Guid examId, Guid attemptId, ListWebcamPhotosHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, attemptId, ct));
+
+    private static async Task<IResult> GetWebcamPhoto(Guid examId, Guid attemptId, Guid photoId, GetWebcamPhotoHandler handler, HttpResponse response, CancellationToken ct)
+    {
+        var photo = await handler.HandleAsync(examId, attemptId, photoId, ct);
+
+        // A personal photo: never kept by a shared cache, and the browser may not guess a different type for it.
+        response.Headers.CacheControl = "private, no-store";
+        response.Headers["X-Content-Type-Options"] = "nosniff";
+        return Results.File(photo.Image, WebcamSnapshotPolicy.ContentType);
     }
 
     private static async Task<IResult> SubmitAttempt(Guid attemptId, ClaimsPrincipal user, SubmitAttemptHandler handler, CancellationToken ct) =>

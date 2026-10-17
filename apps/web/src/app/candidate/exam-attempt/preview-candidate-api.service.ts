@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { EMPTY, Observable, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { CandidateApiService } from '../candidate-api.service';
-import { AttemptDto } from '../candidate.models';
+import { AttemptDto, WebcamPolicyDto } from '../candidate.models';
 
 /**
  * Stands in for the candidate's API on the preview route (FR-15), so the exam page runs unchanged while a staff member looks at an
@@ -59,6 +59,14 @@ export class PreviewCandidateApiService extends CandidateApiService {
   }
 
   override reportFocusViolation(): Observable<never> {
+    return EMPTY;
+  }
+
+  override getWebcamPolicy(): Observable<WebcamPolicyDto> {
+    return of({ enabled: false, intervalSeconds: 0 });
+  }
+
+  override uploadWebcamPhoto(): Observable<never> {
     return EMPTY;
   }
 

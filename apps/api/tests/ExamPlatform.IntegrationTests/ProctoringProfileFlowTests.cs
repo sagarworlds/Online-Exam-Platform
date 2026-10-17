@@ -39,8 +39,11 @@ public sealed class ProctoringProfileFlowTests(ApiFactory factory) : IClassFixtu
         Assert.Equal(5, browserLock.GetProperty("focusViolationLimit").GetInt32());
         Assert.Contains(browserLock.GetProperty("notice").EnumerateArray(), n => n.GetString()!.Contains("If you leave 5 times"));
         var camera = profiles.Single(p => p.GetProperty("id").GetString() == "BROWSER_CAMERA");
-        Assert.False(camera.GetProperty("available").GetBoolean());
-        Assert.False(string.IsNullOrEmpty(camera.GetProperty("unavailableReason").GetString()));
+        Assert.True(camera.GetProperty("available").GetBoolean());
+        Assert.Contains(camera.GetProperty("notice").EnumerateArray(), n => n.GetString()!.Contains("takes a photo of you every 120 seconds"));
+        var full = profiles.Single(p => p.GetProperty("id").GetString() == "FULL");
+        Assert.False(full.GetProperty("available").GetBoolean());
+        Assert.False(string.IsNullOrEmpty(full.GetProperty("unavailableReason").GetString()));
     }
 
     [Fact]
@@ -98,7 +101,6 @@ public sealed class ProctoringProfileFlowTests(ApiFactory factory) : IClassFixtu
     [InlineData("{}")]
     [InlineData("{\"profile\": \"\"}")]
     [InlineData("{\"profile\": \"NOPE\"}")]
-    [InlineData("{\"profile\": \"BROWSER_CAMERA\"}")]
     [InlineData("{\"profile\": \"FULL\"}")]
     public async Task AMissingUnknownOrNotYetBuiltProfile_Is400_AndNothingChanges(string body)
     {
