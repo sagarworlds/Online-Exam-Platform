@@ -188,4 +188,136 @@ public class PdfDocumentTests
 
         Assert.Equal(2, document.PageCount);
     }
+
+    [Fact]
+    public void ADocumentThatUsesNoTimesFace_NamesNone_AndIsWrittenAsItAlwaysWas()
+    {
+        var text = Text(DocumentOf(2));
+
+        Assert.DoesNotContain("Times", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("/F4", text, StringComparison.Ordinal);
+        // 1 catalogue, 2 page tree, 3 and 4 pages, 5 and 6 fonts, 7 and 8 contents, 9 information: nothing after it.
+        Assert.Contains("/Size 10 ", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ATimesFace_IsWrittenAfterTheInformation_NamedInThePageResources_AndOnlyWhenUsed()
+    {
+        var document = new PdfDocument("t");
+        var page = document.AddPage();
+        page.Text("Roman line", PdfFont.TimesRoman, 12, 72, 700);
+        page.Text("Italic line", PdfFont.TimesItalic, 12, 72, 680);
+
+        var pdf = document.Build();
+        var text = Text(pdf);
+
+        // One page: 1 catalogue, 2 page tree, 3 page, 4 and 5 Helvetica, 6 content, 7 information, then the faces the page used, in order.
+        Assert.Contains("/Info 7 0 R", text, StringComparison.Ordinal);
+        Assert.Contains("/F4 8 0 R /F6 9 0 R", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("/F5", text, StringComparison.Ordinal);
+        Assert.Contains("8 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding /WinAnsiEncoding >>", text, StringComparison.Ordinal);
+        Assert.Contains("9 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Times-Italic /Encoding /WinAnsiEncoding >>", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Times-Bold", text, StringComparison.Ordinal);
+        Assert.Contains("BT /F4 12 Tf 72 700 Td (Roman line) Tj ET", text, StringComparison.Ordinal);
+        Assert.Contains("BT /F6 12 Tf 72 680 Td (Italic line) Tj ET", text, StringComparison.Ordinal);
+
+        // The cross-reference table still points at every object, the new ones included.
+        var startxref = int.Parse(text.Split("startxref\n")[1].Split('\n')[0], CultureInfo.InvariantCulture);
+        var entries = text[startxref..].Split('\n').Skip(3).Take(9).ToList();
+        for (var i = 1; i <= 9; i++)
+        {
+            var offset = int.Parse(entries[i - 1].Split(' ')[0], CultureInfo.InvariantCulture);
+            Assert.StartsWith($"{i} 0 obj", Encoding.Latin1.GetString(pdf, offset, 12), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void APage_IsPortraitUnlessItAsksForLandscape()
+    {
+        var document = new PdfDocument("t");
+        var portrait = document.AddPage();
+        var landscape = document.AddPage(PdfPageOrientation.Landscape);
+
+        var text = Text(document.Build());
+
+        Assert.Equal((595, 842), (portrait.Width, portrait.Height));
+        Assert.Equal((842, 595), (landscape.Width, landscape.Height));
+        Assert.Contains("/MediaBox [0 0 595 842]", text, StringComparison.Ordinal);
+        Assert.Contains("/MediaBox [0 0 842 595]", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ColouredText_IsDrawnInItsColour_WithoutLeakingItToWhatFollows()
+    {
+        var document = new PdfDocument("t");
+        var page = document.AddPage();
+        page.Text("Gold", PdfFont.TimesBold, 20, 72, 700, new PdfColor(0.1, 0.2, 0.3));
+        page.Text("Plain", PdfFont.Regular, 10, 72, 680);
+
+        var text = Text(document.Build());
+
+        Assert.Contains("q 0.1 0.2 0.3 rg 0 Tc\nBT /F5 20 Tf 72 700 Td (Gold) Tj ET\nQ\nBT /F1 10 Tf 72 680 Td (Plain) Tj ET", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SpacedText_CarriesItsSpacing_AndSaysWhatItSpells()
+    {
+        var document = new PdfDocument("t");
+        var page = document.AddPage();
+        page.Text("AB", PdfFont.Bold, 10, 72, 700, PdfColor.Black, 3.5);
+
+        var text = Text(document.Build());
+
+        Assert.Contains("3.5 Tc", text, StringComparison.Ordinal);
+        Assert.Contains("/Span << /ActualText <FEFF00410042> >> BDC", text, StringComparison.Ordinal);
+        Assert.Contains("(AB) Tj ET\nEMC\nQ", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CentredText_StartsHalfItsWidthToTheLeftOfTheCentre()
+    {
+        var document = new PdfDocument("t");
+        var page = document.AddPage();
+
+        // Hello in Times-Bold is 2278 units wide, so 22.78 points at size 10, and 11.39 of them sit left of the centre.
+        page.TextCentered("Hello", PdfFont.TimesBold, 10, 100, 700, PdfColor.Black);
+
+        Assert.Contains("BT /F5 10 Tf 88.61 700 Td (Hello) Tj ET", Text(document.Build()), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ACircle_IsFourCurves_FilledOrStroked()
+    {
+        var document = new PdfDocument("t");
+        var page = document.AddPage();
+        page.FillCircle(100, 100, 50, new PdfColor(1, 0, 0));
+        page.StrokeCircle(300, 100, 20, 2, PdfColor.Black);
+
+        var text = Text(document.Build());
+
+        // Four curves each, from the rightmost point round the top, the left, the bottom and back: control points a little over half a radius out.
+        Assert.Contains("q 1 0 0 rg 150 100 m 150 127.61 127.61 150 100 150 c 72.39 150 50 127.61 50 100 c 50 72.39 72.39 50 100 50 c 127.61 50 150 72.39 150 100 c h f Q", text, StringComparison.Ordinal);
+        Assert.Contains("q 0 0 0 RG 2 w 320 100 m 320 111.05 311.05 120 300 120 c 288.95 120 280 111.05 280 100 c 280 88.95 288.95 80 300 80 c 311.05 80 320 88.95 320 100 c h S Q", text, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void ACircle_NeedsAPositiveRadius(double radius)
+    {
+        var page = new PdfDocument("t").AddPage();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => page.FillCircle(10, 10, radius, PdfColor.Black));
+        Assert.Throws<ArgumentOutOfRangeException>(() => page.StrokeCircle(10, 10, radius, 1, PdfColor.Black));
+    }
+
+    [Fact]
+    public void AColour_CanBeWrittenAsAWebColour()
+    {
+        var colour = PdfColor.FromRgb(0x1B2A49);
+
+        Assert.Equal(27 / 255.0, colour.Red, 6);
+        Assert.Equal(42 / 255.0, colour.Green, 6);
+        Assert.Equal(73 / 255.0, colour.Blue, 6);
+    }
 }

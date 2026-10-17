@@ -164,4 +164,34 @@ public class PdfTextTests
         Assert.True(PdfText.Width(cut, PdfFont.Regular, 8) <= 120);
         Assert.StartsWith("word word", cut, StringComparison.Ordinal);
     }
+
+    [Theory]
+    [InlineData(PdfFont.TimesRoman, 2222)]
+    [InlineData(PdfFont.TimesBold, 2278)]
+    [InlineData(PdfFont.TimesItalic, 2222)]
+    public void Width_UsesTheStandardTimesMetrics(PdfFont font, int unitsOfHello)
+    {
+        // H, e, l, l, o, from the Times AFM files: a width is in thousandths of an em.
+        Assert.Equal(unitsOfHello * 10 / 1000.0, PdfText.Width("Hello", font, 10), 6);
+    }
+
+    [Theory]
+    [InlineData(PdfFont.TimesRoman)]
+    [InlineData(PdfFont.TimesBold)]
+    [InlineData(PdfFont.TimesItalic)]
+    public void Width_OfEveryPrintableAsciiCharacter_IsPositive_InTheTimesFaces(PdfFont font)
+    {
+        for (var c = ' '; c <= '~'; c++)
+            Assert.True(PdfText.Width(c.ToString(), font, 10) > 0, $"'{c}' has a width");
+    }
+
+    [Fact]
+    public void Width_WithLetterSpacing_AddsOneGapLessThanTheCharacters()
+    {
+        var plain = PdfText.Width("ABC", PdfFont.TimesBold, 10);
+
+        Assert.Equal(plain + 2 * 3.5, PdfText.Width("ABC", PdfFont.TimesBold, 10, 3.5), 6);
+        Assert.Equal(plain, PdfText.Width("ABC", PdfFont.TimesBold, 10, 0), 6);
+        Assert.Equal(PdfText.Width("A", PdfFont.TimesBold, 10), PdfText.Width("A", PdfFont.TimesBold, 10, 9), 6);
+    }
 }
