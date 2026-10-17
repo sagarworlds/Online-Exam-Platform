@@ -1,0 +1,18 @@
+@if (confirming()) {
+  <span class="confirm-remove" role="alertdialog" [attr.aria-label]="label()">
+    <span class="confirm-remove__prompt">{{ prompt() }}</span>
+    <button type="button" class="btn--danger btn--small" (click)="confirm()" [disabled]="busy()">{{ confirmLabel() }}</button>
+    <button #cancelButton type="button" class="btn--small" (click)="cancel()">{{ 'common.cancel' | t }}</button>
+  </span>
+} @else {
+  <!-- An icon has no words of its own: the label is its name for a screen reader and for a mouse (title). -->
+  <button #trigger type="button" class="confirm-remove__trigger" (click)="ask()" [disabled]="busy()" [attr.aria-label]="label()" [attr.title]="label()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M4 7h16" />
+      <path d="M9.5 7V4.5h5V7" />
+      <path d="M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-12" />
+      <path d="M10 11v5.5" />
+      <path d="M14 11v5.5" />
+    </svg>
+  </button>
+}

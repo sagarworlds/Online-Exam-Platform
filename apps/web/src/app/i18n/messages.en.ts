@@ -876,8 +876,10 @@ export const EN = {
   'exams.section.noneLeftChapters': 'There are none left to add: file more questions under these chapters on the Questions page.',
   'exams.section.rename': 'Rename',
   'exams.section.removeSection': 'Remove section',
-  'exams.section.removeAria': 'Remove section {name}?',
+  'exams.section.removeSectionLabel': 'Remove section {name}',
   'exams.section.removeConfirm': 'Remove this section{andItsQuestions} from the exam? They stay in the question bank.',
+  'exams.section.removeQuestionConfirm': 'Remove this question from the exam? It stays in the question bank.',
+  'exams.section.removeRuleConfirm': 'Remove this rule? Candidates who start later will not get questions drawn by it.',
   'exams.section.andItsQuestions.one': 'and its {count} question',
   'exams.section.andItsQuestions.other': 'and its {count} questions',
 

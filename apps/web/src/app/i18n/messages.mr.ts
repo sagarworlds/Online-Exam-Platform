@@ -870,8 +870,10 @@ export const MR: Messages = {
   'exams.section.noneLeftChapters': 'जोडण्यासाठी आणखी काही उरले नाही: प्रश्न पानावर या धड्यांखाली आणखी प्रश्न नोंदवा.',
   'exams.section.rename': 'नाव बदला',
   'exams.section.removeSection': 'विभाग काढा',
-  'exams.section.removeAria': 'विभाग {name} काढायचा?',
+  'exams.section.removeSectionLabel': 'विभाग {name} काढा',
   'exams.section.removeConfirm': 'हा विभाग{andItsQuestions} परीक्षेतून काढायचा? ते प्रश्न प्रश्न बँकेतच राहतील.',
+  'exams.section.removeQuestionConfirm': 'हा प्रश्न परीक्षेतून काढायचा? तो प्रश्न बँकेतच राहील.',
+  'exams.section.removeRuleConfirm': 'हा नियम काढायचा? नंतर सुरू करणाऱ्या परीक्षार्थींना यातून प्रश्न मिळणार नाहीत.',
   'exams.section.andItsQuestions.one': 'आणि त्याचा {count} प्रश्न',
   'exams.section.andItsQuestions.other': 'आणि त्याचे {count} प्रश्न',
 

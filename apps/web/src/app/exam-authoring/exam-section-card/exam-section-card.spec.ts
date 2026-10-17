@@ -68,6 +68,12 @@ describe('ExamSectionCard', () => {
     button(label).click();
     fixture.detectChanges();
   };
+  /** The trash icon with this name; an icon has no text, so it is found by its label. */
+  const icon = (label: string) => root.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement;
+  const pressIcon = (label: string) => {
+    icon(label).click();
+    fixture.detectChanges();
+  };
   const nameField = () => root.querySelector('input[aria-label="Section name"]') as HTMLInputElement;
   const typeName = (value: string) => {
     nameField().value = value;
@@ -90,28 +96,50 @@ describe('ExamSectionCard', () => {
     expect(root.textContent).toContain('No questions yet.');
   });
 
-  it('is read-only when the exam is not a draft: no picker, no Remove, no Rename', () => {
+  it('is read-only when the exam is not a draft: no picker, no trash icons, no Rename', () => {
     show(section(), { editable: false });
 
     expect(root.querySelector('select')).toBeNull();
-    expect(button('Remove')).toBeUndefined();
+    expect(root.querySelector('app-confirm-remove')).toBeNull();
     expect(button('Rename')).toBeUndefined();
-    expect(button('Remove section')).toBeUndefined();
     expect(root.querySelectorAll('li').length).toBe(2);
   });
 
   describe('taking a question out', () => {
-    it('has a Remove for each question, named for a screen reader, that asks the page to take it out', () => {
+    it('has a trash icon for each question, named for it, that asks before taking it out', () => {
       show();
 
-      const buttons = Array.from(root.querySelectorAll('li button')) as HTMLButtonElement[];
-      expect(buttons.map((b) => b.textContent?.trim())).toEqual(['Remove', 'Remove']);
-      expect(buttons[0].getAttribute('aria-label')).toBe('Remove What is 2 + 2? from the exam');
-      expect(buttons[1].getAttribute('aria-label')).toBe('Remove a question that is no longer in the bank from the exam');
+      const icons = Array.from(root.querySelectorAll('li button')) as HTMLButtonElement[];
+      expect(icons.map((b) => b.textContent?.trim())).toEqual(['', '']);
+      expect(icons[0].getAttribute('aria-label')).toBe('Remove What is 2 + 2? from the exam');
+      expect(icons[1].getAttribute('aria-label')).toBe('Remove a question that is no longer in the bank from the exam');
+      expect(icons[0].querySelector('svg')).not.toBeNull();
 
-      buttons[0].click();
+      icons[0].click();
+      fixture.detectChanges();
+
+      expect(root.querySelector('li [role="alertdialog"]')?.textContent).toContain('Remove this question from the exam? It stays in the question bank.');
+      expect(takenOut).toEqual([]);
+    });
+
+    it('takes the question out only once confirmed', () => {
+      show();
+      pressIcon('Remove What is 2 + 2? from the exam');
+
+      press('Remove');
 
       expect(takenOut).toEqual([{ sectionId: 's1', questionId: 'q1' }]);
+    });
+
+    it('takes nothing out when cancelled, and goes back to the icon', () => {
+      show();
+      pressIcon('Remove What is 2 + 2? from the exam');
+
+      press('Cancel');
+
+      expect(takenOut).toEqual([]);
+      expect(root.querySelector('[role="alertdialog"]')).toBeNull();
+      expect(icon('Remove What is 2 + 2? from the exam')).not.toBeNull();
     });
 
     it('cannot be pressed while a request is running', () => {
@@ -210,11 +238,14 @@ describe('ExamSectionCard', () => {
   });
 
   describe('removing the section', () => {
-    it('asks first, naming how many questions go with it, and removes only once confirmed', () => {
-      show();
+    const SECTION_ICON = 'Remove section Algebra';
 
-      press('Remove section');
-      const dialog = root.querySelector('[role="alertdialog"]');
+    it('has a trash icon, named for the section, that asks first, naming how many questions go with it, and removes only once confirmed', () => {
+      show();
+      expect(icon(SECTION_ICON).textContent?.trim()).toBe('');
+
+      pressIcon(SECTION_ICON);
+      const dialog = root.querySelector('.section-card__actions [role="alertdialog"]');
       expect(dialog?.textContent).toContain('Remove this section and its 2 questions from the exam?');
       expect(dialog?.textContent).toContain('They stay in the question bank.');
       expect(removed).toEqual([]);
@@ -225,18 +256,19 @@ describe('ExamSectionCard', () => {
 
     it('goes back to normal when cancelled', () => {
       show();
-      press('Remove section');
+      pressIcon(SECTION_ICON);
 
       press('Cancel');
 
       expect(root.querySelector('[role="alertdialog"]')).toBeNull();
+      expect(icon(SECTION_ICON)).not.toBeNull();
       expect(removed).toEqual([]);
     });
 
     it('does not mention questions for an empty section', () => {
       show(section({ questions: [] }));
 
-      press('Remove section');
+      pressIcon(SECTION_ICON);
 
       expect(root.querySelector('[role="alertdialog"]')?.textContent).toContain('Remove this section from the exam?');
     });
@@ -287,12 +319,15 @@ describe('ExamSectionCard', () => {
       expect(drawn).toEqual([]);
     });
 
-    it('lists the section\'s rules and lets the author take one out', () => {
+    it('lists the section\'s rules and lets the author take one out, after asking', () => {
       show(section({ drawRules: [{ id: 'r1', order: 1, count: 3, bookId: null, chapterId: null, difficulty: 'easy', topic: 'algebra' }] }));
       const removedRules: { sectionId: string; ruleId: string }[] = [];
       fixture.componentInstance.drawRuleRemoveRequested.subscribe((r) => removedRules.push(r));
 
       expect(root.textContent).toContain('3 easy questions on algebra');
+      pressIcon('Remove the rule drawing 3 easy questions on algebra');
+      expect(removedRules).toEqual([]);
+      expect(root.querySelector('[role="alertdialog"]')?.textContent).toContain('Remove this rule?');
       press('Remove rule');
 
       expect(removedRules).toEqual([{ sectionId: 's1', ruleId: 'r1' }]);

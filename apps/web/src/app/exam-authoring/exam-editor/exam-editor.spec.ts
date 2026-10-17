@@ -750,10 +750,19 @@ describe('ExamEditor', () => {
       fixture.detectChanges();
     };
 
-    it('takes a question out of its section and reads the exam again', () => {
+    // A trash icon has no text, so it is found by its label.
+    const icon = (root: HTMLElement, label: string) => root.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement;
+    const pressIcon = (fixture: { detectChanges(): void }, root: HTMLElement, label: string) => {
+      icon(root, label).click();
+      fixture.detectChanges();
+    };
+
+    it('takes a question out of its section, after asking, and reads the exam again', () => {
       const { fixture, root } = open(withQuestions());
 
-      (root.querySelectorAll('app-exam-section-card li button')[1] as HTMLButtonElement).click();
+      pressIcon(fixture, root, 'Remove Capital of France? from the exam');
+      httpMock.expectNone((r) => r.method === 'DELETE');
+      press(fixture, root, 'Remove');
 
       httpMock.expectOne(isDelete('/sections/s1/questions/q2')).flush(null, { status: 204, statusText: 'No Content' });
       const after = withQuestions();
@@ -769,7 +778,7 @@ describe('ExamEditor', () => {
     it('removes a section after asking, and reads the exam again', () => {
       const { fixture, root } = open(withQuestions());
 
-      press(fixture, root, 'Remove section');
+      pressIcon(fixture, root, 'Remove section Algebra');
       httpMock.expectNone((r) => r.method === 'DELETE');
       press(fixture, root, 'Remove section');
 
@@ -804,7 +813,8 @@ describe('ExamEditor', () => {
 
     it('shows why a change was refused and keeps the page', () => {
       const { fixture, root } = open(withQuestions());
-      (root.querySelectorAll('app-exam-section-card li button')[0] as HTMLButtonElement).click();
+      pressIcon(fixture, root, 'Remove What is 2 + 2? from the exam');
+      press(fixture, root, 'Remove');
 
       httpMock
         .expectOne(isDelete('/sections/s1/questions/q1'))
@@ -820,8 +830,8 @@ describe('ExamEditor', () => {
       const { root } = open(published);
 
       expect(root.querySelector('app-exam-section-card li button')).toBeNull();
+      expect(root.querySelector('app-confirm-remove')).toBeNull();
       expect(button(root, 'Rename')).toBeUndefined();
-      expect(button(root, 'Remove section')).toBeUndefined();
       expect(button(root, 'Delete draft')).toBeUndefined();
     });
 

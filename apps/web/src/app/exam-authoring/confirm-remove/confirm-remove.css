@@ -1,0 +1,42 @@
+:host {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+/* The icon is red, the colour of the Remove it leads to, so it reads as the one dangerous control on the card. */
+.confirm-remove__trigger {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  color: var(--danger);
+}
+
+.confirm-remove__trigger svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+/* The question takes its own line when there is not room beside the icon's place, so a phone never scrolls sideways. */
+.confirm-remove {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.confirm-remove__prompt {
+  flex: 1 1 14rem;
+}
+
+/* A thumb needs a bigger target than a pointer does. */
+@media (max-width: 40rem) {
+  .confirm-remove__trigger {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .confirm-remove .btn--small {
+    min-height: 2.75rem;
+  }
+}
