@@ -49,6 +49,31 @@ public interface IUserRepository
     /// <returns>The date of birth of each user found; an id that matches no user is left out.</returns>
     Task<IReadOnlyDictionary<Guid, DateOnly>> ListDatesOfBirthAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
 
+    /// <summary>Lists the student accounts (see <see cref="User.IsStudent"/>), without tracking, for staff to browse.</summary>
+    /// <param name="search">Part of the name, e-mail address or phone number to look for, without regard to case; null or blank lists everyone.</param>
+    /// <param name="take">How many to return at most.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The students ordered by name, then e-mail address, then id. Their roles and sessions are not loaded.</returns>
+    Task<IReadOnlyList<User>> ListStudentsAsync(string? search, int take, CancellationToken cancellationToken);
+
+    /// <summary>Lists the student accounts that hold any of the given e-mail addresses, compared without regard to case, without tracking.</summary>
+    /// <param name="emails">The addresses to look for.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The students found, ordered by name, then e-mail address, then id. An address nobody holds, or only a staff account holds, finds nothing.</returns>
+    Task<IReadOnlyList<User>> ListStudentsByEmailAsync(IReadOnlyCollection<string> emails, CancellationToken cancellationToken);
+
+    /// <summary>Whether an account other than the given one holds an e-mail address, compared without regard to case.</summary>
+    /// <param name="email">The address.</param>
+    /// <param name="exceptUserId">The account that is changing to it, which does not count.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<bool> AnyOtherWithEmailAsync(string email, Guid exceptUserId, CancellationToken cancellationToken);
+
+    /// <summary>Whether an account other than the given one holds a phone number, compared exactly as sign-in compares it.</summary>
+    /// <param name="phoneNumber">The number.</param>
+    /// <param name="exceptUserId">The account that is changing to it, which does not count.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<bool> AnyOtherWithPhoneAsync(string phoneNumber, Guid exceptUserId, CancellationToken cancellationToken);
+
     /// <summary>Begins tracking a new user for insertion on the next unit-of-work commit.</summary>
     /// <param name="user">The user to add.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

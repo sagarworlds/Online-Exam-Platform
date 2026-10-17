@@ -1,5 +1,6 @@
 using ExamPlatform.Modules.Identity.Application.Ports;
 using ExamPlatform.Modules.Identity.Domain;
+using ExamPlatform.Modules.Identity.Domain.Rbac;
 using Microsoft.EntityFrameworkCore;
 
 namespace ExamPlatform.Modules.Identity.Infrastructure.Repositories;
@@ -77,6 +78,56 @@ public sealed class UserRepository(IdentityDbContext context) : IUserRepository
 
         return rows.ToDictionary(r => r.Id, r => r.DateOfBirth);
     }
+
+    // Holds the Candidate role and no role of any other kind but Guardian: the same rule as User.IsStudent, written as a query so the list
+    // is filtered by the database and not by loading every account.
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<User>> ListStudentsAsync(string? search, int take, CancellationToken cancellationToken)
+    {
+        var query = context.Users.AsNoTracking()
+            .Where(u => u.Roles.Any(r => r.Name == RbacCatalog.RoleNames.Candidate)
+                && !u.Roles.Any(r => r.Name != RbacCatalog.RoleNames.Candidate && r.Name != RbacCatalog.RoleNames.Guardian));
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = $"%{EscapeLike(search.Trim())}%";
+            query = query.Where(u => EF.Functions.ILike(u.DisplayName, pattern, "\\")
+                || (u.Email != null && EF.Functions.ILike(u.Email, pattern, "\\"))
+                || (u.PhoneNumber != null && EF.Functions.ILike(u.PhoneNumber, pattern, "\\")));
+        }
+
+        return await query.OrderBy(u => u.DisplayName).ThenBy(u => u.Email).ThenBy(u => u.Id).Take(take).ToListAsync(cancellationToken);
+    }
+
+    // lower() on both sides and not ILIKE, for the reason given below. The addresses are lower-cased here so the database compares like with like.
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<User>> ListStudentsByEmailAsync(IReadOnlyCollection<string> emails, CancellationToken cancellationToken)
+    {
+        var wanted = emails.Select(email => email.ToLowerInvariant()).Distinct().ToList();
+
+        return await context.Users.AsNoTracking()
+            .Where(u => u.Email != null && wanted.Contains(u.Email.ToLower())
+                && u.Roles.Any(r => r.Name == RbacCatalog.RoleNames.Candidate)
+                && !u.Roles.Any(r => r.Name != RbacCatalog.RoleNames.Candidate && r.Name != RbacCatalog.RoleNames.Guardian))
+            .OrderBy(u => u.DisplayName).ThenBy(u => u.Email).ThenBy(u => u.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    // lower() on both sides and not ILIKE: an address may hold "_", which ILIKE reads as a wildcard.
+    /// <inheritdoc />
+    public Task<bool> AnyOtherWithEmailAsync(string email, Guid exceptUserId, CancellationToken cancellationToken)
+    {
+        var wanted = email.ToLowerInvariant();
+        return context.Users.AsNoTracking().AnyAsync(u => u.Id != exceptUserId && u.Email != null && u.Email.ToLower() == wanted, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<bool> AnyOtherWithPhoneAsync(string phoneNumber, Guid exceptUserId, CancellationToken cancellationToken) =>
+        context.Users.AsNoTracking().AnyAsync(u => u.Id != exceptUserId && u.PhoneNumber == phoneNumber, cancellationToken);
+
+    // A name such as "a_b" must match literally, so LIKE's wildcards are escaped.
+    private static string EscapeLike(string text) =>
+        text.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
 
     /// <inheritdoc />
     public async Task AddAsync(User user, CancellationToken cancellationToken) =>

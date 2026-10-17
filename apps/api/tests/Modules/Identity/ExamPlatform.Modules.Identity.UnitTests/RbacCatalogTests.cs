@@ -46,11 +46,11 @@ public class RbacCatalogTests
     public void ExamAdmin_AndInstituteTeacher_Grants_MatchPermissionMatrix()
     {
         Assert.Equal(
-            ["batch.manage", "batch.read", "exam.manage", "exam.publish", "exam.read", "guardian.link.manage", "invite.manage", "question.manage", "question.read", "question.review"],
+            ["batch.manage", "batch.read", "exam.manage", "exam.publish", "exam.read", "guardian.link.manage", "invite.manage", "question.manage", "question.read", "question.review", "student.manage", "student.read"],
             Role(RbacCatalog.RoleNames.ExamAdmin).PermissionCodes.Order(StringComparer.Ordinal));
 
         Assert.Equal(
-            ["batch.manage", "batch.read", "exam.read", "invite.manage"],
+            ["batch.manage", "batch.read", "exam.read", "invite.manage", "student.read"],
             Role(RbacCatalog.RoleNames.InstituteTeacher).PermissionCodes.Order(StringComparer.Ordinal));
     }
 

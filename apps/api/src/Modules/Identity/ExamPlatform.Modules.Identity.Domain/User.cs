@@ -174,6 +174,56 @@ public sealed class User : AggregateRoot
         session.Revoke(nowUtc, reason);
     }
 
+    /// <summary>
+    /// Whether this account is a student: it holds the Candidate role and no role that carries staff powers. Staff accounts are not
+    /// students, so the screens and routes that let staff correct a student's details cannot be turned on a colleague's account.
+    /// </summary>
+    public bool IsStudent =>
+        _roles.Any(r => r.Name == Rbac.RbacCatalog.RoleNames.Candidate)
+        && _roles.All(r => r.Name is Rbac.RbacCatalog.RoleNames.Candidate or Rbac.RbacCatalog.RoleNames.Guardian);
+
+    /// <summary>
+    /// Replaces the e-mail address and phone number the account signs in with, as staff correct them for a student. A blank one means the
+    /// account has none, and at least one must remain. Neither is checked for shape here (registration does not either); the application
+    /// checks what staff type. Which sessions end, and which other records follow the new address, is for the caller to decide.
+    /// </summary>
+    /// <param name="email">The new e-mail address, or blank for none.</param>
+    /// <param name="phoneNumber">The new phone number, or blank for none.</param>
+    /// <exception cref="ContactRequiredError">Both are blank.</exception>
+    /// <exception cref="InvalidContactError">Either is longer than the platform stores.</exception>
+    public void ChangeContact(string? email, string? phoneNumber)
+    {
+        // As at registration: a blank contact is no contact, since the unique indexes skip nulls and would treat two stored "" as duplicates.
+        email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        phoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
+
+        if (email is null && phoneNumber is null)
+        {
+            throw new ContactRequiredError();
+        }
+
+        if (email?.Length > MaxEmailLength || phoneNumber?.Length > MaxPhoneNumberLength)
+        {
+            throw new InvalidContactError();
+        }
+
+        Email = email;
+        PhoneNumber = phoneNumber;
+    }
+
+    /// <summary>
+    /// Corrects the date of birth, which decides the age band and so whether guardian consent applies (section 7.1). It is held to the same
+    /// limits as at registration.
+    /// </summary>
+    /// <param name="dateOfBirth">The corrected date of birth.</param>
+    /// <param name="nowUtc">The current instant, for the plausibility check.</param>
+    /// <exception cref="InvalidDateOfBirthError">The date is unset, in the future, or implausibly long ago.</exception>
+    public void ChangeDateOfBirth(DateOnly dateOfBirth, DateTime nowUtc)
+    {
+        EnsurePlausibleDateOfBirth(dateOfBirth, nowUtc);
+        DateOfBirth = dateOfBirth;
+    }
+
     /// <summary>Changes the name shown in the UI.</summary>
     /// <param name="displayName">The new display name; leading and trailing whitespace is removed.</param>
     /// <exception cref="InvalidDisplayNameError">The name is blank or too long once trimmed.</exception>

@@ -16,5 +16,8 @@ public enum SessionRevocationReason
     AccountSuspended,
 
     /// <summary>The account's password was reset, which ends every session started with the old one (FR-3).</summary>
-    PasswordReset
+    PasswordReset,
+
+    /// <summary>Staff changed the e-mail address or mobile number the account signs in with, so a session started under the old one ends.</summary>
+    ContactChanged
 }

@@ -64,6 +64,15 @@ public static class RbacCatalog
         /// <summary>Create invites, generate and revoke their codes (FR-50a).</summary>
         public const string InviteManage = "invite.manage";
 
+        /// <summary>See the students: their accounts and invitations, with the contact details staff need to reach them.</summary>
+        public const string StudentRead = "student.read";
+
+        /// <summary>
+        /// Correct a student's profile: name, e-mail address, mobile number and date of birth. The contact details are what the student
+        /// signs in with and where their codes go, and the date of birth decides who counts as a minor, so this is held by few.
+        /// </summary>
+        public const string StudentManage = "student.manage";
+
         /// <summary>Read the unspent sign-in and registration codes of candidates, to help one who never received theirs.</summary>
         public const string OtpRead = "identity.otp.read";
 
@@ -126,6 +135,8 @@ public static class RbacCatalog
         new(PermissionCodes.BatchManage, "Create batches and manage their rosters"),
         new(PermissionCodes.BatchRead, "View batches and their rosters"),
         new(PermissionCodes.InviteManage, "Create invites and manage their codes"),
+        new(PermissionCodes.StudentRead, "See students' accounts, contact details and invitations"),
+        new(PermissionCodes.StudentManage, "Change a student's name, e-mail address, mobile number and date of birth"),
         new(PermissionCodes.GuardianLinkManage, "Link guardians to candidates and revoke those links"),
         new(PermissionCodes.OtpRead, "Read candidates' unspent sign-in and registration codes"),
         new(PermissionCodes.WhatsAppTest, "Check the WhatsApp connection and send test messages through it"),
@@ -155,6 +166,8 @@ public static class RbacCatalog
             PermissionCodes.BatchManage,
             PermissionCodes.BatchRead,
             PermissionCodes.InviteManage,
+            PermissionCodes.StudentRead,
+            PermissionCodes.StudentManage,
             PermissionCodes.GuardianLinkManage,
         ]),
 
@@ -168,6 +181,7 @@ public static class RbacCatalog
             PermissionCodes.BatchManage,
             PermissionCodes.BatchRead,
             PermissionCodes.InviteManage,
+            PermissionCodes.StudentRead,
         ]),
 
         new(RoleNames.Candidate, RequiresTwoFactor: false, []),
