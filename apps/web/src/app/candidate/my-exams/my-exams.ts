@@ -1,16 +1,34 @@
 import { DatePipe } from '@angular/common';
-import { Component, ElementRef, Injector, afterNextRender, inject, signal } from '@angular/core';
+import { Component, ElementRef, Injector, afterNextRender, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
+import type { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
 import { bestAttemptId } from '../best-attempt';
 import { MAX_ATTEMPT_REQUEST_TEXT, MyExamDto } from '../candidate.models';
+import { rememberAttemptedOpen, rememberedAttemptedOpen } from './attempted-section-memory';
+import { groupExams } from './exam-groups';
+
+/** One block of the page: a heading and the exams under it. Only the attempted exams can be hidden. */
+interface ExamSection {
+  id: 'available' | 'upcoming' | 'attempted';
+  titleKey: MessageKey;
+  exams: MyExamDto[];
+  collapsible: boolean;
+}
+
+/** How the window of an exam is written: the date and the minute, without seconds, which only make the line longer on a phone. */
+const WINDOW_FORMAT = 'MMM d, y, h:mm a';
 
 /**
  * The candidate's page: the exams they have accepted an invitation to, and whether each can be started now (FR-16). Starting leads to
  * the instructions and system check page (FR-17); the attempt itself begins there, once the candidate has acknowledged the instructions.
+ *
+ * The exams are grouped by what the candidate can do with them: the ones they can take now come first, then the ones still to open, and
+ * the ones already attempted or closed come last under a heading that can be folded away. The attempted exams are at the bottom so that
+ * showing or hiding them never moves the new exams, and a new exam is never found by scrolling past old results.
  */
 @Component({
   selector: 'app-my-exams',
@@ -28,6 +46,38 @@ export class MyExams {
   protected readonly loading = signal(true);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly bestAttemptId = bestAttemptId;
+  protected readonly windowFormat = WINDOW_FORMAT;
+
+  /** The candidate's own choice to show or hide the attempted exams, remembered on this device; null until they make one. */
+  private readonly attemptedChoice = signal<boolean | null>(rememberedAttemptedOpen());
+
+  private readonly groups = computed(() => groupExams(this.exams()));
+
+  /**
+   * The blocks of the page, in order. "Available now" is always there, so a candidate with nothing to take is told so rather than left to
+   * wonder where the new exams are; the other two appear when they have exams.
+   */
+  protected readonly sections = computed<ExamSection[]>(() => {
+    const { available, upcoming, attempted } = this.groups();
+    const sections: ExamSection[] = [{ id: 'available', titleKey: 'myExams.section.available', exams: available, collapsible: false }];
+    if (upcoming.length > 0) {
+      sections.push({ id: 'upcoming', titleKey: 'myExams.section.upcoming', exams: upcoming, collapsible: false });
+    }
+    if (attempted.length > 0) {
+      sections.push({ id: 'attempted', titleKey: 'myExams.section.attempted', exams: attempted, collapsible: true });
+    }
+    return sections;
+  });
+
+  /**
+   * Whether the attempted exams are shown. Hidden unless the candidate chose otherwise, so the new exams are what they see first; but when
+   * there is nothing else on the page, they are shown, because a page with only a closed heading would look empty.
+   */
+  protected readonly attemptedOpen = computed(() => {
+    const choice = this.attemptedChoice();
+    const { available, upcoming } = this.groups();
+    return choice ?? (available.length === 0 && upcoming.length === 0);
+  });
 
   /** The exam whose "ask for another attempt" form is open; one at a time. */
   protected readonly requestingFor = signal<string | null>(null);
@@ -47,6 +97,13 @@ export class MyExams {
         this.errorMessage.set(extractErrorMessage(error));
       },
     });
+  }
+
+  /** Shows or hides the attempted exams, and remembers the choice for the next visit. */
+  protected toggleAttempted(): void {
+    const open = !this.attemptedOpen();
+    this.attemptedChoice.set(open);
+    rememberAttemptedOpen(open);
   }
 
   /** Whether attempts need numbering: only when there can be, or already are, more than one. */

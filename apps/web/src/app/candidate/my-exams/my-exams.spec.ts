@@ -10,6 +10,8 @@ describe('MyExams', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(async () => {
+    // The choice to show or hide the attempted exams is remembered on the device, so a test must not inherit the last one's.
+    localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [MyExams],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
@@ -17,7 +19,10 @@ describe('MyExams', () => {
     httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    httpMock.verify();
+    localStorage.clear();
+  });
 
   const attempt = (number: number, status: 'InProgress' | 'Submitted', score: number | null = null): AttemptSummaryDto => ({
     id: `a${number}`,
@@ -72,6 +77,17 @@ describe('MyExams', () => {
   const buttonIn = (root: HTMLElement, label: string) =>
     Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === label) as HTMLButtonElement | undefined;
 
+  /** The button that shows or hides the attempted exams, whatever its words, or undefined when the page has none. */
+  const attemptedToggle = (root: HTMLElement) => root.querySelector<HTMLButtonElement>('.exam-section__toggle') ?? undefined;
+
+  function toggleAttempted(root: HTMLElement, fixture: { detectChanges(): void }) {
+    attemptedToggle(root)?.click();
+    fixture.detectChanges();
+  }
+
+  /** The titles of the exams on the page, in the order they are shown. */
+  const titlesIn = (root: HTMLElement) => Array.from(root.querySelectorAll('article .card__title')).map((title) => title.childNodes[0].textContent?.trim());
+
   it('lists the exams with their state, size and duration', () => {
     const fixture = TestBed.createComponent(MyExams);
     fixture.detectChanges();
@@ -83,6 +99,9 @@ describe('MyExams', () => {
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
+    // The closed exam has nothing to do with it, so it waits under the folded heading until the candidate opens it.
+    expect(root.textContent).not.toContain('Chemistry');
+    toggleAttempted(root, fixture);
     const text = root.textContent ?? '';
     expect(text).toContain('Maths Final');
     expect(text).toContain('Not open yet');
@@ -196,7 +215,7 @@ describe('MyExams', () => {
 
     const root = fixture.nativeElement as HTMLElement;
     expect(root.textContent).toContain('14 / 20');
-    expect(root.querySelector('button')).toBeNull();
+    expect(root.querySelector('article button')).toBeNull();
     const link = Array.from(root.querySelectorAll('a')).find((a) => a.textContent?.includes('View result'));
     expect(link?.getAttribute('href')).toBe('/attempt/a1');
   });
@@ -261,7 +280,7 @@ describe('MyExams', () => {
     it('marks the best attempt, and only once there are two to compare', () => {
       const { root } = open([twoAttempts(), exam({ examId: 'e2', name: 'Single', attemptsUsed: 1, canStartAttempt: false, attempts: [attempt(1, 'Submitted', 15)] })]);
 
-      const [multi, single] = Array.from(root.querySelectorAll('.card'));
+      const [multi, single] = Array.from(root.querySelectorAll('article.card'));
       expect(multi.querySelectorAll('.badge--active').length).toBe(1 + 1); // the "Open" state badge and "Best"
       expect(rows(multi as HTMLElement)[1].textContent).toContain('Best');
       expect(rows(multi as HTMLElement)[0].textContent).not.toContain('Best');
@@ -432,6 +451,126 @@ describe('MyExams', () => {
 
       expect(root.textContent).not.toContain('declined');
       expect(root.textContent).toContain('Start attempt 2');
+    });
+  });
+
+  // A candidate looks for the exam they have not taken yet, so what they can do comes first and what is done is folded away below it.
+  describe('what the candidate can take comes first', () => {
+    const done = (examId: string, name: string, submittedAt: string) =>
+      exam({
+        examId, name, state: 'Closed', canStartAttempt: false, attemptsUsed: 1,
+        attempts: [{ ...attempt(1, 'Submitted', 15), id: `a-${examId}`, submittedAtUtc: submittedAt }],
+      });
+
+    it('puts a new exam above the exams already attempted, whatever order the API lists them in', () => {
+      const { fixture, root } = openWith([done('d1', 'Old result', '2026-10-01T05:00:00Z'), exam({ examId: 'n1', name: 'New exam' })]);
+
+      expect(titlesIn(root)).toEqual(['New exam']);
+      toggleAttempted(root, fixture);
+
+      expect(titlesIn(root)).toEqual(['New exam', 'Old result']);
+    });
+
+    it('folds the attempted exams away, with their number on the heading, while there is something else to see', () => {
+      const { root } = openWith([done('d1', 'Old result', '2026-10-01T05:00:00Z'), done('d2', 'Older result', '2026-09-01T05:00:00Z'), exam({ examId: 'n1' })]);
+
+      const toggle = attemptedToggle(root) as HTMLButtonElement;
+      expect(toggle.textContent).toContain('Attempted and closed exams (2)');
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+      expect(root.textContent).not.toContain('Old result');
+    });
+
+    it('shows and hides them again from the same button, which stays below the new exams so they never move', () => {
+      const { fixture, root } = openWith([done('d1', 'Old result', '2026-10-01T05:00:00Z'), exam({ examId: 'n1', name: 'New exam' })]);
+      const toggle = attemptedToggle(root) as HTMLButtonElement;
+      const newCard = root.querySelector('article') as HTMLElement;
+
+      toggle.click();
+      fixture.detectChanges();
+      expect(toggle.getAttribute('aria-expanded')).toBe('true');
+      expect(root.textContent).toContain('Old result');
+      // In the page's order: the new exam, then the heading button, then the results.
+      expect(newCard.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(titlesIn(root)).toEqual(['New exam', 'Old result']);
+
+      toggle.click();
+      fixture.detectChanges();
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+      expect(root.textContent).not.toContain('Old result');
+      expect(titlesIn(root)).toEqual(['New exam']);
+    });
+
+    it('shows the attempted exams at once when there is nothing else, so the page is not left looking empty', () => {
+      const { root } = openWith([done('d1', 'Old result', '2026-10-01T05:00:00Z')]);
+
+      expect(attemptedToggle(root)?.getAttribute('aria-expanded')).toBe('true');
+      expect(titlesIn(root)).toEqual(['Old result']);
+    });
+
+    it('says so when there is nothing to take now, rather than leaving the candidate to look for it', () => {
+      const { root } = openWith([done('d1', 'Old result', '2026-10-01T05:00:00Z'), exam({ examId: 'f1', name: 'Next week', state: 'NotOpen', canStartAttempt: false })]);
+
+      expect(root.querySelector('#exams-available-heading')?.textContent).toContain('Available now');
+      expect(root.textContent).toContain('Nothing to take right now.');
+      expect(root.querySelector('#exams-upcoming-heading')?.textContent).toContain('Coming up');
+      expect(titlesIn(root)).toEqual(['Next week']);
+    });
+
+    it('does not say so when there is something to take', () => {
+      const { root } = openWith([exam({})]);
+
+      expect(root.textContent).not.toContain('Nothing to take right now.');
+    });
+
+    it('lists an exam in progress first, then the one that closes soonest, then the one that closes last', () => {
+      const { root } = openWith([
+        exam({ examId: 'late', name: 'Closes last', endUtc: '2026-10-09T07:30:00Z' }),
+        exam({ examId: 'soon', name: 'Closes soonest', endUtc: '2026-10-06T07:30:00Z' }),
+        exam({ examId: 'busy', name: 'In progress', endUtc: '2026-10-12T07:30:00Z', canStartAttempt: false, attemptsUsed: 1, attempts: [attempt(1, 'InProgress')] }),
+      ]);
+
+      expect(titlesIn(root)).toEqual(['In progress', 'Closes soonest', 'Closes last']);
+    });
+
+    it('keeps an exam the candidate can ask for another attempt at among the ones to act on', () => {
+      const { root } = openWith([
+        done('d1', 'Old result', '2026-10-01T05:00:00Z'),
+        exam({ examId: 'r1', name: 'Ask again', canStartAttempt: false, canRequestAttempt: true, attemptsUsed: 1, attempts: [attempt(1, 'Submitted', 4)] }),
+      ]);
+
+      expect(titlesIn(root)).toEqual(['Ask again']);
+    });
+
+    it('remembers whether the candidate left the attempted exams open, for the next visit', () => {
+      const first = openWith([done('d1', 'Old result', '2026-10-01T05:00:00Z'), exam({ examId: 'n1' })]);
+      toggleAttempted(first.root, first.fixture);
+      first.fixture.destroy();
+
+      const again = openWith([done('d1', 'Old result', '2026-10-01T05:00:00Z'), exam({ examId: 'n1' })]);
+
+      expect(attemptedToggle(again.root)?.getAttribute('aria-expanded')).toBe('true');
+      expect(titlesIn(again.root)).toContain('Old result');
+    });
+
+    it('honours a choice to hide them even when there is nothing else on the page', () => {
+      localStorage.setItem('exam-platform.my-exams.attempted-open', '0');
+
+      const { root } = openWith([done('d1', 'Old result', '2026-10-01T05:00:00Z')]);
+
+      expect(attemptedToggle(root)?.getAttribute('aria-expanded')).toBe('false');
+      expect(titlesIn(root)).toEqual([]);
+    });
+
+    it('says all this in the language the candidate chose', async () => {
+      const { fixture, root } = openWith([done('d1', 'Old result', '2026-10-01T05:00:00Z'), exam({ examId: 'n1' })]);
+
+      await TestBed.inject(I18nService).setLanguage('hi');
+      fixture.detectChanges();
+
+      expect(root.querySelector('#exams-available-heading')?.textContent).toContain('अभी उपलब्ध');
+      expect(attemptedToggle(root)?.textContent).toContain('दी हुई और बंद परीक्षाएँ (1)');
+      expect(attemptedToggle(root)?.textContent).toContain('दिखाएँ');
+      await TestBed.inject(I18nService).setLanguage('en');
     });
   });
 });
