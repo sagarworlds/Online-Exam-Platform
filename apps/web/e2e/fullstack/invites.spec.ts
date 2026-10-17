@@ -37,7 +37,10 @@ async function openInvitations(page: Page): Promise<void> {
   const token = await api.administratorToken();
   await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [AUTH_TOKEN_STORAGE_KEY, token] as [string, string]);
   await page.goto('/invites');
-  await expect(page.getByRole('heading', { name: 'Invitations' })).toBeVisible();
+  // The page's own title: by name alone this also matches each student's heading, whose name says "2 invitations".
+  await expect(page.getByRole('heading', { name: 'Invitations', level: 1 })).toBeVisible();
+  // The list is read after the title shows; every test here needs it.
+  await expect(page.locator('section.invite-group').first()).toBeVisible();
 }
 
 const group = (page: Page, email: string): Locator => page.locator('section.invite-group').filter({ hasText: email });
