@@ -184,6 +184,11 @@ export class RealApi {
     return { email, accessToken };
   }
 
+  /** Invites an address to the exam, as an administrator does on the Invite a candidate page. The invitation stays pending: nobody accepts it. */
+  async invite(exam: PublishedExam, email: string): Promise<void> {
+    await this.send('POST', '/v1/invites', await this.administrator(), { examId: exam.id, email });
+  }
+
   // The two reads below take the token the browser holds, not the one registration returned: an account has one session at a time, so
   // signing in on the page ends the session the registration started, and the API answers that token with 401 "signed in somewhere else".
 
