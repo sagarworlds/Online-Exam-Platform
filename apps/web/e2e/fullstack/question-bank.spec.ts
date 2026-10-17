@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { RealApi } from './real-api';
 
-// An author adds a question the bank already has. The bank refuses it and the page warns the author, so the warning has to be where the
-// author is looking: the form is long, and when this was above the form, pressing Save appeared to do nothing (FR-9). The real API decides
-// what a repeat is, so the page and the API are tested together; nothing is stubbed.
+// What happens when an author presses Save on the question bank. The form is long, so whatever the page says about it has to be where the
+// author is looking: when it was above the form, pressing Save appeared to do nothing (FR-9). That covers the warning that the bank already
+// has the question, the confirmation that it was saved, and the reason the bank refused it. The real API decides what a repeat is and what
+// it refuses, so the page and the API are tested together; nothing is stubbed.
 
 const run = randomUUID().slice(0, 8);
 const AUTH_TOKEN_STORAGE_KEY = 'exam-platform.auth-token';
@@ -48,10 +49,10 @@ async function fillTextQuestion(page: Page, text: string): Promise<void> {
 const save = (page: Page): Locator => page.getByRole('button', { name: 'Save question' });
 const warning = (page: Page): Locator => page.getByRole('alert').filter({ hasText: 'This question is already in the bank' });
 
-/** Saves the question once, so the bank has it. */
+/** Saves the question once, so the bank has it, and checks that the confirmation is in view beside the button. */
 async function saveFirstTime(page: Page): Promise<void> {
   await save(page).click();
-  await expect(page.getByText('Question saved.')).toBeVisible();
+  await expect(page.getByText('Question saved.')).toBeInViewport({ ratio: 1 });
 }
 
 test.describe('adding a question the bank already has', () => {
@@ -71,7 +72,7 @@ test.describe('adding a question the bank already has', () => {
     await expect(warning(page)).toContainText('these options');
 
     await page.getByRole('button', { name: 'Add it anyway' }).click();
-    await expect(page.getByText('Question saved.')).toBeVisible();
+    await expect(page.getByText('Question saved.')).toBeInViewport({ ratio: 1 });
     await expect(warning(page)).toHaveCount(0);
   });
 
@@ -104,5 +105,21 @@ test.describe('adding a question the bank already has', () => {
     // Asked about the accepted answers, the bank finds the question it has just refused, so the warning is not an empty list.
     await expect(warning(page).locator('li')).toHaveCount(1);
     await expect(warning(page).locator('li')).toContainText(text);
+  });
+
+  test('shows why the bank refused a question where the author is looking, with focus on it', async ({ page }) => {
+    await openQuestionBank(page);
+    // The form lets any length through; the API refuses a question of more than 4,000 readable characters, which is a real refusal to show.
+    await page.locator('#question-text').click();
+    await page.keyboard.insertText('x'.repeat(4001));
+    await page.getByLabel('Option 1 text').fill('Green');
+    await page.getByLabel('Option 2 text').fill('Red');
+    await page.getByLabel('Option 1 is correct').check();
+    await save(page).click();
+
+    const refusal = page.getByRole('alert').filter({ hasText: 'at most 4000 characters' });
+    await expect(refusal).toBeInViewport({ ratio: 1 });
+    await expect(refusal).toBeFocused();
+    await expect(page.getByText('Question saved.')).toHaveCount(0);
   });
 });

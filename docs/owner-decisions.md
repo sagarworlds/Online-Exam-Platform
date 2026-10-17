@@ -132,7 +132,7 @@ These are engineering choices. They need no answer, but you can object.
 
 - Which regional languages come after English, Hindi and Marathi, and in what order (requirements section 17, question 3).
 - The year-2 peak, which decides when the exam runtime is split into its own service (section 17, question 1).
-- Browser runs of the administrator screens, and in Hindi and Marathi. The three-engine runs cover the candidate screens in English only, plus one administrator check, the question bank's warning for a repeated question (README, "Browser Tests"). Not scheduled.
+- Browser runs of the administrator screens, and in Hindi and Marathi. The three-engine runs cover the candidate screens in English only, plus one administrator check, what the question bank says after Save: the warning for a repeated question, the "saved" message and a refusal (README, "Browser Tests"). Not scheduled.
 
 ## Keeping this current
 

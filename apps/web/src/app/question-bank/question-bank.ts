@@ -1,4 +1,4 @@
-import { afterNextRender, Component, computed, ElementRef, inject, Injector, signal, viewChild } from '@angular/core';
+import { afterNextRender, Component, computed, ElementRef, inject, Injector, Signal, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { BookApiService } from '../book-management/book-api.service';
 import { ANY_CLASS, bookOptionLabel, booksInClass, classChoicesOf } from '../book-management/book-class';
@@ -58,6 +58,8 @@ export class QuestionBank {
 
   /** The warning that the bank already has the question, once it is on the page. */
   private readonly repeatCard = viewChild<ElementRef<HTMLElement>>('repeatCard');
+  /** The reason the last Save was refused, once it is on the page. */
+  private readonly saveFailure = viewChild<ElementRef<HTMLElement>>('saveFailure');
 
   protected readonly unfiled = UNFILED;
   protected readonly questions = signal<QuestionDto[]>([]);
@@ -67,7 +69,10 @@ export class QuestionBank {
   protected readonly mayHaveMore = signal(false);
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
+  /** Why the page could not load something: the list, the books or the topics. */
   protected readonly errorMessage = signal<string | null>(null);
+  /** Why the last Save was refused, other than as a repeat; shown under the form, next to the button that was pressed. */
+  protected readonly saveError = signal<string | null>(null);
   /** A question the bank refused as a repeat, with what it repeats, until the author adds it anyway or gives up (FR-9). */
   protected readonly repeat = signal<{ request: CreateQuestionRequest; matches: DuplicateQuestion[] } | null>(null);
   /** What candidates did on the questions whose statistics were opened, by question id (FR-9). */
@@ -247,6 +252,7 @@ export class QuestionBank {
     this.saving.set(true);
     this.saved.set(false);
     this.errorMessage.set(null);
+    this.saveError.set(null);
     this.repeat.set(null);
 
     this.api.create(request).subscribe({
@@ -264,7 +270,7 @@ export class QuestionBank {
           this.showRepeat(request, error);
           return;
         }
-        this.errorMessage.set(extractErrorMessage(error));
+        this.showSaveError(error);
       },
     });
   }
@@ -277,11 +283,22 @@ export class QuestionBank {
     this.api.duplicates(request.text, answersToCompare(request)).subscribe({
       next: (matches) => {
         this.repeat.set({ request, matches });
-        afterNextRender(() => this.repeatCard()?.nativeElement.focus(), { injector: this.injector });
+        this.focusOnceRendered(this.repeatCard);
       },
       // The refusal itself is the message when the list of matches cannot be had.
-      error: () => this.errorMessage.set(extractErrorMessage(refusal)),
+      error: () => this.showSaveError(refusal),
     });
+  }
+
+  /** Shows why Save was refused, under the form for the same reason as the repeat warning, and takes the author there. */
+  private showSaveError(error: unknown): void {
+    this.saveError.set(extractErrorMessage(error));
+    this.focusOnceRendered(this.saveFailure);
+  }
+
+  /** Moves focus to a message the page has just shown, which also scrolls it into view. The message exists only after the next render. */
+  private focusOnceRendered(message: Signal<ElementRef<HTMLElement> | undefined>): void {
+    afterNextRender(() => message()?.nativeElement.focus(), { injector: this.injector });
   }
 
   protected toggleSelected(id: string, selected: boolean): void {
