@@ -80,14 +80,14 @@ export function optionalGuid(control: AbstractControl): ValidationErrors | null 
         }
 
         <div class="actions">
-          <button type="submit" [disabled]="!form.valid || !scopeComplete() || loading" class="btn btn--primary">
-            {{ loading ? 'Creating...' : 'Create Exam' }}
+          <button type="submit" [disabled]="!form.valid || !scopeComplete() || loading()" class="btn btn--primary">
+            {{ loading() ? 'Creating...' : 'Create Exam' }}
           </button>
           <a routerLink="/exams" class="btn">Cancel</a>
         </div>
 
-        @if (error) {
-          <div class="error-message">{{ error }}</div>
+        @if (error()) {
+          <div class="error-message">{{ error() }}</div>
         }
       </form>
     </div>
@@ -106,8 +106,10 @@ export class ExamBuilder implements OnInit {
   protected readonly scopeComplete = computed(() => isScopeComplete(this.scope()));
 
   form!: FormGroup;
-  loading = false;
-  error = '';
+  // Signals, not plain fields: the app runs without zone.js, so the page is redrawn only for what a signal tells it about. A plain field set
+  // when the API refuses would leave the button on "Creating..." and show no reason.
+  protected readonly loading = signal(false);
+  protected readonly error = signal('');
 
   ngOnInit() {
     this.form = this.fb.group({
@@ -133,8 +135,8 @@ export class ExamBuilder implements OnInit {
   onSubmit() {
     if (!this.form.valid || !this.scopeComplete()) return;
 
-    this.loading = true;
-    this.error = '';
+    this.loading.set(true);
+    this.error.set('');
 
     // The API takes null for "no series" and refuses the empty string, which is what a
     // blank field holds, so a blank (or whitespace-only) value is sent as null.
@@ -151,13 +153,13 @@ export class ExamBuilder implements OnInit {
 
     this.examApi.createExam(request).subscribe({
       next: (exam) => {
-        this.loading = false;
+        this.loading.set(false);
         // Straight to the editor, where sections and questions are added.
         this.router.navigate(['/exams', exam.id]);
       },
       error: (err: unknown) => {
-        this.error = extractErrorMessage(err, 'Failed to create exam');
-        this.loading = false;
+        this.error.set(extractErrorMessage(err, 'Failed to create exam'));
+        this.loading.set(false);
         console.error(err);
       },
     });

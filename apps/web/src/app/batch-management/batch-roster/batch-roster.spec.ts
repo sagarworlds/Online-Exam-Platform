@@ -62,10 +62,52 @@ describe('BatchRoster', () => {
     httpMock.expectOne(isImport).flush({ added: [{ row: 1, memberId: 'm1' }], skipped: [], ignoredColumns: [] });
 
     httpMock.expectOne(isMembersRead).flush([{ id: 'm1', email: 'amy@example.com', status: 'Pending' }]);
-    fixture.detectChanges();
+    // The page settles by itself, as in a browser: the app runs without zone.js, so a redraw forced here would hide a page that stays stale.
+    await fixture.whenStable();
 
     expect(root.textContent).toContain('amy@example.com');
     expect(root.textContent).toContain('Members (1)');
+  });
+
+  it('says it is loading while the members are read again, then lists them, with no redraw forced', async () => {
+    fixture.componentInstance.loadMembers();
+    await fixture.whenStable();
+    expect(root.textContent).toContain('Loading members...');
+
+    httpMock.expectOne(isMembersRead).flush([{ id: 'm1', email: 'amy@example.com', phone: '+919800000000', status: 'Registered' }]);
+    await fixture.whenStable();
+
+    expect(root.textContent).not.toContain('Loading members...');
+    expect(root.querySelector('tbody tr')?.textContent).toContain('amy@example.com');
+  });
+
+  it('stops saying it is loading when the members cannot be read', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    fixture.componentInstance.loadMembers();
+    await fixture.whenStable();
+
+    httpMock.expectOne(isMembersRead).flush({ title: 'forbidden' }, { status: 403, statusText: 'Forbidden' });
+    await fixture.whenStable();
+
+    expect(root.textContent).not.toContain('Loading members...');
+    expect(consoleError).toHaveBeenCalled();
+  });
+
+  it('shows why when a member cannot be added, and unlocks the button', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    fixture.componentInstance.form.patchValue({ email: 'amy@example.com' });
+    fixture.componentInstance.onAddMember();
+    await fixture.whenStable();
+    const button = root.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    expect(button.textContent).toContain('Adding...');
+
+    httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/batches/batch-1/members')).flush({ title: 'batch_full' }, { status: 409, statusText: 'Conflict' });
+    await fixture.whenStable();
+
+    expect(root.querySelector('.error-message')?.textContent).toContain('Failed to add member');
+    expect(button.textContent).toContain('Add Member');
+    expect(button.disabled).toBe(false);
+    expect(consoleError).toHaveBeenCalled();
   });
 
   it('does not read the members again when the import added nobody', async () => {

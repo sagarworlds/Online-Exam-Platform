@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -64,14 +64,14 @@ import { BatchApiService } from '../batch-api.service';
         </div>
 
         <div class="actions">
-          <button type="submit" [disabled]="!form.valid || loading" class="btn btn--primary">
-            {{ loading ? 'Creating...' : 'Create Batch' }}
+          <button type="submit" [disabled]="!form.valid || loading()" class="btn btn--primary">
+            {{ loading() ? 'Creating...' : 'Create Batch' }}
           </button>
           <a routerLink="/batches" class="btn">Cancel</a>
         </div>
 
-        @if (error) {
-          <div class="error-message">{{ error }}</div>
+        @if (error()) {
+          <div class="error-message">{{ error() }}</div>
         }
       </form>
     </div>
@@ -83,8 +83,10 @@ export class BatchCreate implements OnInit {
   private router = inject(Router);
 
   form!: FormGroup;
-  loading = false;
-  error = '';
+  // Signals, not plain fields: the app runs without zone.js, so the page is redrawn only for what a signal tells it about. A plain field set
+  // when the API refuses would leave the button on "Creating..." and show no reason.
+  protected readonly loading = signal(false);
+  protected readonly error = signal('');
 
   ngOnInit() {
     this.form = this.fb.group({
@@ -98,8 +100,8 @@ export class BatchCreate implements OnInit {
   onSubmit() {
     if (!this.form.valid) return;
 
-    this.loading = true;
-    this.error = '';
+    this.loading.set(true);
+    this.error.set('');
 
     const request = {
       examId: this.form.value.examId,
@@ -110,12 +112,12 @@ export class BatchCreate implements OnInit {
 
     this.batchApi.createBatch(request).subscribe({
       next: () => {
-        this.loading = false;
+        this.loading.set(false);
         this.router.navigate(['/batches']);
       },
       error: (err) => {
-        this.error = 'Failed to create batch';
-        this.loading = false;
+        this.error.set('Failed to create batch');
+        this.loading.set(false);
         console.error(err);
       },
     });

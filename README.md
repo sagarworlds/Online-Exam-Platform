@@ -1074,6 +1074,10 @@ npm run lint
 npm test -- --coverage --watch=false
 ```
 
+**The web app runs without zone.js**, so a page is redrawn only for what a signal tells it about. State that a template reads, such as `loading`, an error message or a list that arrives from the API, must be a `signal`. A plain field set in a `subscribe` callback changes nothing on screen, and the page stays as it was drawn first. The Batches page once stayed on "Loading batches..." for good this way, and a slow answer hid it, because the waiting indicator changed a signal as it went away.
+
+A test of such a page waits for it to settle by itself (`await fixture.whenStable()`) and does not call `fixture.detectChanges()` after the answer. A forced redraw shows the new state even for a page that a browser leaves on the old one.
+
 ### Browser Tests (Chromium, Firefox, WebKit)
 
 Playwright runs the same journeys in the three browser engines (NFR-8, D19): signing in (including by keyboard alone), sitting a short exam from the instructions to the score, reloading in the middle of an exam, and installing the app (manifest, service worker, the app shell offline). WebKit is the engine Safari is built on, not Safari itself, so real phones and Safari are still checked by hand (`docs/compliance/accessibility-manual-checklist.md`).

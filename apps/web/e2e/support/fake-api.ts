@@ -49,16 +49,26 @@ function encodeSegment(value: object): string {
   return btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-/** An access token for a signed-in candidate, valid for an hour, in the shape the API issues. */
-export function candidateAccessToken(userId: string, sessionId: string): string {
+/** An access token for a signed-in user holding a role and permissions, valid for an hour, in the shape the API issues. */
+function accessToken(userId: string, sessionId: string, role: string, permissions: readonly string[]): string {
   const payload = {
     sub: userId,
     sid: sessionId,
     exp: Math.floor(Date.now() / 1000) + 3600,
-    'http://schemas.microsoft.com/ws/2008/06/identity/claims/role': 'Candidate',
-    perm: [],
+    'http://schemas.microsoft.com/ws/2008/06/identity/claims/role': role,
+    perm: permissions,
   };
   return `${encodeSegment({ alg: 'none', typ: 'JWT' })}.${encodeSegment(payload)}.signature`;
+}
+
+/** An access token for a signed-in candidate, valid for an hour, in the shape the API issues. */
+export function candidateAccessToken(userId: string, sessionId: string): string {
+  return accessToken(userId, sessionId, 'Candidate', []);
+}
+
+/** An access token for a signed-in staff member who holds the given permissions (such as `batch.manage`), valid for an hour. */
+export function staffAccessToken(userId: string, sessionId: string, permissions: readonly string[]): string {
+  return accessToken(userId, sessionId, 'ExamAdmin', permissions);
 }
 
 /**

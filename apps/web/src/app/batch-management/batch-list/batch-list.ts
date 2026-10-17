@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterModule } from '@angular/router';
 import { BatchApiService } from '../batch-api.service';
@@ -16,20 +16,20 @@ import { BatchDto } from '../batch.models';
         <a routerLink="/batches/create" class="btn btn--primary">Create New Batch</a>
       </div>
 
-      @if (loading) {
+      @if (loading()) {
         <div class="empty-state">Loading batches...</div>
       }
-      @if (error) {
-        <div class="error-message">{{ error }}</div>
+      @if (error()) {
+        <div class="error-message">{{ error() }}</div>
       }
 
-      @if (!loading && batches.length === 0) {
+      @if (!loading() && batches().length === 0) {
         <div class="empty-state">
           No batches found. <a routerLink="/batches/create">Create one now</a>
         </div>
       }
 
-      @if (!loading && batches.length > 0) {
+      @if (!loading() && batches().length > 0) {
         <div class="table-wrap">
           <table class="table">
             <thead>
@@ -42,7 +42,7 @@ import { BatchDto } from '../batch.models';
               </tr>
             </thead>
             <tbody>
-              @for (batch of batches; track batch.id) {
+              @for (batch of batches(); track batch.id) {
               <tr>
               <td><strong>{{ batch.name }}</strong></td>
               <td><span class="badge" [class]="'status-' + batch.status">{{ batch.status }}</span></td>
@@ -64,25 +64,27 @@ import { BatchDto } from '../batch.models';
 export class BatchList implements OnInit {
   private batchApi = inject(BatchApiService);
 
-  batches: BatchDto[] = [];
-  loading = true;
-  error = '';
+  // Signals, not plain fields: the app runs without zone.js, so the page is redrawn only for what a signal tells it about. A plain field set
+  // when the answer arrives would leave the page on "Loading batches..." for good.
+  protected readonly batches = signal<BatchDto[]>([]);
+  protected readonly loading = signal(true);
+  protected readonly error = signal('');
 
   ngOnInit() {
     this.loadBatches();
   }
 
   loadBatches() {
-    this.loading = true;
-    this.error = '';
+    this.loading.set(true);
+    this.error.set('');
     this.batchApi.getBatches().subscribe({
       next: (data) => {
-        this.batches = data;
-        this.loading = false;
+        this.batches.set(data);
+        this.loading.set(false);
       },
       error: (err) => {
-        this.error = 'Failed to load batches';
-        this.loading = false;
+        this.error.set('Failed to load batches');
+        this.loading.set(false);
         console.error(err);
       },
     });

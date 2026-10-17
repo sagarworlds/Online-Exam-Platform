@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -37,28 +37,28 @@ import { RosterImport } from './roster-import/roster-import';
             />
           </div>
 
-          <button type="submit" [disabled]="!form.valid || loading" class="btn btn--primary">
-            {{ loading ? 'Adding...' : 'Add Member' }}
+          <button type="submit" [disabled]="!form.valid || loading()" class="btn btn--primary">
+            {{ loading() ? 'Adding...' : 'Add Member' }}
           </button>
         </form>
-        @if (error) {
-          <div class="error-message">{{ error }}</div>
+        @if (error()) {
+          <div class="error-message">{{ error() }}</div>
         }
       </div>
 
       <app-roster-import [batchId]="batchId" (imported)="loadMembers()" />
 
       <div>
-        <h3>Members ({{ members.length }})</h3>
-        @if (membersLoading) {
+        <h3>Members ({{ members().length }})</h3>
+        @if (membersLoading()) {
           <div class="empty-state">Loading members...</div>
         }
-        @if (!membersLoading && members.length === 0) {
+        @if (!membersLoading() && members().length === 0) {
           <div class="empty-state">
             No members added yet
           </div>
         }
-        @if (!membersLoading && members.length > 0) {
+        @if (!membersLoading() && members().length > 0) {
           <div class="table-wrap">
             <table class="table">
               <thead>
@@ -69,7 +69,7 @@ import { RosterImport } from './roster-import/roster-import';
                 </tr>
               </thead>
               <tbody>
-                @for (member of members; track member.id) {
+                @for (member of members(); track member.id) {
                 <tr>
                   <td>{{ member.email }}</td>
                   <td>{{ member.phone || '-' }}</td>
@@ -96,10 +96,12 @@ export class BatchRoster implements OnInit {
 
   batchId = '';
   form!: FormGroup;
-  members: BatchMemberDto[] = [];
-  loading = false;
-  membersLoading = true;
-  error = '';
+  // Signals, not plain fields: the app runs without zone.js, so the page is redrawn only for what a signal tells it about. A plain field set
+  // when an answer arrives would leave "Loading members..." on screen for good.
+  protected readonly members = signal<BatchMemberDto[]>([]);
+  protected readonly loading = signal(false);
+  protected readonly membersLoading = signal(true);
+  protected readonly error = signal('');
 
   ngOnInit() {
     this.batchId = this.route.snapshot.params['id'];
@@ -117,15 +119,15 @@ export class BatchRoster implements OnInit {
   }
 
   loadMembers() {
-    this.membersLoading = true;
+    this.membersLoading.set(true);
     this.batchApi.getBatchMembers(this.batchId).subscribe({
       next: (data) => {
-        this.members = data;
-        this.membersLoading = false;
+        this.members.set(data);
+        this.membersLoading.set(false);
       },
       error: (err) => {
         console.error(err);
-        this.membersLoading = false;
+        this.membersLoading.set(false);
       },
     });
   }
@@ -133,8 +135,8 @@ export class BatchRoster implements OnInit {
   onAddMember() {
     if (!this.form.valid) return;
 
-    this.loading = true;
-    this.error = '';
+    this.loading.set(true);
+    this.error.set('');
 
     const request = {
       email: this.form.value.email,
@@ -144,12 +146,12 @@ export class BatchRoster implements OnInit {
     this.batchApi.addMember(this.batchId, request).subscribe({
       next: () => {
         this.form.reset();
-        this.loading = false;
+        this.loading.set(false);
         this.loadMembers();
       },
       error: (err) => {
-        this.error = 'Failed to add member';
-        this.loading = false;
+        this.error.set('Failed to add member');
+        this.loading.set(false);
         console.error(err);
       },
     });

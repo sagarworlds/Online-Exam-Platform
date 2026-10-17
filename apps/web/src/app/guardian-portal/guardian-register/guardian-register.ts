@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -51,16 +51,16 @@ import { AuthSessionService } from '../../auth/auth-session.service';
         </div>
 
         <div class="actions">
-          <button type="submit" [disabled]="!form.valid || loading" class="btn btn--primary">
-            {{ loading ? 'Registering...' : 'Register' }}
+          <button type="submit" [disabled]="!form.valid || loading()" class="btn btn--primary">
+            {{ loading() ? 'Registering...' : 'Register' }}
           </button>
           <a routerLink="/login" class="btn">Back to Login</a>
         </div>
 
-        @if (error) {
-          <div class="error-message">{{ error }}</div>
+        @if (error()) {
+          <div class="error-message">{{ error() }}</div>
         }
-        @if (success) {
+        @if (success()) {
           <div class="success-message">
             Registration successful! You can now link candidates to your account.
           </div>
@@ -76,9 +76,11 @@ export class GuardianRegister implements OnInit {
   private router = inject(Router);
 
   form!: FormGroup;
-  loading = false;
-  error = '';
-  success = false;
+  // Signals, not plain fields: the app runs without zone.js, so the page is redrawn only for what a signal tells it about. A plain field set
+  // when the API answers would leave the button on "Registering..." and show neither the reason for a refusal nor the confirmation.
+  protected readonly loading = signal(false);
+  protected readonly error = signal('');
+  protected readonly success = signal(false);
 
   ngOnInit() {
     this.form = this.fb.group({
@@ -91,9 +93,9 @@ export class GuardianRegister implements OnInit {
   onSubmit() {
     if (!this.form.valid) return;
 
-    this.loading = true;
-    this.error = '';
-    this.success = false;
+    this.loading.set(true);
+    this.error.set('');
+    this.success.set(false);
 
     const request = {
       email: this.form.value.email,
@@ -103,16 +105,16 @@ export class GuardianRegister implements OnInit {
 
     this.guardianApi.registerGuardian(request).subscribe({
       next: (guardian) => {
-        this.loading = false;
-        this.success = true;
+        this.loading.set(false);
+        this.success.set(true);
         this.authSession.login(guardian.id);
         setTimeout(() => {
           this.router.navigate(['/guardian']);
         }, 2000);
       },
       error: (err) => {
-        this.error = 'Failed to register guardian';
-        this.loading = false;
+        this.error.set('Failed to register guardian');
+        this.loading.set(false);
         console.error(err);
       },
     });

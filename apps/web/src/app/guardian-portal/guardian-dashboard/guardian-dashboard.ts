@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { GuardianApiService } from '../guardian-api.service';
@@ -19,29 +19,29 @@ import { AuthSessionService } from '../../auth/auth-session.service';
 
       <div class="stat-grid">
         <div class="stat-card">
-          <div class="stat-value">{{ links.length }}</div>
+          <div class="stat-value">{{ links().length }}</div>
           <div class="stat-label">Linked Candidates</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">{{ verifiedCount }}</div>
+          <div class="stat-value">{{ verifiedCount() }}</div>
           <div class="stat-label">Verified Links</div>
         </div>
       </div>
 
-      @if (loading) {
+      @if (loading()) {
         <div class="empty-state">Loading candidates...</div>
       }
-      @if (error) {
-        <div class="error-message">{{ error }}</div>
+      @if (error()) {
+        <div class="error-message">{{ error() }}</div>
       }
 
-      @if (!loading && links.length === 0) {
+      @if (!loading() && links().length === 0) {
         <div class="empty-state">
           No candidates linked yet. <a routerLink="/guardian/link-candidate">Link a candidate</a>
         </div>
       }
 
-      @if (!loading && links.length > 0) {
+      @if (!loading() && links().length > 0) {
         <div>
           <h3>Linked Candidates</h3>
           <div class="table-wrap">
@@ -55,7 +55,7 @@ import { AuthSessionService } from '../../auth/auth-session.service';
                 </tr>
               </thead>
               <tbody>
-                @for (link of links; track link.id) {
+                @for (link of links(); track link.id) {
                 <tr>
                   <td>{{ link.candidateEmail }}</td>
                   <td><span class="badge" [class]="'status-' + link.status">{{ link.status }}</span></td>
@@ -79,19 +79,18 @@ export class GuardianDashboard implements OnInit {
   private guardianApi = inject(GuardianApiService);
   private authSession = inject(AuthSessionService);
 
-  links: GuardianLinkDto[] = [];
-  loading = true;
-  error = '';
+  // Signals, not plain fields: the app runs without zone.js, so the page is redrawn only for what a signal tells it about. A plain field set
+  // when the answer arrives would leave "Loading candidates..." on screen for good.
+  protected readonly links = signal<GuardianLinkDto[]>([]);
+  protected readonly loading = signal(true);
+  protected readonly error = signal('');
+  protected readonly verifiedCount = computed(() => this.links().filter(l => l.status === 'Verified').length);
   guardianId = '';
-
-  get verifiedCount(): number {
-    return this.links.filter(l => l.status === 'Verified').length;
-  }
 
   ngOnInit() {
     const session = this.authSession.session();
     if (!session?.userId) {
-      this.error = 'Not authenticated';
+      this.error.set('Not authenticated');
       return;
     }
     this.guardianId = session.userId;
@@ -99,16 +98,16 @@ export class GuardianDashboard implements OnInit {
   }
 
   loadLinks() {
-    this.loading = true;
-    this.error = '';
+    this.loading.set(true);
+    this.error.set('');
     this.guardianApi.getGuardianLinks(this.guardianId).subscribe({
       next: (data) => {
-        this.links = data;
-        this.loading = false;
+        this.links.set(data);
+        this.loading.set(false);
       },
       error: (err) => {
-        this.error = 'Failed to load linked candidates';
-        this.loading = false;
+        this.error.set('Failed to load linked candidates');
+        this.loading.set(false);
         console.error(err);
       },
     });

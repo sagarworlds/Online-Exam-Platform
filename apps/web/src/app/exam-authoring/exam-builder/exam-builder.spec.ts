@@ -198,16 +198,24 @@ describe('ExamBuilder', () => {
     httpMock.expectNone(`${environment.apiBaseUrl}/v1/exams`);
   });
 
-  it('shows the reason the API gives when creating the exam fails', () => {
+  it('shows the reason the API gives when creating the exam fails, and unlocks the button', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const fixture = open();
     fixture.componentInstance.form.patchValue({ name: 'Maths Final' });
     fixture.componentInstance.onSubmit();
+    await fixture.whenStable();
+    const root = fixture.nativeElement as HTMLElement;
+    const submit = root.querySelector('button[type="submit"]') as HTMLButtonElement;
+    expect(submit.textContent).toContain('Creating...');
 
     httpMock
       .expectOne(`${environment.apiBaseUrl}/v1/exams`)
       .flush({ title: 'invalid_request', detail: 'The request could not be read.' }, { status: 400, statusText: 'Bad Request' });
-    fixture.detectChanges();
+    // The page settles by itself, as in a browser: the app runs without zone.js, so a redraw forced here would hide a page that stays stale.
+    await fixture.whenStable();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('The request could not be read.');
+    expect(root.textContent).toContain('The request could not be read.');
+    expect(submit.textContent).toContain('Create Exam');
+    expect(submit.disabled).toBe(false);
   });
 });
