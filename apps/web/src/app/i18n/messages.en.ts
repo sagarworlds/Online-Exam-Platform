@@ -998,6 +998,7 @@ export const EN = {
 
   // ---- question content encryption, for administrators (#57) ----
   'encryption.retry': 'Try again',
+  'encryption.retryHint': 'Select the padlock to try again.',
   'encryption.title': 'Question content encryption',
   'encryption.encrypted': 'Encrypted',
   'encryption.notComplete': 'Not complete',

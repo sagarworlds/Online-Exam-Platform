@@ -8,7 +8,6 @@ import { RealApi } from './real-api';
 // it refuses, so the page and the API are tested together; nothing is stubbed.
 
 const run = randomUUID().slice(0, 8);
-const AUTH_TOKEN_STORAGE_KEY = 'exam-platform.auth-token';
 
 let api: RealApi;
 
@@ -20,11 +19,9 @@ test.afterAll(async () => {
   await api.dispose();
 });
 
-/** Opens the question bank signed in as the administrator, handing the page the session instead of signing in on it. */
+/** Opens the question bank signed in as the administrator. */
 async function openQuestionBank(page: Page): Promise<void> {
-  const token = await api.administratorToken();
-  await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [AUTH_TOKEN_STORAGE_KEY, token] as [string, string]);
-  await page.goto('/admin/questions');
+  await api.openAdminPage(page, '/admin/questions');
   await expect(page.locator('#question-text')).toBeVisible();
 }
 

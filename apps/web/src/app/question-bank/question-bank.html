@@ -1,7 +1,9 @@
 <div class="page page--wide">
-  <h1>Question bank</h1>
-
-  <app-content-encryption-status />
+  <!-- The padlock at the end of the heading says whether the questions are encrypted; its details are in a tip. -->
+  <div class="page-header">
+    <h1>Question bank</h1>
+    <app-content-encryption-status />
+  </div>
 
   <!-- Why the page could not load something; what happened to the form's Save is shown under the form instead. -->
   @if (errorMessage()) {

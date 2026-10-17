@@ -1,27 +1,60 @@
-<section class="card encryption-status" aria-labelledby="encryption-status-heading">
-  <h2 id="encryption-status-heading" class="card__title">{{ 'encryption.title' | t }}</h2>
+<!-- A padlock beside the page's heading. What it says is in the tip: on hover (a mouse), on keyboard focus, or pinned by a tap or Enter, and Escape puts it away. -->
+<div class="encryption-status">
+  <button
+    type="button"
+    class="encryption-status__icon"
+    [class.encryption-status__icon--ok]="state() === 'complete'"
+    [class.encryption-status__icon--bad]="state() === 'incomplete' || state() === 'error'"
+    [attr.aria-label]="'encryption.title' | t"
+    aria-describedby="encryption-status-tip"
+    (click)="activate()"
+    (focus)="focusIn($event)"
+    (blur)="focusOut()"
+  >
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+      @switch (state()) {
+        @case ('complete') {
+          <path d="m9.5 16 1.8 1.8L15 14" />
+        }
+        @case ('loading') {
+          <path d="M9.5 16h.01M12 16h.01M14.5 16h.01" />
+        }
+        @default {
+          <path d="M12 14v2.2M12 18.4h.01" />
+        }
+      }
+    </svg>
+  </button>
 
-  @if (loading()) {
-    <p aria-live="polite">{{ 'common.loading' | t }}</p>
-  } @else if (errorMessage()) {
-    <p class="error-message" role="alert">{{ errorMessage() }}</p>
-    <button type="button" class="btn" (click)="reload()">{{ 'encryption.retry' | t }}</button>
-  } @else if (status(); as current) {
-    @if (current.complete) {
-      <p>
-        <span class="badge badge--active"><span aria-hidden="true">✓</span> {{ 'encryption.encrypted' | t }}</span>
-      </p>
-      <p aria-live="polite">
-        {{ current.contentValues === 0 ? ('encryption.none' | t) : ('encryption.complete' | t: { count: current.contentValues }) }}
-      </p>
-    } @else {
-      <p>
-        <span class="badge badge--danger"><span aria-hidden="true">✗</span> {{ 'encryption.notComplete' | t }}</span>
-      </p>
-      <p class="error-message" role="alert">
-        {{ 'encryption.pending' | t: { plaintext: current.plaintextValues, total: current.contentValues } }}
-      </p>
+  <div id="encryption-status-tip" role="tooltip" class="encryption-status__tip" [hidden]="!visible()">
+    <p class="encryption-status__title">{{ 'encryption.title' | t }}</p>
+
+    @switch (state()) {
+      @case ('loading') {
+        <p>{{ 'common.loading' | t }}</p>
+      }
+      @case ('error') {
+        <p class="error-message">{{ errorMessage() }}</p>
+        <p class="hint">{{ 'encryption.retryHint' | t }}</p>
+      }
+      @default {
+        @if (status(); as current) {
+          @if (current.complete) {
+            <p>
+              <span class="badge badge--active"><span aria-hidden="true">✓</span> {{ 'encryption.encrypted' | t }}</span>
+            </p>
+            <p>{{ current.contentValues === 0 ? ('encryption.none' | t) : ('encryption.complete' | t: { count: current.contentValues }) }}</p>
+          } @else {
+            <p>
+              <span class="badge badge--danger"><span aria-hidden="true">✗</span> {{ 'encryption.notComplete' | t }}</span>
+            </p>
+            <p class="error-message">{{ 'encryption.pending' | t: { plaintext: current.plaintextValues, total: current.contentValues } }}</p>
+          }
+          <p class="hint">{{ 'encryption.hint' | t }}</p>
+        }
+      }
     }
-    <p class="hint">{{ 'encryption.hint' | t }}</p>
-  }
-</section>
+  </div>
+</div>

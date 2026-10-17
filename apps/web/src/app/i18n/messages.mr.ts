@@ -993,6 +993,7 @@ export const MR: Messages = {
 
   // ---- question content encryption, for administrators (#57) ----
   'encryption.retry': 'पुन्हा प्रयत्न करा',
+  'encryption.retryHint': 'पुन्हा प्रयत्न करण्यासाठी कुलपाचे चिन्ह निवडा.',
   'encryption.title': 'प्रश्न मजकुराचे सांकेतिकीकरण',
   'encryption.encrypted': 'सांकेतिक स्वरूपात',
   'encryption.notComplete': 'पूर्ण नाही',
