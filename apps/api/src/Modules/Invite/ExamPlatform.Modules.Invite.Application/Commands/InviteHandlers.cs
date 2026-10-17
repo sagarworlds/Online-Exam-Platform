@@ -1,9 +1,9 @@
-using System.ComponentModel.DataAnnotations;
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.Identity.Contracts;
 using ExamPlatform.Modules.Invite.Application.Dtos;
 using ExamPlatform.Modules.Notifications.Contracts;
 using ExamPlatform.Modules.Invite.Application.Ports;
+using ExamPlatform.Modules.Invite.Contracts;
 using ExamPlatform.Modules.Invite.Domain;
 using ExamPlatform.Modules.Invite.Domain.Exceptions;
 using ExamPlatform.SharedKernel.Application;
@@ -40,14 +40,13 @@ public sealed class CreateInviteHandler(
     /// <exception cref="InviteExamNotFoundError">The exam does not exist.</exception>
     public async Task<InviteDto> HandleAsync(CreateInviteCommand command, CancellationToken cancellationToken)
     {
-        if (!new EmailAddressAttribute().IsValid(command.Email))
-            throw new InvalidInviteEmailError();
+        var email = InviteEmailAddress.Parse(command.Email);
 
         var exam = await examCatalog.FindAsync(command.ExamId, cancellationToken)
             ?? throw new InviteExamNotFoundError(command.ExamId);
 
         var nowUtc = clock.UtcNow;
-        var invite = new InviteAggregate(command.ExamId, command.BatchMemberId, command.Email.Trim(), command.CreatedByUserId, nowUtc);
+        var invite = new InviteAggregate(command.ExamId, command.BatchMemberId, email, command.CreatedByUserId, nowUtc);
         var code = invite.GenerateCode(DefaultCodeExpiryHours, nowUtc);
 
         repository.Add(invite);
@@ -192,5 +191,35 @@ public sealed class RevokeInviteHandler(IInviteRepository repository, IInviteUni
         var invite = await repository.GetByIdOrThrowAsync(command.InviteId, cancellationToken);
         invite.Revoke(clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>
+/// Handles <see cref="ChangeInviteEmailCommand"/>: staff change the address on all of a student's invitations at once, for a student who
+/// has no account yet (one with an account has their address changed on the account, which moves the invitations too).
+/// </summary>
+public sealed class ChangeInviteEmailHandler(IInviteAddressChanger changer)
+{
+    /// <summary>Checks the request, then moves the invitations.</summary>
+    /// <param name="command">The address the invitations were sent to and the address they are to have.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>How many invitations were changed.</returns>
+    /// <exception cref="InvalidInviteEmailError">Either address is missing or not a valid e-mail address.</exception>
+    /// <exception cref="InviteEmailUnchangedError">The new address is the current one, whatever its case.</exception>
+    /// <exception cref="NoInvitesForEmailError">No invitation was sent to the current address.</exception>
+    public async Task<ChangeInviteEmailResultDto> HandleAsync(ChangeInviteEmailCommand command, CancellationToken cancellationToken)
+    {
+        // Checked here as well as inside the changer, because the changer answers "nothing to do" with zero, which is right for Identity
+        // asking on every profile save but wrong for staff who asked for this change and should be told it did nothing, and why.
+        var current = InviteEmailAddress.Parse(command.CurrentEmail);
+        var replacement = InviteEmailAddress.Parse(command.NewEmail);
+        if (InviteEmailAddress.Same(current, replacement))
+            throw new InviteEmailUnchangedError();
+
+        var changed = await changer.ChangeAddressAsync(current, replacement, cancellationToken);
+        if (changed == 0)
+            throw new NoInvitesForEmailError();
+
+        return new ChangeInviteEmailResultDto(changed);
     }
 }

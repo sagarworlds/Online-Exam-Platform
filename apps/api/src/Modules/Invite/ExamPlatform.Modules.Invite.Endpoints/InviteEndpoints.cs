@@ -57,6 +57,13 @@ public static class InviteEndpoints
             .WithName("DeclineInvite")
             .WithDescription("Decline an invitation; the signed-in account must hold the invited e-mail address");
 
+        invites.MapPost("/change-email", ChangeInviteEmail)
+            .RequireAuthorization(InvitePermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ChangeInviteEmail")
+            .WithDescription("Change the address on every invitation sent to one address, so a student's invitations stay together; audited");
+
         invites.MapPost("/{inviteId}/revoke", RevokeInvite)
             .RequireAuthorization(InvitePermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -107,6 +114,9 @@ public static class InviteEndpoints
         return Results.NoContent();
     }
 
+    private static async Task<IResult> ChangeInviteEmail(ChangeInviteEmailRequest request, ChangeInviteEmailHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new ChangeInviteEmailCommand(request.CurrentEmail, request.NewEmail), ct));
+
     private static async Task<IResult> RevokeInvite(Guid inviteId, RevokeInviteHandler handler, CancellationToken ct)
     {
         await handler.HandleAsync(new RevokeInviteCommand(inviteId), ct);
@@ -132,3 +142,10 @@ public record GenerateInviteCodeRequest(
 /// <param name="Code">The code from the invitation link.</param>
 public record AcceptInviteRequest(
     string? Code);
+
+/// <summary>Request DTO for changing the address on a student's invitations.</summary>
+/// <param name="CurrentEmail">The address the invitations were sent to.</param>
+/// <param name="NewEmail">The address they are to have.</param>
+public record ChangeInviteEmailRequest(
+    string? CurrentEmail,
+    string? NewEmail);

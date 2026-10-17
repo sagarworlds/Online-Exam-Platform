@@ -31,6 +31,14 @@ public interface IInviteRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<InviteAggregate>> ListNewestAsync(int take, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Loads every invite sent to an e-mail address, in any status, tracked so changes to them are saved. Addresses are compared without
+    /// regard to case. An invite that has been deleted is not included.
+    /// </summary>
+    /// <param name="email">The address, already trimmed.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<InviteAggregate>> ListByEmailAsync(string email, CancellationToken cancellationToken = default);
+
     /// <summary>The distinct exam ids of the invites a user has accepted.</summary>
     /// <param name="userId">The accepting user.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

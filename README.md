@@ -822,6 +822,19 @@ Invitations reach a candidate by e-mail (and WhatsApp), but staff can also copy 
 | API | `POST /v1/invites/{inviteId}/codes` (`invite.manage`) now also returns `link`, and refuses an invitation that is no longer pending (`409 invite_state_invalid`), since a code for an accepted, declined or revoked invitation could never be redeemed. A lifetime outside 1 to 720 hours is still `400`, reported first. Before this the endpoint existed but nothing in the web app used it. |
 | Audit | Each code handed over is audited as `Invite.CodeGenerated`: who asked, the invitation, the exam and the code's id. **Never the code, the link or the address.** |
 
+#### Changing the address on a student's invitations
+
+Staff can move every invitation sent to one e-mail address to another, for a student who gave the wrong address or who changed it, so their invitations stay together instead of being split between two addresses.
+
+| What | Rule |
+|------|------|
+| API | `POST /v1/invites/change-email` (`invite.manage`) with `{ "currentEmail", "newEmail" }` answers `{ "changed": n }`. `400 invalid_invite_email` for a missing or invalid address, `400 invite_email_unchanged` when the two are the same address in any case, `404 no_invites_for_email` when nobody was invited at the current address. |
+| Which invitations | Every invitation sent to the current address, compared without regard to case, **in every status** (pending, accepted, declined, expired, revoked). Deleted invitations are left alone. All of them change in one save, so a failure never leaves a student's invitations split. |
+| What it changes | Only the address on the invitation. Codes, status and the exam are untouched, and nobody is enrolled or un-enrolled: an accepted invitation is tied to the account that accepted it. |
+| Who can accept afterwards | Accepting needs the signed-in account's verified address to equal the invited one, so after the change **only the account that holds the new address** can accept a pending invitation. The e-mail that went out already reached the old address and nothing is sent to the new one; use **Copy invite code** to give the new person a code. |
+| Audit | One `Invite.EmailChanged` entry per invitation: who, which invitation, which exam. **Never either address** (NFR-6). |
+| Through the contract | Identity moves a student's invitations the same way through `IInviteAddressChanger` (in `Invite.Contracts`) when staff change the address on the student's account. Through the contract, nothing to move is not an error (including a current address that is blank or unreadable): it answers zero, so a request that failed part way can be sent again. Only the new address must be valid. |
+
 #### Invitations on WhatsApp
 
 When an invitation is created, the invited address is looked up among **active accounts**; if one has a phone number, the invitation's exam code (the one the candidate enters on the invitation page, with the link and when it expires) is also sent to that phone on WhatsApp. The e-mail is unchanged. A number comes only from an account: an address with no account, an account without a phone, one still waiting to be verified and a suspended one get nothing on WhatsApp, and the roster's phone column is not used (nothing links an invite to a roster entry in the UI).

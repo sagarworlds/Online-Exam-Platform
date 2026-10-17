@@ -137,6 +137,7 @@ public class CreateInviteHandlerTests
 
     [Theory]
     [InlineData("not-an-email")]
+    [InlineData("spaces in@example.com")]
     [InlineData("")]
     public async Task HandleAsync_WithAnInvalidEmail_Throws400AndStoresAndSendsNothing(string email)
     {

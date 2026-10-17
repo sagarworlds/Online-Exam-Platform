@@ -162,6 +162,8 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("POST", "/v1/invites/{inviteId}/codes", RbacCatalog.PermissionCodes.InviteManage,
             new { expiryHours = 24 }),
         new("POST", "/v1/invites/{inviteId}/revoke", RbacCatalog.PermissionCodes.InviteManage, null),
+        new("POST", "/v1/invites/change-email", RbacCatalog.PermissionCodes.InviteManage,
+            new { currentEmail = "old@example.com", newEmail = "new@example.com" }),
 
         new("POST", "/v1/guardians", RbacCatalog.PermissionCodes.GuardianLinkManage,
             new { email = "guardian@example.com", fullName = "Authorization Test Guardian" }),

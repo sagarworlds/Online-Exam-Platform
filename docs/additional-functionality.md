@@ -27,6 +27,7 @@ Things the requirements do ask for are not listed here, however they were done. 
 | N9 | Question bank search and paging | New | FR-5 | #116, #108 | Merged |
 | N10 | Admin sidebar, API status dot, loading cue | New | None | #126, #129, #134, #135 | Merged |
 | N11 | A class level above books (Class, Book, Chapter, Question) | New | Section 4, section 10 (no class or grade) | #160 | In review |
+| N12 | Change the address on all of a student's invitations at once | New | FR-50a | This change | In review |
 | B1 | Marathi as a third language | Beyond the wording | FR-10, FR-51, open question 3 | #152, #153 | Merged |
 | B2 | Pinned options, and the shuffling rules | Beyond the wording | FR-12, FR-28 | #106, #107 | Merged |
 | B3 | Putting a draft exam right, and deleting a draft | Beyond the wording | FR-11, FR-12 | #98 | Merged |
@@ -63,6 +64,8 @@ Things the requirements do ask for are not listed here, however they were done. 
 **N10. Admin sidebar, API status dot, loading cue.** Admin navigation moved to a sidebar with drawn icons, a small coloured dot shows whether the API is answering, and a calm loading indicator appears while it is slow to answer (a free-plan service sleeps when idle). None is a stated requirement.
 
 **N11. A class level above books.** A class (a standard or grade such as "4th") sits above books, so the structure is Class, Book, Chapter, Question: "English" for the 4th and "English" for the 5th are two books with their own chapters and questions, and an exam limited to that book, or to chosen chapters of it, is in effect an exam for that class ("Olympiad English for the 4th"). The requirements have no class or grade concept; they organise content by subject, chapter, topic and difficulty (section 4) and people by batches (section 10), and "school" appears only as the audience. Classes are managed on the Books page, archived rather than deleted, and optional: every existing book has none. An exam's scope does not change; a scope over a whole class is not built. See [Books, chapters and exam scope](../README.md#books-chapters-and-exam-scope).
+
+**N12. Change the address on all of a student's invitations.** Staff can move every invitation sent to one e-mail address to another, in any status, in one step (`POST /v1/invites/change-email`, `invite.manage`). FR-50a describes creating, revoking and redeeming invitations by code and does not say what happens when the address was wrong or changed. Only the account holding the new address can accept a pending invitation afterwards, each changed invitation is audited without either address, and the same operation is offered to Identity through `IInviteAddressChanger` so a student's invitations follow a change of their account's address. See [Changing the address on a student's invitations](../README.md#changing-the-address-on-a-students-invitations).
 
 ## Beyond the wording of a requirement
 
