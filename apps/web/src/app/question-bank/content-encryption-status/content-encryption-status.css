@@ -1,12 +1,75 @@
-/* The admin status of question content encryption. The state is a word with a symbol (never colour alone), and the controls are 44px tall. */
-.encryption-status {
-  margin-bottom: 1rem;
+/* The padlock sits at the end of the page header, so its tip opens leftwards from the right edge and stays on a phone's screen. */
+:host {
+  display: inline-block;
 }
 
-.encryption-status .badge {
+.encryption-status {
+  position: relative;
+}
+
+/* The padlock is a 44px target. Its state is the glyph on it (a tick, an exclamation mark, three dots) as well as its colour. */
+.encryption-status__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: help;
+}
+
+.encryption-status__icon:hover {
+  background: var(--surface-muted);
+}
+
+.encryption-status__icon--ok {
+  color: var(--success);
+}
+
+.encryption-status__icon--bad {
+  color: var(--danger);
+}
+
+.encryption-status__tip {
+  position: absolute;
+  inset-block-start: calc(100% + 0.25rem);
+  inset-inline-end: 0;
+  z-index: 20;
+  width: min(22rem, calc(100vw - 2rem));
+  box-sizing: border-box;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 6px 20px rgb(16 24 40 / 18%);
   font-size: 0.95rem;
 }
 
-.encryption-status .btn {
-  min-height: 2.75rem;
+.encryption-status__tip[hidden] {
+  display: none;
+}
+
+/* The gap between the padlock and the tip belongs to the tip, so the pointer can cross it to reach the tip without closing it. */
+.encryption-status__tip::before {
+  content: '';
+  position: absolute;
+  inset-block-start: -0.5rem;
+  inset-inline: 0;
+  height: 0.5rem;
+}
+
+.encryption-status__tip > p {
+  margin: 0 0 0.5rem;
+}
+
+.encryption-status__tip > :last-child {
+  margin-bottom: 0;
+}
+
+.encryption-status__title {
+  font-weight: 600;
 }

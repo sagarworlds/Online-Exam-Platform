@@ -8,7 +8,6 @@ import { RealApi } from './real-api';
 // it refuses, so the page and the API are tested together; nothing is stubbed.
 
 const run = randomUUID().slice(0, 8);
-const AUTH_TOKEN_STORAGE_KEY = 'exam-platform.auth-token';
 
 let api: RealApi;
 
@@ -20,11 +19,9 @@ test.afterAll(async () => {
   await api.dispose();
 });
 
-/** Opens the question bank signed in as the administrator, handing the page the session instead of signing in on it. */
+/** Opens the question bank signed in as the administrator. */
 async function openQuestionBank(page: Page): Promise<void> {
-  const token = await api.administratorToken();
-  await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [AUTH_TOKEN_STORAGE_KEY, token] as [string, string]);
-  await page.goto('/admin/questions');
+  await api.openAdminPage(page, '/admin/questions');
   await expect(page.locator('#question-text')).toBeVisible();
 }
 
@@ -74,6 +71,22 @@ test.describe('adding a question the bank already has', () => {
     await page.getByRole('button', { name: 'Add it anyway' }).click();
     await expect(page.getByText('Question saved.')).toBeInViewport({ ratio: 1 });
     await expect(warning(page)).toHaveCount(0);
+  });
+
+  test('shows all of the warning even when only its top would be on screen below the Save button', async ({ page }) => {
+    const text = `Which colour is a lemon? (${run})`;
+    await openQuestionBank(page);
+    await fillChoiceQuestion(page, text);
+    await saveFirstTime(page);
+    await fillChoiceQuestion(page, text);
+
+    // Save at the bottom edge of the screen: the warning starts just below it, so it is partly on screen and partly not. Engines differ in how
+    // far focus moves a message in that state (WebKit left it flush against the edge, a pixel short), so the page does the scrolling itself.
+    await save(page).evaluate((button) => window.scrollBy(0, button.getBoundingClientRect().bottom - window.innerHeight + 24));
+    await save(page).click();
+
+    await expect(warning(page)).toBeInViewport({ ratio: 1 });
+    await expect(warning(page)).toBeFocused();
   });
 
   test('Don\'t add it takes the warning away and keeps what the author typed', async ({ page }) => {

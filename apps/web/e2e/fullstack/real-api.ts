@@ -1,9 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import type { APIRequestContext, PlaywrightWorkerArgs } from '@playwright/test';
+import type { APIRequestContext, Page, PlaywrightWorkerArgs } from '@playwright/test';
 import type { AuthResult, RegisterCandidateResponse } from '../../src/app/auth/auth.models';
 import type { AttemptDto, MyExamDto } from '../../src/app/candidate/candidate.models';
+
+/** Where the app keeps the session token it was handed (see AuthSessionService). */
+const AUTH_TOKEN_STORAGE_KEY = 'exam-platform.auth-token';
 
 /** What `run-api.mjs` wrote about the API it started: who the administrator is, where it listens and where its log is. */
 export interface RunSettings {
@@ -113,6 +116,13 @@ export class RealApi {
   /** The administrator's session token, for a test that drives an administrator screen: the page is handed it instead of signing in. */
   administratorToken(): Promise<string> {
     return this.administrator();
+  }
+
+  /** Opens an administrator's page already signed in as the administrator: the page is handed the session instead of signing in on it. */
+  async openAdminPage(page: Page, path: string): Promise<void> {
+    const token = await this.administrator();
+    await page.addInitScript(([key, value]) => localStorage.setItem(key, value), [AUTH_TOKEN_STORAGE_KEY, token] as [string, string]);
+    await page.goto(path);
   }
 
   /** Writes the questions, builds an exam from them, schedules it to be open now, and publishes it. */

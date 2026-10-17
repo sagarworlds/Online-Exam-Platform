@@ -993,6 +993,7 @@ export const HI: Messages = {
 
   // ---- question content encryption, for administrators (#57) ----
   'encryption.retry': 'फिर से कोशिश करें',
+  'encryption.retryHint': 'फिर से कोशिश करने के लिए ताले के चिह्न को चुनें।',
   'encryption.title': 'प्रश्न सामग्री का एन्क्रिप्शन',
   'encryption.encrypted': 'एन्क्रिप्टेड',
   'encryption.notComplete': 'पूरा नहीं',
