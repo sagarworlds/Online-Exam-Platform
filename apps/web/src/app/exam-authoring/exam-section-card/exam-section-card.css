@@ -1,0 +1,15 @@
+/* A question or rule and its trash icon share a line, on a phone too: the text takes the room there is and wraps inside it, and the icon stays
+   at the end. Only the question that asks "Remove?" is wider than the line, so only it drops onto a line of its own. */
+.section-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+.section-card__text {
+  flex: 1 1 8rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

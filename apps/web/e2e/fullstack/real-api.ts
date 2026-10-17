@@ -80,6 +80,11 @@ export interface PublishedExam {
   questions: QuestionSpec[];
 }
 
+/** An exam still being written: one section, "Section A", holding the questions, and neither scheduled nor published. */
+export interface DraftExam extends PublishedExam {
+  sectionName: string;
+}
+
 export interface EnrolledCandidate {
   email: string;
   accessToken: string;
@@ -125,8 +130,8 @@ export class RealApi {
     await page.goto(path);
   }
 
-  /** Writes the questions, builds an exam from them, schedules it to be open now, and publishes it. */
-  async publishExam(name: string, questions: QuestionSpec[]): Promise<PublishedExam> {
+  /** Writes the questions and builds a draft exam from them, with one section holding them all. */
+  async draftExam(name: string, questions: QuestionSpec[]): Promise<DraftExam> {
     const admin = await this.administrator();
 
     const questionIds: string[] = [];
@@ -141,11 +146,20 @@ export class RealApi {
       questionIds.push(created.id);
     }
 
+    const sectionName = 'Section A';
     const exam = await this.send<{ id: string }>('POST', '/v1/exams', admin, { name });
-    const section = await this.send<{ id: string }>('POST', `/v1/exams/${exam.id}/sections`, admin, { name: 'Section A' });
+    const section = await this.send<{ id: string }>('POST', `/v1/exams/${exam.id}/sections`, admin, { name: sectionName });
     for (const questionId of questionIds) {
       await this.send('POST', `/v1/exams/${exam.id}/sections/${section.id}/questions`, admin, { questionId });
     }
+
+    return { id: exam.id, name, questions, sectionName };
+  }
+
+  /** Builds the draft exam, schedules it to be open now, and publishes it. */
+  async publishExam(name: string, questions: QuestionSpec[]): Promise<PublishedExam> {
+    const admin = await this.administrator();
+    const exam = await this.draftExam(name, questions);
 
     const opens = new Date(Date.now() - 5 * 60_000);
     await this.send('PUT', `/v1/exams/${exam.id}/schedule`, admin, {

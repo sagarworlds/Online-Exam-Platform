@@ -15,18 +15,18 @@
     <ol>
       @for (question of section().questions; track question.id) {
         <li>
-          {{ question.text ? (question.text | plainText: 160) : ('exams.section.questionGone' | t) }}
-          @if (editable()) {
-            <button
-              type="button"
-              class="btn--small"
-              (click)="takeOutRequested.emit({ sectionId: section().id, questionId: question.questionId })"
-              [disabled]="busy()"
-              [attr.aria-label]="removeLabel(question)"
-            >
-              {{ 'exams.section.remove' | t }}
-            </button>
-          }
+          <div class="section-card__row">
+            <span class="section-card__text">{{ question.text ? (question.text | plainText: 160) : ('exams.section.questionGone' | t) }}</span>
+            @if (editable()) {
+              <app-confirm-remove
+                [label]="removeLabel(question)"
+                [prompt]="'exams.section.removeQuestionConfirm' | t"
+                [confirmLabel]="'exams.section.remove' | t"
+                [busy]="busy()"
+                (confirmed)="takeOutRequested.emit({ sectionId: section().id, questionId: question.questionId })"
+              />
+            }
+          </div>
         </li>
       }
     </ol>
@@ -37,18 +37,18 @@
     <ul>
       @for (rule of section().drawRules; track rule.id) {
         <li>
-          {{ describeRule(rule) }}
-          @if (editable()) {
-            <button
-              type="button"
-              class="btn--small"
-              (click)="drawRuleRemoveRequested.emit({ sectionId: section().id, ruleId: rule.id })"
-              [disabled]="busy()"
-              [attr.aria-label]="'exams.section.removeRuleLabel' | t: { rule: describeRule(rule) }"
-            >
-              {{ 'exams.section.removeRule' | t }}
-            </button>
-          }
+          <div class="section-card__row">
+            <span class="section-card__text">{{ describeRule(rule) }}</span>
+            @if (editable()) {
+              <app-confirm-remove
+                [label]="'exams.section.removeRuleLabel' | t: { rule: describeRule(rule) }"
+                [prompt]="'exams.section.removeRuleConfirm' | t"
+                [confirmLabel]="'exams.section.removeRule' | t"
+                [busy]="busy()"
+                (confirmed)="drawRuleRemoveRequested.emit({ sectionId: section().id, ruleId: rule.id })"
+              />
+            }
+          </div>
         </li>
       }
     </ul>
@@ -127,15 +127,13 @@
         <button type="button" class="btn--small" (click)="startRenaming()" [disabled]="busy()" [attr.aria-label]="'exams.section.renameLabel' | t: { name: section().name }">{{ 'exams.section.rename' | t }}</button>
       }
 
-      @if (confirmingRemove()) {
-        <span class="inline-confirm" role="alertdialog" [attr.aria-label]="'exams.section.removeAria' | t: { name: section().name }">
-          {{ removeConfirmText() }}
-          <button type="button" class="btn--danger btn--small" (click)="confirmRemove()" [disabled]="busy()">{{ 'exams.section.removeSection' | t }}</button>
-          <button type="button" class="btn--small" (click)="confirmingRemove.set(false)">{{ 'common.cancel' | t }}</button>
-        </span>
-      } @else {
-        <button type="button" class="btn--small" (click)="confirmingRemove.set(true)" [disabled]="busy()">{{ 'exams.section.removeSection' | t }}</button>
-      }
+      <app-confirm-remove
+        [label]="'exams.section.removeSectionLabel' | t: { name: section().name }"
+        [prompt]="removeConfirmText()"
+        [confirmLabel]="'exams.section.removeSection' | t"
+        [busy]="busy()"
+        (confirmed)="removeConfirmed.emit(section().id)"
+      />
     </div>
   }
 </div>

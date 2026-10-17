@@ -4,6 +4,7 @@ import { TranslatePipe } from '../../i18n/translate.pipe';
 import { QUESTION_DIFFICULTIES, QuestionDifficulty, QuestionDto } from '../../question-bank/question.models';
 import { PlainTextPipe } from '../../shared/rich-text/plain-text.pipe';
 import { htmlToPlainText } from '../../shared/rich-text/html-to-text';
+import { ConfirmRemove } from '../confirm-remove/confirm-remove';
 import { DrawQuestionsRequest, DrawRuleDto, ExamQuestionDto, ExamScopeType, ExamSectionDto, MAX_DRAW_COUNT } from '../exam.models';
 
 /**
@@ -13,8 +14,9 @@ import { DrawQuestionsRequest, DrawRuleDto, ExamQuestionDto, ExamScopeType, Exam
  */
 @Component({
   selector: 'app-exam-section-card',
-  imports: [PlainTextPipe, TranslatePipe],
+  imports: [ConfirmRemove, PlainTextPipe, TranslatePipe],
   templateUrl: './exam-section-card.html',
+  styleUrl: './exam-section-card.css',
 })
 export class ExamSectionCard {
   private readonly i18n = inject(I18nService);
@@ -51,7 +53,6 @@ export class ExamSectionCard {
 
   protected readonly renaming = signal(false);
   protected readonly nameDraft = signal('');
-  protected readonly confirmingRemove = signal(false);
 
   /** The draw row: closed until asked for, since most sections are filled by choosing questions one at a time. */
   protected readonly drawing = signal(false);
@@ -132,12 +133,7 @@ export class ExamSectionCard {
     return this.i18n.t('exams.section.drawPicks', { inside });
   }
 
-  protected confirmRemove(): void {
-    this.confirmingRemove.set(false);
-    this.removeConfirmed.emit(this.section().id);
-  }
-
-  /** What a screen reader says for a question's Remove button; the visible label is just "Remove". */
+  /** What a screen reader says for a question's trash icon, which has no words of its own. */
   protected removeLabel(question: ExamQuestionDto): string {
     const text = question.text ? htmlToPlainText(question.text, 60) : this.i18n.t('exams.section.questionGoneLong');
     return this.i18n.t('exams.section.removeQuestionLabel', { question: text });

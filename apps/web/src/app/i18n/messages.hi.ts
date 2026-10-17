@@ -870,8 +870,10 @@ export const HI: Messages = {
   'exams.section.noneLeftChapters': 'जोड़ने के लिए और कोई नहीं बचा: प्रश्न पृष्ठ पर इन अध्यायों के अंतर्गत और प्रश्न जोड़ें।',
   'exams.section.rename': 'नाम बदलें',
   'exams.section.removeSection': 'खंड हटाएँ',
-  'exams.section.removeAria': 'खंड {name} हटाएँ?',
+  'exams.section.removeSectionLabel': 'खंड {name} हटाएँ',
   'exams.section.removeConfirm': 'इस खंड{andItsQuestions} को परीक्षा से हटाएँ? वे प्रश्न बैंक में रहेंगे।',
+  'exams.section.removeQuestionConfirm': 'इस प्रश्न को परीक्षा से हटाएँ? यह प्रश्न बैंक में रहेगा।',
+  'exams.section.removeRuleConfirm': 'इस नियम को हटाएँ? बाद में शुरू करने वाले परीक्षार्थियों को इससे प्रश्न नहीं मिलेंगे।',
   'exams.section.andItsQuestions.one': 'और इसका {count} प्रश्न',
   'exams.section.andItsQuestions.other': 'और इसके {count} प्रश्न',
 
