@@ -1,0 +1,84 @@
+/* The staff queue of data requests. An answer keeps its place as one line: its edge colour is repeated by a symbol and by the words, so
+   colour is never the only cue. What the person wrote and their address are free text, so they keep their line breaks and wrap long words
+   and addresses: a long e-mail address must never push a card wider than a phone. The actions sit side by side, and on a phone each takes
+   the full width so it is easy to reach. */
+.request-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.request__label {
+  margin: 0.75rem 0 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.request__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.request__hint {
+  margin: 0.25rem 0 0;
+}
+
+.request__contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-weight: 600;
+}
+
+.request__contact li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.request-answer {
+  margin-top: 1rem;
+}
+
+.request__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.request__actions button {
+  min-height: 2.75rem;
+}
+
+.request-result {
+  margin: 0;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 4px solid var(--success);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.request-result--refused {
+  border-inline-start-color: var(--danger);
+}
+
+.request-result--elsewhere {
+  border-inline-start-color: var(--border-strong);
+}
+
+.request-result:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 40rem) {
+  .request__actions button {
+    flex: 1 1 100%;
+  }
+}

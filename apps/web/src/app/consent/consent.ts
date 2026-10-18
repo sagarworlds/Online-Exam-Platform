@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { I18nService } from '../i18n/i18n.service';
 import { MessageKey } from '../i18n/messages.en';
@@ -28,7 +29,7 @@ const PURPOSES: readonly ConsentPurpose[] = ['TermsOfService', 'PrivacyNotice', 
  */
 @Component({
   selector: 'app-consent',
-  imports: [TranslatePipe],
+  imports: [RouterLink, TranslatePipe],
   templateUrl: './consent.html',
   styleUrl: './consent.css',
 })

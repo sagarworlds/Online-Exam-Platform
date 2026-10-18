@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { UserProfileDto } from '../auth/auth.models';
 import { Profile } from './profile';
 
@@ -23,7 +24,7 @@ describe('Profile', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [Profile],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
   });
@@ -65,6 +66,13 @@ describe('Profile', () => {
     expect(text).toContain('Waiting for verification');
     expect(text).toContain('Exam administrator, Candidate');
     expect(text).toContain('a@b.com');
+  });
+
+  it('links to the data requests page, where a candidate can ask for a copy of their data, a correction or erasure', () => {
+    const fixture = open();
+
+    const link = root(fixture).querySelector('a[href="/my-data-requests"]');
+    expect(link?.textContent?.trim()).toBe('Ask for a copy of your data, a correction or erasure');
   });
 
   it('keeps the name first, since it is the one thing this page changes', () => {

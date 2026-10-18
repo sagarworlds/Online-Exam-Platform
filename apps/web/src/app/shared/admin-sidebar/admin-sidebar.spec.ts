@@ -115,6 +115,7 @@ describe('AdminSidebar', () => {
         'Attempt requests',
         'Disputes',
         'Reported issues',
+        'Data requests',
         'Settings',
       ]);
     });

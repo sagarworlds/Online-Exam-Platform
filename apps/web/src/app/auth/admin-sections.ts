@@ -17,6 +17,7 @@ export const Permission = {
   OtpRead: 'identity.otp.read',
   WhatsAppTest: 'admin.whatsapp.test',
   ProctoringReview: 'proctoring.review',
+  ConsentManage: 'consent.manage',
 } as const;
 
 /**
@@ -100,6 +101,7 @@ export const ADMIN_SECTION_GROUPS: readonly AdminSectionGroup[] = [
       { label: 'admin.area.attemptRequests.name', description: 'admin.area.attemptRequests.description', path: '/admin/attempt-requests', permissions: [Permission.ExamManage], icon: 'attempt-request' },
       { label: 'admin.area.disputes.name', description: 'admin.area.disputes.description', path: '/admin/disputes', permissions: [Permission.ExamManage], icon: 'dispute' },
       { label: 'admin.area.issueReports.name', description: 'admin.area.issueReports.description', path: '/admin/issue-reports', permissions: [Permission.ExamManage], icon: 'issue' },
+      { label: 'admin.area.dataRequests.name', description: 'admin.area.dataRequests.description', path: '/admin/data-requests', permissions: [Permission.ConsentManage], icon: 'privacy' },
     ],
   },
   { heading: null, sections: [SETTINGS_SECTION] },

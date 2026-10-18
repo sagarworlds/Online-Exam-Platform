@@ -1,5 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AuthApiService } from '../auth/auth-api.service';
 import { UserProfileDto } from '../auth/auth.models';
 import { MAX_DISPLAY_NAME_LENGTH, maxTrimmedLengthValidator, notBlankValidator } from '../auth/validators';
@@ -37,7 +38,7 @@ const ROLE_KEYS: Readonly<Partial<Record<string, MessageKey>>> = {
  */
 @Component({
   selector: 'app-profile',
-  imports: [ReactiveFormsModule, TranslatePipe],
+  imports: [ReactiveFormsModule, RouterLink, TranslatePipe],
   templateUrl: './profile.html',
   styleUrl: './profile.css',
 })

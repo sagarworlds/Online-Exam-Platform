@@ -1,0 +1,35 @@
+/* The candidate's data requests. What the candidate wrote and what staff answered is free text: it keeps its line breaks and wraps long
+   words and addresses, so nothing pushes a card wider than a phone. */
+.request-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.request__label {
+  margin: 0.75rem 0 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.request__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Focus lands here after a request is sent; it is not a control, so it gets the ring only while it holds focus. */
+.success-message:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Each choice has a line or two of explanation under its name, so its radio button sits beside the name, not halfway down the block. */
+.release-fields__choice {
+  align-items: flex-start;
+}
+
+.release-fields__choice input:disabled + span {
+  color: var(--text-muted);
+}

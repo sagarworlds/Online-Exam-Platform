@@ -1,0 +1,151 @@
+<div class="page page--wide">
+  <h1>{{ 'admin.dataRequests.title' | t }}</h1>
+  <p class="hint">{{ 'admin.dataRequests.hint' | t }}</p>
+
+  @if (errorMessage()) {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+
+  @if (loading()) {
+    <p role="status">{{ 'common.loading' | t }}</p>
+  } @else if (requests().length === 0) {
+    <div class="card empty-state">{{ 'admin.dataRequests.empty' | t }}</div>
+  } @else {
+    <p class="card__meta">{{ waitingText() }}</p>
+
+    <ul class="request-list">
+      @for (request of requests(); track request.id) {
+        <li class="card">
+          @if (answers()[request.id]; as outcome) {
+            <!-- The answer keeps its place as one line: its edge colour is repeated by a symbol and by the words, so colour is never the only cue. -->
+            <p
+              class="request-result"
+              [class.request-result--refused]="outcome === 'Rejected'"
+              [class.request-result--elsewhere]="outcome === 'Elsewhere'"
+              tabindex="-1"
+              #focusTarget
+              [attr.data-focus]="'result:' + request.id"
+            >
+              <span aria-hidden="true">{{ symbol(outcome) }}</span>
+              {{ resultText(request, outcome) }}
+            </p>
+          } @else {
+            <h3 class="card__title" [id]="headingId(request)">
+              {{ kindKeys[request.kind] | t }}
+              @if (request.isOverdue) {
+                <span class="badge badge--danger"><span aria-hidden="true">⚠ </span>{{ 'admin.dataRequests.overdue' | t }}</span>
+              }
+            </h3>
+
+            <p class="card__meta">
+              {{ 'admin.dataRequests.received' | t: { when: (request.receivedAtUtc | date: 'medium') ?? '' } }}
+              ·
+              {{ 'admin.dataRequests.dueOn' | t: { when: (request.dueAtUtc | date: 'medium') ?? '' } }}
+            </p>
+
+            <p class="request__label">{{ 'admin.dataRequests.from' | t }}</p>
+            @if (contact(request).length > 0) {
+              <ul class="request__contact">
+                @for (part of contact(request); track $index) {
+                  <li>{{ part }}</li>
+                }
+              </ul>
+            } @else {
+              <p class="request__text">{{ 'admin.dataRequests.requesterFallback' | t: { id: request.userId } }}</p>
+            }
+            @if (contactReported(request) && !canReach(request)) {
+              <p class="hint request__hint">{{ 'admin.dataRequests.noContact' | t }}</p>
+            }
+
+            <p class="request__label">{{ 'admin.dataRequests.details' | t }}</p>
+            @if (request.details) {
+              <p class="request__text">{{ request.details }}</p>
+            } @else {
+              <p class="request__text hint">{{ 'admin.dataRequests.noDetails' | t }}</p>
+            }
+
+            @if (rowErrors()[request.id]; as problem) {
+              <p class="error-message" role="alert">{{ problem }}</p>
+            }
+
+            @if (isAnswering(request); as form) {
+              <form
+                class="request-answer"
+                novalidate
+                [attr.aria-label]="
+                  (form.outcome === 'Completed' ? 'admin.dataRequests.formLabel.Completed' : 'admin.dataRequests.formLabel.Rejected')
+                    | t: { who: who(request) }
+                "
+                (submit)="$event.preventDefault(); confirm(request, form.outcome)"
+              >
+                <div class="field">
+                  <label [for]="'note-' + request.id">{{
+                    (form.outcome === 'Completed' ? 'admin.dataRequests.noteLabel.Completed' : 'admin.dataRequests.noteLabel.Rejected') | t
+                  }}</label>
+                  <textarea
+                    [id]="'note-' + request.id"
+                    rows="3"
+                    [maxLength]="maxNote"
+                    [value]="note()"
+                    [disabled]="busyId() !== null"
+                    [attr.aria-required]="form.outcome === 'Rejected' ? 'true' : null"
+                    [attr.aria-invalid]="noteMissing() ? 'true' : null"
+                    [attr.aria-describedby]="noteMissing() ? 'note-hint-' + request.id + ' note-error-' + request.id : 'note-hint-' + request.id"
+                    (input)="note.set($any($event.target).value); noteMissing.set(false)"
+                    #focusTarget
+                    [attr.data-focus]="'note:' + request.id"
+                  ></textarea>
+                  <p class="field-hint" [id]="'note-hint-' + request.id">{{ 'admin.dataRequests.noteHint' | t: { max: maxNote } }}</p>
+                  @if (noteMissing()) {
+                    <p class="field-error" [id]="'note-error-' + request.id" role="alert">{{ 'admin.dataRequests.noteRequired' | t }}</p>
+                  }
+                </div>
+                <div class="request__actions">
+                  <button
+                    type="submit"
+                    [class.primary]="form.outcome === 'Completed'"
+                    [class.btn--danger]="form.outcome === 'Rejected'"
+                    [attr.aria-disabled]="busyId() !== null ? 'true' : null"
+                  >
+                    {{
+                      (busyId() === request.id
+                        ? 'admin.dataRequests.saving'
+                        : form.outcome === 'Completed'
+                          ? 'admin.dataRequests.completeSubmit'
+                          : 'admin.dataRequests.rejectSubmit') | t
+                    }}
+                  </button>
+                  <button type="button" (click)="cancel(request, form.outcome)" [disabled]="busyId() !== null">
+                    {{ 'admin.dataRequests.cancel' | t }}
+                  </button>
+                </div>
+              </form>
+            } @else {
+              <div class="request__actions">
+                <button
+                  type="button"
+                  class="primary"
+                  #focusTarget
+                  [attr.data-focus]="'complete:' + request.id"
+                  [disabled]="busyId() !== null"
+                  (click)="startAnswering(request, 'Completed')"
+                >
+                  {{ 'admin.dataRequests.completeOpen' | t }}
+                </button>
+                <button
+                  type="button"
+                  #focusTarget
+                  [attr.data-focus]="'reject:' + request.id"
+                  [disabled]="busyId() !== null"
+                  (click)="startAnswering(request, 'Rejected')"
+                >
+                  {{ 'admin.dataRequests.rejectOpen' | t }}
+                </button>
+              </div>
+            }
+          }
+        </li>
+      }
+    </ul>
+  }
+</div>

@@ -1,0 +1,132 @@
+<div class="page">
+  <h1>{{ 'dataRequests.mine.title' | t }}</h1>
+  <p>{{ 'dataRequests.mine.intro' | t }}</p>
+  <p><a href="/privacy.html" target="_blank" rel="noopener">{{ 'common.privacy' | t }}</a></p>
+
+  <form
+    class="card"
+    novalidate
+    aria-labelledby="data-request-form-heading"
+    [attr.aria-busy]="sending()"
+    (submit)="$event.preventDefault(); submit()"
+  >
+    <h2 id="data-request-form-heading" class="card__title">{{ 'dataRequests.mine.formHeading' | t }}</h2>
+
+    @if (sent(); as created) {
+      <p class="success-message" role="status" tabindex="-1" #sentMessage>
+        {{ 'dataRequests.mine.sent' | t: { due: (created.dueAtUtc | date: 'medium') ?? '' } }}
+      </p>
+    }
+
+    @if (allOpen()) {
+      <p class="info-message">{{ 'dataRequests.mine.allOpen' | t }}</p>
+    } @else {
+      <fieldset class="field release-fields" [attr.aria-describedby]="kindMissing() ? 'data-request-kind-error' : null">
+        <legend>{{ 'dataRequests.mine.kindLegend' | t }}</legend>
+        @for (kindOption of kinds; track kindOption) {
+          <label class="inline-check release-fields__choice">
+            <input
+              type="radio"
+              name="data-request-kind"
+              [value]="kindOption"
+              [checked]="kind() === kindOption"
+              [disabled]="openKinds().has(kindOption) || sending()"
+              (change)="choose(kindOption)"
+            />
+            <span>
+              {{ choiceKeys[kindOption] | t }}
+              <span class="hint release-fields__hint">{{ choiceHelpKeys[kindOption] | t }}</span>
+              @if (openKinds().has(kindOption)) {
+                <span class="hint release-fields__hint">{{ 'dataRequests.mine.openAlready' | t }}</span>
+              }
+            </span>
+          </label>
+        }
+        @if (kindMissing()) {
+          <p id="data-request-kind-error" class="field-error" role="alert">{{ 'dataRequests.mine.kindRequired' | t }}</p>
+        }
+      </fieldset>
+
+      <div class="field">
+        <label for="data-request-details">{{ 'dataRequests.mine.detailsLabel' | t }}</label>
+        <textarea
+          id="data-request-details"
+          rows="4"
+          aria-describedby="data-request-details-hint"
+          [maxLength]="maxDetails"
+          [value]="details()"
+          [disabled]="sending()"
+          (input)="setDetails($any($event.target).value)"
+        ></textarea>
+        <p id="data-request-details-hint" class="field-hint">{{ 'dataRequests.mine.detailsHint' | t: { max: maxDetails } }}</p>
+      </div>
+
+      @if (sendError()) {
+        <p class="error-message" role="alert">{{ sendError() }}</p>
+      }
+
+      <!-- Not disabled while it sends: a button that is pressed and then disabled loses the focus, and a failure would leave a keyboard user at the top of the page. A second press is ignored. -->
+      <button type="submit" class="primary" [attr.aria-disabled]="sending() ? 'true' : null">
+        {{ (sending() ? 'dataRequests.mine.sending' : 'dataRequests.mine.submit') | t }}
+      </button>
+    }
+  </form>
+
+  <section aria-labelledby="data-request-list-heading">
+    <h2 id="data-request-list-heading">{{ 'dataRequests.mine.listHeading' | t }}</h2>
+
+    @if (loading()) {
+      <p role="status">{{ 'common.loading' | t }}</p>
+    } @else if (loadError()) {
+      <p class="error-message" role="alert">{{ loadError() }}</p>
+    } @else if (requests().length === 0) {
+      <div class="card empty-state">{{ 'dataRequests.mine.empty' | t }}</div>
+    } @else {
+      <ul class="request-list">
+        @for (request of requests(); track request.id) {
+          <li class="card">
+            <h3 class="card__title">
+              {{ kindKeys[request.kind] | t }}
+              <span
+                class="badge"
+                [class.badge--warning]="request.status === 'Received'"
+                [class.badge--active]="request.status === 'Completed'"
+                [class.badge--inactive]="request.status === 'Rejected'"
+                >{{ statusKeys[request.status] | t }}</span
+              >
+            </h3>
+            <p class="card__meta">
+              {{ 'dataRequests.mine.received' | t: { when: (request.receivedAtUtc | date: 'medium') ?? '' } }}
+            </p>
+
+            @if (request.status === 'Received') {
+              @if (request.isOverdue) {
+                <p class="warning-message">
+                  {{ 'dataRequests.mine.overdue' | t: { when: (request.dueAtUtc | date: 'medium') ?? '' } }}
+                </p>
+              } @else {
+                <p class="card__meta">
+                  {{ 'dataRequests.mine.dueBy' | t: { when: (request.dueAtUtc | date: 'medium') ?? '' } }}
+                </p>
+              }
+            } @else {
+              <p class="card__meta">
+                {{ 'dataRequests.mine.answeredOn' | t: { when: (request.resolvedAtUtc | date: 'medium') ?? '' } }}
+              </p>
+            }
+
+            @if (request.details) {
+              <p class="request__label">{{ 'dataRequests.mine.yourDetails' | t }}</p>
+              <p class="request__text">{{ request.details }}</p>
+            }
+
+            @if (request.status !== 'Received') {
+              <p class="request__label">{{ 'dataRequests.mine.staffNote' | t }}</p>
+              <p class="request__text">{{ request.resolutionNote ?? ('dataRequests.mine.noNote' | t) }}</p>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </section>
+</div>

@@ -25,7 +25,7 @@ describe('the admin menu', () => {
       ['Questions', 'Books'],
       ['Exams'],
       ['Students', 'Batches', 'Guardians'],
-      ['Attempt requests', 'Disputes', 'Reported issues'],
+      ['Attempt requests', 'Disputes', 'Reported issues', 'Data requests'],
       ['Settings'],
     ]);
   });
@@ -131,6 +131,11 @@ describe('openAdminGroups', () => {
 
   it('gives the holder of exam.manage the reviews, and Settings, but not Content or People', () => {
     expect(names([Permission.ExamManage])).toEqual([['Attempt requests', 'Disputes', 'Reported issues'], ['Settings']]);
+  });
+
+  it('gives the holder of consent.manage the data requests, which the holder of exam.manage does not get, and nothing else', () => {
+    expect(names([Permission.ConsentManage])).toEqual([['Data requests']]);
+    expect(names([Permission.ExamManage]).flat()).not.toContain('Data requests');
   });
 
   it.each([

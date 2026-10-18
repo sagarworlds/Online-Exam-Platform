@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { AuthSessionService } from '../auth/auth-session.service';
 import { Consent } from './consent';
 import { ConsentPurpose, ConsentStatusDto } from './consent.models';
@@ -16,6 +17,7 @@ describe('Consent', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        provideRouter([]),
         {
           provide: AuthSessionService,
           useValue: { session: () => ({ userId: 'u1', sessionId: null, expiresAtUtc: 0 }) },
@@ -69,6 +71,14 @@ describe('Consent', () => {
     expect(link.getAttribute('target')).toBe('_blank');
     expect(card(fixture, 'TermsOfService').querySelector('a')).toBeNull();
     expect(card(fixture, 'ProctoringDataProcessing').querySelector('a')).toBeNull();
+  });
+
+  it('links to the data requests page, outside the purposes, since it is about the data and not about one choice', () => {
+    const fixture = open();
+
+    const link = (fixture.nativeElement as HTMLElement).querySelector('a[href="/my-data-requests"]') as HTMLAnchorElement;
+    expect(link.textContent?.trim()).toBe('Ask for a copy of your data, a correction or erasure');
+    expect(link.closest('.consent-card')).toBeNull();
   });
 
   it('shows Agreed and offers to withdraw once the candidate has agreed', () => {

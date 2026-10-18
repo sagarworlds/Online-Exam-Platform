@@ -1,7 +1,7 @@
 import { Component, input } from '@angular/core';
 
 /** The icon keys an {@link AdminIcon} knows how to draw; see {@link AdminSection.icon}. */
-export type AdminIconName = 'question' | 'book' | 'exam' | 'attempt-request' | 'dispute' | 'issue' | 'invite' | 'student' | 'batch' | 'guardian' | 'otp' | 'whatsapp' | 'brand' | 'template' | 'settings';
+export type AdminIconName = 'question' | 'book' | 'exam' | 'attempt-request' | 'dispute' | 'issue' | 'invite' | 'student' | 'batch' | 'guardian' | 'otp' | 'whatsapp' | 'brand' | 'template' | 'privacy' | 'settings';
 
 /**
  * One of the admin sidebar's icons, drawn as a small inline outline (the same hand-drawn stroke style as the
@@ -79,6 +79,10 @@ export type AdminIconName = 'question' | 'book' | 'exam' | 'attempt-request' | '
           <path d="M8 9h8" />
           <path d="M8 13h8" />
           <path d="M8 17h5" />
+        }
+        @case ('privacy') {
+          <path d="M12 3L19.5 6V11.5C19.5 16 16.5 19.5 12 21C7.5 19.5 4.5 16 4.5 11.5V6Z" />
+          <path d="m9 12 2.2 2.2L15.2 10" />
         }
         @case ('settings') {
           <path d="M10.38 4.98L10.68 2.59H13.32L13.62 4.98A7.2 7.2 0 0 1 15.82 5.89L17.72 4.41L19.59 6.28L18.11 8.18A7.2 7.2 0 0 1 19.02 10.38L21.41 10.68V13.32L19.02 13.62A7.2 7.2 0 0 1 18.11 15.82L19.59 17.72L17.72 19.59L15.82 18.11A7.2 7.2 0 0 1 13.62 19.02L13.32 21.41H10.68L10.38 19.02A7.2 7.2 0 0 1 8.18 18.11L6.28 19.59L4.41 17.72L5.89 15.82A7.2 7.2 0 0 1 4.98 13.62L2.59 13.32V10.68L4.98 10.38A7.2 7.2 0 0 1 5.89 8.18L4.41 6.28L6.28 4.41L8.18 5.89A7.2 7.2 0 0 1 10.38 4.98Z" />

@@ -42,6 +42,12 @@ export const routes: Routes = [
     loadComponent: () => import('./consent/consent').then((m) => m.Consent),
   },
   {
+    // The signed-in person's own data requests (FR-48): ask for a copy of their data, a correction or erasure, and read the answers.
+    path: 'my-data-requests',
+    canActivate: [authGuard],
+    loadComponent: () => import('./data-requests/my-data-requests/my-data-requests').then((m) => m.MyDataRequests),
+  },
+  {
     path: 'notifications',
     canActivate: [authGuard],
     loadComponent: () => import('./notifications/notification-feed/notification-feed').then((m) => m.NotificationFeed),
@@ -150,6 +156,12 @@ export const routes: Routes = [
     path: 'admin/disputes',
     canActivate: [permissionGuard(Permission.ExamManage)],
     loadComponent: () => import('./attempt-management/disputes/disputes').then((m) => m.Disputes),
+  },
+  {
+    // Staff answer the requests people make about their own data (FR-48). The API asks for consent.manage, and so does the route.
+    path: 'admin/data-requests',
+    canActivate: [permissionGuard(Permission.ConsentManage)],
+    loadComponent: () => import('./data-requests/data-request-queue/data-request-queue').then((m) => m.DataRequestQueue),
   },
   {
     path: 'admin/issue-reports',
