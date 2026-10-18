@@ -30,6 +30,31 @@ public class DataRequestFlowTests(ApiFactory factory) : IClassFixture<ApiFactory
     }
 
     [Fact]
+    public async Task TheStaffQueue_ShowsWhoAsked_SoTheAnswerCanReachThem_AndTheCandidatesOwnListDoesNot()
+    {
+        var email = $"asker-{Guid.NewGuid():N}@tests.local";
+        var asker = await factory.CandidateClientAsync(email, phoneNumber: "+91-9876543210");
+        using var candidate = asker.Client;
+        var raised = await candidate.PostAsJsonAsync("/v1/me/data-requests", new { kind = "Access", details = "Send me a copy." });
+        raised.EnsureSuccessStatusCode();
+        var id = (await raised.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        using var staff = await ClientAsync("SuperAdmin");
+        var open = await staff.GetFromJsonAsync<JsonElement>("/v1/data-requests/open");
+        var queued = open.EnumerateArray().Single(request => request.GetProperty("id").GetGuid() == id);
+
+        Assert.Equal(email, queued.GetProperty("requesterEmail").GetString());
+        Assert.Equal("+91-9876543210", queued.GetProperty("requesterPhoneNumber").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(queued.GetProperty("requesterName").GetString()));
+
+        // The candidate knows who they are, so their own list carries no requester details.
+        var mine = await candidate.GetFromJsonAsync<JsonElement>("/v1/me/data-requests");
+        var own = mine.EnumerateArray().Single(request => request.GetProperty("id").GetGuid() == id);
+        Assert.False(own.TryGetProperty("requesterEmail", out _));
+        Assert.False(own.TryGetProperty("requesterPhoneNumber", out _));
+    }
+
+    [Fact]
     public async Task ASecondOpenRequestOfTheSameKind_IsRefused_UntilTheFirstIsAnswered()
     {
         using var candidate = await ClientAsync("Candidate");

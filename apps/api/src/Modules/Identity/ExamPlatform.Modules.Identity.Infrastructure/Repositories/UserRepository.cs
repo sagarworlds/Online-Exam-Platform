@@ -79,6 +79,18 @@ public sealed class UserRepository(IdentityDbContext context) : IUserRepository
         return rows.ToDictionary(r => r.Id, r => r.DateOfBirth);
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, UserContact>> ListContactsAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
+    {
+        // A projection rather than Loaded(): naming and reaching a person takes three columns, not their roles and sessions.
+        var rows = await context.Users.AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .Select(u => new { u.Id, u.DisplayName, u.Email, u.PhoneNumber })
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(r => r.Id, r => new UserContact(r.DisplayName, r.Email, r.PhoneNumber));
+    }
+
     // Holds the Candidate role and no role of any other kind but Guardian: the same rule as User.IsStudent, written as a query so the list
     // is filtered by the database and not by loading every account.
     /// <inheritdoc />

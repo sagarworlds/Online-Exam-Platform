@@ -4,7 +4,7 @@ using ExamPlatform.SharedKernel.Application;
 namespace ExamPlatform.Modules.Identity.Application.DataRequests;
 
 /// <summary>Reads data requests for the candidate who made them and for the staff who answer them (FR-48).</summary>
-public sealed class DataRequestQueries(IDataRequestRepository requests, Clock clock)
+public sealed class DataRequestQueries(IDataRequestRepository requests, IUserRepository users, Clock clock)
 {
     /// <summary>Every request the account has made.</summary>
     /// <param name="userId">The account, from the caller's token.</param>
@@ -16,12 +16,22 @@ public sealed class DataRequestQueries(IDataRequestRepository requests, Clock cl
         return mine.Select(request => DataRequestDto.From(request, nowUtc)).ToList();
     }
 
-    /// <summary>Every request still waiting for an answer, oldest due first, so the overdue ones come first.</summary>
+    /// <summary>
+    /// Every request still waiting for an answer, oldest due first, so the overdue ones come first, each with who made it so the answer can
+    /// reach them. Each requester is read once, however many requests they have open.
+    /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task<IReadOnlyList<DataRequestDto>> ListOpenAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<OpenDataRequestDto>> ListOpenAsync(CancellationToken cancellationToken)
     {
         var nowUtc = clock.UtcNow;
         var open = await requests.ListOpenAsync(cancellationToken);
-        return open.Select(request => DataRequestDto.From(request, nowUtc)).ToList();
+        if (open.Count == 0)
+        {
+            return [];
+        }
+
+        var requesterIds = open.Select(request => request.UserId).Distinct().ToList();
+        var contacts = await users.ListContactsAsync(requesterIds, cancellationToken);
+        return open.Select(request => OpenDataRequestDto.From(request, contacts.GetValueOrDefault(request.UserId), nowUtc)).ToList();
     }
 }

@@ -148,3 +148,131 @@ public class DataRequestHandlerTests
             handler.HandleAsync(Guid.NewGuid(), Guid.NewGuid(), DataRequestStatus.Completed, null, CancellationToken.None));
     }
 }
+
+/// <summary>The staff queue names who asked, so the answer can reach them, and the candidate's own list stays their own.</summary>
+public class DataRequestQueriesTests
+{
+    private static readonly DateTime Now = new(2026, 10, 10, 12, 0, 0, DateTimeKind.Utc);
+    private static readonly TimeSpan ServicePeriod = TimeSpan.FromDays(30);
+    private readonly IDataRequestRepository _requests = Substitute.For<IDataRequestRepository>();
+    private readonly IUserRepository _users = Substitute.For<IUserRepository>();
+    private readonly FakeClock _clock = new(Now);
+
+    private DataRequestQueries Queries() => new(_requests, _users, _clock);
+
+    [Fact]
+    public async Task ListOpen_NamesWhoAskedForEachRequest()
+    {
+        var asha = Guid.NewGuid();
+        var ben = Guid.NewGuid();
+        _requests.ListOpenAsync(Arg.Any<CancellationToken>()).Returns(new List<DataRequest>
+        {
+            DataRequest.Raise(asha, DataRequestKind.Access, "Send me a copy.", Now, ServicePeriod),
+            DataRequest.Raise(ben, DataRequestKind.Erasure, null, Now, ServicePeriod),
+        });
+        _users.ListContactsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns(new Dictionary<Guid, UserContact>
+        {
+            [asha] = new("Asha Rao", "asha@example.com", "+919800000001"),
+            [ben] = new("Ben Das", null, "+919800000002"),
+        });
+
+        var open = await Queries().ListOpenAsync(CancellationToken.None);
+
+        Assert.Equal(2, open.Count);
+        Assert.Equal(asha, open[0].UserId);
+        Assert.Equal("Asha Rao", open[0].RequesterName);
+        Assert.Equal("asha@example.com", open[0].RequesterEmail);
+        Assert.Equal("+919800000001", open[0].RequesterPhoneNumber);
+        Assert.Equal("Send me a copy.", open[0].Details);
+        Assert.Equal("Ben Das", open[1].RequesterName);
+        Assert.Null(open[1].RequesterEmail);
+        Assert.Equal("+919800000002", open[1].RequesterPhoneNumber);
+        Assert.Equal(DataRequestKind.Erasure, open[1].Kind);
+    }
+
+    [Fact]
+    public async Task ListOpen_ReadsEachRequesterOnce_HoweverManyRequestsTheyHaveOpen()
+    {
+        var asha = Guid.NewGuid();
+        _requests.ListOpenAsync(Arg.Any<CancellationToken>()).Returns(new List<DataRequest>
+        {
+            DataRequest.Raise(asha, DataRequestKind.Access, null, Now, ServicePeriod),
+            DataRequest.Raise(asha, DataRequestKind.Erasure, null, Now, ServicePeriod),
+        });
+        _users.ListContactsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, UserContact> { [asha] = new("Asha Rao", "asha@example.com", null) });
+
+        var open = await Queries().ListOpenAsync(CancellationToken.None);
+
+        Assert.Equal(2, open.Count);
+        Assert.All(open, request => Assert.Equal("asha@example.com", request.RequesterEmail));
+        await _users.Received(1).ListContactsAsync(
+            Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Count == 1 && ids.Contains(asha)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ListOpen_StillListsARequest_WhoseAccountCannotBeFound()
+    {
+        var gone = Guid.NewGuid();
+        _requests.ListOpenAsync(Arg.Any<CancellationToken>()).Returns(new List<DataRequest>
+        {
+            DataRequest.Raise(gone, DataRequestKind.Correction, "Wrong date.", Now, ServicePeriod),
+        });
+        _users.ListContactsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, UserContact>());
+
+        var open = await Queries().ListOpenAsync(CancellationToken.None);
+
+        var request = Assert.Single(open);
+        Assert.Equal(gone, request.UserId);
+        Assert.Equal("Wrong date.", request.Details);
+        Assert.Null(request.RequesterName);
+        Assert.Null(request.RequesterEmail);
+        Assert.Null(request.RequesterPhoneNumber);
+    }
+
+    [Fact]
+    public async Task ListOpen_WithNothingWaiting_ReadsNoUsers()
+    {
+        _requests.ListOpenAsync(Arg.Any<CancellationToken>()).Returns(new List<DataRequest>());
+
+        var open = await Queries().ListOpenAsync(CancellationToken.None);
+
+        Assert.Empty(open);
+        await _users.DidNotReceive().ListContactsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ListOpen_MarksARequestOverdue_OnceItsDueTimeHasPassed()
+    {
+        var asha = Guid.NewGuid();
+        _requests.ListOpenAsync(Arg.Any<CancellationToken>()).Returns(new List<DataRequest>
+        {
+            DataRequest.Raise(asha, DataRequestKind.Access, null, Now.AddDays(-31), ServicePeriod),
+            DataRequest.Raise(asha, DataRequestKind.Erasure, null, Now.AddDays(-1), ServicePeriod),
+        });
+        _users.ListContactsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, UserContact>());
+
+        var open = await Queries().ListOpenAsync(CancellationToken.None);
+
+        Assert.True(open[0].IsOverdue);
+        Assert.False(open[1].IsOverdue);
+    }
+
+    [Fact]
+    public async Task ListMine_ReadsNoUsers_SinceTheCandidateKnowsWhoTheyAre()
+    {
+        var candidate = Guid.NewGuid();
+        _requests.ListForUserAsync(candidate, Arg.Any<CancellationToken>()).Returns(new List<DataRequest>
+        {
+            DataRequest.Raise(candidate, DataRequestKind.Access, null, Now, ServicePeriod),
+        });
+
+        var mine = await Queries().ListMineAsync(candidate, CancellationToken.None);
+
+        Assert.Single(mine);
+        await _users.DidNotReceive().ListContactsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+    }
+}
