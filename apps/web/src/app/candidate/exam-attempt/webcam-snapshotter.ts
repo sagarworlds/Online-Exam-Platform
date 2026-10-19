@@ -27,6 +27,7 @@ export class WebcamSnapshotter {
   private timer: ReturnType<typeof setInterval> | null = null;
   private current: WebcamState = 'off';
   private starting = false;
+  private generation = 0;
 
   /**
    * @param camera Where the camera stream comes from; `navigator.mediaDevices` in the browser.
@@ -62,15 +63,29 @@ export class WebcamSnapshotter {
     }
 
     this.starting = true;
+    // Each stop() moves this on, so a camera granted after the page was left can be told apart from one asked for now.
+    const generation = this.generation;
+    let stream: MediaStream;
     try {
-      this.stream = await this.camera.getUserMedia({ video: { width: PHOTO_WIDTH, height: PHOTO_HEIGHT }, audio: false });
+      stream = await this.camera.getUserMedia({ video: { width: PHOTO_WIDTH, height: PHOTO_HEIGHT }, audio: false });
     } catch {
-      this.setState('denied');
+      if (generation === this.generation) {
+        this.setState('denied');
+      }
       return;
     } finally {
-      this.starting = false;
+      if (generation === this.generation) {
+        this.starting = false;
+      }
     }
 
+    if (generation !== this.generation) {
+      // The exam page was left (or the attempt ended) while the browser was still asking: switch the camera straight back off.
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+
+    this.stream = stream;
     this.setState('on');
     // One photo straight away, so a reviewer sees the candidate at the start, then one every interval.
     void this.capture();
@@ -79,6 +94,8 @@ export class WebcamSnapshotter {
 
   /** Stops the photos and switches the camera off. Safe to call when not started. */
   stop(): void {
+    this.generation++;
+    this.starting = false;
     if (this.timer !== null) {
       clearInterval(this.timer);
       this.timer = null;
