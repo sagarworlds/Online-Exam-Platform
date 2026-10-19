@@ -29,6 +29,7 @@ export class ScreenSnapshotter {
   private timer: ReturnType<typeof setInterval> | null = null;
   private current: ScreenState = 'off';
   private starting = false;
+  private generation = 0;
 
   /**
    * @param display Where the screen stream comes from; `navigator.mediaDevices` in the browser.
@@ -71,14 +72,26 @@ export class ScreenSnapshotter {
     }
 
     this.starting = true;
+    // Each halt moves this on, so a share chosen after the page was left can be told apart from one asked for now.
+    const generation = this.generation;
     let stream: MediaStream;
     try {
       stream = await this.display.getDisplayMedia({ video: true, audio: false });
     } catch {
-      this.setState('denied');
+      if (generation === this.generation) {
+        this.setState('denied');
+      }
       return;
     } finally {
-      this.starting = false;
+      if (generation === this.generation) {
+        this.starting = false;
+      }
+    }
+
+    if (generation !== this.generation) {
+      // The exam page was left (or the attempt ended) while the picker was open: end the share the moment it is chosen.
+      stream.getTracks().forEach((track) => track.stop());
+      return;
     }
 
     this.stream = stream;
@@ -95,6 +108,8 @@ export class ScreenSnapshotter {
   }
 
   private halt(next: ScreenState): void {
+    this.generation++;
+    this.starting = false;
     if (this.timer !== null) {
       clearInterval(this.timer);
       this.timer = null;

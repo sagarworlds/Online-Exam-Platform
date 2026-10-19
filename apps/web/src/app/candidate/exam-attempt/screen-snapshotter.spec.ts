@@ -71,6 +71,23 @@ describe('ScreenSnapshotter', () => {
     expect(upload).toHaveBeenCalledTimes(1);
   });
 
+  it('does not start capturing when stopped while the browser is still showing its picker', async () => {
+    const stop = vi.fn();
+    let allow: (stream: MediaStream) => void = () => undefined;
+    const pending = new Promise<MediaStream>((resolve) => (allow = resolve));
+    const { snapshotter, upload } = make({ getDisplayMedia: () => pending });
+
+    const starting = snapshotter.start(120);
+    snapshotter.stop();
+    allow(fakeStream(stop));
+    await starting;
+    await vi.advanceTimersByTimeAsync(600_000);
+
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(upload).not.toHaveBeenCalled();
+    expect(snapshotter.state).toBe('off');
+  });
+
   it('ends the share and stops capturing on stop', async () => {
     const stop = vi.fn();
     const { snapshotter, upload } = make({ getDisplayMedia: () => Promise.resolve(fakeStream(stop)) });
