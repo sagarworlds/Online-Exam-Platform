@@ -11,13 +11,13 @@ public sealed class WebcamPhotoRepository(ExamRuntimeDbContext context) : IWebca
     public void Add(AttemptWebcamPhoto photo) => context.WebcamPhotos.Add(photo);
 
     /// <inheritdoc />
-    public Task<int> CountAsync(Guid attemptId, CancellationToken cancellationToken) =>
-        context.WebcamPhotos.CountAsync(p => p.AttemptId == attemptId, cancellationToken);
+    public Task<int> CountAsync(Guid attemptId, CaptureKind kind, CancellationToken cancellationToken) =>
+        context.WebcamPhotos.CountAsync(p => p.AttemptId == attemptId && p.Kind == kind, cancellationToken);
 
     /// <inheritdoc />
-    public async Task<DateTime?> LatestCapturedAtAsync(Guid attemptId, CancellationToken cancellationToken) =>
+    public async Task<DateTime?> LatestCapturedAtAsync(Guid attemptId, CaptureKind kind, CancellationToken cancellationToken) =>
         await context.WebcamPhotos
-            .Where(p => p.AttemptId == attemptId)
+            .Where(p => p.AttemptId == attemptId && p.Kind == kind)
             .MaxAsync(p => (DateTime?)p.CapturedAtUtc, cancellationToken);
 
     /// <inheritdoc />
@@ -26,7 +26,7 @@ public sealed class WebcamPhotoRepository(ExamRuntimeDbContext context) : IWebca
             .AsNoTracking()
             .Where(p => p.AttemptId == attemptId)
             .OrderBy(p => p.CapturedAtUtc).ThenBy(p => p.Id)
-            .Select(p => new WebcamPhotoSummary(p.Id, p.CapturedAtUtc, p.Image.Length))
+            .Select(p => new WebcamPhotoSummary(p.Id, p.Kind, p.CapturedAtUtc, p.Image.Length))
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />

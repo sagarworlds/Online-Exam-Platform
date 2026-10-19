@@ -16,7 +16,8 @@ public record ExamConfig(
     int FocusViolationLimit,
     int? PassingPercentage,
     int? FocusWarnAt = null,
-    bool WebcamSnapshots = false)
+    bool WebcamSnapshots = false,
+    bool ScreenCapture = false)
 {
     /// <summary>The fewest attempts an exam can allow: every candidate can sit it once.</summary>
     public const int FewestAttempts = 1;
@@ -50,6 +51,9 @@ public record ExamConfig(
     // WebcamSnapshots: whether the exam takes a webcam snapshot of the candidate at intervals while they sit it (FR-24). Off for a new exam:
     // it is an opt-in an author makes on purpose, together with the notice that tells candidates about it, and a candidate under 18 is never
     // held to it (see ProctoringProfiles.ForCandidate).
+
+    // ScreenCapture: whether the exam asks the candidate to share their screen and takes a picture of it at intervals (FR-25). Off for a new
+    // exam and held to the same restrictions as WebcamSnapshots: an opt-in the author makes by choosing a profile, never for a candidate under 18.
 
     // PassingPercentage: the share of the total marks a candidate needs to pass, from 1 to 100. Null means the exam has no pass mark, so no
     // result says passed or failed and no certificate is issued on a pass (FR-34). The author sets it; nothing is passed by default.

@@ -238,6 +238,9 @@ namespace ExamPlatform.Modules.ExamAuthoring.Infrastructure.Migrations
                             b1.Property<bool>("ScratchpadAllowed")
                                 .HasColumnType("boolean");
 
+                            b1.Property<bool>("ScreenCapture")
+                                .HasColumnType("boolean");
+
                             b1.Property<bool>("SectionLockEnabled")
                                 .HasColumnType("boolean");
 

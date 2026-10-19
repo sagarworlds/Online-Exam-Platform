@@ -256,6 +256,10 @@ export interface WebcamPolicyDto {
   enabled: boolean;
   /** Seconds between photos; 0 when not enabled. */
   intervalSeconds: number;
+  /** True when the exam asks for screen captures (FR-25), the candidate is an adult and the attempt is open. */
+  screenEnabled: boolean;
+  /** Seconds between screen captures; 0 when not enabled. */
+  screenIntervalSeconds: number;
 }
 
 /** What the API answers after a departure is reported. */

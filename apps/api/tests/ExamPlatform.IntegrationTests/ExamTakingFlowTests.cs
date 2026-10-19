@@ -477,6 +477,7 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [InlineData("POST", "/v1/me/attempts/{id}/issues")]
     [InlineData("GET", "/v1/me/attempts/{id}/webcam-policy")]
     [InlineData("POST", "/v1/me/attempts/{id}/webcam-photos")]
+    [InlineData("POST", "/v1/me/attempts/{id}/screen-captures")]
     [InlineData("GET", "/v1/me/attempts/{id}/questions/{id}/pictures/q-0")]
     public async Task EveryAttemptRoute_WithoutAuth_Returns401(string method, string pattern)
     {
@@ -498,9 +499,9 @@ public class ExamTakingFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
             .Where(r => r.Pattern.StartsWith("/v1/me/exams", StringComparison.Ordinal) || r.Pattern.StartsWith("/v1/me/attempts", StringComparison.Ordinal))
             .ToList();
 
-        // Twenty-two self-service routes: the nineteen already on main (the leaderboard and the certificate route among them), plus the
-        // time-per-question route (FR-36) and the webcam policy and photo routes (FR-24).
-        Assert.Equal(22, routes.Count);
+        // Twenty-three self-service routes: the nineteen already on main (the leaderboard and the certificate route among them), plus the
+        // time-per-question route (FR-36) and the webcam policy, webcam photo and screen capture routes (FR-24, FR-25).
+        Assert.Equal(23, routes.Count);
         Assert.All(routes, r => Assert.True(r.RequiresAuthorization, $"{r.Key} must require a signed-in caller."));
     }
 }

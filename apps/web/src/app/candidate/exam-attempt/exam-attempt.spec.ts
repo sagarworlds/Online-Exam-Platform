@@ -61,7 +61,7 @@ describe('ExamAttempt', () => {
   const buttonLabelled = (fixture: ComponentFixture<ExamAttempt>, label: string) =>
     Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes(label));
 
-  async function open(initial: AttemptDto, onRead?: (request: TestRequest) => void, webcamEnabled = false) {
+  async function open(initial: AttemptDto, onRead?: (request: TestRequest) => void, webcamEnabled = false, screenEnabled = false) {
     await TestBed.configureTestingModule({
       imports: [ExamAttempt],
       providers: [
@@ -79,14 +79,14 @@ describe('ExamAttempt', () => {
     onRead?.(read);
     read.flush(initial);
     fixture.detectChanges();
-    answerWebcamPolicy(webcamEnabled);
+    answerWebcamPolicy(webcamEnabled, 120, screenEnabled);
     return fixture;
   }
 
   /** The page asks once, as an attempt opens, whether it takes webcam photos (FR-24); most tests are not about that. */
-  function answerWebcamPolicy(enabled: boolean, intervalSeconds = 120) {
+  function answerWebcamPolicy(enabled: boolean, intervalSeconds = 120, screenEnabled = false) {
     for (const request of httpMock.match((r) => r.method === 'GET' && r.url.endsWith('/v1/me/attempts/a1/webcam-policy'))) {
-      request.flush({ enabled, intervalSeconds: enabled ? intervalSeconds : 0 });
+      request.flush({ enabled, intervalSeconds: enabled ? intervalSeconds : 0, screenEnabled, screenIntervalSeconds: screenEnabled ? intervalSeconds : 0 });
     }
   }
 
@@ -2147,6 +2147,52 @@ describe('ExamAttempt', () => {
       fixture.detectChanges();
 
       expect(textOf(fixture)).toContain('Your camera is off, so no photos are being taken.');
+      expect(radios(fixture).length).toBeGreaterThan(0);
+    });
+  });
+  describe('screen capture (FR-25)', () => {
+    const stubDisplay = (getDisplayMedia: () => Promise<MediaStream>) =>
+      Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getDisplayMedia } });
+    const stream = () => ({ getTracks: () => [{ stop: vi.fn() }], getVideoTracks: () => [{ addEventListener: vi.fn() }] }) as unknown as MediaStream;
+
+    afterEach(() => Reflect.deleteProperty(navigator, 'mediaDevices'));
+
+    it('does not offer sharing when the server says no screen captures are taken', async () => {
+      const getDisplayMedia = vi.fn(() => Promise.resolve(stream()));
+      stubDisplay(getDisplayMedia);
+
+      const fixture = await open(attempt());
+
+      expect(getDisplayMedia).not.toHaveBeenCalled();
+      expect(buttonLabelled(fixture, 'Share screen')).toBeUndefined();
+    });
+
+    it('offers a button, and only asks the browser once the candidate clicks it', async () => {
+      const getDisplayMedia = vi.fn(() => Promise.resolve(stream()));
+      stubDisplay(getDisplayMedia);
+
+      const fixture = await open(attempt(), undefined, false, true);
+      fixture.detectChanges();
+      expect(getDisplayMedia).not.toHaveBeenCalled();
+
+      buttonLabelled(fixture, 'Share screen')?.click();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(getDisplayMedia).toHaveBeenCalledTimes(1);
+      expect(textOf(fixture)).toContain('Your screen is being shared.');
+    });
+
+    it('says no pictures are being taken when the candidate declines, and the exam carries on', async () => {
+      stubDisplay(() => Promise.reject(new Error('NotAllowedError')));
+
+      const fixture = await open(attempt(), undefined, false, true);
+      fixture.detectChanges();
+      buttonLabelled(fixture, 'Share screen')?.click();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Your screen is not shared, so no pictures are being taken.');
       expect(radios(fixture).length).toBeGreaterThan(0);
     });
   });

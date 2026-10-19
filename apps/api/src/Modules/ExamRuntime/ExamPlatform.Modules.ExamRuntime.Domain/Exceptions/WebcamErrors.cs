@@ -2,8 +2,8 @@ using ExamPlatform.SharedKernel.Domain;
 
 namespace ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
 
-/// <summary>No webcam photo is taken in this attempt: the exam does not ask for them, or the candidate is under 18 (FR-24).</summary>
-public sealed class WebcamNotRequiredError() : DomainException("No webcam photo is taken in this attempt.")
+/// <summary>Nothing of this kind is captured in this attempt: the exam does not ask for it, or the candidate is under 18 (FR-24, FR-25).</summary>
+public sealed class WebcamNotRequiredError() : DomainException("This is not captured in this attempt.")
 {
     /// <inheritdoc />
     public override string ErrorCode => "webcam_not_required";

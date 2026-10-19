@@ -211,6 +211,7 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             b.ToTable("AttemptWebcamPhotos");
             b.HasKey(x => x.Id);
             b.Property(x => x.Image).IsRequired();
+            b.Property(x => x.Kind).HasConversion<string>().HasMaxLength(10);
 
             // A photo goes with its attempt: no attempt, no photo. Photos are read by attempt, oldest first, and counted against the limit.
             b.HasOne<Attempt>().WithMany().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);

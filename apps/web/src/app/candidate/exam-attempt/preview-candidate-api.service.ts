@@ -63,10 +63,14 @@ export class PreviewCandidateApiService extends CandidateApiService {
   }
 
   override getWebcamPolicy(): Observable<WebcamPolicyDto> {
-    return of({ enabled: false, intervalSeconds: 0 });
+    return of({ enabled: false, intervalSeconds: 0, screenEnabled: false, screenIntervalSeconds: 0 });
   }
 
   override uploadWebcamPhoto(): Observable<never> {
+    return EMPTY;
+  }
+
+  override uploadScreenCapture(): Observable<never> {
     return EMPTY;
   }
 

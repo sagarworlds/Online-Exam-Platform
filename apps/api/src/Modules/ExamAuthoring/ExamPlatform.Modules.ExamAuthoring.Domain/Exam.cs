@@ -569,7 +569,7 @@ public class Exam : AggregateRoot
     }
 
     /// <summary>
-    /// Applies a proctoring profile (FR-46): sets the copy block, the violation limit and the webcam snapshots together, to what the profile says. The settings
+    /// Applies a proctoring profile (FR-46): sets the copy block, the violation limit, the webcam snapshots and the screen capture together, to what the profile says. The settings
     /// stay editable one by one afterwards, in which case the exam reports its profile as custom. Like those settings it may change after
     /// publishing, because it changes nothing that is asked or scored.
     /// </summary>
@@ -593,6 +593,7 @@ public class Exam : AggregateRoot
             FocusViolationLimit = profile.FocusViolationLimit,
             FocusWarnAt = profile.FocusWarnAt,
             WebcamSnapshots = profile.Webcam,
+            ScreenCapture = profile.Screen,
             MarkingScheme = Config.MarkingScheme with { },
         };
         UpdatedAt = nowUtc;
