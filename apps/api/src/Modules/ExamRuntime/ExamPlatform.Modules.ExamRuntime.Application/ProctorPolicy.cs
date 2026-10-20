@@ -5,8 +5,9 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 
 /// <summary>
 /// The platform's proctoring policy. It applies the accommodation rules (FR-49) to the exam as authored. The minors' default (requirements
-/// section 7.2) is not applied here yet: it governs camera and screen capture, which no exam can select until those profiles are built,
-/// and <c>ProctoringProfiles.ForCandidate</c> in the authoring module is the rule it will call then.
+/// section 7.2) is not applied here: it governs camera and screen capture, and <see cref="WebcamEligibility"/> is the one place that
+/// decides it, per attempt, from the candidate's age when the attempt started. <see cref="Resolve"/> has no candidate age to work with, so
+/// the rule is deliberately not duplicated here.
 /// </summary>
 public sealed class ProctorPolicy : IProctorPolicy
 {

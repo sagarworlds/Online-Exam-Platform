@@ -13,7 +13,7 @@ namespace ExamPlatform.Modules.ExamAuthoring.Domain;
 /// <param name="FocusViolationLimit">How many times a candidate may leave the exam page before the attempt ends (FR-22); 0 means not watched.</param>
 /// <param name="Available">Whether an author can choose it. A profile that promises something not built yet is listed but not offered.</param>
 /// <param name="UnavailableReason">Why it cannot be chosen yet; null when it can.</param>
-/// <param name="CaptureMedia">Whether the profile uses the camera or records the screen. A candidate under 18 is never held to such a profile (see <see cref="ProctoringProfiles.ForCandidate"/>).</param>
+/// <param name="CaptureMedia">Whether the profile uses the camera or records the screen. A candidate under 18 is never captured, whatever the profile says; the runtime's <c>WebcamEligibility</c> decides that per attempt.</param>
 /// <param name="Webcam">Whether the profile takes webcam snapshots at intervals (FR-24). A profile that does is a <paramref name="CaptureMedia"/> profile.</param>
 /// <param name="Screen">Whether the profile asks the candidate to share their screen and takes pictures of it (FR-25). Also a <paramref name="CaptureMedia"/> profile.</param>
 /// <param name="FocusWarnAt">
@@ -94,18 +94,6 @@ public static class ProctoringProfiles
             && p.Screen == screenCapture
             && FocusWarningPoint.Effective(focusViolationLimit, p.FocusWarnAt) == FocusWarningPoint.Effective(focusViolationLimit, focusWarnAt))
         ?.Id ?? Custom;
-
-    /// <summary>
-    /// The profile a candidate is actually held to. The minors' default (requirements section 7.2): a candidate under 18 is never watched
-    /// by camera or screen capture, whatever the exam's profile says, so a profile that captures media falls back to
-    /// <see cref="BrowserLock"/>. An adult keeps the profile they were given. The rule lives in this one place, so counsel's answer on
-    /// issue #11 can change it here alone.
-    /// </summary>
-    /// <param name="profile">The profile the exam uses.</param>
-    /// <param name="candidateIsMinor">Whether the candidate was under 18 when the attempt started.</param>
-    /// <returns>The profile to hold the candidate to.</returns>
-    public static ProctoringProfile ForCandidate(ProctoringProfile profile, bool candidateIsMinor) =>
-        candidateIsMinor && profile.CaptureMedia ? BrowserLock : profile;
 }
 
 /// <summary>

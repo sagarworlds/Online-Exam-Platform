@@ -3,31 +3,11 @@ using ExamPlatform.Modules.ExamAuthoring.Domain;
 namespace ExamPlatform.Modules.ExamAuthoring.UnitTests;
 
 /// <summary>
-/// The minors' default (requirements section 7.2): a candidate under 18 is never held to a profile that uses the camera or records the
-/// screen, while an adult keeps the profile the author chose.
+/// Which profiles capture media, and what the candidate notice says. The minors' default itself (requirements section 7.2) is enforced
+/// by the runtime's <c>WebcamEligibility</c> and tested in the ExamRuntime unit tests.
 /// </summary>
 public class ProctoringMinorsDefaultTests
 {
-    [Fact]
-    public void AMinorIsHeldToBrowserLockWhateverCameraOrScreenProfileTheExamUses()
-    {
-        Assert.Equal(ProctoringProfiles.BrowserLock, ProctoringProfiles.ForCandidate(ProctoringProfiles.Find("FULL")!, candidateIsMinor: true));
-        Assert.Equal(ProctoringProfiles.BrowserLock, ProctoringProfiles.ForCandidate(ProctoringProfiles.Find("BROWSER_CAMERA")!, candidateIsMinor: true));
-    }
-
-    [Fact]
-    public void AnAdultKeepsTheCameraAndScreenProfileTheyWereGiven()
-    {
-        Assert.Equal(ProctoringProfiles.Find("FULL"), ProctoringProfiles.ForCandidate(ProctoringProfiles.Find("FULL")!, candidateIsMinor: false));
-    }
-
-    [Fact]
-    public void AMinorKeepsAProfileThatDoesNotCaptureMedia()
-    {
-        Assert.Equal(ProctoringProfiles.BrowserLock, ProctoringProfiles.ForCandidate(ProctoringProfiles.BrowserLock, candidateIsMinor: true));
-        Assert.Equal(ProctoringProfiles.Off, ProctoringProfiles.ForCandidate(ProctoringProfiles.Off, candidateIsMinor: true));
-    }
-
     [Fact]
     public void OnlyTheCameraAndScreenProfilesCaptureMedia()
     {
