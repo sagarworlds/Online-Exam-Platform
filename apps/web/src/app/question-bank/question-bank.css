@@ -1,0 +1,122 @@
+.qb-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.qb-toolbar__search {
+  flex: 1 1 14rem;
+  min-width: 0;
+  max-width: 28rem;
+}
+
+.qb-toolbar__search input {
+  width: 100%;
+}
+
+.qb-toolbar__spacer {
+  flex: 1;
+}
+
+.qb-toolbar .icon-btn {
+  position: relative;
+}
+
+/* The filter button shows how many filters are on. */
+.icon-btn__count {
+  position: absolute;
+  top: -0.2rem;
+  inset-inline-end: -0.2rem;
+  min-width: 1.1rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.1rem;
+  text-align: center;
+}
+
+/* Every filter, in a grid that fills the width and stacks on a phone. Its display must be named for [hidden] too: a class that sets display
+   outranks the browser's own rule for the attribute. */
+.filters-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.filters-panel[hidden],
+.question-form[hidden] {
+  display: none;
+}
+
+.filters-panel select {
+  width: 100%;
+}
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.1rem 0.15rem 0.1rem 0.65rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--primary-soft);
+  font-size: 0.85rem;
+}
+
+/* The chip's own remove button is small with a mouse; on a phone it is a full tap target. */
+.filter-chip .icon-btn {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+@media (pointer: coarse), (max-width: 40rem) {
+  .filter-chip .icon-btn {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}
+
+/* One bordered list, a line per question; a row opens to show its options and tools. */
+.question-list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.question-list__head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.question-list__head .inline-check {
+  margin: 0;
+}
+
+.question-list__head + [role='list'] > :first-child {
+  border-top: 0;
+}

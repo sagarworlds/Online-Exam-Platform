@@ -1,0 +1,104 @@
+/* The row's own element is the list's child, so the rule between rows is drawn on it; the list's header has its own. */
+:host {
+  display: block;
+  border-top: 1px solid var(--border);
+}
+
+.question-row--selected {
+  background: var(--primary-soft);
+}
+
+.question-row__line {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.55rem 0.5rem 0.55rem 0.75rem;
+}
+
+.question-row__select {
+  margin: 0.45rem 0 0;
+}
+
+.question-row__type {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.3rem;
+  color: var(--text-muted);
+}
+
+.question-row__body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Closed, a question shows two lines of its text; whatever is longer waits for the row to open. */
+.question-row__text--clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.question-row__badges {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  max-width: 14rem;
+  padding-top: 0.2rem;
+}
+
+.question-row__badges .badge {
+  margin: 0;
+}
+
+.question-row__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.question-row__detail {
+  padding: 0.25rem 0.75rem 0.9rem 3.9rem;
+}
+
+.question-row__detail ol {
+  margin: 0.25rem 0 0;
+}
+
+/* On a phone the badges and the icons drop under the text, and the detail loses its indent. */
+@media (max-width: 40rem) {
+  .question-row__line {
+    flex-wrap: wrap;
+  }
+
+  .question-row__body {
+    flex-basis: calc(100% - 4rem);
+  }
+
+  .question-row__badges {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: flex-start;
+    max-width: none;
+    padding-left: 2.1rem;
+  }
+
+  .question-row__actions {
+    order: 4;
+    flex-basis: 100%;
+    padding-left: 1.6rem;
+  }
+
+  .question-row__detail {
+    padding-inline-start: 0.75rem;
+  }
+}

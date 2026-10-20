@@ -90,17 +90,21 @@ describe('QuestionBank', () => {
     ]);
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('What is 2 + 2?');
-    expect(text).toContain('correct');
-    expect(text).toContain('Not filed under a chapter');
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('What is 2 + 2?');
+    expect(root.textContent).toContain('Not filed under a chapter');
+    // A line shows the question; its options, with the correct one marked, show once it is opened.
+    expect(root.querySelector('.correct-option')).toBeNull();
+    (root.querySelector('button[aria-label="Show details"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(root.querySelector('.correct-option')?.textContent).toContain('4');
   });
 
   describe('paging', () => {
     const page = (from: number, count: number) => Array.from({ length: count }, (_, i) => listedQuestion(`q${from + i}`, `Question ${from + i}`));
-    const items = (fixture: ComponentFixture<QuestionBank>) => (fixture.nativeElement as HTMLElement).querySelectorAll('app-question-card').length;
+    const items = (fixture: ComponentFixture<QuestionBank>) => (fixture.nativeElement as HTMLElement).querySelectorAll('app-question-row').length;
     const loadMore = (fixture: ComponentFixture<QuestionBank>) =>
-      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find((b) => b.textContent?.includes('Load older')) as HTMLButtonElement | undefined;
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find((b) => b.textContent?.includes('more')) as HTMLButtonElement | undefined;
 
     it('offers no more once a short page has come back', () => {
       const fixture = create();
@@ -111,23 +115,33 @@ describe('QuestionBank', () => {
       expect(loadMore(fixture)).toBeUndefined();
     });
 
-    it('loads the next page below the first, skipping what is already shown, until a short page ends it', () => {
+    it('asks for fifty at a time, from the start', () => {
       const fixture = create();
-      httpMock.expectOne(isList).flush(page(1, 200));
+      const first = httpMock.expectOne(isList);
+      expect(first.request.params.get('take')).toBe('50');
+      expect(first.request.params.has('skip')).toBe(false);
+      first.flush([]);
       fixture.detectChanges();
-      expect(items(fixture)).toBe(200);
+    });
+
+    it('loads fifty more below the first fifty, skipping what is already shown, until a short page ends it', () => {
+      const fixture = create();
+      httpMock.expectOne(isList).flush(page(1, 50));
+      fixture.detectChanges();
+      expect(items(fixture)).toBe(50);
+      expect(loadMore(fixture)?.textContent?.trim()).toBe('Load 50 more');
 
       loadMore(fixture)!.click();
       const next = httpMock.expectOne(isList);
-      expect(next.request.params.get('skip')).toBe('200');
+      expect(next.request.params.get('skip')).toBe('50');
+      expect(next.request.params.get('take')).toBe('50');
       // The last question of the first page comes back again because one was created meanwhile; it is not shown twice.
-      next.flush(page(200, 5));
+      next.flush(page(50, 5));
       fixture.detectChanges();
 
-      expect(items(fixture)).toBe(204);
+      expect(items(fixture)).toBe(54);
       expect(loadMore(fixture)).toBeUndefined();
-      // Renders two pages of cards (over 400 components) in jsdom: quick alone, but it passes 5 s when the whole suite runs in parallel.
-    }, 30_000);
+    });
   });
 
   it('shows which book and chapter a question is filed under', () => {
@@ -140,8 +154,8 @@ describe('QuestionBank', () => {
     ]);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).querySelector('.question-card__where')?.textContent).toContain('Maths Grade 10');
-    expect((fixture.nativeElement as HTMLElement).querySelector('.question-card__where')?.textContent).toContain('Algebra');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.question-row__where')?.textContent).toContain('Maths Grade 10');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.question-row__where')?.textContent).toContain('Algebra');
   });
 
   it('shows the formatting of a question in the list, and nothing executable', () => {
@@ -166,7 +180,7 @@ describe('QuestionBank', () => {
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.querySelector('.question-card sub')?.textContent).toBe('2');
+    expect(root.querySelector('.question-row sub')?.textContent).toBe('2');
     expect(root.querySelector('[onerror]')).toBeNull();
     expect(w.__ran).toBeUndefined();
   });
@@ -176,7 +190,7 @@ describe('QuestionBank', () => {
     httpMock.expectOne(isList).flush([]);
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
-    const save = root.querySelector('button.primary') as HTMLButtonElement;
+    const save = root.querySelector('form button[type="submit"]') as HTMLButtonElement;
 
     fill(fixture, 'Q?', ['A', 'B']);
     fixture.detectChanges();
@@ -333,7 +347,7 @@ describe('QuestionBank', () => {
       fixture.detectChanges();
 
       expect(root.textContent).toContain('Use at most 5 topics.');
-      expect((root.querySelector('button.primary') as HTMLButtonElement).disabled).toBe(true);
+      expect((root.querySelector('form button[type="submit"]') as HTMLButtonElement).disabled).toBe(true);
     });
 
     it('narrows the list by difficulty and by topic, together with the place filter', () => {
@@ -432,7 +446,7 @@ describe('QuestionBank', () => {
       select.dispatchEvent(new Event('change'));
       fixture.detectChanges();
     };
-    const save = () => root.querySelector('button.primary') as HTMLButtonElement;
+    const save = () => root.querySelector('form button[type="submit"]') as HTMLButtonElement;
 
     // Archived books take nothing new, so they are not offered here.
     const bookOptions = Array.from(root.querySelectorAll('#question-book option')).map((o) => o.textContent?.trim());
@@ -518,7 +532,8 @@ describe('QuestionBank', () => {
     expect(root.querySelector('#filter-chapter')).toBeNull();
 
     pick('filter-book', '');
-    expect(nextList().params.keys()).toEqual([]);
+    // Nothing but the page size: an unfiltered list asks for no more than that.
+    expect(nextList().params.keys()).toEqual(['take']);
   });
 
   it('says so when a filter matches no questions', () => {
@@ -732,7 +747,7 @@ describe('QuestionBank', () => {
       ]);
       fixture.detectChanges();
 
-      const where = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.question-card__where')).map((w) => w.textContent?.replace(/\s+/g, ' ').trim());
+      const where = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.question-row__where')).map((w) => w.textContent?.replace(/\s+/g, ' ').trim());
       expect(where).toEqual(['4th › English › Nouns', 'Maths Grade 10 › Algebra']);
     });
   });
@@ -1043,7 +1058,7 @@ describe('QuestionBank', () => {
       httpMock.expectOne(isList).flush([listedQuestion('q1', 'What is 2 + 2?')]);
       fixture.detectChanges();
       const root = fixture.nativeElement as HTMLElement;
-      const statistics = () => Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Statistics') as HTMLButtonElement;
+      const statistics = () => Array.from(root.querySelectorAll('button')).find((b) => b.getAttribute('aria-label') === 'Statistics') as HTMLButtonElement;
       return { fixture, root, statistics };
     }
 
@@ -1057,7 +1072,7 @@ describe('QuestionBank', () => {
       });
       fixture.detectChanges();
 
-      const text = (root.querySelector('.question-card__statistics')?.textContent ?? '').replace(/\s+/g, ' ');
+      const text = (root.querySelector('.question-row__statistics')?.textContent ?? '').replace(/\s+/g, ' ');
       expect(text).toContain('Answered 3 times, fully correct 2 (66.7%)');
       expect(text).toContain('A: chosen 2 times (correct)');
       expect(text).toContain('B: chosen 1 time');
@@ -1084,7 +1099,7 @@ describe('QuestionBank', () => {
       httpMock.expectOne(isStats).flush({ title: 'forbidden', detail: 'No access.' }, { status: 403, statusText: 'Forbidden' });
       fixture.detectChanges();
 
-      expect(root.querySelector('app-question-card .error-message')?.textContent).toContain('No access.');
+      expect(root.querySelector('app-question-row .error-message')?.textContent).toContain('No access.');
     });
   });
 
@@ -1098,16 +1113,17 @@ describe('QuestionBank', () => {
       return { fixture, root: fixture.nativeElement as HTMLElement };
     }
     const cardOf = (root: HTMLElement, text: string) =>
-      Array.from(root.querySelectorAll('app-question-card')).find((c) => c.textContent?.includes(text)) as HTMLElement;
+      Array.from(root.querySelectorAll('app-question-row')).find((c) => c.textContent?.includes(text)) as HTMLElement;
+    const confirmButtonIn = (card: HTMLElement) => card.querySelector('[role="alertdialog"] button.btn--danger') as HTMLButtonElement;
     const buttonIn = (card: HTMLElement, label: string) =>
-      Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
+      Array.from(card.querySelectorAll('button')).find((b) => (b.getAttribute('aria-label') ?? b.textContent?.trim()) === label) as HTMLButtonElement;
 
     it('removes the question from the list once the API has deleted it, and says so', () => {
       const { fixture, root } = open([listedQuestion('q1', 'First question'), listedQuestion('q2', 'Second question')]);
 
       buttonIn(cardOf(root, 'First question'), 'Delete').click();
       fixture.detectChanges();
-      buttonIn(cardOf(root, 'First question'), 'Delete').click(); // the confirming one
+      confirmButtonIn(cardOf(root, 'First question')).click();
       httpMock.expectOne(isDelete('q1')).flush(null, { status: 204, statusText: 'No Content' });
       fixture.detectChanges();
 
@@ -1121,7 +1137,7 @@ describe('QuestionBank', () => {
 
       buttonIn(cardOf(root, 'Second question'), 'Delete').click();
       fixture.detectChanges();
-      buttonIn(cardOf(root, 'Second question'), 'Delete').click();
+      confirmButtonIn(cardOf(root, 'Second question')).click();
       httpMock
         .expectOne(isDelete('q2'))
         .flush({ title: 'question_in_use', detail: 'It is part of the exam "Maths mock", so it cannot be deleted.' }, { status: 409, statusText: 'Conflict' });
@@ -1135,7 +1151,11 @@ describe('QuestionBank', () => {
     it('does not offer to delete a question that an exam holds', () => {
       const { root } = open([listedQuestion('q1', 'Held question', { examCount: 1, examNames: ['Maths mock'], answered: false })]);
 
-      expect(buttonIn(cardOf(root, 'Held question'), 'Delete').disabled).toBe(true);
+      // Unavailable but reachable, so its tooltip can say why: aria-disabled, and a click asks nothing.
+      const icon = buttonIn(cardOf(root, 'Held question'), 'Delete');
+      expect(icon.getAttribute('aria-disabled')).toBe('true');
+      icon.click();
+      expect(root.querySelector('[role="alertdialog"]')).toBeNull();
     });
   });
 
@@ -1154,7 +1174,7 @@ describe('QuestionBank', () => {
         fixture.detectChanges();
       };
       const tick = (index: number) => {
-        const box = root.querySelectorAll<HTMLInputElement>('app-question-card input[type="checkbox"]')[index];
+        const box = root.querySelectorAll<HTMLInputElement>('app-question-row input[type="checkbox"]')[index];
         box.checked = !box.checked;
         box.dispatchEvent(new Event('change'));
         fixture.detectChanges();
@@ -1232,9 +1252,9 @@ describe('QuestionBank', () => {
 
     it('files one question from its own card, and reads the list again', () => {
       const { fixture, root, choose } = open([listedQuestion('q1', 'One'), listedQuestion('q2', 'Two')]);
-      const card = root.querySelectorAll('app-question-card')[1] as HTMLElement;
+      const card = root.querySelectorAll('app-question-row')[1] as HTMLElement;
 
-      (Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.includes('File under')) as HTMLButtonElement).click();
+      (Array.from(card.querySelectorAll('button')).find((b) => b.getAttribute('aria-label')?.includes('File under')) as HTMLButtonElement).click();
       fixture.detectChanges();
       choose(card, 'file-q2-book', 'b1');
       choose(card, 'file-q2-chapter', 'c1');
@@ -1251,8 +1271,8 @@ describe('QuestionBank', () => {
 
     it('shows a single question’s refusal on its own card', () => {
       const { fixture, root, choose } = open([listedQuestion('q1', 'One'), listedQuestion('q2', 'Two')]);
-      const card = root.querySelectorAll('app-question-card')[0] as HTMLElement;
-      (Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.includes('File under')) as HTMLButtonElement).click();
+      const card = root.querySelectorAll('app-question-row')[0] as HTMLElement;
+      (Array.from(card.querySelectorAll('button')).find((b) => b.getAttribute('aria-label')?.includes('File under')) as HTMLButtonElement).click();
       fixture.detectChanges();
       choose(card, 'file-q1-book', 'b1');
       choose(card, 'file-q1-chapter', 'c1');
@@ -1262,7 +1282,7 @@ describe('QuestionBank', () => {
       fixture.detectChanges();
 
       expect(card.querySelector('[role="alert"]')?.textContent).toContain('archived');
-      expect((root.querySelectorAll('app-question-card')[1] as HTMLElement).querySelector('[role="alert"]')).toBeNull();
+      expect((root.querySelectorAll('app-question-row')[1] as HTMLElement).querySelector('[role="alert"]')).toBeNull();
     });
 
     it('says when everything chosen was already in that chapter', () => {
@@ -1277,6 +1297,183 @@ describe('QuestionBank', () => {
       fixture.detectChanges();
 
       expect(root.querySelector('[role="status"]')?.textContent).toContain('already in Maths Grade 10 › Geometry');
+    });
+  });
+
+  describe('the toolbar, the filters and the new-question form', () => {
+    function open(books = [MATHS, OLD_BOOK], topics: string[] = ['fractions']) {
+      const fixture = create(books, topics);
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      return { fixture, root: fixture.nativeElement as HTMLElement };
+    }
+    const pick = (fixture: ComponentFixture<QuestionBank>, root: HTMLElement, id: string, value: string) => {
+      const select = root.querySelector(`#${id}`) as HTMLSelectElement;
+      select.value = value;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    };
+    const nextList = (fixture: ComponentFixture<QuestionBank>) => {
+      const req = httpMock.expectOne(isList);
+      req.flush([]);
+      fixture.detectChanges();
+      return req.request;
+    };
+    const chips = (root: HTMLElement) => Array.from(root.querySelectorAll('.filter-chip')).map((c) => c.textContent?.replace(/\s+/g, ' ').trim());
+    const byLabel = (root: HTMLElement, label: string) => root.querySelector(`[aria-label="${label}"]`) as HTMLButtonElement;
+    const byText = (root: HTMLElement, text: string) => Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === text) as HTMLButtonElement;
+
+    it('folds the form and the filter choices away until they are asked for, and shows no chips with no filter on', () => {
+      const { root } = open();
+
+      expect((root.querySelector('#new-question-form') as HTMLElement).hidden).toBe(true);
+      expect((root.querySelector('#filters-panel') as HTMLElement).hidden).toBe(true);
+      expect(root.querySelector('.filter-chip')).toBeNull();
+      expect(root.querySelector('.icon-btn__count')).toBeNull();
+    });
+
+    it('opens the form from New question, and closes it again from its own icon, keeping what was typed', () => {
+      const { fixture, root } = open();
+      const form = root.querySelector('#new-question-form') as HTMLElement;
+
+      byText(root, 'New question').click();
+      fixture.detectChanges();
+      expect(form.hidden).toBe(false);
+      expect(byText(root, 'New question').getAttribute('aria-expanded')).toBe('true');
+
+      (fixture.componentInstance as unknown as { form: FormGroup }).form.controls['text'].setValue('Half typed');
+      byLabel(root, 'Close the form').click();
+      fixture.detectChanges();
+      expect(form.hidden).toBe(true);
+
+      byText(root, 'New question').click();
+      fixture.detectChanges();
+      expect((fixture.componentInstance as unknown as { form: FormGroup }).form.controls['text'].value).toBe('Half typed');
+    });
+
+    it('opens the filter choices from the Filters icon, and says it is open', () => {
+      const { fixture, root } = open();
+
+      byLabel(root, 'Filters').click();
+      fixture.detectChanges();
+
+      expect((root.querySelector('#filters-panel') as HTMLElement).hidden).toBe(false);
+      expect(byLabel(root, 'Filters').getAttribute('aria-expanded')).toBe('true');
+      expect(byLabel(root, 'Filters').getAttribute('aria-controls')).toBe('filters-panel');
+    });
+
+    it('shows the filters that are on as chips, and how many on the Filters icon, even with the choices folded away', () => {
+      const { fixture, root } = open();
+      pick(fixture, root, 'filter-difficulty', 'hard');
+      nextList(fixture);
+      pick(fixture, root, 'filter-language', 'hi');
+      nextList(fixture);
+
+      expect(chips(root)).toEqual(['Difficulty: Hard', 'Language: Hindi']);
+      expect(root.querySelector('.icon-btn__count')?.textContent?.trim()).toBe('2');
+      expect((root.querySelector('#filters-panel') as HTMLElement).hidden).toBe(true);
+    });
+
+    it('names the book, the chapter, the status, the topic and the unfiled filter in chips', () => {
+      const { fixture, root } = open();
+      pick(fixture, root, 'filter-book', 'b1');
+      nextList(fixture);
+      pick(fixture, root, 'filter-chapter', 'c2');
+      nextList(fixture);
+      pick(fixture, root, 'filter-status', 'approved');
+      nextList(fixture);
+      pick(fixture, root, 'filter-topic', 'fractions');
+      nextList(fixture);
+      expect(chips(root)).toEqual(['Book: Maths Grade 10', 'Chapter: 2. Geometry', 'Status: Approved', 'Topic: fractions']);
+
+      pick(fixture, root, 'filter-book', 'unfiled');
+      nextList(fixture);
+      expect(chips(root)).toEqual(['Not filed under a chapter', 'Status: Approved', 'Topic: fractions']);
+    });
+
+    it('takes a filter off from its chip, reading the list again without it', () => {
+      const { fixture, root } = open();
+      pick(fixture, root, 'filter-difficulty', 'hard');
+      nextList(fixture);
+      pick(fixture, root, 'filter-language', 'hi');
+      nextList(fixture);
+
+      byLabel(root, 'Remove filter: Difficulty: Hard').click();
+      const request = nextList(fixture);
+
+      expect(request.params.has('difficulty')).toBe(false);
+      expect(request.params.get('language')).toBe('hi');
+      expect(chips(root)).toEqual(['Language: Hindi']);
+    });
+
+    it('takes the chapter off with its book, as choosing another book does', () => {
+      const { fixture, root } = open();
+      pick(fixture, root, 'filter-book', 'b1');
+      nextList(fixture);
+      pick(fixture, root, 'filter-chapter', 'c1');
+      nextList(fixture);
+
+      byLabel(root, 'Remove filter: Book: Maths Grade 10').click();
+      const request = nextList(fixture);
+
+      expect(request.params.has('bookId')).toBe(false);
+      expect(request.params.has('chapterId')).toBe(false);
+      expect(chips(root)).toEqual([]);
+    });
+
+    it('takes every filter off at once, with one read of the list, and keeps the search', () => {
+      const { fixture, root } = open();
+      const search = root.querySelector('#filter-search') as HTMLInputElement;
+      search.value = 'fraction';
+      search.dispatchEvent(new Event('change'));
+      nextList(fixture);
+      pick(fixture, root, 'filter-difficulty', 'easy');
+      nextList(fixture);
+      pick(fixture, root, 'filter-language', 'mr');
+      nextList(fixture);
+
+      byText(root, 'Clear all').click();
+      const request = nextList(fixture);
+
+      expect(request.params.keys().sort()).toEqual(['q', 'take']);
+      expect(request.params.get('q')).toBe('fraction');
+      expect(chips(root)).toEqual([]);
+      expect(root.querySelector('.icon-btn__count')).toBeNull();
+    });
+
+    it('offers Clear all only when more than one filter is on', () => {
+      const { fixture, root } = open();
+      pick(fixture, root, 'filter-difficulty', 'easy');
+      nextList(fixture);
+
+      expect(byText(root, 'Clear all')).toBeUndefined();
+    });
+
+    it('opens import and export in a dialog from its icon, and closes it again', () => {
+      const { fixture, root } = open();
+      expect(root.querySelector('app-modal-dialog')).toBeNull();
+
+      byLabel(root, 'Import and export').click();
+      fixture.detectChanges();
+
+      expect(root.querySelector('app-modal-dialog .modal__title')?.textContent?.trim()).toBe('Import and export');
+      expect(root.querySelector('app-modal-dialog app-question-transfer')).not.toBeNull();
+
+      (root.querySelector('app-modal-dialog .modal__close') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(root.querySelector('app-modal-dialog')).toBeNull();
+    });
+
+    it('gives every icon in the toolbar a name and a tooltip', () => {
+      const { root } = open();
+
+      for (const label of ['Filters', 'Import and export']) {
+        const icon = byLabel(root, label);
+        expect(icon).not.toBeNull();
+        icon.dispatchEvent(new Event('focus'));
+        expect(Array.from(document.querySelectorAll('.app-tooltip')).map((b) => b.textContent)).toContain(label);
+        icon.dispatchEvent(new Event('blur'));
+      }
     });
   });
 });

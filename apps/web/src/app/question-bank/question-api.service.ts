@@ -29,8 +29,11 @@ export class QuestionApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiBaseUrl}/v1/questions`;
 
-  /** One page of the newest questions. `skip` leaves out that many of the newest, to reach a later page. */
-  list(filter: QuestionFilter = {}, skip = 0): Observable<QuestionDto[]> {
+  /**
+   * One page of the newest questions. `skip` leaves out that many of the newest, to reach a later page; `take` asks for fewer than the
+   * API's own page of 200, and leaving it out asks for that page.
+   */
+  list(filter: QuestionFilter = {}, skip = 0, take?: number): Observable<QuestionDto[]> {
     // Only what is set goes on the URL, so an unfiltered list is the plain /v1/questions it always was.
     const params: Record<string, string | boolean> = {};
     if (filter.classId) params['classId'] = filter.classId;
@@ -43,6 +46,7 @@ export class QuestionApiService {
     if (filter.status) params['status'] = filter.status;
     if (filter.language) params['language'] = filter.language;
     if (skip > 0) params['skip'] = String(skip);
+    if (take !== undefined) params['take'] = String(take);
     return this.http.get<QuestionDto[]>(this.baseUrl, { params });
   }
 

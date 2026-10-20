@@ -41,7 +41,7 @@ public static class QuestionBankEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("ListQuestions")
-            .WithDescription("List the newest questions, 200 at a time (skip leaves out that many of the newest), optionally only those under a class, book or chapter, only unfiled ones, of one difficulty, on one topic, in one review status, or containing some text (q)");
+            .WithDescription("List the newest questions, up to 200 at a time (take asks for fewer; skip leaves out that many of the newest), optionally only those under a class, book or chapter, only unfiled ones, of one difficulty, on one topic, in one review status, or containing some text (q)");
 
         readers.MapPost("/duplicates", FindDuplicates)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -218,12 +218,12 @@ public static class QuestionBankEndpoints
     }
 
     private static async Task<IResult> ListQuestions(
-        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, int? skip, string? status, string? language, Guid? classId, CancellationToken ct)
+        ListQuestionsHandler handler, Guid? bookId, Guid? chapterId, bool? unfiled, string? difficulty, string? topic, string? q, int? skip, int? take, string? status, string? language, Guid? classId, CancellationToken ct)
     {
         var statuses = QuestionStatusText.Parse(status) is { } one ? new[] { one } : null;
         return Results.Ok(await handler.HandleAsync(
             new QuestionFilter(bookId, chapterId, unfiled ?? false, QuestionDifficultyText.Parse(difficulty), Question.NormalizeTopic(topic), q, null, statuses,
-                string.IsNullOrWhiteSpace(language) ? null : QuestionLanguage.Parse(language), classId), ct, skip ?? 0));
+                string.IsNullOrWhiteSpace(language) ? null : QuestionLanguage.Parse(language), classId), ct, skip ?? 0, take));
     }
 
     private static ReviewActor Actor(ClaimsPrincipal user) => new(user.GetUserId(), user.GetEmail());
