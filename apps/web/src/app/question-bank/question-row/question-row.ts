@@ -1,23 +1,30 @@
 import { Component, computed, effect, input, output, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { BookDto } from '../../book-management/book.models';
+import { Icon } from '../../shared/icon/icon';
+import { MathDirective } from '../../shared/rich-text/math.directive';
+import { Tooltip } from '../../shared/tooltip/tooltip';
 import { BookChapterPicker, NO_PLACEMENT, Placement } from '../book-chapter-picker/book-chapter-picker';
 import { QUESTION_LANGUAGES, QuestionDto, QuestionStatistics, QuestionStatus } from '../question.models';
 import { QuestionTranslations } from '../question-translations/question-translations';
 import { QuestionReview, STATUS_LABELS } from '../question-review/question-review';
-import { MathDirective } from '../../shared/rich-text/math.directive';
 
 /**
- * One question in the question bank list (FR-5): where it is filed, its text and options with the correct one marked,
- * where it is in use, and what the author may do with it. It only shows and asks; the page holds the list and makes the
- * requests, so a card never has to know how the question got there or what happens next.
+ * One question in the question bank list (FR-5), as a line: its text (two lines of it), where it is filed, its language, review status and
+ * difficulty, and the icons for what the author may do with it. The chevron opens it to show the options with the correct one marked, the
+ * topics, and the tools that need room (statistics, translations, filing and the review thread). It only shows and asks; the page holds the
+ * list and makes the requests, so a row never has to know how the question got there or what happens next.
+ *
+ * A refusal and the "delete for good?" question are shown on the line itself, open or not, so a closed row can never hide them.
  */
 @Component({
-  selector: 'app-question-card',
-  imports: [RouterLink, BookChapterPicker, MathDirective, QuestionReview, QuestionTranslations],
-  templateUrl: './question-card.html',
+  selector: 'app-question-row',
+  imports: [RouterLink, Icon, BookChapterPicker, MathDirective, QuestionReview, QuestionTranslations, Tooltip],
+  templateUrl: './question-row.html',
+  styleUrl: './question-row.css',
+  host: { role: 'listitem' },
 })
-export class QuestionCard {
+export class QuestionRow {
   readonly question = input.required<QuestionDto>();
   /** Every book, for the "File under" choice; archived ones are not offered there. */
   readonly books = input<readonly BookDto[]>([]);
@@ -51,6 +58,8 @@ export class QuestionCard {
   /** The author chose a chapter to file this question under. */
   readonly fileRequested = output<{ questionId: string; chapterId: string }>();
 
+  /** Whether the row is open, showing its options and tools. */
+  protected readonly open = signal(false);
   protected readonly confirmingDelete = signal(false);
   protected readonly filing = signal(false);
   protected readonly placement = signal<Placement>(NO_PLACEMENT);
@@ -72,21 +81,57 @@ export class QuestionCard {
     });
   }
 
+  /** The id the open part has, so its chevron can name it. */
+  protected readonly detailId = computed(() => `question-detail-${this.question().id}`);
+
   /** An exam holds the question, so the API would refuse to delete it; say so up front instead of after a click. */
   protected readonly inExam = computed(() => this.question().usage.examCount > 0);
   protected readonly examLabel = computed(() => {
     const count = this.question().usage.examCount;
     return `In ${count} ${count === 1 ? 'exam' : 'exams'}`;
   });
+  protected readonly deleteReason = 'Cannot be deleted while it is in an exam.';
 
   /** The question's language as an author reads it, or null for a question from an API that predates languages. */
   protected readonly languageLabel = computed(() => QUESTION_LANGUAGES.find((language) => language.code === this.question().language)?.label ?? null);
 
+  /** What kind of question it is, for the icon in front of its text. */
+  protected readonly typeLabel = computed(() => {
+    const question = this.question();
+    if (question.isTextAnswer) {
+      return 'Text answer';
+    }
+    return question.allowsMultiple ? 'Several answers may be correct' : 'One correct answer';
+  });
+
+  protected toggleOpen(): void {
+    this.open.update((open) => !open);
+  }
+
   protected toggleStatistics(): void {
-    const open = !this.showingStatistics();
-    this.showingStatistics.set(open);
-    if (open && this.statistics() === null) {
-      this.statisticsRequested.emit(this.question().id);
+    const showing = !this.showingStatistics();
+    this.showingStatistics.set(showing);
+    if (showing) {
+      this.open.set(true);
+      if (this.statistics() === null) {
+        this.statisticsRequested.emit(this.question().id);
+      }
+    }
+  }
+
+  protected toggleTranslations(): void {
+    const showing = !this.showingTranslations();
+    this.showingTranslations.set(showing);
+    if (showing) {
+      this.open.set(true);
+    }
+  }
+
+  protected toggleFiling(): void {
+    const showing = !this.filing();
+    this.filing.set(showing);
+    if (showing) {
+      this.open.set(true);
     }
   }
 
@@ -94,6 +139,13 @@ export class QuestionCard {
     const chapterId = this.placement().chapterId;
     if (chapterId) {
       this.fileRequested.emit({ questionId: this.question().id, chapterId });
+    }
+  }
+
+  /** Asks "delete for good?". A question an exam holds is not asked about: its icon is unavailable and says why. */
+  protected askDelete(): void {
+    if (!this.inExam()) {
+      this.confirmingDelete.set(true);
     }
   }
 

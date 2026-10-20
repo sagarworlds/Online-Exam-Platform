@@ -7,16 +7,18 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Queries;
 /// <summary>Lists the newest questions for the authoring screens.</summary>
 public sealed class ListQuestionsHandler(IQuestionRepository repository, IBookRepository books, QuestionUsageReader usageReader)
 {
-    /// <summary>How many questions one listing returns at most; later pages are reached with <c>skip</c>.</summary>
+    /// <summary>How many questions one listing returns at most, and how many it returns when the caller does not ask for fewer; later pages are reached with <c>skip</c>.</summary>
     public const int PageSize = 200;
 
     /// <summary>Returns the newest questions that match the filter, answer key and usage included.</summary>
     /// <param name="filter">Which questions to include; none set means all.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <param name="skip">How many of the newest matching questions to leave out; 0 (or a negative number) starts at the newest.</param>
-    public async Task<IReadOnlyList<QuestionDto>> HandleAsync(QuestionFilter filter, CancellationToken cancellationToken, int skip = 0)
+    /// <param name="take">How many to return: at least 1 and at most <see cref="PageSize"/>. Left out, it is <see cref="PageSize"/>, so a caller that never asks gets what it always did.</param>
+    public async Task<IReadOnlyList<QuestionDto>> HandleAsync(QuestionFilter filter, CancellationToken cancellationToken, int skip = 0, int? take = null)
     {
-        var found = await repository.ListNewestAsync(filter, Math.Max(0, skip), PageSize, cancellationToken);
+        var size = Math.Clamp(take ?? PageSize, 1, PageSize);
+        var found = await repository.ListNewestAsync(filter, Math.Max(0, skip), size, cancellationToken);
         var chapters = await books.GetChapterRefsAsync(
             found.Where(q => q.ChapterId is not null).Select(q => q.ChapterId!.Value).Distinct().ToList(), cancellationToken);
         var usage = await usageReader.ReadAsync(found.Select(q => q.Id).ToList(), cancellationToken);

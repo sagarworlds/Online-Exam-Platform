@@ -59,7 +59,7 @@ test.describe('the encryption padlock on the question bank', () => {
     await padlock(page).click();
     await expect(tip(page)).toBeVisible();
 
-    await page.getByRole('heading', { name: 'New question' }).click();
+    await page.getByRole('heading', { name: 'Question bank' }).click();
     await page.mouse.move(2, 2);
     await expect(tip(page)).toBeHidden();
   });

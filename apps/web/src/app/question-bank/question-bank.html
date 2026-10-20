@@ -10,8 +10,143 @@
     <p class="error-message">{{ errorMessage() }}</p>
   }
 
-  <form class="card question-form" [formGroup]="form" (ngSubmit)="submit()" aria-label="New question">
-    <h2>New question</h2>
+  <div class="qb-toolbar">
+    <div class="qb-toolbar__search" role="search">
+      <label class="visually-hidden" for="filter-search">Search questions</label>
+      <input
+        id="filter-search"
+        type="search"
+        placeholder="Search questions"
+        [value]="filterSearch()"
+        (keydown.enter)="onSearch($any($event.target).value)"
+        (change)="onSearch($any($event.target).value)"
+      />
+    </div>
+    <button
+      type="button"
+      class="icon-btn"
+      appTooltip="Filters"
+      aria-label="Filters"
+      aria-controls="filters-panel"
+      [attr.aria-expanded]="filtersOpen()"
+      (click)="filtersOpen.set(!filtersOpen())"
+    >
+      <app-icon name="filter" />
+      @if (activeFilters().length > 0) {
+        <span class="icon-btn__count" aria-hidden="true">{{ activeFilters().length }}</span>
+      }
+    </button>
+    <span class="qb-toolbar__spacer"></span>
+    <button type="button" class="icon-btn" appTooltip="Import and export" aria-label="Import and export" (click)="transferOpen.set(true)">
+      <app-icon name="transfer" />
+    </button>
+    <button type="button" class="primary" aria-controls="new-question-form" [attr.aria-expanded]="formOpen()" (click)="formOpen.set(!formOpen())">
+      New question
+    </button>
+  </div>
+
+  <div id="filters-panel" class="filters-panel list-filter" [hidden]="!filtersOpen()">
+    @if (filterClasses().length > 0) {
+      <div class="field">
+        <label for="filter-class">Class</label>
+        <select id="filter-class" [value]="filterClass()" (change)="onFilterClassChanged($any($event.target).value)">
+          <option value="">Any class</option>
+          @for (item of filterClasses(); track item.id) {
+            <option [value]="item.id">{{ item.name }}</option>
+          }
+        </select>
+      </div>
+    }
+    <div class="field">
+      <label for="filter-book">Show questions from</label>
+      <select id="filter-book" [value]="filterBook()" (change)="onFilterBookChanged($any($event.target).value)">
+        <option value="">{{ filterClass() ? 'All books of this class' : 'All questions' }}</option>
+        @if (!filterClass()) {
+          <option [value]="unfiled">Not filed under a chapter</option>
+        }
+        @for (book of filterBooks(); track book.id) {
+          <option [value]="book.id">{{ optionLabel(book, filterClass()) }}{{ book.isArchived ? ' (archived)' : '' }}</option>
+        }
+      </select>
+    </div>
+    @if (filterBook() && filterBook() !== unfiled) {
+      <div class="field">
+        <label for="filter-chapter">Chapter</label>
+        <select id="filter-chapter" [value]="filterChapter()" (change)="onFilterChapterChanged($any($event.target).value)">
+          <option value="">All chapters</option>
+          @for (chapter of filterChapters(); track chapter.id) {
+            <option [value]="chapter.id">{{ chapter.order }}. {{ chapter.title }}{{ chapter.isArchived ? ' (archived)' : '' }}</option>
+          }
+        </select>
+      </div>
+    }
+    <div class="field">
+      <label for="filter-difficulty">Difficulty</label>
+      <select id="filter-difficulty" [value]="filterDifficulty()" (change)="onFilterDifficultyChanged($any($event.target).value)">
+        <option value="">Any difficulty</option>
+        @for (level of difficulties; track level.value) {
+          <option [value]="level.value">{{ level.label }}</option>
+        }
+      </select>
+    </div>
+    <div class="field">
+      <label for="filter-status">Review status</label>
+      <select id="filter-status" [value]="filterStatus()" (change)="onFilterStatusChanged($any($event.target).value)">
+        <option value="">Any status</option>
+        @for (status of statuses; track status.value) {
+          <option [value]="status.value">{{ status.label }}</option>
+        }
+      </select>
+    </div>
+    <div class="field">
+      <label for="filter-language">Language</label>
+      <select id="filter-language" [value]="filterLanguage()" (change)="onFilterLanguageChanged($any($event.target).value)">
+        <option value="">Any language</option>
+        @for (language of languages; track language.code) {
+          <option [value]="language.code">{{ language.label }}</option>
+        }
+      </select>
+    </div>
+    <div class="field">
+      <label for="filter-topic">Topic</label>
+      <select id="filter-topic" [value]="filterTopic()" (change)="onFilterTopicChanged($any($event.target).value)">
+        <option value="">Any topic</option>
+        @for (topic of topics(); track topic) {
+          <option [value]="topic">{{ topic }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  @if (activeFilters().length > 0) {
+    <div class="filter-chips" role="group" aria-label="Active filters">
+      @for (chip of activeFilters(); track chip.key) {
+        <span class="filter-chip">
+          {{ chip.label }}
+          <button
+            type="button"
+            class="icon-btn"
+            [appTooltip]="'Remove filter: ' + chip.label"
+            [attr.aria-label]="'Remove filter: ' + chip.label"
+            (click)="clearFilter(chip.key)"
+          >
+            <app-icon name="close" />
+          </button>
+        </span>
+      }
+      @if (activeFilters().length > 1) {
+        <button type="button" class="btn--small" (click)="clearAllFilters()">Clear all</button>
+      }
+    </div>
+  }
+
+  <form id="new-question-form" class="card question-form" [formGroup]="form" (ngSubmit)="submit()" aria-label="New question" [hidden]="!formOpen()">
+    <div class="page-header">
+      <h2>New question</h2>
+      <button type="button" class="icon-btn" appTooltip="Close the form" aria-label="Close the form" (click)="formOpen.set(false)">
+        <app-icon name="close" />
+      </button>
+    </div>
 
     <app-book-chapter-picker [books]="books()" idPrefix="question" [(value)]="placement" />
 
@@ -57,78 +192,12 @@
     </section>
   }
 
-  <app-question-transfer [filter]="exportFilter()" (imported)="onImported()" />
+  @if (transferOpen()) {
+    <app-modal-dialog heading="Import and export" (closed)="transferOpen.set(false)">
+      <app-question-transfer [filter]="exportFilter()" (imported)="onImported()" />
+    </app-modal-dialog>
+  }
 
-  <div class="page-header">
-    <h2>Newest questions</h2>
-    <div class="list-filter">
-      @if (filterClasses().length > 0) {
-        <label class="visually-hidden" for="filter-class">Class</label>
-        <select id="filter-class" [value]="filterClass()" (change)="onFilterClassChanged($any($event.target).value)">
-          <option value="">Any class</option>
-          @for (item of filterClasses(); track item.id) {
-            <option [value]="item.id">{{ item.name }}</option>
-          }
-        </select>
-      }
-      <label class="visually-hidden" for="filter-book">Show questions from</label>
-      <select id="filter-book" [value]="filterBook()" (change)="onFilterBookChanged($any($event.target).value)">
-        <option value="">{{ filterClass() ? 'All books of this class' : 'All questions' }}</option>
-        @if (!filterClass()) {
-          <option [value]="unfiled">Not filed under a chapter</option>
-        }
-        @for (book of filterBooks(); track book.id) {
-          <option [value]="book.id">{{ optionLabel(book, filterClass()) }}{{ book.isArchived ? ' (archived)' : '' }}</option>
-        }
-      </select>
-      <label class="visually-hidden" for="filter-search">Search questions</label>
-      <input
-        id="filter-search"
-        type="search"
-        placeholder="Search questions"
-        [value]="filterSearch()"
-        (keydown.enter)="onSearch($any($event.target).value)"
-        (change)="onSearch($any($event.target).value)"
-      />
-      <label class="visually-hidden" for="filter-difficulty">Difficulty</label>
-      <select id="filter-difficulty" [value]="filterDifficulty()" (change)="onFilterDifficultyChanged($any($event.target).value)">
-        <option value="">Any difficulty</option>
-        @for (level of difficulties; track level.value) {
-          <option [value]="level.value">{{ level.label }}</option>
-        }
-      </select>
-      <label class="visually-hidden" for="filter-status">Review status</label>
-      <select id="filter-status" [value]="filterStatus()" (change)="onFilterStatusChanged($any($event.target).value)">
-        <option value="">Any status</option>
-        @for (status of statuses; track status.value) {
-          <option [value]="status.value">{{ status.label }}</option>
-        }
-      </select>
-      <label class="visually-hidden" for="filter-language">Language</label>
-      <select id="filter-language" [value]="filterLanguage()" (change)="onFilterLanguageChanged($any($event.target).value)">
-        <option value="">Any language</option>
-        @for (language of languages; track language.code) {
-          <option [value]="language.code">{{ language.label }}</option>
-        }
-      </select>
-      <label class="visually-hidden" for="filter-topic">Topic</label>
-      <select id="filter-topic" [value]="filterTopic()" (change)="onFilterTopicChanged($any($event.target).value)">
-        <option value="">Any topic</option>
-        @for (topic of topics(); track topic) {
-          <option [value]="topic">{{ topic }}</option>
-        }
-      </select>
-      @if (filterBook() && filterBook() !== unfiled) {
-        <label class="visually-hidden" for="filter-chapter">Chapter</label>
-        <select id="filter-chapter" [value]="filterChapter()" (change)="onFilterChapterChanged($any($event.target).value)">
-          <option value="">All chapters</option>
-          @for (chapter of filterChapters(); track chapter.id) {
-            <option [value]="chapter.id">{{ chapter.order }}. {{ chapter.title }}{{ chapter.isArchived ? ' (archived)' : '' }}</option>
-          }
-        </select>
-      }
-    </div>
-  </div>
   @if (notice()) {
     <p class="success-message" role="status">{{ notice() }}</p>
   }
@@ -158,29 +227,38 @@
   } @else if (questions().length === 0) {
     <p>{{ filterClass() || filterBook() || filterDifficulty() || filterTopic() || filterSearch() || filterStatus() || filterLanguage() ? 'No questions match this filter.' : 'No questions yet.' }}</p>
   } @else {
-    <label class="inline-check select-all">
-      <input type="checkbox" [checked]="allSelected()" (change)="toggleAll($any($event.target).checked)" />
-      Select all {{ questions().length }} shown
-    </label>
-    @for (question of questions(); track question.id) {
-      <app-question-card
-        [question]="question"
-        [books]="books()"
-        [selected]="selectedIds().has(question.id)"
-        [busy]="busyId() === question.id"
-        [error]="cardErrors()[question.id] ?? null"
-        (selectionChanged)="toggleSelected(question.id, $event)"
-        [statistics]="statistics()[question.id] ?? null"
-        (statisticsRequested)="onStatisticsRequested($event)"
-        (translationAdded)="onTranslationAdded()"
-        (statusChanged)="onStatusChanged($event)"
-        (fileRequested)="fileQuestion($event.questionId, $event.chapterId)"
-        (deleteConfirmed)="deleteQuestion($event)"
-      />
-    }
+    <h2 class="visually-hidden">Newest questions</h2>
+    <div class="question-list">
+      <div class="question-list__head">
+        <label class="inline-check select-all">
+          <input type="checkbox" [checked]="allSelected()" (change)="toggleAll($any($event.target).checked)" />
+          Select all {{ questions().length }} shown
+        </label>
+        <span class="qb-toolbar__spacer"></span>
+        <span aria-live="polite">{{ mayHaveMore() ? 'Newest first, more below' : 'Newest first' }}</span>
+      </div>
+      <div role="list" aria-label="Questions">
+        @for (question of questions(); track question.id) {
+          <app-question-row
+            [question]="question"
+            [books]="books()"
+            [selected]="selectedIds().has(question.id)"
+            [busy]="busyId() === question.id"
+            [error]="cardErrors()[question.id] ?? null"
+            (selectionChanged)="toggleSelected(question.id, $event)"
+            [statistics]="statistics()[question.id] ?? null"
+            (statisticsRequested)="onStatisticsRequested($event)"
+            (translationAdded)="onTranslationAdded()"
+            (statusChanged)="onStatusChanged($event)"
+            (fileRequested)="fileQuestion($event.questionId, $event.chapterId)"
+            (deleteConfirmed)="deleteQuestion($event)"
+          />
+        }
+      </div>
+    </div>
     @if (mayHaveMore()) {
       <div class="actions">
-        <button type="button" (click)="loadMore()" [disabled]="loadingMore()">{{ loadingMore() ? 'Loading…' : 'Load older questions' }}</button>
+        <button type="button" (click)="loadMore()" [disabled]="loadingMore()">{{ loadingMore() ? 'Loading…' : 'Load ' + pageSize + ' more' }}</button>
       </div>
     }
   }

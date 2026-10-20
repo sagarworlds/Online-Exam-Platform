@@ -73,7 +73,7 @@
           @if (row.account && canManage) {
             <div class="student-row__actions">
               <button type="button" class="student-row__icon" (click)="openEdit(row)" [attr.aria-label]="'Edit ' + row.title" title="Edit profile">
-                <app-admin-icon name="edit" />
+                <app-icon name="edit" />
               </button>
               @if (row.account.status === 'Deactivated') {
                 <button
@@ -84,7 +84,7 @@
                   [attr.aria-label]="'Reactivate ' + row.title"
                   title="Reactivate student"
                 >
-                  <app-admin-icon name="restore" />
+                  <app-icon name="restore" />
                 </button>
               } @else {
                 <button
@@ -94,7 +94,7 @@
                   [attr.aria-label]="'Deactivate ' + row.title"
                   title="Deactivate student"
                 >
-                  <app-admin-icon name="trash" />
+                  <app-icon name="trash" />
                 </button>
               }
             </div>

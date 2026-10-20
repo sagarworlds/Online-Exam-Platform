@@ -6,7 +6,7 @@ import { Permission } from '../../auth/admin-sections';
 import { AuthSessionService } from '../../auth/auth-session.service';
 import { InviteApiService } from '../../invite-management/invite-api.service';
 import { InviteDto, InviteStatus } from '../../invite-management/invite.models';
-import { AdminIcon } from '../../shared/admin-icon/admin-icon';
+import { Icon } from '../../shared/icon/icon';
 import { ModalDialog } from '../../shared/modal-dialog/modal-dialog';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { InvitedAddress, InvitedAddressChange } from '../invited-address/invited-address';
@@ -34,7 +34,7 @@ const LISTING_LIMIT = 200;
  */
 @Component({
   selector: 'app-student-list',
-  imports: [RouterLink, StudentProfile, StudentInvitations, InvitedAddress, ModalDialog, AdminIcon],
+  imports: [RouterLink, StudentProfile, StudentInvitations, InvitedAddress, ModalDialog, Icon],
   templateUrl: './student-list.html',
   styleUrl: './student-list.css',
 })

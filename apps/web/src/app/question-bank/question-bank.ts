@@ -3,11 +3,14 @@ import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { BookApiService } from '../book-management/book-api.service';
 import { ANY_CLASS, bookOptionLabel, booksInClass, classChoicesOf } from '../book-management/book-class';
 import { BookDto } from '../book-management/book.models';
+import { Icon } from '../shared/icon/icon';
+import { ModalDialog } from '../shared/modal-dialog/modal-dialog';
 import { extractErrorMessage, extractProblemCode } from '../shared/problem-details';
+import { Tooltip } from '../shared/tooltip/tooltip';
 import { BookChapterPicker, isCompletePlacement, NO_PLACEMENT, Placement } from './book-chapter-picker/book-chapter-picker';
 import { ContentEncryptionStatusPanel } from './content-encryption-status/content-encryption-status';
 import { QuestionApiService } from './question-api.service';
-import { QuestionCard } from './question-card/question-card';
+import { QuestionRow } from './question-row/question-row';
 import {
   answersToCompare,
   createQuestionForm,
@@ -41,14 +44,22 @@ import { STATUS_LABELS } from './question-review/question-review';
 /** The value of the list filter's book select that means "questions not filed under any chapter". */
 export const UNFILED = 'unfiled';
 
+/** The filters the list shows as removable chips, by what they narrow. */
+export type FilterKey = 'class' | 'book' | 'chapter' | 'difficulty' | 'status' | 'language' | 'topic';
+
 /**
- * Admin page: the newest questions, and a form to add one with its options and correct answer (FR-5). A question can
+ * Admin page: the newest questions, a line each, and a form to add one with its options and correct answer (FR-5). A question can
  * be filed under a chapter of a book of a class, and the list can be narrowed to a class, a book, a chapter, or what is not filed yet.
+ *
+ * The page keeps to one screen of what matters: a toolbar (search, filters, import and export, new question), the filters that are on as
+ * chips, and the list. The form and the filter choices are folded away until asked for, and the list is read {@link QUESTION_LIST_PAGE_SIZE}
+ * at a time.
  */
 @Component({
   selector: 'app-question-bank',
-  imports: [ReactiveFormsModule, BookChapterPicker, ContentEncryptionStatusPanel, QuestionCard, QuestionFields, QuestionTransfer],
+  imports: [ReactiveFormsModule, Icon, BookChapterPicker, ContentEncryptionStatusPanel, ModalDialog, QuestionFields, QuestionRow, QuestionTransfer, Tooltip],
   templateUrl: './question-bank.html',
+  styleUrl: './question-bank.css',
 })
 export class QuestionBank {
   private readonly formBuilder = inject(FormBuilder);
@@ -62,6 +73,14 @@ export class QuestionBank {
   private readonly saveFailure = viewChild<ElementRef<HTMLElement>>('saveFailure');
 
   protected readonly unfiled = UNFILED;
+  /** How many questions each read adds, for the "Load more" button's words. */
+  protected readonly pageSize = QUESTION_LIST_PAGE_SIZE;
+  /** Whether the new-question form is open. It is folded away until the author asks for it, and stays open between saves. */
+  protected readonly formOpen = signal(false);
+  /** Whether the filter choices are showing. The ones that are on show as chips whether or not they are. */
+  protected readonly filtersOpen = signal(false);
+  /** Whether the import and export dialog is open. */
+  protected readonly transferOpen = signal(false);
   protected readonly questions = signal<QuestionDto[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadingMore = signal(false);
@@ -126,6 +145,43 @@ export class QuestionBank {
   protected readonly filterChapters = computed(() => this.books().find((book) => book.id === this.filterBook())?.chapters ?? []);
 
   protected readonly form = createQuestionForm(this.formBuilder);
+
+  /** The filters that are on, as the words a chip shows. The search is not one: it has its own box, which says what it is. */
+  protected readonly activeFilters = computed<{ key: FilterKey; label: string }[]>(() => {
+    const chips: { key: FilterKey; label: string }[] = [];
+    const classId = this.filterClass();
+    if (classId) {
+      chips.push({ key: 'class', label: `Class: ${this.filterClasses().find((item) => item.id === classId)?.name ?? 'unknown'}` });
+    }
+
+    const bookId = this.filterBook();
+    if (bookId === UNFILED) {
+      chips.push({ key: 'book', label: 'Not filed under a chapter' });
+    } else if (bookId) {
+      chips.push({ key: 'book', label: `Book: ${this.books().find((book) => book.id === bookId)?.name ?? 'unknown'}` });
+      const chapter = this.filterChapters().find((item) => item.id === this.filterChapter());
+      if (chapter) {
+        chips.push({ key: 'chapter', label: `Chapter: ${chapter.order}. ${chapter.title}` });
+      }
+    }
+
+    const difficulty = this.difficulties.find((level) => level.value === this.filterDifficulty());
+    if (difficulty) {
+      chips.push({ key: 'difficulty', label: `Difficulty: ${difficulty.label}` });
+    }
+    const status = this.statuses.find((item) => item.value === this.filterStatus());
+    if (status) {
+      chips.push({ key: 'status', label: `Status: ${status.label}` });
+    }
+    const language = this.languages.find((item) => item.code === this.filterLanguage());
+    if (language) {
+      chips.push({ key: 'language', label: `Language: ${language.label}` });
+    }
+    if (this.filterTopic()) {
+      chips.push({ key: 'topic', label: `Topic: ${this.filterTopic()}` });
+    }
+    return chips;
+  });
 
   constructor() {
     this.refresh();
@@ -205,6 +261,45 @@ export class QuestionBank {
 
   protected onFilterTopicChanged(value: string): void {
     this.filterTopic.set(value);
+    this.refresh();
+  }
+
+  /** Takes one filter off, from its chip. Taking a book off takes its chapter with it, as choosing another book does. */
+  protected clearFilter(key: FilterKey): void {
+    switch (key) {
+      case 'class':
+        this.onFilterClassChanged(ANY_CLASS);
+        break;
+      case 'book':
+        this.onFilterBookChanged('');
+        break;
+      case 'chapter':
+        this.onFilterChapterChanged('');
+        break;
+      case 'difficulty':
+        this.onFilterDifficultyChanged('');
+        break;
+      case 'status':
+        this.onFilterStatusChanged('');
+        break;
+      case 'language':
+        this.onFilterLanguageChanged('');
+        break;
+      case 'topic':
+        this.onFilterTopicChanged('');
+        break;
+    }
+  }
+
+  /** Takes every filter off at once, with one read of the list. The search is not a filter chip, so it stays. */
+  protected clearAllFilters(): void {
+    this.filterClass.set(ANY_CLASS);
+    this.filterBook.set('');
+    this.filterChapter.set('');
+    this.filterDifficulty.set('');
+    this.filterStatus.set('');
+    this.filterLanguage.set('');
+    this.filterTopic.set('');
     this.refresh();
   }
 
@@ -460,7 +555,7 @@ export class QuestionBank {
     }
 
     this.loadingMore.set(true);
-    this.api.list(this.currentFilter(), this.questions().length).subscribe({
+    this.api.list(this.currentFilter(), this.questions().length, QUESTION_LIST_PAGE_SIZE).subscribe({
       next: (page) => {
         const shown = new Set(this.questions().map((q) => q.id));
         this.questions.update((list) => [...list, ...page.filter((q) => !shown.has(q.id))]);
@@ -476,7 +571,7 @@ export class QuestionBank {
 
   private refresh(): void {
     this.loading.set(true);
-    this.api.list(this.currentFilter()).subscribe({
+    this.api.list(this.currentFilter(), 0, QUESTION_LIST_PAGE_SIZE).subscribe({
       next: (questions) => {
         this.questions.set(questions);
         this.mayHaveMore.set(questions.length >= QUESTION_LIST_PAGE_SIZE);

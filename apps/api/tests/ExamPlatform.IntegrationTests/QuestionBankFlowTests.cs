@@ -91,6 +91,45 @@ public sealed class QuestionBankFlowTests(ApiFactory factory) : IClassFixture<Ap
         Assert.Equal(await IdsAsync(client, "/v1/questions"), await IdsAsync(client, "/v1/questions?skip=-5"));
     }
 
+    [Fact]
+    public async Task List_TakeAsksForFewer_AndSkipContinuesFromWhereItStopped()
+    {
+        using var client = await ClientForAsync(RbacCatalog.RoleNames.ExamAdmin);
+        for (var i = 0; i < 3; i++)
+            Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync("/v1/questions", ValidQuestion)).StatusCode);
+
+        var everything = await IdsAsync(client, "/v1/questions");
+        var firstTwo = await IdsAsync(client, "/v1/questions?take=2");
+        var nextTwo = await IdsAsync(client, "/v1/questions?skip=2&take=2");
+
+        Assert.Equal(2, firstTwo.Count);
+        Assert.Equal(everything.Take(2), firstTwo);
+        // A page asked for in steps is the same list as one asked for whole: no question is repeated or missed at the join.
+        Assert.Equal(everything.Skip(2).Take(2), nextTwo);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public async Task List_ATakeBelowOneStillReturnsOneQuestion(int take)
+    {
+        using var client = await ClientForAsync(RbacCatalog.RoleNames.ExamAdmin);
+        await client.PostAsJsonAsync("/v1/questions", ValidQuestion);
+
+        Assert.Single(await IdsAsync(client, $"/v1/questions?take={take}"));
+    }
+
+    [Fact]
+    public async Task List_ATakeAboveTheLimitIsHeldToTheLimit()
+    {
+        using var client = await ClientForAsync(RbacCatalog.RoleNames.ExamAdmin);
+        await client.PostAsJsonAsync("/v1/questions", ValidQuestion);
+
+        var ids = await IdsAsync(client, "/v1/questions?take=100000");
+
+        Assert.InRange(ids.Count, 1, 200);
+    }
+
     private static async Task<List<Guid>> IdsAsync(HttpClient client, string url) =>
         (await client.GetFromJsonAsync<JsonElement>(url)).EnumerateArray().Select(q => q.GetProperty("id").GetGuid()).ToList();
 

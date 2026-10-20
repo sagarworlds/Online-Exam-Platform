@@ -19,9 +19,10 @@ test.afterAll(async () => {
   await api.dispose();
 });
 
-/** Opens the question bank signed in as the administrator. */
+/** Opens the question bank signed in as the administrator, and opens the form, which is folded away until it is asked for. */
 async function openQuestionBank(page: Page): Promise<void> {
   await api.openAdminPage(page, '/admin/questions');
+  await page.getByRole('button', { name: 'New question' }).click();
   await expect(page.locator('#question-text')).toBeVisible();
 }
 
@@ -134,5 +135,100 @@ test.describe('adding a question the bank already has', () => {
     await expect(refusal).toBeInViewport({ ratio: 1 });
     await expect(refusal).toBeFocused();
     await expect(page.getByText('Question saved.')).toHaveCount(0);
+  });
+});
+
+// The list is a line per question, so the page stays short however many there are: a question opens to its options, its actions are icons
+// with a name and a tooltip, and the filters that are on show as chips that take them off again.
+const row = (page: Page, text: string): Locator => page.locator('app-question-row').filter({ hasText: text });
+
+/** Saves a choice question through the form and waits for its line to be in the list. */
+async function addQuestion(page: Page, text: string): Promise<void> {
+  await fillChoiceQuestion(page, text);
+  await saveFirstTime(page);
+  await expect(row(page, text)).toHaveCount(1);
+}
+
+test.describe('the list of questions', () => {
+  test('shows a saved question as one line, which opens to its options and closes again', async ({ page }) => {
+    const text = `Which colour is a leaf? (${run})`;
+    await openQuestionBank(page);
+    await addQuestion(page, text);
+    const line = row(page, text);
+
+    await expect(line.getByText('Green')).toHaveCount(0);
+    await line.getByRole('button', { name: 'Show details' }).click();
+    await expect(line.getByText('Green')).toBeVisible();
+    await expect(line.getByText('correct', { exact: true })).toBeVisible();
+
+    await line.getByRole('button', { name: 'Hide details' }).click();
+    await expect(line.getByText('Green')).toHaveCount(0);
+  });
+
+  test('names every icon and shows its tooltip when the icon is focused, and Escape puts it away', async ({ page }) => {
+    const text = `Which colour is a banana? (${run})`;
+    await openQuestionBank(page);
+    await addQuestion(page, text);
+    const line = row(page, text);
+
+    for (const name of ['Edit', 'Translations', 'Statistics', 'File under…', 'Delete', 'Show details']) {
+      const icon = line.getByRole(name === 'Edit' ? 'link' : 'button', { name, exact: true });
+      await icon.focus();
+      await expect(page.getByRole('tooltip')).toHaveText(name);
+    }
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
+  });
+
+  test('shows a filter that is on as a chip, narrows the list by it, and brings the list back when the chip is removed', async ({ page }) => {
+    const text = `Which colour is snow? (${run})`;
+    await openQuestionBank(page);
+    await addQuestion(page, text);
+
+    await page.getByLabel('Search questions').fill(text);
+    await page.getByLabel('Search questions').press('Enter');
+    await expect(row(page, text)).toHaveCount(1);
+
+    await page.getByRole('button', { name: 'Filters', exact: true }).click();
+    // The form's own language select is on the page too, so the filter's is named by its id.
+    await page.locator('#filter-language').selectOption('hi');
+    await expect(row(page, text)).toHaveCount(0);
+    await expect(page.locator('.filter-chip')).toContainText('Language: Hindi');
+
+    await page.getByRole('button', { name: 'Remove filter: Language: Hindi' }).click();
+    await expect(page.locator('.filter-chip')).toHaveCount(0);
+    await expect(row(page, text)).toHaveCount(1);
+  });
+
+  test('opens import and export in a dialog and closes it with Escape', async ({ page }) => {
+    await openQuestionBank(page);
+
+    await page.getByRole('button', { name: 'Import and export' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Import and export' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Download questions' })).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+  });
+
+  test('fits a phone: no sideways scroll, and each line and its icons are within the screen and targets of at least 44px', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    const text = `Which colour is the sky? (${run})`;
+    await openQuestionBank(page);
+    await addQuestion(page, text);
+    const line = row(page, text);
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+
+    // 43.5: Firefox reports a 44px control as 43.99997.
+    for (const name of ['Translations', 'Statistics', 'Delete', 'Show details']) {
+      const box = await line.getByRole('button', { name, exact: true }).boundingBox();
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(43.5);
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(43.5);
+      expect((box?.x ?? -1) + (box?.width ?? 0)).toBeLessThanOrEqual(360);
+    }
   });
 });

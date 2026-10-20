@@ -640,35 +640,24 @@ button.btn--primary:hover:not(:disabled),
   font: inherit;
 }
 
-.question-card__where {
-  margin: 0 0 0.5rem;
+/* Where a question is filed, and its topics: the quiet line under its text. */
+.question-row__where {
+  margin: 0.15rem 0 0;
   color: var(--text-muted);
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
 }
 
 /* Where a question is in use, under its options; the badges carry their own spacing. */
-.question-card__usage {
+.question-row__usage {
   margin: 0.5rem 0 0;
 }
 
-.question-card__usage .badge:first-child {
+.question-row__usage .badge:first-child {
   margin-inline-start: 0;
 }
 
-.question-card__actions {
-  margin-top: 0.75rem;
-}
-
-/* The tick box sits at the end of the line that says where the question is filed. */
-.question-card__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.question-card__filing {
+.question-row__filing {
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);
@@ -693,7 +682,7 @@ button.btn--primary:hover:not(:disabled),
 }
 
 /* The inline "are you sure?" that replaces a Delete or Remove button; no dialog to open, nothing to lose focus into. */
-.question-card__confirm,
+.question-row__confirm,
 .inline-confirm {
   display: inline-flex;
   flex-wrap: wrap;
@@ -773,12 +762,12 @@ button.btn--primary:hover:not(:disabled),
   min-width: 10rem;
 }
 
-/* Difficulty and topics of a question, between where it is filed and its text. */
-.question-card__labels {
+/* The kind, difficulty and topics of an open question, above its options. */
+.question-row__labels {
   margin: 0 0 0.5rem;
 }
 
-.question-card__labels .badge:first-child {
+.question-row__labels .badge:first-child {
   margin-inline-start: 0;
 }
 
@@ -1318,4 +1307,72 @@ label:has(> input[type='radio']) {
   display: flex;
   align-items: center;
   min-height: 2.75rem;
+}
+
+/* ---------- Icon buttons and their tooltip ---------- */
+/* A button or link that is only an icon: its name is its aria-label, and appTooltip shows the same words. 36px with a mouse, 44px on a phone. */
+.icon-btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.icon-btn:hover:not([aria-disabled='true']):not(:disabled),
+.icon-btn[aria-expanded='true'] {
+  border-color: var(--control-border);
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.icon-btn--danger:hover:not([aria-disabled='true']):not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* Unavailable but still reachable, so its tooltip can say why. */
+.icon-btn[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (pointer: coarse), (max-width: 40rem) {
+  .icon-btn {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}
+
+.app-tooltip {
+  position: fixed;
+  z-index: 1000;
+  max-width: 16rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background: var(--text);
+  color: var(--surface);
+  font-size: 0.8rem;
+  line-height: 1.3;
+  pointer-events: none;
+}
+
+/* The question list's rich text: a paragraph adds no gap of its own, and a picture in a closed row stays line-sized. Global, because the
+   text is HTML the page puts in with innerHTML, which a component's own styles do not reach. */
+.question-row__text p {
+  margin: 0;
+}
+
+.question-row__text--clamped img {
+  max-height: 2.5rem;
+  width: auto;
 }
