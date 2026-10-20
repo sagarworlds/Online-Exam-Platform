@@ -18,7 +18,7 @@ Where the job removes a row it either deletes it or replaces the identifying fie
 1. **Results history.** The proposal keeps a candidate's attempts and answers for as long as their account exists, because "my performance" and certificates show them. Do the schools and institutes that use the platform expect results to be available for longer than that, or for a fixed time such as a number of years? If so, write the number.
 2. **Inactive accounts.** The proposal removes an account 24 months after it was last used. The code has no "last used" time on an account today (`User` has none), so the job needs one added. Is 24 months right?
 3. **Monitoring data.** Sightings (IP address and device), focus violations and warnings are kept 90 days after results are released, which covers the 7-day dispute window and the review that follows. Is 90 days right, or should it be shorter?
-4. **Proctoring media.** Not built. The requirements say "N days after result finalisation" (section 7.3). The proposal is 30 days, and only if counsel allows media at all.
+4. **Proctoring media.** Built (#280, #293). Webcam photos and screen pictures are deleted 30 days after they were taken (`ExamRuntime:CaptureRetention:RetentionDays`, #296), counted from the capture and not from the result, since results are released on each exam's own schedule. The requirements say "N days after result finalisation" (section 7.3). Is 30 days right, or should it be shorter?
 
 ## The table
 
@@ -72,6 +72,7 @@ Periods run from the moment named in "The clock starts".
 | `AttemptClientSightings` | IP address, device signature | Noticing a device change (FR-26) | 90 days | After results are released | Proposal | Sensitive for candidates under 18 (OP6). Counsel question 8 |
 | `AttemptFocusViolations` | Kind of violation, time | Evidence for reviewers and disputes (FR-22) | 90 days | After results are released | Proposal | Counsel question 8 |
 | `AttemptWarnings` | Warning text written by staff | Warning the candidate, disputes | 90 days | After results are released | Proposal | Free text; counsel question 8 |
+| `AttemptWebcamPhotos` | Webcam photos and screen pictures (JPEG images), kind, capture time | Reviewing an attempt (FR-24, FR-25) | 30 days | After the capture is taken | Built (FR-47, #296) | Adults only. A fixed age from the capture, so no exam lookup is needed. Configurable: `ExamRuntime:CaptureRetention`. Counsel questions 3 and 10 |
 | `Disputes` | Candidate, question, reason, resolution | Answer-key disputes (FR-31) | 12 months | After the dispute is resolved | Proposal | |
 | `IssueReports` | Candidate, message, resolution | Problems reported during an exam (FR-42) | 12 months | After the report is resolved | Proposal | Counsel question 8 |
 | `AttemptRequests` | Candidate, message, decision note | Requests for another attempt | 12 months | After the request is decided | Proposal | |
@@ -92,7 +93,6 @@ Periods run from the moment named in "The clock starts".
 | Brevo and operator SMTP | E-mails sent, with codes and scores | The provider's own retention | Not controlled by the platform | Ask each provider for the shortest retention its plan allows, and record it here |
 | Meta WhatsApp | Messages and delivery data | The provider's own retention | Not controlled by the platform | Off for now (D6) |
 | Browser storage | Sign-in token, the visited-question list for each attempt, display settings | The token expires. The visited list is removed when the attempt is submitted | Proposal | The app does not remove the visited list today (G9), so this is a change to the web app |
-| Proctoring media | Not built | 30 days | Proposal | Only if counsel allows media at all (counsel questions 3 and 10) |
 
 ## What is not decided here
 
