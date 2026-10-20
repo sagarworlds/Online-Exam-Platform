@@ -1,6 +1,6 @@
 import { Injectable, effect, inject, signal } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { RouterStateSnapshot, TitleStrategy } from '@angular/router';
+import { ActivatedRouteSnapshot, RouterStateSnapshot, TitleStrategy } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
 import { MessageKey } from '../../i18n/messages.en';
 
@@ -73,11 +73,18 @@ export class PageTitleStrategy extends TitleStrategy {
   }
 }
 
-/** The path, as written in app.routes.ts, of the deepest route the URL is on (for example `attempt/:attemptId/review`). */
+/**
+ * The path, as written in app.routes.ts, of the deepest route the URL is on (for example `attempt/:attemptId/review`). A route with child
+ * routes gives its path and its child's together, as the URL has them, so `admin/questions` with the child `:id/edit` is
+ * `admin/questions/:id/edit`, and the same page with no child is `admin/questions`.
+ */
 export function deepestRoutePath(snapshot: RouterStateSnapshot): string | undefined {
-  let route = snapshot.root;
-  while (route.firstChild) {
-    route = route.firstChild;
+  const parts: string[] = [];
+  for (let route: ActivatedRouteSnapshot | null = snapshot.root; route; route = route.firstChild) {
+    const path = route.routeConfig?.path;
+    if (path) {
+      parts.push(path);
+    }
   }
-  return route.routeConfig?.path;
+  return parts.length > 0 ? parts.join('/') : undefined;
 }

@@ -14,8 +14,8 @@ const EDGE = 8;
  * or focus leaves, or the icon scrolls out of view. It does not give the control its name: the control still carries its own `aria-label`, so a screen
  * reader reads that and the tooltip is a visual extra.
  *
- * The bubble is added to the page's body and positioned from the icon's place on screen, so a row or card that clips its content does not
- * clip the tooltip. It sits above the icon, or below it when there is no room above, and follows the icon if the page scrolls.
+ * The bubble is added to the page's body (or to the dialog the icon is in) and positioned from the icon's place on screen, so a row or card
+ * that clips its content does not clip the tooltip. It sits above the icon, or below it when there is no room above, and follows the icon if the page scrolls.
  */
 @Directive({
   selector: '[appTooltip]',
@@ -54,7 +54,8 @@ export class Tooltip implements OnDestroy {
     bubble.className = 'app-tooltip';
     bubble.setAttribute('role', 'tooltip');
     bubble.textContent = text;
-    this.document.body.appendChild(bubble);
+    // A modal dialog is drawn in the browser's top layer, above everything outside it, so a bubble for an icon inside one goes inside it too.
+    (this.host.nativeElement.closest('dialog') ?? this.document.body).appendChild(bubble);
     this.bubble = bubble;
     this.place(bubble);
     this.document.addEventListener('scroll', this.onScroll, true);

@@ -2,10 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { RealApi } from './real-api';
 
-// What happens when an author presses Save on the question bank. The form is long, so whatever the page says about it has to be where the
-// author is looking: when it was above the form, pressing Save appeared to do nothing (FR-9). That covers the warning that the bank already
-// has the question, the confirmation that it was saved, and the reason the bank refused it. The real API decides what a repeat is and what
-// it refuses, so the page and the API are tested together; nothing is stubbed.
+// What happens when an author presses Save on the question bank. A question is written in a panel down the side of the page. Its form is
+// long, so whatever the page says about Save has to be where the author is looking: the panel keeps it in a footer that stays in view
+// (FR-9). That covers the warning that the bank already has the question, the confirmation that it was saved, and the reason the bank
+// refused it. The real API decides what a repeat is and what it refuses, so the page and the API are tested together; nothing is stubbed.
 
 const run = randomUUID().slice(0, 8);
 
@@ -19,7 +19,9 @@ test.afterAll(async () => {
   await api.dispose();
 });
 
-/** Opens the question bank signed in as the administrator, and opens the form, which is folded away until it is asked for. */
+const panel = (page: Page): Locator => page.getByRole('dialog', { name: 'New question' });
+
+/** Opens the question bank signed in as the administrator, and opens the panel for a new question, which is closed until it is asked for. */
 async function openQuestionBank(page: Page): Promise<void> {
   await api.openAdminPage(page, '/admin/questions');
   await page.getByRole('button', { name: 'New question' }).click();
@@ -41,10 +43,12 @@ async function fillChoiceQuestion(page: Page, text: string): Promise<void> {
 async function fillTextQuestion(page: Page, text: string): Promise<void> {
   await typeQuestion(page, text);
   await page.getByLabel('Question type').selectOption('text');
-  await page.getByLabel('Accepted answer 1').fill('Paris');
+  // Exact: "Remove accepted answer 1" is a name that contains this one.
+  await page.getByLabel('Accepted answer 1', { exact: true }).fill('Paris');
 }
 
-const save = (page: Page): Locator => page.getByRole('button', { name: 'Save question' });
+// "Save and add another" leaves the panel open and empty, which is what lets these tests save the same question twice.
+const save = (page: Page): Locator => page.getByRole('button', { name: 'Save and add another' });
 const warning = (page: Page): Locator => page.getByRole('alert').filter({ hasText: 'This question is already in the bank' });
 
 /** Saves the question once, so the bank has it, and checks that the confirmation is in view beside the button. */
@@ -74,18 +78,18 @@ test.describe('adding a question the bank already has', () => {
     await expect(warning(page)).toHaveCount(0);
   });
 
-  test('shows all of the warning even when only its top would be on screen below the Save button', async ({ page }) => {
+  test('shows all of the warning on a short screen, where the footer is smaller than the warning and scrolls', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 420 });
     const text = `Which colour is a lemon? (${run})`;
     await openQuestionBank(page);
     await fillChoiceQuestion(page, text);
     await saveFirstTime(page);
     await fillChoiceQuestion(page, text);
 
-    // Save at the bottom edge of the screen: the warning starts just below it, so it is partly on screen and partly not. Engines differ in how
-    // far focus moves a message in that state (WebKit left it flush against the edge, a pixel short), so the page does the scrolling itself.
-    await save(page).evaluate((button) => window.scrollBy(0, button.getBoundingClientRect().bottom - window.innerHeight + 24));
     await save(page).click();
 
+    // The footer is at most 45% of a screen this short, and the warning with its buttons needs more, so the footer scrolls. Engines differ in
+    // how far focus moves a message that is only partly in view (WebKit left it flush against the edge, a pixel short), so the panel does it.
     await expect(warning(page)).toBeInViewport({ ratio: 1 });
     await expect(warning(page)).toBeFocused();
   });
@@ -142,10 +146,12 @@ test.describe('adding a question the bank already has', () => {
 // with a name and a tooltip, and the filters that are on show as chips that take them off again.
 const row = (page: Page, text: string): Locator => page.locator('app-question-row').filter({ hasText: text });
 
-/** Saves a choice question through the form and waits for its line to be in the list. */
+/** Saves a choice question through the panel and closes it, which it does at once as nothing is left in it, and waits for its line to be in the list. */
 async function addQuestion(page: Page, text: string): Promise<void> {
   await fillChoiceQuestion(page, text);
   await saveFirstTime(page);
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(panel(page)).toHaveCount(0);
   await expect(row(page, text)).toHaveCount(1);
 }
 
@@ -191,7 +197,6 @@ test.describe('the list of questions', () => {
     await expect(row(page, text)).toHaveCount(1);
 
     await page.getByRole('button', { name: 'Filters', exact: true }).click();
-    // The form's own language select is on the page too, so the filter's is named by its id.
     await page.locator('#filter-language').selectOption('hi');
     await expect(row(page, text)).toHaveCount(0);
     await expect(page.locator('.filter-chip')).toContainText('Language: Hindi');
@@ -202,7 +207,7 @@ test.describe('the list of questions', () => {
   });
 
   test('opens import and export in a dialog and closes it with Escape', async ({ page }) => {
-    await openQuestionBank(page);
+    await api.openAdminPage(page, '/admin/questions');
 
     await page.getByRole('button', { name: 'Import and export' }).click();
     const dialog = page.getByRole('dialog', { name: 'Import and export' });
@@ -226,6 +231,155 @@ test.describe('the list of questions', () => {
     // 43.5: Firefox reports a 44px control as 43.99997.
     for (const name of ['Translations', 'Statistics', 'Delete', 'Show details']) {
       const box = await line.getByRole('button', { name, exact: true }).boundingBox();
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(43.5);
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(43.5);
+      expect((box?.x ?? -1) + (box?.width ?? 0)).toBeLessThanOrEqual(360);
+    }
+  });
+});
+
+// A question is added or edited in a panel down the side of the page, so the list, its filters and how far it has been read stay behind it.
+test.describe('the panel for a question', () => {
+  test('opens over the list as a sheet, saves and closes, and the new question is in the list', async ({ page }) => {
+    const text = `Which colour is a plum? (${run})`;
+    await openQuestionBank(page);
+    await expect(panel(page)).toBeVisible();
+    await fillChoiceQuestion(page, text);
+
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+    await expect(panel(page)).toHaveCount(0);
+    await expect(page.getByText('Question saved.')).toBeVisible();
+    await expect(row(page, text)).toHaveCount(1);
+  });
+
+  test('Save and add another keeps the panel open with an empty form, the cursor in it, and the saved question in the list behind', async ({ page }) => {
+    const text = `Which colour is a lime? (${run})`;
+    await openQuestionBank(page);
+    await fillChoiceQuestion(page, text);
+
+    await save(page).click();
+
+    await expect(page.getByText('Question saved.')).toBeVisible();
+    await expect(panel(page)).toBeVisible();
+    await expect(page.getByLabel('Option 1 text')).toHaveValue('');
+    await expect(page.locator('#question-text')).toBeFocused();
+    await expect(row(page, text)).toHaveCount(1);
+  });
+
+  test('asks before it throws away what was typed, and Keep editing goes on with it', async ({ page }) => {
+    await openQuestionBank(page);
+    await typeQuestion(page, `Half typed (${run})`);
+
+    // Not from the text itself: the editor takes Escape for its own use, so there it leaves the panel as it is.
+    await page.getByLabel('Option 1 text').focus();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('alertdialog')).toContainText('Throw away what you have typed?');
+    await expect(panel(page)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Keep editing' }).click();
+    await expect(page.locator('#question-text')).toContainText('Half typed');
+
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('button', { name: 'Discard' }).click();
+    await expect(panel(page)).toHaveCount(0);
+  });
+
+  test('edits a question from its Edit icon without leaving the page: the address changes, the list stays, and Save changes closes it', async ({ page }) => {
+    const text = `Which colour is a cherry? (${run})`;
+    await openQuestionBank(page);
+    await addQuestion(page, text);
+    // Something typed on the page itself: it is still there afterwards only if the page was not rebuilt.
+    await page.getByLabel('Search questions').fill(text);
+    await page.getByLabel('Search questions').press('Enter');
+    await expect(row(page, text)).toHaveCount(1);
+
+    await row(page, text).getByRole('link', { name: 'Edit', exact: true }).click();
+
+    await expect(page).toHaveURL(/\/admin\/questions\/[0-9a-f-]+\/edit$/);
+    const dialog = page.getByRole('dialog', { name: 'Edit question' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel('Option 1 text')).toHaveValue('Green');
+
+    await dialog.getByLabel('Option 1 text').fill('Dark green');
+    await dialog.getByRole('button', { name: 'Save changes' }).click();
+
+    await expect(dialog).toHaveCount(0);
+    await expect(page).toHaveURL(/\/admin\/questions$/);
+    await expect(page.getByLabel('Search questions')).toHaveValue(text);
+    await row(page, text).getByRole('button', { name: 'Show details' }).click();
+    await expect(row(page, text).getByText('Dark green')).toBeVisible();
+  });
+
+  test('opens straight at the address of an edit, and closing it leaves the list', async ({ page }) => {
+    const text = `Which colour is a pear? (${run})`;
+    await openQuestionBank(page);
+    await addQuestion(page, text);
+    const href = await row(page, text).getByRole('link', { name: 'Edit', exact: true }).getAttribute('href');
+
+    await api.openAdminPage(page, href as string);
+
+    const dialog = page.getByRole('dialog', { name: 'Edit question' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel('Option 1 text')).toHaveValue('Green');
+
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page).toHaveURL(/\/admin\/questions$/);
+    await expect(row(page, text)).toHaveCount(1);
+  });
+
+  test('shows the tooltip of an icon inside the panel, which a modal dialog would otherwise cover', async ({ page }) => {
+    await openQuestionBank(page);
+
+    await page.getByRole('button', { name: 'Keep option 1 in place when options are shuffled' }).focus();
+
+    const tip = page.getByRole('tooltip');
+    await expect(tip).toHaveText('Keep in place when options are shuffled');
+    await expect(tip).toBeInViewport({ ratio: 1 });
+    // The bubble is inside the dialog, in the browser's top layer, not behind it in the page.
+    await expect(page.locator('dialog .app-tooltip')).toHaveCount(1);
+  });
+
+  test('keeps an option in place with its pin, which says whether it is pressed', async ({ page }) => {
+    await openQuestionBank(page);
+    const pin = page.getByRole('button', { name: 'Keep option 2 in place when options are shuffled' });
+    await expect(pin).toHaveAttribute('aria-pressed', 'false');
+
+    await pin.click();
+
+    await expect(pin).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('folds difficulty, topics and the explanation behind More details', async ({ page }) => {
+    await openQuestionBank(page);
+    const more = page.getByRole('button', { name: 'More details' });
+    // By id: the list's own filters have a Difficulty and a Topic select too, folded away behind the panel.
+    const difficulty = page.locator('#question-difficulty');
+    await expect(more).toHaveAttribute('aria-expanded', 'false');
+    await expect(difficulty).toBeHidden();
+
+    await more.click();
+
+    await expect(more).toHaveAttribute('aria-expanded', 'true');
+    await expect(difficulty).toBeVisible();
+    await expect(page.locator('#question-topics')).toBeVisible();
+    await expect(page.locator('#question-explanation')).toBeVisible();
+  });
+
+  test('fills a phone: as wide as the screen, with no sideways scroll, and its buttons and icons are targets of at least 44px', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await openQuestionBank(page);
+
+    const sheet = await page.locator('dialog.modal--side').boundingBox();
+    expect(sheet?.width ?? 0).toBeGreaterThanOrEqual(359);
+    expect(sheet?.width ?? 0).toBeLessThanOrEqual(360);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+
+    // 43.5: Firefox reports a 44px control as 43.99997.
+    for (const name of ['Save', 'Save and add another', 'Cancel', 'Keep option 1 in place when options are shuffled', 'Remove option 1']) {
+      const box = await page.getByRole('button', { name, exact: true }).boundingBox();
       expect(box?.width ?? 0).toBeGreaterThanOrEqual(43.5);
       expect(box?.height ?? 0).toBeGreaterThanOrEqual(43.5);
       expect((box?.x ?? -1) + (box?.width ?? 0)).toBeLessThanOrEqual(360);

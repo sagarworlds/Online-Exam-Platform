@@ -1,0 +1,47 @@
+/* The place a question is filed, which an edit shows and does not change. */
+.panel-where {
+  margin: 0 0 0.5rem;
+}
+
+/* The footer holds short messages above the buttons, so they sit close to them. */
+.success-message,
+.error-message {
+  margin: 0 0 0.6rem;
+}
+
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* The warning that the bank already has the question, and the question whether to throw away changes, are cards in the footer: they take the
+   footer's width and no shadow of their own. */
+.question-repeat,
+.panel-confirm {
+  margin: 0 0 0.6rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  box-shadow: none;
+}
+
+.panel-confirm {
+  margin: 0;
+}
+
+.question-repeat h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.question-repeat p,
+.panel-confirm p {
+  margin: 0 0 0.5rem;
+}
+
+.question-repeat ul {
+  margin: 0 0 0.5rem;
+  padding-inline-start: 1.25rem;
+}

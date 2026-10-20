@@ -1,10 +1,13 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { FormGroup } from '@angular/forms';
+import { By } from '@angular/platform-browser';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
-import { vi } from 'vitest';
+import { Router, provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
+import { beforeAll } from 'vitest';
 import { QuestionBank } from './question-bank';
+import { QuestionPanel } from './question-panel/question-panel';
 import { QuestionUsageDto } from './question.models';
 
 // The base URL differs between builds and the test environment, so requests are matched by their path.
@@ -29,6 +32,13 @@ const OLD_BOOK = book('b2', 'Old Physics', [{ ...chapter('c9', 1, 'Optics'), boo
 describe('QuestionBank', () => {
   let httpMock: HttpTestingController;
 
+  // jsdom has no layout, which ProseMirror asks about when it moves the cursor into view, as it does once the panel puts the cursor in the text.
+  beforeAll(() => {
+    const rect = { x: 0, y: 0, width: 0, height: 0, top: 0, right: 0, bottom: 0, left: 0, toJSON: () => ({}) } as DOMRect;
+    Range.prototype.getBoundingClientRect = () => rect;
+    Range.prototype.getClientRects = () => ({ length: 0, item: () => null, [Symbol.iterator]: [][Symbol.iterator] }) as unknown as DOMRectList;
+    document.elementFromPoint = () => null;
+  });
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [QuestionBank],
@@ -53,17 +63,6 @@ describe('QuestionBank', () => {
     httpMock.expectOne(isBooks).flush(books);
     httpMock.expectOne(isTopics).flush(topics);
     return fixture;
-  }
-
-  function fill(fixture: ComponentFixture<QuestionBank>, text: string, options: string[]): void {
-    const root = fixture.nativeElement as HTMLElement;
-    // The question text lives in a rich-text editor, so it is set through the form control the editor is bound to.
-    (fixture.componentInstance as unknown as { form: FormGroup }).form.controls['text'].setValue(text);
-    const inputs = root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]');
-    options.forEach((value, i) => {
-      inputs[i].value = value;
-      inputs[i].dispatchEvent(new Event('input'));
-    });
   }
 
   it('lists the newest questions and marks the correct option', () => {
@@ -185,83 +184,7 @@ describe('QuestionBank', () => {
     expect(w.__ran).toBeUndefined();
   });
 
-  it('keeps Save disabled until every option has text and a correct option is chosen', () => {
-    const fixture = create();
-    httpMock.expectOne(isList).flush([]);
-    fixture.detectChanges();
-    const root = fixture.nativeElement as HTMLElement;
-    const save = root.querySelector('form button[type="submit"]') as HTMLButtonElement;
-
-    fill(fixture, 'Q?', ['A', 'B']);
-    fixture.detectChanges();
-    expect(save.disabled).toBe(true);
-
-    (root.querySelectorAll('input[type="radio"]')[1] as HTMLInputElement).dispatchEvent(new Event('change'));
-    fixture.detectChanges();
-    expect(save.disabled).toBe(false);
-  });
-
-  it('posts the options with the chosen one marked correct, then reloads the list', () => {
-    const fixture = create();
-    httpMock.expectOne(isList).flush([]);
-    fixture.detectChanges();
-    const root = fixture.nativeElement as HTMLElement;
-
-    fill(fixture, 'Capital of France?', ['Rome', 'Paris']);
-    (root.querySelectorAll('input[type="radio"]')[1] as HTMLInputElement).dispatchEvent(new Event('change'));
-    fixture.detectChanges();
-    (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
-
-    const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/questions'));
-    expect(post.request.body).toEqual({
-      text: 'Capital of France?',
-      chapterId: null,
-      difficulty: null,
-      topics: [],
-      allowsMultiple: false,
-      language: 'en',
-      isTextAnswer: false,
-      acceptedAnswers: [],
-      explanation: null,
-      options: [
-        { text: 'Rome', isCorrect: false, isPinned: false },
-        { text: 'Paris', isCorrect: true, isPinned: false },
-      ],
-    });
-    post.flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
-    httpMock.expectOne(isList).flush([]);
-    fixture.detectChanges();
-    expect(root.textContent).toContain('Question saved.');
-  });
-
   describe('language (FR-10)', () => {
-    it('offers English, Hindi and Marathi for a new question, English first, and sends the one chosen', () => {
-      const fixture = create();
-      httpMock.expectOne(isList).flush([]);
-      fixture.detectChanges();
-      const root = fixture.nativeElement as HTMLElement;
-      const select = root.querySelector('#question-language') as HTMLSelectElement;
-
-      expect(Array.from(select.options).map((o) => o.textContent?.trim())).toEqual(['English', 'Hindi', 'Marathi']);
-      expect(select.value).toBe('en');
-
-      select.value = 'mr';
-      select.dispatchEvent(new Event('change'));
-      fill(fixture, 'फ्रान्सची राजधानी?', ['पॅरिस', 'रोम']);
-      (root.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).dispatchEvent(new Event('change'));
-      fixture.detectChanges();
-      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
-
-      const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/questions'));
-      expect(post.request.body.language).toBe('mr');
-      post.flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
-      httpMock.expectOne(isList).flush([]);
-      fixture.detectChanges();
-
-      // An author enters many questions in one language in a row.
-      expect((root.querySelector('#question-language') as HTMLSelectElement).value).toBe('mr');
-    });
-
     it('narrows the list to one language, and back to any', () => {
       const fixture = create();
       httpMock.expectOne(isList).flush([]);
@@ -301,53 +224,13 @@ describe('QuestionBank', () => {
   });
 
   describe('difficulty and topics', () => {
-    const field = (root: HTMLElement, id: string) => root.querySelector(`#${id}`) as HTMLInputElement & HTMLSelectElement;
-
-    it('sends the difficulty and the cleaned topics a new question was given', () => {
-      const fixture = create([], ['fractions']);
-      httpMock.expectOne(isList).flush([]);
-      fixture.detectChanges();
-      const root = fixture.nativeElement as HTMLElement;
-
-      fill(fixture, 'Q?', ['A', 'B']);
-      (root.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).dispatchEvent(new Event('change'));
-      field(root, 'question-difficulty').value = 'hard';
-      field(root, 'question-difficulty').dispatchEvent(new Event('change'));
-      field(root, 'question-topics').value = ' Fractions, ratios ,FRACTIONS,, ';
-      field(root, 'question-topics').dispatchEvent(new Event('input'));
-      fixture.detectChanges();
-      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
-
-      const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/questions'));
-      expect(post.request.body).toMatchObject({ difficulty: 'hard', topics: ['fractions', 'ratios'] });
-      post.flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
-      httpMock.expectOne(isList).flush([]);
-    });
-
-    it('offers the topics already in use as suggestions, and as a filter', () => {
+    it('offers the topics already in use as a filter', () => {
       const fixture = create([], ['algebra', 'fractions']);
       httpMock.expectOne(isList).flush([]);
       fixture.detectChanges();
       const root = fixture.nativeElement as HTMLElement;
 
-      const suggestions = Array.from(root.querySelectorAll('#question-topic-suggestions option')).map((o) => o.getAttribute('value'));
-      const filterOptions = Array.from(root.querySelectorAll('#filter-topic option')).map((o) => o.textContent?.trim());
-      expect(suggestions).toEqual(['algebra', 'fractions']);
-      expect(filterOptions).toEqual(['Any topic', 'algebra', 'fractions']);
-    });
-
-    it('refuses more than five topics before anything is sent', () => {
-      const fixture = create();
-      httpMock.expectOne(isList).flush([]);
-      fixture.detectChanges();
-      const root = fixture.nativeElement as HTMLElement;
-
-      field(root, 'question-topics').value = 'a, b, c, d, e, f';
-      field(root, 'question-topics').dispatchEvent(new Event('input'));
-      fixture.detectChanges();
-
-      expect(root.textContent).toContain('Use at most 5 topics.');
-      expect((root.querySelector('form button[type="submit"]') as HTMLButtonElement).disabled).toBe(true);
+      expect(Array.from(root.querySelectorAll('#filter-topic option')).map((o) => o.textContent?.trim())).toEqual(['Any topic', 'algebra', 'fractions']);
     });
 
     it('narrows the list by difficulty and by topic, together with the place filter', () => {
@@ -433,62 +316,6 @@ describe('QuestionBank', () => {
 
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('No questions match this filter.');
     });
-  });
-
-  it('files a question under a chapter, requires one once a book is chosen, and keeps the choice after saving', () => {
-    const fixture = create([MATHS, OLD_BOOK]);
-    httpMock.expectOne(isList).flush([]);
-    fixture.detectChanges();
-    const root = fixture.nativeElement as HTMLElement;
-    const choose = (id: string, value: string) => {
-      const select = root.querySelector(`#${id}`) as HTMLSelectElement;
-      select.value = value;
-      select.dispatchEvent(new Event('change'));
-      fixture.detectChanges();
-    };
-    const save = () => root.querySelector('form button[type="submit"]') as HTMLButtonElement;
-
-    // Archived books take nothing new, so they are not offered here.
-    const bookOptions = Array.from(root.querySelectorAll('#question-book option')).map((o) => o.textContent?.trim());
-    expect(bookOptions).toEqual(['Not filed under a book', 'Maths Grade 10']);
-
-    fill(fixture, 'Solve x + 1 = 2', ['1', '2']);
-    (root.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).dispatchEvent(new Event('change'));
-    fixture.detectChanges();
-    expect(save().disabled).toBe(false);
-
-    choose('question-book', 'b1');
-    // Only open chapters of that book are offered, and one must be chosen.
-    expect(Array.from(root.querySelectorAll('#question-chapter option')).map((o) => o.textContent?.trim())).toEqual(['Choose a chapter…', '1. Algebra', '2. Geometry']);
-    expect(save().disabled).toBe(true);
-
-    choose('question-chapter', 'c2');
-    expect(save().disabled).toBe(false);
-    (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
-    const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/questions'));
-    expect(post.request.body.chapterId).toBe('c2');
-    post.flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
-    httpMock.expectOne(isList).flush([]);
-    fixture.detectChanges();
-
-    // The next question goes into the same chapter without choosing it again.
-    expect((root.querySelector('#question-book') as HTMLSelectElement).value).toBe('b1');
-    expect((root.querySelector('#question-chapter') as HTMLSelectElement).value).toBe('c2');
-  });
-
-  it('says when a chosen book has no open chapters, and where to add one', () => {
-    const fixture = create([book('b3', 'Empty', [])]);
-    httpMock.expectOne(isList).flush([]);
-    fixture.detectChanges();
-    const root = fixture.nativeElement as HTMLElement;
-
-    const select = root.querySelector('#question-book') as HTMLSelectElement;
-    select.value = 'b3';
-    select.dispatchEvent(new Event('change'));
-    fixture.detectChanges();
-
-    expect(root.textContent).toContain('This book has no open chapters');
-    expect(root.querySelector('a[href="/admin/books/b3"]')).not.toBeNull();
   });
 
   it('narrows the list by book, then chapter, then to questions not filed, and back to all', () => {
@@ -582,11 +409,10 @@ describe('QuestionBank', () => {
       return { fixture, root, pick, texts, nextList };
     }
 
-    it('offers no class filter, and no class select in the form, while no book has a class', () => {
+    it('offers no class filter while no book has a class', () => {
       const { root } = open([MATHS, OLD_BOOK]);
 
       expect(root.querySelector('#filter-class')).toBeNull();
-      expect(root.querySelector('#question-class')).toBeNull();
     });
 
     it('offers a class filter before the book filter, with the classes of all books, archived ones too, in natural order', () => {
@@ -718,27 +544,6 @@ describe('QuestionBank', () => {
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('No questions match this filter.');
     });
 
-    it('puts a class select before the book in the new-question form, and files under the chapter reached through it', () => {
-      const { fixture, root, pick, texts } = open();
-      expect(Array.from(root.querySelectorAll('form[aria-label="New question"] select')).map((s) => s.id).slice(0, 2)).toEqual(['question-class', 'question-book']);
-      expect(texts('question-class')).toEqual(['Any class', '4th', '5th', 'No class']);
-
-      pick('question-class', 'k4');
-      expect(texts('question-book')).toEqual(['Not filed under a book', 'English']);
-      pick('question-book', 'b4');
-      pick('question-chapter', 'b4-c2');
-      fill(fixture, 'Which is a noun?', ['Run', 'Dog']);
-      (root.querySelectorAll('input[type="radio"]')[1] as HTMLInputElement).dispatchEvent(new Event('change'));
-      fixture.detectChanges();
-      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
-
-      const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/questions'));
-      expect(post.request.body.chapterId).toBe('b4-c2');
-      expect(Object.keys(post.request.body)).not.toContain('classId');
-      post.flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
-      httpMock.expectOne(isList).flush([]);
-    });
-
     it('shows the class first on the card of a question filed under a book with one', () => {
       const fixture = create(BOOKS);
       httpMock.expectOne(isList).flush([
@@ -752,302 +557,15 @@ describe('QuestionBank', () => {
     });
   });
 
-  it('adds options up to six and removes down to two', () => {
+  it('shows the reason the page could not load something at the top, above the toolbar', () => {
     const fixture = create();
-    httpMock.expectOne(isList).flush([]);
+    httpMock.expectOne(isList).flush({ title: 'server_error', detail: 'The questions could not be read.' }, { status: 500, statusText: 'Server Error' });
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
-    const count = () => root.querySelectorAll('.option-row input[type="text"]').length;
-    const addButton = () =>
-      Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Add option') as HTMLButtonElement;
 
-    expect(count()).toBe(2);
-    for (let i = 0; i < 6; i++) {
-      addButton().click();
-      fixture.detectChanges();
-    }
-    expect(count()).toBe(6);
-    expect(addButton().disabled).toBe(true);
-
-    for (let i = 0; i < 6; i++) {
-      (Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Remove') as HTMLButtonElement).click();
-      fixture.detectChanges();
-    }
-    expect(count()).toBe(2);
-  });
-
-  it('shows the API error when saving fails', () => {
-    const fixture = create();
-    httpMock.expectOne(isList).flush([]);
-    fixture.detectChanges();
-    const root = fixture.nativeElement as HTMLElement;
-    fill(fixture, 'Q?', ['A', 'B']);
-    (root.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).dispatchEvent(new Event('change'));
-    fixture.detectChanges();
-    (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
-
-    httpMock
-      .expectOne((r) => r.method === 'POST')
-      .flush({ title: 'invalid_question', detail: 'Exactly one option must be marked correct.' }, { status: 400, statusText: 'Bad Request' });
-    fixture.detectChanges();
-
-    expect(root.textContent).toContain('Exactly one option must be marked correct.');
-  });
-
-  // The form is long and Save is at its bottom, so what happened to Save has to be shown beside it: at the top of the page it is out of sight.
-  describe('what happened to Save is shown under the form', () => {
-    const isCreate = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/questions');
-    const isCheck = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/questions/duplicates');
-
-    function press() {
-      const fixture = create();
-      httpMock.expectOne(isList).flush([]);
-      fixture.detectChanges();
-      const root = fixture.nativeElement as HTMLElement;
-      fill(fixture, 'Capital of France?', ['Paris', 'Rome']);
-      (root.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).dispatchEvent(new Event('change'));
-      fixture.detectChanges();
-      const save = () => (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
-      const form = root.querySelector('form') as HTMLFormElement;
-      save();
-      return { fixture, root, form, save };
-    }
-
-    it('says the question was saved directly under the Save button, as a status', () => {
-      const { fixture, form } = press();
-
-      httpMock.expectOne(isCreate).flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
-      httpMock.expectOne(isList).flush([]);
-      fixture.detectChanges();
-
-      const saved = form.nextElementSibling as HTMLElement;
-      expect(saved.className).toContain('success-message');
-      expect(saved.getAttribute('role')).toBe('status');
-      expect(saved.textContent).toContain('Question saved.');
-    });
-
-    it('shows why a save was refused directly under the Save button and moves focus to it', () => {
-      const { fixture, form } = press();
-
-      httpMock.expectOne(isCreate).flush({ title: 'invalid_question', detail: 'The question text must be at most 4000 characters.' }, { status: 400, statusText: 'Bad Request' });
-      fixture.detectChanges();
-
-      const refusal = form.nextElementSibling as HTMLElement;
-      expect(refusal.className).toContain('error-message');
-      expect(refusal.getAttribute('role')).toBe('alert');
-      expect(refusal.textContent).toContain('The question text must be at most 4000 characters.');
-      expect(document.activeElement).toBe(refusal);
-    });
-
-    it('shows the refusal there too when the bank cannot say what the question repeats', () => {
-      const { fixture, form } = press();
-
-      httpMock.expectOne(isCreate).flush({ title: 'duplicate_question', detail: 'The question bank already has a question with this wording.' }, { status: 409, statusText: 'Conflict' });
-      httpMock.expectOne(isCheck).flush({ title: 'server_error' }, { status: 500, statusText: 'Server Error' });
-      fixture.detectChanges();
-
-      const refusal = form.nextElementSibling as HTMLElement;
-      expect(refusal.className).toContain('error-message');
-      expect(refusal.textContent).toContain('The question bank already has a question with this wording.');
-      expect(document.activeElement).toBe(refusal);
-    });
-
-    it('takes the refusal away when the next save is accepted, so the two are never shown together', () => {
-      const { fixture, root, form, save } = press();
-      httpMock.expectOne(isCreate).flush({ title: 'invalid_question', detail: 'Try again.' }, { status: 400, statusText: 'Bad Request' });
-      fixture.detectChanges();
-
-      save();
-      httpMock.expectOne(isCreate).flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
-      httpMock.expectOne(isList).flush([]);
-      fixture.detectChanges();
-
-      expect(root.querySelector('.error-message')).toBeNull();
-      expect((form.nextElementSibling as HTMLElement).textContent).toContain('Question saved.');
-    });
-
-    it('keeps the reason the page could not load something at the top, above the form', () => {
-      const fixture = create();
-      httpMock.expectOne(isList).flush({ title: 'server_error', detail: 'The questions could not be read.' }, { status: 500, statusText: 'Server Error' });
-      fixture.detectChanges();
-      const root = fixture.nativeElement as HTMLElement;
-
-      const problem = root.querySelector('.error-message') as HTMLElement;
-      const form = root.querySelector('form') as HTMLFormElement;
-      expect(problem.textContent).toContain('The questions could not be read.');
-      expect(form.compareDocumentPosition(problem) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
-    });
-  });
-
-  describe('a question the bank already has (FR-9)', () => {
-    const isCreate = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/questions');
-    const isCheck = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/questions/duplicates');
-
-    function submitRepeat() {
-      const fixture = create();
-      httpMock.expectOne(isList).flush([]);
-      fixture.detectChanges();
-      const root = fixture.nativeElement as HTMLElement;
-      fill(fixture, 'Capital of France?', ['Paris', 'Rome']);
-      (root.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).dispatchEvent(new Event('change'));
-      fixture.detectChanges();
-      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
-      httpMock
-        .expectOne(isCreate)
-        .flush({ title: 'duplicate_question', detail: 'The question bank already has a question with this wording.' }, { status: 409, statusText: 'Conflict' });
-      httpMock
-        .expectOne(isCheck)
-        .flush([{ id: 'q1', preview: 'Capital of France?', sameOptions: true, status: 'approved', chapterId: null }]);
-      fixture.detectChanges();
-      return { fixture, root };
-    }
-
-    it('shows what it repeats instead of an error, and sends nothing more until the author decides', () => {
-      const { root } = submitRepeat();
-
-      expect(root.textContent).toContain('This question is already in the bank');
-      expect(root.textContent).toContain('Capital of France?');
-      expect(root.querySelector('.error-message')).toBeNull();
-    });
-
-    it('puts the warning below the Save button, where the author is looking, not above the long form', () => {
-      const { root } = submitRepeat();
-
-      const form = root.querySelector('form') as HTMLFormElement;
-      const warning = root.querySelector('.question-repeat') as HTMLElement;
-
-      expect(form.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      // Nothing but the form lies between the form and its warning, so the two are on screen together.
-      expect(form.nextElementSibling).toBe(warning);
-    });
-
-    it('moves focus to the warning, which brings it into view', () => {
-      const { root } = submitRepeat();
-
-      expect(document.activeElement).toBe(root.querySelector('.question-repeat'));
-    });
-
-    describe('bringing the warning wholly into view', () => {
-      // jsdom has no layout and no scrollIntoView, so the page's geometry is given: where the warning is and how tall the screen is.
-      let scrolled: ReturnType<typeof vi.fn>;
-
-      function onAScreen(height: number, warning: { top: number; bottom: number }) {
-        scrolled = vi.fn();
-        Element.prototype.scrollIntoView = scrolled as unknown as Element['scrollIntoView'];
-        vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(height);
-        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ ...warning, left: 0, right: 0, x: 0, y: warning.top, width: 0, height: warning.bottom - warning.top, toJSON: () => ({}) });
-      }
-
-      afterEach(() => {
-        vi.restoreAllMocks();
-        delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
-      });
-
-      it('puts a warning that is only partly on screen in the middle of it, not flush against the edge', () => {
-        onAScreen(720, { top: 450, bottom: 721 });
-
-        const { root } = submitRepeat();
-
-        expect(scrolled).toHaveBeenCalledTimes(1);
-        expect(scrolled.mock.contexts[0]).toBe(root.querySelector('.question-repeat'));
-        expect(scrolled).toHaveBeenCalledWith({ block: 'center' });
-      });
-
-      it('does the same for a warning above the top of the screen', () => {
-        onAScreen(720, { top: -20, bottom: 250 });
-
-        submitRepeat();
-
-        expect(scrolled).toHaveBeenCalledWith({ block: 'center' });
-      });
-
-      it('leaves a warning that is already wholly on screen where it is', () => {
-        onAScreen(720, { top: 300, bottom: 600 });
-
-        const { root } = submitRepeat();
-
-        expect(scrolled).not.toHaveBeenCalled();
-        expect(document.activeElement).toBe(root.querySelector('.question-repeat'));
-      });
-
-      it('shows the top of a warning that is taller than the screen, so its heading is not lost', () => {
-        onAScreen(600, { top: 100, bottom: 800 });
-
-        submitRepeat();
-
-        expect(scrolled).toHaveBeenCalledWith({ block: 'start' });
-      });
-    });
-
-    it('names the accepted answers, and asks the bank about them, when the question is a text question', () => {
-      const fixture = create();
-      httpMock.expectOne(isList).flush([]);
-      fixture.detectChanges();
-      const root = fixture.nativeElement as HTMLElement;
-      (fixture.componentInstance as unknown as { form: FormGroup }).form.controls['text'].setValue('Capital of France?');
-      const type = root.querySelector<HTMLSelectElement>('#question-type') as HTMLSelectElement;
-      type.value = 'text';
-      type.dispatchEvent(new Event('change'));
-      fixture.detectChanges();
-      const answer = root.querySelector<HTMLInputElement>('input[aria-label="Accepted answer 1"]') as HTMLInputElement;
-      answer.value = 'Paris';
-      answer.dispatchEvent(new Event('input'));
-      fixture.detectChanges();
-      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
-      httpMock.expectOne(isCreate).flush({ title: 'duplicate_question' }, { status: 409, statusText: 'Conflict' });
-
-      // A text question has no options, so what the bank compares are its accepted answers; asked about none, it would find nothing.
-      const check = httpMock.expectOne(isCheck);
-      expect(check.request.body).toEqual({ text: 'Capital of France?', options: ['Paris'] });
-      check.flush([{ id: 'q1', preview: 'Capital of France?', sameOptions: true, status: 'approved', chapterId: null }]);
-      fixture.detectChanges();
-
-      const warning = root.querySelector('.question-repeat') as HTMLElement;
-      expect(warning.textContent).toContain('these accepted answers');
-      expect(warning.querySelectorAll('li').length).toBe(1);
-    });
-
-    it('asks the bank which questions it repeats, by the wording and the option texts it sent', () => {
-      const fixture = create();
-      httpMock.expectOne(isList).flush([]);
-      fixture.detectChanges();
-      const root = fixture.nativeElement as HTMLElement;
-      fill(fixture, 'Capital of France?', ['Paris', 'Rome']);
-      (root.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).dispatchEvent(new Event('change'));
-      fixture.detectChanges();
-      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
-      httpMock.expectOne(isCreate).flush({ title: 'duplicate_question' }, { status: 409, statusText: 'Conflict' });
-
-      const check = httpMock.expectOne(isCheck);
-
-      expect(check.request.body).toEqual({ text: 'Capital of France?', options: ['Paris', 'Rome'] });
-      check.flush([]);
-    });
-
-    it('adds the question when the author says to add it anyway', () => {
-      const { fixture, root } = submitRepeat();
-
-      (Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Add it anyway') as HTMLButtonElement).click();
-
-      const again = httpMock.expectOne(isCreate);
-      expect(again.request.body.allowDuplicate).toBe(true);
-      expect(again.request.body.text).toBe('Capital of France?');
-      again.flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
-      httpMock.expectOne(isList).flush([]);
-      fixture.detectChanges();
-      expect(root.textContent).toContain('Question saved.');
-      expect(root.textContent).not.toContain('This question is already in the bank');
-    });
-
-    it('drops the question when the author chooses not to add it, keeping what they typed', () => {
-      const { fixture, root } = submitRepeat();
-
-      (Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === "Don't add it") as HTMLButtonElement).click();
-      fixture.detectChanges();
-
-      expect(root.textContent).not.toContain('This question is already in the bank');
-      expect(Array.from(root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]')).map((i) => i.value)).toEqual(['Paris', 'Rome']);
-    });
+    const problem = root.querySelector('.error-message') as HTMLElement;
+    expect(problem.textContent).toContain('The questions could not be read.');
+    expect((root.querySelector('.qb-toolbar') as HTMLElement).compareDocumentPosition(problem) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 
   describe('statistics on a question (FR-9)', () => {
@@ -1300,7 +818,7 @@ describe('QuestionBank', () => {
     });
   });
 
-  describe('the toolbar, the filters and the new-question form', () => {
+  describe('the toolbar, the filters and the new-question panel', () => {
     function open(books = [MATHS, OLD_BOOK], topics: string[] = ['fractions']) {
       const fixture = create(books, topics);
       httpMock.expectOne(isList).flush([]);
@@ -1323,34 +841,98 @@ describe('QuestionBank', () => {
     const byLabel = (root: HTMLElement, label: string) => root.querySelector(`[aria-label="${label}"]`) as HTMLButtonElement;
     const byText = (root: HTMLElement, text: string) => Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === text) as HTMLButtonElement;
 
-    it('folds the form and the filter choices away until they are asked for, and shows no chips with no filter on', () => {
+    it('folds the filter choices away until they are asked for, shows no chips with no filter on, and has no panel open', () => {
       const { root } = open();
 
-      expect((root.querySelector('#new-question-form') as HTMLElement).hidden).toBe(true);
       expect((root.querySelector('#filters-panel') as HTMLElement).hidden).toBe(true);
       expect(root.querySelector('.filter-chip')).toBeNull();
       expect(root.querySelector('.icon-btn__count')).toBeNull();
+      expect(root.querySelector('app-question-panel')).toBeNull();
     });
 
-    it('opens the form from New question, and closes it again from its own icon, keeping what was typed', () => {
+    it('opens the panel for a new question from New question, and takes it away when it closes', () => {
       const { fixture, root } = open();
-      const form = root.querySelector('#new-question-form') as HTMLElement;
+      expect(byText(root, 'New question').getAttribute('aria-haspopup')).toBe('dialog');
 
       byText(root, 'New question').click();
       fixture.detectChanges();
-      expect(form.hidden).toBe(false);
-      expect(byText(root, 'New question').getAttribute('aria-expanded')).toBe('true');
+      expect(root.querySelector('app-question-panel .modal__title')?.textContent?.trim()).toBe('New question');
+      expect(root.querySelector('app-question-panel form[aria-label="New question"]')).not.toBeNull();
 
-      (fixture.componentInstance as unknown as { form: FormGroup }).form.controls['text'].setValue('Half typed');
-      byLabel(root, 'Close the form').click();
+      byText(root, 'Cancel').click();
       fixture.detectChanges();
-      expect(form.hidden).toBe(true);
-
-      byText(root, 'New question').click();
-      fixture.detectChanges();
-      expect((fixture.componentInstance as unknown as { form: FormGroup }).form.controls['text'].value).toBe('Half typed');
+      expect(root.querySelector('app-question-panel')).toBeNull();
     });
 
+    describe('adding questions from the panel', () => {
+      /** Opens the panel and fills a question in it, as the panel's own tests do. */
+      function fillNewQuestion(fixture: ComponentFixture<QuestionBank>, root: HTMLElement) {
+        byText(root, 'New question').click();
+        fixture.detectChanges();
+        const panel = fixture.debugElement.query(By.directive(QuestionPanel)).componentInstance as unknown as { form: FormGroup };
+        panel.form.controls['text'].setValue('Capital of France?');
+        const inputs = root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]');
+        ['Paris', 'Rome'].forEach((value, i) => {
+          inputs[i].value = value;
+          inputs[i].dispatchEvent(new Event('input'));
+        });
+        (root.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).dispatchEvent(new Event('change'));
+        fixture.detectChanges();
+      }
+      const isCreate = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/questions');
+
+      it('reads the list again for the new question, and says so on the page once the panel has closed with it', () => {
+        const { fixture, root } = open();
+        fillNewQuestion(fixture, root);
+
+        byText(root, 'Save').click();
+        httpMock.expectOne(isCreate).flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
+        const list = httpMock.expectOne(isList);
+        list.flush([listedQuestion('q9', 'Capital of France?')]);
+        fixture.detectChanges();
+
+        expect(root.querySelector('app-question-panel')).toBeNull();
+        expect(root.querySelector('.success-message[role="status"]')?.textContent).toContain('Question saved.');
+        expect(root.querySelectorAll('app-question-row')).toHaveLength(1);
+      });
+
+      it('reads the list again but leaves the saying to the panel when it stays open for the next question', () => {
+        const { fixture, root } = open();
+        fillNewQuestion(fixture, root);
+
+        byText(root, 'Save and add another').click();
+        httpMock.expectOne(isCreate).flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
+        httpMock.expectOne(isList).flush([listedQuestion('q9', 'Capital of France?')]);
+        fixture.detectChanges();
+
+        expect(root.querySelector('app-question-panel')).not.toBeNull();
+        // One message, in the panel; a second one behind it would be read out twice.
+        expect(root.querySelectorAll('.success-message')).toHaveLength(1);
+        expect(root.querySelector('app-question-panel .success-message')?.textContent).toContain('Question saved.');
+        expect(root.querySelectorAll('app-question-row')).toHaveLength(1);
+      });
+
+      it('files the next question into the chapter and the language of the last, though the panel was closed between them', () => {
+        const { fixture, root } = open();
+        fillNewQuestion(fixture, root);
+        pick(fixture, root, 'question-book', 'b1');
+        pick(fixture, root, 'question-chapter', 'c2');
+        pick(fixture, root, 'question-language', 'mr');
+
+        byText(root, 'Save').click();
+        httpMock.expectOne(isCreate).flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
+        httpMock.expectOne(isList).flush([]);
+        fixture.detectChanges();
+        expect(root.querySelector('app-question-panel')).toBeNull();
+
+        byText(root, 'New question').click();
+        fixture.detectChanges();
+
+        expect((root.querySelector('#question-book') as HTMLSelectElement).value).toBe('b1');
+        expect((root.querySelector('#question-chapter') as HTMLSelectElement).value).toBe('c2');
+        expect((root.querySelector('#question-language') as HTMLSelectElement).value).toBe('mr');
+      });
+    });
     it('opens the filter choices from the Filters icon, and says it is open', () => {
       const { fixture, root } = open();
 
@@ -1475,5 +1057,141 @@ describe('QuestionBank', () => {
         icon.dispatchEvent(new Event('blur'));
       }
     });
+  });
+});
+
+// Editing is the question bank with its panel open: `/admin/questions/:id/edit` is a child route of the page, so the page, and the list and
+// filters in it, are not rebuilt when an edit opens or closes.
+describe('QuestionBank, editing from the address', () => {
+  let httpMock: HttpTestingController;
+  // jsdom has no layout, which ProseMirror asks about when it moves the cursor into view, as it does once the panel puts the cursor in the text.
+  beforeAll(() => {
+    const rect = { x: 0, y: 0, width: 0, height: 0, top: 0, right: 0, bottom: 0, left: 0, toJSON: () => ({}) } as DOMRect;
+    Range.prototype.getBoundingClientRect = () => rect;
+    Range.prototype.getClientRects = () => ({ length: 0, item: () => null, [Symbol.iterator]: [][Symbol.iterator] }) as unknown as DOMRectList;
+    document.elementFromPoint = () => null;
+  });
+  const isGetQ1 = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/questions/q1');
+  const isPutQ1 = (r: { method: string; url: string }) => r.method === 'PUT' && r.url.endsWith('/v1/questions/q1');
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([
+          {
+            path: 'admin/questions',
+            component: QuestionBank,
+            children: [
+              { path: '', pathMatch: 'full', children: [] },
+              { path: ':id/edit', children: [] },
+            ],
+          },
+        ]),
+      ],
+    });
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.match(isTopics).forEach((request) => request.flush([]));
+    httpMock.match(isEncryptionStatus).forEach((request) => request.flush({ contentValues: 0, plaintextValues: 0, complete: true }));
+    httpMock.verify();
+  });
+
+  async function openAt(url: string) {
+    const harness = await RouterTestingHarness.create(url);
+    httpMock.expectOne(isBooks).flush([MATHS]);
+    httpMock.expectOne(isTopics).flush([]);
+    httpMock.expectOne(isList).flush([listedQuestion('q1', 'What is 2 + 2?'), listedQuestion('q2', 'Name a prime')]);
+    harness.detectChanges();
+    return harness;
+  }
+  const panel = (harness: RouterTestingHarness) => harness.routeNativeElement?.querySelector('app-question-panel') ?? null;
+  const rows = (harness: RouterTestingHarness) => harness.routeNativeElement?.querySelectorAll('app-question-row').length;
+  const cancel = (harness: RouterTestingHarness) =>
+    Array.from(harness.routeNativeElement?.querySelectorAll('button') ?? []).find((b) => b.textContent?.trim() === 'Cancel')!.click();
+
+  it('shows the list and no panel at the page’s own address', async () => {
+    const harness = await openAt('/admin/questions');
+
+    expect(rows(harness)).toBe(2);
+    expect(panel(harness)).toBeNull();
+  });
+
+  it('opens the panel over the list when the address names a question to edit, reading that question', async () => {
+    const harness = await RouterTestingHarness.create('/admin/questions/q1/edit');
+    httpMock.expectOne(isBooks).flush([MATHS]);
+    httpMock.expectOne(isTopics).flush([]);
+    httpMock.expectOne(isList).flush([listedQuestion('q1', 'What is 2 + 2?'), listedQuestion('q2', 'Name a prime')]);
+    httpMock.expectOne(isGetQ1).flush(listedQuestion('q1', 'What is 2 + 2?'));
+    harness.detectChanges();
+
+    expect(panel(harness)?.querySelector('.modal__title')?.textContent?.trim()).toBe('Edit question');
+    expect(rows(harness)).toBe(2);
+  });
+
+  it('opens the panel when the address changes to an edit, without rebuilding the page or reading the list again', async () => {
+    const harness = await openAt('/admin/questions');
+    const page = harness.routeNativeElement;
+
+    await harness.navigateByUrl('/admin/questions/q1/edit');
+    httpMock.expectOne(isGetQ1).flush(listedQuestion('q1', 'What is 2 + 2?'));
+    harness.detectChanges();
+
+    expect(harness.routeNativeElement).toBe(page);
+    expect(panel(harness)).not.toBeNull();
+    expect(rows(harness)).toBe(2);
+    httpMock.expectNone(isList);
+    httpMock.expectNone(isBooks);
+  });
+
+  it('closes the panel when the address goes back to the list, as the Back button does', async () => {
+    const harness = await openAt('/admin/questions');
+    await harness.navigateByUrl('/admin/questions/q1/edit');
+    httpMock.expectOne(isGetQ1).flush(listedQuestion('q1', 'What is 2 + 2?'));
+    harness.detectChanges();
+
+    await harness.navigateByUrl('/admin/questions');
+    harness.detectChanges();
+
+    expect(panel(harness)).toBeNull();
+    expect(rows(harness)).toBe(2);
+  });
+
+  it('takes the address back to the list when the panel is closed from inside, and the list is as it was', async () => {
+    const harness = await openAt('/admin/questions');
+    await harness.navigateByUrl('/admin/questions/q1/edit');
+    httpMock.expectOne(isGetQ1).flush(listedQuestion('q1', 'What is 2 + 2?'));
+    harness.detectChanges();
+
+    cancel(harness);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    expect(TestBed.inject(Router).url).toBe('/admin/questions');
+    expect(panel(harness)).toBeNull();
+    expect(rows(harness)).toBe(2);
+    httpMock.expectNone(isList);
+  });
+
+  it('shows a question that was edited in its line, says so, and does not read the whole list again', async () => {
+    const harness = await openAt('/admin/questions');
+    await harness.navigateByUrl('/admin/questions/q1/edit');
+    httpMock.expectOne(isGetQ1).flush(listedQuestion('q1', 'What is 2 + 2?'));
+    harness.detectChanges();
+
+    (harness.routeNativeElement?.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+    httpMock.expectOne(isPutQ1).flush(listedQuestion('q1', 'What is two plus two?'));
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    const lines = Array.from(harness.routeNativeElement?.querySelectorAll('app-question-row') ?? []).map((row) => row.textContent);
+    expect(lines[0]).toContain('What is two plus two?');
+    expect(lines[1]).toContain('Name a prime');
+    expect(harness.routeNativeElement?.querySelector('.success-message[role="status"]')?.textContent).toContain('Question saved.');
+    expect(TestBed.inject(Router).url).toBe('/admin/questions');
+    httpMock.expectNone(isList);
   });
 });
