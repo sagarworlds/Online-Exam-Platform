@@ -30,10 +30,10 @@ public class ProctoringProfileTests
     // ---- the catalogue ---------------------------------------------------------------------------------
 
     [Fact]
-    public void TheCatalogue_OffersOffAndBrowserLock_AndListsTheCameraProfilesWithoutOfferingThem()
+    public void TheCatalogue_OffersOffBrowserLockAndTheCamera_AndListsFullWithoutOfferingIt()
     {
         Assert.Equal(["OFF", "BROWSER_LOCK", "BROWSER_CAMERA", "FULL"], ProctoringProfiles.All.Select(p => p.Id));
-        Assert.Equal(["OFF", "BROWSER_LOCK"], ProctoringProfiles.All.Where(p => p.Available).Select(p => p.Id));
+        Assert.Equal(["OFF", "BROWSER_LOCK", "BROWSER_CAMERA"], ProctoringProfiles.All.Where(p => p.Available).Select(p => p.Id));
         Assert.All(ProctoringProfiles.All.Where(p => !p.Available), p => Assert.False(string.IsNullOrWhiteSpace(p.UnavailableReason)));
     }
 
@@ -185,7 +185,6 @@ public class ProctoringProfileTests
     }
 
     [Theory]
-    [InlineData("BROWSER_CAMERA")]
     [InlineData("FULL")]
     public void AProfileThatPromisesSomethingNotBuilt_CannotBeChosen_AndSaysWhy(string id)
     {
@@ -196,6 +195,45 @@ public class ProctoringProfileTests
 
         Assert.Contains("not built yet", error.Message, StringComparison.Ordinal);
         Assert.False(exam.Config.ContentProtection);
+    }
+
+    [Fact]
+    public void TheCameraProfile_TurnsWebcamSnapshotsOn_AndBrowserLockTurnsThemOff()
+    {
+        var exam = DraftExam();
+
+        exam.SetProctoringProfile("BROWSER_CAMERA", Now);
+
+        Assert.True(exam.Config.WebcamSnapshots);
+        Assert.Equal(ProctoringProfiles.BrowserLockViolationLimit, exam.Config.FocusViolationLimit);
+        Assert.Equal("BROWSER_CAMERA", ProctoringProfiles.IdFor(
+            exam.Config.ContentProtection, exam.Config.FocusViolationLimit, exam.Config.FocusWarnAt, exam.Config.WebcamSnapshots));
+
+        exam.SetProctoringProfile("BROWSER_LOCK", Now);
+
+        Assert.False(exam.Config.WebcamSnapshots);
+        Assert.Equal("BROWSER_LOCK", ProctoringProfiles.IdFor(
+            exam.Config.ContentProtection, exam.Config.FocusViolationLimit, exam.Config.FocusWarnAt, exam.Config.WebcamSnapshots));
+    }
+
+    [Fact]
+    public void AnExamWithBrowserLockSettingsAndPhotos_IsNotReportedAsBrowserLock()
+    {
+        // Photos are collected, so the exam must not be described by the profile that says none are.
+        Assert.Equal("BROWSER_LOCK", ProctoringProfiles.IdFor(true, ProctoringProfiles.BrowserLockViolationLimit, FocusWarningPoint.WarnFrom, webcamSnapshots: false));
+        Assert.NotEqual("BROWSER_LOCK", ProctoringProfiles.IdFor(true, ProctoringProfiles.BrowserLockViolationLimit, FocusWarningPoint.WarnFrom, webcamSnapshots: true));
+    }
+
+    [Fact]
+    public void TheNotice_SaysPhotosAreTaken_OnlyWhenTheyAre_AndThatMinorsAreNotPhotographed()
+    {
+        var withPhotos = ProctoringNotice.For(true, ProctoringProfiles.BrowserLockViolationLimit, null, webcamSnapshots: true);
+        var without = ProctoringNotice.For(true, ProctoringProfiles.BrowserLockViolationLimit, null, webcamSnapshots: false);
+
+        Assert.Contains(withPhotos, line => line.Contains("takes a photo of you every 120 seconds", StringComparison.Ordinal)
+            && line.Contains("under 18 are not photographed", StringComparison.Ordinal));
+        Assert.DoesNotContain(withPhotos, line => line.StartsWith("No camera", StringComparison.Ordinal));
+        Assert.Equal("No camera, microphone or screen recording is used.", without[^1]);
     }
 
     [Theory]

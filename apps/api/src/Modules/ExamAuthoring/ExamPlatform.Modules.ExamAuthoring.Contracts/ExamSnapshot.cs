@@ -48,6 +48,9 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// The departure from which a candidate is first warned (FR-22), or null for the default for <paramref name="FocusViolationLimit"/>.
 /// The attempt still ends at the limit; this only moves the warning.
 /// </param>
+/// <param name="WebcamSnapshots">
+/// Whether the exam takes a webcam snapshot of the candidate at intervals (FR-24). The runtime still never takes one of a candidate under 18.
+/// </param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -73,7 +76,8 @@ public sealed record ExamSnapshot(
     IReadOnlyList<string>? ProctoringNotice = null,
     string? Instructions = null,
     int? PassingPercentage = null,
-    int? FocusWarnAt = null);
+    int? FocusWarnAt = null,
+    bool WebcamSnapshots = false);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>

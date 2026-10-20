@@ -43,6 +43,8 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<IAttemptRequestRepository, AttemptRequestRepository>();
         services.AddScoped<IDisputeRepository, DisputeRepository>();
         services.AddScoped<IIssueReportRepository, IssueReportRepository>();
+        services.AddScoped<IWebcamPhotoRepository, WebcamPhotoRepository>();
+        services.AddScoped<WebcamEligibility>();
 
         // How long after a result is released a candidate may dispute its answer key; 0 switches disputes off (FR-31). Validated when the
         // host starts, so a mistyped window stops the application starting instead of failing the first candidate who disputes. It is
@@ -98,6 +100,10 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<MarkQuestionHandler>();
         services.AddScoped<RecordQuestionTimeHandler>();
         services.AddScoped<RecordFocusViolationHandler>();
+        services.AddScoped<GetWebcamPolicyHandler>();
+        services.AddScoped<RecordWebcamPhotoHandler>();
+        services.AddScoped<ListWebcamPhotosHandler>();
+        services.AddScoped<GetWebcamPhotoHandler>();
         services.AddScoped<StaffAttemptAccess>();
         services.AddScoped<WarnAttemptHandler>();
         services.AddScoped<RescoreAttemptHandler>();

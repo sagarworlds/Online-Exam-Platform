@@ -462,6 +462,28 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
                     b.ToTable("AttemptWarnings", "examRuntime");
                 });
 
+            modelBuilder.Entity("ExamPlatform.Modules.ExamRuntime.Domain.AttemptWebcamPhoto", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CapturedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("Image")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttemptId", "CapturedAtUtc");
+
+                    b.ToTable("AttemptWebcamPhotos", "examRuntime");
+                });
+
             modelBuilder.Entity("ExamPlatform.Modules.ExamRuntime.Domain.Dispute", b =>
                 {
                     b.Property<Guid>("Id")
@@ -709,6 +731,15 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
                 {
                     b.HasOne("ExamPlatform.Modules.ExamRuntime.Domain.Attempt", null)
                         .WithMany("Warnings")
+                        .HasForeignKey("AttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ExamPlatform.Modules.ExamRuntime.Domain.AttemptWebcamPhoto", b =>
+                {
+                    b.HasOne("ExamPlatform.Modules.ExamRuntime.Domain.Attempt", null)
+                        .WithMany()
                         .HasForeignKey("AttemptId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

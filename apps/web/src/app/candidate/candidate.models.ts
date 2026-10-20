@@ -250,6 +250,14 @@ export interface AttemptStatusDto {
 /** How a candidate left the exam page (FR-22); the names the API accepts. */
 export type FocusViolationKind = 'TabHidden' | 'WindowBlurred' | 'FullscreenExited';
 
+/** Whether the exam page takes webcam photos in an attempt, and how often (FR-24). */
+export interface WebcamPolicyDto {
+  /** True when the exam asks for photos, the candidate is an adult and the attempt is open. */
+  enabled: boolean;
+  /** Seconds between photos; 0 when not enabled. */
+  intervalSeconds: number;
+}
+
 /** What the API answers after a departure is reported. */
 export interface FocusViolationResultDto {
   /** How many times the candidate has now left the page in this attempt. */
