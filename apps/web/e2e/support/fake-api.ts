@@ -105,7 +105,7 @@ export class FakeApi {
     { method: 'POST', path: /^\/api\/v1\/me\/exams\/([^/]+)\/attempts$/, reply: () => this.startAttempt() },
     { method: 'GET', path: /^\/api\/v1\/me\/attempts\/([^/]+)$/, reply: () => ({ status: 200, body: this.attempt() }) },
     // No exam in these journeys takes webcam photos (FR-24), so the page is told to leave the camera alone.
-    { method: 'GET', path: /^\/api\/v1\/me\/attempts\/([^/]+)\/webcam-policy$/, reply: () => ({ status: 200, body: { enabled: false, intervalSeconds: 0 } }) },
+    { method: 'GET', path: /^\/api\/v1\/me\/attempts\/([^/]+)\/webcam-policy$/, reply: () => ({ status: 200, body: { enabled: false, intervalSeconds: 0, screenEnabled: false, screenIntervalSeconds: 0 } }) },
     { method: 'GET', path: /^\/api\/v1\/me\/attempts\/([^/]+)\/status$/, reply: () => ({ status: 200, body: this.status() }) },
     { method: 'PUT', path: /^\/api\/v1\/me\/attempts\/([^/]+)\/answers\/([^/]+)$/, reply: (call) => this.saveAnswer(call) },
     { method: 'PUT', path: /^\/api\/v1\/me\/attempts\/([^/]+)\/questions\/([^/]+)\/time$/, reply: () => ({ status: 204 }) },

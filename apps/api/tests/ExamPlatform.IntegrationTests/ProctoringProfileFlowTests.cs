@@ -42,8 +42,8 @@ public sealed class ProctoringProfileFlowTests(ApiFactory factory) : IClassFixtu
         Assert.True(camera.GetProperty("available").GetBoolean());
         Assert.Contains(camera.GetProperty("notice").EnumerateArray(), n => n.GetString()!.Contains("takes a photo of you every 120 seconds"));
         var full = profiles.Single(p => p.GetProperty("id").GetString() == "FULL");
-        Assert.False(full.GetProperty("available").GetBoolean());
-        Assert.False(string.IsNullOrEmpty(full.GetProperty("unavailableReason").GetString()));
+        Assert.True(full.GetProperty("available").GetBoolean());
+        Assert.Contains(full.GetProperty("notice").EnumerateArray(), n => n.GetString()!.Contains("share your screen"));
     }
 
     [Fact]
@@ -101,8 +101,7 @@ public sealed class ProctoringProfileFlowTests(ApiFactory factory) : IClassFixtu
     [InlineData("{}")]
     [InlineData("{\"profile\": \"\"}")]
     [InlineData("{\"profile\": \"NOPE\"}")]
-    [InlineData("{\"profile\": \"FULL\"}")]
-    public async Task AMissingUnknownOrNotYetBuiltProfile_Is400_AndNothingChanges(string body)
+    public async Task AMissingOrUnknownProfile_Is400_AndNothingChanges(string body)
     {
         using var admin = await factory.AdminClientAsync();
         var examId = await PublishedExamAsync(admin);

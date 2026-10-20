@@ -15,6 +15,7 @@ namespace ExamPlatform.Modules.ExamAuthoring.Domain;
 /// <param name="UnavailableReason">Why it cannot be chosen yet; null when it can.</param>
 /// <param name="CaptureMedia">Whether the profile uses the camera or records the screen. A candidate under 18 is never held to such a profile (see <see cref="ProctoringProfiles.ForCandidate"/>).</param>
 /// <param name="Webcam">Whether the profile takes webcam snapshots at intervals (FR-24). A profile that does is a <paramref name="CaptureMedia"/> profile.</param>
+/// <param name="Screen">Whether the profile asks the candidate to share their screen and takes pictures of it (FR-25). Also a <paramref name="CaptureMedia"/> profile.</param>
 /// <param name="FocusWarnAt">
 /// The departure from which the candidate is first warned (FR-22, tabSwitchWarnLimit), or null for the default for the limit. It is set apart
 /// from the limit, so a profile can warn earlier or later than the default without changing when the attempt ends.
@@ -29,7 +30,8 @@ public sealed record ProctoringProfile(
     string? UnavailableReason = null,
     bool CaptureMedia = false,
     int? FocusWarnAt = null,
-    bool Webcam = false);
+    bool Webcam = false,
+    bool Screen = false);
 
 /// <summary>
 /// The profiles the platform knows. A profile is data, so adding one changes this list and nothing that runs an exam: the runtime reads
@@ -63,9 +65,8 @@ public static class ProctoringProfiles
         new("BROWSER_CAMERA", "Browser lock and camera",
             "Browser lock, plus a webcam snapshot every " + WebcamSnapshotPolicy.IntervalSeconds + " seconds. Adults only: a candidate under 18 is held to browser lock instead.",
             true, BrowserLockViolationLimit, CaptureMedia: true, FocusWarnAt: FocusWarningPoint.WarnFrom, Webcam: true),
-        new("FULL", "Full proctoring", "Browser lock, camera and screen capture, with a human review queue.", true, BrowserLockViolationLimit,
-            Available: false, UnavailableReason: "Screen capture (FR-25) is not built yet, so this profile cannot be chosen.", CaptureMedia: true,
-            FocusWarnAt: FocusWarningPoint.WarnFrom, Webcam: true),
+        new("FULL", "Full proctoring", "Browser lock, a webcam photo and a picture of the screen every " + WebcamSnapshotPolicy.IntervalSeconds + " seconds. Adults only: a candidate under 18 is held to browser lock instead.", true, BrowserLockViolationLimit,
+            CaptureMedia: true, FocusWarnAt: FocusWarningPoint.WarnFrom, Webcam: true, Screen: true),
     ];
 
     /// <summary>Finds a profile by its id, ignoring case.</summary>
@@ -83,12 +84,14 @@ public static class ProctoringProfiles
     /// <param name="focusViolationLimit">The violation limit, 0 when not watched.</param>
     /// <param name="focusWarnAt">The departure the exam warns from, or null for the default for the limit.</param>
     /// <param name="webcamSnapshots">Whether the exam takes webcam snapshots.</param>
-    public static string IdFor(bool contentProtection, int focusViolationLimit, int? focusWarnAt, bool webcamSnapshots = false) =>
+    /// <param name="screenCapture">Whether the exam captures the candidate's screen.</param>
+    public static string IdFor(bool contentProtection, int focusViolationLimit, int? focusWarnAt, bool webcamSnapshots = false, bool screenCapture = false) =>
         All.FirstOrDefault(p =>
             p.Available
             && p.ContentProtection == contentProtection
             && p.FocusViolationLimit == focusViolationLimit
             && p.Webcam == webcamSnapshots
+            && p.Screen == screenCapture
             && FocusWarningPoint.Effective(focusViolationLimit, p.FocusWarnAt) == FocusWarningPoint.Effective(focusViolationLimit, focusWarnAt))
         ?.Id ?? Custom;
 
@@ -124,7 +127,8 @@ public static class ProctoringNotice
     /// <param name="focusViolationLimit">The violation limit, 0 when not watched.</param>
     /// <param name="focusWarnAt">The departure the exam warns from, or null for the default for the limit; the notice says what the exam does.</param>
     /// <param name="webcamSnapshots">Whether the exam takes webcam snapshots (FR-24); the notice then says so instead of saying no camera is used.</param>
-    public static IReadOnlyList<string> For(bool contentProtection, int focusViolationLimit, int? focusWarnAt = null, bool webcamSnapshots = false)
+    /// <param name="screenCapture">Whether the exam captures the candidate's screen (FR-25); the notice then says so instead of saying no screen is recorded.</param>
+    public static IReadOnlyList<string> For(bool contentProtection, int focusViolationLimit, int? focusWarnAt = null, bool webcamSnapshots = false, bool screenCapture = false)
     {
         // Always true of every exam, so always said (FR-26).
         var lines = new List<string>
@@ -144,18 +148,29 @@ public static class ProctoringNotice
                     : WarningSentence(FocusWarningPoint.Effective(focusViolationLimit, focusWarnAt), focusViolationLimit)));
         }
 
-        // Said as plainly as what is collected: nothing else is, and a person should not have to wonder.
         if (webcamSnapshots)
         {
             lines.Add(
                 $"If you are 18 or older, your webcam takes a photo of you every {WebcamSnapshotPolicy.IntervalSeconds} seconds while you sit the exam. Photos are kept with "
-                + "your attempt and are seen only by the organisers, to check the exam was sat fairly. Candidates under 18 are not photographed. "
-                + "No microphone or screen recording is used.");
+                + "your attempt and are seen only by the organisers, to check the exam was sat fairly. Candidates under 18 are not photographed.");
         }
-        else
+
+        if (screenCapture)
         {
-            lines.Add("No camera, microphone or screen recording is used.");
+            lines.Add(
+                $"If you are 18 or older, you are asked to share your screen, and a picture of it is taken every {WebcamSnapshotPolicy.IntervalSeconds} seconds while you sit the exam. "
+                + "Close anything private first: whatever is on the screen is in the picture. Pictures are kept with your attempt and are seen only by the organisers. "
+                + "Candidates under 18 are not asked to share their screen.");
         }
+
+        // Said as plainly as what is collected: nothing else is, and a person should not have to wonder.
+        lines.Add((webcamSnapshots, screenCapture) switch
+        {
+            (false, false) => "No camera, microphone or screen recording is used.",
+            (true, false) => "No microphone or screen recording is used.",
+            (false, true) => "No camera or microphone is used.",
+            (true, true) => "No microphone is used.",
+        });
         return lines;
     }
 

@@ -578,7 +578,7 @@ An exam's proctoring settings (copy block, FR-23; page-leaving limit, FR-22) can
 
 | What | Rule |
 |------|------|
-| Profiles | `OFF` (nothing turned off or watched: practice and chapter tests) and `BROWSER_LOCK` (copy block on, and the attempt ends after 5 departures from the page: the default for minors). `BROWSER_CAMERA` (browser lock plus a webcam photo every 120 seconds, adults only) can be chosen once webcam snapshots (FR-24) are in. `FULL` is listed by `GET /v1/proctoring-profiles` (`exam.read`) but is not available: screen capture (FR-25) is not built, and offering it would make the notice claim something untrue. Choosing it is a `400` that says so. |
+| Profiles | `OFF` (nothing turned off or watched: practice and chapter tests) and `BROWSER_LOCK` (copy block on, and the attempt ends after 5 departures from the page: the default for minors). `BROWSER_CAMERA` (browser lock plus a webcam photo every 120 seconds, adults only) can be chosen once webcam snapshots (FR-24) are in. `FULL` (browser camera plus screen capture, FR-25, adults only) can be chosen once screen capture is in. |
 | Applying one | `PUT /v1/exams/{examId}/proctoring-profile` (`exam.manage`, `{ "profile": "BROWSER_LOCK" }`, ignoring case) sets both settings together, from the exam editor's **Proctoring** card. A missing, unknown or unavailable profile is a `400` and nothing changes; an archived exam refuses it. Like the settings it sets, it may change after publishing. |
 | Custom | The profile is worked out from the settings, not stored, so the two cannot disagree. The two cards below stay for fine-tuning; once the settings match no preset, the exam reports `CUSTOM`. A new exam, with the copy block on and no limit, is custom. |
 | The notice | `ProctoringNotice` writes it from the settings: that the IP address and device signature are recorded (always, FR-26); that copying, pasting, right-click and printing are turned off (when the copy block is on); the departure limit and that reaching it submits the exam (when watched); and that no camera, microphone or screen recording is used. The exam's DTO (`proctoring.notice`) and the instruction rules of the candidate's exam list (`rules.proctoringNotice`) carry it, and the instructions page shows exactly that text, wording nothing about proctoring itself. When a collection is added later, its sentence is added in this one place and every exam says so. |
@@ -600,6 +600,19 @@ An exam on the `BROWSER_CAMERA` profile takes a photo of the candidate at interv
 | The notice | When photos are taken the candidate notice says so, the interval, that they are seen by the organisers, and that candidates under 18 are not photographed. The exam page shows when the camera is on, and says so if the candidate refuses it. A refusal does not stop the exam. |
 | Not built | A review screen for photos (FR-27), face-presence checks, a retention period for photos (FR-47, which waits on owner decision A13), storage outside the database, and guardian consent for minors. |
 | Migrations | `ExamWebcamSnapshots` adds `Config_WebcamSnapshots` to `examAuthoring.Exams`. `AttemptWebcamPhotos` creates `examRuntime.AttemptWebcamPhotos`. |
+
+#### Screen capture (FR-25)
+
+An exam on the `FULL` profile also takes a picture of the candidate's screen at intervals. It reuses the webcam rules: the same `WebcamEligibility` class decides who is captured, so a candidate under 18 (or with an unknown date of birth) is never asked to share and the server refuses a capture for them. **Like FR-24 this does not settle #11; do not release it until counsel has answered.**
+
+| What | Rule |
+|------|------|
+| Policy | `GET .../webcam-policy` also returns `screenEnabled` and `screenIntervalSeconds` (120). |
+| Sharing | The browser only allows screen sharing after a click, so the exam page shows a **Share screen** button. The browser's own picker and "sharing" indicator appear. Declining, or stopping from the browser, leaves the exam running and the page says no pictures are taken; the button comes back after a stop. |
+| Storing | `POST /v1/me/attempts/{attemptId}/screen-captures` takes one JPEG (up to 500 KB) and applies the same errors, 60 second gap and 500 cap as webcam photos, counted separately. Rows are in `examRuntime.AttemptWebcamPhotos` with a `Kind` of `Screen`. |
+| Staff | The webcam-photo staff endpoints list and return both kinds; each row carries its `kind`. |
+| Not built | A review screen, retention (A13), capturing only the exam tab, and any check of what the screen shows. |
+| Migrations | `ExamScreenCapture` adds `Config_ScreenCapture` to `examAuthoring.Exams`. `AddCaptureKind` adds `Kind` to `examRuntime.AttemptWebcamPhotos` (existing rows are `Webcam`). |
 
 #### Sitting an exam: clearing a response and marking for review
 

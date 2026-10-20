@@ -274,6 +274,17 @@ public static class ExamRuntimeEndpoints
             .WithName("RecordWebcamPhoto")
             .WithDescription("Store a webcam photo (a JPEG body) taken by the exam page, when the exam takes them and the candidate is an adult");
 
+        me.MapPost("/attempts/{attemptId:guid}/screen-captures", RecordScreenCapture)
+            .Accepts<byte[]>(WebcamSnapshotPolicy.ContentType)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .WithName("RecordScreenCapture")
+            .WithDescription("Store a picture of the candidate's screen (a JPEG body) taken by the exam page, when the exam takes them and the candidate is an adult");
+
         me.MapPost("/attempts/{attemptId:guid}/submit", SubmitAttempt)
             .Produces<AttemptDto>()
             .Produces(StatusCodes.Status401Unauthorized)
@@ -762,24 +773,33 @@ public static class ExamRuntimeEndpoints
     private static async Task<IResult> GetWebcamPolicy(Guid attemptId, ClaimsPrincipal user, GetWebcamPolicyHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct));
 
-    private static async Task<IResult> RecordWebcamPhoto(
-        Guid attemptId, HttpRequest request, ClaimsPrincipal user, RecordWebcamPhotoHandler handler, CancellationToken ct)
+    private static Task<IResult> RecordWebcamPhoto(
+        Guid attemptId, HttpRequest request, ClaimsPrincipal user, RecordWebcamPhotoHandler handler, CancellationToken ct) =>
+        RecordCapture(attemptId, request, user, handler, CaptureKind.Webcam, ct);
+
+    private static Task<IResult> RecordScreenCapture(
+        Guid attemptId, HttpRequest request, ClaimsPrincipal user, RecordWebcamPhotoHandler handler, CancellationToken ct) =>
+        RecordCapture(attemptId, request, user, handler, CaptureKind.Screen, ct);
+
+    private static async Task<IResult> RecordCapture(
+        Guid attemptId, HttpRequest request, ClaimsPrincipal user, RecordWebcamPhotoHandler handler, CaptureKind kind, CancellationToken ct)
     {
         if (!string.Equals(request.ContentType, WebcamSnapshotPolicy.ContentType, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidAttemptError("Send the photo as image/jpeg.");
+            throw new InvalidAttemptError("Send the image as image/jpeg.");
 
-        // Read one byte past the limit, so an oversize photo is told apart from one that is exactly at it without buffering what a client sends.
+        // Read one byte past the limit, so an oversize image is told apart from one that is exactly at it without buffering what a client sends.
+        var maxBytes = AttemptWebcamPhoto.MaxBytesFor(kind);
         var buffer = new MemoryStream();
         var chunk = new byte[8192];
         int read;
         while ((read = await request.Body.ReadAsync(chunk, ct)) > 0)
         {
             buffer.Write(chunk, 0, read);
-            if (buffer.Length > WebcamSnapshotPolicy.MaxImageBytes)
-                throw new InvalidAttemptError($"The photo is larger than {WebcamSnapshotPolicy.MaxImageBytes / 1024} KB.");
+            if (buffer.Length > maxBytes)
+                throw new InvalidAttemptError($"The image is larger than {maxBytes / 1024} KB.");
         }
 
-        await handler.HandleAsync(attemptId, user.GetUserId(), buffer.ToArray(), ct);
+        await handler.HandleAsync(attemptId, user.GetUserId(), buffer.ToArray(), kind, ct);
         return Results.NoContent();
     }
 

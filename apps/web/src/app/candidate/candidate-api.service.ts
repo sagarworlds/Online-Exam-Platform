@@ -196,6 +196,14 @@ export class CandidateApiService {
     });
   }
 
+  /** Sends one screen capture (a JPEG). Silent for the same reason as the webcam photos: it runs on a timer and the next one follows. */
+  uploadScreenCapture(attemptId: string, image: Blob): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/attempts/${attemptId}/screen-captures`, image, {
+      ...CandidateApiService.background(),
+      headers: { 'Content-Type': 'image/jpeg' },
+    });
+  }
+
   /** Ends the attempt and returns it with its score. Safe to repeat. */
   submitAttempt(attemptId: string): Observable<AttemptDto> {
     return this.http.post<AttemptDto>(`${this.baseUrl}/attempts/${attemptId}/submit`, null);

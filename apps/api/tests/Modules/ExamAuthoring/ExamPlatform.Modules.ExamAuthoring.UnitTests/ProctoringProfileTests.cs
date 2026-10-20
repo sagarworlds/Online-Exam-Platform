@@ -30,10 +30,10 @@ public class ProctoringProfileTests
     // ---- the catalogue ---------------------------------------------------------------------------------
 
     [Fact]
-    public void TheCatalogue_OffersOffBrowserLockAndTheCamera_AndListsFullWithoutOfferingIt()
+    public void TheCatalogue_OffersEveryProfile()
     {
         Assert.Equal(["OFF", "BROWSER_LOCK", "BROWSER_CAMERA", "FULL"], ProctoringProfiles.All.Select(p => p.Id));
-        Assert.Equal(["OFF", "BROWSER_LOCK", "BROWSER_CAMERA"], ProctoringProfiles.All.Where(p => p.Available).Select(p => p.Id));
+        Assert.Equal(["OFF", "BROWSER_LOCK", "BROWSER_CAMERA", "FULL"], ProctoringProfiles.All.Where(p => p.Available).Select(p => p.Id));
         Assert.All(ProctoringProfiles.All.Where(p => !p.Available), p => Assert.False(string.IsNullOrWhiteSpace(p.UnavailableReason)));
     }
 
@@ -184,17 +184,38 @@ public class ProctoringProfileTests
         Assert.Equal(ProctoringProfiles.Custom, ProctoringProfiles.IdFor(exam.Config.ContentProtection, exam.Config.FocusViolationLimit, exam.Config.FocusWarnAt));
     }
 
-    [Theory]
-    [InlineData("FULL")]
-    public void AProfileThatPromisesSomethingNotBuilt_CannotBeChosen_AndSaysWhy(string id)
+    [Fact]
+    public void TheFullProfile_TurnsOnPhotosAndScreenCapture_AndTheOtherProfilesTurnScreenCaptureOff()
     {
         var exam = DraftExam();
-        exam.SetProctoringProfile("OFF", Now);
 
-        var error = Assert.Throws<InvalidExamConfigError>(() => exam.SetProctoringProfile(id, Now));
+        exam.SetProctoringProfile("FULL", Now);
 
-        Assert.Contains("not built yet", error.Message, StringComparison.Ordinal);
-        Assert.False(exam.Config.ContentProtection);
+        Assert.True(exam.Config.WebcamSnapshots);
+        Assert.True(exam.Config.ScreenCapture);
+        Assert.Equal("FULL", ProctoringProfiles.IdFor(
+            exam.Config.ContentProtection, exam.Config.FocusViolationLimit, exam.Config.FocusWarnAt, exam.Config.WebcamSnapshots, exam.Config.ScreenCapture));
+
+        exam.SetProctoringProfile("BROWSER_CAMERA", Now);
+
+        Assert.True(exam.Config.WebcamSnapshots);
+        Assert.False(exam.Config.ScreenCapture);
+        Assert.Equal("BROWSER_CAMERA", ProctoringProfiles.IdFor(
+            exam.Config.ContentProtection, exam.Config.FocusViolationLimit, exam.Config.FocusWarnAt, exam.Config.WebcamSnapshots, exam.Config.ScreenCapture));
+    }
+
+    [Fact]
+    public void TheNotice_SaysTheScreenIsCaptured_OnlyWhenItIs_AndNamesWhatIsNotUsed()
+    {
+        var full = ProctoringNotice.For(true, ProctoringProfiles.BrowserLockViolationLimit, null, webcamSnapshots: true, screenCapture: true);
+        var photosOnly = ProctoringNotice.For(true, ProctoringProfiles.BrowserLockViolationLimit, null, webcamSnapshots: true, screenCapture: false);
+
+        Assert.Contains(full, line => line.Contains("share your screen", StringComparison.Ordinal)
+            && line.Contains("every 120 seconds", StringComparison.Ordinal)
+            && line.Contains("under 18 are not asked", StringComparison.Ordinal));
+        Assert.Equal("No microphone is used.", full[^1]);
+        Assert.DoesNotContain(photosOnly, line => line.Contains("share your screen", StringComparison.Ordinal));
+        Assert.Equal("No microphone or screen recording is used.", photosOnly[^1]);
     }
 
     [Fact]
@@ -305,7 +326,7 @@ public class ProctoringProfileTests
         var browserLock = profiles.Single(p => p.Id == "BROWSER_LOCK");
         Assert.True(browserLock.Available);
         Assert.Equal(ProctoringNotice.For(true, ProctoringProfiles.BrowserLockViolationLimit), browserLock.Notice);
-        Assert.False(profiles.Single(p => p.Id == "FULL").Available);
+        Assert.True(profiles.Single(p => p.Id == "FULL").Available);
     }
 
     [Fact]

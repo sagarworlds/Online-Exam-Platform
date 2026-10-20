@@ -477,6 +477,11 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("bytea");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AttemptId", "CapturedAtUtc");

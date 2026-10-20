@@ -96,7 +96,7 @@ public class WebcamPhotoTests
         var attempt = OpenAttempt();
         _clock.UtcNow = Fixtures.Now.AddMinutes(2);
 
-        await Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CancellationToken.None);
+        await Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CaptureKind.Webcam, CancellationToken.None);
 
         _photos.Received(1).Add(Arg.Is<AttemptWebcamPhoto>(p =>
             p.AttemptId == attempt.Id && p.CapturedAtUtc == Fixtures.Now.AddMinutes(2) && p.Image.SequenceEqual(Jpeg)));
@@ -109,7 +109,7 @@ public class WebcamPhotoTests
         _ages.IsMinorOnAsync(_candidate, Fixtures.Now, Arg.Any<CancellationToken>()).Returns(true);
         var attempt = OpenAttempt();
 
-        await Assert.ThrowsAsync<WebcamNotRequiredError>(() => Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CancellationToken.None));
+        await Assert.ThrowsAsync<WebcamNotRequiredError>(() => Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CaptureKind.Webcam, CancellationToken.None));
 
         _photos.DidNotReceiveWithAnyArgs().Add(default!);
     }
@@ -120,7 +120,7 @@ public class WebcamPhotoTests
         _exam = _exam with { WebcamSnapshots = false };
         var attempt = OpenAttempt();
 
-        await Assert.ThrowsAsync<WebcamNotRequiredError>(() => Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CancellationToken.None));
+        await Assert.ThrowsAsync<WebcamNotRequiredError>(() => Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CaptureKind.Webcam, CancellationToken.None));
 
         _photos.DidNotReceiveWithAnyArgs().Add(default!);
     }
@@ -130,7 +130,7 @@ public class WebcamPhotoTests
     {
         var attempt = OpenAttempt();
 
-        await Assert.ThrowsAsync<AttemptNotFoundError>(() => Recorder().HandleAsync(attempt.Id, Guid.NewGuid(), Jpeg, CancellationToken.None));
+        await Assert.ThrowsAsync<AttemptNotFoundError>(() => Recorder().HandleAsync(attempt.Id, Guid.NewGuid(), Jpeg, CaptureKind.Webcam, CancellationToken.None));
 
         _photos.DidNotReceiveWithAnyArgs().Add(default!);
     }
@@ -141,20 +141,20 @@ public class WebcamPhotoTests
         var attempt = OpenAttempt();
         attempt.Submit(Fixtures.Now.AddMinutes(1), 0, 1);
 
-        await Assert.ThrowsAsync<AttemptNotInProgressError>(() => Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CancellationToken.None));
+        await Assert.ThrowsAsync<AttemptNotInProgressError>(() => Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CaptureKind.Webcam, CancellationToken.None));
     }
 
     [Fact]
     public async Task APhotoSoonAfterTheLast_IsRefused_AndOneAfterTheGapIsKept()
     {
         var attempt = OpenAttempt();
-        _photos.LatestCapturedAtAsync(attempt.Id, Arg.Any<CancellationToken>()).Returns(Fixtures.Now);
+        _photos.LatestCapturedAtAsync(attempt.Id, CaptureKind.Webcam, Arg.Any<CancellationToken>()).Returns(Fixtures.Now);
 
         _clock.UtcNow = Fixtures.Now.AddSeconds(WebcamSnapshotPolicy.MinGapSeconds - 1);
-        await Assert.ThrowsAsync<WebcamPhotoTooSoonError>(() => Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CancellationToken.None));
+        await Assert.ThrowsAsync<WebcamPhotoTooSoonError>(() => Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CaptureKind.Webcam, CancellationToken.None));
 
         _clock.UtcNow = Fixtures.Now.AddSeconds(WebcamSnapshotPolicy.MinGapSeconds);
-        await Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CancellationToken.None);
+        await Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CaptureKind.Webcam, CancellationToken.None);
 
         _photos.Received(1).Add(Arg.Any<AttemptWebcamPhoto>());
     }
@@ -163,9 +163,9 @@ public class WebcamPhotoTests
     public async Task AnAttemptAtTheLimit_TakesNoMorePhotos()
     {
         var attempt = OpenAttempt();
-        _photos.CountAsync(attempt.Id, Arg.Any<CancellationToken>()).Returns(WebcamSnapshotPolicy.MaxPerAttempt);
+        _photos.CountAsync(attempt.Id, CaptureKind.Webcam, Arg.Any<CancellationToken>()).Returns(WebcamSnapshotPolicy.MaxPerAttempt);
 
-        await Assert.ThrowsAsync<WebcamPhotoLimitError>(() => Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CancellationToken.None));
+        await Assert.ThrowsAsync<WebcamPhotoLimitError>(() => Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CaptureKind.Webcam, CancellationToken.None));
 
         _photos.DidNotReceiveWithAnyArgs().Add(default!);
     }
@@ -193,13 +193,79 @@ public class WebcamPhotoTests
         return bytes;
     }
 
+    // ---- screen pictures (FR-25) ------------------------------------------------------------------
+
+    [Fact]
+    public async Task ThePolicy_AsksForTheScreenOnlyWhenTheExamDoes_AndNeverOfAMinor()
+    {
+        _exam = _exam with { ScreenCapture = true };
+        var attempt = OpenAttempt();
+        var handler = new GetWebcamPolicyHandler(Access(), new WebcamEligibility(_ages));
+
+        var adult = await handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+
+        Assert.True(adult.ScreenEnabled);
+        Assert.Equal(WebcamSnapshotPolicy.IntervalSeconds, adult.ScreenIntervalSeconds);
+
+        _ages.IsMinorOnAsync(_candidate, Fixtures.Now, Arg.Any<CancellationToken>()).Returns(true);
+        var minor = await handler.HandleAsync(attempt.Id, _candidate, CancellationToken.None);
+
+        Assert.False(minor.ScreenEnabled);
+        Assert.Equal(0, minor.ScreenIntervalSeconds);
+    }
+
+    [Fact]
+    public async Task AScreenPicture_IsStoredAsAScreenPicture_AndHasItsOwnSpacingFromPhotos()
+    {
+        _exam = _exam with { ScreenCapture = true };
+        var attempt = OpenAttempt();
+        // A photo arrived a moment ago; that does not hold back the screen picture, which is counted on its own.
+        _photos.LatestCapturedAtAsync(attempt.Id, CaptureKind.Webcam, Arg.Any<CancellationToken>()).Returns(Fixtures.Now);
+
+        await Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CaptureKind.Screen, CancellationToken.None);
+
+        _photos.Received(1).Add(Arg.Is<AttemptWebcamPhoto>(p => p.Kind == CaptureKind.Screen && p.AttemptId == attempt.Id));
+    }
+
+    [Fact]
+    public async Task AScreenPicture_IsRefused_WhenTheExamOnlyAsksForPhotos_OrTheCandidateIsAMinor()
+    {
+        var attempt = OpenAttempt();
+
+        await Assert.ThrowsAsync<WebcamNotRequiredError>(() => Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CaptureKind.Screen, CancellationToken.None));
+
+        _exam = _exam with { ScreenCapture = true };
+        _ages.IsMinorOnAsync(_candidate, Fixtures.Now, Arg.Any<CancellationToken>()).Returns(true);
+        await Assert.ThrowsAsync<WebcamNotRequiredError>(() => Recorder().HandleAsync(attempt.Id, _candidate, Jpeg, CaptureKind.Screen, CancellationToken.None));
+
+        _photos.DidNotReceiveWithAnyArgs().Add(default!);
+    }
+
+    [Fact]
+    public void AScreenPicture_MayBeLargerThanAPhoto_ButNotLargerThanItsOwnLimit()
+    {
+        var big = new byte[WebcamSnapshotPolicy.MaxImageBytes + 1];
+        big[0] = 0xFF;
+        big[1] = 0xD8;
+        big[2] = 0xFF;
+
+        Assert.Throws<InvalidAttemptError>(() => AttemptWebcamPhoto.Create(Guid.NewGuid(), big, Fixtures.Now));
+        Assert.Equal(CaptureKind.Screen, AttemptWebcamPhoto.Create(Guid.NewGuid(), big, Fixtures.Now, CaptureKind.Screen).Kind);
+
+        var tooBig = new byte[ScreenCapturePolicy.MaxImageBytes + 1];
+        tooBig[0] = 0xFF;
+        tooBig[1] = 0xD8;
+        tooBig[2] = 0xFF;
+        Assert.Throws<InvalidAttemptError>(() => AttemptWebcamPhoto.Create(Guid.NewGuid(), tooBig, Fixtures.Now, CaptureKind.Screen));
+    }
+
     // ---- staff ------------------------------------------------------------------------------------
 
     [Fact]
     public async Task Staff_ListAnAttemptsPhotos_ButOnlyThroughItsOwnExam()
     {
         var attempt = OpenAttempt();
-        IReadOnlyList<WebcamPhotoSummary> summaries = [new(Guid.NewGuid(), Fixtures.Now, 6)];
+        IReadOnlyList<WebcamPhotoSummary> summaries = [new(Guid.NewGuid(), CaptureKind.Webcam, Fixtures.Now, 6)];
         _photos.ListAsync(attempt.Id, Arg.Any<CancellationToken>()).Returns(summaries);
         var handler = new ListWebcamPhotosHandler(_attempts, _photos);
 

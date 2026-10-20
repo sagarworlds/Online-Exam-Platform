@@ -11,6 +11,7 @@ import { TranslatePipe } from '../../i18n/translate.pipe';
 import { BLOCKED_MESSAGE_KEYS, BlockedAction, ContentGuard } from './content-guard';
 import { shortcutFor } from './exam-shortcuts';
 import { FocusMonitor } from './focus-monitor';
+import { ScreenSnapshotter, ScreenState } from './screen-snapshotter';
 import { WebcamSnapshotter, WebcamState } from './webcam-snapshotter';
 import { ReportIssue } from './report-issue';
 import { AnswerSync, isEmptyAnswer, PendingAnswer } from './answer-sync';
@@ -286,6 +287,19 @@ export class ExamAttempt {
     (state) => this.webcamState.set(state),
   );
 
+  /** Whether the screen is being captured, waits for the candidate to share it, was refused, or is not in use (FR-25). */
+  protected readonly screenState = signal<ScreenState>('off');
+
+  /** Takes the screen captures once the candidate agrees in the browser's picker; it does nothing unless the server's policy offers it. */
+  private readonly screen = new ScreenSnapshotter(
+    typeof navigator === 'undefined' ? undefined : navigator.mediaDevices,
+    (image) => this.sendScreenCapture(image),
+    (state) => this.screenState.set(state),
+  );
+
+  /** Seconds between screen captures, from the policy. */
+  private screenIntervalSeconds = 0;
+
   /** Whether the policy has been asked for in this page, so reloading the attempt after a save does not ask, or switch the camera on, again. */
   private webcamPolicyAsked = false;
 
@@ -427,6 +441,7 @@ export class ExamAttempt {
       this.focus.stop();
       // And switch the camera off, so its light goes out the moment the exam page does.
       this.webcam.stop();
+      this.screen.stop();
       clearTimeout(this.noticeTimer);
       // What is still waiting stays on this device for the next time the attempt is opened.
       this.sync?.dispose();
@@ -970,6 +985,7 @@ export class ExamAttempt {
       // The attempt is over: nothing more can be saved to it, so nothing is kept waiting.
       this.sync?.discard();
       this.webcam.stop();
+      this.screen.stop();
     }
   }
 
@@ -988,10 +1004,29 @@ export class ExamAttempt {
         if (policy.enabled) {
           void this.webcam.start(policy.intervalSeconds);
         }
+        if (policy.screenEnabled) {
+          // Sharing the screen needs the candidate's click, so the page only offers it here.
+          this.screenIntervalSeconds = policy.screenIntervalSeconds;
+          this.screen.offer();
+        }
       },
       // Without an answer no camera is switched on: photos are only ever taken on the server's word.
       error: () => (this.webcamPolicyAsked = false),
     });
+  }
+
+  /** Starts sharing the screen. Runs from the candidate's click on the share button, as the browser requires. */
+  protected shareScreen(): void {
+    void this.screen.start(this.screenIntervalSeconds);
+  }
+
+  private sendScreenCapture(image: Blob): void {
+    const attempt = this.attempt();
+    if (attempt === null || !this.isOpen()) {
+      return;
+    }
+
+    this.api.uploadScreenCapture(attempt.id, image).subscribe({ error: () => undefined });
   }
 
   private sendWebcamPhoto(photo: Blob): void {

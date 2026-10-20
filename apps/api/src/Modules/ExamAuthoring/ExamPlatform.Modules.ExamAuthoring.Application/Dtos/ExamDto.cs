@@ -45,6 +45,7 @@ public record ProctoringDto(string Profile, string ProfileName, IReadOnlyList<st
 /// <param name="Notice">What candidates would be told under it.</param>
 /// <param name="FocusWarnAt">The departure from which candidates are warned, or null for the default for the limit.</param>
 /// <param name="WebcamSnapshots">Whether it takes webcam snapshots at intervals (FR-24).</param>
+/// <param name="ScreenCapture">Whether it captures the candidate's screen at intervals (FR-25).</param>
 public record ProctoringProfileDto(
     string Id,
     string Name,
@@ -55,7 +56,8 @@ public record ProctoringProfileDto(
     int FocusViolationLimit,
     IReadOnlyList<string> Notice,
     int? FocusWarnAt = null,
-    bool WebcamSnapshots = false);
+    bool WebcamSnapshots = false,
+    bool ScreenCapture = false);
 
 /// DTO for exam configuration.
 public record ExamConfigDto(
@@ -74,5 +76,6 @@ public record ExamConfigDto(
     int FocusViolationLimit = 0,
     int? PassingPercentage = null,
     int? FocusWarnAt = null,
-    bool WebcamSnapshots = false
+    bool WebcamSnapshots = false,
+    bool ScreenCapture = false
 );

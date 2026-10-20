@@ -51,6 +51,10 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// <param name="WebcamSnapshots">
 /// Whether the exam takes a webcam snapshot of the candidate at intervals (FR-24). The runtime still never takes one of a candidate under 18.
 /// </param>
+/// <param name="ScreenCapture">
+/// Whether the exam asks the candidate to share their screen and takes a picture of it at intervals (FR-25). The runtime still never does so for a
+/// candidate under 18.
+/// </param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -77,7 +81,8 @@ public sealed record ExamSnapshot(
     string? Instructions = null,
     int? PassingPercentage = null,
     int? FocusWarnAt = null,
-    bool WebcamSnapshots = false);
+    bool WebcamSnapshots = false,
+    bool ScreenCapture = false);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>
