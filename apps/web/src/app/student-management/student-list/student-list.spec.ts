@@ -76,6 +76,21 @@ describe('StudentList', () => {
   const toggleOf = (root: HTMLElement, title: string) => rowFor(root, title).querySelector<HTMLButtonElement>('.student-row__toggle')!;
   const titles = (root: HTMLElement) => Array.from(root.querySelectorAll('.student-row__name')).map((n) => n.textContent?.trim());
 
+  /** The edit or deactivate icon on a student's row, or null when the row has none. */
+  const iconOf = (root: HTMLElement, title: string, label: 'Edit' | 'Deactivate') =>
+    rowFor(root, title)?.querySelector<HTMLButtonElement>(`button[aria-label="${label} ${title}"]`) ?? null;
+
+  const profileOf = (student: { id: string }) => ({ ...asha, ...student, dateOfBirth: '2000-01-01', ageBand: 'Adult' });
+  const buttonNamed = (root: HTMLElement, name: string) => Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === name);
+
+  /** Clicks a student's edit icon and answers the profile read the popup makes. */
+  function openEditPopup(fixture: ReturnType<typeof open>['fixture'], root: HTMLElement, title: string, student: { id: string } = asha) {
+    iconOf(root, title, 'Edit')!.click();
+    fixture.detectChanges();
+    httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith(`/v1/admin/students/${student.id}`)).flush(profileOf(student));
+    fixture.detectChanges();
+  }
+
   it('lists the students, then the invited addresses nobody has registered with', () => {
     const { root } = open({
       students: [asha, ben],
@@ -157,7 +172,7 @@ describe('StudentList', () => {
 
   describe('opening a student', () => {
     it('shows their profile and invitations, and folds them away again', () => {
-      const { fixture, root } = open({ students: [asha], invites: [invite('1', 'asha@example.com', 'Maths Final')] });
+      const { fixture, root } = open({ students: [asha], invites: [invite('1', 'asha@example.com', 'Maths Final')] }, ['student.read', 'invite.manage']);
       const toggle = toggleOf(root, 'Asha Rao');
       expect(toggle.getAttribute('aria-expanded')).toBe('false');
       expect(root.querySelector('app-student-profile')).toBeNull();
@@ -181,13 +196,15 @@ describe('StudentList', () => {
       expect(root.querySelector('app-student-profile')).toBeNull();
     });
 
-    it('lets staff who may manage students edit the profile, and staff who may only read it see it plain', () => {
-      const writer = open({ students: [asha] });
-      toggleOf(writer.root, 'Asha Rao').click();
-      writer.fixture.detectChanges();
-      httpMock.expectOne((r) => r.url.endsWith('/v1/admin/students/a1')).flush({ ...asha, dateOfBirth: '2000-01-01', ageBand: 'Adult' });
-      writer.fixture.detectChanges();
-      expect(writer.root.querySelector('form')).not.toBeNull();
+    it('keeps the profile out of the open row for staff who may manage students: it is edited in the popup instead', () => {
+      const { fixture, root } = open({ students: [asha], invites: [invite('1', 'asha@example.com', 'Maths Final')] });
+
+      toggleOf(root, 'Asha Rao').click();
+      fixture.detectChanges();
+
+      httpMock.expectNone((r) => r.url.endsWith('/v1/admin/students/a1'));
+      expect(root.querySelector('app-student-profile')).toBeNull();
+      expect(rowFor(root, 'Asha Rao').textContent).toContain('Maths Final');
     });
 
     it('shows a read-only profile to staff who may not manage students', () => {
@@ -203,10 +220,7 @@ describe('StudentList', () => {
 
     it('reads the list again after the profile is saved, so the header shows the new details', () => {
       const { fixture, root } = open({ students: [asha] });
-      toggleOf(root, 'Asha Rao').click();
-      fixture.detectChanges();
-      httpMock.expectOne((r) => r.url.endsWith('/v1/admin/students/a1')).flush({ ...asha, dateOfBirth: '2000-01-01', ageBand: 'Adult' });
-      fixture.detectChanges();
+      openEditPopup(fixture, root, 'Asha Rao');
 
       const name = root.querySelector<HTMLInputElement>('#student-name-a1')!;
       name.value = 'Asha R. Rao';
@@ -220,9 +234,9 @@ describe('StudentList', () => {
       fixture.detectChanges();
 
       expect(titles(root)).toEqual(['Asha R. Rao']);
-      // The row stays open, with the form the staff member was using, and says what happened.
-      expect(toggleOf(root, 'Asha R. Rao').getAttribute('aria-expanded')).toBe('true');
-      expect(root.querySelector('app-student-profile [role="status"]')?.textContent).toContain('Saved: name.');
+      // The popup stays open, with the form the staff member was using, and says what happened.
+      expect(root.querySelector('app-modal-dialog')).not.toBeNull();
+      expect(root.querySelector('app-modal-dialog app-student-profile [role="status"]')?.textContent).toContain('Saved: name.');
     });
 
     it('keeps the student on the page, with what was done to them, when their new address no longer matches the search', () => {
@@ -235,10 +249,7 @@ describe('StudentList', () => {
       httpMock.expectOne(isStudents).flush([asha]);
       httpMock.expectOne(isInvites).flush([]);
       fixture.detectChanges();
-      toggleOf(root, 'Asha Rao').click();
-      fixture.detectChanges();
-      httpMock.expectOne((r) => r.url.endsWith('/v1/admin/students/a1')).flush({ ...asha, dateOfBirth: '2000-01-01', ageBand: 'Adult' });
-      fixture.detectChanges();
+      openEditPopup(fixture, root, 'Asha Rao');
 
       const email = root.querySelector<HTMLInputElement>('#student-email-a1')!;
       email.value = 'other@example.org';
@@ -261,8 +272,7 @@ describe('StudentList', () => {
       fixture.detectChanges();
 
       expect(titles(root)).toEqual(['Asha Rao']);
-      expect(toggleOf(root, 'Asha Rao').getAttribute('aria-expanded')).toBe('true');
-      expect(root.querySelector('app-student-profile [role="status"]')?.textContent).toContain('Saved: e-mail address.');
+      expect(root.querySelector('app-modal-dialog app-student-profile [role="status"]')?.textContent).toContain('Saved: e-mail address.');
 
       // A new search starts the list afresh.
       search.value = 'nobody';
@@ -278,8 +288,6 @@ describe('StudentList', () => {
       const { fixture, root } = open({ students: [asha], invites: [invite('1', 'asha@example.com', 'Maths Final')] });
       toggleOf(root, 'Asha Rao').click();
       fixture.detectChanges();
-      httpMock.expectOne((r) => r.url.endsWith('/v1/admin/students/a1')).flush({ ...asha, dateOfBirth: '2000-01-01', ageBand: 'Adult' });
-      fixture.detectChanges();
 
       Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Revoke')!.click();
       httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites/1/revoke')).flush(null, { status: 204, statusText: 'No Content' });
@@ -288,6 +296,116 @@ describe('StudentList', () => {
 
       expect(toggleOf(root, 'Asha Rao').getAttribute('aria-expanded')).toBe('true');
       expect(toggleOf(root, 'Asha Rao').textContent).toContain('1 Revoked');
+    });
+  });
+
+  describe('the edit icon', () => {
+    it('opens the profile in a popup, with the form, and leaves the row as it was', () => {
+      const { fixture, root } = open({ students: [asha] });
+      expect(root.querySelector('app-modal-dialog')).toBeNull();
+
+      openEditPopup(fixture, root, 'Asha Rao');
+
+      const popup = root.querySelector('app-modal-dialog')!;
+      expect(popup.querySelector('.modal__title')?.textContent?.trim()).toBe('Edit profile');
+      expect(popup.querySelector('app-student-profile form')).not.toBeNull();
+      expect(toggleOf(root, 'Asha Rao').getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('takes the popup away when it is closed, and asks for nothing more', () => {
+      const { fixture, root } = open({ students: [asha] });
+      openEditPopup(fixture, root, 'Asha Rao');
+
+      root.querySelector<HTMLButtonElement>('app-modal-dialog .modal__close')!.click();
+      fixture.detectChanges();
+
+      expect(root.querySelector('app-modal-dialog')).toBeNull();
+    });
+
+    it('is on every student the staff member may manage, and not on a student they may only read', () => {
+      const writer = open({ students: [asha, ben] });
+      expect(iconOf(writer.root, 'Asha Rao', 'Edit')).not.toBeNull();
+      expect(iconOf(writer.root, 'Ben Das', 'Edit')).not.toBeNull();
+    });
+
+    it('is not offered to staff who may only read students', () => {
+      const { root } = open({ students: [asha] }, ['student.read', 'invite.manage']);
+
+      expect(iconOf(root, 'Asha Rao', 'Edit')).toBeNull();
+      expect(iconOf(root, 'Asha Rao', 'Deactivate')).toBeNull();
+    });
+
+    it('is not on an invited address that has no account, since there is no profile to edit', () => {
+      const { root } = open({ invites: [invite('1', 'newcomer@example.com', 'Maths Final')] });
+
+      expect(iconOf(root, 'newcomer@example.com', 'Edit')).toBeNull();
+      expect(iconOf(root, 'newcomer@example.com', 'Deactivate')).toBeNull();
+    });
+  });
+
+  describe('the deactivate icon', () => {
+    const deactivateUrl = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/admin/students/a1/deactivate');
+
+    it('asks first, and does nothing when the staff member cancels', () => {
+      const { fixture, root } = open({ students: [asha] });
+
+      iconOf(root, 'Asha Rao', 'Deactivate')!.click();
+      fixture.detectChanges();
+
+      const popup = root.querySelector('app-modal-dialog')!;
+      expect(popup.querySelector('.modal__title')?.textContent).toContain('Deactivate Asha Rao?');
+      expect(popup.textContent).toContain('signed out');
+      expect(popup.textContent).toContain('results, certificates and records are kept');
+      httpMock.expectNone(deactivateUrl);
+
+      buttonNamed(popup as HTMLElement, 'Cancel')!.click();
+      fixture.detectChanges();
+
+      expect(root.querySelector('app-modal-dialog')).toBeNull();
+      httpMock.expectNone(deactivateUrl);
+    });
+
+    it('deactivates once confirmed, says so above the list, and reads the list again', () => {
+      const { fixture, root } = open({ students: [asha] });
+      iconOf(root, 'Asha Rao', 'Deactivate')!.click();
+      fixture.detectChanges();
+
+      buttonNamed(root, 'Deactivate')!.click();
+      const request = httpMock.expectOne(deactivateUrl);
+      expect(request.request.body).toBeNull();
+      request.flush({ ...profileOf(asha), status: 'Deactivated' });
+      answerRead({ students: [{ ...asha, status: 'Deactivated' }] });
+      fixture.detectChanges();
+
+      expect(root.querySelector('app-modal-dialog')).toBeNull();
+      expect(root.querySelector('.success-message')?.textContent).toContain('Deactivated Asha Rao.');
+      expect(toggleOf(root, 'Asha Rao').textContent).toContain('Deactivated');
+      // Nothing is left to deactivate, but the profile can still be corrected.
+      expect(iconOf(root, 'Asha Rao', 'Deactivate')).toBeNull();
+      expect(iconOf(root, 'Asha Rao', 'Edit')).not.toBeNull();
+    });
+
+    it('keeps the popup open and says why when the account could not be deactivated', () => {
+      const { fixture, root } = open({ students: [asha] });
+      iconOf(root, 'Asha Rao', 'Deactivate')!.click();
+      fixture.detectChanges();
+
+      buttonNamed(root, 'Deactivate')!.click();
+      httpMock
+        .expectOne(deactivateUrl)
+        .flush({ title: 'user_not_found', detail: 'There is no such student.', status: 404 }, { status: 404, statusText: 'Not Found' });
+      fixture.detectChanges();
+
+      expect(root.querySelector('app-modal-dialog .error-message')?.textContent).toContain('There is no such student.');
+      expect(root.querySelector('app-modal-dialog')).not.toBeNull();
+      expect(buttonNamed(root, 'Deactivate')!.disabled).toBe(false);
+      httpMock.expectNone(isStudents);
+    });
+
+    it('is not offered again for an account that is already deactivated', () => {
+      const { root } = open({ students: [{ ...asha, status: 'Deactivated' }] });
+
+      expect(iconOf(root, 'Asha Rao', 'Deactivate')).toBeNull();
     });
   });
 

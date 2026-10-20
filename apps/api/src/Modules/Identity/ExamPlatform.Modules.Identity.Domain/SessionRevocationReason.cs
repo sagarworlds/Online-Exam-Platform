@@ -19,5 +19,8 @@ public enum SessionRevocationReason
     PasswordReset,
 
     /// <summary>Staff changed the e-mail address or mobile number the account signs in with, so a session started under the old one ends.</summary>
-    ContactChanged
+    ContactChanged,
+
+    /// <summary>Staff deactivated the account, which ends every session it had.</summary>
+    AccountDeactivated
 }

@@ -54,4 +54,12 @@ describe('StudentApiService', () => {
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual(profile);
   });
+
+  it('deactivates a student with a POST and no body: the account is kept, not deleted', () => {
+    service.deactivateStudent('s1').subscribe();
+
+    const req = httpMock.expectOne(`${url}/s1/deactivate`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toBeNull();
+  });
 });

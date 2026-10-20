@@ -30,4 +30,12 @@ export class StudentApiService {
   updateStudent(studentId: string, request: UpdateStudentRequest): Observable<UpdateStudentResult> {
     return this.http.put<UpdateStudentResult>(`${this.apiUrl}/${studentId}`, request);
   }
+
+  /**
+   * Deactivates the account: the student is signed out and can no longer sign in. Nothing is deleted, so their results and records stay.
+   * Safe to repeat; the profile comes back with its status as it now is.
+   */
+  deactivateStudent(studentId: string): Observable<StudentDto> {
+    return this.http.post<StudentDto>(`${this.apiUrl}/${studentId}/deactivate`, null);
+  }
 }

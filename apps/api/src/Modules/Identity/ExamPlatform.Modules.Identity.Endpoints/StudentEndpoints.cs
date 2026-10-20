@@ -59,5 +59,19 @@ public static class StudentEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("UpdateStudent")
             .WithDescription("Correct a student's name, e-mail address, mobile number and date of birth; a new e-mail address or number ends their sessions; audited");
+
+        // A POST and not a DELETE: nothing is removed. The account stays, closed to sign-in, with its results and history.
+        students.MapPost("/{studentId:guid}/deactivate", async (
+                Guid studentId, HttpContext http, DeactivateStudentHandler handler, CancellationToken ct) =>
+            {
+                var command = new DeactivateStudentCommand(studentId, http.User.GetUserId(), http.User.GetPrimaryRole());
+                return Results.Ok(await handler.HandleAsync(command, ct));
+            })
+            .RequireAuthorization($"permission:{RbacCatalog.PermissionCodes.StudentManage}")
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("DeactivateStudent")
+            .WithDescription("Deactivate a student's account: they can no longer sign in and are signed out; their results and records are kept; audited");
     }
 }
