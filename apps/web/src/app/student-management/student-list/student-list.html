@@ -38,44 +38,67 @@
 
     @for (row of rows(); track row.key) {
       <section class="card student-row" [attr.aria-labelledby]="'student-heading-' + $index">
-        <h2 class="student-row__title" [attr.id]="'student-heading-' + $index">
-          <button
-            type="button"
-            class="student-row__toggle"
-            [attr.aria-expanded]="isOpen(row)"
-            [attr.aria-controls]="'student-panel-' + $index"
-            (click)="toggle(row)"
-          >
-            <span class="student-row__chevron" aria-hidden="true">{{ isOpen(row) ? '▾' : '▸' }}</span>
-            <span class="student-row__who">
-              <span class="student-row__name">{{ row.title }}</span>
-              @if (row.account && contact(row)) {
-                <span class="student-row__meta">{{ contact(row) }}</span>
-              }
-              <span class="student-row__meta">{{ invitationCount(row) }}</span>
-            </span>
-            <span class="student-row__statuses">
-              @if (!row.account) {
-                <span class="badge badge--inactive">Not registered yet</span>
-              } @else if (row.account.status !== 'Active') {
-                <span class="badge badge--inactive">{{ row.account.status }}</span>
-              }
-              @if (row.invitations) {
-                @for (entry of row.invitations.statusCounts; track entry.status) {
-                  <span class="badge" [class]="badgeClass(entry.status)">{{ entry.count }} {{ entry.status }}</span>
+        <div class="student-row__head">
+          <h2 class="student-row__title" [attr.id]="'student-heading-' + $index">
+            <button
+              type="button"
+              class="student-row__toggle"
+              [attr.aria-expanded]="isOpen(row)"
+              [attr.aria-controls]="'student-panel-' + $index"
+              (click)="toggle(row)"
+            >
+              <span class="student-row__chevron" aria-hidden="true">{{ isOpen(row) ? '▾' : '▸' }}</span>
+              <span class="student-row__who">
+                <span class="student-row__name">{{ row.title }}</span>
+                @if (row.account && contact(row)) {
+                  <span class="student-row__meta">{{ contact(row) }}</span>
                 }
+                <span class="student-row__meta">{{ invitationCount(row) }}</span>
+              </span>
+              <span class="student-row__statuses">
+                @if (!row.account) {
+                  <span class="badge badge--inactive">Not registered yet</span>
+                } @else if (row.account.status !== 'Active') {
+                  <span class="badge badge--inactive">{{ row.account.status }}</span>
+                }
+                @if (row.invitations) {
+                  @for (entry of row.invitations.statusCounts; track entry.status) {
+                    <span class="badge" [class]="badgeClass(entry.status)">{{ entry.count }} {{ entry.status }}</span>
+                  }
+                }
+              </span>
+            </button>
+          </h2>
+
+          @if (row.account && canManage) {
+            <div class="student-row__actions">
+              <button type="button" class="student-row__icon" (click)="openEdit(row)" [attr.aria-label]="'Edit ' + row.title" title="Edit profile">
+                <app-admin-icon name="edit" />
+              </button>
+              @if (row.account.status !== 'Deactivated') {
+                <button
+                  type="button"
+                  class="student-row__icon student-row__icon--danger"
+                  (click)="openDeactivate(row)"
+                  [attr.aria-label]="'Deactivate ' + row.title"
+                  title="Deactivate student"
+                >
+                  <app-admin-icon name="trash" />
+                </button>
               }
-            </span>
-          </button>
-        </h2>
+            </div>
+          }
+        </div>
 
         <div class="student-row__panel" [attr.id]="'student-panel-' + $index">
           @if (isOpen(row)) {
             @if (row.account; as account) {
-              <section class="student-row__section" [attr.aria-labelledby]="'student-profile-heading-' + $index">
-                <h3 [attr.id]="'student-profile-heading-' + $index">Profile</h3>
-                <app-student-profile [studentId]="account.id" [canEdit]="canManage" (saved)="onProfileSaved($event)" />
-              </section>
+              @if (!canManage) {
+                <section class="student-row__section" [attr.aria-labelledby]="'student-profile-heading-' + $index">
+                  <h3 [attr.id]="'student-profile-heading-' + $index">Profile</h3>
+                  <app-student-profile [studentId]="account.id" [canEdit]="false" />
+                </section>
+              }
             }
 
             @if (row.invitations; as group) {
@@ -95,5 +118,31 @@
         </div>
       </section>
     }
+  }
+
+  @if (editing(); as student) {
+    <app-modal-dialog heading="Edit profile" (closed)="closeEdit()">
+      <app-student-profile [studentId]="student.id" [canEdit]="true" (saved)="onProfileSaved($event)" />
+    </app-modal-dialog>
+  }
+
+  @if (deactivating(); as student) {
+    <app-modal-dialog [heading]="'Deactivate ' + student.name + '?'" (closed)="closeDeactivate()">
+      <p>
+        {{ student.name }} will be signed out and will not be able to sign in again. Their results, certificates and records are kept.
+      </p>
+      <p class="field-hint">This page cannot turn a deactivated account back on.</p>
+
+      @if (deactivateError()) {
+        <p class="error-message" role="alert">{{ deactivateError() }}</p>
+      }
+
+      <div class="actions">
+        <button type="button" class="btn btn--danger" (click)="confirmDeactivate()" [disabled]="deactivateBusy()">
+          {{ deactivateBusy() ? 'Deactivating…' : 'Deactivate' }}
+        </button>
+        <button type="button" (click)="closeDeactivate()">Cancel</button>
+      </div>
+    </app-modal-dialog>
   }
 </div>

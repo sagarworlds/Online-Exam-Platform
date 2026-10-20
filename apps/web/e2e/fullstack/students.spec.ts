@@ -43,6 +43,10 @@ async function openStudents(page: Page, search: string): Promise<void> {
 
 const row = (page: Page, text: string): Locator => page.locator('section.student-row').filter({ hasText: text });
 const toggle = (page: Page, text: string): Locator => row(page, text).locator('.student-row__toggle');
+// The icons are named for the row's title, which is the student's name; a row is found by its address, so the name is matched loosely.
+const editIcon = (page: Page, text: string): Locator => row(page, text).getByRole('button', { name: /^Edit / });
+const deactivateIcon = (page: Page, text: string): Locator => row(page, text).getByRole('button', { name: /^Deactivate / });
+const editPopup = (page: Page): Locator => page.getByRole('dialog', { name: 'Edit profile' });
 
 test.describe('the Students page', () => {
   test('shows an invited student with no account once, with both exam names, beside another', async ({ page }) => {
@@ -113,13 +117,14 @@ test.describe('the Students page', () => {
   test('corrects a registered student\'s name without signing them out', async ({ page }) => {
     const student = await api.registerCandidate();
     await openStudents(page, student.email);
-    await toggle(page, student.email).click();
+    await editIcon(page, student.email).click();
 
-    const profile = row(page, student.email);
+    const profile = editPopup(page);
     await profile.getByLabel('Name').fill(`Renamed ${run}`);
     await profile.getByRole('button', { name: 'Save changes' }).click();
 
     await expect(profile.getByRole('status')).toContainText('Saved: name.');
+    await profile.getByRole('button', { name: 'Close' }).click();
     await expect(toggle(page, `Renamed ${run}`)).toBeVisible();
     expect(await api.isSignedIn(student.accessToken)).toBe(true);
   });
@@ -128,9 +133,9 @@ test.describe('the Students page', () => {
     const student = await api.registerCandidate();
     expect(await api.isSignedIn(student.accessToken)).toBe(true);
     await openStudents(page, student.email);
-    await toggle(page, student.email).click();
+    await editIcon(page, student.email).click();
 
-    const profile = row(page, student.email);
+    const profile = editPopup(page);
     await profile.getByLabel('Mobile number').fill(`+9198${Math.floor(10_000_000 + Math.random() * 89_999_999)}`);
     await profile.getByRole('button', { name: 'Save changes' }).click();
 
@@ -151,12 +156,10 @@ test.describe('the Students page', () => {
     await api.invite(maths, student.email);
     const moved = `moved-${run}-${randomUUID().slice(0, 6)}@e2e.test`;
     await openStudents(page, student.email);
-    await toggle(page, student.email).click();
+    await editIcon(page, student.email).click();
 
-    // The search names this one student, so their row is the only row. It is not found by their address: once saved, the row's heading
-    // shows the new one, and a locator that filters on the old address would lose the row as soon as the page has read the list again.
-    const profile = page.locator('section.student-row');
-    await expect(profile).toHaveCount(1);
+    // The popup is the same one throughout, even though the row behind it is read again once the address has changed.
+    const profile = editPopup(page);
     await profile.getByLabel('E-mail address').fill(moved);
     await profile.getByRole('button', { name: 'Save changes' }).click();
     await expect(profile.getByText('Their invitations move to it.')).toBeVisible();
@@ -164,6 +167,8 @@ test.describe('the Students page', () => {
 
     await expect(profile.getByRole('status')).toContainText('1 invitation moved to the new e-mail address.');
     expect(await api.isSignedIn(student.accessToken)).toBe(false);
+    // The page behind a modal popup cannot be used, so it is closed before the search is.
+    await profile.getByRole('button', { name: 'Close' }).click();
 
     // The same student, found by the new address, holding the invitation that was sent to the old one.
     await page.getByLabel('Search students').fill(moved);
@@ -175,9 +180,9 @@ test.describe('the Students page', () => {
     const student = await api.registerCandidate();
     const other = await api.registerCandidate();
     await openStudents(page, student.email);
-    await toggle(page, student.email).click();
+    await editIcon(page, student.email).click();
 
-    const profile = row(page, student.email);
+    const profile = editPopup(page);
     await profile.getByLabel('E-mail address').fill(other.email);
     await profile.getByRole('button', { name: 'Save changes' }).click();
     await profile.getByRole('button', { name: 'Confirm and save' }).click();
@@ -186,12 +191,42 @@ test.describe('the Students page', () => {
     expect(await api.isSignedIn(student.accessToken)).toBe(true);
   });
 
-  test('fits a phone: no sideways scroll, and each heading and open form is within the screen and a target of at least 44px', async ({ page }) => {
+  test('deactivates a registered student once asked, which signs them out and keeps the account', async ({ page }) => {
+    const student = await api.registerCandidate();
+    expect(await api.isSignedIn(student.accessToken)).toBe(true);
+    await openStudents(page, student.email);
+
+    await deactivateIcon(page, student.email).click();
+    const confirm = page.getByRole('dialog', { name: /^Deactivate / });
+    await expect(confirm).toContainText('will be signed out');
+    // Asked, not done: the student is still signed in until the staff member confirms.
+    expect(await api.isSignedIn(student.accessToken)).toBe(true);
+    await confirm.getByRole('button', { name: 'Deactivate', exact: true }).click();
+
+    await expect(page.getByRole('status').filter({ hasText: 'They are signed out and can no longer sign in' })).toBeVisible();
+    expect(await api.isSignedIn(student.accessToken)).toBe(false);
+    // The account is still on the page, marked, with its profile open to correction and nothing left to deactivate.
+    await expect(toggle(page, student.email)).toContainText('Deactivated');
+    await expect(editIcon(page, student.email)).toHaveCount(1);
+    await expect(deactivateIcon(page, student.email)).toHaveCount(0);
+  });
+
+  test('does nothing when the staff member cancels the deactivation', async ({ page }) => {
+    const student = await api.registerCandidate();
+    await openStudents(page, student.email);
+
+    await deactivateIcon(page, student.email).click();
+    await page.getByRole('dialog', { name: /^Deactivate / }).getByRole('button', { name: 'Cancel' }).click();
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(await api.isSignedIn(student.accessToken)).toBe(true);
+    await expect(toggle(page, student.email)).not.toContainText('Deactivated');
+  });
+
+  test('fits a phone: no sideways scroll, and the row, its icons and the open popup are within the screen and targets of at least 44px', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 780 });
     const student = await api.registerCandidate();
     await openStudents(page, student.email);
-    await toggle(page, student.email).click();
-    await expect(row(page, student.email).getByLabel('Mobile number')).toBeVisible();
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
@@ -199,7 +234,19 @@ test.describe('the Students page', () => {
     // 43.5: Firefox reports a 44px control as 43.99997.
     const height = (await toggle(page, student.email).boundingBox())?.height ?? 0;
     expect(height).toBeGreaterThanOrEqual(43.5);
-    const save = (await row(page, student.email).getByRole('button', { name: 'Save changes' }).boundingBox())?.height ?? 0;
+    for (const icon of [editIcon(page, student.email), deactivateIcon(page, student.email)]) {
+      const box = await icon.boundingBox();
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(43.5);
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(43.5);
+    }
+
+    await editIcon(page, student.email).click();
+    const popup = editPopup(page);
+    await expect(popup.getByLabel('Mobile number')).toBeVisible();
+    const popupBox = await popup.boundingBox();
+    expect((popupBox?.x ?? -1) + (popupBox?.width ?? 0)).toBeLessThanOrEqual(360);
+    expect(popupBox?.x ?? -1).toBeGreaterThanOrEqual(0);
+    const save = (await popup.getByRole('button', { name: 'Save changes' }).boundingBox())?.height ?? 0;
     expect(save).toBeGreaterThanOrEqual(43.5);
   });
 });

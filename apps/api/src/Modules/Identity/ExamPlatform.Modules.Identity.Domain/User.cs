@@ -145,6 +145,24 @@ public sealed class User : AggregateRoot
     }
 
     /// <summary>
+    /// Closes the account for good: it can no longer sign in, and every session it has ends at once. Nothing is deleted. The account, its
+    /// attempts, results and consent records stay for history and audit. Safe to repeat: a second call changes nothing.
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns>True when the account was active in some way and is now deactivated; false when it already was.</returns>
+    public bool Deactivate(DateTime nowUtc)
+    {
+        if (Status == UserStatus.Deactivated)
+        {
+            return false;
+        }
+
+        Status = UserStatus.Deactivated;
+        RevokeAllSessions(nowUtc, SessionRevocationReason.AccountDeactivated);
+        return true;
+    }
+
+    /// <summary>
     /// Revokes every session that is still active at <paramref name="nowUtc"/>. Sessions
     /// that were already revoked keep their original revocation time and reason, and
     /// expired ones are left as they are.

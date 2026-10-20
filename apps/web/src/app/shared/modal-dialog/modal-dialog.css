@@ -1,0 +1,64 @@
+/* The dialog has no padding of its own, so every click that lands on the dialog element itself is a click on the dimmed area. */
+.modal {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.modal::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+
+.modal__panel {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 2rem);
+}
+
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal__title {
+  margin: 0;
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+
+/* A tap target of at least 44px, like the other controls on the staff pages. */
+.modal__close {
+  flex: none;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+.modal__body {
+  padding: 1rem 1.25rem 1.25rem;
+  overflow-y: auto;
+}
+
+@media (max-width: 40rem) {
+  .modal__header {
+    padding-inline-start: 1rem;
+  }
+
+  .modal__body {
+    padding-inline: 1rem;
+  }
+}

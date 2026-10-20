@@ -6,6 +6,8 @@ import { Permission } from '../../auth/admin-sections';
 import { AuthSessionService } from '../../auth/auth-session.service';
 import { InviteApiService } from '../../invite-management/invite-api.service';
 import { InviteDto, InviteStatus } from '../../invite-management/invite.models';
+import { AdminIcon } from '../../shared/admin-icon/admin-icon';
+import { ModalDialog } from '../../shared/modal-dialog/modal-dialog';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { InvitedAddress, InvitedAddressChange } from '../invited-address/invited-address';
 import { StudentApiService } from '../student-api.service';
@@ -21,7 +23,8 @@ const SEARCH_DELAY_MS = 300;
 const LISTING_LIMIT = 200;
 
 /**
- * Staff page: the students, each with their invitations and, for those who may change it, their profile. A student is an account, found
+ * Staff page: the students, each with their invitations and a profile. Staff who may manage students get an edit icon that opens the
+ * profile in a popup, and a deactivate icon that asks first; the others read the profile in the row. A student is an account, found
  * by name, e-mail address or mobile number; an address that was invited and has no account yet is listed too, as "Not registered yet",
  * so every invitation is somewhere on the page.
  *
@@ -31,7 +34,7 @@ const LISTING_LIMIT = 200;
  */
 @Component({
   selector: 'app-student-list',
-  imports: [RouterLink, StudentProfile, StudentInvitations, InvitedAddress],
+  imports: [RouterLink, StudentProfile, StudentInvitations, InvitedAddress, ModalDialog, AdminIcon],
   templateUrl: './student-list.html',
   styleUrl: './student-list.css',
 })
@@ -67,6 +70,14 @@ export class StudentList {
       kept: this.kept(),
     }),
   );
+
+  /** The student whose profile is open in the edit popup, or null when none is. */
+  protected readonly editing = signal<{ id: string } | null>(null);
+
+  /** The student the deactivate popup is asking about, or null when it is closed. */
+  protected readonly deactivating = signal<{ id: string; name: string } | null>(null);
+  protected readonly deactivateBusy = signal(false);
+  protected readonly deactivateError = signal<string | null>(null);
 
   /** The rows that are open, by {@link StudentRow.key}. Only the staff member's choices change it. */
   protected readonly expanded = signal<ReadonlySet<string>>(new Set());
@@ -158,6 +169,54 @@ export class StudentList {
 
   protected onInvitationRevoked(): void {
     this.reload.next();
+  }
+
+  /** Opens the student's profile in the edit popup. Only a row with an account has one. */
+  protected openEdit(row: StudentRow): void {
+    if (row.account !== null) {
+      this.editing.set({ id: row.account.id });
+    }
+  }
+
+  protected closeEdit(): void {
+    this.editing.set(null);
+  }
+
+  /** Asks before deactivating: it signs the student out and they cannot sign in again from this page. */
+  protected openDeactivate(row: StudentRow): void {
+    if (row.account !== null) {
+      this.deactivateError.set(null);
+      this.deactivating.set({ id: row.account.id, name: row.title });
+    }
+  }
+
+  protected closeDeactivate(): void {
+    this.deactivating.set(null);
+    this.deactivateError.set(null);
+  }
+
+  protected confirmDeactivate(): void {
+    const target = this.deactivating();
+    if (target === null || this.deactivateBusy()) {
+      return;
+    }
+
+    this.deactivateBusy.set(true);
+    this.deactivateError.set(null);
+    this.studentApi.deactivateStudent(target.id).subscribe({
+      next: () => {
+        this.deactivateBusy.set(false);
+        this.deactivating.set(null);
+        // The popup is gone, so the page says what happened, above the list where the eye is.
+        this.notice.set(`Deactivated ${target.name}. They are signed out and can no longer sign in; their results and records are kept.`);
+        afterNextRender(() => this.noticeElement()?.nativeElement.focus(), { injector: this.injector });
+        this.reload.next();
+      },
+      error: (error: unknown) => {
+        this.deactivateBusy.set(false);
+        this.deactivateError.set(extractErrorMessage(error));
+      },
+    });
   }
 
   protected onAddressChanged(row: StudentRow, change: InvitedAddressChange): void {

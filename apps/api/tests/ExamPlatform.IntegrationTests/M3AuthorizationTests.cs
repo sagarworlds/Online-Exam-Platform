@@ -173,6 +173,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("GET", "/v1/admin/students/{studentId:guid}", RbacCatalog.PermissionCodes.StudentRead, null),
         new("PUT", "/v1/admin/students/{studentId:guid}", RbacCatalog.PermissionCodes.StudentManage,
             new { displayName = "Authorization Test", email = "student@example.com", phoneNumber = (string?)null, dateOfBirth = "2000-01-01" }),
+        new("POST", "/v1/admin/students/{studentId:guid}/deactivate", RbacCatalog.PermissionCodes.StudentManage, null),
 
         new("POST", "/v1/guardians", RbacCatalog.PermissionCodes.GuardianLinkManage,
             new { email = "guardian@example.com", fullName = "Authorization Test Guardian" }),

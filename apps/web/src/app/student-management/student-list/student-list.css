@@ -14,9 +14,47 @@
   overflow: hidden;
 }
 
+/* The heading's button takes the room there is; the edit and deactivate icons sit at the end of the line, outside the button, so a click on
+   an icon never also folds the row. */
+.student-row__head {
+  display: flex;
+  align-items: stretch;
+}
+
 .student-row__title {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   font-size: 1rem;
+}
+
+.student-row__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+  padding-inline: 0.25rem 0.75rem;
+}
+
+/* Square tap targets of at least 44px; the global button style gives them a border, which an icon does not need until hovered. */
+.student-row__icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.student-row__icon:hover:not(:disabled) {
+  border-color: var(--control-border);
+  color: var(--text);
+}
+
+.student-row__icon--danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 /* A grid, not a row that wraps: on a phone the badges drop to a second line under the name instead of wherever the wrap leaves them.
@@ -74,7 +112,8 @@
   margin-inline-start: 0;
 }
 
-.student-row__toggle[aria-expanded='true'] {
+/* The rule under an open row runs under the icons too, so it is drawn on the whole header and not on the button. */
+.student-row__head:has(.student-row__toggle[aria-expanded='true']) {
   border-bottom: 1px solid var(--border);
 }
 
