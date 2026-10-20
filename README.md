@@ -598,7 +598,7 @@ An exam on the `BROWSER_CAMERA` profile takes a photo of the candidate at interv
 | Storing | `POST /v1/me/attempts/{attemptId}/webcam-photos` takes one JPEG body (`image/jpeg`, up to 200 KB, starting with the JPEG signature). It is `409 webcam_not_required` for an exam that takes no photos or a minor, `409 attempt_not_in_progress` once the attempt ends, `429 webcam_photo_too_soon` less than 60 seconds after the last, and `409 webcam_photo_limit` after 500 photos. The time kept is the server's. Photos are rows in `examRuntime.AttemptWebcamPhotos`, deleted with the attempt. |
 | Staff | `GET /v1/exams/{examId}/attempts/{attemptId}/webcam-photos` lists photos without the images, and `.../{photoId}` returns one (`exam.manage`, `Cache-Control: private, no-store`). There is no review screen yet. |
 | The notice | When photos are taken the candidate notice says so, the interval, that they are seen by the organisers, and that candidates under 18 are not photographed. The exam page shows when the camera is on, and says so if the candidate refuses it. A refusal does not stop the exam. |
-| Not built | A review screen for photos (FR-27), face-presence checks, a retention period for photos (FR-47, which waits on owner decision A13), storage outside the database, and guardian consent for minors. |
+| Not built | A review screen for photos (FR-27), face-presence checks, storage outside the database, and guardian consent for minors. |
 | Migrations | `ExamWebcamSnapshots` adds `Config_WebcamSnapshots` to `examAuthoring.Exams`. `AttemptWebcamPhotos` creates `examRuntime.AttemptWebcamPhotos`. |
 
 #### Screen capture (FR-25)
@@ -611,7 +611,8 @@ An exam on the `FULL` profile also takes a picture of the candidate's screen at 
 | Sharing | The browser only allows screen sharing after a click, so the exam page shows a **Share screen** button. The browser's own picker and "sharing" indicator appear. Declining, or stopping from the browser, leaves the exam running and the page says no pictures are taken; the button comes back after a stop. |
 | Storing | `POST /v1/me/attempts/{attemptId}/screen-captures` takes one JPEG (up to 500 KB) and applies the same errors, 60 second gap and 500 cap as webcam photos, counted separately. Rows are in `examRuntime.AttemptWebcamPhotos` with a `Kind` of `Screen`. |
 | Staff | The webcam-photo staff endpoints list and return both kinds; each row carries its `kind`. |
-| Not built | A review screen, retention (A13), capturing only the exam tab, and any check of what the screen shows. |
+| Retention (FR-47) | Webcam photos and screen pictures are deleted 30 days after they were taken, by a sweep every 60 minutes while the host is awake (`PurgeOldCapturesHandler`). Set `ExamRuntime__CaptureRetention__RetentionDays` (1 to 3650), `__SweepMinutes` or `__Enabled` to change it. Only the images go; the attempt and its score stay. |
+| Not built | A review screen, capturing only the exam tab, and any check of what the screen shows. |
 | Migrations | `ExamScreenCapture` adds `Config_ScreenCapture` to `examAuthoring.Exams`. `AddCaptureKind` adds `Kind` to `examRuntime.AttemptWebcamPhotos` (existing rows are `Webcam`). |
 
 #### Sitting an exam: clearing a response and marking for review

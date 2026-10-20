@@ -18,6 +18,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using ExamPlatform.Modules.ExamRuntime.Application.Retention;
+using ExamPlatform.Modules.ExamRuntime.Endpoints.Retention;
 
 namespace ExamPlatform.Modules.ExamRuntime.Endpoints;
 
@@ -45,6 +47,15 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<IIssueReportRepository, IssueReportRepository>();
         services.AddScoped<IWebcamPhotoRepository, WebcamPhotoRepository>();
         services.AddScoped<WebcamEligibility>();
+
+        // Webcam photos and screen pictures are deleted after a set number of days (FR-47). Validated when the host starts, so a mistyped
+        // period stops the application starting instead of silently keeping, or dropping, images.
+        services.AddOptions<CaptureRetentionOptions>()
+            .Bind(configuration.GetSection(CaptureRetentionOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddScoped<PurgeOldCapturesHandler>();
+        services.AddHostedService<CaptureRetentionBackgroundService>();
 
         // How long after a result is released a candidate may dispute its answer key; 0 switches disputes off (FR-31). Validated when the
         // host starts, so a mistyped window stops the application starting instead of failing the first candidate who disputes. It is
