@@ -75,7 +75,18 @@
               <button type="button" class="student-row__icon" (click)="openEdit(row)" [attr.aria-label]="'Edit ' + row.title" title="Edit profile">
                 <app-admin-icon name="edit" />
               </button>
-              @if (row.account.status !== 'Deactivated') {
+              @if (row.account.status === 'Deactivated') {
+                <button
+                  type="button"
+                  class="student-row__icon"
+                  (click)="reactivate(row)"
+                  [disabled]="reactivatingId() === row.account.id"
+                  [attr.aria-label]="'Reactivate ' + row.title"
+                  title="Reactivate student"
+                >
+                  <app-admin-icon name="restore" />
+                </button>
+              } @else {
                 <button
                   type="button"
                   class="student-row__icon student-row__icon--danger"
@@ -131,7 +142,7 @@
       <p>
         {{ student.name }} will be signed out and will not be able to sign in again. Their results, certificates and records are kept.
       </p>
-      <p class="field-hint">This page cannot turn a deactivated account back on.</p>
+      <p class="field-hint">You can turn the account back on from this page later.</p>
 
       @if (deactivateError()) {
         <p class="error-message" role="alert">{{ deactivateError() }}</p>

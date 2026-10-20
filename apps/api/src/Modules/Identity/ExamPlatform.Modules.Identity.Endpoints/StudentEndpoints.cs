@@ -73,5 +73,18 @@ public static class StudentEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .WithName("DeactivateStudent")
             .WithDescription("Deactivate a student's account: they can no longer sign in and are signed out; their results and records are kept; audited");
+
+        students.MapPost("/{studentId:guid}/reactivate", async (
+                Guid studentId, HttpContext http, ReactivateStudentHandler handler, CancellationToken ct) =>
+            {
+                var command = new ReactivateStudentCommand(studentId, http.User.GetUserId(), http.User.GetPrimaryRole());
+                return Results.Ok(await handler.HandleAsync(command, ct));
+            })
+            .RequireAuthorization($"permission:{RbacCatalog.PermissionCodes.StudentManage}")
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("ReactivateStudent")
+            .WithDescription("Turn a deactivated student's account back on: they can sign in again with a code; a suspended account is not changed; audited");
     }
 }

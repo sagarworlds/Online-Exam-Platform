@@ -145,8 +145,9 @@ public sealed class User : AggregateRoot
     }
 
     /// <summary>
-    /// Closes the account for good: it can no longer sign in, and every session it has ends at once. Nothing is deleted. The account, its
-    /// attempts, results and consent records stay for history and audit. Safe to repeat: a second call changes nothing.
+    /// Closes the account: it can no longer sign in, and every session it has ends at once. Nothing is deleted. The account, its
+    /// attempts, results and consent records stay for history and audit. <see cref="Reactivate"/> opens it again. Safe to repeat: a second
+    /// call changes nothing.
     /// </summary>
     /// <param name="nowUtc">The current instant.</param>
     /// <returns>True when the account was active in some way and is now deactivated; false when it already was.</returns>
@@ -159,6 +160,24 @@ public sealed class User : AggregateRoot
 
         Status = UserStatus.Deactivated;
         RevokeAllSessions(nowUtc, SessionRevocationReason.AccountDeactivated);
+        return true;
+    }
+
+    /// <summary>
+    /// Opens a deactivated account again. It becomes active, which is safe without remembering what it was before: signing in still needs
+    /// a one-time code sent to the account's own e-mail address or number, so nobody gets in by being reactivated alone, and a minor's
+    /// guardian link is checked when an attempt starts, not here. Only a deactivated account changes; a suspended one stays suspended,
+    /// because lifting a suspension is a different decision. Safe to repeat.
+    /// </summary>
+    /// <returns>True when a deactivated account is now active; false when it was not deactivated, and so nothing changed.</returns>
+    public bool Reactivate()
+    {
+        if (Status != UserStatus.Deactivated)
+        {
+            return false;
+        }
+
+        Status = UserStatus.Active;
         return true;
     }
 

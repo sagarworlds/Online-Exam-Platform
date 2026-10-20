@@ -77,7 +77,7 @@ describe('StudentList', () => {
   const titles = (root: HTMLElement) => Array.from(root.querySelectorAll('.student-row__name')).map((n) => n.textContent?.trim());
 
   /** The edit or deactivate icon on a student's row, or null when the row has none. */
-  const iconOf = (root: HTMLElement, title: string, label: 'Edit' | 'Deactivate') =>
+  const iconOf = (root: HTMLElement, title: string, label: 'Edit' | 'Deactivate' | 'Reactivate') =>
     rowFor(root, title)?.querySelector<HTMLButtonElement>(`button[aria-label="${label} ${title}"]`) ?? null;
 
   const profileOf = (student: { id: string }) => ({ ...asha, ...student, dateOfBirth: '2000-01-01', ageBand: 'Adult' });
@@ -380,8 +380,9 @@ describe('StudentList', () => {
       expect(root.querySelector('app-modal-dialog')).toBeNull();
       expect(root.querySelector('.success-message')?.textContent).toContain('Deactivated Asha Rao.');
       expect(toggleOf(root, 'Asha Rao').textContent).toContain('Deactivated');
-      // Nothing is left to deactivate, but the profile can still be corrected.
+      // Nothing is left to deactivate: it can be turned back on instead, and the profile can still be corrected.
       expect(iconOf(root, 'Asha Rao', 'Deactivate')).toBeNull();
+      expect(iconOf(root, 'Asha Rao', 'Reactivate')).not.toBeNull();
       expect(iconOf(root, 'Asha Rao', 'Edit')).not.toBeNull();
     });
 
@@ -406,6 +407,80 @@ describe('StudentList', () => {
       const { root } = open({ students: [{ ...asha, status: 'Deactivated' }] });
 
       expect(iconOf(root, 'Asha Rao', 'Deactivate')).toBeNull();
+    });
+
+    it('says the account can be turned back on later', () => {
+      const { fixture, root } = open({ students: [asha] });
+
+      iconOf(root, 'Asha Rao', 'Deactivate')!.click();
+      fixture.detectChanges();
+
+      expect(root.querySelector('app-modal-dialog')?.textContent).toContain('turn the account back on');
+    });
+  });
+
+  describe('the reactivate icon', () => {
+    const deactivated = { ...asha, status: 'Deactivated' };
+    const reactivateUrl = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/admin/students/a1/reactivate');
+
+    it('stands in for the deactivate icon on a deactivated account, and on no other', () => {
+      const { root } = open({ students: [deactivated, ben, { ...ben, id: 'a3', displayName: 'Cara Roy', status: 'Suspended' }] });
+
+      expect(iconOf(root, 'Asha Rao', 'Reactivate')).not.toBeNull();
+      expect(iconOf(root, 'Asha Rao', 'Deactivate')).toBeNull();
+      expect(iconOf(root, 'Ben Das', 'Reactivate')).toBeNull();
+      expect(iconOf(root, 'Ben Das', 'Deactivate')).not.toBeNull();
+      expect(iconOf(root, 'Cara Roy', 'Reactivate')).toBeNull();
+    });
+
+    it('is not offered to staff who may only read students', () => {
+      const { root } = open({ students: [deactivated] }, ['student.read', 'invite.manage']);
+
+      expect(iconOf(root, 'Asha Rao', 'Reactivate')).toBeNull();
+    });
+
+    it('turns the account back on at once, says so above the list, and swaps the icon back', () => {
+      const { fixture, root } = open({ students: [deactivated] });
+
+      iconOf(root, 'Asha Rao', 'Reactivate')!.click();
+      const request = httpMock.expectOne(reactivateUrl);
+      expect(request.request.body).toBeNull();
+      request.flush({ ...profileOf(asha), status: 'Active' });
+      answerRead({ students: [asha] });
+      fixture.detectChanges();
+
+      expect(root.querySelector('.success-message')?.textContent).toContain('Reactivated Asha Rao.');
+      expect(toggleOf(root, 'Asha Rao').textContent).not.toContain('Deactivated');
+      expect(iconOf(root, 'Asha Rao', 'Reactivate')).toBeNull();
+      expect(iconOf(root, 'Asha Rao', 'Deactivate')).not.toBeNull();
+    });
+
+    it('sends one request even if pressed again while the answer is on its way', () => {
+      const { fixture, root } = open({ students: [deactivated] });
+      const icon = iconOf(root, 'Asha Rao', 'Reactivate')!;
+
+      icon.click();
+      fixture.detectChanges();
+      expect(icon.disabled).toBe(true);
+      icon.click();
+
+      httpMock.expectOne(reactivateUrl).flush({ ...profileOf(asha), status: 'Active' });
+      answerRead({ students: [asha] });
+    });
+
+    it('says why when the account could not be turned back on, and leaves the icon to try again', () => {
+      const { fixture, root } = open({ students: [deactivated] });
+
+      iconOf(root, 'Asha Rao', 'Reactivate')!.click();
+      httpMock
+        .expectOne(reactivateUrl)
+        .flush({ title: 'user_not_found', detail: 'There is no such student.', status: 404 }, { status: 404, statusText: 'Not Found' });
+      fixture.detectChanges();
+
+      expect(root.querySelector('.error-message')?.textContent).toContain('There is no such student.');
+      expect(root.querySelector('.success-message')).toBeNull();
+      expect(iconOf(root, 'Asha Rao', 'Reactivate')!.disabled).toBe(false);
+      httpMock.expectNone(isStudents);
     });
   });
 

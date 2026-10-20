@@ -62,4 +62,12 @@ describe('StudentApiService', () => {
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toBeNull();
   });
+
+  it('reactivates a student with a POST and no body', () => {
+    service.reactivateStudent('s1').subscribe();
+
+    const req = httpMock.expectOne(`${url}/s1/reactivate`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toBeNull();
+  });
 });

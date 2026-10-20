@@ -46,6 +46,7 @@ const toggle = (page: Page, text: string): Locator => row(page, text).locator('.
 // The icons are named for the row's title, which is the student's name; a row is found by its address, so the name is matched loosely.
 const editIcon = (page: Page, text: string): Locator => row(page, text).getByRole('button', { name: /^Edit / });
 const deactivateIcon = (page: Page, text: string): Locator => row(page, text).getByRole('button', { name: /^Deactivate / });
+const reactivateIcon = (page: Page, text: string): Locator => row(page, text).getByRole('button', { name: /^Reactivate / });
 const editPopup = (page: Page): Locator => page.getByRole('dialog', { name: 'Edit profile' });
 
 test.describe('the Students page', () => {
@@ -209,6 +210,24 @@ test.describe('the Students page', () => {
     await expect(toggle(page, student.email)).toContainText('Deactivated');
     await expect(editIcon(page, student.email)).toHaveCount(1);
     await expect(deactivateIcon(page, student.email)).toHaveCount(0);
+  });
+
+  test('turns a deactivated student back on, without bringing their old session back', async ({ page }) => {
+    const student = await api.registerCandidate();
+    await openStudents(page, student.email);
+    await deactivateIcon(page, student.email).click();
+    await page.getByRole('dialog', { name: /^Deactivate / }).getByRole('button', { name: 'Deactivate', exact: true }).click();
+    await expect(toggle(page, student.email)).toContainText('Deactivated');
+    await expect(reactivateIcon(page, student.email)).toHaveCount(1);
+
+    await reactivateIcon(page, student.email).click();
+
+    await expect(page.getByRole('status').filter({ hasText: 'They can sign in again with a code' })).toBeVisible();
+    await expect(toggle(page, student.email)).not.toContainText('Deactivated');
+    await expect(reactivateIcon(page, student.email)).toHaveCount(0);
+    await expect(deactivateIcon(page, student.email)).toHaveCount(1);
+    // What the deactivation ended stays ended: the student has to sign in again.
+    expect(await api.isSignedIn(student.accessToken)).toBe(false);
   });
 
   test('does nothing when the staff member cancels the deactivation', async ({ page }) => {

@@ -17,7 +17,7 @@ public sealed record DeactivateStudentCommand(Guid StudentId, Guid? ActorUserId,
 /// Handles <see cref="DeactivateStudentCommand"/>. Deactivating is the platform's way of deleting a student: the account can no longer sign
 /// in and everything it had open ends (sessions, unused sign-in codes, password-reset links), but nothing is removed. Their attempts, scores,
 /// certificates, consent records and the audit trail still refer to the account, and erasing the personal data is a separate, deliberate
-/// step. Repeating it is harmless: an account that is already deactivated is returned as it is, with no second audit entry.
+/// step. <see cref="ReactivateStudentHandler"/> turns the account back on. Repeating it is harmless: an account that is already deactivated is returned as it is, with no second audit entry.
 /// </summary>
 public sealed class DeactivateStudentHandler(
     IUserRepository userRepository,
