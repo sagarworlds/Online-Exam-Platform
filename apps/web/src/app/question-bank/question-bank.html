@@ -40,9 +40,7 @@
     <button type="button" class="icon-btn" appTooltip="Import and export" aria-label="Import and export" (click)="transferOpen.set(true)">
       <app-icon name="transfer" />
     </button>
-    <button type="button" class="primary" aria-controls="new-question-form" [attr.aria-expanded]="formOpen()" (click)="formOpen.set(!formOpen())">
-      New question
-    </button>
+    <button type="button" class="primary" aria-haspopup="dialog" (click)="openNewQuestion()">New question</button>
   </div>
 
   <div id="filters-panel" class="filters-panel list-filter" [hidden]="!filtersOpen()">
@@ -140,56 +138,17 @@
     </div>
   }
 
-  <form id="new-question-form" class="card question-form" [formGroup]="form" (ngSubmit)="submit()" aria-label="New question" [hidden]="!formOpen()">
-    <div class="page-header">
-      <h2>New question</h2>
-      <button type="button" class="icon-btn" appTooltip="Close the form" aria-label="Close the form" (click)="formOpen.set(false)">
-        <app-icon name="close" />
-      </button>
-    </div>
-
-    <app-book-chapter-picker [books]="books()" idPrefix="question" [(value)]="placement" />
-
-    <div class="field">
-      <label for="question-language">Language</label>
-      <select id="question-language" formControlName="language">
-        @for (language of languages; track language.code) {
-          <option [value]="language.code">{{ language.label }}</option>
-        }
-      </select>
-    </div>
-
-    <app-question-fields [topicSuggestions]="topics()" />
-
-    <button type="submit" class="primary" [disabled]="form.invalid || !placementComplete() || saving()">Save question</button>
-  </form>
-
-  <!--
-    What happened to Save, directly under the Save button, where the author is looking: the form is long, so a message at the top of the
-    page is out of sight when Save is pressed. A refusal takes focus (QuestionBank.focusOnceRendered), which also scrolls it into view.
-  -->
-  @if (saved()) {
-    <p class="success-message" role="status">Question saved.</p>
-  }
-  @if (saveError()) {
-    <p #saveFailure class="error-message" role="alert" tabindex="-1">{{ saveError() }}</p>
-  }
-  @if (repeat(); as pending) {
-    <section #repeatCard class="card question-repeat" role="alert" tabindex="-1" aria-labelledby="question-repeat-heading">
-      <h2 id="question-repeat-heading">This question is already in the bank</h2>
-      <p>The bank has a question with this wording and these {{ pending.request.isTextAnswer ? 'accepted answers' : 'options' }}:</p>
-      <ul>
-        @for (match of pending.matches; track match.id) {
-          @if (match.sameOptions) {
-            <li>{{ match.preview }} <span class="badge">{{ match.status }}</span></li>
-          }
-        }
-      </ul>
-      <div class="actions">
-        <button type="button" (click)="addAnyway()" [disabled]="saving()">Add it anyway</button>
-        <button type="button" class="primary" (click)="dismissRepeat()">Don't add it</button>
-      </div>
-    </section>
+  @if (panelOpen()) {
+    <app-question-panel
+      [questionId]="editingId()"
+      [books]="books()"
+      [topics]="topics()"
+      [(placement)]="placement"
+      [(language)]="language"
+      (created)="onCreated($event)"
+      (saved)="onEdited($event)"
+      (closed)="onPanelClosed()"
+    />
   }
 
   @if (transferOpen()) {

@@ -7,12 +7,13 @@ import { QuestionFields } from './question-fields';
 
 @Component({
   imports: [ReactiveFormsModule, QuestionFields],
-  template: `<form [formGroup]="form"><app-question-fields [wordingOnly]="wordingOnly()" /></form>`,
+  template: `<form [formGroup]="form"><app-question-fields [wordingOnly]="wordingOnly()" [showLanguage]="showLanguage()" /></form>`,
 })
 class Host {
   readonly formBuilder = inject(FormBuilder);
   readonly form = createQuestionForm(this.formBuilder);
   readonly wordingOnly = signal(false);
+  readonly showLanguage = signal(false);
 }
 
 const QUESTION: QuestionDto = {
@@ -42,7 +43,7 @@ describe('QuestionFields', () => {
 
   const texts = () => Array.from(root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]')).map((input) => input.value);
   const button = (label: string) => Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
-  const removeButtons = () => Array.from(root.querySelectorAll('button')).filter((b) => b.textContent?.trim() === 'Remove') as HTMLButtonElement[];
+  const removeButtons = () => Array.from(root.querySelectorAll<HTMLButtonElement>('button[aria-label^="Remove option"]'));
 
   it('starts with two empty options and no correct one chosen', () => {
     expect(texts()).toEqual(['', '']);
@@ -56,11 +57,15 @@ describe('QuestionFields', () => {
     inputs[1].value = 'None of the above';
     inputs[1].dispatchEvent(new Event('input'));
 
-    const pins = root.querySelectorAll<HTMLInputElement>('.option-pin input[type="checkbox"]');
+    const pins = root.querySelectorAll<HTMLButtonElement>('button.option-pin');
     expect(pins).toHaveLength(2);
+    expect(Array.from(pins).map((pin) => pin.getAttribute('aria-pressed'))).toEqual(['false', 'false']);
     pins[1].click();
+    fixture.detectChanges();
 
     expect(toNewOptions(fixture.componentInstance.form).map((o) => o.isPinned)).toEqual([false, true]);
+    expect(Array.from(pins).map((pin) => pin.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
+    expect(fixture.componentInstance.form.controls.options.at(1).dirty).toBe(true);
   });
 
   it('works on the page’s own form: what is typed and chosen is in it', () => {
@@ -111,8 +116,92 @@ describe('QuestionFields', () => {
     expect(correctIndex.value).toBe(-1);
   });
 
-  describe('when candidates have answered the question', () => {
-    beforeEach(() => {
+  describe('the optional details', () => {
+    const toggle = () => root.querySelector<HTMLButtonElement>('.more-details__toggle') as HTMLButtonElement;
+    const details = () => root.querySelector<HTMLElement>('#question-more') as HTMLElement;
+    const summary = () => root.querySelector('.more-details .hint')?.textContent?.trim();
+    const type = (id: string, value: string, event: 'input' | 'change') => {
+      const field = root.querySelector<HTMLInputElement & HTMLSelectElement>(`#${id}`) as HTMLInputElement & HTMLSelectElement;
+      field.value = value;
+      field.dispatchEvent(new Event(event));
+      fixture.detectChanges();
+    };
+
+    it('folds difficulty, topics and the explanation away at first, behind a button that says so', () => {
+      expect(toggle().textContent).toContain('More details');
+      expect(toggle().getAttribute('aria-expanded')).toBe('false');
+      expect(toggle().getAttribute('aria-controls')).toBe('question-more');
+      expect(details().hidden).toBe(true);
+      expect(summary()).toBeUndefined();
+    });
+
+    it('opens them from the button, and folds them again', () => {
+      toggle().click();
+      fixture.detectChanges();
+      expect(toggle().getAttribute('aria-expanded')).toBe('true');
+      expect(details().hidden).toBe(false);
+
+      toggle().click();
+      fixture.detectChanges();
+      expect(toggle().getAttribute('aria-expanded')).toBe('false');
+      expect(details().hidden).toBe(true);
+    });
+
+    it('says what is already set while they are folded, and nothing once they are open', () => {
+      type('question-difficulty', 'easy', 'change');
+      type('question-topics', 'Fractions, ratios', 'input');
+
+      expect(summary()).toBe('Easy · fractions, ratios');
+
+      toggle().click();
+      fixture.detectChanges();
+      expect(summary()).toBeUndefined();
+    });
+
+    it('is open for a question that already has details, so they are not hidden from its author', () => {
+      const filled = TestBed.createComponent(Host);
+      filled.componentInstance.form.controls.difficulty.setValue('hard');
+      filled.detectChanges();
+      const element = filled.nativeElement as HTMLElement;
+
+      expect(element.querySelector('.more-details__toggle')?.getAttribute('aria-expanded')).toBe('true');
+      expect((element.querySelector('#question-more') as HTMLElement).hidden).toBe(false);
+    });
+
+    it('stays open while a detail is wrong, so the reason is not hidden', () => {
+      type('question-topics', 'a, b, c, d, e, f', 'input');
+
+      expect(toggle().getAttribute('aria-expanded')).toBe('true');
+      expect(details().hidden).toBe(false);
+      expect(details().textContent).toContain('Use at most 5 topics.');
+    });
+  });
+
+  describe('the question type and the language', () => {
+    it('says in a line what the chosen type means', () => {
+      expect(root.querySelector('#question-type-hint')?.textContent).toContain('chooses from the options');
+
+      const type = root.querySelector('#question-type') as HTMLSelectElement;
+      type.value = 'text';
+      type.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      expect(root.querySelector('#question-type-hint')?.textContent).toContain('types the answer');
+    });
+
+    it('offers the language beside the type for a new question only', () => {
+      expect(root.querySelector('#question-language')).toBeNull();
+
+      fixture.componentInstance.showLanguage.set(true);
+      fixture.detectChanges();
+
+      const select = root.querySelector('#question-language') as HTMLSelectElement;
+      expect(Array.from(select.options).map((o) => o.textContent?.trim())).toEqual(['English', 'Hindi', 'Marathi']);
+      expect(select.value).toBe('en');
+    });
+  });
+
+  describe('when candidates have answered the question', () => {    beforeEach(() => {
       fillQuestionForm(fixture.componentInstance.form, fixture.componentInstance.formBuilder, QUESTION);
       fixture.componentInstance.wordingOnly.set(true);
       fixture.detectChanges();
@@ -122,6 +211,7 @@ describe('QuestionFields', () => {
       expect(Array.from(root.querySelectorAll<HTMLInputElement>('input[type="radio"]')).every((radio) => radio.disabled)).toBe(true);
       expect(button('Add option').disabled).toBe(true);
       expect(removeButtons().every((b) => b.disabled)).toBe(true);
+      expect(Array.from(root.querySelectorAll<HTMLButtonElement>('button.option-pin')).every((pin) => pin.disabled)).toBe(true);
       expect(root.querySelector('.question-lock-note')?.textContent).toContain('only its wording can change');
     });
 
@@ -144,7 +234,7 @@ describe('QuestionFields', () => {
   });
 
   describe('more than one correct answer', () => {
-    const multipleBox = () => root.querySelector('fieldset input[type="checkbox"]') as HTMLInputElement;
+    const multipleBox = () => root.querySelector('.option-tools input[type="checkbox"]') as HTMLInputElement;
     const ticks = () => Array.from(root.querySelectorAll<HTMLInputElement>('.option-row input[type="checkbox"][aria-label$="is correct"]'));
     const fill = (...values: string[]) => {
       const inputs = root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]');

@@ -120,6 +120,27 @@ describe('Tooltip', () => {
     expect(bubbles()).toHaveLength(0);
   });
 
+  it('goes inside the dialog its icon is in, since a modal dialog covers everything outside it', () => {
+    const { one } = render();
+    const dialog = document.createElement('dialog');
+    one.parentElement!.appendChild(dialog);
+    dialog.appendChild(one);
+
+    one.dispatchEvent(new Event('focus'));
+
+    expect(bubbles()[0]!.parentElement).toBe(dialog);
+    one.dispatchEvent(new Event('blur'));
+    expect(bubbles()).toHaveLength(0);
+  });
+
+  it('goes in the page’s body when its icon is not in a dialog', () => {
+    const { one } = render();
+
+    one.dispatchEvent(new Event('focus'));
+
+    expect(bubbles()[0]!.parentElement).toBe(document.body);
+  });
+
   it('shows one bubble at a time for one icon, however often it is focused', () => {
     const { one } = render();
 

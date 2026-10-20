@@ -94,11 +94,12 @@ export const routes: Routes = [
     path: 'admin/questions',
     canActivate: [permissionGuard(Permission.QuestionRead)],
     loadComponent: () => import('./question-bank/question-bank').then((m) => m.QuestionBank),
-  },
-  {
-    path: 'admin/questions/:id/edit',
-    canActivate: [permissionGuard(Permission.QuestionManage)],
-    loadComponent: () => import('./question-bank/question-edit/question-edit').then((m) => m.QuestionEdit),
+    // Editing a question is the same page with its panel open. The child routes have no component of their own, so the page is kept as it
+    // is, with its list and filters, when an edit opens and closes; the page reads which question to edit from the address.
+    children: [
+      { path: '', pathMatch: 'full', children: [] },
+      { path: ':id/edit', canActivate: [permissionGuard(Permission.QuestionManage)], children: [] },
+    ],
   },
   {
     path: 'admin/books',

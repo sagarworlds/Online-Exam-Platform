@@ -53,8 +53,7 @@
   background: var(--surface-muted);
 }
 
-.filters-panel[hidden],
-.question-form[hidden] {
+.filters-panel[hidden] {
   display: none;
 }
 

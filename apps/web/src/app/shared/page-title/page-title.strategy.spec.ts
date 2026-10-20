@@ -30,6 +30,23 @@ describe('PageTitleStrategy', () => {
     expect(deepestRoutePath(snapshotOn('attempt/:attemptId/review'))).toBe('attempt/:attemptId/review');
   });
 
+  it('joins the paths of a route and its children, as the URL has them, so a page with a panel route is named for the panel', () => {
+    const nested = (...paths: (string | undefined)[]) => {
+      const chain = paths.reduceRight<unknown>((child, path) => ({ routeConfig: { path }, firstChild: child }), null);
+      return { root: { routeConfig: null, firstChild: chain } } as unknown as RouterStateSnapshot;
+    };
+
+    expect(deepestRoutePath(nested('admin/questions', ':id/edit'))).toBe('admin/questions/:id/edit');
+    // The child with no path of its own is the page itself.
+    expect(deepestRoutePath(nested('admin/questions', ''))).toBe('admin/questions');
+    expect(deepestRoutePath({ root: { routeConfig: null, firstChild: null } } as unknown as RouterStateSnapshot)).toBeUndefined();
+  });
+
+  it('names the question bank, with or without a question open in its panel', () => {
+    expect(PAGE_TITLE_KEYS['admin/questions']).toBe('admin.area.questions.name');
+    expect(PAGE_TITLE_KEYS['admin/questions/:id/edit']).toBe('pageTitle.questionEdit');
+  });
+
   it('puts the page name before the app name in the tab', () => {
     const title = setTitle();
 

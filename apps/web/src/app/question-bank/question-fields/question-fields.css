@@ -1,0 +1,59 @@
+/* An option is one line, so a question with six of them stays short. */
+.option-row {
+  gap: 0.35rem;
+}
+
+/* The pin is on while the option is kept in place when options are shuffled. */
+.option-row .icon-btn--on,
+.option-row .icon-btn--on:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.option-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  margin-top: 0.25rem;
+}
+
+.option-tools .inline-check {
+  margin: 0;
+}
+
+/* An icon beside words takes the room of its drawing, not the whole button, as it does when it is the button's only content. */
+.option-tools .btn--small,
+.more-details__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.option-tools app-icon,
+.more-details__toggle app-icon {
+  width: auto;
+  height: auto;
+}
+
+/* The optional details: a quiet text button, with what is already set said beside it while it is closed. */
+.more-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.more-details .hint {
+  margin: 0;
+}
+
+.more-details__toggle {
+  padding-inline: 0.25rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--primary);
+  font-weight: 600;
+}

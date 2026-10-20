@@ -1,0 +1,83 @@
+<app-modal-dialog [heading]="heading()" side [guarded]="changed" (closeRequested)="askToDiscard()" (closed)="closed.emit()">
+  @if (loading()) {
+    <p role="status">Loading…</p>
+  } @else if (loadError()) {
+    <p class="error-message" role="alert">{{ loadError() }}</p>
+  } @else {
+    <form id="question-panel-form" class="question-form" [formGroup]="form" (ngSubmit)="submit()" [attr.aria-label]="heading()">
+      @if (question(); as current) {
+        <p class="panel-where">
+          @if (current.chapterId) {
+            @if (current.className) {
+              {{ current.className }} <span aria-hidden="true">›</span>
+            }
+            {{ current.bookName }} <span aria-hidden="true">›</span> {{ current.chapterTitle }}
+          } @else {
+            <span class="hint">Not filed under a chapter</span>
+          }
+          <span class="hint"> · To move it, use “File under” in the question bank.</span>
+        </p>
+        @if (current.usage.examCount > 0) {
+          <p class="hint">
+            In {{ current.usage.examCount === 1 ? 'the exam' : current.usage.examCount + ' exams' }}
+            {{ current.usage.examNames.join(', ') }}{{ current.usage.examCount > current.usage.examNames.length ? ' and others' : '' }}.
+          </p>
+        }
+      } @else {
+        <app-book-chapter-picker [books]="books()" idPrefix="question" [(value)]="placement" />
+      }
+
+      <app-question-fields [wordingOnly]="wordingOnly()" [topicSuggestions]="topics()" [showLanguage]="!isEdit()" />
+    </form>
+  }
+
+  <!--
+    What happened to Save, and the buttons, in the footer: it stays in view while the form scrolls, so the author sees the result of pressing
+    Save wherever they were in a long form. A refusal takes focus (QuestionPanel.focusOnceRendered), which also scrolls it into view.
+  -->
+  <div modalFooter>
+    @if (savedNotice()) {
+      <p class="success-message" role="status">Question saved.</p>
+    }
+    @if (saveError()) {
+      <p #saveFailure class="error-message" role="alert" tabindex="-1">{{ saveError() }}</p>
+    }
+    @if (repeat(); as pending) {
+      <section #repeatCard class="card question-repeat" role="alert" tabindex="-1" aria-labelledby="question-repeat-heading">
+        <h3 id="question-repeat-heading">This question is already in the bank</h3>
+        <p>The bank has a question with this wording and these {{ pending.request.isTextAnswer ? 'accepted answers' : 'options' }}:</p>
+        <ul>
+          @for (match of pending.matches; track match.id) {
+            @if (match.sameOptions) {
+              <li>{{ match.preview }} <span class="badge">{{ match.status }}</span></li>
+            }
+          }
+        </ul>
+        <div class="panel-actions">
+          <button type="button" (click)="addAnyway()" [disabled]="saving()">Add it anyway</button>
+          <button type="button" class="primary" (click)="dismissRepeat()">Don't add it</button>
+        </div>
+      </section>
+    }
+
+    @if (confirmingDiscard()) {
+      <div #discardAsk class="panel-confirm" role="alertdialog" aria-labelledby="panel-discard-text" tabindex="-1">
+        <p id="panel-discard-text">Throw away what you have {{ isEdit() ? 'changed' : 'typed' }}?</p>
+        <div class="panel-actions">
+          <button type="button" class="btn--danger" (click)="discard()">Discard</button>
+          <button type="button" class="primary" (click)="keepEditing()">Keep editing</button>
+        </div>
+      </div>
+    } @else {
+      <div class="panel-actions">
+        @if (isEdit()) {
+          <button type="submit" form="question-panel-form" class="primary" [disabled]="!canSave">Save changes</button>
+        } @else {
+          <button type="submit" form="question-panel-form" class="primary" [disabled]="!canSave">Save</button>
+          <button type="button" (click)="saveAndAddAnother()" [disabled]="!canSave">Save and add another</button>
+        }
+        <button type="button" (click)="requestClose()">Cancel</button>
+      </div>
+    }
+  </div>
+</app-modal-dialog>

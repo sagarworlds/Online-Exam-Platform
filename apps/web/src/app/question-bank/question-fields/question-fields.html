@@ -3,79 +3,33 @@
   <app-rich-text-editor formControlName="text" inputId="question-text" labelledBy="question-text-label" />
 </div>
 
-<div class="field">
-  <label for="question-type">Question type</label>
-  <select id="question-type" formControlName="questionType" [attr.disabled]="wordingOnly() ? '' : null" aria-describedby="question-type-hint">
-    @for (type of questionTypes; track type.value) {
-      <option [value]="type.value">{{ type.label }}</option>
-    }
-  </select>
-  <p class="hint" id="question-type-hint">
-    Multiple choice: the candidate chooses from the options. Text answer: the candidate types the answer, and it is marked right when it matches one of the accepted answers.
-  </p>
-</div>
-
 <div class="field-row">
   <div class="field">
-    <label for="question-difficulty">Difficulty</label>
-    <select id="question-difficulty" formControlName="difficulty">
-      <option value="">Not set</option>
-      @for (level of difficulties; track level.value) {
-        <option [value]="level.value">{{ level.label }}</option>
+    <label for="question-type">Question type</label>
+    <select id="question-type" formControlName="questionType" [attr.disabled]="wordingOnly() ? '' : null" aria-describedby="question-type-hint">
+      @for (type of questionTypes; track type.value) {
+        <option [value]="type.value">{{ type.label }}</option>
       }
     </select>
+    <p class="hint" id="question-type-hint">
+      {{ isText ? 'The candidate types the answer. It is right when it matches an accepted answer.' : 'The candidate chooses from the options.' }}
+    </p>
   </div>
-  <div class="field">
-    <label for="question-topics">Topics</label>
-    <input id="question-topics" type="text" formControlName="topics" list="question-topic-suggestions" autocomplete="off" aria-describedby="question-topics-hint" />
-    <datalist id="question-topic-suggestions">
-      @for (topic of topicSuggestions(); track topic) {
-        <option [value]="topic"></option>
-      }
-    </datalist>
-    <p class="hint" id="question-topics-hint">Separate with commas, up to {{ limits.maxTopics }}, for example "fractions, ratios".</p>
-    @if (form.controls.topics.errors?.['tooManyTopics']) {
-      <p class="error-message" role="alert">Use at most {{ limits.maxTopics }} topics.</p>
-    }
-    @if (form.controls.topics.errors?.['topicTooLong']) {
-      <p class="error-message" role="alert">A topic can be at most {{ limits.maxTopicLength }} characters.</p>
-    }
-  </div>
-</div>
-
-<div class="field">
-  <label for="question-explanation">{{ 'questions.explanation.label' | t }}</label>
-  <textarea
-    id="question-explanation"
-    rows="3"
-    maxlength="2000"
-    formControlName="explanation"
-    aria-describedby="question-explanation-hint"
-  ></textarea>
-  <p class="hint" id="question-explanation-hint">
-    {{ 'questions.explanation.hint' | t }}
-  </p>
-  @if (form.controls.explanation.errors?.['maxlength']) {
-    <p class="error-message" role="alert">{{ 'questions.explanation.tooLong' | t: { max: 2000 } }}</p>
+  @if (showLanguage()) {
+    <div class="field">
+      <label for="question-language">Language</label>
+      <select id="question-language" formControlName="language">
+        @for (language of languages; track language.code) {
+          <option [value]="language.code">{{ language.label }}</option>
+        }
+      </select>
+    </div>
   }
 </div>
 
 @if (!isText) {
 <fieldset class="field" formArrayName="options">
   <legend>Options ({{ form.controls.allowsMultiple.value ? 'tick every correct one' : 'pick the correct one' }})</legend>
-  <label class="inline-check">
-    <input
-      type="checkbox"
-      [checked]="form.controls.allowsMultiple.value"
-      [attr.disabled]="wordingOnly() ? '' : null"
-      (change)="setAllowsMultiple($any($event.target).checked)"
-    />
-    More than one answer can be correct
-  </label>
-  <p class="hint">
-    Candidates then choose a set of options and are marked right only when they choose exactly the correct ones, with none missing and none extra.
-  </p>
-  <p class="hint">Tick "Keep in place" on an option such as "None of the above" so it stays where it is when options are shuffled.</p>
   @if (wordingOnly()) {
     <p class="hint question-lock-note" role="note">
       Candidates have answered this question, so only its wording can change. The correct option or options, whether several can be correct, the list of options and
@@ -97,17 +51,53 @@
           [attr.aria-label]="'Option ' + (i + 1) + ' is correct'"
         />
       }
-      <input type="text" formControlName="text" [attr.aria-label]="'Option ' + (i + 1) + ' text'" />
-      <label class="inline-check option-pin">
-        <input type="checkbox" formControlName="pinned" [attr.disabled]="wordingOnly() ? '' : null" [attr.aria-label]="'Keep option ' + (i + 1) + ' in place when options are shuffled'" />
-        Keep in place
-      </label>
-      <button type="button" (click)="removeOption(i)" [disabled]="wordingOnly() || options.length <= limits.minOptions">
-        Remove
+      <input type="text" formControlName="text" [placeholder]="'Option ' + (i + 1)" [attr.aria-label]="'Option ' + (i + 1) + ' text'" />
+      <button
+        type="button"
+        class="icon-btn option-pin"
+        [class.icon-btn--on]="option.controls.pinned.value"
+        appTooltip="Keep in place when options are shuffled"
+        [attr.aria-label]="'Keep option ' + (i + 1) + ' in place when options are shuffled'"
+        [attr.aria-pressed]="option.controls.pinned.value"
+        [disabled]="wordingOnly()"
+        (click)="togglePin(i)"
+      >
+        <app-icon name="pin" />
+      </button>
+      <button
+        type="button"
+        class="icon-btn icon-btn--danger"
+        [appTooltip]="'Remove option ' + (i + 1)"
+        [attr.aria-label]="'Remove option ' + (i + 1)"
+        [disabled]="wordingOnly() || options.length <= limits.minOptions"
+        (click)="removeOption(i)"
+      >
+        <app-icon name="close" />
       </button>
     </div>
   }
-  <button type="button" (click)="addOption()" [disabled]="wordingOnly() || options.length >= limits.maxOptions">Add option</button>
+  <div class="option-tools">
+    <button type="button" class="btn--small" (click)="addOption()" [disabled]="wordingOnly() || options.length >= limits.maxOptions">
+      <app-icon name="plus" /> Add option
+    </button>
+    <label class="inline-check">
+      <input
+        type="checkbox"
+        [checked]="form.controls.allowsMultiple.value"
+        [attr.disabled]="wordingOnly() ? '' : null"
+        aria-describedby="question-multiple-hint"
+        (change)="setAllowsMultiple($any($event.target).checked)"
+      />
+      More than one answer can be correct
+    </label>
+  </div>
+  <p class="hint" id="question-multiple-hint">
+    {{
+      form.controls.allowsMultiple.value
+        ? 'Candidates are marked right only when they choose exactly the correct ones, with none missing and none extra.'
+        : 'The pin keeps an option such as "None of the above" in place when options are shuffled.'
+    }}
+  </p>
 </fieldset>
 }
 
@@ -115,7 +105,7 @@
   <fieldset class="field" formArrayName="acceptedAnswers">
     <legend>Accepted answers</legend>
     <p class="hint">
-      A typed answer is right when it matches one of these. Capital letters and extra spaces do not matter, so "Paris" also accepts "paris" and "  PARIS ".
+      A typed answer is right when it matches one of these. Capital letters and extra spaces do not matter, so "Paris" also accepts "paris".
       List each spelling the candidate may type as its own row.
     </p>
     @if (wordingOnly()) {
@@ -126,10 +116,23 @@
     @for (answer of acceptedAnswers.controls; track $index; let i = $index) {
       <div class="option-row">
         <input type="text" [formControlName]="i" [attr.disabled]="wordingOnly() ? '' : null" [attr.aria-label]="'Accepted answer ' + (i + 1)" />
-        <button type="button" (click)="removeAcceptedAnswer(i)" [disabled]="wordingOnly() || acceptedAnswers.length <= 1">Remove</button>
+        <button
+          type="button"
+          class="icon-btn icon-btn--danger"
+          [appTooltip]="'Remove accepted answer ' + (i + 1)"
+          [attr.aria-label]="'Remove accepted answer ' + (i + 1)"
+          [disabled]="wordingOnly() || acceptedAnswers.length <= 1"
+          (click)="removeAcceptedAnswer(i)"
+        >
+          <app-icon name="close" />
+        </button>
       </div>
     }
-    <button type="button" (click)="addAcceptedAnswer()" [disabled]="wordingOnly() || acceptedAnswers.length >= limits.maxAcceptedAnswers">Add accepted answer</button>
+    <div class="option-tools">
+      <button type="button" class="btn--small" (click)="addAcceptedAnswer()" [disabled]="wordingOnly() || acceptedAnswers.length >= limits.maxAcceptedAnswers">
+        <app-icon name="plus" /> Add accepted answer
+      </button>
+    </div>
     @if (form.errors?.['noAcceptedAnswer']) {
       <p class="error-message" role="alert">Add at least one accepted answer.</p>
     }
@@ -141,3 +144,61 @@
     }
   </fieldset>
 }
+
+<!-- Difficulty, topics and the explanation are optional, so they are folded away; what is already set is said beside the button. -->
+<div class="more-details">
+  <button type="button" class="more-details__toggle" aria-controls="question-more" [attr.aria-expanded]="showMore" (click)="moreOpen.set(!moreOpen())">
+    <app-icon [name]="showMore ? 'chevron-up' : 'chevron-down'" />
+    More details
+  </button>
+  @if (!showMore && detailsSummary) {
+    <span class="hint">{{ detailsSummary }}</span>
+  }
+</div>
+
+<div id="question-more" [hidden]="!showMore">
+  <div class="field-row">
+    <div class="field">
+      <label for="question-difficulty">Difficulty</label>
+      <select id="question-difficulty" formControlName="difficulty">
+        <option value="">Not set</option>
+        @for (level of difficulties; track level.value) {
+          <option [value]="level.value">{{ level.label }}</option>
+        }
+      </select>
+    </div>
+    <div class="field">
+      <label for="question-topics">Topics</label>
+      <input id="question-topics" type="text" formControlName="topics" list="question-topic-suggestions" autocomplete="off" aria-describedby="question-topics-hint" />
+      <datalist id="question-topic-suggestions">
+        @for (topic of topicSuggestions(); track topic) {
+          <option [value]="topic"></option>
+        }
+      </datalist>
+      <p class="hint" id="question-topics-hint">Separate with commas, up to {{ limits.maxTopics }}, for example "fractions, ratios".</p>
+      @if (form.controls.topics.errors?.['tooManyTopics']) {
+        <p class="error-message" role="alert">Use at most {{ limits.maxTopics }} topics.</p>
+      }
+      @if (form.controls.topics.errors?.['topicTooLong']) {
+        <p class="error-message" role="alert">A topic can be at most {{ limits.maxTopicLength }} characters.</p>
+      }
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="question-explanation">{{ 'questions.explanation.label' | t }}</label>
+    <textarea
+      id="question-explanation"
+      rows="3"
+      maxlength="2000"
+      formControlName="explanation"
+      aria-describedby="question-explanation-hint"
+    ></textarea>
+    <p class="hint" id="question-explanation-hint">
+      {{ 'questions.explanation.hint' | t }}
+    </p>
+    @if (form.controls.explanation.errors?.['maxlength']) {
+      <p class="error-message" role="alert">{{ 'questions.explanation.tooLong' | t: { max: 2000 } }}</p>
+    }
+  </div>
+</div>

@@ -1,32 +1,20 @@
-import { afterNextRender, Component, computed, ElementRef, inject, Injector, Signal, signal, viewChild } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
+import { filter, take } from 'rxjs';
 import { BookApiService } from '../book-management/book-api.service';
 import { ANY_CLASS, bookOptionLabel, booksInClass, classChoicesOf } from '../book-management/book-class';
 import { BookDto } from '../book-management/book.models';
 import { Icon } from '../shared/icon/icon';
 import { ModalDialog } from '../shared/modal-dialog/modal-dialog';
-import { extractErrorMessage, extractProblemCode } from '../shared/problem-details';
+import { extractErrorMessage } from '../shared/problem-details';
 import { Tooltip } from '../shared/tooltip/tooltip';
-import { BookChapterPicker, isCompletePlacement, NO_PLACEMENT, Placement } from './book-chapter-picker/book-chapter-picker';
+import { BookChapterPicker, NO_PLACEMENT, Placement } from './book-chapter-picker/book-chapter-picker';
 import { ContentEncryptionStatusPanel } from './content-encryption-status/content-encryption-status';
 import { QuestionApiService } from './question-api.service';
+import { QuestionCreated, QuestionPanel } from './question-panel/question-panel';
 import { QuestionRow } from './question-row/question-row';
 import {
-  answersToCompare,
-  createQuestionForm,
-  newOption,
-  setAcceptedAnswers,
-  toAcceptedAnswers,
-  toAllowsMultiple,
-  toExplanation,
-  toIsTextAnswer,
-  toLabels,
-  toNewOptions,
-} from './question-form';
-import { QuestionFields } from './question-fields/question-fields';
-import {
-  CreateQuestionRequest,
-  DuplicateQuestion,
   FileQuestionsResult,
   QUESTION_DIFFICULTIES,
   QUESTION_LANGUAGES,
@@ -48,35 +36,39 @@ export const UNFILED = 'unfiled';
 export type FilterKey = 'class' | 'book' | 'chapter' | 'difficulty' | 'status' | 'language' | 'topic';
 
 /**
- * Admin page: the newest questions, a line each, and a form to add one with its options and correct answer (FR-5). A question can
- * be filed under a chapter of a book of a class, and the list can be narrowed to a class, a book, a chapter, or what is not filed yet.
+ * Admin page: the newest questions, a line each. A question is added or edited in a panel down the side of the page (FR-5, FR-7), so the
+ * list, its filters and how far it has been read stay where they are behind it. A question can be filed under a chapter of a book of a
+ * class, and the list can be narrowed to a class, a book, a chapter, or what is not filed yet.
  *
  * The page keeps to one screen of what matters: a toolbar (search, filters, import and export, new question), the filters that are on as
- * chips, and the list. The form and the filter choices are folded away until asked for, and the list is read {@link QUESTION_LIST_PAGE_SIZE}
- * at a time.
+ * chips, and the list. The filter choices are folded away until asked for, and the list is read {@link QUESTION_LIST_PAGE_SIZE} at a time.
+ *
+ * Editing is a child route, `/admin/questions/:id/edit`, so an edit can be linked to and the Back button closes it; the page itself is not
+ * rebuilt when that route comes and goes, which is what keeps the list as it was.
  */
 @Component({
   selector: 'app-question-bank',
-  imports: [ReactiveFormsModule, Icon, BookChapterPicker, ContentEncryptionStatusPanel, ModalDialog, QuestionFields, QuestionRow, QuestionTransfer, Tooltip],
+  imports: [Icon, BookChapterPicker, ContentEncryptionStatusPanel, ModalDialog, QuestionPanel, QuestionRow, QuestionTransfer, Tooltip],
   templateUrl: './question-bank.html',
   styleUrl: './question-bank.css',
 })
 export class QuestionBank {
-  private readonly formBuilder = inject(FormBuilder);
   private readonly api = inject(QuestionApiService);
   private readonly bookApi = inject(BookApiService);
-  private readonly injector = inject(Injector);
-
-  /** The warning that the bank already has the question, once it is on the page. */
-  private readonly repeatCard = viewChild<ElementRef<HTMLElement>>('repeatCard');
-  /** The reason the last Save was refused, once it is on the page. */
-  private readonly saveFailure = viewChild<ElementRef<HTMLElement>>('saveFailure');
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   protected readonly unfiled = UNFILED;
   /** How many questions each read adds, for the "Load more" button's words. */
   protected readonly pageSize = QUESTION_LIST_PAGE_SIZE;
-  /** Whether the new-question form is open. It is folded away until the author asks for it, and stays open between saves. */
-  protected readonly formOpen = signal(false);
+  /** Whether the panel for a new question is open. */
+  protected readonly creating = signal(false);
+  /** The question the panel is editing, from the address, or null. */
+  protected readonly editingId = signal<string | null>(null);
+  /** Whether the panel is open, to add a question or to edit one. */
+  protected readonly panelOpen = computed(() => this.creating() || this.editingId() !== null);
+  /** The language a new question is written in, kept between panels: an author enters many in one language in a row. */
+  protected readonly language = signal<QuestionLanguage>('en');
   /** Whether the filter choices are showing. The ones that are on show as chips whether or not they are. */
   protected readonly filtersOpen = signal(false);
   /** Whether the import and export dialog is open. */
@@ -86,14 +78,8 @@ export class QuestionBank {
   protected readonly loadingMore = signal(false);
   /** Whether the last page came back full, so there may be older questions to load. */
   protected readonly mayHaveMore = signal(false);
-  protected readonly saving = signal(false);
-  protected readonly saved = signal(false);
   /** Why the page could not load something: the list, the books or the topics. */
   protected readonly errorMessage = signal<string | null>(null);
-  /** Why the last Save was refused, other than as a repeat; shown under the form, next to the button that was pressed. */
-  protected readonly saveError = signal<string | null>(null);
-  /** A question the bank refused as a repeat, with what it repeats, until the author adds it anyway or gives up (FR-9). */
-  protected readonly repeat = signal<{ request: CreateQuestionRequest; matches: DuplicateQuestion[] } | null>(null);
   /** What candidates did on the questions whose statistics were opened, by question id (FR-9). */
   protected readonly statistics = signal<Record<string, QuestionStatistics>>({});
   /** What the last action on the list did, such as a deletion; announced to screen readers. */
@@ -115,11 +101,10 @@ export class QuestionBank {
   protected readonly books = signal<BookDto[]>([]);
 
   /**
-   * Where the new question is filed. A book needs a chapter, because a question belongs to a chapter, not a book.
-   * It survives saving: an author enters many questions into one chapter in a row.
+   * Where a new question is filed. A book needs a chapter, because a question belongs to a chapter, not a book.
+   * It is kept here, not in the panel, which is a new one each time: an author enters many questions into one chapter in a row.
    */
   protected readonly placement = signal<Placement>(NO_PLACEMENT);
-  protected readonly placementComplete = computed(() => isCompletePlacement(this.placement()));
 
   /** The list filter: a class id or '' for every class; a book id, {@link UNFILED}, or '' for everything; and a chapter id or ''. */
   protected readonly filterClass = signal(ANY_CLASS);
@@ -143,8 +128,6 @@ export class QuestionBank {
   protected readonly filterBooks = computed(() => booksInClass(this.books(), this.filterClass()));
   protected readonly optionLabel = bookOptionLabel;
   protected readonly filterChapters = computed(() => this.books().find((book) => book.id === this.filterBook())?.chapters ?? []);
-
-  protected readonly form = createQuestionForm(this.formBuilder);
 
   /** The filters that are on, as the words a chip shows. The search is not one: it has its own box, which says what it is. */
   protected readonly activeFilters = computed<{ key: FilterKey; label: string }[]>(() => {
@@ -190,6 +173,55 @@ export class QuestionBank {
       next: (books) => this.books.set(books),
       error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
     });
+
+    // The edit panel follows the address: opened by a link to it or the Edit icon, closed by Back as well as by its own buttons.
+    this.editingId.set(this.editedQuestionId());
+    this.router.events
+      .pipe(
+        filter((event) => event instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.editingId.set(this.editedQuestionId()));
+  }
+
+  /**
+   * The question the address names to edit, if it does. Read from the child route's parameters as an observable that answers at once:
+   * while this page is being built for a link straight to an edit, that route has no `snapshot` yet, but it already has its parameters.
+   */
+  private editedQuestionId(): string | null {
+    let id: string | null = null;
+    this.route.firstChild?.paramMap.pipe(take(1)).subscribe((params) => (id = params.get('id')));
+    return id;
+  }
+
+  protected openNewQuestion(): void {
+    this.creating.set(true);
+  }
+
+  /** The panel closed, after a save or without one. An edit's address goes back to the list; the list itself was never rebuilt. */
+  protected onPanelClosed(): void {
+    this.creating.set(false);
+    if (this.editingId() !== null) {
+      void this.router.navigate(['/admin/questions']);
+    }
+  }
+
+  /**
+   * A question was added: the list is read again for it, and its topics offered. Said here only when the panel closes with it, as one that
+   * stays open for the next question says so itself.
+   */
+  protected onCreated(created: QuestionCreated): void {
+    this.notice.set(created.another ? null : 'Question saved.');
+    this.refresh();
+    // The new question may have brought a topic nobody used before.
+    this.loadTopics();
+  }
+
+  /** A question was edited: its line shows it as it is now, without reading the whole list again. */
+  protected onEdited(updated: QuestionDto): void {
+    this.questions.update((list) => list.map((question) => (question.id === updated.id ? updated : question)));
+    this.notice.set('Question saved.');
+    this.loadTopics();
   }
 
   protected onFilterClassChanged(value: string): void {
@@ -303,117 +335,12 @@ export class QuestionBank {
     this.refresh();
   }
 
-  protected submit(): void {
-    if (this.form.invalid || !this.placementComplete() || this.saving()) {
-      return;
-    }
-
-    const request: CreateQuestionRequest = {
-      text: this.form.getRawValue().text,
-      chapterId: this.placement().chapterId || null,
-      options: toNewOptions(this.form),
-      ...toLabels(this.form),
-      allowsMultiple: toAllowsMultiple(this.form),
-      language: this.form.getRawValue().language,
-      isTextAnswer: toIsTextAnswer(this.form),
-      acceptedAnswers: toAcceptedAnswers(this.form),
-      explanation: toExplanation(this.form),
-    };
-
-    this.send(request);
-  }
-
-  /** Adds the question the bank called a repeat, because the author looked at what it repeats and still wants it. */
-  protected addAnyway(): void {
-    const pending = this.repeat();
-    if (pending && !this.saving()) {
-      this.send({ ...pending.request, allowDuplicate: true });
-    }
-  }
-
-  protected dismissRepeat(): void {
-    this.repeat.set(null);
-  }
-
   /** Loads how candidates did on a question, for its card. */
   protected onStatisticsRequested(questionId: string): void {
     this.api.statistics(questionId).subscribe({
       next: (stats) => this.statistics.update((all) => ({ ...all, [questionId]: stats })),
       error: (error: unknown) => this.failAction(questionId, error),
     });
-  }
-
-  private send(request: CreateQuestionRequest): void {
-    this.saving.set(true);
-    this.saved.set(false);
-    this.errorMessage.set(null);
-    this.saveError.set(null);
-    this.repeat.set(null);
-
-    this.api.create(request).subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.saved.set(true);
-        this.resetForm();
-        this.refresh();
-        // The new question may have brought a topic nobody used before.
-        this.loadTopics();
-      },
-      error: (error: unknown) => {
-        this.saving.set(false);
-        if (extractProblemCode(error) === 'duplicate_question') {
-          this.showRepeat(request, error);
-          return;
-        }
-        this.showSaveError(error);
-      },
-    });
-  }
-
-  /**
-   * Looks up what the refused question repeats, so the author can see it before deciding. The warning is below the Save button and takes
-   * focus, which also scrolls it into view: the form is long, and a warning anywhere else on the page is out of sight when Save is pressed.
-   */
-  private showRepeat(request: CreateQuestionRequest, refusal: unknown): void {
-    this.api.duplicates(request.text, answersToCompare(request)).subscribe({
-      next: (matches) => {
-        this.repeat.set({ request, matches });
-        this.focusOnceRendered(this.repeatCard);
-      },
-      // The refusal itself is the message when the list of matches cannot be had.
-      error: () => this.showSaveError(refusal),
-    });
-  }
-
-  /** Shows why Save was refused, under the form for the same reason as the repeat warning, and takes the author there. */
-  private showSaveError(error: unknown): void {
-    this.saveError.set(extractErrorMessage(error));
-    this.focusOnceRendered(this.saveFailure);
-  }
-
-  /** Moves focus to a message the page has just shown and brings all of it into view. The message exists only after the next render. */
-  private focusOnceRendered(message: Signal<ElementRef<HTMLElement> | undefined>): void {
-    afterNextRender(
-      () => {
-        const element = message()?.nativeElement;
-        if (element) {
-          // Focus does not scroll here: when a message is only partly on screen, browsers differ in how far focus moves it (WebKit leaves it
-          // flush against the screen's edge, a pixel short), so the page is scrolled below, the same way in every engine.
-          element.focus({ preventScroll: true });
-          this.revealWhole(element);
-        }
-      },
-      { injector: this.injector },
-    );
-  }
-
-  /** Scrolls an element that is not wholly on screen to the middle of it, or to its top when it is taller than the screen. */
-  private revealWhole(element: HTMLElement): void {
-    const { top, bottom } = element.getBoundingClientRect();
-    const screenHeight = element.ownerDocument.documentElement.clientHeight;
-    if (top < 0 || bottom > screenHeight) {
-      element.scrollIntoView({ block: bottom - top > screenHeight ? 'start' : 'center' });
-    }
   }
 
   protected toggleSelected(id: string, selected: boolean): void {
@@ -491,7 +418,6 @@ export class QuestionBank {
   private startAction(id: string): void {
     this.busyId.set(id);
     this.notice.set(null);
-    this.saved.set(false);
     this.cardErrors.update((errors) => Object.fromEntries(Object.entries(errors).filter(([key]) => key !== id)));
   }
 
@@ -585,22 +511,5 @@ export class QuestionBank {
         this.errorMessage.set(extractErrorMessage(error));
       },
     });
-  }
-
-  private resetForm(): void {
-    // The language stays as it was: an author enters many questions in one language in a row.
-    this.form.reset({
-      text: '',
-      questionType: 'choice',
-      allowsMultiple: false,
-      correctIndex: -1,
-      difficulty: '',
-      topics: '',
-      language: this.form.getRawValue().language,
-    });
-    this.form.controls.options.clear();
-    this.form.controls.options.push(newOption(this.formBuilder));
-    this.form.controls.options.push(newOption(this.formBuilder));
-    setAcceptedAnswers(this.form, this.formBuilder);
   }
 }
