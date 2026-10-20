@@ -79,6 +79,9 @@ export class StudentList {
   protected readonly deactivateBusy = signal(false);
   protected readonly deactivateError = signal<string | null>(null);
 
+  /** The student whose account is being turned back on, so the icon cannot be pressed twice while the answer is on its way. */
+  protected readonly reactivatingId = signal<string | null>(null);
+
   /** The rows that are open, by {@link StudentRow.key}. Only the staff member's choices change it. */
   protected readonly expanded = signal<ReadonlySet<string>>(new Set());
 
@@ -188,6 +191,32 @@ export class StudentList {
       this.deactivateError.set(null);
       this.deactivating.set({ id: row.account.id, name: row.title });
     }
+  }
+
+  /**
+   * Turns a deactivated account back on, without asking: it is the safe direction, and a mistake is undone by deactivating again. The
+   * student signs in again with a code sent to their e-mail address or mobile number; nothing is sent to them from here.
+   */
+  protected reactivate(row: StudentRow): void {
+    const account = row.account;
+    if (account === null || this.reactivatingId() !== null) {
+      return;
+    }
+
+    this.reactivatingId.set(account.id);
+    this.studentApi.reactivateStudent(account.id).subscribe({
+      next: () => {
+        this.reactivatingId.set(null);
+        this.notice.set(`Reactivated ${row.title}. They can sign in again with a code sent to their e-mail address or mobile number.`);
+        afterNextRender(() => this.noticeElement()?.nativeElement.focus(), { injector: this.injector });
+        this.reload.next();
+      },
+      error: (error: unknown) => {
+        this.reactivatingId.set(null);
+        this.notice.set(null);
+        this.errorMessage.set(extractErrorMessage(error));
+      },
+    });
   }
 
   protected closeDeactivate(): void {

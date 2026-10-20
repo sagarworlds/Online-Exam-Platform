@@ -612,6 +612,87 @@ public sealed class StudentFlowTests(ApiFactory factory) : IClassFixture<ApiFact
         Assert.Equal("Active", (await StudentOfAsync(admin, user.UserId)).GetProperty("status").GetString());
     }
 
+    private static Task<HttpResponseMessage> ReactivateAsync(HttpClient staff, Guid studentId) =>
+        staff.PostAsync($"/v1/admin/students/{studentId}/reactivate", content: null);
+
+    [Fact]
+    public async Task Reactivate_LetsTheStudentSignInAgain_WithACode_ButBringsNoOldSessionBack()
+    {
+        using var admin = await StaffClientAsync("ExamAdmin");
+        var (student, user, _) = await StudentAsync();
+        using var oldSession = student;
+        (await DeactivateAsync(admin, user.UserId)).EnsureSuccessStatusCode();
+
+        var response = await ReactivateAsync(admin, user.UserId);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Active", (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+        // What the deactivation ended stays ended: the student has to sign in again.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await oldSession.GetAsync("/v1/me/profile")).StatusCode);
+        using var signedInAgain = await SignInWithCodeAsync(user.Email);
+        Assert.Equal(HttpStatusCode.OK, (await signedInAgain.GetAsync("/v1/me/profile")).StatusCode);
+        Assert.Equal("Active", (await StudentOfAsync(admin, user.UserId)).GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task Reactivate_IsAuditedWithWhoDidIt_AndNoPersonalData_AndOnlyOnce()
+    {
+        var (admin, superAdmin) = await StaffAsync("SuperAdmin");
+        using var adminClient = admin;
+        var (_, user, phone) = await StudentAsync();
+        (await DeactivateAsync(admin, user.UserId)).EnsureSuccessStatusCode();
+
+        (await ReactivateAsync(admin, user.UserId)).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, (await ReactivateAsync(admin, user.UserId)).StatusCode);
+
+        var entry = Assert.Single(await StudentAuditEntriesAsync(admin, superAdmin.UserId, user.UserId, "Identity.StudentReactivated"));
+        Assert.Equal(superAdmin.UserId, entry.GetProperty("actorUserId").GetGuid());
+        var recorded = entry.GetRawText();
+        Assert.DoesNotContain(user.Email, recorded, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(phone, recorded, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Reactivate_OfAStudentWhoIsNotDeactivated_ChangesNothing()
+    {
+        using var admin = await StaffClientAsync("ExamAdmin");
+        var (student, user, _) = await StudentAsync();
+        using var studentClient = student;
+
+        var response = await ReactivateAsync(admin, user.UserId);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Active", (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+        Assert.Equal(HttpStatusCode.OK, (await studentClient.GetAsync("/v1/me/profile")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Reactivate_OfAStaffAccountOrAnUnknownId_Returns404()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var colleague = await factory.SignInAsAsync("InstituteTeacher");
+
+        await AssertProblemAsync(await ReactivateAsync(admin, colleague.UserId), HttpStatusCode.NotFound, "user_not_found");
+        await AssertProblemAsync(await ReactivateAsync(admin, Guid.NewGuid()), HttpStatusCode.NotFound, "user_not_found");
+    }
+
+    [Fact]
+    public async Task Reactivate_ByATeacherOrAStudent_Returns403_AndTheAccountStaysDeactivated()
+    {
+        using var admin = await StaffClientAsync("ExamAdmin");
+        using var teacher = await StaffClientAsync("InstituteTeacher");
+        var (_, user, _) = await StudentAsync();
+        // Another student, still signed in: the deactivated one's own session has ended, so it would be refused as 401, not 403.
+        var (other, _, _) = await StudentAsync();
+        using var otherStudent = other;
+        (await DeactivateAsync(admin, user.UserId)).EnsureSuccessStatusCode();
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await ReactivateAsync(teacher, user.UserId)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await ReactivateAsync(otherStudent, user.UserId)).StatusCode);
+
+        Assert.Equal("Deactivated", (await StudentOfAsync(admin, user.UserId)).GetProperty("status").GetString());
+    }
+
     // ---- who may ----------------------------------------------------------------------------------
 
     [Fact]
@@ -660,6 +741,7 @@ public sealed class StudentFlowTests(ApiFactory factory) : IClassFixture<ApiFact
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"/v1/admin/students/{id}")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await UpdateAsync(client, id, Profile("x", "x@example.com", null))).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await DeactivateAsync(client, id)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await ReactivateAsync(client, id)).StatusCode);
     }
 
     private static async Task<List<JsonElement>> StudentAuditEntriesAsync(

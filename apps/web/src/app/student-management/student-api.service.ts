@@ -38,4 +38,12 @@ export class StudentApiService {
   deactivateStudent(studentId: string): Observable<StudentDto> {
     return this.http.post<StudentDto>(`${this.apiUrl}/${studentId}/deactivate`, null);
   }
+
+  /**
+   * Turns a deactivated account back on: the student can sign in again with a code. Only a deactivated account changes (a suspended one
+   * stays suspended), and the profile comes back with its status as it now is. Safe to repeat.
+   */
+  reactivateStudent(studentId: string): Observable<StudentDto> {
+    return this.http.post<StudentDto>(`${this.apiUrl}/${studentId}/reactivate`, null);
+  }
 }

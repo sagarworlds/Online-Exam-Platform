@@ -111,6 +111,7 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<StudentSignInRevoker>();
         services.AddScoped<UpdateStudentHandler>();
         services.AddScoped<DeactivateStudentHandler>();
+        services.AddScoped<ReactivateStudentHandler>();
         services.AddScoped<ListOutstandingOtpsHandler>();
         services.AddScoped<IWhatsAppDiagnostics, WhatsAppDiagnostics>();
         services.AddScoped<GetWhatsAppStatusHandler>();
