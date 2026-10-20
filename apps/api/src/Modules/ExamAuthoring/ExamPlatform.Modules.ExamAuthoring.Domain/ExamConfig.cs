@@ -50,7 +50,7 @@ public record ExamConfig(
 
     // WebcamSnapshots: whether the exam takes a webcam snapshot of the candidate at intervals while they sit it (FR-24). Off for a new exam:
     // it is an opt-in an author makes on purpose, together with the notice that tells candidates about it, and a candidate under 18 is never
-    // held to it (see ProctoringProfiles.ForCandidate).
+    // photographed (the runtime's WebcamEligibility decides that per attempt).
 
     // ScreenCapture: whether the exam asks the candidate to share their screen and takes a picture of it at intervals (FR-25). Off for a new
     // exam and held to the same restrictions as WebcamSnapshots: an opt-in the author makes by choosing a profile, never for a candidate under 18.
