@@ -15,9 +15,14 @@ class Host {
 }
 
 describe('Tooltip', () => {
-  beforeEach(() => vi.useFakeTimers());
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // jsdom has no layout, so it reports a viewport 0 pixels high; give it a screen to scroll the icon on and off.
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 800 });
+  });
   afterEach(() => {
     vi.useRealTimers();
+    delete (document.documentElement as { clientHeight?: number }).clientHeight;
     document.querySelectorAll('.app-tooltip').forEach((bubble) => bubble.remove());
   });
 
@@ -86,12 +91,32 @@ describe('Tooltip', () => {
     expect(bubbles()).toHaveLength(0);
   });
 
-  it('goes when the page scrolls', () => {
+  it('stays and follows its icon when the page scrolls, as it does when focusing an off-screen icon makes the browser scroll', () => {
     const { one } = render();
+    const rect = (top: number) => ({ top, bottom: top + 36, left: 100, right: 136, width: 36, height: 36, x: 100, y: top, toJSON: () => ({}) }) as DOMRect;
+    const place = vi.spyOn(one, 'getBoundingClientRect').mockReturnValue(rect(400));
     one.dispatchEvent(new Event('focus'));
+    const before = (bubbles()[0] as HTMLElement).style.top;
 
+    place.mockReturnValue(rect(300));
     document.dispatchEvent(new Event('scroll'));
 
+    expect(bubbles()).toHaveLength(1);
+    expect((bubbles()[0] as HTMLElement).style.top).not.toBe(before);
+  });
+
+  it('goes once its icon has scrolled out of view', () => {
+    const { one } = render();
+    const rect = (top: number) => ({ top, bottom: top + 36, left: 100, right: 136, width: 36, height: 36, x: 100, y: top, toJSON: () => ({}) }) as DOMRect;
+    const place = vi.spyOn(one, 'getBoundingClientRect').mockReturnValue(rect(400));
+    one.dispatchEvent(new Event('focus'));
+
+    place.mockReturnValue(rect(-200));
+    document.dispatchEvent(new Event('scroll'));
+
+    expect(bubbles()).toHaveLength(0);
+    // And a scroll with no tooltip showing does nothing.
+    document.dispatchEvent(new Event('scroll'));
     expect(bubbles()).toHaveLength(0);
   });
 

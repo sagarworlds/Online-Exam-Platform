@@ -11,11 +11,11 @@ const EDGE = 8;
 /**
  * A tooltip for an icon that has no visible words: `<button appTooltip="Edit" aria-label="Edit">`. It shows on hover after a short rest, and
  * at once on keyboard focus, so the label is never only for a mouse; Escape puts it away without moving focus, and it goes when the pointer
- * or focus leaves, or the page scrolls. It does not give the control its name: the control still carries its own `aria-label`, so a screen
+ * or focus leaves, or the icon scrolls out of view. It does not give the control its name: the control still carries its own `aria-label`, so a screen
  * reader reads that and the tooltip is a visual extra.
  *
  * The bubble is added to the page's body and positioned from the icon's place on screen, so a row or card that clips its content does not
- * clip the tooltip. It sits above the icon, or below it when there is no room above.
+ * clip the tooltip. It sits above the icon, or below it when there is no room above, and follows the icon if the page scrolls.
  */
 @Directive({
   selector: '[appTooltip]',
@@ -36,7 +36,7 @@ export class Tooltip implements OnDestroy {
   private readonly document = inject(DOCUMENT);
   private bubble: HTMLElement | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
-  private readonly onScroll = (): void => this.hide();
+  private readonly onScroll = (): void => this.follow();
 
   protected showSoon(): void {
     this.clearTimer();
@@ -69,6 +69,24 @@ export class Tooltip implements OnDestroy {
 
   ngOnDestroy(): void {
     this.hide();
+  }
+
+  /**
+   * The page scrolled: the tooltip moves with its icon, and goes only when the icon has scrolled out of view. It must not go on any scroll,
+   * because focusing an icon that is off screen makes the browser scroll it into view, which would put the tooltip away the moment it appeared.
+   */
+  private follow(): void {
+    const bubble = this.bubble;
+    if (bubble === null) {
+      return;
+    }
+
+    const anchor = this.host.nativeElement.getBoundingClientRect();
+    if (anchor.bottom < 0 || anchor.top > this.document.documentElement.clientHeight) {
+      this.hide();
+      return;
+    }
+    this.place(bubble);
   }
 
   private clearTimer(): void {
