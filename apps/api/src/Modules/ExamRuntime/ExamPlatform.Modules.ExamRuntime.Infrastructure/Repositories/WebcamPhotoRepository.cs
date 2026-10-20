@@ -32,4 +32,8 @@ public sealed class WebcamPhotoRepository(ExamRuntimeDbContext context) : IWebca
     /// <inheritdoc />
     public Task<AttemptWebcamPhoto?> GetAsync(Guid attemptId, Guid photoId, CancellationToken cancellationToken) =>
         context.WebcamPhotos.AsNoTracking().FirstOrDefaultAsync(p => p.AttemptId == attemptId && p.Id == photoId, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<int> DeleteCapturedBeforeAsync(DateTime cutoffUtc, CancellationToken cancellationToken) =>
+        context.WebcamPhotos.Where(p => p.CapturedAtUtc < cutoffUtc).ExecuteDeleteAsync(cancellationToken);
 }

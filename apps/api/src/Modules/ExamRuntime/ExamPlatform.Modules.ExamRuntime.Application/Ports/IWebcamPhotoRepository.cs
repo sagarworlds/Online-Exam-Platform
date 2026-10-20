@@ -32,6 +32,12 @@ public interface IWebcamPhotoRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The photo, or null when the attempt has none with that id.</returns>
     Task<AttemptWebcamPhoto?> GetAsync(Guid attemptId, Guid photoId, CancellationToken cancellationToken);
+
+    /// <summary>Deletes every capture taken before a moment, in one statement, without loading the images (FR-47).</summary>
+    /// <param name="cutoffUtc">Captures taken before this instant are removed.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>How many captures were removed.</returns>
+    Task<int> DeleteCapturedBeforeAsync(DateTime cutoffUtc, CancellationToken cancellationToken);
 }
 
 /// <summary>A capture as a list shows it: what it shows, when it was taken and how big it is.</summary>
