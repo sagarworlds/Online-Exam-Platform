@@ -1,3 +1,5 @@
+import { waitForFrame } from './video-frame';
+
 /** Whether the candidate's screen is being captured. `idle` means the server asks for it but the candidate has not yet chosen to share. */
 export type ScreenState = 'off' | 'idle' | 'on' | 'denied';
 
@@ -150,6 +152,11 @@ async function grabFrameFromVideo(stream: MediaStream): Promise<Blob | null> {
   video.playsInline = true;
   video.srcObject = stream;
   await video.play();
+  // play() resolving is not a decoded frame; drawing now could save a black picture, most likely the first one.
+  if (!(await waitForFrame(video))) {
+    video.srcObject = null;
+    return null;
+  }
 
   const canvas = document.createElement('canvas');
   canvas.width = CAPTURE_WIDTH;
