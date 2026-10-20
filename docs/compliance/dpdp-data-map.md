@@ -6,6 +6,8 @@
 
 **Source:** the code on `main` at `ac5e663`, read module by module, plus `render.yaml`, the workflows and the public privacy page (`apps/web/public/privacy.html`). Requirements: section 7 (India compliance), section 8 (proctoring), section 10 (data model), FR-43 to FR-52, NFR-6, NFR-12 and NFR-13.
 
+**Updated 2026-10-20** for webcam photos and screen pictures (FR-24, FR-25; PRs #280, #293 and the 30-day deletion in #296), read from `main`. The rows for `AttemptWebcamPhotos` in sections 1 and 3.9, gap G16 and the retention statement in G1 are the parts that changed; the rest still describes `ac5e663`.
+
 **Replaces:** the earlier draft from `4bedf1b`. Section 6 lists what changed.
 
 ## Open points
@@ -39,7 +41,7 @@ Each open point needs a decision. The pull request lists the same points.
 | Consent | Consent grants and withdrawals, with the notice version | Candidates; guardians | Nothing | Never deleted | Ledger not enforced (G3) |
 | ExamAuthoring | None (exam configuration) | None | Nothing | Kept | None found |
 | QuestionBank | Staff names and comments in review history; question content | Staff | Nothing | Kept | Free text (G11) |
-| ExamRuntime | Answers, scores, warnings, focus violations, IP and device sightings, accommodations, disputes, requests, e-mail log | Candidates; staff | Brevo or SMTP (exam e-mails, which include scores) | Kept; no removal | Minors' monitoring data (OP6, G4) |
+| ExamRuntime | Answers, scores, warnings, focus violations, IP and device sightings, accommodations, disputes, requests, e-mail log, webcam photos and screen pictures (adults only) | Candidates; staff | Brevo or SMTP (exam e-mails, which include scores) | Photos and screen pictures: deleted 30 days after they are taken. The rest is kept; no removal | Minors' monitoring data (OP6, G4); capture images (G16) |
 | Notifications | In-app feed: account id, notice kind, exam name, read time | Candidates; staff | Nothing | Kept; no removal | Feed rows never removed (G1) |
 | Cross-cutting (SharedKernel, Host, web app) | Mail and WhatsApp payloads, WhatsApp delivery webhooks, logs, browser storage, device signature | All of the above | Brevo or SMTP; Meta; GitHub (no personal data) | Not set | Logs not checked (G12); browser storage (G9) |
 
@@ -144,6 +146,7 @@ Source: `ExamRuntime/ExamPlatform.Modules.ExamRuntime.Domain/` and `ExamRuntime/
 | `AttemptClientSightings` | IP address, device signature, time seen, reason (for example, the device changed) | Candidates | Noticing that an attempt moved to another device or network (FR-26) | To be decided by the owner | Kept; no removal. Sensitive for minors (OP6, G4) | Hosting |
 | `AttemptFocusViolations` | Kind of violation (for example, leaving the exam page or full screen), time | Candidates | Evidence for reviewers and disputes (FR-22) | To be decided by the owner | Kept. Sensitive for minors (OP6, G4) | Hosting |
 | `AttemptWarnings` | Warning text (free text written by staff), staff user id, time | Candidates and staff | Warning the candidate during an exam; disputes (FR-29) | To be decided by the owner | Kept | Hosting |
+| `AttemptWebcamPhotos` | Attempt id, kind (webcam photo or screen picture), capture time, and the JPEG itself: a photo of the candidate's face and surroundings, or a picture of their screen, which shows anything open on it | Candidates aged 18 or over, on an exam whose profile asks for it | Evidence for staff reviewing an attempt (FR-24, FR-25) | 30 days after the capture (`ExamRuntime:CaptureRetention:RetentionDays`, FR-47) | Deleted by a sweep every 60 minutes while the host is awake (`PurgeOldCapturesHandler`). Never taken for a candidate under 18 or with no date of birth on record (`WebcamEligibility`). Stored as plain bytes in the database, not under the key ring that protects question content. Staff with `exam.manage` can list and read them, and reading one leaves no audit entry (G16) | Hosting |
 | `AttemptResultRevisions` | Previous and new score and max score, reason (free text), revision time | Candidates | Recording score revisions, which the score-revised e-mail reports (FR-39) | To be decided by the owner | Kept. The table has no staff id field; who made the change is not recorded here | Hosting |
 | `Disputes` | Candidate id, exam id, question id, reason (free text), status, resolver user id, resolution note, times | Candidates and staff | Answer-key disputes (FR-31) | To be decided by the owner | Kept | Hosting |
 | `IssueReports` | Candidate id, attempt, exam and question ids, category, message (free text), status, resolver, resolution note | Candidates and staff | Reporting a problem during an exam (FR-42) | To be decided by the owner | Kept | Hosting |
@@ -214,7 +217,7 @@ The public privacy page names Meta, and calls the others "hosting and database p
 
 ## 5. Gaps the map exposes
 
-1. **No retention or deletion (G1).** The credential sweep (FR-47) deletes one-time codes, password-reset links and sessions one day after they expire, and nothing else. No job removes users, sightings, grants, feed rows or the other rows in section 3. Proctoring media (FR-24, FR-25) is not built, so it has nothing to delete yet. Retention periods for the other rows await the owner (OP1). Section 7.3 is not built.
+1. **No retention or deletion for most rows (G1).** Two sweeps run (FR-47). The credential sweep deletes one-time codes, password-reset links and sessions one day after they expire. The capture sweep deletes webcam photos and screen pictures 30 days after they were taken (#296). Nothing else is removed: no job removes users, sightings, grants, feed rows or the other rows in section 3. Retention periods for those rows await the owner (OP1). The requirements' purpose-based retention with automated deletion (section 7.3) is therefore built only for those two.
 2. **Data-request workflow (G2).** Candidates can ask for access, correction or erasure, and staff see the open queue with its due times and record their answer (FR-48). Carrying the answer out is still manual: the app does not send a copy, change a record or erase data. The service period is provisional (30 days), and no grievance contact is in the product (OP2).
 3. **Under-18 gating is partly enforced (G3; FR-43).** Since PR #267, an under-18 candidate cannot start an attempt until a guardian has confirmed the link to them. Nothing calls the consent service (`EnsureConsentAsync`), so a guardian's consent to a notice version is not checked. `GuardianLinkVerifiedEvent` is raised, but no handler consumes it. A candidate under 18 can still register and be invited without any guardian consent on record.
 4. **Minors' monitoring data (G4).** Client sightings (IP address and device signature), focus violations and accommodation notes are kept for every candidate. Section 7.2 asks for a legal opinion before monitoring minors (OP6). The per-profile policy in section 8 is not built, so these records are written for every candidate, children included.
@@ -229,6 +232,7 @@ The public privacy page names Meta, and calls the others "hosting and database p
 13. **Roster import (G13).** FR-50 asked for a name and, for minors, a guardian contact. The owner decided on 2026-10-15 that the roster carries an e-mail and an optional phone only, and FR-50 now says so (OP12). The CSV import reads those two columns only, and ignores any others (issue #273).
 14. **Public privacy page (G14).** `apps/web/public/privacy.html` says personal data is deleted once it is no longer needed (its section 7). It also has placeholders for the operator and grievance contact, and does not name Render, Neon or Brevo. Its statements must match this map (OP11).
 15. **Language coverage (G15).** The interface has English, Hindi and Marathi. The consent notices in the separate consent PR cover English and Hindi only.
+16. **Capture images (G16).** Webcam photos and screen pictures (FR-24, FR-25) are images of people, and a screen picture can show anything open on the screen. They are kept in the database as plain bytes (the key ring protects question content only) and are deleted 30 days after they were taken. Staff who may manage attempts can read them, and reading one leaves no audit entry. They are taken for adults only, but the notice the candidate acknowledges is not checked against a consent record (G3). Counsel's opinion on monitoring minors (OP6, issue #11) is not recorded in the repository, so the adults-only rule stays.
 
 ## 6. Corrections from the earlier draft (`4bedf1b`)
 
@@ -244,7 +248,7 @@ The public privacy page names Meta, and calls the others "hosting and database p
 
 - Hosting-provider logs, backups and internal retention (Render, Neon, GitHub).
 - Brevo, Meta and operator SMTP retention.
-- Proctoring media (FR-24, FR-25, FR-27). These are not built (milestone M6).
+- A review screen for the captured photos and face-presence checks (FR-27). These are not built, so there are no rows for them. The photos and screen pictures themselves are in section 3.9.
 - Modules named in section 11 of the requirements that have no folder in `apps/api/src/Modules` at `ac5e663`: Proctoring, Evaluation and Ranking, and Analytics and Reporting. Their rows are added when they exist.
 - Personal data of staff beyond the account rows in section 3.1. The code shows no HR records.
 - Anything the browser keeps beyond the keys in section 3.11.
