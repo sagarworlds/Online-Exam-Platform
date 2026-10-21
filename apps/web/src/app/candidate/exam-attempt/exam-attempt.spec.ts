@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { afterEach, beforeEach, vi } from 'vitest';
 import { AttemptDto, AttemptStatusDto } from '../candidate.models';
 import { ExamAttempt } from './exam-attempt';
+import { ExamMode } from '../../shared/exam-mode/exam-mode';
 import { FakeResizeObserver } from './fake-resize-observer';
 
 describe('ExamAttempt', () => {
@@ -1281,6 +1282,95 @@ describe('ExamAttempt', () => {
     fixture.detectChanges();
     expect(textOf(fixture)).toContain('Question 2 of 2');
     expect(buttonLabelled(fixture, 'Save & Next')!.disabled).toBe(true);
+  });
+
+  describe('the page around the exam (ExamMode)', () => {
+    it('is told an exam is open while the attempt is in progress, and not once it is over', async () => {
+      const fixture = await open(attempt());
+      const mode = TestBed.inject(ExamMode);
+      expect(mode.active()).toBe(true);
+
+      (buttonLabelled(fixture, 'Submit exam') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      (buttonLabelled(fixture, 'Yes, submit') as HTMLButtonElement).click();
+      httpMock.expectOne((r) => r.url.endsWith('/submit')).flush(attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [] }));
+      fixture.detectChanges();
+
+      expect(mode.active()).toBe(false);
+    });
+
+    it('is told the exam is over when the page is left', async () => {
+      const fixture = await open(attempt());
+
+      fixture.destroy();
+
+      expect(TestBed.inject(ExamMode).active()).toBe(false);
+    });
+  });
+
+  it('has one button to go forward, since every answer is saved as it is chosen', async () => {
+    const fixture = await open(attempt());
+
+    const forward = Array.from(root(fixture).querySelectorAll('.exam-pager button')).filter((b) => /Next/.test(b.textContent ?? ''));
+
+    expect(forward).toHaveLength(1);
+    expect(forward[0].textContent?.trim()).toBe('Save & Next');
+  });
+
+  describe('the Questions sheet, which is the palette on a phone', () => {
+    const sheet = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector<HTMLElement>('app-modal-dialog');
+    const questionsButton = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector<HTMLButtonElement>('.exam-pager__palette')!;
+    const openSheet = (fixture: ComponentFixture<ExamAttempt>) => {
+      questionsButton(fixture).click();
+      fixture.detectChanges();
+    };
+
+    it('is not in the page until the Questions button is pressed, and the button says where the candidate is', async () => {
+      const fixture = await open(attempt());
+
+      expect(sheet(fixture)).toBeNull();
+      expect(questionsButton(fixture).textContent?.replace(/\s+/g, ' ').trim()).toBe('Questions 1/2');
+      expect(questionsButton(fixture).getAttribute('aria-haspopup')).toBe('dialog');
+
+      openSheet(fixture);
+
+      expect(sheet(fixture)?.querySelector('h2')?.textContent).toContain('Questions');
+      expect(sheet(fixture)?.querySelectorAll('.palette__item')).toHaveLength(2);
+    });
+
+    it('goes to the question that was chosen, closes, and puts the focus on that question’s position line', async () => {
+      const fixture = await open(attempt());
+      openSheet(fixture);
+
+      sheet(fixture)!.querySelectorAll<HTMLButtonElement>('.palette__item')[1].click();
+      fixture.detectChanges();
+      fixture.detectChanges();
+
+      expect(sheet(fixture)).toBeNull();
+      expect(textOf(fixture)).toContain('Question 2 of 2');
+      expect(document.activeElement).toBe(root(fixture).querySelector('.question__meta'));
+    });
+
+    it('says how many questions are still open, and Submit in it opens the confirmation under the time', async () => {
+      const fixture = await open(attempt());
+      openSheet(fixture);
+
+      expect(sheet(fixture)?.querySelector('.exam-sheet-unanswered')?.textContent?.trim()).toMatch(/not answered/);
+
+      (sheet(fixture)!.querySelector('.exam-sheet-submit') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      fixture.detectChanges();
+
+      expect(sheet(fixture)).toBeNull();
+      expect(root(fixture).querySelector('.exam-submit-confirm')).not.toBeNull();
+    });
+
+    it('stays out of the way of the palette pane, which is always in the page for the layouts with room for it', async () => {
+      const fixture = await open(attempt());
+
+      expect(root(fixture).querySelectorAll('.exam-side .palette__item')).toHaveLength(2);
+      expect(root(fixture).querySelector('.exam-side h2')?.textContent).toContain('Questions');
+    });
   });
 
   it('makes the question text larger and smaller, within limits, and remembers the size', async () => {

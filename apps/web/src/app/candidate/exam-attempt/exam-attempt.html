@@ -140,6 +140,8 @@
       <p class="visually-hidden exam-sync-restored" role="status" aria-live="polite">{{ syncRestored() }}</p>
       <p class="visually-hidden exam-time-up" role="alert">{{ timeUpNotice() }}</p>
 
+      <!-- The two aids sit in one row, so they take one line above the question, not two. -->
+      <div class="exam-aids">
       <!-- Outside the paused branch below on purpose: a candidate who was stopped is the one most likely to have something to report. A preview has no real attempt to report from. -->
       @if (!preview) {
         <app-report-issue [attemptId]="current.id" />
@@ -167,6 +169,7 @@
           <p class="hint exam-protection">{{ 'attempt.protect' | t }}</p>
         }
       </details>
+      </div>
 
       @if (paused()) {
         <div class="card exam-paused" role="status">
@@ -225,9 +228,17 @@
               </div>
             </div>
 
+            <!-- On a phone this bar is pinned to the bottom of the screen: where the thumb is, with the questions one tap away. Every answer is
+                 saved the moment it is chosen, so Next is the one forward button: Save & Next, which is all Next ever did. -->
             <div class="exam-pager">
               <button type="button" [disabled]="isFirst()" (click)="previous()">&larr; {{ 'attempt.previous' | t }}</button>
-              <button type="button" [disabled]="isLast()" (click)="next()">{{ 'attempt.next' | t }} &rarr;</button>
+              <button type="button" class="exam-pager__palette" aria-haspopup="dialog" (click)="openPalette()">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <rect x="2" y="2" width="5" height="5" rx="1" /><rect x="9" y="2" width="5" height="5" rx="1" />
+                  <rect x="2" y="9" width="5" height="5" rx="1" /><rect x="9" y="9" width="5" height="5" rx="1" />
+                </svg>
+                {{ 'attempt.paletteOpen' | t: { number: position() + 1, total: questions().length } }}
+              </button>
               <button type="button" class="primary" [disabled]="isLast()" (click)="saveAndNext()">{{ nextLeavesSection() ? ('attempt.saveNextSection' | t) : ('attempt.saveNext' | t) }}</button>
             </div>
 
@@ -243,8 +254,9 @@
           }
         </section>
 
-        <aside class="card exam-side" [attr.aria-label]="'attempt.palette' | t">
-          <h2>{{ 'attempt.questions' | t }}</h2>
+        <!-- The palette, drawn twice: as a pane beside the question where there is room, and in a sheet that the Questions button opens on a
+             phone. The stylesheet shows one or the other; the sheet is only in the page while it is open. -->
+        <ng-template #paletteBody let-sheet="sheet">
           <p class="hint">
             {{ 'attempt.answeredOf' | t: { answered: answeredCount(), total: questions().length } }}@if (markedCount() > 0) { · {{ 'attempt.markedCount' | t: { count: markedCount() } }} }
           </p>
@@ -263,7 +275,7 @@
                   [attr.aria-current]="item.index === position() ? 'true' : null"
                   [attr.aria-label]="'attempt.paletteItem' | t: { number: item.number, status: item.status }"
                   [disabled]="item.closed"
-                  (click)="goTo(item.index)"
+                  (click)="sheet ? chooseFromSheet(item.index) : goTo(item.index)"
                 >
                   {{ item.number }}
                 </button>
@@ -278,8 +290,25 @@
             <li class="legend--marked">{{ 'attempt.legend.marked' | t }}</li>
             <li class="legend--current">{{ 'attempt.legend.current' | t }}</li>
           </ul>
+        </ng-template>
+
+        <aside class="card exam-side" [attr.aria-label]="'attempt.palette' | t">
+          <h2>{{ 'attempt.questions' | t }}</h2>
+          <ng-container [ngTemplateOutlet]="paletteBody" [ngTemplateOutletContext]="{ sheet: false }" />
         </aside>
       </div>
+
+      @if (paletteOpen()) {
+        <app-modal-dialog #paletteSheet bottom [heading]="'attempt.questions' | t" (closed)="paletteOpen.set(false)">
+          <ng-container [ngTemplateOutlet]="paletteBody" [ngTemplateOutletContext]="{ sheet: true }" />
+          @if (unansweredCount() > 0) {
+            <p class="exam-sheet-unanswered" role="status">{{ unansweredText() }}</p>
+          }
+          <div modalFooter>
+            <button type="button" class="primary exam-sheet-submit" (click)="submitFromSheet()">{{ 'attempt.submit.ask' | t }}</button>
+          </div>
+        </app-modal-dialog>
+      }
       }
     } @else {
       <div class="card result">

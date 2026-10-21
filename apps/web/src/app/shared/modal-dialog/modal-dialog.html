@@ -1,4 +1,4 @@
-<dialog #dialog class="modal" [class.modal--side]="side()" [attr.aria-labelledby]="titleId" (cancel)="onCancel($event)" (close)="onClosed()">
+<dialog #dialog class="modal" [class.modal--side]="side()" [class.modal--bottom]="bottom()" [attr.aria-labelledby]="titleId" (cancel)="onCancel($event)" (close)="onClosed()">
   <div class="modal__panel">
     <header class="modal__header">
       <h2 class="modal__title" [id]="titleId">{{ heading() }}</h2>

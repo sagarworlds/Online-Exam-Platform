@@ -1,4 +1,4 @@
-import { DOCUMENT, DatePipe, DecimalPipe } from '@angular/common';
+import { DOCUMENT, DatePipe, DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, ElementRef, HostListener, Injector, afterNextRender, afterRenderEffect, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -19,6 +19,8 @@ import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-
 import { QuestionTimeTracker } from './question-time';
 import { PictureLoader } from '../../shared/rich-text/lazy-pictures';
 import { MathDirective } from '../../shared/rich-text/math.directive';
+import { ExamMode } from '../../shared/exam-mode/exam-mode';
+import { ModalDialog } from '../../shared/modal-dialog/modal-dialog';
 
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
@@ -141,7 +143,7 @@ function paletteStatus(answered: boolean, marked: boolean, seen: boolean, t: Tra
  */
 @Component({
   selector: 'app-exam-attempt',
-  imports: [RouterLink, DatePipe, DecimalPipe, MathDirective, TranslatePipe, ReportIssue],
+  imports: [RouterLink, DatePipe, DecimalPipe, NgTemplateOutlet, MathDirective, ModalDialog, TranslatePipe, ReportIssue],
   templateUrl: './exam-attempt.html',
 })
 export class ExamAttempt {
@@ -149,6 +151,7 @@ export class ExamAttempt {
   private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute).snapshot;
   private readonly router = inject(Router);
+  private readonly examMode = inject(ExamMode);
 
   /**
    * Whether a staff member is previewing the exam (FR-15) rather than a candidate sitting it. The page is the same, but nothing is
@@ -263,9 +266,16 @@ export class ExamAttempt {
   protected readonly canZoomOut = computed(() => this.zoom() > ZOOM_LEVELS[0]);
   protected readonly canZoomIn = computed(() => this.zoom() < ZOOM_LEVELS[ZOOM_LEVELS.length - 1]);
 
+  /** Whether the sheet that lists the questions is open. On a phone the palette is in this sheet; elsewhere it is a pane beside the question. */
+  protected readonly paletteOpen = signal(false);
+  private readonly paletteSheet = viewChild<ModalDialog>('paletteSheet');
+
   protected readonly questions = computed(() => this.attempt()?.sections.flatMap((s) => s.questions) ?? []);
   protected readonly answeredCount = computed(() => this.questions().filter((q) => hasAnswer(q)).length);
   protected readonly markedCount = computed(() => this.questions().filter((q) => q.markedForReview).length);
+  protected readonly unansweredCount = computed(() => this.questions().length - this.answeredCount());
+  /** "3 questions are not answered", for the sheet, where Submit is one tap away. */
+  protected readonly unansweredText = computed(() => this.i18n.plural('attempt.unanswered', this.unansweredCount()));
   protected readonly isOpen = computed(() => this.attempt()?.status === 'InProgress');
 
   /** Whether an administrator has paused the attempt (FR-29): the questions are hidden and the clock is stopped until it is resumed. */
@@ -469,6 +479,7 @@ export class ExamAttempt {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
+      this.examMode.active.set(false);
       this.stopTimer();
       // Report what has been counted on the question on screen before the page goes; best effort, as the time is only a measure.
       this.reportQuestionTimes();
@@ -486,6 +497,8 @@ export class ExamAttempt {
       // What is still waiting stays on this device for the next time the attempt is opened.
       this.sync?.dispose();
     });
+    // While an attempt is open the page around this one puts its header down to the name and the language (see ExamMode).
+    effect(() => this.examMode.active.set(this.isOpen() && !this.preview));
     effect(() => (this.protectContent() ? this.guard.start() : this.guard.stop()));
     effect(() => (this.watchFocus() ? this.focus.start() : this.focus.stop()));
     // Notes when the queue empties after holding answers (the time they were saved) and when the connection comes back with nothing left waiting.
@@ -542,6 +555,27 @@ export class ExamAttempt {
     this.syncRestored.set(this.i18n.t('attempt.sync.restored'));
     clearTimeout(this.restoredTimer);
     this.restoredTimer = setTimeout(() => this.syncRestored.set(''), NOTICE_MS);
+  }
+
+  /** Opens the sheet that lists the questions (a phone's palette). Focus goes into it, and back to this button when it closes. */
+  protected openPalette(): void {
+    this.paletteOpen.set(true);
+  }
+
+  /**
+   * Goes to the question chosen in the sheet and closes it. Focus then goes to the line giving the question's position, not back to the
+   * button that opened the sheet: it is the new question that has to be announced.
+   */
+  protected chooseFromSheet(index: number): void {
+    this.paletteSheet()?.close();
+    this.goTo(index);
+    afterNextRender(() => this.questionPosition()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /** Closes the sheet and opens the submit confirmation under the time, which takes the focus. */
+  protected submitFromSheet(): void {
+    this.paletteSheet()?.close();
+    this.askToSubmit();
   }
 
   /** Puts the time warning away. The next one, if there is one, shows again. */

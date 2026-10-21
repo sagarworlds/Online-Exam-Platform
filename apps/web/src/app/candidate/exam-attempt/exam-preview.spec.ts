@@ -6,6 +6,7 @@ import { afterEach, beforeEach, vi } from 'vitest';
 import { CandidateApiService } from '../candidate-api.service';
 import { AttemptDto } from '../candidate.models';
 import { ExamAttempt } from './exam-attempt';
+import { ExamMode } from '../../shared/exam-mode/exam-mode';
 import { FakeResizeObserver } from './fake-resize-observer';
 import { PreviewCandidateApiService } from './preview-candidate-api.service';
 
@@ -102,6 +103,13 @@ describe('ExamAttempt preview', () => {
     expect(textOf(fixture)).toContain('What is 2 + 2?');
     const back = Array.from(root(fixture).querySelectorAll('a')).find((a) => a.textContent?.includes('Back to the exam'));
     expect(back?.getAttribute('href')).toBe('/exams/e1');
+  });
+
+  it('keeps the whole site header, as staff need it to get back, and shows no saved line since nothing is saved', async () => {
+    const fixture = await open();
+
+    expect(TestBed.inject(ExamMode).active()).toBe(false);
+    expect(root(fixture).querySelector('.exam-save')).toBeNull();
   });
 
   it('offers no way to report an issue, since a preview has no attempt to report from', async () => {
