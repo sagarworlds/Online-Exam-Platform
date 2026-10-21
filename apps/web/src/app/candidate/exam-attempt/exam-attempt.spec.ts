@@ -323,6 +323,116 @@ describe('ExamAttempt', () => {
       expect(textOf(fixture)).toContain('0 of 1 answered');
     });
 
+    /** Types into the box without leaving it, key by key as far as the page can tell. */
+    const type = (fixture: ComponentFixture<ExamAttempt>, text: string) => {
+      const box = answerBox(fixture);
+      box.value = text;
+      box.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    };
+    const savedCalls = () => httpMock.match((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q3'));
+
+    describe('while the candidate is still typing (a closed tab or the end of the time must not lose it)', () => {
+      it('saves what is typed once the typing pauses, without waiting for the box to lose focus', async () => {
+        const fixture = await open(typedAttempt());
+
+        type(fixture, 'Par');
+        await vi.advanceTimersByTimeAsync(500);
+        type(fixture, 'Paris');
+        await vi.advanceTimersByTimeAsync(500);
+        // The pause is counted from the last key, so nothing has been sent yet.
+        expect(savedCalls()).toHaveLength(0);
+
+        await vi.advanceTimersByTimeAsync(400);
+        const calls = savedCalls();
+        expect(calls).toHaveLength(1);
+        expect(calls[0].request.body).toEqual({ text: 'Paris', sequence: 1 });
+        calls[0].flush(null);
+      });
+
+      it('does not send the same text again when the box then loses focus', async () => {
+        const fixture = await open(typedAttempt());
+        type(fixture, 'Paris');
+        await vi.advanceTimersByTimeAsync(900);
+        savedCalls().forEach((call) => call.flush(null));
+        fixture.detectChanges();
+
+        answerBox(fixture).dispatchEvent(new Event('change'));
+
+        expect(savedCalls()).toHaveLength(0);
+      });
+
+      it('saves at once when the box loses focus, and does not send it a second time when the pause ends', async () => {
+        const fixture = await open(typedAttempt());
+        type(fixture, 'Paris');
+
+        answerBox(fixture).dispatchEvent(new Event('change'));
+        const first = savedCalls();
+        expect(first).toHaveLength(1);
+        first[0].flush(null);
+        await vi.advanceTimersByTimeAsync(2000);
+
+        expect(savedCalls()).toHaveLength(0);
+      });
+
+      it('saves the words when the candidate goes to another question, before the box is replaced', async () => {
+        const fixture = await open(
+          attempt({
+            sections: [
+              {
+                id: 's1',
+                name: 'Section A',
+                questions: [
+                  { id: 'q3', text: 'Capital of France?', options: [], selectedOptionId: null, markedForReview: false, isTextAnswer: true, answerText: null },
+                  { id: 'q4', text: 'Capital of Italy?', options: [], selectedOptionId: null, markedForReview: false, isTextAnswer: true, answerText: null },
+                ],
+              },
+            ],
+          }),
+        );
+        type(fixture, 'Paris');
+
+        (buttonLabelled(fixture, 'Next') as HTMLButtonElement).click();
+        fixture.detectChanges();
+
+        const calls = savedCalls();
+        expect(calls).toHaveLength(1);
+        expect(calls[0].request.body).toEqual({ text: 'Paris', sequence: 1 });
+        calls[0].flush(null);
+      });
+
+      it('saves the words when the candidate submits, before the answers are checked as sent', async () => {
+        const fixture = await open(typedAttempt());
+        type(fixture, 'Paris');
+
+        (buttonLabelled(fixture, 'Submit exam') as HTMLButtonElement).click();
+        fixture.detectChanges();
+        (buttonLabelled(fixture, 'Yes, submit') as HTMLButtonElement).click();
+
+        const calls = savedCalls();
+        expect(calls).toHaveLength(1);
+        expect(calls[0].request.body).toEqual({ text: 'Paris', sequence: 1 });
+        calls[0].flush(null);
+        httpMock.match((r) => r.url.endsWith('/submit')).forEach((call) => call.flush(attempt({ status: 'Submitted', score: 0, maxScore: 1, sections: [] })));
+      });
+
+      it('saves the words in the last seconds, so they are not left in the box when the time runs out', async () => {
+        const fixture = await open(typedAttempt());
+        // 30 minutes allowed: type at 29:57, a second before the point within which typing is saved without a pause.
+        vi.advanceTimersByTime(30 * 60_000 - 3_000);
+        fixture.detectChanges();
+        type(fixture, 'Paris');
+        expect(savedCalls()).toHaveLength(0);
+
+        vi.advanceTimersByTime(1_000);
+
+        const calls = savedCalls();
+        expect(calls).toHaveLength(1);
+        expect(calls[0].request.body).toEqual({ text: 'Paris', sequence: 1 });
+        calls[0].flush(null);
+      });
+    });
+
     it('puts the typed answer back and says so when the server refuses it', async () => {
       const fixture = await open(typedAttempt('Paris'));
 

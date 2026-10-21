@@ -210,7 +210,8 @@
                     [id]="'answer-' + question.id"
                     [attr.aria-describedby]="'answer-hint-' + question.id"
                     [value]="question.answerText ?? ''"
-                    (change)="saveTyped(question, $any($event.target).value)"
+                    (input)="typing(question, $any($event.target).value)"
+                    (change)="commitTyped(question, $any($event.target).value)"
                   />
                 }
               </fieldset>

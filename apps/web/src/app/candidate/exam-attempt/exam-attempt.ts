@@ -43,6 +43,12 @@ function loadDismissedWarnings(attemptId: string | null): Set<string> {
   }
 }
 
+/** How long a typed answer rests before it is saved, without waiting for the field to lose focus: a candidate who is cut off mid-sentence loses at most this much. */
+const TYPED_SAVE_DELAY_MS = 800;
+
+/** Within this many seconds of the deadline a typed answer is saved at once, so the last words are not left in the field when the time runs out. */
+const TYPED_SAVE_NEAR_DEADLINE_SECONDS = 2;
+
 /** How long the "that is turned off" sentence stays on screen. Long enough to read once, short enough not to nag. */
 const NOTICE_MS = 4000;
 
@@ -283,6 +289,10 @@ export class ExamAttempt {
 
   private noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
+  /** The text being typed for a text question and not yet saved, and the timer that saves it when the typing pauses. */
+  private typedDraft: { questionId: string; text: string } | null = null;
+  private typedTimer: ReturnType<typeof setTimeout> | undefined;
+
   private readonly guard = new ContentGuard(inject(DOCUMENT), (action) => this.showNotice(action));
 
   /**
@@ -471,6 +481,8 @@ export class ExamAttempt {
       this.screen.stop();
       clearTimeout(this.noticeTimer);
       clearTimeout(this.restoredTimer);
+      // Words still being typed are handed to the answer queue, which keeps them on this device if they cannot be sent now.
+      this.flushTyped();
       // What is still waiting stays on this device for the next time the attempt is opened.
       this.sync?.dispose();
     });
@@ -544,10 +556,16 @@ export class ExamAttempt {
 
   @HostListener('document:visibilitychange')
   protected onVisibilityChange(): void {
-    // A hidden page stops counting, so what was counted before it went out of view is reported now.
+    // A hidden page stops counting, so what was counted before it went out of view is reported now, and typing is saved before the tab can be closed.
     if (document.hidden) {
+      this.flushTyped();
       this.reportQuestionTimes();
     }
+  }
+
+  @HostListener('window:pagehide')
+  protected onPageHide(): void {
+    this.flushTyped();
   }
 
   /** Asks for full screen; must come from the candidate's own click. */
@@ -630,6 +648,9 @@ export class ExamAttempt {
     if (index < 0 || index >= this.questions().length) {
       return;
     }
+
+    // The field being typed in goes with the question on screen, so what is in it is saved before another question replaces it.
+    this.flushTyped();
 
     const active = this.activeRange();
     if (active !== null && (index < active.start || index > active.end)) {
@@ -841,8 +862,36 @@ export class ExamAttempt {
   }
 
   /**
-   * Saves what the candidate typed for a text question. It is called when the field loses focus or Enter is pressed, not on every key,
-   * so a half-typed answer is not sent. Unchanged text, spaces around it aside, is not sent again.
+   * Notes what is being typed for a text question and saves it when the typing pauses (TYPED_SAVE_DELAY_MS), so a closed tab, a dead battery or
+   * the end of the time does not lose it. Every key restarts the pause, so a half-typed word is not sent while the candidate is still typing.
+   */
+  protected typing(question: AttemptQuestionDto, text: string): void {
+    this.typedDraft = { questionId: question.id, text };
+    clearTimeout(this.typedTimer);
+    this.typedTimer = setTimeout(() => this.flushTyped(), TYPED_SAVE_DELAY_MS);
+  }
+
+  /** The field lost focus or Enter was pressed: what is in it is saved now, and the pause timer is not needed. */
+  protected commitTyped(question: AttemptQuestionDto, text: string): void {
+    this.typedDraft = null;
+    clearTimeout(this.typedTimer);
+    this.saveTyped(question, text);
+  }
+
+  /** Saves what is being typed, if anything: when the typing pauses, and before the page changes question, submits, hides or runs out of time. */
+  private flushTyped(): void {
+    clearTimeout(this.typedTimer);
+    const draft = this.typedDraft;
+    this.typedDraft = null;
+    const question = draft === null ? undefined : this.questions().find((q) => q.id === draft.questionId);
+    if (draft !== null && question !== undefined) {
+      this.saveTyped(question, draft.text);
+    }
+  }
+
+  /**
+   * Saves what the candidate typed for a text question: when the typing pauses, when the field loses focus or Enter is pressed. Unchanged
+   * text, spaces around it aside, is not sent again.
    */
   protected saveTyped(question: AttemptQuestionDto, text: string): void {
     const attempt = this.attempt();
@@ -955,6 +1004,8 @@ export class ExamAttempt {
       return;
     }
 
+    // What is still in the field is saved first, so the last words are in the attempt that is scored.
+    this.flushTyped();
     this.submitting.set(true);
     this.errorMessage.set(null);
     // The time on the question on screen is reported as the attempt closes. It may land after the submit, which then refuses it: that loses only
@@ -1229,6 +1280,9 @@ export class ExamAttempt {
     // A paused clock has nothing new to warn about, and a preview has no real time to run out.
     if (pausedAt === null && !this.preview) {
       this.announceTimeWarning(remainingSeconds);
+      if (remainingSeconds <= TYPED_SAVE_NEAR_DEADLINE_SECONDS) {
+        this.flushTyped();
+      }
     }
 
     // A preview that runs out of time just shows zero: there is no attempt for the server to close, and reloading would redraw the paper.
