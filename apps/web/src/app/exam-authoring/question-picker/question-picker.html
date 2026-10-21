@@ -37,7 +37,7 @@
               <span class="picker__meta">{{ detail }}</span>
             }
           </div>
-          <button type="button" class="btn--small" [disabled]="busy()" [attr.aria-label]="addLabel(question)" (click)="picked.emit(question.id)">
+          <button type="button" class="btn--small" [disabled]="busy()" [attr.aria-label]="addLabel(question)" (click)="add(question)">
             {{ 'exams.picker.add' | t }}
           </button>
         </li>
@@ -45,6 +45,9 @@
     </ul>
   }
 
+  @if (moreFailed()) {
+    <p class="error-message" role="alert">{{ 'exams.picker.failed' | t }}</p>
+  }
   @if (!loading() && !failed() && hasMore()) {
     <button type="button" class="btn--small" (click)="showMore()" [attr.aria-busy]="loadingMore()">{{ 'exams.picker.more' | t }}</button>
   }

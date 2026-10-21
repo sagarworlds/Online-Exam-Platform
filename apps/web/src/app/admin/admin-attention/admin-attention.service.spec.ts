@@ -131,6 +131,51 @@ describe('AdminAttentionService', () => {
     expect(service.counts().attemptRequests).toEqual({ status: 'ready', count: 3, atLimit: false });
   });
 
+  describe('when an item is dealt with on its queue’s own page', () => {
+    it('drops the count at once, never below none, and reads again on the next page change however recent the last read was', () => {
+      vi.useFakeTimers();
+      const service = create(['exam.manage']);
+      service.refresh();
+      answerQueues({ requests: [{}, {}], disputes: [{}] });
+
+      service.settled('attemptRequests');
+      expect(service.counts().attemptRequests).toEqual({ status: 'ready', count: 1, atLimit: false });
+      service.settled('disputes', 5);
+      expect(service.counts().disputes).toEqual({ status: 'ready', count: 0, atLimit: false });
+
+      service.refreshIfStale();
+      answerQueues();
+    });
+
+    it('leaves a count that stopped at the list’s limit alone, since it was never exact', () => {
+      const service = create(['exam.manage']);
+      service.refresh();
+      answerQueues({ requests: Array.from({ length: 200 }, () => ({})) });
+
+      service.settled('attemptRequests');
+
+      expect(service.counts().attemptRequests).toEqual({ status: 'ready', count: 200, atLimit: true });
+    });
+
+    it('does nothing for a queue that was not read', () => {
+      const service = create(['exam.manage']);
+
+      service.settled('disputes');
+
+      expect(service.counts()).toEqual({});
+    });
+
+    it('says a full exam list may hide running exams beyond it', () => {
+      const service = create(['exam.read']);
+      const exam = () => ({ status: 'Published', isScheduled: true, scheduledStartTime: new Date(Date.now() - hour).toISOString(), scheduledEndTime: new Date(Date.now() + hour).toISOString() });
+
+      service.refresh();
+      http.expectOne(isRead('/v1/exams')).flush(Array.from({ length: 200 }, exam));
+
+      expect(service.counts().liveExams).toEqual({ status: 'ready', count: 200, atLimit: true });
+    });
+  });
+
   describe('moving to another page', () => {
     it('reads again once the counts are a minute old, and not before', () => {
       vi.useFakeTimers();

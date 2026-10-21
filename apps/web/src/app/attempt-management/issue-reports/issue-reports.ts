@@ -10,6 +10,7 @@ import {
   viewChildren,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { AdminAttentionService } from '../../admin/admin-attention/admin-attention.service';
 import { Subscription } from 'rxjs';
 import { IssueCategory } from '../../candidate/candidate.models';
 import { I18nService } from '../../i18n/i18n.service';
@@ -64,6 +65,7 @@ const EMPTY_KEYS: Readonly<Record<IssueReportFilterStatus, MessageKey>> = {
 })
 export class IssueReports {
   private readonly api = inject(AttemptAdminApiService);
+  private readonly attention = inject(AdminAttentionService);
   private readonly i18n = inject(I18nService);
   private readonly injector = inject(Injector);
   /** The elements focus can be moved to, each marked with its `data-focus` key, so focus lands where the person was working. */
@@ -195,6 +197,7 @@ export class IssueReports {
         this.resolvingId.set(null);
         // The report keeps its place; only its card becomes the line that says it was resolved.
         this.resolutions.update((current) => ({ ...current, [report.id]: { note } }));
+        this.attention.settled('issues');
         this.focusLater(`result:${report.id}`);
       },
       error: (error: unknown) => {

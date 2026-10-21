@@ -38,7 +38,7 @@
     } @else {
       <p class="hint">{{ 'admin.codes.revealNote' | t }}</p>
       @for (item of codes(); track item.challengeId) {
-        <div class="card">
+        <div class="card" [attr.data-challenge]="item.challengeId">
           <h3 class="card__title">{{ item.destination }}</h3>
           <p class="card__meta">
             {{ 'admin.codes.sentence' | t: { purpose: purposeKeys[item.purpose] | t, channel: channelKeys[item.channel] | t, time: (item.expiresAtUtc | date: 'shortTime') ?? '' } }}

@@ -7,6 +7,9 @@
   @if (loadFailed()) {
     <p class="warning-message" role="status">{{ 'exams.schedule.loadFailed' | t }}</p>
   }
+  @if (unknownZone(); as zone) {
+    <p class="warning-message" role="status">{{ 'exams.schedule.unknownZone' | t: { zone: zone, shown: form.controls.timeZone.value } }}</p>
+  }
 
   <form class="card" [formGroup]="form" (ngSubmit)="submit()" novalidate>
     <p class="hint">{{ 'exams.schedule.required' | t }}</p>

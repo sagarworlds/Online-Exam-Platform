@@ -279,6 +279,141 @@ describe('QuestionPicker', () => {
     });
   });
 
+  describe('when the exam’s scope changes while the picker is open', () => {
+    it('asks the bank again for the new book, and lists that book’s questions, not the old page filtered', () => {
+      show({ scope: { type: 'Book', bookId: 'b1', bookName: 'Maths', className: null, chapters: [] } });
+      answer([question('q1', 'Solve x', { bookId: 'b1' })]);
+
+      fixture.componentRef.setInput('scope', { type: 'Book', bookId: 'b2', bookName: 'Physics', className: null, chapters: [] });
+      fixture.detectChanges();
+      const request = answer([question('q9', 'Optics', { bookId: 'b2' })]);
+
+      expect(request.params.get('bookId')).toBe('b2');
+      expect(stems()).toEqual(['Optics']);
+    });
+
+    it('asks for every question when the exam is no longer limited to a book', () => {
+      show({ scope: { type: 'Book', bookId: 'b1', bookName: 'Maths', className: null, chapters: [] } });
+      answer([]);
+
+      fixture.componentRef.setInput('scope', { type: 'Independent', bookId: null, bookName: null, className: null, chapters: [] });
+      fixture.detectChanges();
+
+      expect(answer([question('q1', 'Anything')]).params.has('bookId')).toBe(false);
+    });
+
+    it('does not ask again when the scope is set to what it was', () => {
+      show({ scope: { type: 'Book', bookId: 'b1', bookName: 'Maths', className: null, chapters: [] } });
+      answer([]);
+
+      fixture.componentRef.setInput('scope', { type: 'Book', bookId: 'b1', bookName: 'Maths (renamed)', className: null, chapters: [] });
+      fixture.detectChanges();
+
+      http.expectNone(isRead);
+    });
+  });
+
+  describe('paging against a changing search', () => {
+    const page = (from: number) => Array.from({ length: 20 }, (_, i) => question(`q${from + i}`, `Question ${from + i}`));
+    const showMore = () => (Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Show more') as HTMLButtonElement).click();
+
+    it('drops a page that was still on its way when the difficulty changed, so old rows never land in the new list', () => {
+      show();
+      answer(page(0));
+      showMore();
+      const late = http.expectOne(isRead);
+
+      const select = root.querySelector('select') as HTMLSelectElement;
+      select.value = 'hard';
+      select.dispatchEvent(new Event('change'));
+      const fresh = http.expectOne(isRead);
+      fresh.flush([question('h1', 'A hard one')]);
+      fixture.detectChanges();
+
+      expect(late.cancelled).toBe(true);
+      expect(stems()).toEqual(['A hard one']);
+    });
+
+    it('leaves out a question that a shifted page repeats, so no row is listed twice', () => {
+      show();
+      answer(page(0));
+      showMore();
+
+      // A question added to the bank in between pushes the last one of the first page onto the second.
+      answer([question('q19', 'Question 19'), question('q20', 'Question 20')]);
+
+      expect(stems()).toHaveLength(21);
+      expect(new Set(stems()).size).toBe(21);
+    });
+
+    it('keeps the list and says so when a later page cannot be read, with Show more still there to try again', () => {
+      show();
+      answer(page(0));
+      showMore();
+
+      answer('fail');
+
+      expect(stems()).toHaveLength(20);
+      expect(root.querySelector('[role="alert"]')?.textContent).toContain('The questions could not be loaded.');
+      expect(Array.from(root.querySelectorAll('button')).some((b) => b.textContent?.trim() === 'Show more')).toBe(true);
+    });
+  });
+
+  describe('focus after an Add', () => {
+    it('goes to the row that takes the place of the one added, once the exam has been read again', async () => {
+      show();
+      answer([question('q1', 'First'), question('q2', 'Second'), question('q3', 'Third')]);
+      document.body.appendChild(root);
+      const buttons = () => Array.from(root.querySelectorAll<HTMLButtonElement>('.picker__row button'));
+      buttons()[0].focus();
+
+      // The page is busy with the request, then reads the exam again, which holds the question now.
+      buttons()[0].click();
+      fixture.componentRef.setInput('busy', true);
+      fixture.detectChanges();
+      fixture.componentRef.setInput('excluded', new Set(['q1']));
+      fixture.componentRef.setInput('busy', false);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(picked).toEqual(['q1']);
+      expect(document.activeElement).toBe(buttons()[0]);
+      expect(stems()).toEqual(['Second', 'Third']);
+      root.remove();
+    });
+
+    it('goes to the search box when the list is empty after it', async () => {
+      show();
+      answer([question('q1', 'Only one')]);
+      document.body.appendChild(root);
+      (root.querySelector('.picker__row button') as HTMLButtonElement).focus();
+
+      (root.querySelector('.picker__row button') as HTMLButtonElement).click();
+      fixture.componentRef.setInput('excluded', new Set(['q1']));
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(root.querySelector('input[type="search"]'));
+      root.remove();
+    });
+
+    it('does not move focus that the person had put somewhere else', async () => {
+      show();
+      answer([question('q1', 'First'), question('q2', 'Second')]);
+      document.body.appendChild(root);
+      const search = root.querySelector('input[type="search"]') as HTMLInputElement;
+      (root.querySelector('.picker__row button') as HTMLButtonElement).click();
+      search.focus();
+
+      fixture.componentRef.setInput('excluded', new Set(['q1']));
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(search);
+      root.remove();
+    });
+  });
+
   describe('when the bank cannot be read', () => {
     it('says so and offers to try again, which reads it once more', () => {
       show();

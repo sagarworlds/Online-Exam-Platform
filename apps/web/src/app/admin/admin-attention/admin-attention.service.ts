@@ -59,7 +59,8 @@ export class AdminAttentionService {
             const running = exams.filter(
               (exam) => exam.status === 'Published' && exam.isScheduled && Date.parse(exam.scheduledStartTime) <= now && now < Date.parse(exam.scheduledEndTime),
             );
-            return { count: running.length, atLimit: false };
+            // The exam list is the newest two hundred, so a full one may have running exams beyond it.
+            return { count: running.length, atLimit: exams.length >= QUEUE_LIMIT };
           }),
         ),
     },
@@ -105,6 +106,22 @@ export class AdminAttentionService {
     if (Date.now() - this.loadedAt >= STALE_AFTER_MS) {
       this.refresh();
     }
+  }
+
+  /**
+   * An item of a queue was dealt with on that queue's own page: its count drops at once, so the sidebar does not go on saying "1 waiting" beside
+   * a queue that was just emptied, and the next read confirms it. A count that stopped at the list's limit is not changed, since it was never exact.
+   */
+  settled(key: AttentionKey, count = 1): void {
+    this.counts.update((known) => {
+      const state = known[key];
+      if (state?.status !== 'ready' || state.atLimit) {
+        return known;
+      }
+      return { ...known, [key]: { ...state, count: Math.max(0, state.count - count) } };
+    });
+    // Not read again on the next page change as if nothing had happened: whatever else changed meanwhile is worth reading too.
+    this.loadedAt = 0;
   }
 
   /** Forgets every count, for when someone signs out: the next person must not see the last one's. */

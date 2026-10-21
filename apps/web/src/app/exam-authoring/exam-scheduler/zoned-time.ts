@@ -24,11 +24,19 @@ function formatterFor(timeZone: string): Intl.DateTimeFormat {
   return formatter;
 }
 
+/** Milliseconds since the epoch of a date and time read as UTC. `Date.UTC` takes a year below 100 for one in the 1900s, so the year is set apart. */
+function utcFromParts(year: number, month: number, day: number, hour: number, minute: number, second = 0): number {
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  date.setUTCHours(hour, minute, second, 0);
+  return date.getTime();
+}
+
 /** The wall-clock reading of an instant in a zone, as milliseconds since the epoch of that reading taken as if it were UTC. */
 function wallClockAsUtc(instant: number, timeZone: string): number {
   const parts = formatterFor(timeZone).formatToParts(new Date(instant));
   const part = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((p) => p.type === type)?.value);
-  return Date.UTC(part('year'), part('month') - 1, part('day'), part('hour'), part('minute'), part('second'));
+  return utcFromParts(part('year'), part('month'), part('day'), part('hour'), part('minute'), part('second'));
 }
 
 /** Whether the browser knows the zone, so a name from the API that it does not know is not handed to `Intl` to throw on. */
@@ -49,11 +57,19 @@ export function localToUtcIso(local: string, timeZone: string): string {
   const [date, time] = local.split('T');
   const [year, month, day] = date.split('-').map(Number);
   const [hour, minute] = (time ?? '00:00').split(':').map(Number);
-  const asIfUtc = Date.UTC(year, month - 1, day, hour, minute);
+  const asIfUtc = utcFromParts(year, month, day, hour, minute);
 
   const first = asIfUtc - (wallClockAsUtc(asIfUtc, timeZone) - asIfUtc);
   const second = asIfUtc - (wallClockAsUtc(first, timeZone) - first);
   return new Date(second).toISOString();
+}
+
+/**
+ * Whether the zone's clocks ever show this reading. When they go forward an hour (2:30 on the night New York springs forward) there is no such
+ * moment, and the conversion above would quietly give the one an hour away; the scheduler asks first and says so.
+ */
+export function existsInZone(local: string, timeZone: string): boolean {
+  return utcToLocalInput(localToUtcIso(local, timeZone), timeZone) === local;
 }
 
 /** The wall-clock reading of an instant in a zone, in the form a `datetime-local` field takes: "2026-10-05T10:00". */

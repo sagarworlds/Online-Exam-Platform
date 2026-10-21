@@ -10,6 +10,7 @@ import {
   viewChildren,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { AdminAttentionService } from '../../admin/admin-attention/admin-attention.service';
 import { MAX_ATTEMPT_REQUEST_TEXT } from '../../candidate/candidate.models';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
@@ -48,6 +49,7 @@ interface QueueEntry {
 })
 export class AttemptRequests {
   private readonly api = inject(AttemptAdminApiService);
+  private readonly attention = inject(AdminAttentionService);
   private readonly i18n = inject(I18nService);
   private readonly injector = inject(Injector);
   /** The elements focus can be moved to, each marked with its `data-focus` key, so focus lands where the person was working. */
@@ -213,6 +215,7 @@ export class AttemptRequests {
         this.entries.update((list) =>
           list.map((entry) => (entry.request.id === request.id ? { ...entry, decision } : entry)),
         );
+        this.attention.settled('attemptRequests');
         this.focusLater(`result:${request.id}`);
       },
       error: (error: unknown) => {

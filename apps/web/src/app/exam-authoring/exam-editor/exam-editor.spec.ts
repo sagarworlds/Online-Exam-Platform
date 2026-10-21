@@ -344,6 +344,27 @@ describe('ExamEditor', () => {
     expect(stems).toEqual(['Capital of France?']);
   });
 
+  it('keeps every Add off until the exam has been read again, so a second press cannot add the same question twice', () => {
+    const { fixture, root } = open();
+    openPicker(fixture, root);
+    const adds = () => Array.from(root.querySelectorAll<HTMLButtonElement>('.picker__row button'));
+
+    adds()[0].click();
+    fixture.detectChanges();
+    expect(adds().every((b) => b.disabled)).toBe(true);
+
+    httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/sections/s1/questions')).flush({ id: 'eq', questionId: 'q1', order: 1, text: 'What is 2 + 2?' }, { status: 201, statusText: 'Created' });
+    fixture.detectChanges();
+    // The request is over but the exam has not been read again: its questions are not known yet, so the list still holds the one just added.
+    expect(adds().every((b) => b.disabled)).toBe(true);
+
+    httpMock.expectOne(isExam).flush(
+      examBody({ sections: [{ id: 's1', name: 'Algebra', timeSeconds: null, order: 1, questions: [{ id: 'eq', questionId: 'q1', order: 1, text: 'What is 2 + 2?' }] }] }),
+    );
+    fixture.detectChanges();
+    expect(adds().every((b) => !b.disabled)).toBe(true);
+  });
+
   it('stops offering a question once it is in the exam, without closing the picker', () => {
     const { fixture, root } = open();
     openPicker(fixture, root);
@@ -1315,8 +1336,15 @@ describe('ExamEditor', () => {
       expect(topics).toHaveLength(2);
       topics.forEach((request) => request.flush(['Algebra']));
       fixture.detectChanges();
+    });
 
-      expect(root.querySelector('h1')?.textContent).toContain('Maths Final');
+    it('does not read the question bank, which a section’s picker reads itself when it is opened', () => {
+      const { root } = open();
+
+      refreshIcon(root).click();
+      httpMock.expectOne(isExam).flush(examBody());
+
+      httpMock.expectNone(isBank);
     });
 
     it('leaves a form that is open alone', () => {

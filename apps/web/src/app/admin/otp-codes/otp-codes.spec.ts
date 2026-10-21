@@ -197,6 +197,72 @@ describe('OtpCodes', () => {
     });
   });
 
+  describe('focus', () => {
+    function show(): void {
+      search('amy');
+      httpMock.expectOne(isList).flush([code()]);
+      fixture.detectChanges();
+      document.body.appendChild(root);
+    }
+
+    afterEach(() => root.remove());
+
+    it('goes to Copy when Show code was pressed, since that button is gone', async () => {
+      show();
+      const showButton = buttonsLabelled('Show code')[0];
+      showButton.focus();
+
+      showButton.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(buttonsLabelled('Copy code')[0]);
+    });
+
+    it('goes to Show code when Hide code was pressed', async () => {
+      show();
+      buttonsLabelled('Show code')[0].click();
+      fixture.detectChanges();
+      const hide = buttonsLabelled('Hide code')[0];
+      hide.focus();
+
+      hide.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(buttonsLabelled('Show code')[0]);
+    });
+
+    it('stays with the card when the code hides itself after a minute', async () => {
+      vi.useFakeTimers();
+      show();
+      buttonsLabelled('Show code')[0].click();
+      fixture.detectChanges();
+      buttonsLabelled('Copy code')[0].focus();
+
+      vi.advanceTimersByTime(REVEAL_MS);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(buttonsLabelled('Show code')[0]);
+    });
+
+    it('does not take focus from somewhere else on the page when a code hides', async () => {
+      vi.useFakeTimers();
+      show();
+      buttonsLabelled('Show code')[0].click();
+      fixture.detectChanges();
+      const field = root.querySelector('input') as HTMLInputElement;
+      field.focus();
+
+      vi.advanceTimersByTime(REVEAL_MS);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(field);
+    });
+  });
+
   it('hides every shown code when the search changes', () => {
     search('amy');
     httpMock.expectOne(isList).flush([code()]);

@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, ElementRef, Injector, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -32,6 +31,7 @@ import { ExamScopeFields } from '../exam-scope-fields/exam-scope-fields';
 import { INSTANT_RELEASE, ReleaseSelection, isReleaseComplete, selectionOfRelease, toReleaseRequest } from '../exam-release-fields/exam-release';
 import { ExamReleaseFields } from '../exam-release-fields/exam-release-fields';
 import { ExamSectionCard } from '../exam-section-card/exam-section-card';
+import { ExamTimePipe, formatInExamZone } from '../exam-time/exam-time';
 import { ExamSettingsSummary } from './exam-settings-summary';
 
 /** The word each exam status is shown as; the API's own word is kept for the checks that compare it. */
@@ -47,14 +47,9 @@ const STATUS_KEYS: Readonly<Record<ExamStatus, MessageKey>> = {
  * exam is shown read-only, because the API refuses those; only its name and description, its answer review and its attempts
  * allowed can still change.
  */
-/** A moment as the page shows it everywhere on this screen: date and time, in the language on screen. */
-function formatDateTime(utc: string | null | undefined): string {
-  return utc ? new Date(utc).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
-}
-
 @Component({
   selector: 'app-exam-editor',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, TranslatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamPassingPercentage, ExamProctoringProfile, ExamSectionCard, ExamInstructions, RefreshButton, Disclosure, DisclosureGroup],
+  imports: [ReactiveFormsModule, RouterLink, ExamTimePipe, TranslatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamPassingPercentage, ExamProctoringProfile, ExamSectionCard, ExamInstructions, RefreshButton, Disclosure, DisclosureGroup],
   templateUrl: './exam-editor.html',
 })
 export class ExamEditor {
@@ -92,7 +87,7 @@ export class ExamEditor {
   /** When the exam opens and closes, for the schedule row; empty while it has no schedule, which the row's tag says instead. */
   protected scheduleSummary(exam: ExamDto): string {
     return exam.isScheduled
-      ? this.i18n.t('exams.editor.opensAt', { start: formatDateTime(exam.scheduledStartTime) })
+      ? this.i18n.t('exams.editor.opensAt', { start: formatInExamZone(exam.scheduledStartTime, exam.timeZone, this.i18n.language()) })
       : '';
   }
 
@@ -165,7 +160,7 @@ export class ExamEditor {
   }
 
   /**
-   * Reads the exam again, with the questions and topics it can draw on, so a change made elsewhere shows without reloading the tab. The page
+   * Reads the exam again, with the topics it can draw on, so a change made elsewhere shows without reloading the tab. The page
    * is not blanked, and an edit that is open stays open until the exam it was started on has changed. A failed read leaves what is shown and
    * says why.
    */
@@ -489,7 +484,7 @@ export class ExamEditor {
     const opens = this.exam()?.scheduledStartTime;
     const confirmed = await this.confirm.ask({
       title: this.i18n.t('exams.editor.publishTitle'),
-      message: opens ? this.i18n.t('exams.editor.publishOpens', { start: formatDateTime(opens) }) : undefined,
+      message: opens ? this.i18n.t('exams.editor.publishOpens', { start: formatInExamZone(opens, this.exam()?.timeZone, this.i18n.language()) }) : undefined,
       consequences: [this.i18n.t('exams.editor.publishFixes.questions'), this.i18n.t('exams.editor.publishFixes.settings')],
       confirmLabel: this.i18n.t('exams.editor.publish'),
     });

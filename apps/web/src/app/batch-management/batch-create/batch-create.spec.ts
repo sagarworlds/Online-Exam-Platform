@@ -107,6 +107,12 @@ describe('BatchCreate', () => {
       ]);
     });
 
+    it('says only the newest 200 exams are listed when the list is full, and says nothing when it is not', () => {
+      const full = open(Array.from({ length: 200 }, (_, i) => exam(`e${i}`, `Exam ${i}`)));
+      expect(full.root.textContent).toContain('Only the newest 200 exams are listed.');
+
+    });
+
     it('says there are no exams, and where to make one, rather than showing an empty list', () => {
       const { root } = open([]);
 

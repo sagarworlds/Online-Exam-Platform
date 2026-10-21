@@ -43,6 +43,7 @@
         @for (link of group.links; track link.section.path) {
           <a
             [routerLink]="link.section.path"
+          (click)="phoneOpen.set(false)"
             class="admin-sidebar__link"
             [class.active]="link.current()"
             [attr.aria-current]="link.current() ? 'page' : null"

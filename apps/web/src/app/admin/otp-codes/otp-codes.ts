@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, Injector, afterNextRender, inject, signal } from '@angular/core';
 import { I18nService } from '../../i18n/i18n.service';
 import { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';
@@ -37,6 +37,8 @@ const CHANNEL_KEYS: Readonly<Record<OutstandingOtp['channel'], MessageKey>> = {
 export class OtpCodes {
   private readonly api = inject(OtpCodesApiService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   private readonly clipboard = inject(ClipboardService);
   private readonly toast = inject(ToastService);
   private readonly i18n = inject(I18nService);
@@ -94,7 +96,9 @@ export class OtpCodes {
 
   /** Shows one code, and hides it again after {@link REVEAL_MS} if nobody has hidden it first. */
   protected reveal(challengeId: string): void {
+    const hadFocus = this.focusIsIn(challengeId);
     this.revealed.update((ids) => new Set(ids).add(challengeId));
+    this.keepFocusIn(challengeId, hadFocus);
     this.clearTimer(challengeId);
     this.hideTimers.set(
       challengeId,
@@ -119,12 +123,33 @@ export class OtpCodes {
   }
 
   protected hide(challengeId: string): void {
+    const hadFocus = this.focusIsIn(challengeId);
     this.clearTimer(challengeId);
     this.revealed.update((ids) => {
       const next = new Set(ids);
       next.delete(challengeId);
       return next;
     });
+    this.keepFocusIn(challengeId, hadFocus);
+  }
+
+  private card(challengeId: string): HTMLElement | null {
+    return this.host.nativeElement.querySelector<HTMLElement>(`[data-challenge="${challengeId}"]`);
+  }
+
+  private focusIsIn(challengeId: string): boolean {
+    return this.card(challengeId)?.contains(document.activeElement) ?? false;
+  }
+
+  /**
+   * Showing or hiding a code swaps the card's buttons, which takes away the one that had focus and would leave it on the top of the page. It goes
+   * to the card's first button, which is the one that now does the opposite: Hide and Copy when shown, Show when hidden.
+   */
+  private keepFocusIn(challengeId: string, hadFocus: boolean): void {
+    if (!hadFocus) {
+      return;
+    }
+    afterNextRender(() => this.card(challengeId)?.querySelector<HTMLButtonElement>('button')?.focus(), { injector: this.injector });
   }
 
   /** The code as two groups of three digits, so it can be read out in two pieces. A code of any other shape is shown as it was sent. */

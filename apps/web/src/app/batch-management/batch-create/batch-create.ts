@@ -41,6 +41,9 @@ import { BatchApiService } from '../batch-api.service';
             <button type="button" class="btn btn--link" (click)="loadExams()">{{ 'batches.new.examsRetry' | t }}</button>
           </p>
         }
+        @if (examsState() === 'ready' && allExams().length >= 200) {
+          <p class="hint">{{ 'batches.new.examsLimited' | t }}</p>
+        }
         @if (examsState() === 'ready' && exams().length === 0) {
           <p class="hint">
             {{ 'batches.new.examsNone' | t }}
@@ -94,7 +97,7 @@ export class BatchCreate implements OnInit {
   /** Whether Create has been pressed, so a field is named as wrong only from then on, not while it is still being filled in. */
   protected readonly attempted = signal(false);
 
-  private readonly allExams = signal<ExamDto[]>([]);
+  protected readonly allExams = signal<ExamDto[]>([]);
   protected readonly examsState = signal<'loading' | 'ready' | 'failed'>('loading');
   /** The exams a batch can be made for, by name: one that has been archived is no longer sat, so it is not offered. */
   protected readonly exams = computed(() =>

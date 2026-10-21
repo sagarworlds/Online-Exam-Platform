@@ -190,7 +190,7 @@ test.describe('the Students page', () => {
     await profile.getByRole('button', { name: 'Save changes' }).click();
     await profile.getByRole('button', { name: 'Confirm and save' }).click();
 
-    await expect(profile.getByRole('alert')).toContainText('Another account already uses that email address.');
+    await expect(profile.getByRole('alert')).toContainText(/Another account already uses that e-?mail address\./);
     expect(await api.isSignedIn(student.accessToken)).toBe(true);
   });
 

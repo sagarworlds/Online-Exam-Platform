@@ -210,6 +210,16 @@ describe('AdminSidebar', () => {
       expect(menuButton().getAttribute('aria-expanded')).toBe('false');
     });
 
+    it('folds away when the link of the page already open is followed, which is no navigation at all', () => {
+      menuButton().click();
+      fixture.detectChanges();
+
+      links()[0].click();
+      fixture.detectChanges();
+
+      expect(menuButton().getAttribute('aria-expanded')).toBe('false');
+    });
+
     it('keeps every link in the page, so nothing changes for the other sizes, which never draw the row', () => {
       expect(labels()).toEqual(['Questions', 'Students', 'Settings']);
     });

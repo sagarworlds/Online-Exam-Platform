@@ -37,7 +37,7 @@
             <div class="editor-ready__text">
               <strong>{{ 'exams.editor.scheduleRow' | t }}</strong>
               @if (e.isScheduled) {
-                <span>{{ 'exams.editor.opensCloses' | t: { start: (e.scheduledStartTime | date: 'medium') ?? '', end: (e.scheduledEndTime | date: 'medium') ?? '' } }}</span>
+                <span>{{ 'exams.editor.opensCloses' | t: { start: (e.scheduledStartTime | examTime: e.timeZone) ?? '', end: (e.scheduledEndTime | examTime: e.timeZone) ?? '' } }}</span>
               } @else {
                 <span>{{ 'exams.editor.notScheduled' | t }}</span>
               }
@@ -77,7 +77,7 @@
         <app-exam-section-card
           [section]="section"
           [editable]="isDraft()"
-          [busy]="busy()"
+          [busy]="busy() || refreshing()"
           [examScope]="e.scope"
           [excluded]="usedQuestionIds()"
           [topics]="topics()"
@@ -120,10 +120,10 @@
         <div class="setting__body">
         @if (e.isScheduled) {
           <p>
-            <strong>{{ 'exams.editor.opens' | t }}</strong> {{ e.scheduledStartTime | date: 'medium' }}<br />
-            <strong>{{ 'exams.editor.closes' | t }}</strong> {{ e.scheduledEndTime | date: 'medium' }}<br />
+            <strong>{{ 'exams.editor.opens' | t }}</strong> {{ e.scheduledStartTime | examTime: e.timeZone }}<br />
+            <strong>{{ 'exams.editor.closes' | t }}</strong> {{ e.scheduledEndTime | examTime: e.timeZone }}<br />
             @if (e.lateEntryDeadline) {
-              <strong>{{ 'exams.editor.lateEntry' | t }}</strong> {{ e.lateEntryDeadline | date: 'medium' }}<br />
+              <strong>{{ 'exams.editor.lateEntry' | t }}</strong> {{ e.lateEntryDeadline | examTime: e.timeZone }}<br />
             }
             <strong>{{ 'exams.editor.timePerAttempt' | t }}</strong>
             {{ e.config.totalTimeSeconds ? e.config.totalTimeSeconds / 60 + ' ' + ('exams.editor.minutes' | t) : ('exams.editor.untilClosed' | t) }}
@@ -173,11 +173,11 @@
         } @else {
           @switch (e.config.resultReleaseMode) {
             @case ('Scheduled') {
-              <p>{{ 'exams.editor.releaseScheduled' | t: { time: (e.config.resultReleaseTime | date: 'medium') ?? '' } }}</p>
+              <p>{{ 'exams.editor.releaseScheduled' | t: { time: (e.config.resultReleaseTime | examTime: e.timeZone) ?? '' } }}</p>
             }
             @case ('Manual') {
               @if (e.config.resultReleaseTime) {
-                <p>{{ 'exams.editor.releasedOn' | t: { time: (e.config.resultReleaseTime | date: 'medium') ?? '' } }}</p>
+                <p>{{ 'exams.editor.releasedOn' | t: { time: (e.config.resultReleaseTime | examTime: e.timeZone) ?? '' } }}</p>
               } @else if (isDraft()) {
                 <p>{{ 'exams.editor.heldDraft' | t }}</p>
               } @else {

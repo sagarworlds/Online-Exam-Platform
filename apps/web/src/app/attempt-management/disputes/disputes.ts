@@ -10,6 +10,7 @@ import {
   viewChildren,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { AdminAttentionService } from '../../admin/admin-attention/admin-attention.service';
 import { Subscription } from 'rxjs';
 import { Permission } from '../../auth/admin-sections';
 import { AuthSessionService } from '../../auth/auth-session.service';
@@ -70,6 +71,7 @@ const EMPTY_KEYS: Readonly<Record<DisputeFilterStatus, MessageKey>> = {
 })
 export class Disputes {
   private readonly api = inject(AttemptAdminApiService);
+  private readonly attention = inject(AdminAttentionService);
   private readonly session = inject(AuthSessionService);
   private readonly i18n = inject(I18nService);
   private readonly injector = inject(Injector);
@@ -325,6 +327,7 @@ export class Disputes {
       ...current,
       ...Object.fromEntries(ids.map((id): [string, DecidedStatus] => [id, status])),
     }));
+    this.attention.settled('disputes', ids.length);
   }
 
   /** Reads the queue for the chosen status. Disputes decided here stay where they were, even once the API stops listing them as open. */

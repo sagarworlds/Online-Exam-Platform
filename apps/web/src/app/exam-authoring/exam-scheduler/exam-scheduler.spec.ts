@@ -239,12 +239,63 @@ describe('ExamScheduler', () => {
       });
     });
 
+    it('sends the instants the exam came with, to the second, when no time field was touched', () => {
+      const { save } = setup({ ...scheduled, scheduledEndTime: '2026-10-05T07:59:59Z' });
+      vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+
+      save();
+
+      // The field shows 13:29, a minute short of the 13:29:59 it is; sending the text back would move the end by 59 seconds.
+      expect(httpMock.expectOne((r) => r.method === 'PUT').request.body.scheduledEndTime).toBe('2026-10-05T07:59:59.000Z');
+    });
+
+    it('sends the new instant for a field that was changed, and the old one for the field that was not', () => {
+      const { save, type } = setup({ ...scheduled, scheduledEndTime: '2026-10-05T07:59:59Z' });
+      vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+
+      type('Opens', '2026-10-05T10:15');
+      save();
+
+      const body = httpMock.expectOne((r) => r.method === 'PUT').request.body;
+      expect(body.scheduledStartTime).toBe('2026-10-05T04:45:00.000Z');
+      expect(body.scheduledEndTime).toBe('2026-10-05T07:59:59.000Z');
+    });
+
+    it('does not keep the old instant when the time zone was changed, since the same text then means another moment', () => {
+      const { save, type } = setup(scheduled);
+      vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+
+      type('Time zone', 'UTC');
+      save();
+
+      expect(httpMock.expectOne((r) => r.method === 'PUT').request.body.scheduledStartTime).toBe('2026-10-05T10:00:00.000Z');
+    });
+
     it('offers the exam’s zone even when it is not one of the usual ones', () => {
       const { control } = setup({ ...scheduled, timeZone: 'Asia/Tokyo', scheduledStartTime: '2026-10-05T01:00:00Z', scheduledEndTime: '2026-10-05T04:00:00Z', lateEntryDeadline: null });
 
       expect(control('Time zone').value).toBe('Asia/Tokyo');
       expect(control('Opens').value).toBe('2026-10-05T10:00');
     });
+  });
+
+  it('says a time that the zone’s clocks skip does not exist, instead of moving it an hour, and sends nothing', () => {
+    const { type, save, errors } = setup();
+    type('Time zone', 'America/New_York');
+    type('Opens', '2026-03-08T02:30');
+    type('Closes', '2026-03-08T05:00');
+
+    save();
+
+    expect(errors()).toEqual(['The clocks in this time zone skip that time when they go forward. Choose another.']);
+    httpMock.expectNone((r) => r.method === 'PUT');
+  });
+
+  it('says so when the exam’s own time zone is not one this browser knows, and what saving will do', () => {
+    const { root } = setup({ isScheduled: true, timeZone: 'Mars/Olympus_Mons', scheduledStartTime: '2026-10-05T04:30:00Z', scheduledEndTime: '2026-10-05T07:30:00Z' });
+
+    expect(root.textContent).toContain('This exam\'s time zone (Mars/Olympus_Mons) is not one this browser knows');
+    expect(root.textContent).toContain('Saving sets the exam to');
   });
 
   it('says the current schedule is not shown when the exam could not be read, and still lets one be entered', () => {
