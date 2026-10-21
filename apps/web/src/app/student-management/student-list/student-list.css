@@ -14,8 +14,8 @@
   overflow: hidden;
 }
 
-/* The heading's button takes the room there is; the edit and deactivate icons sit at the end of the line, outside the button, so a click on
-   an icon never also folds the row. */
+/* The heading's button takes the room there is; the actions sit at the end of the line, outside the button, so a click on one never also
+   folds the row. */
 .student-row__head {
   display: flex;
   align-items: stretch;
@@ -36,25 +36,26 @@
   padding-inline: 0.25rem 0.75rem;
 }
 
-/* Square tap targets of at least 44px; the global button style gives them a border, which an icon does not need until hovered. */
-.student-row__icon {
-  width: 2.75rem;
-  height: 2.75rem;
-  padding: 0;
-  border-color: transparent;
-  background: transparent;
-  color: var(--text-muted);
+/* The same actions are in the page twice, as icons at the end of the line and as buttons with words in the open row; which one is seen is
+   decided as the row-actions component decides it, by pointer and width, so exactly one is ever shown. */
+@media not all and (pointer: fine) and (min-width: 40.01rem) {
+  .student-row__actions {
+    display: none;
+  }
 }
 
-.student-row__icon:hover:not(:disabled) {
-  border-color: var(--control-border);
-  color: var(--text);
+@media (pointer: fine) and (min-width: 40.01rem) {
+  .student-row__panel-actions {
+    display: none;
+  }
 }
 
-.student-row__icon--danger:hover:not(:disabled) {
-  border-color: var(--danger);
-  background: var(--danger-soft);
-  color: var(--danger);
+.student-row__panel-actions {
+  padding: 1rem 1.25rem;
+}
+
+.student-row__panel-actions:not(:last-child) {
+  border-bottom: 1px solid var(--border);
 }
 
 /* A grid, not a row that wraps: on a phone the badges drop to a second line under the name instead of wherever the wrap leaves them.
@@ -144,7 +145,8 @@
 
 @media (max-width: 40rem) {
   .student-row__toggle,
-  .student-row__section {
+  .student-row__section,
+  .student-row__panel-actions {
     padding-inline: 1rem;
   }
 }

@@ -77,12 +77,18 @@ describe('StudentList', () => {
   const toggleOf = (root: HTMLElement, title: string) => rowFor(root, title).querySelector<HTMLButtonElement>('.student-row__toggle')!;
   const titles = (root: HTMLElement) => Array.from(root.querySelectorAll('.student-row__name')).map((n) => n.textContent?.trim());
 
-  /** The edit or deactivate icon on a student's row, or null when the row has none. */
+  /** The edit, deactivate or reactivate icon at the end of a student's row (the form a mouse gets), or null when the row has none. */
   const iconOf = (root: HTMLElement, title: string, label: 'Edit' | 'Deactivate' | 'Reactivate') =>
-    rowFor(root, title)?.querySelector<HTMLButtonElement>(`button[aria-label="${label} ${title}"]`) ?? null;
+    rowFor(root, title)?.querySelector<HTMLButtonElement>(`.row-actions--icons button[aria-label="${label} ${title}"]`) ?? null;
+
+  /** The same action as a button with its word, in the open row (the form a touch screen gets). */
+  const wordsOf = (root: HTMLElement, title: string, label: 'Edit' | 'Deactivate' | 'Reactivate') =>
+    rowFor(root, title)?.querySelector<HTMLButtonElement>(`.student-row__panel .row-actions--words button[aria-label="${label} ${title}"]`) ?? null;
 
   const profileOf = (student: { id: string }) => ({ ...asha, ...student, dateOfBirth: '2000-01-01', ageBand: 'Adult' });
-  const buttonNamed = (root: HTMLElement, name: string) => Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === name);
+  /** A button by its words. While a popup is open it is looked for in the popup: a row's own Deactivate is on the page too, behind it. */
+  const buttonNamed = (root: HTMLElement, name: string) =>
+    Array.from((root.querySelector('app-modal-dialog') ?? root).querySelectorAll('button')).find((b) => b.textContent?.trim() === name);
 
   /** Clicks a student's edit icon and answers the profile read the popup makes. */
   function openEditPopup(fixture: ReturnType<typeof open>['fixture'], root: HTMLElement, title: string, student: { id: string } = asha) {
@@ -464,7 +470,8 @@ describe('StudentList', () => {
 
       icon.click();
       fixture.detectChanges();
-      expect(icon.disabled).toBe(true);
+      // Unavailable, not switched off: it stays where it is and can still be reached to read why.
+      expect(icon.getAttribute('aria-disabled')).toBe('true');
       icon.click();
 
       httpMock.expectOne(reactivateUrl).flush({ ...profileOf(asha), status: 'Active' });
@@ -482,9 +489,63 @@ describe('StudentList', () => {
 
       expect(root.querySelector('.error-message')?.textContent).toContain('There is no such student.');
       expect(root.querySelector('.success-message')).toBeNull();
-      expect(iconOf(root, 'Asha Rao', 'Reactivate')!.disabled).toBe(false);
+      expect(iconOf(root, 'Asha Rao', 'Reactivate')!.hasAttribute('aria-disabled')).toBe(false);
       httpMock.expectNone(isStudents);
     });
+  });
+
+  describe('the row actions for a touch screen', () => {
+    it('are in the open row, in words, and not before it is opened', () => {
+      const { fixture, root } = open({ students: [asha] });
+      expect(wordsOf(root, 'Asha Rao', 'Edit')).toBeNull();
+
+      toggleOf(root, 'Asha Rao').click();
+      fixture.detectChanges();
+
+      expect(wordsOf(root, 'Asha Rao', 'Edit')?.textContent?.trim()).toBe('Edit');
+      expect(wordsOf(root, 'Asha Rao', 'Deactivate')?.textContent?.trim()).toBe('Deactivate');
+      expect(wordsOf(root, 'Asha Rao', 'Deactivate')?.classList.contains('btn--danger')).toBe(true);
+    });
+
+    it('do the same as the icons: Deactivate asks first', () => {
+      const { fixture, root } = open({ students: [asha] });
+      toggleOf(root, 'Asha Rao').click();
+      fixture.detectChanges();
+
+      wordsOf(root, 'Asha Rao', 'Deactivate')!.click();
+      fixture.detectChanges();
+
+      expect(root.querySelector('app-modal-dialog .modal__title')?.textContent).toContain('Deactivate Asha Rao?');
+    });
+
+    it('offer Reactivate, not Deactivate, for an account that was deactivated', () => {
+      const { fixture, root } = open({ students: [{ ...asha, status: 'Deactivated' }] });
+      toggleOf(root, 'Asha Rao').click();
+      fixture.detectChanges();
+
+      expect(wordsOf(root, 'Asha Rao', 'Reactivate')).not.toBeNull();
+      expect(wordsOf(root, 'Asha Rao', 'Deactivate')).toBeNull();
+    });
+
+    it('are not in the open row for staff who may only read students', () => {
+      const { fixture, root } = open({ students: [asha] }, ['student.read', 'invite.manage']);
+      toggleOf(root, 'Asha Rao').click();
+      fixture.detectChanges();
+      // A row that cannot be edited shows the profile in itself, which is read when it opens.
+      httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/admin/students/a1')).flush(profileOf(asha));
+
+      expect(rowFor(root, 'Asha Rao').querySelector('.student-row__panel .row-actions--words')).toBeNull();
+    });
+  });
+
+  it('tags a status with the shared badge: a deactivated account in the danger tone, a pending invitation as a warning', () => {
+    const { root } = open({ students: [{ ...asha, status: 'Deactivated' }], invites: [invite('1', 'asha@example.com', 'Maths')] });
+
+    const tones = Array.from(rowFor(root, 'Asha Rao').querySelectorAll('.student-row__statuses .status-badge')).map((b) => [b.getAttribute('data-tone'), b.textContent?.replace(/\s+/g, ' ').trim()]);
+    expect(tones).toEqual([
+      ['danger', '✕ Deactivated'],
+      ['warning', '! 1 Pending'],
+    ]);
   });
 
   describe('an address nobody has registered with', () => {

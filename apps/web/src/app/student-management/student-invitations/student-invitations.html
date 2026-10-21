@@ -7,7 +7,7 @@
     <li class="invite-row">
       <h4 class="card__title">
         {{ examLabel(invite) }}
-        <span class="badge" [class]="badgeClass(invite.status)">{{ invite.status }}</span>
+        <app-status-badge [tone]="statusTone(invite.status)" [label]="invite.status" />
       </h4>
       <p class="card__meta">Invited {{ invite.sentAt | date: 'medium' }}</p>
       @if (invite.status === 'Pending') {

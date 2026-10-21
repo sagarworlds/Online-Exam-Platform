@@ -255,6 +255,11 @@ test.describe('the Students page', () => {
     // 43.5: Firefox reports a 44px control as 43.99997.
     const height = (await toggle(page, student.email).boundingBox())?.height ?? 0;
     expect(height).toBeGreaterThanOrEqual(43.5);
+    // A phone has no tooltip to read, so the actions are not icons at the end of the line: they are in the open row, with their words.
+    await expect(editIcon(page, student.email)).toHaveCount(0);
+    await toggle(page, student.email).click();
+    await expect(editIcon(page, student.email)).toContainText('Edit');
+    await expect(deactivateIcon(page, student.email)).toContainText('Deactivate');
     for (const icon of [editIcon(page, student.email), deactivateIcon(page, student.email)]) {
       const box = await icon.boundingBox();
       expect(box?.width ?? 0).toBeGreaterThanOrEqual(43.5);
