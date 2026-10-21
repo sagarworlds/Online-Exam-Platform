@@ -1,10 +1,11 @@
-/* The padlock sits at the end of the page header, so its tip opens leftwards from the right edge and stays on a phone's screen. */
+/*
+ * The padlock sits in the page header's action group, beside the refresh icon, and its tip opens leftwards from the right edge of that
+ * group, which is the header's right edge, so it stays on a phone's screen. The tip is positioned against the group (see
+ * .page-header__actions), not against the padlock: the padlock is no longer the last thing in the header, and a tip hung from it would
+ * start the width of the refresh icon too far left.
+ */
 :host {
   display: inline-block;
-}
-
-.encryption-status {
-  position: relative;
 }
 
 /* The padlock is a 44px target. Its state is the glyph on it (a tick, an exclamation mark, three dots) as well as its colour. */
