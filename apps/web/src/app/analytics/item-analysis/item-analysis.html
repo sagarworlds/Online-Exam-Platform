@@ -3,8 +3,16 @@
 
   <div class="page-header">
     <h1>{{ 'admin.items.title' | t }}</h1>
+    <div class="page-header__actions">
+      <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
+    </div>
   </div>
   <p class="hint">{{ 'admin.items.hint' | t }}</p>
+
+  <!-- A refresh that failed leaves the figures on screen and says why here; a first read that failed says it in its own card below. -->
+  @if (errorMessage() && view() !== 'error') {
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
 
   @switch (view()) {
     @case ('loading') {

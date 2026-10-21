@@ -1,6 +1,9 @@
 <div class="page page--wide">
   <div class="page-header">
     <h1>{{ 'whatsapp.title' | t }}</h1>
+    <div class="page-header__actions">
+      <app-refresh-button [busy]="statusLoading()" (refresh)="loadStatus()" />
+    </div>
   </div>
 
   <p class="hint">{{ 'whatsapp.intro' | t }}</p>
@@ -12,9 +15,6 @@
   >
     <div class="whatsapp-card-head">
       <h2 id="whatsapp-setup-heading">{{ 'whatsapp.setup.heading' | t }}</h2>
-      <button type="button" (click)="loadStatus()" [disabled]="statusLoading()">
-        {{ 'whatsapp.setup.refresh' | t }}
-      </button>
     </div>
 
     @if (statusError(); as error) {

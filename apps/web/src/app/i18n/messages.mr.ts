@@ -534,7 +534,6 @@ export const MR: Messages = {
   'whatsapp.title': 'व्हॉट्सअॅप चाचणी',
   'whatsapp.intro': 'प्लॅटफॉर्मच्या व्हॉट्सअॅप जोडणीद्वारे एका फोन नंबरवर संदेश पाठवा आणि ती काम करते का ते तपासा. काम न झाल्यास हे पान कारण सांगते.',
   'whatsapp.setup.heading': 'सेटअप तपासणी',
-  'whatsapp.setup.refresh': 'ताजे करा',
   'whatsapp.setup.retry': 'पुन्हा प्रयत्न करा',
   'whatsapp.status.on': 'व्हॉट्सअॅप सुरू आहे',
   'whatsapp.status.off': 'व्हॉट्सअॅप बंद आहे',

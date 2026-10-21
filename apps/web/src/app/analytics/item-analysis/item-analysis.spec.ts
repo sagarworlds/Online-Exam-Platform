@@ -369,6 +369,90 @@ describe('ItemAnalysis', () => {
     });
   });
 
+  describe('the refresh icon', () => {
+    const isRead = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/exams/e1/analytics/items');
+    const icon = (fixture: ComponentFixture<ItemAnalysis>) => root(fixture).querySelector<HTMLButtonElement>('app-refresh-button button')!;
+    const firstQuestionRow = (fixture: ComponentFixture<ItemAnalysis>) => root(fixture).querySelector('.item-table tbody tr td:first-child')?.textContent?.trim();
+
+    it('sits in the page header, and turns while the first read is on its way', async () => {
+      const { fixture, request } = await start();
+
+      expect(root(fixture).querySelector('.page-header app-refresh-button')).not.toBeNull();
+      expect(icon(fixture).getAttribute('aria-busy')).toBe('true');
+      request.flush(analysis());
+      fixture.detectChanges();
+      expect(icon(fixture).hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('reads the analysis again without blanking the figures, and shows what changed, keeping the sort', async () => {
+      const { fixture, request } = await start();
+      request.flush(analysis());
+      fixture.detectChanges();
+      [...root(fixture).querySelectorAll<HTMLButtonElement>('.item-analysis__sort-button')].find((b) => b.textContent?.includes('Discrimination'))?.click();
+      fixture.detectChanges();
+      expect(firstQuestionRow(fixture)).toBe('3');
+
+      icon(fixture).click();
+      fixture.detectChanges();
+      expect(icon(fixture).getAttribute('aria-busy')).toBe('true');
+      expect(root(fixture).querySelector('table')).not.toBeNull();
+      expect(textOf(fixture)).not.toContain('Loading');
+
+      httpMock.expectOne(isRead).flush(analysis({ candidateCount: 55 }));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('55');
+      expect(firstQuestionRow(fixture)).toBe('3');
+      expect(icon(fixture).hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('keeps the figures and says why above them when the read fails, and clears that once it works', async () => {
+      const { fixture, request } = await start();
+      request.flush(analysis());
+      fixture.detectChanges();
+
+      icon(fixture).click();
+      httpMock.expectOne(isRead).flush({ title: 'Server error', detail: 'The analysis is not available.' }, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(root(fixture).querySelector('table')).not.toBeNull();
+      expect(root(fixture).querySelector('[role="alert"]')?.textContent).toContain('The analysis is not available.');
+      expect(icon(fixture).hasAttribute('aria-busy')).toBe(false);
+
+      icon(fixture).click();
+      httpMock.expectOne(isRead).flush(analysis());
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('moves on from "results are held" when the author has released them since', async () => {
+      const { fixture, request } = await start();
+      request.flush(analysis({ resultsReleased: false, questions: [] }));
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('table')).toBeNull();
+
+      icon(fixture).click();
+      httpMock.expectOne(isRead).flush(analysis());
+      fixture.detectChanges();
+
+      expect(root(fixture).querySelector('table')).not.toBeNull();
+    });
+
+    it('is the retry when the first read failed, showing the failure once, in its own card', async () => {
+      const { fixture, request } = await start();
+      request.flush({ title: 'Forbidden', detail: 'You may not read this exam.' }, { status: 403, statusText: 'Forbidden' });
+      fixture.detectChanges();
+      expect(root(fixture).querySelectorAll('[role="alert"]')).toHaveLength(1);
+
+      icon(fixture).click();
+      httpMock.expectOne(isRead).flush(analysis());
+      fixture.detectChanges();
+
+      expect(root(fixture).querySelector('table')).not.toBeNull();
+      expect(root(fixture).querySelector('[role="alert"]')).toBeNull();
+    });
+  });
+
   /** The download button of the export row with this label. */
   function exportButton(fixture: ComponentFixture<ItemAnalysis>, label: string): HTMLButtonElement | undefined {
     return [...root(fixture).querySelectorAll<HTMLButtonElement>('.item-analysis__export button')].find((b) => b.textContent?.trim() === label);

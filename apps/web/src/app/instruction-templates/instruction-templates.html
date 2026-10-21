@@ -1,6 +1,9 @@
 <div class="page page--wide">
   <div class="page-header">
     <h1>{{ 'templates.title' | t }}</h1>
+    <div class="page-header__actions">
+      <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
+    </div>
   </div>
 
   <p class="hint">{{ 'templates.hint' | t }}</p>

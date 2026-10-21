@@ -460,24 +460,29 @@ describe('WhatsAppTest', () => {
       expect(buttonLabelled('Retry')).toBeUndefined();
     });
 
-    it('reloads the setup when Refresh is pressed, and cannot be pressed again until it has loaded', () => {
+    // The refresh is the icon at the end of the page header, the same one every admin page has; it has no text, only a name.
+    const refreshIcon = () => root.querySelector<HTMLButtonElement>('.page-header app-refresh-button button')!;
+
+    it('reloads the setup when the refresh icon is pressed, and cannot be pressed again until it has loaded', () => {
       open(status({ enabled: false }));
       expect(text()).toContain('WhatsApp is off');
+      expect(buttonLabelled('Refresh')).toBeUndefined();
 
-      buttonLabelled('Refresh')!.click();
+      refreshIcon().click();
       fixture.detectChanges();
-      expect(buttonLabelled('Refresh')!.disabled).toBe(true);
+      expect(refreshIcon().getAttribute('aria-busy')).toBe('true');
+      refreshIcon().click();
       httpMock.expectOne(isStatus).flush(status({ enabled: true }));
       fixture.detectChanges();
 
       expect(text()).toContain('WhatsApp is on');
-      expect(buttonLabelled('Refresh')!.disabled).toBe(false);
+      expect(refreshIcon().hasAttribute('aria-busy')).toBe(false);
     });
 
     it('drops the old setup when a refresh fails, so stale facts are not shown beside the error', () => {
       open(status({ enabled: true }));
 
-      buttonLabelled('Refresh')!.click();
+      refreshIcon().click();
       httpMock.expectOne(isStatus).flush(null, { status: 500, statusText: 'Server Error' });
       fixture.detectChanges();
 

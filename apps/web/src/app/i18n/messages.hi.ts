@@ -534,7 +534,6 @@ export const HI: Messages = {
   'whatsapp.title': 'व्हाट्सऐप जाँच',
   'whatsapp.intro': 'यह जाँचने के लिए कि व्हाट्सऐप काम करता है, प्लेटफ़ॉर्म के व्हाट्सऐप कनेक्शन से किसी फ़ोन नंबर पर एक संदेश भेजें। अगर काम नहीं करता, तो यह पन्ना बताता है कि ऐसा क्यों है।',
   'whatsapp.setup.heading': 'सेटअप जाँच',
-  'whatsapp.setup.refresh': 'ताज़ा करें',
   'whatsapp.setup.retry': 'फिर से कोशिश करें',
   'whatsapp.status.on': 'व्हाट्सऐप चालू है',
   'whatsapp.status.off': 'व्हाट्सऐप बंद है',

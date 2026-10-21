@@ -884,7 +884,7 @@ button.btn--primary:hover:not(:disabled),
   }
 }
 
-/* The WhatsApp test page: a card's title with its Refresh button, the setup table's tags, the problem and note lists, the
+/* The WhatsApp test page: a card's title, the setup table's tags, the problem and note lists, the
    message counter, the result, and the Sent, Delivered, Read progress line. Colours are tokens only, so dark mode follows;
    every state also has words or a symbol, so none of it relies on colour alone. */
 .whatsapp-card-head {
