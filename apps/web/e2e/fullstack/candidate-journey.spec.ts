@@ -37,8 +37,12 @@ async function signInWithCode(page: Page, candidate: EnrolledCandidate, code?: s
   await expect(page).toHaveURL(/\/verify-otp/);
 
   const sent = await api.signInCodes.nextAfter(mark);
-  await page.getByLabel(text('verify.code'), { exact: true }).fill(code ?? sent);
-  await page.getByRole('button', { name: text('verify.submit'), exact: true }).click();
+  const typed = code ?? sent;
+  await page.getByLabel(text('verify.code'), { exact: true }).fill(typed);
+  // The sixth digit sends the code by itself (verify-otp), so a full code has nothing left to press; Verify is pressed only for a shorter one.
+  if (typed.length < 6) {
+    await page.getByRole('button', { name: text('verify.submit'), exact: true }).click();
+  }
 }
 
 /** From the exams page to the first question: read the instructions, tick the box and start. */
@@ -148,8 +152,8 @@ test.describe('a candidate sitting an exam against the real API', () => {
     // A six-digit code that is not the one sent.
     const sent = await api.signInCodes.nextAfter(mark);
     const wrong = sent === '000000' ? '000001' : '000000';
+    // Six digits are sent as the last one is typed, so there is no button to press.
     await page.getByLabel(text('verify.code'), { exact: true }).fill(wrong);
-    await page.getByRole('button', { name: text('verify.submit'), exact: true }).click();
 
     await expect(page.getByRole('alert')).not.toBeEmpty();
     await expect(page).toHaveURL(/\/verify-otp/);
