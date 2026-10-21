@@ -1,0 +1,37 @@
+<div class="row-actions row-actions--icons" role="group" [attr.aria-label]="rowLabel() || null">
+  @for (action of actions(); track action.id) {
+    <button
+      type="button"
+      class="icon-btn"
+      [class.icon-btn--danger]="action.danger"
+      [appTooltip]="tipOf(action)"
+      [attr.aria-label]="nameOf(action)"
+      [attr.aria-disabled]="action.disabled ? 'true' : null"
+      (click)="choose(action)"
+    >
+      <app-icon [name]="action.icon" />
+    </button>
+  }
+</div>
+
+<div class="row-actions row-actions--words" role="group" [attr.aria-label]="rowLabel() || null">
+  @for (action of actions(); track action.id) {
+    <div class="row-actions__item">
+      <button
+        type="button"
+        class="btn"
+        [class.btn--danger]="action.danger"
+        [attr.aria-label]="nameOf(action)"
+        [attr.aria-disabled]="action.disabled ? 'true' : null"
+        [attr.aria-describedby]="action.disabled && action.disabledReason ? reasonId(action) : null"
+        (click)="choose(action)"
+      >
+        <span class="row-actions__icon" aria-hidden="true"><app-icon [name]="action.icon" /></span>
+        <span class="row-actions__label">{{ action.label }}</span>
+      </button>
+      @if (action.disabled && action.disabledReason) {
+        <p class="row-actions__reason" [id]="reasonId(action)">{{ action.disabledReason }}</p>
+      }
+    </div>
+  }
+</div>

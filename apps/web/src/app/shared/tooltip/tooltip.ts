@@ -1,5 +1,6 @@
 import { DOCUMENT } from '@angular/common';
 import { Directive, ElementRef, OnDestroy, inject, input } from '@angular/core';
+import { ToastService } from '../toast/toast.service';
 
 /** How long the pointer rests on an icon before its tooltip appears; a keyboard focus shows it at once. */
 const HOVER_DELAY_MS = 350;
@@ -14,6 +15,11 @@ const EDGE = 8;
  * or focus leaves, or the icon scrolls out of view. It does not give the control its name: the control still carries its own `aria-label`, so a screen
  * reader reads that and the tooltip is a visual extra.
  *
+ * A touch screen has no hover, and a tap on an icon runs its action at once, so there the tip is never seen. For the one case where the words
+ * are not already the control's name, a control that is unavailable (`aria-disabled="true"`) and whose tip says why, a tap shows the tip as a
+ * message instead, so the reason is not lost on a phone. A control that works needs no tip on a phone: the icon is one of the universal ones,
+ * or it has words beside it (see RowActions).
+ *
  * The bubble is added to the page's body (or to the dialog the icon is in) and positioned from the icon's place on screen, so a row or card
  * that clips its content does not clip the tooltip. It sits above the icon, or below it when there is no room above, and follows the icon if the page scrolls.
  */
@@ -25,7 +31,7 @@ const EDGE = 8;
     '(focus)': 'show()',
     '(blur)': 'hide()',
     '(keydown.escape)': 'hide()',
-    '(click)': 'hide()',
+    '(click)': 'onClick()',
   },
 })
 export class Tooltip implements OnDestroy {
@@ -34,6 +40,7 @@ export class Tooltip implements OnDestroy {
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly document = inject(DOCUMENT);
+  private readonly toast = inject(ToastService);
   private bubble: HTMLElement | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private readonly onScroll = (): void => this.follow();
@@ -59,6 +66,21 @@ export class Tooltip implements OnDestroy {
     this.bubble = bubble;
     this.place(bubble);
     this.document.addEventListener('scroll', this.onScroll, true);
+  }
+
+  /** A press: the tip goes away, and on a touch screen an unavailable control says why it is unavailable. */
+  protected onClick(): void {
+    this.hide();
+    const text = this.appTooltip().trim();
+    if (text !== '' && this.host.nativeElement.getAttribute('aria-disabled') === 'true' && this.isTouch()) {
+      this.toast.info(text);
+    }
+  }
+
+  /** Whether the main way of pointing is a finger, which cannot hover. */
+  private isTouch(): boolean {
+    const view = this.document.defaultView;
+    return typeof view?.matchMedia === 'function' && view.matchMedia('(hover: none), (pointer: coarse)').matches;
   }
 
   protected hide(): void {

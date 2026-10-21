@@ -1,0 +1,54 @@
+:host {
+  display: block;
+}
+
+/* Which form shows is decided by the way of pointing and the room, not by a script: a mouse with room gets the icons, anything else the words. */
+.row-actions--icons {
+  display: none;
+}
+
+.row-actions--words {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+@media (pointer: fine) and (min-width: 40.01rem) {
+  .row-actions--icons {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .row-actions--words {
+    display: none;
+  }
+}
+
+.row-actions__item {
+  min-width: 0;
+}
+
+.row-actions__item .btn {
+  width: 100%;
+  gap: var(--space-2);
+}
+
+.row-actions__icon {
+  display: inline-flex;
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: none;
+}
+
+/* An unavailable action stays, dimmed but readable, with its reason in words under it: a phone has no tooltip to give it. */
+.row-actions__item [aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.row-actions__reason {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}

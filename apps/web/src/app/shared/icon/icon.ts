@@ -20,7 +20,11 @@ export type IconName =
   | 'choice'
   | 'text'
   | 'chevron-down'
-  | 'chevron-up';
+  | 'chevron-up'
+  | 'mail'
+  | 'key'
+  | 'user-off'
+  | 'more';
 
 /**
  * An action icon, drawn as a small inline outline in the same stroke style as the admin sidebar's ({@link AdminIcon}), which keeps its own
@@ -118,6 +122,25 @@ export type IconName =
         }
         @case ('chevron-up') {
           <path d="m6 15 6-6 6 6" />
+        }
+        @case ('mail') {
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path d="m3.5 7 8.5 6 8.5-6" />
+        }
+        @case ('key') {
+          <circle cx="8" cy="15" r="4" />
+          <path d="M11 12.5 20 4" />
+          <path d="m16.5 7.5 3 3" />
+        }
+        @case ('user-off') {
+          <circle cx="12" cy="8" r="3.5" />
+          <path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" />
+          <path d="m4 4 16 16" />
+        }
+        @case ('more') {
+          <circle cx="5" cy="12" r="1.2" />
+          <circle cx="12" cy="12" r="1.2" />
+          <circle cx="19" cy="12" r="1.2" />
         }
       }
     </svg>
