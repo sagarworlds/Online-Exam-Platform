@@ -10,7 +10,10 @@ import { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { QuestionApiService } from '../../question-bank/question-api.service';
 import { QuestionDto } from '../../question-bank/question.models';
+import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
+import { Disclosure, DisclosureGroup } from '../../shared/disclosure/disclosure';
 import { extractErrorMessage } from '../../shared/problem-details';
+import { ToastService } from '../../shared/toast/toast.service';
 import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { InstructionTemplateApiService } from '../../instruction-templates/instruction-template-api.service';
 import { InstructionTemplateDto } from '../../instruction-templates/instruction-template.models';
@@ -57,9 +60,14 @@ function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): bool
  * exam is shown read-only, because the API refuses those; only its name and description, its answer review and its attempts
  * allowed can still change.
  */
+/** A moment as the page shows it everywhere on this screen: date and time, in the language on screen. */
+function formatDateTime(utc: string | null | undefined): string {
+  return utc ? new Date(utc).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+}
+
 @Component({
   selector: 'app-exam-editor',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, TranslatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamPassingPercentage, ExamProctoringProfile, ExamSectionCard, ExamInstructions, RefreshButton],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, TranslatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamPassingPercentage, ExamProctoringProfile, ExamSectionCard, ExamInstructions, RefreshButton, Disclosure, DisclosureGroup],
   templateUrl: './exam-editor.html',
 })
 export class ExamEditor {
@@ -91,6 +99,22 @@ export class ExamEditor {
   private reading: Subscription | null = null;
   protected readonly busy = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+
+  private readonly confirm = inject(ConfirmService);
+  private readonly toast = inject(ToastService);
+
+  /** When the exam opens and closes, for the schedule row; empty while it has no schedule, which the row's tag says instead. */
+  protected scheduleSummary(exam: ExamDto): string {
+    return exam.isScheduled
+      ? this.i18n.t('exams.editor.opensAt', { start: formatDateTime(exam.scheduledStartTime) })
+      : '';
+  }
+
+  /** The passing mark, in words: a percentage, or that there is none. */
+  protected passingSummary(exam: ExamDto): string {
+    const percent = exam.config.passingPercentage;
+    return percent ? this.i18n.t('exams.passingMark.readSet', { percent }) : this.i18n.t('exams.passingMark.readNone');
+  }
 
   /** What the exam's questions come from, in words, in the language on screen. */
   protected scopeSummary(): string {
@@ -276,8 +300,8 @@ export class ExamEditor {
   private templatesLoaded = false;
 
   /** Loads the templates the first time the Instructions setting is opened, so the page does not ask for them before they are needed. */
-  protected onInstructionsToggled(event: Event): void {
-    if ((event.target as HTMLDetailsElement).open && !this.templatesLoaded) {
+  protected onInstructionsOpenChange(open: boolean): void {
+    if (open && !this.templatesLoaded) {
       this.loadTemplates();
     }
   }
@@ -366,7 +390,7 @@ export class ExamEditor {
       return;
     }
 
-    this.run(this.examApi.releaseResults(this.examId));
+    this.run(this.examApi.releaseResults(this.examId), undefined, 'exams.editor.released');
   }
 
   protected startChangingDetails(): void {
@@ -483,21 +507,35 @@ export class ExamEditor {
     });
   }
 
-  protected publish(): void {
+  /**
+   * Publishes the exam, after saying what that fixes: once it is published its questions, scope, marking and instructions cannot be edited
+   * and candidates can start it, so this is the one button on the page that is asked about.
+   */
+  protected async publish(): Promise<void> {
     if (!this.canPublish() || this.busy()) {
       return;
     }
 
-    this.run(this.examApi.publish(this.examId));
+    const opens = this.exam()?.scheduledStartTime;
+    const confirmed = await this.confirm.ask({
+      title: this.i18n.t('exams.editor.publishTitle'),
+      message: opens ? this.i18n.t('exams.editor.publishOpens', { start: formatDateTime(opens) }) : undefined,
+      consequences: [this.i18n.t('exams.editor.publishFixes.questions'), this.i18n.t('exams.editor.publishFixes.settings')],
+      confirmLabel: this.i18n.t('exams.editor.publish'),
+    });
+    if (confirmed && !this.busy()) {
+      this.run(this.examApi.publish(this.examId), undefined, 'exams.editor.published');
+    }
   }
 
-  // Runs one change, then reloads the exam so the page always shows what the server stored.
-  private run(call: Observable<unknown>, afterSuccess?: () => void): void {
+  // Runs one change, then reloads the exam so the page always shows what the server stored, and says that it was stored.
+  private run(call: Observable<unknown>, afterSuccess?: () => void, saved: MessageKey = 'exams.editor.saved'): void {
     this.busy.set(true);
     this.errorMessage.set(null);
     call.subscribe({
       next: () => {
         afterSuccess?.();
+        this.toast.success(this.i18n.t(saved));
         this.busy.set(false);
         this.reload();
       },

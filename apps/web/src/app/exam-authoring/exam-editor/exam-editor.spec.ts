@@ -2,6 +2,9 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { vi } from 'vitest';
+import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
+import { ToastService } from '../../shared/toast/toast.service';
 import { ExamEditor } from './exam-editor';
 
 const isExam = (r: { method: string; url: string }) => r.method === 'GET' && /\/v1\/exams\/exam-1$/.test(r.url);
@@ -57,6 +60,8 @@ describe('ExamEditor', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(async () => {
+    // Which setting rows were left open is kept for the visit (session storage), so a test must not inherit the last one's.
+    sessionStorage.clear();
     await TestBed.configureTestingModule({
       imports: [ExamEditor],
       providers: [
@@ -104,7 +109,126 @@ describe('ExamEditor', () => {
     expect(root.textContent).toContain('add at least one question');
   });
 
-  it('enables Publish once scheduled with a question, and publishes it', () => {
+  describe('publishing', () => {
+    const scheduled = () =>
+      examBody({
+        isScheduled: true,
+        scheduledStartTime: '2026-10-05T04:30:00Z',
+        scheduledEndTime: '2026-10-05T07:30:00Z',
+        sections: [{ id: 's1', name: 'Algebra', timeSeconds: null, order: 1, questions: [{ id: 'eq1', questionId: 'q1', order: 1, text: 'What is 2 + 2?' }] }],
+      });
+    const answer = (confirmed: boolean) => vi.spyOn(TestBed.inject(ConfirmService), 'ask').mockResolvedValue(confirmed);
+
+    it('asks first, saying what publishing fixes and when candidates can start, and sends nothing when the answer is no', async () => {
+      const exam = scheduled();
+      const { root } = open(exam);
+      const ask = answer(false);
+
+      button(root, 'Publish exam').click();
+      await Promise.resolve();
+
+      expect(ask).toHaveBeenCalledTimes(1);
+      const asked = ask.mock.calls[0][0];
+      expect(asked.title).toBe('Publish this exam?');
+      expect(asked.message).toContain('Candidates can start it when its window opens');
+      expect(asked.consequences).toEqual([
+        'Its sections and questions can no longer be changed.',
+        'Its scope, marking scheme, shuffling and instructions are fixed.',
+      ]);
+      expect(asked.confirmLabel).toBe('Publish exam');
+      httpMock.expectNone((r) => r.url.endsWith('/publish'));
+    });
+
+    it('says the exam is published, as a message, once it has been', async () => {
+      const exam = scheduled();
+      const { fixture, root } = open(exam);
+      answer(true);
+
+      button(root, 'Publish exam').click();
+      await Promise.resolve();
+      httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/exams/exam-1/publish')).flush(exam);
+      httpMock.expectOne(isExam).flush({ ...exam, status: 'Published' });
+      fixture.detectChanges();
+
+      expect(TestBed.inject(ToastService).toasts().map((t) => [t.kind, t.message])).toEqual([['success', 'The exam is published.']]);
+    });
+  });
+
+  it('says what was saved, as a message, after any change to the exam', () => {
+    const { fixture, root } = open();
+    TestBed.inject(ToastService).clear();
+
+    const input = root.querySelector('#section-name') as HTMLInputElement;
+    input.value = 'Geometry';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    (root.querySelector('form[aria-label="New section"]') as HTMLFormElement).dispatchEvent(new Event('submit'));
+    httpMock
+      .expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/exams/exam-1/sections'))
+      .flush({ id: 's2', name: 'Geometry', timeSeconds: null, order: 2, questions: [] }, { status: 201, statusText: 'Created' });
+    httpMock.expectOne(isExam).flush(examBody());
+
+    expect(TestBed.inject(ToastService).toasts().map((t) => t.message)).toEqual(['Saved.']);
+  });
+
+  describe('the settings, as rows that open', () => {
+    it('are one row each, in a group with Expand all and Collapse all, closed to begin with', () => {
+      const { root } = open();
+
+      const rows = Array.from(root.querySelectorAll('app-disclosure'));
+      expect(rows).toHaveLength(11);
+      expect(root.querySelector('app-disclosure-group .disclosure-group__tools')).not.toBeNull();
+      expect(rows.every((row) => !row.querySelector('details')!.open)).toBe(true);
+      // Each row says what the setting is now, so the closed row is read without opening it.
+      expect(rows[1].querySelector('.disclosure__summary')?.textContent).toBeTruthy();
+    });
+
+    it('tags the schedule of a draft that has none, with a mark and words', () => {
+      const { root } = open();
+
+      const schedule = root.querySelector('app-disclosure')!;
+      expect(schedule.querySelector('.disclosure__title')?.textContent).toBe('Schedule');
+      expect(schedule.querySelector('.disclosure__tag')?.textContent?.trim()).toBe('Not scheduled yet.');
+      expect(schedule.querySelector('details')!.getAttribute('data-status')).toBe('warning');
+    });
+
+    it('opens every row with Expand all', () => {
+      const { fixture, root } = open();
+
+      (root.querySelectorAll('.disclosure-group__tools button')[0] as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(Array.from(root.querySelectorAll('app-disclosure details')).every((d) => (d as HTMLDetailsElement).open)).toBe(true);
+      // Opening the Instructions row is what asks for the templates, so they are answered here.
+      httpMock.match((r) => r.method === 'GET' && r.url.includes('/instruction-templates')).forEach((r) => r.flush([]));
+    });
+
+    it('keeps a row open or closed for the visit', () => {
+      const { fixture, root } = open();
+      const details = root.querySelectorAll<HTMLDetailsElement>('app-disclosure details')[2];
+
+      details.open = true;
+      details.dispatchEvent(new Event('toggle'));
+      fixture.detectChanges();
+
+      expect(sessionStorage.getItem('disclosure.exam-editor.release')).toBe('open');
+    });
+
+    it('asks for the instruction templates only when the Instructions row is first opened', () => {
+      const { fixture, root } = open();
+      httpMock.expectNone((r) => r.url.includes('/instruction-templates'));
+      const row = Array.from(root.querySelectorAll('app-disclosure')).find((r) => r.querySelector('.disclosure__title')?.textContent === 'Instructions')!;
+
+      const details = row.querySelector('details')!;
+      details.open = true;
+      details.dispatchEvent(new Event('toggle'));
+      fixture.detectChanges();
+
+      httpMock.expectOne((r) => r.method === 'GET' && r.url.includes('/instruction-templates')).flush([]);
+    });
+  });
+
+  it('enables Publish once scheduled with a question, and publishes it', async () => {
     const scheduled = examBody({
       isScheduled: true,
       scheduledStartTime: '2026-10-05T04:30:00Z',
@@ -112,9 +236,11 @@ describe('ExamEditor', () => {
       sections: [{ id: 's1', name: 'Algebra', timeSeconds: null, order: 1, questions: [{ id: 'eq1', questionId: 'q1', order: 1, text: 'What is 2 + 2?' }] }],
     });
     const { fixture, root } = open(scheduled);
+    vi.spyOn(TestBed.inject(ConfirmService), 'ask').mockResolvedValue(true);
     expect(button(root, 'Publish exam').disabled).toBe(false);
 
     button(root, 'Publish exam').click();
+    await Promise.resolve();
     httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/exams/exam-1/publish')).flush(scheduled);
     httpMock.expectOne(isExam).flush({ ...scheduled, status: 'Published' });
     fixture.detectChanges();

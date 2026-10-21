@@ -1311,36 +1311,9 @@ button[aria-busy='true']:not(.icon-btn)::after {
   margin-top: 1.5rem;
 }
 
-.setting {
-  margin-top: 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-
-.setting > summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.25rem 1rem;
-  min-height: 2.75rem;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-}
-
-.setting__name {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.setting__value {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
+/* A setting is an app-disclosure (see shared/disclosure); its body holds the setting's own card. */
 .setting__body {
-  padding: 0 1rem 1rem;
+  padding: 0;
 }
 
 /* The settings cards are component hosts, so their card sits one element down from the body. */
