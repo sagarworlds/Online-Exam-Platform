@@ -349,6 +349,17 @@ export class ExamAttempt {
   /** Seconds between screen captures, from the policy. */
   private screenIntervalSeconds = 0;
 
+  /** How often the camera and the screen are captured, as the server's policy says, so what the page tells the candidate is what happens. */
+  protected readonly webcamEverySeconds = signal(120);
+  protected readonly screenEverySeconds = signal(120);
+
+  /** An interval as words: "2 minutes" for a whole number of minutes, otherwise "30 seconds". */
+  protected intervalText(seconds: number): string {
+    return seconds >= 60 && seconds % 60 === 0
+      ? this.i18n.plural('attempt.interval.minutes', seconds / 60)
+      : this.i18n.plural('attempt.interval.seconds', seconds);
+  }
+
   /** Whether the policy has been asked for in this page, so reloading the attempt after a save does not ask, or switch the camera on, again. */
   private webcamPolicyAsked = false;
 
@@ -1158,11 +1169,13 @@ export class ExamAttempt {
     this.api.getWebcamPolicy(attemptId).subscribe({
       next: (policy) => {
         if (policy.enabled) {
+          this.webcamEverySeconds.set(policy.intervalSeconds);
           void this.webcam.start(policy.intervalSeconds);
         }
         if (policy.screenEnabled) {
           // Sharing the screen needs the candidate's click, so the page only offers it here.
           this.screenIntervalSeconds = policy.screenIntervalSeconds;
+          this.screenEverySeconds.set(policy.screenIntervalSeconds);
           this.screen.offer();
         }
       },

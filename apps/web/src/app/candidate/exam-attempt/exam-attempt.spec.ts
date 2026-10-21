@@ -62,7 +62,7 @@ describe('ExamAttempt', () => {
   const buttonLabelled = (fixture: ComponentFixture<ExamAttempt>, label: string) =>
     Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes(label));
 
-  async function open(initial: AttemptDto, onRead?: (request: TestRequest) => void, webcamEnabled = false, screenEnabled = false) {
+  async function open(initial: AttemptDto, onRead?: (request: TestRequest) => void, webcamEnabled = false, screenEnabled = false, intervalSeconds = 120) {
     await TestBed.configureTestingModule({
       imports: [ExamAttempt],
       providers: [
@@ -80,7 +80,7 @@ describe('ExamAttempt', () => {
     onRead?.(read);
     read.flush(initial);
     fixture.detectChanges();
-    answerWebcamPolicy(webcamEnabled, 120, screenEnabled);
+    answerWebcamPolicy(webcamEnabled, intervalSeconds, screenEnabled);
     return fixture;
   }
 
@@ -2496,6 +2496,20 @@ describe('ExamAttempt', () => {
       expect(textOf(fixture)).toContain('Your camera is on.');
     });
 
+    it.each([
+      [120, 'A photo is taken every 2 minutes'],
+      [60, 'A photo is taken every minute'],
+      [45, 'A photo is taken every 45 seconds'],
+    ])('says how often photos are taken from the server’s policy (%i seconds), not a fixed time', async (seconds, sentence) => {
+      stubCamera(() => Promise.resolve(stream()));
+
+      const fixture = await open(attempt(), undefined, true, false, seconds);
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain(sentence);
+    });
+
     it('says no photos are being taken when the candidate refuses the camera, and the exam carries on', async () => {
       stubCamera(() => Promise.reject(new Error('NotAllowedError')));
 
@@ -2538,6 +2552,20 @@ describe('ExamAttempt', () => {
 
       expect(getDisplayMedia).toHaveBeenCalledTimes(1);
       expect(textOf(fixture)).toContain('Your screen is being shared.');
+    });
+
+    it('says how often the screen is captured from the server’s policy, before and after it is shared', async () => {
+      stubDisplay(() => Promise.resolve(stream()));
+
+      const fixture = await open(attempt(), undefined, false, true, 300);
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('A picture of it is taken every 5 minutes');
+
+      buttonLabelled(fixture, 'Share screen')?.click();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('A picture is taken every 5 minutes');
     });
 
     it('says no pictures are being taken when the candidate declines, and the exam carries on', async () => {
