@@ -13,12 +13,12 @@
       @if (branding.logoUrl(); as logo) {
         <img class="brand__logo" [src]="logo" alt="" />
       }
-      {{ branding.instituteName() ?? 'Online Exam Platform' }}
+      <span class="brand__name">{{ branding.instituteName() ?? 'Online Exam Platform' }}</span>
     </span>
     <app-language-switcher />
   </header>
 } @else {
-<header class="nav">
+<header class="nav" [class.nav--open]="menuOpen()">
   <a class="brand" routerLink="/">
     @if (branding.logoUrl(); as logo) {
       <!-- The name beside the logo says what it is, so the picture itself needs no alternative text. -->
@@ -29,9 +29,14 @@
         <path d="m8 12.5 2.8 2.8L16.5 9.5" />
       </svg>
     }
-    {{ branding.instituteName() ?? 'Online Exam Platform' }}
+    <span class="brand__name">{{ branding.instituteName() ?? 'Online Exam Platform' }}</span>
   </a>
-  <nav [attr.aria-label]="'nav.main' | t">
+  <!-- On a phone the links, Log out and the language are behind this button, so the header is one short row instead of three. -->
+  <button type="button" class="nav__menu-button" #menuButton aria-controls="site-nav" [attr.aria-expanded]="menuOpen()" (click)="toggleMenu()">
+    {{ 'nav.menu' | t }}
+    <span class="nav__menu-chevron" aria-hidden="true"></span>
+  </button>
+  <nav id="site-nav" [attr.aria-label]="'nav.main' | t">
     @if (authSession.isAuthenticated()) {
       <a routerLink="/my-exams" routerLinkActive="active" ariaCurrentWhenActive="page">{{ 'nav.myExams' | t }}</a>
       <a routerLink="/invite" routerLinkActive="active" ariaCurrentWhenActive="page">{{ 'nav.redeemInvite' | t }}</a>

@@ -58,6 +58,79 @@ describe('App', () => {
     });
   });
 
+  describe('the menu button, which is how a phone reaches the header links', () => {
+    const open = () => {
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      httpMock.expectOne(() => true).flush('Healthy');
+      const root = fixture.nativeElement as HTMLElement;
+      return { fixture, root, button: root.querySelector<HTMLButtonElement>('.nav__menu-button')!, header: root.querySelector('header.nav')! };
+    };
+
+    it('starts closed, named by its words, and points at the links it opens', () => {
+      const { button, root } = open();
+
+      expect(button.textContent?.trim()).toBe('Menu');
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+      expect(button.getAttribute('aria-controls')).toBe('site-nav');
+      expect(root.querySelector('nav#site-nav')).not.toBeNull();
+    });
+
+    it('opens and closes the links with each press, and says which in aria-expanded', () => {
+      const { fixture, button, header } = open();
+
+      button.click();
+      fixture.detectChanges();
+      expect(button.getAttribute('aria-expanded')).toBe('true');
+      expect(header.classList.contains('nav--open')).toBe(true);
+
+      button.click();
+      fixture.detectChanges();
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+      expect(header.classList.contains('nav--open')).toBe(false);
+    });
+
+    it('is put away by Escape, which gives the focus back to the button', () => {
+      const { fixture, button, header } = open();
+      button.click();
+      fixture.detectChanges();
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      fixture.detectChanges();
+
+      expect(header.classList.contains('nav--open')).toBe(false);
+      expect(document.activeElement).toBe(button);
+    });
+
+    it('does nothing for Escape while it is closed, so it does not take the focus from a field', () => {
+      const { fixture, button } = open();
+      const field = document.createElement('input');
+      document.body.appendChild(field);
+      field.focus();
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      fixture.detectChanges();
+
+      expect(document.activeElement).toBe(field);
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+      field.remove();
+    });
+
+    it('is closed again when a link has been followed', async () => {
+      const { fixture, button } = open();
+      const router = TestBed.inject(Router);
+      router.resetConfig([{ path: 'somewhere', children: [] }]);
+      button.click();
+      fixture.detectChanges();
+
+      await router.navigateByUrl('/somewhere');
+      fixture.detectChanges();
+      httpMock.match((r) => r.url.endsWith('/unread-count')).forEach((r) => r.flush({ unreadCount: 0 }));
+
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+    });
+  });
+
   describe('while an exam is open (ExamMode)', () => {
     const open = () => {
       const fixture = TestBed.createComponent(App);

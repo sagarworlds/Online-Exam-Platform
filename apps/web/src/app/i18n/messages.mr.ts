@@ -21,6 +21,7 @@ export const MR: Messages = {
 
   // ---- navigation ----
   'nav.main': 'मुख्य',
+  'nav.menu': 'मेनू',
   'nav.myExams': 'माझ्या परीक्षा',
   'nav.redeemInvite': 'आमंत्रण वापरा',
   'nav.profile': 'प्रोफाइल',

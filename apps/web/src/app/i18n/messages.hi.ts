@@ -21,6 +21,7 @@ export const HI: Messages = {
 
   // ---- navigation ----
   'nav.main': 'मुख्य',
+  'nav.menu': 'मेन्यू',
   'nav.myExams': 'मेरी परीक्षाएँ',
   'nav.redeemInvite': 'निमंत्रण भुनाएँ',
   'nav.profile': 'प्रोफ़ाइल',

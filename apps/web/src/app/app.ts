@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject } from '@angular/core';
+import { Component, ElementRef, HostListener, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
@@ -35,6 +35,10 @@ export class App {
   /** The institute's name and logo for the header (FR-41); the platform's own look while none is set. */
   protected readonly branding = inject(BrandingService);
 
+  /** Whether the header's links are open: only a phone has them behind a button (see app.css), but the state is the same everywhere. */
+  protected readonly menuOpen = signal(false);
+  private readonly menuButton = viewChild<ElementRef<HTMLButtonElement>>('menuButton');
+
   /** The unread count the header shows beside "Notifications" (FR-39); zero while nobody is signed in. */
   protected readonly notifications = inject(NotificationsStateService);
 
@@ -54,6 +58,8 @@ export class App {
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd), takeUntilDestroyed())
       .subscribe(() => {
+        // A link was followed: the menu has done its work and the page is what the person wants to see.
+        this.menuOpen.set(false);
         if (this.authSession.isAuthenticated()) {
           this.notifications.refresh();
         }
@@ -66,6 +72,19 @@ export class App {
   protected readonly health = toSignal(this.healthService.checkHealth(), {
     initialValue: { state: 'checking' as const, reason: null },
   });
+
+  protected toggleMenu(): void {
+    this.menuOpen.update((open) => !open);
+  }
+
+  /** Escape puts the menu away and gives the focus back to the button that opened it, as the browser does for its own popups. */
+  @HostListener('document:keydown.escape')
+  protected closeMenu(): void {
+    if (this.menuOpen()) {
+      this.menuOpen.set(false);
+      this.menuButton()?.nativeElement.focus();
+    }
+  }
 
   protected logout(): void {
     this.signOutService.signOut();

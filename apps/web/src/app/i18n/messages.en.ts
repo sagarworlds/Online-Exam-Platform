@@ -26,6 +26,7 @@ export const EN = {
 
   // ---- navigation ----
   'nav.main': 'Main',
+  'nav.menu': 'Menu',
   'nav.myExams': 'My exams',
   'nav.redeemInvite': 'Redeem invite',
   'nav.profile': 'Profile',

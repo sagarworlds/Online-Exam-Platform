@@ -65,6 +65,26 @@
   color: var(--primary-ink);
 }
 
+/* The button that opens the links: only on a phone (see the media query below). */
+.nav__menu-button {
+  display: none;
+  gap: 0.5rem;
+  margin-inline-start: auto;
+}
+
+.nav__menu-chevron {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-inline-end: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+}
+
+.nav--open .nav__menu-chevron {
+  transform: rotate(-135deg);
+}
+
+
 .nav nav {
   display: flex;
   flex-wrap: wrap;
@@ -192,4 +212,56 @@
   display: inline-flex;
   align-items: center;
   min-height: 2.75rem;
+}
+
+/* After the rules for the links above, so it overrides them on a phone. */
+@media (max-width: 40rem) {
+  /* The brand and one button, with the links, Log out and the language below them once it is pressed. Without this the header was three
+     rows of 44px, 200px, before the page began. */
+  .nav__menu-button {
+    display: inline-flex;
+  }
+
+  .nav nav {
+    display: none;
+    flex-basis: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .nav--open nav {
+    display: flex;
+  }
+
+  .nav nav a,
+  .nav nav button {
+    justify-content: flex-start;
+  }
+
+  .nav nav button {
+    margin-inline-start: 0;
+  }
+}
+
+/* A long institute name gives way to the button beside it, ending in an ellipsis, so the header stays one row at the width of a small phone.
+   The name is also the link's text in full for a screen reader: only the drawing is clipped. */
+.nav .brand {
+  min-width: 0;
+}
+
+.brand__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 40rem) {
+  .nav .brand {
+    flex: 1 1 0;
+  }
+
+  .nav__menu-button {
+    flex: none;
+  }
 }

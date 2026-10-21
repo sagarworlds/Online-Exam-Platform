@@ -73,11 +73,20 @@ export class AdminSidebar {
     return computed(() => active.some((isOnPath) => isOnPath()));
   }
 
+  /**
+   * Whether the menu starts as a rail of icons: as the user last left it, and where they have not chosen, on a tablet's width or less, where
+   * the page is worth more than twelve rems of labels.
+   */
   private readStoredCollapsed(): boolean {
     try {
-      return localStorage.getItem(COLLAPSED_STORAGE_KEY) === '1';
+      const stored = localStorage.getItem(COLLAPSED_STORAGE_KEY);
+      if (stored !== null) {
+        return stored === '1';
+      }
     } catch {
-      return false;
+      // Blocked storage is the same as no choice.
     }
+    return typeof matchMedia === 'function' && matchMedia('(max-width: 64rem)').matches;
   }
+
 }
