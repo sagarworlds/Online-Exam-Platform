@@ -5,6 +5,19 @@
 
   @if (errorMessage()) {
     <p class="error-message" role="alert">{{ errorMessage() }}</p>
+    <!-- An attempt that could not be read must not leave the candidate with nothing to press: try again, or go back. -->
+    @if (loadFailed() || attempt() === null) {
+      <div class="actions">
+        @if (loadFailed()) {
+          <button type="button" class="primary" (click)="retryLoad()">{{ 'common.retry' | t }}</button>
+        }
+        @if (preview) {
+          <a class="btn" [routerLink]="['/exams', examIdForLinks]">{{ 'attempt.preview.back' | t }}</a>
+        } @else {
+          <a class="btn" routerLink="/my-exams">{{ 'common.backToMyExams' | t }}</a>
+        }
+      </div>
+    }
   }
 
   @if (attempt(); as current) {

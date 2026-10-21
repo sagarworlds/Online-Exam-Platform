@@ -168,6 +168,8 @@ export class ExamAttempt {
   protected readonly attempt = signal<AttemptDto | null>(null);
   protected readonly loading = signal(true);
   protected readonly errorMessage = signal<string | null>(null);
+  /** Whether the attempt could not be read from the server (on opening, or when the time ran out and it was read again), so the page offers to try again. */
+  protected readonly loadFailed = signal(false);
   protected readonly confirmingSubmit = signal(false);
   protected readonly submitting = signal(false);
 
@@ -1107,6 +1109,10 @@ export class ExamAttempt {
 
   private show(attempt: AttemptDto): void {
     this.loading.set(false);
+    if (this.loadFailed()) {
+      this.loadFailed.set(false);
+      this.errorMessage.set(null);
+    }
     this.attempt.set(attempt);
     this.applyAccommodationFormats(attempt);
     this.focusViolations.set(attempt.focusViolations ?? 0);
@@ -1411,7 +1417,16 @@ export class ExamAttempt {
 
   private fail(error: unknown): void {
     this.loading.set(false);
+    this.loadFailed.set(true);
     this.errorMessage.set(extractErrorMessage(error));
+  }
+
+  /** Reads the attempt again after it could not be read. The clock and the answers are the server's, so nothing is lost by waiting. */
+  protected retryLoad(): void {
+    this.errorMessage.set(null);
+    this.loadFailed.set(false);
+    this.loading.set(this.attempt() === null);
+    this.reload();
   }
 
   private stopTimer(): void {

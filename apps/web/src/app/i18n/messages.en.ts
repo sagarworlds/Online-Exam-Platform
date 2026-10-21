@@ -13,6 +13,7 @@ export const EN = {
   'common.backToMyExams': 'Back to my exams',
   'common.cancel': 'Cancel',
   'common.close': 'Close',
+  'common.retry': 'Try again',
   'common.ok': 'OK',
   'common.skipToContent': 'Skip to main content',
   'common.email': 'Email',

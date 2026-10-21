@@ -8,6 +8,7 @@ export const HI: Messages = {
   'common.backToMyExams': 'मेरी परीक्षाओं पर वापस जाएँ',
   'common.cancel': 'रद्द करें',
   'common.close': 'बंद करें',
+  'common.retry': 'फिर से कोशिश करें',
   'common.ok': 'ठीक है',
   'common.skipToContent': 'मुख्य सामग्री पर जाएँ',
   'common.email': 'ईमेल',

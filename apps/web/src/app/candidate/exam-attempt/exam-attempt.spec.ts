@@ -1601,6 +1601,79 @@ describe('ExamAttempt', () => {
     expect(textOf(fixture)).toContain('No attempt matches the given id.');
   });
 
+  describe('when the attempt cannot be read from the server', () => {
+    const tryAgain = (fixture: ComponentFixture<ExamAttempt>) => buttonLabelled(fixture, 'Try again');
+    const backLink = (fixture: ComponentFixture<ExamAttempt>) =>
+      Array.from(root(fixture).querySelectorAll('a')).find((a) => a.textContent?.includes('Back to my exams'));
+
+    it('offers to try again and a way back, instead of leaving only the error', async () => {
+      await TestBed.configureTestingModule({
+        imports: [ExamAttempt],
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideRouter([]),
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ attemptId: 'a1' }) } } },
+        ],
+      }).compileComponents();
+      httpMock = TestBed.inject(HttpTestingController);
+      const fixture = TestBed.createComponent(ExamAttempt);
+      fixture.detectChanges();
+
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1')).error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('[role="alert"]')).not.toBeNull();
+      expect(tryAgain(fixture)).toBeTruthy();
+      expect(backLink(fixture)?.getAttribute('href')).toBe('/my-exams');
+
+      tryAgain(fixture)!.click();
+      fixture.detectChanges();
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET').flush(attempt());
+      fixture.detectChanges();
+      answerWebcamPolicy(false);
+
+      expect(root(fixture).querySelector('[role="alert"].error-message')).toBeNull();
+      expect(textOf(fixture)).toContain('What is 2 + 2?');
+      expect(tryAgain(fixture)).toBeFalsy();
+    });
+
+    it('offers to try again when the attempt could not be read as the time ran out', async () => {
+      const fixture = await open(attempt());
+
+      vi.advanceTimersByTime(30 * 60_000 + 1_000);
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET').error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+      fixture.detectChanges();
+      expect(tryAgain(fixture)).toBeTruthy();
+
+      tryAgain(fixture)!.click();
+      httpMock
+        .expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET')
+        .flush(attempt({ status: 'Submitted', autoSubmitted: true, score: 1, maxScore: 2, sections: [] }));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('1 / 2');
+      expect(tryAgain(fixture)).toBeFalsy();
+    });
+
+    it('offers only the way back when no attempt was given, since trying again could not help', async () => {
+      await TestBed.configureTestingModule({
+        imports: [ExamAttempt],
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideRouter([]),
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({}) } } },
+        ],
+      }).compileComponents();
+      httpMock = TestBed.inject(HttpTestingController);
+      const fixture = TestBed.createComponent(ExamAttempt);
+      fixture.detectChanges();
+
+      expect(tryAgain(fixture)).toBeFalsy();
+      expect(backLink(fixture)).toBeTruthy();
+    });
+  });
+
   describe('display options and keyboard shortcuts', () => {
     const press = (fixture: ComponentFixture<ExamAttempt>, key: string, init: KeyboardEventInit = {}) => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }));
