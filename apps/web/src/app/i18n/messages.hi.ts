@@ -1220,6 +1220,16 @@ export const HI: Messages = {
   'pageTitle.examNew': 'नई परीक्षा',
   'pageTitle.examEdit': 'परीक्षा संपादित करें',
   'pageTitle.questionEdit': 'प्रश्न संपादित करें',
+  'pageTitle.bookDetail': 'पुस्तक',
+  'pageTitle.batchNew': 'नया बैच',
+  'pageTitle.batchRoster': 'बैच सूची',
+  'pageTitle.invites': 'आमंत्रण',
+  'pageTitle.inviteNew': 'उम्मीदवार को आमंत्रित करें',
+  'pageTitle.schedule': 'परीक्षा का समय तय करें',
+  'pageTitle.guardian': 'अभिभावक पोर्टल',
+  'pageTitle.guardianRegister': 'अभिभावक के रूप में पंजीकरण',
+  'pageTitle.guardianConfirm': 'अभिभावक लिंक की पुष्टि करें',
+  'pageTitle.guardianLink': 'उम्मीदवार को जोड़ें',
 
   // ---- proctoring: the risk review of flagged attempts (FR-27) ----
   'proctoring.title': 'जोखिम समीक्षा',

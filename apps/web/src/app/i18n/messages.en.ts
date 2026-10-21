@@ -1226,6 +1226,16 @@ export const EN = {
   'pageTitle.examNew': 'New exam',
   'pageTitle.examEdit': 'Edit exam',
   'pageTitle.questionEdit': 'Edit question',
+  'pageTitle.bookDetail': 'Book',
+  'pageTitle.batchNew': 'New batch',
+  'pageTitle.batchRoster': 'Batch roster',
+  'pageTitle.invites': 'Invitations',
+  'pageTitle.inviteNew': 'Invite a candidate',
+  'pageTitle.schedule': 'Schedule exam',
+  'pageTitle.guardian': 'Guardian portal',
+  'pageTitle.guardianRegister': 'Register as a guardian',
+  'pageTitle.guardianConfirm': 'Confirm guardian link',
+  'pageTitle.guardianLink': 'Link a candidate',
 
   // ---- proctoring: the risk review of flagged attempts (FR-27) ----
   'proctoring.title': 'Risk review',

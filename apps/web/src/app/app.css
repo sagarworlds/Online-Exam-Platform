@@ -19,8 +19,10 @@
   top: 0.5rem;
 }
 
-/* The main content takes focus when the skip link is used. It is a region, not a control, so it shows no ring of its own. */
-#main-content:focus {
+/* The main content takes focus when the skip link is used, and a new page's heading takes it when the page opens (RouteFocus). Neither is a
+   control, so neither shows a ring of its own. */
+#main-content:focus,
+#main-content h1[tabindex='-1']:focus {
   outline: none;
 }
 

@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { RouterStateSnapshot } from '@angular/router';
 import { vi } from 'vitest';
+import { routes } from '../../app.routes';
 import { I18nService } from '../../i18n/i18n.service';
 import { APP_TITLE, PAGE_TITLE_KEYS, PageTitleStrategy, deepestRoutePath } from './page-title.strategy';
 
@@ -69,11 +70,20 @@ describe('PageTitleStrategy', () => {
   it('keeps the app name alone for a page with no name of its own', () => {
     const title = setTitle();
 
-    strategy().updateTitle(snapshotOn('guardian'));
+    strategy().updateTitle(snapshotOn('not-a-page'));
     TestBed.flushEffects();
 
-    expect(PAGE_TITLE_KEYS['guardian']).toBeUndefined();
+    expect(PAGE_TITLE_KEYS['not-a-page']).toBeUndefined();
     expect(title).toHaveBeenLastCalledWith(APP_TITLE);
+  });
+
+  it('names every page the app routes to, so no page keeps the generic title (WCAG 2.4.2)', () => {
+    // The root redirect (no path) and the catch-all have no page of their own.
+    const paths = routes.map((route) => route.path ?? '').filter((path) => path !== '' && path !== '**');
+    const unnamed = paths.filter((path) => !(path in PAGE_TITLE_KEYS));
+
+    expect(paths.length).toBeGreaterThan(30);
+    expect(unnamed).toEqual([]);
   });
 
   it('names the page in the new language when the language changes while it is open', async () => {
