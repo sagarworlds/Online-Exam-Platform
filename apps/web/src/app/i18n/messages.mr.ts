@@ -1197,6 +1197,8 @@ export const MR: Messages = {
   'branding.logoChosen': 'तुम्ही निवडलेला लोगो',
   'branding.logoUpload': 'लोगो अपलोड करा',
   'branding.logoRemove': 'लोगो काढा',
+  'branding.logoRemoveTitle': 'लोगो काढायचा?',
+  'branding.logoRemoveMessage': 'लोगो सर्व उमेदवार पृष्ठांवरून लगेच नाहीसा होईल. तो परत आणण्यासाठी तुम्हाला तो पुन्हा अपलोड करावा लागेल.',
   'branding.logoTypeProblem': 'PNG, JPEG किंवा WebP प्रतिमा निवडा. इतर फाइल प्रकार स्वीकारले जात नाहीत.',
   'branding.logoSizeProblem': 'ही फाइल 256 KB पेक्षा मोठी आहे. लहान प्रतिमा निवडा.',
   'branding.logoSaved': 'लोगो जतन झाला.',

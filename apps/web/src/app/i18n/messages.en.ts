@@ -1203,6 +1203,8 @@ export const EN = {
   'branding.logoChosen': 'The logo you chose',
   'branding.logoUpload': 'Upload logo',
   'branding.logoRemove': 'Remove logo',
+  'branding.logoRemoveTitle': 'Remove the logo?',
+  'branding.logoRemoveMessage': 'The logo disappears from every candidate page at once. To bring it back you upload it again.',
   'branding.logoTypeProblem': 'Choose a PNG, JPEG or WebP image. Other file types are not accepted.',
   'branding.logoSizeProblem': 'That file is larger than 256 KB. Choose a smaller image.',
   'branding.logoSaved': 'Logo saved.',

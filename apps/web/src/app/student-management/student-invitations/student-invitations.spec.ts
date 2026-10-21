@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 import { InviteDto } from '../../invite-management/invite.models';
 import { ClipboardService } from '../../shared/clipboard/clipboard.service';
+import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 import { StudentInvitations } from './student-invitations';
 
 describe('StudentInvitations', () => {
@@ -85,19 +86,39 @@ describe('StudentInvitations', () => {
   });
 
   describe('revoking', () => {
-    it('revokes the invitation and tells the page to read its list again', () => {
+    const answer = (confirmed: boolean) => vi.spyOn(TestBed.inject(ConfirmService), 'ask').mockResolvedValue(confirmed);
+
+    it('asks first, naming the exam, and sends nothing when the answer is no', async () => {
+      const ask = answer(false);
       const { root, revoked } = open([invite('i1', 'Maths Final')]);
 
       button(root, 'Revoke')!.click();
+      await Promise.resolve();
+
+      expect(ask).toHaveBeenCalledTimes(1);
+      expect(ask.mock.calls[0][0]).toMatchObject({ title: 'Revoke this invitation?', confirmLabel: 'Revoke invitation', danger: true });
+      expect(ask.mock.calls[0][0].message).toContain('Maths Final');
+      httpMock.expectNone((r) => r.url.endsWith('/revoke'));
+      expect(revoked).not.toHaveBeenCalled();
+    });
+
+    it('revokes the invitation and tells the page to read its list again', async () => {
+      answer(true);
+      const { root, revoked } = open([invite('i1', 'Maths Final')]);
+
+      button(root, 'Revoke')!.click();
+      await Promise.resolve();
       httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites/i1/revoke')).flush(null, { status: 204, statusText: 'No Content' });
 
       expect(revoked).toHaveBeenCalledTimes(1);
     });
 
-    it('shows the API error and does not tell the page when the revoke is refused', () => {
+    it('shows the API error and does not tell the page when the revoke is refused', async () => {
+      answer(true);
       const { fixture, root, revoked } = open([invite('i1', 'Maths Final')]);
 
       button(root, 'Revoke')!.click();
+      await Promise.resolve();
       httpMock
         .expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites/i1/revoke'))
         .flush({ title: 'invite_state_invalid', detail: 'That invitation was already accepted.' }, { status: 409, statusText: 'Conflict' });

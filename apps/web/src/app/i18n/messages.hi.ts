@@ -1197,6 +1197,8 @@ export const HI: Messages = {
   'branding.logoChosen': 'आपका चुना हुआ लोगो',
   'branding.logoUpload': 'लोगो अपलोड करें',
   'branding.logoRemove': 'लोगो हटाएँ',
+  'branding.logoRemoveTitle': 'लोगो हटाएँ?',
+  'branding.logoRemoveMessage': 'लोगो सभी उम्मीदवार पृष्ठों से तुरंत हट जाएगा। उसे वापस लाने के लिए आपको उसे फिर से अपलोड करना होगा।',
   'branding.logoTypeProblem': 'PNG, JPEG या WebP छवि चुनें। दूसरे फ़ाइल प्रकार स्वीकार नहीं होते।',
   'branding.logoSizeProblem': 'यह फ़ाइल 256 KB से बड़ी है। छोटी छवि चुनें।',
   'branding.logoSaved': 'लोगो सहेजा गया।',

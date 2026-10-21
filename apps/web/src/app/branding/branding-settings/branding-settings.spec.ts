@@ -2,6 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BrandingDto } from '../branding.models';
+import { vi } from 'vitest';
+import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 import { BrandingSettings } from './branding-settings';
 
 const nothingSet: BrandingDto = { instituteName: null, primaryColour: null, hasLogo: false, updatedAtUtc: null };
@@ -70,6 +72,39 @@ describe('BrandingSettings', () => {
 
     expect(root.querySelector('.success-message')?.textContent).toContain('saved');
     expect((root.querySelector('#branding-colour') as HTMLInputElement).value).toBe('#1A56DB');
+  });
+
+  describe('removing the logo', () => {
+    const withLogo: BrandingDto = { instituteName: 'Greenfield', primaryColour: null, hasLogo: true, updatedAtUtc: '2026-10-01T00:00:00Z' };
+    const removeButton = () =>
+      Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Remove logo') as HTMLButtonElement;
+    const isRemove = (r: { method: string; url: string }) => r.method === 'DELETE' && r.url.endsWith('/v1/branding/logo');
+
+    it('asks first, says it goes from every candidate page, and sends nothing when the answer is no', async () => {
+      open(withLogo);
+      const ask = vi.spyOn(TestBed.inject(ConfirmService), 'ask').mockResolvedValue(false);
+
+      removeButton().click();
+      await Promise.resolve();
+
+      expect(ask).toHaveBeenCalledTimes(1);
+      expect(ask.mock.calls[0][0]).toMatchObject({ title: 'Remove the logo?', confirmLabel: 'Remove logo', danger: true });
+      expect(ask.mock.calls[0][0].message).toContain('every candidate page');
+      httpMock.expectNone(isRemove);
+    });
+
+    it('removes the logo once the answer is yes, and says so', async () => {
+      open(withLogo);
+      vi.spyOn(TestBed.inject(ConfirmService), 'ask').mockResolvedValue(true);
+
+      removeButton().click();
+      await Promise.resolve();
+      httpMock.expectOne(isRemove).flush({ ...withLogo, hasLogo: false });
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Logo removed.');
+      expect(removeButton()).toBeUndefined();
+    });
   });
 
   it('refuses a logo that is not an accepted image type, says why, and sends nothing', () => {

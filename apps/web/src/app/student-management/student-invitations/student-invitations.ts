@@ -4,6 +4,7 @@ import { InviteApiService } from '../../invite-management/invite-api.service';
 import { InviteHandover } from '../../invite-management/invite-handover/invite-handover';
 import { InviteCodeDto, InviteDto, InviteStatus } from '../../invite-management/invite.models';
 import { extractErrorMessage } from '../../shared/problem-details';
+import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 
 /**
  * One student's invitations, newest first, each with its exam and status. A pending one can be revoked, and staff can copy a code for it
@@ -17,6 +18,7 @@ import { extractErrorMessage } from '../../shared/problem-details';
 })
 export class StudentInvitations {
   private readonly inviteApi = inject(InviteApiService);
+  private readonly confirm = inject(ConfirmService);
 
   /** The student's invitations, newest first. */
   readonly invites = input.required<readonly InviteDto[]>();
@@ -78,7 +80,18 @@ export class StudentInvitations {
     });
   }
 
-  protected revoke(invite: InviteDto): void {
+  /** Asks first: a revoked invitation cannot be brought back, only sent again, and its code stops working at once. */
+  protected async revoke(invite: InviteDto): Promise<void> {
+    const confirmed = await this.confirm.ask({
+      title: 'Revoke this invitation?',
+      message: `The invitation to ${this.examLabel(invite)} stops working, and its code can no longer be used. It cannot be brought back; a new invitation can be sent.`,
+      confirmLabel: 'Revoke invitation',
+      danger: true,
+    });
+    if (!confirmed) {
+      return;
+    }
+
     this.errorMessage.set(null);
     this.inviteApi.revokeInvite(invite.id).subscribe({
       next: () => this.revoked.emit(),
