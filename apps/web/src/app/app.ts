@@ -1,7 +1,8 @@
-import { Component, ElementRef, HostListener, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
+import { AdminAttentionService } from './admin/admin-attention/admin-attention.service';
 import { openAdminGroups } from './auth/admin-sections';
 import { AuthSessionService } from './auth/auth-session.service';
 import { BrandingService } from './branding/branding.service';
@@ -42,6 +43,9 @@ export class App {
   /** The unread count the header shows beside "Notifications" (FR-39); zero while nobody is signed in. */
   protected readonly notifications = inject(NotificationsStateService);
 
+  /** How many things wait for staff in each queue, shown as a badge on the sidebar's entries; nothing for a person who has no queue to see. */
+  protected readonly attention = inject(AdminAttentionService);
+
   constructor() {
     // A new page takes the focus (WCAG 2.4.3), so a keyboard or screen-reader user is not left on the link they used.
     inject(RouteFocus).start();
@@ -50,8 +54,11 @@ export class App {
     effect(() => {
       if (this.authSession.isAuthenticated()) {
         this.notifications.refresh();
+        // Untracked: reading the counts is not a reason to run this again when they arrive.
+        untracked(() => this.attention.refresh());
       } else {
         this.notifications.clear();
+        untracked(() => this.attention.clear());
       }
     });
 
@@ -62,6 +69,8 @@ export class App {
         this.menuOpen.set(false);
         if (this.authSession.isAuthenticated()) {
           this.notifications.refresh();
+          // The badges are read again once a minute old, not on every page: three lists of up to two hundred rows is a lot to ask for a click.
+          this.attention.refreshIfStale();
         }
       });
   }

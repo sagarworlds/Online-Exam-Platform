@@ -19,6 +19,9 @@ export const Permission = {
   ProctoringReview: 'proctoring.review',
 } as const;
 
+/** A count of things waiting for staff, shown as a tile on the admin home page and, for a queue, as a badge on its sidebar entry. */
+export type AttentionKey = 'attemptRequests' | 'disputes' | 'issues' | 'liveExams';
+
 /**
  * One area of the admin section: where it lives and which permissions open it. The name and the description are message keys, so
  * the nav, the sidebar and the admin home page show them in the language the staff member chose.
@@ -31,6 +34,8 @@ export interface AdminSection {
   permissions: readonly string[];
   /** Which icon the admin sidebar draws for this section; see {@link AdminIconName}. */
   icon: AdminIconName;
+  /** For a queue of things waiting for staff: which count the sidebar shows as a badge on its entry. */
+  attention?: AttentionKey;
   /**
    * For a section that is only a doorway to other pages: the pages it lists. Its menu entry reads as the current one on any of them, and
    * the permissions of its pages are the ones that open it, so a user who may open a single page still finds the doorway.
@@ -97,9 +102,9 @@ export const ADMIN_SECTION_GROUPS: readonly AdminSectionGroup[] = [
   {
     heading: 'admin.group.reviews',
     sections: [
-      { label: 'admin.area.attemptRequests.name', description: 'admin.area.attemptRequests.description', path: '/admin/attempt-requests', permissions: [Permission.ExamManage], icon: 'attempt-request' },
-      { label: 'admin.area.disputes.name', description: 'admin.area.disputes.description', path: '/admin/disputes', permissions: [Permission.ExamManage], icon: 'dispute' },
-      { label: 'admin.area.issueReports.name', description: 'admin.area.issueReports.description', path: '/admin/issue-reports', permissions: [Permission.ExamManage], icon: 'issue' },
+      { label: 'admin.area.attemptRequests.name', description: 'admin.area.attemptRequests.description', path: '/admin/attempt-requests', permissions: [Permission.ExamManage], icon: 'attempt-request', attention: 'attemptRequests' },
+      { label: 'admin.area.disputes.name', description: 'admin.area.disputes.description', path: '/admin/disputes', permissions: [Permission.ExamManage], icon: 'dispute', attention: 'disputes' },
+      { label: 'admin.area.issueReports.name', description: 'admin.area.issueReports.description', path: '/admin/issue-reports', permissions: [Permission.ExamManage], icon: 'issue', attention: 'issues' },
     ],
   },
   { heading: null, sections: [SETTINGS_SECTION] },

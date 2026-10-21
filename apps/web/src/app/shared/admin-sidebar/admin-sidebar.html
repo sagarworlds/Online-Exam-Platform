@@ -1,4 +1,9 @@
-<nav class="admin-sidebar" [class.admin-sidebar--collapsed]="collapsed()" [attr.aria-label]="'admin.sidebar.areas' | t">
+<nav
+  class="admin-sidebar"
+  [class.admin-sidebar--collapsed]="collapsed()"
+  [class.admin-sidebar--phone-open]="phoneOpen()"
+  [attr.aria-label]="'admin.sidebar.areas' | t"
+>
   <button
     type="button"
     class="admin-sidebar__toggle"
@@ -9,28 +14,50 @@
     <span aria-hidden="true">{{ collapsed() ? '»' : '«' }}</span>
   </button>
 
-  @for (group of menu(); track $index) {
-    <div
-      class="admin-sidebar__group"
-      [attr.role]="group.heading ? 'group' : null"
-      [attr.aria-labelledby]="group.heading ? group.headingId : null"
-    >
-      @if (group.heading; as heading) {
-        <p class="admin-sidebar__heading" [id]="group.headingId">{{ heading | t }}</p>
-      }
-      @for (link of group.links; track link.section.path) {
-        <a
-          [routerLink]="link.section.path"
-          class="admin-sidebar__link"
-          [class.active]="link.current()"
-          [attr.aria-current]="link.current() ? 'page' : null"
-          [title]="link.section.label | t"
-          [attr.aria-label]="link.section.label | t"
-        >
-          <app-admin-icon [name]="link.section.icon" class="admin-sidebar__icon" />
-          <span class="admin-sidebar__label">{{ link.section.label | t }}</span>
-        </a>
-      }
-    </div>
-  }
+  <!-- A phone has no room for the whole menu above the page, so it is one row there that opens it (see the stylesheet); elsewhere this is not drawn. -->
+  <button
+    type="button"
+    class="admin-sidebar__menu"
+    (click)="phoneOpen.set(!phoneOpen())"
+    [attr.aria-expanded]="phoneOpen()"
+    aria-controls="admin-sidebar-groups"
+  >
+    <span class="admin-sidebar__menu-label">{{ 'admin.sidebar.menu' | t }}</span>
+    @if (waiting(); as total) {
+      <span class="admin-sidebar__badge" aria-hidden="true">{{ total.text }}</span>
+      <span class="visually-hidden">{{ total.words }}</span>
+    }
+    <span class="admin-sidebar__chevron" aria-hidden="true">{{ phoneOpen() ? '▾' : '▸' }}</span>
+  </button>
+
+  <div class="admin-sidebar__groups" id="admin-sidebar-groups">
+    @for (group of menu(); track $index) {
+      <div
+        class="admin-sidebar__group"
+        [attr.role]="group.heading ? 'group' : null"
+        [attr.aria-labelledby]="group.heading ? group.headingId : null"
+      >
+        @if (group.heading; as heading) {
+          <p class="admin-sidebar__heading" [id]="group.headingId">{{ heading | t }}</p>
+        }
+        @for (link of group.links; track link.section.path) {
+          <a
+            [routerLink]="link.section.path"
+            class="admin-sidebar__link"
+            [class.active]="link.current()"
+            [attr.aria-current]="link.current() ? 'page' : null"
+            [title]="link.section.label | t"
+            [attr.aria-label]="nameOf(link.section)"
+          >
+            <app-admin-icon [name]="link.section.icon" class="admin-sidebar__icon" />
+            <span class="admin-sidebar__label">{{ link.section.label | t }}</span>
+            @if (badgeOf(link.section); as badge) {
+              <!-- The number is for the eye; the link's name carries it in words, so it is not read twice. -->
+              <span class="admin-sidebar__badge" aria-hidden="true">{{ badge.text }}</span>
+            }
+          </a>
+        }
+      </div>
+    }
+  </div>
 </nav>

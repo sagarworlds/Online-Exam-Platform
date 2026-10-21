@@ -23,16 +23,23 @@ describe('App', () => {
 
   afterEach(() => httpMock.verify());
 
+  /** The lists the sidebar's counts are read from (staff only): what waits for a decision, and the exams. */
+  const QUEUE_LISTS = ['attempt-requests', 'disputes', 'issue-reports', 'exams'];
+
   /**
    * Answers what the App asks for when it starts: the health check and, when someone is signed in, the unread notification count the
-   * header reads (FR-39). Both are answered here, so each test is left with only the requests it is about.
+   * header reads (FR-39) and, for staff, the lists the sidebar's counts come from. All are answered here, so each test is left with only
+   * the requests it is about. `queues` says what a list holds, by its path ("disputes"); the others are empty.
    */
-  function answerStartupRequests(): void {
+  function answerStartupRequests(queues: Record<string, unknown[]> = {}): void {
+    const queueOf = (url: string) => QUEUE_LISTS.find((name) => url.endsWith(`/v1/${name}`));
     httpMock
-      .match((request) => request.url.endsWith('/v1/health') || request.url.endsWith('/unread-count'))
-      .forEach((request) =>
-        request.flush(request.request.url.endsWith('/unread-count') ? { unreadCount: 0 } : 'Healthy'),
-      );
+      .match((request) => request.url.endsWith('/v1/health') || request.url.endsWith('/unread-count') || queueOf(request.url) !== undefined)
+      .forEach((request) => {
+        const url = request.request.url;
+        const queue = queueOf(url);
+        request.flush(url.endsWith('/unread-count') ? { unreadCount: 0 } : queue !== undefined ? (queues[queue] ?? []) : 'Healthy');
+      });
   }
 
   it('should create the app', () => {
@@ -262,10 +269,11 @@ describe('App', () => {
       return Array.from(nav.querySelectorAll('a')).map((a) => a.textContent?.trim() ?? '');
     }
 
-    function render(): HTMLElement {
+    function render(queues: Record<string, unknown[]> = {}): HTMLElement {
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
-      answerStartupRequests();
+      answerStartupRequests(queues);
+      fixture.detectChanges();
       return fixture.nativeElement as HTMLElement;
     }
 
@@ -280,6 +288,30 @@ describe('App', () => {
       const link = (fixture.nativeElement as HTMLElement).querySelector('a.nav-notifications');
       expect(link?.querySelector('.nav-badge')?.textContent?.trim()).toBe('3');
       expect(link?.textContent).toContain('3 unread');
+    });
+
+    describe('the counts on the admin sidebar', () => {
+      const sidebarLink = (compiled: HTMLElement, name: string) =>
+        Array.from(compiled.querySelectorAll<HTMLAnchorElement>('.admin-sidebar a')).find((a) => a.getAttribute('aria-label')?.startsWith(name));
+
+      it('shows how many are waiting beside each review queue that has something in it', () => {
+        signIn(['exam.manage']);
+
+        const compiled = render({ 'attempt-requests': [{}, {}], disputes: [{}] });
+
+        expect(sidebarLink(compiled, 'Attempt requests')?.getAttribute('aria-label')).toBe('Attempt requests, 2 waiting');
+        expect(sidebarLink(compiled, 'Attempt requests')?.querySelector('.admin-sidebar__badge')?.textContent?.trim()).toBe('2');
+        expect(sidebarLink(compiled, 'Disputes')?.getAttribute('aria-label')).toBe('Disputes, 1 waiting');
+        expect(sidebarLink(compiled, 'Reported issues')?.getAttribute('aria-label')).toBe('Reported issues');
+      });
+
+      it('asks for nothing for someone who has no queue to see', () => {
+        signIn(['question.read']);
+
+        render();
+
+        httpMock.expectNone((request) => QUEUE_LISTS.some((name) => request.url.endsWith(`/v1/${name}`)));
+      });
     });
 
     it('shows a candidate their exams, no admin sidebar', () => {

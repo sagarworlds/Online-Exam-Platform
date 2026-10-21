@@ -61,7 +61,7 @@
 
 <div class="shell">
   @if (adminGroups().length > 0 && !examMode.active()) {
-    <app-admin-sidebar [groups]="adminGroups()" />
+    <app-admin-sidebar [groups]="adminGroups()" [attention]="attention.counts()" />
   }
   <main class="shell__content" id="main-content" tabindex="-1">
     <router-outlet />
