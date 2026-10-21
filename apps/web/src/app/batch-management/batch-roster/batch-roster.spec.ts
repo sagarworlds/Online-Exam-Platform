@@ -68,6 +68,58 @@ describe('BatchRoster', () => {
     expect(root.textContent).toContain('Members (1)');
   });
 
+  describe('the refresh icon', () => {
+    const icon = () => root.querySelector<HTMLButtonElement>('app-refresh-button button')!;
+
+    it('sits in the page header, beside the title', () => {
+      expect(root.querySelector('.page-header h1')?.textContent).toContain('Batch Roster');
+      expect(root.querySelector('.page-header app-refresh-button')).not.toBeNull();
+    });
+
+    it('reads the members again without blanking the list, and shows one who registered since', () => {
+      icon().click();
+      fixture.detectChanges();
+      expect(icon().getAttribute('aria-busy')).toBe('true');
+      expect(root.textContent).not.toContain('Loading members');
+
+      httpMock.expectOne(isMembersRead).flush([{ id: 'm1', email: 'amy@example.com', status: 'Registered' }]);
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('amy@example.com');
+      expect(root.textContent).toContain('Members (1)');
+      expect(icon().hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('keeps the members and says why when the read fails, instead of showing an empty roster', () => {
+      icon().click();
+      httpMock.expectOne(isMembersRead).flush([{ id: 'm1', email: 'amy@example.com', status: 'Registered' }]);
+      fixture.detectChanges();
+
+      icon().click();
+      httpMock.expectOne(isMembersRead).flush({ title: 'server_error', detail: 'The members are not available.' }, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('amy@example.com');
+      expect(root.querySelector('.error-message')?.textContent).toContain('The members are not available.');
+      expect(root.textContent).not.toContain('No members added yet');
+    });
+
+    it('says the members could not be read, not that there are none, and clears that once it works', () => {
+      icon().click();
+      httpMock.expectOne(isMembersRead).flush({}, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(root.querySelector('.error-message')?.textContent).toContain('The members could not be loaded');
+      expect(root.textContent).not.toContain('No members added yet');
+
+      icon().click();
+      httpMock.expectOne(isMembersRead).flush([]);
+      fixture.detectChanges();
+      expect(root.querySelector('.error-message')).toBeNull();
+      expect(root.textContent).toContain('No members added yet');
+    });
+  });
+
   it('does not read the members again when the import added nobody', async () => {
     await importFile();
     httpMock.expectOne(isImport).flush({ added: [], skipped: [{ row: 1, code: 'already_in_batch', message: 'Already there.' }], ignoredColumns: [] });

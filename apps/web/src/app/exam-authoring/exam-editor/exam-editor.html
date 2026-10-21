@@ -13,10 +13,13 @@
         {{ e.name }}
         <span class="badge" [class.badge--active]="e.status === 'Published'" [class.badge--inactive]="e.status !== 'Published'">{{ statusLabel(e.status) }}</span>
       </h1>
-      @if (canChangeDetails() && !changingDetails()) {
-        <button type="button" (click)="startChangingDetails()" [disabled]="busy()">{{ 'exams.editor.editDetails' | t }}</button>
-      }
-      <a [routerLink]="['/exams', e.id, 'preview']" class="btn">{{ 'exams.editor.preview' | t }}</a>
+      <div class="page-header__actions">
+        @if (canChangeDetails() && !changingDetails()) {
+          <button type="button" (click)="startChangingDetails()" [disabled]="busy()">{{ 'exams.editor.editDetails' | t }}</button>
+        }
+        <a [routerLink]="['/exams', e.id, 'preview']" class="btn">{{ 'exams.editor.preview' | t }}</a>
+        <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
+      </div>
     </div>
     @if (changingDetails()) {
       <app-exam-details-form [name]="e.name" [description]="e.description" [busy]="busy()" (saved)="saveDetails($event)" (cancelled)="cancelChangingDetails()" />
@@ -347,5 +350,12 @@
         }
       </div>
     }
+  } @else {
+    <!-- The exam could not be read: the icon is still here, so it can be tried again without reloading the tab. -->
+    <div class="page-header">
+      <div class="page-header__actions">
+        <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
+      </div>
+    </div>
   }
 </div>

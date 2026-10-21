@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, ElementRef, Injector, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Observable } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 import { BookApiService } from '../../book-management/book-api.service';
 import { BookDto } from '../../book-management/book.models';
 import { I18nService } from '../../i18n/i18n.service';
@@ -11,6 +11,7 @@ import { TranslatePipe } from '../../i18n/translate.pipe';
 import { QuestionApiService } from '../../question-bank/question-api.service';
 import { QuestionDto } from '../../question-bank/question.models';
 import { extractErrorMessage } from '../../shared/problem-details';
+import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { InstructionTemplateApiService } from '../../instruction-templates/instruction-template-api.service';
 import { InstructionTemplateDto } from '../../instruction-templates/instruction-template.models';
 import { ExamInstructions } from '../exam-instructions/exam-instructions';
@@ -58,7 +59,7 @@ function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): bool
  */
 @Component({
   selector: 'app-exam-editor',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, TranslatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamPassingPercentage, ExamProctoringProfile, ExamSectionCard, ExamInstructions],
+  imports: [ReactiveFormsModule, RouterLink, DatePipe, TranslatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamPassingPercentage, ExamProctoringProfile, ExamSectionCard, ExamInstructions, RefreshButton],
   templateUrl: './exam-editor.html',
 })
 export class ExamEditor {
@@ -84,6 +85,10 @@ export class ExamEditor {
   /** Topics in use in the bank, for the sections' draw pickers. */
   protected readonly topics = signal<string[]>([]);
   protected readonly loading = signal(true);
+  /** Whether the exam is being read again, after the refresh icon was pressed or a change was stored; the page stays as it is meanwhile. */
+  protected readonly refreshing = signal(false);
+  /** The read of the exam in flight, so a newer read replaces it and an older answer cannot overwrite what a change has just stored. */
+  private reading: Subscription | null = null;
   protected readonly busy = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
 
@@ -153,7 +158,28 @@ export class ExamEditor {
 
   constructor() {
     this.reload();
-    // Only feeds a picker; the draw works without it, so a failure is shown but does not stop the page.
+    this.loadTopics();
+  }
+
+  /**
+   * Reads the exam again, with the questions and topics it can draw on, so a change made elsewhere shows without reloading the tab. The page
+   * is not blanked, and an edit that is open stays open until the exam it was started on has changed. A failed read leaves what is shown and
+   * says why.
+   */
+  protected onRefresh(): void {
+    if (this.refreshing() || this.busy()) {
+      return;
+    }
+
+    this.errorMessage.set(null);
+    // The questions are kept between reads of the exam, since only a change of scope makes them stale; a refresh asks for the latest anyway.
+    this.bankKey = null;
+    this.reload();
+    this.loadTopics();
+  }
+
+  // Only feeds a picker; the draw works without it, so a failure is shown but does not stop the page.
+  private loadTopics(): void {
     this.questionApi.topics().subscribe({
       next: (topics) => this.topics.set(topics),
       error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
@@ -502,14 +528,18 @@ export class ExamEditor {
   }
 
   private reload(): void {
-    this.examApi.getExamById(this.examId).subscribe({
+    this.refreshing.set(true);
+    this.reading?.unsubscribe();
+    this.reading = this.examApi.getExamById(this.examId).subscribe({
       next: (exam) => {
         this.exam.set(exam);
         this.loading.set(false);
+        this.refreshing.set(false);
         this.loadBank(exam.scope);
       },
       error: (error: unknown) => {
         this.loading.set(false);
+        this.refreshing.set(false);
         this.errorMessage.set(extractErrorMessage(error));
       },
     });

@@ -91,6 +91,8 @@ code {
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+  /* Stays at the end of the header even when there is no title beside it, as on a page that could not be read. */
+  margin-left: auto;
 }
 
 .back-link {
