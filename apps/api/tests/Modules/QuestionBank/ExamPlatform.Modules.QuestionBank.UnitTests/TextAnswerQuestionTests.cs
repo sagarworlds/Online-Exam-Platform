@@ -1,5 +1,6 @@
 using ExamPlatform.Modules.QuestionBank.Domain;
 using ExamPlatform.Modules.QuestionBank.Domain.Exceptions;
+using ExamPlatform.SharedKernel.Domain;
 
 namespace ExamPlatform.Modules.QuestionBank.UnitTests;
 
@@ -61,6 +62,17 @@ public class TextAnswerQuestionTests
         var answers = Enumerable.Range(1, Question.MaxAcceptedAnswers + 1).Select(i => $"answer {i}").ToArray();
 
         Assert.Throws<InvalidQuestionError>(() => Capital(answers));
+    }
+
+    [Fact]
+    public void ATextQuestion_KeepsAnAcceptedAnswerOfExactlyTheMaximum_ThatACandidateCanTypeInFull()
+    {
+        var longest = new string('x', Question.MaxAcceptedAnswerLength);
+
+        var question = Capital(longest);
+
+        Assert.Equal(longest, Assert.Single(question.AcceptedAnswers));
+        Assert.True(TypedAnswer.Matches(longest, question.AcceptedAnswers));
     }
 
     [Fact]

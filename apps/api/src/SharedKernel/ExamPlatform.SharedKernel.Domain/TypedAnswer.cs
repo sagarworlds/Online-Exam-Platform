@@ -7,8 +7,11 @@ namespace ExamPlatform.SharedKernel.Domain;
 /// </summary>
 public static class TypedAnswer
 {
-    /// <summary>The longest answer a candidate may type, after trimming. Answers are short; this bounds what a candidate can store.</summary>
-    public const int MaxLength = 1000;
+    /// <summary>
+    /// The longest answer a candidate may type, after trimming. An answer may run to several paragraphs; this bounds what a candidate can
+    /// store, and is also the longest accepted answer an author may list.
+    /// </summary>
+    public const int MaxLength = 10_000;
 
     /// <summary>
     /// The form two answers are compared in: trimmed, inner whitespace collapsed to one space, lower case. "  Paris " and "paris"
