@@ -629,7 +629,8 @@ describe('StudentList', () => {
     const { root } = open({ students: many });
 
     expect(root.textContent).toContain('Showing the first 200 students by name.');
-  });
+    // Drawing 200 rows takes a few seconds when the whole suite is running at once; the default five is not enough on a busy machine.
+  }, 30_000);
 
   describe('the refresh icon', () => {
     const icon = (root: HTMLElement) => root.querySelector<HTMLButtonElement>('app-refresh-button button')!;
