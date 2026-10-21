@@ -12,8 +12,17 @@
   background: var(--surface);
   border-right: 1px solid var(--border);
   max-height: 100vh;
+  /* The visible height, which a phone's or tablet's address bar changes while the page scrolls; 100vh above is the fallback. */
+  max-height: 100dvh;
   overflow-y: auto;
   transition: width 0.15s ease;
+}
+
+/* The width eases open and shut only for a visitor who has not asked the system for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .admin-sidebar {
+    transition: none;
+  }
 }
 
 .admin-sidebar--collapsed {
@@ -88,7 +97,7 @@
 
 .admin-sidebar__link.active {
   background: var(--primary-soft);
-  color: var(--primary);
+  color: var(--primary-ink);
   font-weight: 600;
 }
 
@@ -103,7 +112,7 @@
   flex-shrink: 0;
   border-radius: var(--radius-sm);
   background: var(--primary-soft);
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 .admin-sidebar--collapsed .admin-sidebar__label {

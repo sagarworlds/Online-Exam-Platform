@@ -7,7 +7,7 @@
 .exam-protection-notice {
   min-height: 1.4em;
   margin: 0 0 0.5rem;
-  color: var(--primary);
+  color: var(--primary-ink);
   font-size: 0.9rem;
 }
 
@@ -15,10 +15,10 @@
 .exam-focus-warning {
   margin: 0 0 0.75rem;
   padding: 0.6rem 0.8rem;
-  border: 1px solid var(--warning, #b45309);
-  border-radius: 6px;
-  background: var(--warning-bg, #fffbeb);
-  color: var(--warning-text, #78350f);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: var(--warning-soft);
+  color: var(--text);
 }
 
 .exam-focus-warning button {
@@ -33,10 +33,10 @@
 .exam-sync--active {
   margin: 0 0 0.75rem;
   padding: 0.6rem 0.8rem;
-  border: 1px solid var(--warning, #b45309);
-  border-radius: 6px;
-  background: var(--warning-bg, #fffbeb);
-  color: var(--warning-text, #78350f);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: var(--warning-soft);
+  color: var(--text);
 }
 
 /*
@@ -141,7 +141,7 @@
 .exam-bar__label {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -278,10 +278,20 @@
   color: var(--on-primary);
 }
 
+/* A tick at the end of the chosen row, so the choice is not told only by colour and a fill (a forced-colour mode drops both). The second
+   `content` gives it an empty text alternative where that is supported, so a screen reader, which already reads the input as checked, skips it. */
+.option-choice:has(input:checked)::after {
+  content: '\2713';
+  content: '\2713' / '';
+  margin-inline-start: auto;
+  font-weight: 700;
+  color: var(--primary-ink);
+}
+
 /* A solid outline with a gap, not the translucent --focus-ring: that ring was about 1.6:1 on the card (WCAG 1.4.11). The gap keeps the
    outline against the card rather than against the choice's own border. */
 .option-choice:has(input:focus-visible) {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--primary-ink);
   outline-offset: 2px;
 }
 
@@ -365,6 +375,17 @@
   color: var(--success);
 }
 
+/* A tick in the corner of an answered question, beside the green, so "answered" does not rest on colour alone. */
+.palette__item--answered::before {
+  content: '\2713';
+  content: '\2713' / '';
+  position: absolute;
+  top: 0.05rem;
+  inset-inline-start: 0.2rem;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
 .palette__item--current {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px var(--primary);
@@ -393,8 +414,13 @@
 }
 
 .palette-legend .legend--answered::before {
+  content: '\2713';
   background: var(--success-soft);
   border-color: var(--success);
+  color: var(--success);
+  font-size: 0.65rem;
+  line-height: 0.8rem;
+  text-align: center;
 }
 
 .palette-legend .legend--seen::before {
@@ -437,7 +463,7 @@
   font-weight: 700;
   line-height: 1.1;
   margin: 0.5rem 0;
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 /*
@@ -592,7 +618,7 @@
 
 .review-option__tag {
   flex: none;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   font-weight: 700;
 }
 
@@ -680,7 +706,7 @@ html:has(.exam-top) {
   align-items: center;
   min-height: 2.75rem;
   padding: 0.25rem 0;
-  color: var(--primary);
+  color: var(--primary-ink);
   font-weight: 600;
   cursor: pointer;
 }
@@ -714,6 +740,7 @@ html:has(.exam-top) {
   --text: #ffffff;
   --text-muted: #ffffff;
   --primary: #ffe600;
+  --primary-ink: #ffe600;
   --primary-hover: #fff27a;
   --primary-soft: #000000;
   --on-primary: #000000;
@@ -737,4 +764,55 @@ html:has(.exam-top) {
 .submit-summary {
   margin: 0.5rem 0 0.75rem;
   padding-left: 1.25rem;
+}
+
+/*
+ * A forced-colour mode (Windows High Contrast) replaces every background and removes every box-shadow. Each state of the exam screen that was
+ * only a fill or a shadow is given a border or an outline in a system colour here, so the candidate can still see which answer is chosen,
+ * which question is open and which are marked. The ticks above already say "chosen" and "answered" in a shape.
+ */
+@media (forced-colors: active) {
+  .option-choice:has(input:checked) {
+    outline: 2px solid Highlight;
+    outline-offset: -3px;
+  }
+
+  /* The focus outline of a chosen row keeps its gap, so the two do not draw over each other. */
+  .option-choice:has(input:checked:focus-visible) {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .option-choice__marker {
+    border-color: ButtonText;
+  }
+
+  .palette__item--current {
+    outline: 3px solid Highlight;
+    outline-offset: 1px;
+  }
+
+  .palette__item--marked::after {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+
+  .palette-legend li::before {
+    forced-color-adjust: none;
+    border-color: CanvasText;
+  }
+
+  .palette-legend .legend--marked::before {
+    background: CanvasText;
+  }
+
+  .exam-tools button[aria-pressed='true'] {
+    border-width: 3px;
+    border-color: Highlight;
+  }
+
+  .exam-focus-warning,
+  .exam-sync--active {
+    border-width: 2px;
+  }
 }

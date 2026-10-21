@@ -8,7 +8,7 @@
 .option-row .icon-btn--on:hover:not(:disabled) {
   border-color: var(--primary);
   background: var(--primary-soft);
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 .option-tools {
@@ -54,6 +54,6 @@
   padding-inline: 0.25rem;
   border-color: transparent;
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-ink);
   font-weight: 600;
 }

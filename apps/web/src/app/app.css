@@ -49,7 +49,7 @@
 .nav .brand svg {
   width: 1.7rem;
   height: 1.7rem;
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 .nav nav {
@@ -91,10 +91,12 @@
   background: var(--surface-muted);
 }
 
+/* The page the visitor is on: a wash and an underline. Not a heavier weight, which widens the link and moves the ones after it. */
 .nav nav a.active {
   background: var(--primary-soft);
-  color: var(--primary);
-  font-weight: 600;
+  color: var(--primary-ink);
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
 }
 
 .nav nav button {

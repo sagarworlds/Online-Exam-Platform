@@ -1,4 +1,4 @@
-import { applyBrandPalette, paletteFor, relativeLuminance, textColourOn, tintOf } from './branding-theme';
+import { applyBrandPalette, contrastRatio, inkOn, paletteFor, relativeLuminance, textColourOn, tintOf } from './branding-theme';
 import { MAX_LOGO_BYTES, isHexColour, logoProblem } from './branding.models';
 
 /** A root element that records the custom properties written onto it, without relying on the DOM's own handling of them. */
@@ -38,7 +38,44 @@ describe('branding theme', () => {
     expect(paletteFor('#1A56DB')).toEqual({
       primary: '#1A56DB',
       onPrimary: '#ffffff',
-      primarySoft: tintOf('#1A56DB'),
+      // A wash over the page's own surface and a step toward its text, so both follow the light or dark scheme.
+      primarySoft: 'color-mix(in srgb, #1A56DB 14%, var(--surface))',
+      primaryHover: 'color-mix(in srgb, #1A56DB 85%, var(--text))',
+      // The platform blue already reads on a light page; on a dark one it is lightened.
+      inkLight: '#1a56db',
+      inkDark: expect.stringMatching(/^#[0-9a-f]{6}$/),
+    });
+  });
+
+  it('measures contrast from 1 to 21', () => {
+    expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 5);
+    expect(contrastRatio('#ffffff', '#ffffff')).toBeCloseTo(1, 5);
+  });
+
+  describe('the colour used for text and outlines (WCAG 1.4.3)', () => {
+    const lightPage = ['#f3f5fa', '#ffffff'];
+    const darkPage = ['#0e1320', '#161c2d'];
+
+    it.each(['#ffe600', '#1a56db', '#ff8800', '#00a86b', '#000000', '#ffffff', '#0b1226', '#7f7fff'])(
+      'reads at 4.5:1 on a light and on a dark page, whatever colour %s the institute chose',
+      (colour) => {
+        const palette = paletteFor(colour)!;
+
+        for (const background of lightPage) {
+          expect(contrastRatio(palette.inkLight, background)).toBeGreaterThanOrEqual(4.5);
+        }
+        for (const background of darkPage) {
+          expect(contrastRatio(palette.inkDark, background)).toBeGreaterThanOrEqual(4.5);
+        }
+      },
+    );
+
+    it('keeps the institute colour as it is when it already reads, and moves a yellow toward black on a light page', () => {
+      expect(inkOn('#1a56db', lightPage, '#000000')).toBe('#1a56db');
+      const yellow = inkOn('#ffe600', lightPage, '#000000');
+
+      expect(yellow).not.toBe('#ffe600');
+      expect(relativeLuminance(yellow)).toBeLessThan(relativeLuminance('#ffe600'));
     });
   });
 
@@ -49,6 +86,9 @@ describe('branding theme', () => {
     expect(values.get('--brand-primary')).toBe('#1A56DB');
     expect(values.get('--brand-on-primary')).toBe('#ffffff');
     expect(values.has('--brand-primary-soft')).toBe(true);
+    expect(values.has('--brand-primary-hover')).toBe(true);
+    expect(values.has('--brand-ink-light')).toBe(true);
+    expect(values.has('--brand-ink-dark')).toBe(true);
 
     applyBrandPalette(root, null);
     expect(values.size).toBe(0);
