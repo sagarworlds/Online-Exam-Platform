@@ -248,13 +248,13 @@ describe('MyExams', () => {
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
 
-    expect(root.querySelectorAll('.exam-skeleton')).toHaveLength(2);
-    expect(root.querySelector('.exam-skeleton')?.getAttribute('aria-hidden')).toBe('true');
+    expect(root.querySelectorAll('.skeleton')).toHaveLength(2);
+    expect(root.querySelector('.skeleton')?.getAttribute('aria-hidden')).toBe('true');
     expect(root.querySelector('[role="status"] .visually-hidden')?.textContent).toContain('Loading');
 
     httpMock.expectOne(isMyExams).flush([]);
     fixture.detectChanges();
-    expect(root.querySelector('.exam-skeleton')).toBeNull();
+    expect(root.querySelector('.skeleton')).toBeNull();
   });
 
   it('offers Try again when the exams cannot be read, without saying there are none, and shows them once they can', () => {
@@ -272,7 +272,7 @@ describe('MyExams', () => {
     buttonIn(root, 'Try again')!.click();
     fixture.detectChanges();
     expect(root.querySelector('[role="alert"]')).toBeNull();
-    expect(root.querySelectorAll('.exam-skeleton').length).toBeGreaterThan(0);
+    expect(root.querySelectorAll('.skeleton').length).toBeGreaterThan(0);
 
     httpMock.expectOne(isMyExams).flush([exam({})]);
     fixture.detectChanges();

@@ -12,16 +12,7 @@
 
   @if (loading()) {
     <!-- Two cards' worth of grey lines where the exams will be, so the page does not jump when they arrive. -->
-    <div role="status">
-      <span class="visually-hidden">{{ 'common.loading' | t }}</span>
-      @for (placeholder of [1, 2]; track placeholder) {
-        <div class="card exam-skeleton" aria-hidden="true">
-          <span class="exam-skeleton__line exam-skeleton__line--title"></span>
-          <span class="exam-skeleton__line"></span>
-          <span class="exam-skeleton__line exam-skeleton__line--short"></span>
-        </div>
-      }
-    </div>
+    <app-skeleton [cards]="2" />
   } @else if (exams().length === 0 && !errorMessage()) {
     <div class="card empty-state">
       {{ 'myExams.empty' | t }}

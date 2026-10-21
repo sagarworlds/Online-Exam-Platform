@@ -8,6 +8,7 @@ import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
 import { bestAttemptId } from '../best-attempt';
 import { MAX_ATTEMPT_REQUEST_TEXT, MyExamDto } from '../candidate.models';
+import { Skeleton } from '../../shared/skeleton/skeleton';
 import { rememberAttemptedOpen, rememberedAttemptedOpen } from './attempted-section-memory';
 import { groupExams } from './exam-groups';
 
@@ -35,7 +36,7 @@ const WINDOW_FORMAT = 'MMM d, y, h:mm a';
  */
 @Component({
   selector: 'app-my-exams',
-  imports: [DatePipe, RouterLink, TranslatePipe],
+  imports: [DatePipe, RouterLink, Skeleton, TranslatePipe],
   templateUrl: './my-exams.html',
   styleUrl: './my-exams.css',
 })
