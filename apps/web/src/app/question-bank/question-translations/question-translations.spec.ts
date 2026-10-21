@@ -54,13 +54,13 @@ describe('QuestionTranslations', () => {
     fixture.detectChanges();
   };
   const type = (selector: string, index: number, value: string) => {
-    const input = root.querySelectorAll<HTMLInputElement>(selector)[index];
+    const input = root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(selector)[index];
     input.value = value;
     input.dispatchEvent(new Event('input'));
   };
   const fillForm = (text: string, options: string[]) => {
     (fixture.componentInstance as unknown as { form: { controls: { text: { setValue(v: string): void } } } }).form.controls.text.setValue(text);
-    options.forEach((value, i) => type('.option-row input[type="text"]', i, value));
+    options.forEach((value, i) => type('.option-row textarea', i, value));
     fixture.detectChanges();
   };
 
@@ -89,7 +89,7 @@ describe('QuestionTranslations', () => {
 
     const hints = Array.from(root.querySelectorAll('.option-row .hint')).map((h) => h.textContent?.replace(/\s+/g, ' ').trim());
     expect(hints).toEqual(['Paris (correct)', 'Rome']);
-    expect(root.querySelectorAll('.option-row input[type="text"]').length).toBe(2);
+    expect(root.querySelectorAll('.option-row textarea').length).toBe(2);
     expect(root.textContent).toContain('copied from this question');
   });
 

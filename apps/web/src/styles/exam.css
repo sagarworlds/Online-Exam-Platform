@@ -206,7 +206,7 @@
   font-size: 0.9rem;
 }
 
-/* The field a text question is typed into: a full-width line, tall enough to tap on a phone. */
+/* The field a text question is typed into: a full-width box, tall enough for a few lines, that the candidate may pull taller for a long answer. */
 .question__answer-label {
   display: block;
   margin-bottom: 0.35rem;
@@ -216,10 +216,12 @@
 .question__answer-input {
   display: block;
   width: 100%;
-  max-width: 40rem;
-  min-height: 44px;
+  max-width: 48rem;
+  min-height: 8rem;
   padding: 0.6rem 0.8rem;
   font: inherit;
+  line-height: 1.5;
+  resize: vertical;
 }
 
 .question__text {
@@ -240,6 +242,13 @@
   border-radius: var(--radius);
   background: var(--surface);
   cursor: pointer;
+}
+
+/* An option may run to several paragraphs: its line breaks are kept and a long unbroken string wraps rather than leaving the card. */
+.option-choice__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .option-choice:hover {
@@ -588,6 +597,8 @@
 .review-option__text {
   flex: 1;
   min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .review-option__tag {

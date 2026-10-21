@@ -247,7 +247,7 @@ export const EN = {
   'attempt.position': '{section} · Question {number} of {total}',
   'attempt.chooseAll': 'Choose all the answers that apply.',
   'attempt.typedAnswer': 'Your answer',
-  'attempt.typeHint': 'Type your answer. It is saved when you leave the box or press Enter.',
+  'attempt.typeHint': 'Type your answer. It is saved when you leave the box.',
   'review.typed.accepted': 'Accepted answers',
   'review.typed.none': 'Nothing typed',
   'attempt.markReview': 'Mark for review',

@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { RichTextEditor } from '../../shared/rich-text/rich-text-editor';
 import { QuestionApiService } from '../question-api.service';
-import { QUESTION_LANGUAGES, QuestionDto, QuestionLanguage, QuestionTranslation } from '../question.models';
+import { QUESTION_LANGUAGES, QUESTION_LIMITS, QuestionDto, QuestionLanguage, QuestionTranslation } from '../question.models';
 import { STATUS_LABELS } from '../question-review/question-review';
 
 /**
@@ -29,6 +29,7 @@ export class QuestionTranslations implements OnInit {
 
   protected readonly languages = QUESTION_LANGUAGES;
   protected readonly statusLabels = STATUS_LABELS;
+  protected readonly limits = QUESTION_LIMITS;
   /** The question and its translations; null until they have loaded. */
   protected readonly linked = signal<QuestionTranslation[] | null>(null);
   protected readonly error = signal<string | null>(null);
@@ -66,7 +67,11 @@ export class QuestionTranslations implements OnInit {
     this.error.set(null);
     this.form.controls.text.reset('');
     this.options.clear();
-    this.question().options.forEach(() => this.options.push(this.formBuilder.nonNullable.control('', Validators.required)));
+    this.question().options.forEach(() =>
+      this.options.push(
+        this.formBuilder.nonNullable.control('', [Validators.required, Validators.maxLength(QUESTION_LIMITS.maxOptionTextLength)]),
+      ),
+    );
     this.adding.set(language);
   }
 

@@ -51,7 +51,13 @@
           [attr.aria-label]="'Option ' + (i + 1) + ' is correct'"
         />
       }
-      <input type="text" formControlName="text" [placeholder]="'Option ' + (i + 1)" [attr.aria-label]="'Option ' + (i + 1) + ' text'" />
+      <textarea
+        rows="3"
+        formControlName="text"
+        [attr.maxlength]="limits.maxOptionTextLength"
+        [placeholder]="'Option ' + (i + 1)"
+        [attr.aria-label]="'Option ' + (i + 1) + ' text'"
+      ></textarea>
       <button
         type="button"
         class="icon-btn option-pin"
@@ -115,7 +121,13 @@
     }
     @for (answer of acceptedAnswers.controls; track $index; let i = $index) {
       <div class="option-row">
-        <input type="text" [formControlName]="i" [attr.disabled]="wordingOnly() ? '' : null" [attr.aria-label]="'Accepted answer ' + (i + 1)" />
+        <textarea
+          rows="3"
+          [formControlName]="i"
+          [attr.maxlength]="limits.maxAcceptedAnswerLength"
+          [attr.disabled]="wordingOnly() ? '' : null"
+          [attr.aria-label]="'Accepted answer ' + (i + 1)"
+        ></textarea>
         <button
           type="button"
           class="icon-btn icon-btn--danger"

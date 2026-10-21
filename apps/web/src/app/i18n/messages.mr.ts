@@ -242,7 +242,7 @@ export const MR: Messages = {
   'attempt.position': '{section} · प्रश्न {number} / {total}',
   'attempt.chooseAll': 'लागू होणारी सर्व उत्तरे निवडा.',
   'attempt.typedAnswer': 'तुमचे उत्तर',
-  'attempt.typeHint': 'तुमचे उत्तर टाइप करा. बॉक्समधून बाहेर पडल्यावर किंवा Enter दाबल्यावर ते जतन होते.',
+  'attempt.typeHint': 'तुमचे उत्तर टाइप करा. बॉक्समधून बाहेर पडल्यावर ते जतन होते.',
   'review.typed.accepted': 'स्वीकारलेली उत्तरे',
   'review.typed.none': 'काहीही टाइप केले नाही',
   'attempt.markReview': 'पुनरावलोकनासाठी चिन्हांकित करा',

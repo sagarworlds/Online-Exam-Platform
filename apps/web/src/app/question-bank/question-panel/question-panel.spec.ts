@@ -116,9 +116,9 @@ describe('QuestionPanel', () => {
     const form = () => (fixture.debugElement.query(By.directive(QuestionPanel)).componentInstance as unknown as { form: FormGroup }).form;
     const buttons = () => Array.from(root.querySelectorAll('button'));
     const button = (label: string) => buttons().find((b) => b.textContent?.trim() === label) as HTMLButtonElement;
-    const texts = () => Array.from(root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]')).map((input) => input.value);
+    const texts = () => Array.from(root.querySelectorAll<HTMLTextAreaElement>('.option-row textarea')).map((input) => input.value);
     const type = (index: number, value: string) => {
-      const input = root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]')[index];
+      const input = root.querySelectorAll<HTMLTextAreaElement>('.option-row textarea')[index];
       input.value = value;
       input.dispatchEvent(new Event('input'));
       fixture.detectChanges();
@@ -136,7 +136,7 @@ describe('QuestionPanel', () => {
     /** Fills a multiple-choice question, through the controls the way an author would: the text through its form control, as it is a rich-text editor. */
     const fill = (text = 'Capital of France?', options = ['Paris', 'Rome'], correct = 0) => {
       form().controls['text'].setValue(text);
-      const inputs = root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]');
+      const inputs = root.querySelectorAll<HTMLTextAreaElement>('.option-row textarea');
       options.forEach((value, i) => {
         inputs[i].value = value;
         inputs[i].dispatchEvent(new Event('input'));
@@ -622,7 +622,7 @@ describe('QuestionPanel', () => {
         type.value = 'text';
         type.dispatchEvent(new Event('change'));
         fixture.detectChanges();
-        const answer = root.querySelector<HTMLInputElement>('input[aria-label="Accepted answer 1"]') as HTMLInputElement;
+        const answer = root.querySelector<HTMLTextAreaElement>('textarea[aria-label="Accepted answer 1"]') as HTMLTextAreaElement;
         answer.value = 'Paris';
         answer.dispatchEvent(new Event('input'));
         fixture.detectChanges();

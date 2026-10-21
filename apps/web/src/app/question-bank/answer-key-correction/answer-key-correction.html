@@ -16,7 +16,14 @@
         <p class="hint">A typed answer is right when it matches one of these, ignoring capital letters and extra spaces.</p>
         @for (answer of answers(); track $index; let i = $index) {
           <div class="option-row">
-            <input type="text" [value]="answer" (input)="setAnswer(i, $any($event.target).value)" [attr.aria-label]="'Accepted answer ' + (i + 1)" [disabled]="busy()" />
+            <textarea
+              rows="3"
+              [value]="answer"
+              [attr.maxlength]="limits.maxAcceptedAnswerLength"
+              (input)="setAnswer(i, $any($event.target).value)"
+              [attr.aria-label]="'Accepted answer ' + (i + 1)"
+              [disabled]="busy()"
+            ></textarea>
             <button type="button" (click)="removeAnswer(i)" [disabled]="busy() || answers().length <= 1">Remove</button>
           </div>
         }
