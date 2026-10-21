@@ -4,7 +4,8 @@ import { text } from './messages';
 
 // The steps of a candidate's way into an exam, shared by the specs that start from a question on the page.
 
-async function signIn(page: Page, api: FakeApi): Promise<void> {
+/** Signs in as the fake API's candidate and ends on their exams. */
+export async function signIn(page: Page, api: FakeApi): Promise<void> {
   await page.goto('/login');
   await page.getByLabel(text('login.email'), { exact: true }).fill('candidate@example.com');
   await page.getByLabel(text('login.password'), { exact: true }).fill(api.password);

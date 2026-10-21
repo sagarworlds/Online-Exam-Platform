@@ -11,6 +11,10 @@ const firefox = devices['Desktop Firefox'];
 // docs/compliance/accessibility-manual-checklist.md stay.
 const webkit = devices['Desktop Safari'];
 
+// A phone's or a tablet's size, touch and way of holding, on the Chromium that is at hand. The layouts are chosen by the room there is, which
+// every engine measures the same way, so one engine is enough here; the three desktop projects below run the same journeys on all three.
+const onDevice = (name: string) => ({ ...devices[name], defaultBrowserType: 'chromium' as const, launchOptions: chromium.launchOptions });
+
 const stubbedPort = Number(process.env['E2E_PORT'] ?? 4300);
 const fullStackPort = 4301;
 const apiUrl = 'http://127.0.0.1:5080';
@@ -22,6 +26,12 @@ const stubbed: Partial<PlaywrightTestConfig> = {
     { name: 'chromium', testIgnore: '**/fullstack/**', use: chromium },
     { name: 'firefox', testIgnore: '**/fullstack/**', use: firefox },
     { name: 'webkit', testIgnore: '**/fullstack/**', use: webkit },
+    // The pages a candidate uses, at the size and in the way of holding of a phone, a small phone, a phone on its side and a tablet.
+    { name: 'phone', testMatch: '**/layout.spec.ts', use: onDevice('Pixel 7') },
+    { name: 'phone-landscape', testMatch: '**/layout.spec.ts', use: onDevice('Pixel 7 landscape') },
+    { name: 'small-phone', testMatch: '**/layout.spec.ts', use: onDevice('Galaxy S9+') },
+    { name: 'tablet', testMatch: '**/layout.spec.ts', use: onDevice('iPad (gen 7)') },
+    { name: 'tablet-landscape', testMatch: '**/layout.spec.ts', use: onDevice('iPad (gen 7) landscape') },
   ],
   webServer: {
     command: 'node e2e/serve.mjs',
