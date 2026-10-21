@@ -1,4 +1,4 @@
-import { Component, ElementRef, Injector, afterNextRender, effect, inject, viewChild } from '@angular/core';
+import { Component, ElementRef, Injector, afterNextRender, computed, effect, inject, viewChild } from '@angular/core';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { ModalDialog } from '../modal-dialog/modal-dialog';
 import { ConfirmService } from './confirm.service';
@@ -19,6 +19,15 @@ import { ConfirmService } from './confirm.service';
 export class ConfirmHost {
   protected readonly service = inject(ConfirmService);
   private readonly injector = inject(Injector);
+
+  /**
+   * The question on screen as a list of one, so the template draws it with `@for ... track` and a new question is a new dialog. A plain `@if`
+   * would keep the same dialog when one question follows another in the same tick, and a dialog that has closed is not opened again.
+   */
+  protected readonly shown = computed(() => {
+    const pending = this.service.current();
+    return pending === null ? [] : [pending];
+  });
 
   private readonly dialog = viewChild(ModalDialog);
   private readonly cancelButton = viewChild<ElementRef<HTMLButtonElement>>('cancelButton');

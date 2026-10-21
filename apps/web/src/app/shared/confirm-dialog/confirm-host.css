@@ -12,7 +12,7 @@
   margin-bottom: var(--space-1);
 }
 
-/* The two answers, the confirming one last, wrapping under each other on a phone with the confirming one first so it is where the thumb is. */
+/* The two answers, the confirming one last, one under the other on a phone, in the order the keyboard goes through them. */
 .confirm__actions {
   display: flex;
   flex-wrap: wrap;
@@ -22,7 +22,7 @@
 
 @media (max-width: 40rem) {
   .confirm__actions {
-    flex-direction: column-reverse;
+    flex-direction: column;
   }
 
   .confirm__actions button {

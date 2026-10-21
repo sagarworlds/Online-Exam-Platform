@@ -7,10 +7,15 @@
       [appTooltip]="tipOf(action)"
       [attr.aria-label]="nameOf(action)"
       [attr.aria-disabled]="action.disabled ? 'true' : null"
+      [attr.aria-describedby]="action.disabled && action.disabledReason ? reasonId(action) + '-icon' : null"
       (click)="choose(action)"
     >
       <app-icon [name]="action.icon" />
     </button>
+    @if (action.disabled && action.disabledReason) {
+      <!-- The reason is in the tooltip for the eye; this is the same words for a screen reader, which has no hover. -->
+      <span class="visually-hidden" [id]="reasonId(action) + '-icon'">{{ action.disabledReason }}</span>
+    }
   }
 </div>
 

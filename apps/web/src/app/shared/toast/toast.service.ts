@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
 
 /** What a toast says about: a thing that worked, a thing that did not, or something worth knowing. */
 export type ToastKind = 'success' | 'error' | 'warning' | 'info';
@@ -21,6 +21,9 @@ export interface ToastOptions {
 /** How long a message that needs no answer stays. Long enough to read a sentence twice, short enough not to pile up. */
 export const DEFAULT_TOAST_MS = 6000;
 
+/** The name of the host that is in the page itself; a dialog's host has the name of the dialog. */
+export const ROOT_TOAST_SCOPE = 'root';
+
 /** At most this many are on screen; a new one makes the oldest go, so a burst of messages cannot cover the page. */
 export const MAX_TOASTS = 3;
 
@@ -41,6 +44,25 @@ export class ToastService {
 
   /** The messages on screen, oldest first. */
   readonly toasts = this.all.asReadonly();
+
+  private readonly scopes = signal<readonly string[]>([]);
+
+  /**
+   * Which host draws the messages: the one in the topmost open modal dialog, or the one in the page when none is open. A modal dialog makes
+   * everything outside it inert, so a message drawn in the page behind it could be neither pressed nor announced, and an error raised while
+   * a dialog or a sheet is open would be lost to the person who most needs it.
+   */
+  readonly activeScope = computed(() => this.scopes().at(-1) ?? ROOT_TOAST_SCOPE);
+
+  /** A modal dialog has opened: messages are drawn in it until it closes. */
+  enterScope(name: string): void {
+    this.scopes.update((current) => (current.includes(name) ? current : [...current, name]));
+  }
+
+  /** A modal dialog has closed. */
+  leaveScope(name: string): void {
+    this.scopes.update((current) => current.filter((other) => other !== name));
+  }
 
   success(message: string, options?: ToastOptions): number {
     return this.show('success', message, options);
@@ -67,10 +89,13 @@ export class ToastService {
     // A message that is already there is not stacked twice: the older copy goes, so "Saved" pressed three times is one "Saved".
     const same = this.all().filter((other) => other.id !== id && other.kind === kind && other.message === message);
     same.forEach((other) => this.dismiss(other.id));
-    // And no more than MAX_TOASTS at a time.
-    this.all()
-      .slice(0, Math.max(0, this.all().length - MAX_TOASTS))
-      .forEach((old) => this.dismiss(old.id));
+    // And no more than MAX_TOASTS at a time. The oldest message that is not an error goes first: an error stays until it is dismissed, and
+    // three taps on unavailable controls must not take one away. Only when every message is an error does the oldest error go.
+    // The message just added is never the one to go.
+    while (this.all().length > MAX_TOASTS) {
+      const older = this.all().filter((other) => other.id !== id);
+      this.dismiss((older.find((other) => other.kind !== 'error') ?? older[0]).id);
+    }
 
     const duration = options.durationMs ?? DEFAULT_TOAST_MS;
     this.durations.set(id, duration);

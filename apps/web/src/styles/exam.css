@@ -484,6 +484,13 @@
   }
 }
 
+/* Messages (see ToastHost) sit above the pinned bottom bar, not over it, while an exam is open on a phone. */
+@media (max-width: 40rem) {
+  body:has(.exam-pager) .toast-host {
+    bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* The sheet's closing lines: how many questions are still open, above Submit. */
 .exam-sheet-unanswered {
   margin: 0.75rem 0 0;

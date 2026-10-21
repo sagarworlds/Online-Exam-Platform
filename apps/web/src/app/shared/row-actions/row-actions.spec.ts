@@ -92,6 +92,15 @@ describe('RowActions', () => {
     expect(words()[3].getAttribute('aria-describedby')).toBe(reason.id);
   });
 
+  it('gives the icon of an unavailable action its reason in words for a screen reader, which has no hover', () => {
+    const { icons, root } = make();
+
+    const hidden = root.querySelector('.row-actions--icons .visually-hidden')!;
+    expect(hidden.textContent).toContain('Asha has no password yet.');
+    expect(icons()[3].getAttribute('aria-describedby')).toBe(hidden.id);
+    expect(icons()[0].hasAttribute('aria-describedby')).toBe(false);
+  });
+
   it('gives each row its own reason ids, so two rows never share one', () => {
     const first = make();
     const second = make();

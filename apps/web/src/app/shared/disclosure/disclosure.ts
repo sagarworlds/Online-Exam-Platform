@@ -144,7 +144,8 @@ export class Disclosure implements OnInit {
   `,
 })
 export class DisclosureGroup {
-  private readonly blocks = contentChildren(Disclosure);
+  // Every block inside, however deep: a wrapper around them must not make Expand all do nothing.
+  private readonly blocks = contentChildren(Disclosure, { descendants: true });
 
   protected setAll(open: boolean): void {
     for (const block of this.blocks()) {

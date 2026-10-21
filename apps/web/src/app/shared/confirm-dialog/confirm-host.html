@@ -1,4 +1,4 @@
-@if (service.current(); as pending) {
+@for (pending of shown(); track pending) {
   <app-modal-dialog [heading]="pending.options.title" (closed)="onClosed()">
     @if (pending.options.message) {
       <p class="confirm__message">{{ pending.options.message }}</p>

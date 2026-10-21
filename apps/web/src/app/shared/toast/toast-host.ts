@@ -1,7 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 import { TranslatePipe } from '../../i18n/translate.pipe';
-import { Toast, ToastService } from './toast.service';
+import { ROOT_TOAST_SCOPE, Toast, ToastService } from './toast.service';
 
 /**
  * Draws the messages `ToastService` is given, in one place at the bottom of the screen, above everything but a dialog. The page around the
@@ -22,8 +22,28 @@ import { Toast, ToastService } from './toast.service';
 export class ToastHost {
   protected readonly service = inject(ToastService);
 
-  protected readonly errors = computed(() => this.service.toasts().filter((toast) => toast.kind === 'error'));
-  protected readonly others = computed(() => this.service.toasts().filter((toast) => toast.kind !== 'error'));
+  /** Which host this is: the page's, or a modal dialog's (its name). Only the host of the topmost one draws the messages. */
+  readonly scope = input(ROOT_TOAST_SCOPE);
+
+  private readonly here = computed(() => (this.service.activeScope() === this.scope() ? this.service.toasts() : []));
+  protected readonly errors = computed(() => this.here().filter((toast) => toast.kind === 'error'));
+  protected readonly others = computed(() => this.here().filter((toast) => toast.kind !== 'error'));
+
+  /** The pointer left a message: its time starts again, unless the keyboard focus is still inside it. */
+  protected onLeave(event: Event, id: number): void {
+    if (!(event.currentTarget as HTMLElement).matches(':focus-within')) {
+      this.service.release(id);
+    }
+  }
+
+  /** The focus left a message: its time starts again, unless it moved to another part of it or the pointer is still on it. */
+  protected onFocusOut(event: FocusEvent, id: number): void {
+    const toast = event.currentTarget as HTMLElement;
+    const next = event.relatedTarget as Node | null;
+    if ((next === null || !toast.contains(next)) && !toast.matches(':hover')) {
+      this.service.release(id);
+    }
+  }
 
   /** The mark in front of a message: a shape as well as a colour, and the words say the rest. */
   protected mark(toast: Toast): string {

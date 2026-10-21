@@ -15,9 +15,9 @@
   <div
     [class]="'toast toast--' + toast.kind"
     (mouseenter)="service.hold(toast.id)"
-    (mouseleave)="service.release(toast.id)"
+    (mouseleave)="onLeave($event, toast.id)"
     (focusin)="service.hold(toast.id)"
-    (focusout)="service.release(toast.id)"
+    (focusout)="onFocusOut($event, toast.id)"
   >
     <span class="toast__mark" aria-hidden="true">{{ mark(toast) }}</span>
     <span class="toast__message">{{ toast.message }}</span>

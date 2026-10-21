@@ -92,6 +92,8 @@ test.describe('the Students page', () => {
     await toggle(page, solo).click();
 
     await row(page, solo).getByRole('button', { name: `Revoke the invitation to ${maths.name}` }).click();
+    // Revoking asks first: the dialog's confirming button goes ahead.
+    await page.getByRole('dialog', { name: 'Revoke this invitation?' }).getByRole('button', { name: 'Revoke invitation' }).click();
 
     await expect(toggle(page, solo)).toContainText('1 Revoked');
     await expect(toggle(page, solo)).toHaveAttribute('aria-expanded', 'true');

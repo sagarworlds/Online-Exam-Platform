@@ -158,7 +158,31 @@ describe('Disclosure', () => {
   });
 });
 
+@Component({
+  imports: [Disclosure, DisclosureGroup],
+  template: `
+    <app-disclosure-group>
+      <div class="wrapper">
+        <app-disclosure heading="One" [(open)]="one" />
+      </div>
+    </app-disclosure-group>
+  `,
+})
+class WrappedGroupHost {
+  one = signal(false);
+}
+
 describe('DisclosureGroup', () => {
+  it('reaches blocks inside a wrapper, however deep', () => {
+    const fixture = TestBed.createComponent(WrappedGroupHost);
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.disclosure-group__tools button')[0].click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.one()).toBe(true);
+  });
+
   it('opens every block with Expand all and closes every block with Collapse all', () => {
     const fixture = TestBed.createComponent(GroupHost);
     fixture.detectChanges();

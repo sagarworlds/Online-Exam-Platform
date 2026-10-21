@@ -110,6 +110,31 @@ describe('ConfirmService and ConfirmHost', () => {
     await expect(second).resolves.toBe(false);
   });
 
+  it('opens a new dialog for a second question that was queued before the first was drawn, and answers both', async () => {
+    const { fixture, root, confirm } = make();
+    const first = confirm.ask({ title: 'First?', confirmLabel: 'Yes first' });
+    const second = confirm.ask({ title: 'Second?', confirmLabel: 'Yes second' });
+    await settle(fixture);
+    const firstDialog = root.querySelector('dialog');
+
+    button(root, 'Yes first').click();
+    await settle(fixture);
+
+    // The second question has a dialog of its own, and it is open: a dialog that had closed would be reused and show nothing.
+    const secondDialog = root.querySelector('dialog')!;
+    expect(secondDialog).not.toBe(firstDialog);
+    expect(secondDialog.hasAttribute('open')).toBe(true);
+    button(root, 'Yes second').click();
+    await settle(fixture);
+    await expect(first).resolves.toBe(true);
+    await expect(second).resolves.toBe(true);
+
+    // And the queue is not stuck: a third question is shown.
+    void confirm.ask({ title: 'Third?', confirmLabel: 'Yes third' });
+    await settle(fixture);
+    expect(root.querySelector('.modal__title')?.textContent).toContain('Third?');
+  });
+
   it('ignores an answer when no question is on screen', () => {
     const { confirm } = make();
 

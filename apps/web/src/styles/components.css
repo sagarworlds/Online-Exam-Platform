@@ -320,8 +320,10 @@ button.btn--primary:hover:not(:disabled),
 }
 
 /* A pressed button is a shade deeper than a hovered one, so the press is seen as well as felt. */
-button:active:not(:disabled):not(.primary):not(.btn--primary):not(.danger):not(.btn--danger),
-.btn:active:not(.btn--primary):not(.btn--danger) {
+/* The exclusions are in :where(), which adds no weight: a selected toggle or tab (`.mode-toggle button.active`, a pressed tab) keeps its own
+   background while it is pressed, and its label stays readable on it. */
+button:active:not(:disabled):where(:not(.primary, .btn--primary, .danger, .btn--danger)),
+.btn:active:where(:not(.btn--primary, .btn--danger)) {
   background: var(--border);
 }
 
@@ -376,7 +378,8 @@ button[aria-busy='true'] {
   cursor: progress;
 }
 
-button[aria-busy='true']::after {
+/* Not on an icon button: a refresh icon already turns itself while it reads, and a ring beside it would not fit its square. */
+button[aria-busy='true']:not(.icon-btn)::after {
   content: '';
   width: 1em;
   height: 1em;
@@ -394,7 +397,7 @@ button[aria-busy='true']::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  button[aria-busy='true']::after {
+  button[aria-busy='true']:not(.icon-btn)::after {
     animation: none;
   }
 }

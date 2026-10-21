@@ -75,6 +75,41 @@ describe('ToastService', () => {
     expect(toasts.toasts().map((t) => t.message)).toEqual(['Message 3', 'Message 4', 'Message 5']);
   });
 
+  it('trims the oldest message that is not an error first, so an error is not lost to three taps on unavailable controls', () => {
+    const toasts = service();
+    toasts.error('Could not save');
+    toasts.info('One');
+    toasts.info('Two');
+    toasts.info('Three');
+
+    expect(toasts.toasts().map((t) => t.message)).toEqual(['Could not save', 'Two', 'Three']);
+  });
+
+  it('never trims the message just added, even when every older one is an error', () => {
+    const toasts = service();
+    toasts.error('A');
+    toasts.error('B');
+    toasts.error('C');
+    toasts.success('Saved');
+
+    expect(toasts.toasts().map((t) => t.message)).toEqual(['B', 'C', 'Saved']);
+  });
+
+  it('is drawn by the host of the topmost modal dialog, and by the page’s when none is open', () => {
+    const toasts = service();
+    expect(toasts.activeScope()).toBe('root');
+
+    toasts.enterScope('dialog-a');
+    toasts.enterScope('dialog-b');
+    expect(toasts.activeScope()).toBe('dialog-b');
+
+    toasts.leaveScope('dialog-b');
+    expect(toasts.activeScope()).toBe('dialog-a');
+    toasts.leaveScope('dialog-a');
+    toasts.leaveScope('dialog-a');
+    expect(toasts.activeScope()).toBe('root');
+  });
+
   it('clears everything, and ignores an id that is already gone', () => {
     const toasts = service();
     const id = toasts.info('One');
@@ -161,6 +196,54 @@ describe('ToastHost', () => {
     fixture.detectChanges();
 
     expect(undo).toHaveBeenCalledTimes(1);
+    expect(root.querySelectorAll('.toast')).toHaveLength(0);
+  });
+
+  it('draws the messages only in the host of the dialog that is open, so they can be pressed and announced', () => {
+    const page = make();
+    const inDialog = TestBed.createComponent(ToastHost);
+    inDialog.componentRef.setInput('scope', 'dialog-a');
+    inDialog.detectChanges();
+    const dialogRoot = inDialog.nativeElement as HTMLElement;
+
+    page.toasts.error('Could not save');
+    page.fixture.detectChanges();
+    inDialog.detectChanges();
+    expect(page.root.querySelectorAll('.toast')).toHaveLength(1);
+    expect(dialogRoot.querySelectorAll('.toast')).toHaveLength(0);
+
+    page.toasts.enterScope('dialog-a');
+    page.fixture.detectChanges();
+    inDialog.detectChanges();
+    expect(page.root.querySelectorAll('.toast')).toHaveLength(0);
+    expect(dialogRoot.querySelectorAll('.toast')).toHaveLength(1);
+
+    page.toasts.leaveScope('dialog-a');
+    page.fixture.detectChanges();
+    inDialog.detectChanges();
+    expect(page.root.querySelectorAll('.toast')).toHaveLength(1);
+    expect(dialogRoot.querySelectorAll('.toast')).toHaveLength(0);
+  });
+
+  it('keeps holding a message while the keyboard focus is inside it, though the pointer has left', () => {
+    const { fixture, root, toasts } = make();
+    toasts.success('Saved');
+    fixture.detectChanges();
+    const toast = root.querySelector<HTMLElement>('.toast')!;
+    const close = toast.querySelector<HTMLButtonElement>('.toast__close')!;
+
+    toast.dispatchEvent(new Event('mouseenter'));
+    close.focus();
+    toast.dispatchEvent(new Event('mouseleave'));
+    vi.advanceTimersByTime(60_000);
+    fixture.detectChanges();
+
+    expect(root.querySelectorAll('.toast')).toHaveLength(1);
+
+    close.blur();
+    toast.dispatchEvent(new FocusEvent('focusout', { relatedTarget: null }));
+    vi.advanceTimersByTime(DEFAULT_TOAST_MS);
+    fixture.detectChanges();
     expect(root.querySelectorAll('.toast')).toHaveLength(0);
   });
 
