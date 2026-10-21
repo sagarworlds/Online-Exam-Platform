@@ -7,6 +7,7 @@ export const MR: Messages = {
   'common.somethingWrong': 'काहीतरी चुकले. कृपया पुन्हा प्रयत्न करा.',
   'common.backToMyExams': 'माझ्या परीक्षांकडे परत जा',
   'common.cancel': 'रद्द करा',
+  'common.close': 'बंद करा',
   'common.ok': 'ठीक आहे',
   'common.skipToContent': 'मुख्य मजकुरावर जा',
   'common.email': 'ईमेल',
@@ -16,6 +17,7 @@ export const MR: Messages = {
   'language.label': 'भाषा',
 
   // ---- navigation ----
+  'nav.main': 'मुख्य',
   'nav.myExams': 'माझ्या परीक्षा',
   'nav.redeemInvite': 'आमंत्रण वापरा',
   'nav.profile': 'प्रोफाइल',

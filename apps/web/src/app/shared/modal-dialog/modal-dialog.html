@@ -2,7 +2,7 @@
   <div class="modal__panel">
     <header class="modal__header">
       <h2 class="modal__title" [id]="titleId">{{ heading() }}</h2>
-      <button type="button" class="modal__close" aria-label="Close" (click)="requestClose()">
+      <button type="button" class="modal__close" [attr.aria-label]="'common.close' | t" (click)="requestClose()">
         <span aria-hidden="true">×</span>
       </button>
     </header>

@@ -71,15 +71,15 @@
     @if (b.chapters.length === 0) {
       <div class="card empty-state">No chapters yet. Add the first one below.</div>
     } @else {
-      <div class="table-wrap">
+      <div class="table-wrap" role="region" tabindex="0" aria-label="Chapters">
         <table class="table">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Chapter</th>
-              <th>Questions</th>
-              <th>Status</th>
-              <th><span class="visually-hidden">Actions</span></th>
+              <th scope="col">#</th>
+              <th scope="col">Chapter</th>
+              <th scope="col">Questions</th>
+              <th scope="col">Status</th>
+              <th scope="col"><span class="visually-hidden">Actions</span></th>
             </tr>
           </thead>
           <tbody>

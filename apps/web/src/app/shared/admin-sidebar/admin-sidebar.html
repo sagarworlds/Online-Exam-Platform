@@ -23,6 +23,7 @@
           [routerLink]="link.section.path"
           class="admin-sidebar__link"
           [class.active]="link.current()"
+          [attr.aria-current]="link.current() ? 'page' : null"
           [title]="link.section.label | t"
           [attr.aria-label]="link.section.label | t"
         >

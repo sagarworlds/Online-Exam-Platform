@@ -19,7 +19,7 @@ import { TranslatePipe } from './translate.pipe';
       }
     </select>
     @if (failed()) {
-      <p class="error-message" role="alert">{{ 'common.somethingWrong' | t }}</p>
+      <p class="error-message language-switcher__error" role="alert">{{ 'common.somethingWrong' | t }}</p>
     }
   `,
 })

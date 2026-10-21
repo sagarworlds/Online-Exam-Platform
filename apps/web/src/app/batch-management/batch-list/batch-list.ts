@@ -33,15 +33,15 @@ import { BatchDto } from '../batch.models';
       }
 
       @if (!loading() && batches().length > 0) {
-        <div class="table-wrap">
+        <div class="table-wrap" role="region" tabindex="0" aria-label="Batches">
           <table class="table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Members</th>
-                <th>Created</th>
-                <th>Actions</th>
+                <th scope="col">Name</th>
+                <th scope="col">Status</th>
+                <th scope="col">Members</th>
+                <th scope="col">Created</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>

@@ -16,3 +16,26 @@
 .language-switcher:hover {
   background: var(--surface-muted);
 }
+
+/* Where the picker is a link in the header's row, a message that could not be shown beside it would push the other links about. It hangs
+   from the picker instead, over the page, and is still announced as an alert. */
+:host {
+  position: relative;
+  display: inline-block;
+}
+
+.language-switcher__error {
+  position: absolute;
+  inset-inline-end: 0;
+  top: calc(100% + 0.25rem);
+  z-index: 10;
+  width: max-content;
+  max-width: 16rem;
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 0.875rem;
+}

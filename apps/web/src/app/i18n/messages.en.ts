@@ -12,6 +12,7 @@ export const EN = {
   'common.somethingWrong': 'Something went wrong. Please try again.',
   'common.backToMyExams': 'Back to my exams',
   'common.cancel': 'Cancel',
+  'common.close': 'Close',
   'common.ok': 'OK',
   'common.skipToContent': 'Skip to main content',
   'common.email': 'Email',
@@ -21,6 +22,7 @@ export const EN = {
   'language.label': 'Language',
 
   // ---- navigation ----
+  'nav.main': 'Main',
   'nav.myExams': 'My exams',
   'nav.redeemInvite': 'Redeem invite',
   'nav.profile': 'Profile',

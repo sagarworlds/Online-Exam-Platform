@@ -69,13 +69,13 @@ import { RosterImport } from './roster-import/roster-import';
           </div>
         }
         @if (!membersLoading() && members().length > 0) {
-          <div class="table-wrap">
+          <div class="table-wrap" role="region" tabindex="0" aria-label="Batch members">
             <table class="table">
               <thead>
                 <tr>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Status</th>
+                  <th scope="col">Email</th>
+                  <th scope="col">Phone</th>
+                  <th scope="col">Status</th>
                 </tr>
               </thead>
               <tbody>

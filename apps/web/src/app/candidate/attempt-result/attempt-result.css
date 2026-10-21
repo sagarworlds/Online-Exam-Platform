@@ -10,6 +10,44 @@
   overflow-wrap: anywhere;
 }
 
+/* The verdict, first on the page: a banner with a symbol and the words, so passed and not passed differ in more than colour. */
+.result-pass {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.result-pass__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.result-pass--yes {
+  border-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.result-pass--no {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 .result-counts {
   margin: 0.75rem 0 0;
 }

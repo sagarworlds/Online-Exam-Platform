@@ -7,6 +7,7 @@ export const HI: Messages = {
   'common.somethingWrong': 'कुछ गड़बड़ हो गई। कृपया फिर से कोशिश करें।',
   'common.backToMyExams': 'मेरी परीक्षाओं पर वापस जाएँ',
   'common.cancel': 'रद्द करें',
+  'common.close': 'बंद करें',
   'common.ok': 'ठीक है',
   'common.skipToContent': 'मुख्य सामग्री पर जाएँ',
   'common.email': 'ईमेल',
@@ -16,6 +17,7 @@ export const HI: Messages = {
   'language.label': 'भाषा',
 
   // ---- navigation ----
+  'nav.main': 'मुख्य',
   'nav.myExams': 'मेरी परीक्षाएँ',
   'nav.redeemInvite': 'निमंत्रण भुनाएँ',
   'nav.profile': 'प्रोफ़ाइल',

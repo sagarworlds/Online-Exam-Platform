@@ -1,4 +1,5 @@
 import { AfterViewInit, Component, ElementRef, Renderer2, booleanAttribute, inject, input, output, viewChild } from '@angular/core';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 
 let nextId = 0;
 
@@ -15,6 +16,7 @@ let nextId = 0;
  */
 @Component({
   selector: 'app-modal-dialog',
+  imports: [TranslatePipe],
   templateUrl: './modal-dialog.html',
   styleUrl: './modal-dialog.css',
 })
