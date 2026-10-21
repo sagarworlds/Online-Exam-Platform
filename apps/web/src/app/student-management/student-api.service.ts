@@ -10,7 +10,7 @@ export class StudentApiService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = `${environment.apiBaseUrl}/v1/admin/students`;
 
-  /** The first 200 students by name; `search` narrows them to those whose name, e-mail address or phone number contains it. */
+  /** The first 200 students by name; `search` narrows them to those whose name, email address or phone number contains it. */
   getStudents(search = ''): Observable<StudentSummaryDto[]> {
     const text = search.trim();
     const params = text === '' ? new HttpParams() : new HttpParams().set('search', text);

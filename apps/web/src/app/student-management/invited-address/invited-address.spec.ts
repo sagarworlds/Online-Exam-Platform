@@ -58,7 +58,7 @@ describe('InvitedAddress', () => {
     fixture.detectChanges();
 
     httpMock.expectNone(isChange);
-    expect(root.querySelector('.field-error')?.textContent).toContain('valid e-mail address');
+    expect(root.querySelector('.field-error')?.textContent).toContain('valid email address');
     expect(changed).not.toHaveBeenCalled();
   });
 

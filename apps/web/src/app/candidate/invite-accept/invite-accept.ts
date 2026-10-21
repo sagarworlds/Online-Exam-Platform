@@ -8,7 +8,7 @@ import { extractErrorMessage } from '../../shared/problem-details';
 
 /**
  * Where an invitation link lands (FR-14): the signed-in candidate accepts the invitation, which enrolls them in the
- * exam. The API only accepts it from the account that holds the e-mail address the invitation was sent to.
+ * exam. The API only accepts it from the account that holds the email address the invitation was sent to.
  */
 @Component({
   selector: 'app-invite-accept',

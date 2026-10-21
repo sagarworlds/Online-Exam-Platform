@@ -74,8 +74,8 @@
   margin: 0.25rem 0 0;
 }
 
-/* On a phone the badges and the icons drop under the text, and the detail loses its indent. */
-@media (max-width: 40rem) {
+/* On a tablet's width or less, with a menu beside the list, the badges and the icons have no room beside the text: they drop under it. */
+@media (max-width: 56rem) {
   .question-row__line {
     flex-wrap: wrap;
   }
@@ -97,7 +97,10 @@
     flex-basis: 100%;
     padding-left: 1.6rem;
   }
+}
 
+/* On a phone the detail loses its indent too. */
+@media (max-width: 40rem) {
   .question-row__detail {
     padding-inline-start: 0.75rem;
   }

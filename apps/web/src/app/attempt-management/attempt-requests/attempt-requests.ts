@@ -18,10 +18,10 @@ import { extractErrorMessage } from '../../shared/problem-details';
 import { AttemptAdminApiService } from '../attempt-admin-api.service';
 import { AttemptRequestRow } from '../attempt-admin.models';
 
-/** What was done with a request during this visit, and whether the candidate was e-mailed the answer. */
+/** What was done with a request during this visit, and whether the candidate was emailed the answer. */
 interface RequestDecision {
   outcome: 'given' | 'declined';
-  /** False means no e-mail reached the candidate, so the administrator has to tell them another way. */
+  /** False means no email reached the candidate, so the administrator has to tell them another way. */
   emailed: boolean;
 }
 
@@ -154,7 +154,7 @@ export class AttemptRequests {
     return request.candidateEmail ?? this.i18n.t('admin.requests.candidateFallback');
   }
 
-  /** The line that stands in for a decided request: what was done, and whether the candidate was e-mailed about it. */
+  /** The line that stands in for a decided request: what was done, and whether the candidate was emailed about it. */
   protected resultText(decision: RequestDecision, request: AttemptRequestRow): string {
     const who = this.candidateName(request);
     const outcome =

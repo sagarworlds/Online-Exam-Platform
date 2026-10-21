@@ -124,7 +124,7 @@ describe('AttemptRequests', () => {
 
     expect(resultLines().length).toBe(1);
     expect(resultLines()[0].textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      '✓ Gave amy@example.com another attempt. They were e-mailed.',
+      '✓ Gave amy@example.com another attempt. They were emailed.',
     );
     expect(root.querySelector('.request')?.classList).toContain('request--given');
     expect(root.querySelector('.request')?.textContent).toContain('Gave amy@example.com');
@@ -181,7 +181,7 @@ describe('AttemptRequests', () => {
     fixture.detectChanges();
 
     expect(resultLines()[0].textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      '✗ Declined the request from amy@example.com. They could not be e-mailed, so let them know yourself.',
+      '✗ Declined the request from amy@example.com. They could not be emailed, so let them know yourself.',
     );
     expect(root.querySelector('.request')?.classList).toContain('request--declined');
     expect(text()).toContain('No requests are waiting now.');

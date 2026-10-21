@@ -29,7 +29,7 @@ const LISTING_LIMIT = 200;
  * Staff page: the students, each with their invitations and a profile. Staff who may manage students get an edit action that opens the
  * profile in a popup, and a deactivate action that asks first (icons with a tooltip with a mouse, words in the open row on a touch
  * screen); the others read the profile in the row. A student is an account, found
- * by name, e-mail address or mobile number; an address that was invited and has no account yet is listed too, as "Not registered yet",
+ * by name, email address or mobile number; an address that was invited and has no account yet is listed too, as "Not registered yet",
  * so every invitation is somewhere on the page.
  *
  * The list of accounts is the API's; the invitations are brought together with it here, by the address they were sent to. An invited
@@ -240,7 +240,7 @@ export class StudentList {
 
   /**
    * Turns a deactivated account back on, without asking: it is the safe direction, and a mistake is undone by deactivating again. The
-   * student signs in again with a code sent to their e-mail address or mobile number; nothing is sent to them from here.
+   * student signs in again with a code sent to their email address or mobile number; nothing is sent to them from here.
    */
   protected reactivate(row: StudentRow): void {
     const account = row.account;
@@ -252,7 +252,7 @@ export class StudentList {
     this.studentApi.reactivateStudent(account.id).subscribe({
       next: () => {
         this.reactivatingId.set(null);
-        this.notice.set(`Reactivated ${row.title}. They can sign in again with a code sent to their e-mail address or mobile number.`);
+        this.notice.set(`Reactivated ${row.title}. They can sign in again with a code sent to their email address or mobile number.`);
         afterNextRender(() => this.noticeElement()?.nativeElement.focus(), { injector: this.injector });
         this.reload.next();
       },

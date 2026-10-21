@@ -58,13 +58,13 @@ describe('RosterImport', () => {
 
     request.flush({
       added: [{ row: 2, memberId: 'm1' }],
-      skipped: [{ row: 3, code: 'invalid_email', message: 'The e-mail address is not valid.' }],
+      skipped: [{ row: 3, code: 'invalid_email', message: 'The email address is not valid.' }],
       ignoredColumns: [],
     });
     fixture.detectChanges();
 
     expect(text()).toContain('1 candidate added, 1 row left out.');
-    expect(text()).toContain('Row 3: The e-mail address is not valid.');
+    expect(text()).toContain('Row 3: The email address is not valid.');
     expect(root.querySelector('[role="status"] .success-message')).not.toBeNull();
   });
 
@@ -106,7 +106,7 @@ describe('RosterImport', () => {
   it("shows the API's reason when it refuses the whole file, and does not tell the page anything changed", async () => {
     await choose(new File(['email\r\n'], 'roster.csv'));
     httpMock.expectOne(isImport).flush(
-      { title: 'roster_unreadable', detail: 'The file has a header but no rows. Add one candidate\'s e-mail address per row.' },
+      { title: 'roster_unreadable', detail: 'The file has a header but no rows. Add one candidate\'s email address per row.' },
       { status: 400, statusText: 'Bad Request' },
     );
     fixture.detectChanges();

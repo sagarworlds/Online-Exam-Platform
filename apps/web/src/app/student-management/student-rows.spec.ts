@@ -45,7 +45,7 @@ describe('buildStudentRows', () => {
     expect(rows[1].key).toBe('invited:newcomer@example.com');
   });
 
-  it('shows an account with no invitations, and one with no e-mail address at all', () => {
+  it('shows an account with no invitations, and one with no email address at all', () => {
     const rows = buildStudentRows(sources({ accounts: [account('a1', 'Asha', 'asha@example.com'), account('a2', 'Ben', null, '+919800000000')] }));
 
     expect(rows.map((row) => row.invitations)).toEqual([null, null]);

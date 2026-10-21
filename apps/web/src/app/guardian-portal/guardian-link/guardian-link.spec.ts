@@ -51,19 +51,19 @@ describe('GuardianLink', () => {
     vi.useRealTimers();
   });
 
-  it('says the request was e-mailed, and goes back to the guardians page', () => {
+  it('says the request was emailed, and goes back to the guardians page', () => {
     const fixture = open();
 
     submit(fixture).flush({ link: LINK, consentRequestSent: true });
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('The guardian has been e-mailed a request to confirm the link.');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('The guardian has been emailed a request to confirm the link.');
     expect((fixture.nativeElement as HTMLElement).querySelector('#confirmLink')).toBeNull();
     vi.advanceTimersByTime(2000);
     expect(navigate).toHaveBeenCalledWith(['/guardian']);
   });
 
-  it('shows the confirmation link to pass on when no e-mail went out, and stays on the page to keep it', () => {
+  it('shows the confirmation link to pass on when no email went out, and stays on the page to keep it', () => {
     const fixture = open();
 
     submit(fixture).flush({ link: LINK, consentRequestSent: false, consentLink: 'https://app.example/guardian/confirm-link?token=abc' });
@@ -76,7 +76,7 @@ describe('GuardianLink', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
-  it('says so when no e-mail went out and no link came back either, rather than showing nothing', () => {
+  it('says so when no email went out and no link came back either, rather than showing nothing', () => {
     const fixture = open();
 
     submit(fixture).flush({ link: LINK, consentRequestSent: false });
@@ -102,12 +102,12 @@ describe('GuardianLink', () => {
     httpMock
       .expectOne((r) => r.method === 'GET' && r.url === GUARDIANS_URL)
       .flush(
-        { title: 'guardian_not_found', detail: 'No guardian is registered with that e-mail address.' },
+        { title: 'guardian_not_found', detail: 'No guardian is registered with that email address.' },
         { status: 404, statusText: 'Not Found' },
       );
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No guardian is registered with that e-mail address.');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No guardian is registered with that email address.');
     httpMock.expectNone((r) => r.method === 'POST');
   });
 });

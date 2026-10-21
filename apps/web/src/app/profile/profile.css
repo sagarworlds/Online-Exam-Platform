@@ -1,4 +1,4 @@
-/* The account facts as label and value pairs. They are read only, so they are plain text, not fields. Long e-mail addresses wrap rather than
+/* The account facts as label and value pairs. They are read only, so they are plain text, not fields. Long email addresses wrap rather than
    pushing the card wider than the screen. */
 .account-facts {
   display: grid;

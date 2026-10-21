@@ -279,7 +279,7 @@ describe('StudentList', () => {
       fixture.detectChanges();
 
       expect(titles(root)).toEqual(['Asha Rao']);
-      expect(root.querySelector('app-modal-dialog app-student-profile [role="status"]')?.textContent).toContain('Saved: e-mail address.');
+      expect(root.querySelector('app-modal-dialog app-student-profile [role="status"]')?.textContent).toContain('Saved: email address.');
 
       // A new search starts the list afresh.
       search.value = 'nobody';

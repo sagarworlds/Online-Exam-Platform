@@ -13,11 +13,11 @@ import { GuardianApiService } from '../guardian-api.service';
   template: `
     <div class="page">
       <h1>Link Candidate</h1>
-      <p class="hint">Link a candidate to a guardian. The guardian is e-mailed a request to confirm the link.</p>
+      <p class="hint">Link a candidate to a guardian. The guardian is emailed a request to confirm the link.</p>
 
       <form class="card" [formGroup]="form" (ngSubmit)="onSubmit()">
         <div class="field">
-          <label for="guardianEmail">Guardian e-mail *</label>
+          <label for="guardianEmail">Guardian email *</label>
           <input
             type="email"
             id="guardianEmail"
@@ -25,7 +25,7 @@ import { GuardianApiService } from '../guardian-api.service';
             placeholder="guardian@example.com"
           />
           @if (form.get('guardianEmail')?.invalid && form.get('guardianEmail')?.touched) {
-            <div class="field-error">Valid guardian e-mail is required</div>
+            <div class="field-error">Valid guardian email is required</div>
           }
           <p class="field-hint">The guardian must already be registered.</p>
         </div>
@@ -69,12 +69,12 @@ import { GuardianApiService } from '../guardian-api.service';
           }
           @if (success()) {
             <div class="success-message" role="status">
-              Candidate linked. The guardian has been e-mailed a request to confirm the link.
+              Candidate linked. The guardian has been emailed a request to confirm the link.
             </div>
           }
           @if (confirmLink(); as link) {
             <div class="warning-message" role="status">
-              The candidate is linked, but the e-mail to the guardian could not be sent, so the link is not confirmed yet.
+              The candidate is linked, but the email to the guardian could not be sent, so the link is not confirmed yet.
               Pass the confirmation link below to the guardian yourself. It works once and expires in 14 days.
             </div>
             <div class="field">
@@ -100,7 +100,7 @@ export class GuardianLink implements OnInit {
   protected readonly loading = signal(false);
   protected readonly error = signal('');
   protected readonly success = signal(false);
-  /** Set only when no e-mail went out, so the link is shown here for staff to pass on. */
+  /** Set only when no email went out, so the link is shown here for staff to pass on. */
   protected readonly confirmLink = signal('');
 
   ngOnInit() {
@@ -135,10 +135,10 @@ export class GuardianLink implements OnInit {
               this.router.navigate(['/guardian']);
             }, 2000);
           } else if (response.consentLink) {
-            // Nothing was e-mailed. Stay on the page so the link can be copied; leaving would lose it.
+            // Nothing was emailed. Stay on the page so the link can be copied; leaving would lose it.
             this.confirmLink.set(response.consentLink);
           } else {
-            this.error.set('The candidate is linked, but no confirmation link was returned. Ask the platform team to check e-mail setup.');
+            this.error.set('The candidate is linked, but no confirmation link was returned. Ask the platform team to check email setup.');
           }
           this.form.reset();
         },

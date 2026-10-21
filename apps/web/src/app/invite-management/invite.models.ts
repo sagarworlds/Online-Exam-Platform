@@ -30,7 +30,7 @@ export interface InviteCodeDto {
   expiresAt: string;
   usedAt: string | null;
   revokedAt: string | null;
-  /** The same code as the link the invitation e-mail carries; set when a code is generated, to hand over as a link. */
+  /** The same code as the link the invitation email carries; set when a code is generated, to hand over as a link. */
   link: string | null;
 }
 

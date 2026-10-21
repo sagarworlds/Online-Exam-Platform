@@ -20,7 +20,7 @@ export interface StudentDto {
   status: string;
 }
 
-/** The profile as it should be: every field is sent, and a blank e-mail address or number means the account has none. */
+/** The profile as it should be: every field is sent, and a blank email address or number means the account has none. */
 export interface UpdateStudentRequest {
   displayName: string;
   email: string | null;
@@ -37,7 +37,7 @@ export interface UpdateStudentResult {
   /** Empty when nothing was different. */
   changed: StudentField[];
   invitationsMoved: number;
-  /** Whether the student's sessions were ended, which happens when their e-mail address or mobile number changed. */
+  /** Whether the student's sessions were ended, which happens when their email address or mobile number changed. */
   signedOut: boolean;
 }
 

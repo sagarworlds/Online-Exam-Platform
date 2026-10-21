@@ -18,7 +18,7 @@ const STATUS_TONES: Record<BatchStatus, StatusTone> = { Draft: 'neutral', Active
   selector: 'app-batch-list',
   imports: [DatePipe, RouterLink, RefreshButton, StatusBadge, EmptyState, TranslatePipe],
   template: `
-    <div class="page page--wide">
+    <div class="page page--admin">
       <div class="page-header">
         <h1>{{ 'batches.title' | t }}</h1>
         <div class="page-header__actions">

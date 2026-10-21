@@ -21,7 +21,7 @@ const MEMBER_TONES: Record<MemberRegistrationStatus, StatusTone> = { Pending: 'n
   selector: 'app-batch-roster',
   imports: [ReactiveFormsModule, RouterLink, RosterImport, RefreshButton, StatusBadge, TranslatePipe, FormField, FieldControl],
   template: `
-    <div class="page page--wide">
+    <div class="page page--admin">
       <div class="page-header">
         <!-- The heading names the batch, so a person who followed a link here, or has two roster tabs open, knows which one this is. -->
         <h1>{{ batchName() ? ('batches.roster.titleNamed' | t: { name: batchName() }) : ('batches.roster.title' | t) }}</h1>

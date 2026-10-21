@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { ExamBuilder } from './exam-builder';
 
@@ -89,10 +89,20 @@ describe('ExamBuilder', () => {
       expect('scope' in req.request.body).toBe(false);
     });
 
-    it('sends a whole-book scope, and keeps Create off until a book is chosen', () => {
+    /** Presses Create, and returns what the page then says about the scope, if anything. */
+    const pressCreate = (fixture: ReturnType<typeof open>) => {
+      fixture.componentInstance.onSubmit();
+      fixture.detectChanges();
+      return (fixture.nativeElement as HTMLElement).querySelector('.card > .field-error')?.textContent?.trim() ?? null;
+    };
+
+    it('sends a whole-book scope, and says a book is needed until one is chosen, sending nothing', () => {
       const fixture = open([MATHS]);
       choose(fixture, 'One whole book');
-      expect(create(fixture).disabled).toBe(true);
+      expect(create(fixture).disabled).toBe(false);
+
+      expect(pressCreate(fixture)).toBe('Choose the book, and the chapters if the exam is limited to chapters.');
+      httpMock.expectNone(`${environment.apiBaseUrl}/v1/exams`);
 
       pickBook(fixture, 'b1');
       expect(create(fixture).disabled).toBe(false);
@@ -105,13 +115,14 @@ describe('ExamBuilder', () => {
       const fixture = open([MATHS]);
       choose(fixture, 'Chosen chapters of a book');
       pickBook(fixture, 'b1');
-      expect(create(fixture).disabled).toBe(true);
+      fixture.componentInstance.form.patchValue({ name: 'Scoped' });
+      expect(pressCreate(fixture)).not.toBeNull();
+      httpMock.expectNone(`${environment.apiBaseUrl}/v1/exams`);
 
       const boxes = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
       expect(Array.from(boxes).map((b) => b.parentElement?.textContent?.trim())).toEqual(['1. Algebra', '2. Geometry']);
       boxes[1].click();
       fixture.detectChanges();
-      expect(create(fixture).disabled).toBe(false);
       fixture.componentInstance.onSubmit();
 
       expect(httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams`).request.body.scope).toEqual({ type: 'Chapters', bookId: 'b1', chapterIds: ['c2'] });
@@ -126,8 +137,10 @@ describe('ExamBuilder', () => {
       fixture.detectChanges();
 
       pickBook(fixture, 'b2');
+      fixture.componentInstance.form.patchValue({ name: 'Scoped' });
 
-      expect(create(fixture).disabled).toBe(true);
+      expect(pressCreate(fixture)).not.toBeNull();
+      httpMock.expectNone(`${environment.apiBaseUrl}/v1/exams`);
     });
 
     it('does not offer archived books or chapters', () => {
@@ -172,30 +185,72 @@ describe('ExamBuilder', () => {
 
   it('stops the name at the 255 characters the API accepts, so a longer name is never refused', () => {
     const fixture = open();
-    const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('#name');
+    const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('input[formControlName="name"]');
 
     expect(input?.maxLength).toBe(255);
   });
 
   it('stops the description at the 1000 characters the API accepts', () => {
     const fixture = open();
-    const textarea = (fixture.nativeElement as HTMLElement).querySelector<HTMLTextAreaElement>('#description');
+    const textarea = (fixture.nativeElement as HTMLElement).querySelector<HTMLTextAreaElement>('textarea[formControlName="description"]');
 
     expect(textarea?.maxLength).toBe(1000);
   });
 
-  it('refuses a series id that is not a GUID, says so, and sends nothing', () => {
+  it('refuses a series id that is not a GUID, says so once Create is pressed, and sends nothing', () => {
     const fixture = open();
     fixture.componentInstance.form.patchValue({ name: 'Maths Final', seriesId: 'series-1' });
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
     const submit = root.querySelector('button[type="submit"]') as HTMLButtonElement;
-    expect(submit.disabled).toBe(true);
-    expect(root.textContent).toContain('A series ID looks like');
+    expect(submit.disabled).toBe(false);
+    expect(root.textContent).not.toContain('A series ID looks like');
 
     fixture.componentInstance.onSubmit();
+    fixture.detectChanges();
+
+    expect(root.querySelector('.field-error')?.textContent).toContain('A series ID looks like');
     httpMock.expectNone(`${environment.apiBaseUrl}/v1/exams`);
+  });
+
+  it('does not switch Create off: pressing it with no name says what is wrong, ties the message to the field and sends nothing', async () => {
+    const fixture = open();
+    const root = fixture.nativeElement as HTMLElement;
+    document.body.appendChild(root);
+    const submit = root.querySelector('button[type="submit"]') as HTMLButtonElement;
+    expect(submit.disabled).toBe(false);
+
+    fixture.componentInstance.onSubmit();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const name = root.querySelector('input[formControlName="name"]') as HTMLInputElement;
+    expect(root.querySelector('.field-error')?.textContent).toContain('Enter an exam name.');
+    expect(name.getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(name);
+    httpMock.expectNone(`${environment.apiBaseUrl}/v1/exams`);
+    root.remove();
+  });
+
+  it('marks the name as required and the description and series ID as optional, in words', () => {
+    const fixture = open();
+
+    const labels = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('label'))
+      .map((l) => l.textContent?.replace(/\s+/g, ' ').trim())
+      .filter((text) => text && !/radio|whole book|chapters|Any question/i.test(text));
+    expect(labels.slice(0, 3)).toEqual(['Exam name *', 'Description (optional)', 'Series ID (optional)']);
+  });
+
+  it('does not send a second request while the first is running', () => {
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const fixture = open();
+    fixture.componentInstance.form.patchValue({ name: 'Maths Final' });
+
+    fixture.componentInstance.onSubmit();
+    fixture.componentInstance.onSubmit();
+
+    httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams`).flush({ id: 'e1' });
   });
 
   it('shows the reason the API gives when creating the exam fails', () => {
