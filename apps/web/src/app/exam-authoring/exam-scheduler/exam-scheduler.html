@@ -1,48 +1,56 @@
 <div class="page">
-  <h1>Schedule exam</h1>
+  <h1>{{ 'exams.schedule.title' | t }}</h1>
 
   @if (errorMessage()) {
-    <p class="error-message">{{ errorMessage() }}</p>
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
+  }
+  @if (loadFailed()) {
+    <p class="warning-message" role="status">{{ 'exams.schedule.loadFailed' | t }}</p>
   }
 
-  <form class="card" [formGroup]="form" (ngSubmit)="submit()">
-    <p class="hint">Times are in your browser's local time and are stored as UTC.</p>
+  <form class="card" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <p class="hint">{{ 'exams.schedule.required' | t }}</p>
 
-    <div class="field">
-      <label for="start-time">Opens</label>
-      <input id="start-time" type="datetime-local" formControlName="startTime" />
-    </div>
-
-    <div class="field">
-      <label for="end-time">Closes</label>
-      <input id="end-time" type="datetime-local" formControlName="endTime" />
-    </div>
-
-    <div class="field">
-      <label for="duration">Minutes per attempt (optional)</label>
-      <input id="duration" type="number" min="1" formControlName="durationMinutes" />
-    </div>
-
-    <div class="field">
-      <label for="late-entry">Latest start (optional)</label>
-      <input id="late-entry" type="datetime-local" formControlName="lateEntryDeadline" />
-    </div>
-
-    <div class="field">
-      <label for="time-zone">Time zone</label>
-      <select id="time-zone" formControlName="timeZone">
-        <option value="Asia/Kolkata">India (GMT+5:30)</option>
-        <option value="UTC">UTC</option>
-        <option value="Europe/London">Europe/London</option>
-        <option value="America/New_York">US Eastern</option>
-        <option value="America/Los_Angeles">US Pacific</option>
-        <option value="Australia/Sydney">Australia/Sydney</option>
+    <!-- The zone comes first: the times below are readings in it, and a reading means nothing until the zone is known. -->
+    <app-form-field [label]="'exams.schedule.timeZone' | t" [hint]="'exams.schedule.timeZoneHint' | t">
+      <select appFieldControl formControlName="timeZone">
+        @for (zone of zones(); track zone.id) {
+          <option [value]="zone.id">{{ zone.label }}</option>
+        }
       </select>
-    </div>
+    </app-form-field>
+
+    <app-form-field [label]="'exams.schedule.opens' | t" [required]="true" [error]="errorOf('startTime')">
+      <input appFieldControl type="datetime-local" formControlName="startTime" />
+    </app-form-field>
+
+    <app-form-field [label]="'exams.schedule.closes' | t" [required]="true" [error]="errorOf('endTime')">
+      <input appFieldControl type="datetime-local" formControlName="endTime" />
+    </app-form-field>
+
+    <app-form-field
+      [label]="'exams.schedule.minutes' | t"
+      [optionalText]="'common.optional' | t"
+      [hint]="'exams.schedule.minutesHint' | t"
+      [error]="errorOf('durationMinutes')"
+    >
+      <input appFieldControl type="number" min="1" step="1" formControlName="durationMinutes" />
+    </app-form-field>
+
+    <app-form-field
+      [label]="'exams.schedule.lateEntry' | t"
+      [optionalText]="'common.optional' | t"
+      [hint]="'exams.schedule.lateEntryHint' | t"
+      [error]="errorOf('lateEntryDeadline')"
+    >
+      <input appFieldControl type="datetime-local" formControlName="lateEntryDeadline" />
+    </app-form-field>
 
     <div class="actions">
-      <button type="submit" class="primary" [disabled]="form.invalid || saving()">Save schedule</button>
-      <a [routerLink]="['/exams', examId]" class="btn">Cancel</a>
+      <button type="submit" class="primary" [attr.aria-busy]="saving()">
+        {{ (saving() ? 'exams.schedule.saving' : 'exams.schedule.save') | t }}
+      </button>
+      <a [routerLink]="['/exams', examId]" class="btn">{{ 'common.cancel' | t }}</a>
     </div>
   </form>
 </div>
