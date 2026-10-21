@@ -45,9 +45,12 @@
           </p>
           @if (isRevealed(item.challengeId)) {
             <p class="otp-code" [id]="'otp-code-' + item.challengeId">{{ groupedCode(item.code) }}</p>
-            <button type="button" [attr.aria-expanded]="true" [attr.aria-controls]="'otp-code-' + item.challengeId" (click)="hide(item.challengeId)">
-              {{ 'admin.codes.hide' | t }}
-            </button>
+            <div class="actions">
+              <button type="button" (click)="copy(item)">{{ 'admin.codes.copy' | t }}</button>
+              <button type="button" [attr.aria-expanded]="true" [attr.aria-controls]="'otp-code-' + item.challengeId" (click)="hide(item.challengeId)">
+                {{ 'admin.codes.hide' | t }}
+              </button>
+            </div>
           } @else {
             <button type="button" [attr.aria-expanded]="false" (click)="reveal(item.challengeId)">
               {{ 'admin.codes.show' | t }}

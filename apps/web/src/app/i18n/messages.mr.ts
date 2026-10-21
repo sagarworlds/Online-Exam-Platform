@@ -574,6 +574,10 @@ export const MR: Messages = {
   'admin.codes.channel.Sms': 'एसएमएस',
   'admin.codes.show': 'कोड दाखवा',
   'admin.codes.hide': 'कोड लपवा',
+  'admin.codes.copy': 'कोड कॉपी करा',
+  'admin.codes.copied': 'कोड कॉपी झाला आहे.',
+  'admin.codes.copyRefused': 'ब्राउझरने या पानाला कॉपी करू दिले नाही. कोड निवडून स्वतः कॉपी करा.',
+  'admin.codes.autoHidden': '{destination} चा कोड लपवला गेला. गरज असल्यास तो पुन्हा दाखवा.',
 
   // ---- WhatsApp test ----
   'whatsapp.title': 'व्हॉट्सअॅप चाचणी',

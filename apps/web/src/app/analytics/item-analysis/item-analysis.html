@@ -4,6 +4,19 @@
   <div class="page-header">
     <h1>{{ 'admin.items.title' | t }}</h1>
     <div class="page-header__actions">
+      <!-- The downloads are in the header, where the actions of every admin page are, not at the foot of a long page; they are for figures that are there. -->
+      @if (view() === 'ready') {
+        <div class="item-analysis__export">
+          <div class="item-analysis__export-buttons" role="group" [attr.aria-label]="'admin.items.title' | t">
+            <button type="button" class="btn" [disabled]="exporting() !== null" (click)="download('csv')">
+              {{ (exporting() === 'csv' ? 'exports.preparing' : 'exports.downloadCsv') | t }}
+            </button>
+            <button type="button" class="btn" [disabled]="exporting() !== null" (click)="download('pdf')">
+              {{ (exporting() === 'pdf' ? 'exports.preparing' : 'exports.downloadPdf') | t }}
+            </button>
+          </div>
+        </div>
+      }
       <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
     </div>
   </div>
@@ -91,20 +104,10 @@
           }
         </section>
 
-        <div class="item-analysis__export">
-          <div class="item-analysis__export-buttons" role="group" [attr.aria-label]="'admin.items.title' | t">
-            <button type="button" class="btn" [disabled]="exporting() !== null" (click)="download('csv')">
-              {{ (exporting() === 'csv' ? 'exports.preparing' : 'exports.downloadCsv') | t }}
-            </button>
-            <button type="button" class="btn" [disabled]="exporting() !== null" (click)="download('pdf')">
-              {{ (exporting() === 'pdf' ? 'exports.preparing' : 'exports.downloadPdf') | t }}
-            </button>
-          </div>
-          <p class="hint">{{ 'admin.items.exportNote' | t }}</p>
-          @if (exportError()) {
-            <p class="error-message" role="alert">{{ exportError() }}</p>
-          }
-        </div>
+        <p class="hint">{{ 'admin.items.exportNote' | t }}</p>
+        @if (exportError()) {
+          <p class="error-message" role="alert">{{ exportError() }}</p>
+        }
 
         <!-- The sort buttons are the sorting control at every width: the table below turns into labelled blocks on a phone. -->
         <div class="item-analysis__sort" role="group" [attr.aria-label]="'admin.items.sort.label' | t">

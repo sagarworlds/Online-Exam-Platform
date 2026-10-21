@@ -580,6 +580,10 @@ export const EN = {
   'admin.codes.channel.Sms': 'SMS',
   'admin.codes.show': 'Show code',
   'admin.codes.hide': 'Hide code',
+  'admin.codes.copy': 'Copy code',
+  'admin.codes.copied': 'The code is copied.',
+  'admin.codes.copyRefused': 'The browser would not let this page copy. Select the code and copy it yourself.',
+  'admin.codes.autoHidden': 'The code for {destination} was hidden. Show it again if you still need it.',
 
   // ---- WhatsApp test ----
   'whatsapp.title': 'WhatsApp test',

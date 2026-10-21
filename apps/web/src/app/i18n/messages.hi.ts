@@ -574,6 +574,10 @@ export const HI: Messages = {
   'admin.codes.channel.Sms': 'एसएमएस',
   'admin.codes.show': 'कोड दिखाएँ',
   'admin.codes.hide': 'कोड छिपाएँ',
+  'admin.codes.copy': 'कोड कॉपी करें',
+  'admin.codes.copied': 'कोड कॉपी हो गया है।',
+  'admin.codes.copyRefused': 'ब्राउज़र ने इस पेज को कॉपी करने नहीं दिया। कोड चुनकर खुद कॉपी करें।',
+  'admin.codes.autoHidden': '{destination} का कोड छिपा दिया गया। ज़रूरत हो तो उसे फिर दिखाएँ।',
 
   // ---- WhatsApp test ----
   'whatsapp.title': 'व्हाट्सऐप जाँच',

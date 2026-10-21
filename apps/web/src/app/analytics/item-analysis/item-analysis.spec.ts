@@ -263,6 +263,19 @@ describe('ItemAnalysis', () => {
     expect(root(fixture).querySelector('.item-analysis__export [role="group"]')?.getAttribute('aria-label')).toBe('Item analysis');
   });
 
+  it('puts the downloads in the page header with the refresh icon, and offers none before there are figures', async () => {
+    const { fixture, request } = await start();
+    expect(root(fixture).querySelector('.page-header .item-analysis__export')).toBeNull();
+
+    request.flush(analysis());
+    fixture.detectChanges();
+
+    const actions = root(fixture).querySelector('.page-header__actions')!;
+    expect(actions.querySelectorAll('.item-analysis__export button')).toHaveLength(2);
+    expect(actions.querySelector('app-refresh-button')).not.toBeNull();
+    expect(root(fixture).querySelector('.page-header ~ .item-analysis__export')).toBeNull();
+  });
+
   it('downloads the CSV under the name the server gave it, after recording nothing itself', async () => {
     const { fixture, request } = await start();
     request.flush(analysis());
