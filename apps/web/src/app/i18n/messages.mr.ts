@@ -516,8 +516,6 @@ export const MR: Messages = {
   'admin.attention.clear': 'काहीही प्रतीक्षेत नाही',
   'admin.attention.loading': 'तपासत आहे…',
   'admin.attention.failed': 'तपासता आले नाही',
-  'admin.attention.tile': '{label}: {count} {detail}',
-  'admin.attention.tileStatus': '{label}: {status}',
   'admin.attention.badge': '{count} प्रतीक्षेत',
   'admin.attention.badgeAtLimit': '{count} किंवा अधिक प्रतीक्षेत',
   'admin.sidebar.areas': 'प्रशासन विभाग',

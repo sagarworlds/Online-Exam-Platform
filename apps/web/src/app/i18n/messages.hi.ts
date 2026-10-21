@@ -516,8 +516,6 @@ export const HI: Messages = {
   'admin.attention.clear': 'कुछ प्रतीक्षा में नहीं',
   'admin.attention.loading': 'जाँच हो रही है…',
   'admin.attention.failed': 'जाँच नहीं हो सकी',
-  'admin.attention.tile': '{label}: {count} {detail}',
-  'admin.attention.tileStatus': '{label}: {status}',
   'admin.attention.badge': '{count} प्रतीक्षा में',
   'admin.attention.badgeAtLimit': '{count} या अधिक प्रतीक्षा में',
   'admin.sidebar.areas': 'प्रशासन क्षेत्र',

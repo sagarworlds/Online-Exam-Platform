@@ -522,8 +522,6 @@ export const EN = {
   'admin.attention.clear': 'Nothing waiting',
   'admin.attention.loading': 'Checking…',
   'admin.attention.failed': 'Could not be checked',
-  'admin.attention.tile': '{label}: {count} {detail}',
-  'admin.attention.tileStatus': '{label}: {status}',
   'admin.attention.badge': '{count} waiting',
   'admin.attention.badgeAtLimit': '{count} or more waiting',
   'admin.sidebar.areas': 'Admin areas',

@@ -80,10 +80,8 @@ export class AdminHome implements OnInit {
         detail = this.i18n.t(state.status === 'loading' ? 'admin.attention.loading' : 'admin.attention.failed');
       }
 
-      const name =
-        state.status === 'ready' && waiting
-          ? this.i18n.t('admin.attention.tile', { label, count: figure, detail })
-          : this.i18n.t('admin.attention.tileStatus', { label, status: detail });
+      // Only punctuation joins the parts, which reads the same in every language, so it is not a message of its own.
+      const name = state.status === 'ready' && waiting ? `${label}: ${figure} ${detail}` : `${label}: ${detail}`;
       tiles.push({ key: definition.key, path: definition.path, label, figure, detail, waiting, name });
     }
     return tiles;
