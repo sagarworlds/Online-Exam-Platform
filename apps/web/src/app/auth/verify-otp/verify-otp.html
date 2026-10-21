@@ -46,8 +46,19 @@
       @if (errorMessage()) {
         <p class="error-message" role="alert">{{ errorMessage() }}</p>
       }
+      @if (resentNotice()) {
+        <p class="info-message" role="status">{{ 'verify.resent' | t }}</p>
+      }
       <button type="submit" class="primary auth-submit" [disabled]="submitting()">{{ 'verify.submit' | t }}</button>
     </form>
+
+    @if (canResend) {
+      <p class="verify-resend">
+        <button type="button" [disabled]="resendIn() > 0 || resending()" (click)="resend()">
+          {{ resendIn() > 0 ? ('verify.resendIn' | t: { time: resendTime() }) : ('verify.resend' | t) }}
+        </button>
+      </p>
+    }
   }
 
   <p class="link-row">
