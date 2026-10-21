@@ -172,8 +172,8 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("AnswerText")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasMaxLength(10000)
+                        .HasColumnType("character varying(10000)");
 
                     b.Property<DateTime>("AnsweredAtUtc")
                         .HasColumnType("timestamp with time zone");

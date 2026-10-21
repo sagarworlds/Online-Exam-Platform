@@ -85,6 +85,17 @@ public class TextAnswerAttemptTests
     }
 
     [Fact]
+    public void ATypedAnswerOfExactlyTheLimit_IsKept()
+    {
+        var attempt = Open();
+        var longest = new string('x', TypedAnswer.MaxLength);
+
+        attempt.RecordTextAnswer(Guid.NewGuid(), longest, Fixtures.Now);
+
+        Assert.Equal(longest, Assert.Single(attempt.Answers).AnswerText);
+    }
+
+    [Fact]
     public void ATypedAnswerLongerThanTheLimit_IsRefused()
     {
         var attempt = Open();

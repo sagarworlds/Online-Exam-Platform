@@ -52,7 +52,7 @@ public sealed class Question : AggregateRoot
     public const int MaxImageBytes = 512 * 1024;
 
     /// <summary>The longest option text, after trimming.</summary>
-    public const int MaxOptionTextLength = 1000;
+    public const int MaxOptionTextLength = 10_000;
 
     /// <summary>The fewest options a question may have.</summary>
     public const int MinOptions = 2;
@@ -63,8 +63,11 @@ public sealed class Question : AggregateRoot
     /// <summary>The most accepted answers a text question may list.</summary>
     public const int MaxAcceptedAnswers = 10;
 
-    /// <summary>The longest accepted answer, after trimming.</summary>
-    public const int MaxAcceptedAnswerLength = 200;
+    /// <summary>
+    /// The longest accepted answer, after trimming. It is the longest answer a candidate may type, so no accepted answer is one a
+    /// candidate could not enter.
+    /// </summary>
+    public const int MaxAcceptedAnswerLength = TypedAnswer.MaxLength;
 
     private readonly List<QuestionOption> _options = [];
     private readonly List<QuestionVersion> _versions = [];
