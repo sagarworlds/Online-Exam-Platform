@@ -19,19 +19,28 @@ describe('BatchCreate', () => {
   afterEach(() => httpMock.verify());
 
   const isCreate = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/batches');
+  const isExams = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/exams');
+  const exam = (id: string, name: string, status = 'Published') => ({ id, name, status });
 
-  function open() {
+  /** Opens the page and answers the read of the exams with `exams`, or fails it. */
+  function open(exams: unknown[] | 'fail' = [exam('e1', 'Maths Final')]) {
     // The list is another page; going to it is only noted here.
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const fixture = TestBed.createComponent(BatchCreate);
     fixture.detectChanges();
+    if (exams === 'fail') {
+      httpMock.expectOne(isExams).flush({}, { status: 500, statusText: 'Server Error' });
+    } else {
+      httpMock.expectOne(isExams).flush(exams);
+    }
+    fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
     const field = (label: string) =>
-      Array.from(root.querySelectorAll('label')).find((l) => l.textContent?.includes(label))!.control as HTMLInputElement;
+      Array.from(root.querySelectorAll('label')).find((l) => l.textContent?.includes(label))!.control as HTMLInputElement & HTMLSelectElement;
     const fill = (label: string, value: string) => {
       const control = field(label);
       control.value = value;
-      control.dispatchEvent(new Event('input'));
+      control.dispatchEvent(new Event(control.tagName === 'SELECT' ? 'change' : 'input'));
     };
     const submit = () => {
       root.querySelector('form')!.dispatchEvent(new Event('submit'));
@@ -50,6 +59,7 @@ describe('BatchCreate', () => {
 
   it('says which fields are wrong when Create is pressed, ties each message to its field, and goes to the first', async () => {
     const { fixture, root, field, submit } = open();
+    document.body.appendChild(root);
 
     submit();
     await Promise.resolve();
@@ -57,13 +67,14 @@ describe('BatchCreate', () => {
     fixture.detectChanges();
 
     const messages = Array.from(root.querySelectorAll('.field-error')).map((e) => e.textContent?.trim());
-    expect(messages).toEqual(['Enter the exam ID.', 'Enter a batch name.']);
+    expect(messages).toEqual(['Choose the exam this batch sits for.', 'Enter a batch name.']);
     expect(field('Exam').getAttribute('aria-invalid')).toBe('true');
     expect(field('Batch name').getAttribute('aria-invalid')).toBe('true');
     expect(field('Maximum members').hasAttribute('aria-invalid')).toBe(false);
-    expect(field('Exam').getAttribute('aria-describedby')).toBe(root.querySelector('.field-error')!.id);
+    expect(field('Exam').getAttribute('aria-describedby')).toContain(root.querySelector('.field-error')!.id);
     expect(document.activeElement).toBe(field('Exam'));
     httpMock.expectNone(isCreate);
+    root.remove();
   });
 
   it('marks required fields, and the optional one in words', () => {
@@ -77,7 +88,6 @@ describe('BatchCreate', () => {
     const { fill, submit, root } = open();
     fill('Exam', 'e1');
     fill('Batch name', 'Morning');
-
     fill('Maximum members', '0');
     submit();
 
@@ -85,7 +95,39 @@ describe('BatchCreate', () => {
     httpMock.expectNone(isCreate);
   });
 
-  it('creates the batch and goes back to the list', () => {
+  describe('choosing the exam', () => {
+    it('offers the exams by name, with whether each is a draft or published, and not the archived ones', () => {
+      const { field } = open([exam('e2', 'Physics', 'Draft'), exam('e1', 'Maths Final'), exam('e3', 'Old paper', 'Archived')]);
+
+      const options = Array.from(field('Exam').options).map((o) => [o.value, o.textContent?.trim()]);
+      expect(options).toEqual([
+        ['', 'Choose an exam…'],
+        ['e1', 'Maths Final (Published)'],
+        ['e2', 'Physics (Draft)'],
+      ]);
+    });
+
+    it('says there are no exams, and where to make one, rather than showing an empty list', () => {
+      const { root } = open([]);
+
+      expect(root.textContent).toContain('There are no exams to choose from yet.');
+      expect(root.querySelector('a[href="/exams/create"]')).not.toBeNull();
+    });
+
+    it('says the exams could not be loaded and offers to try again, which fills the list', () => {
+      const { fixture, root, field } = open('fail');
+
+      expect(root.querySelector('[role="alert"]')?.textContent).toContain('The exams could not be loaded');
+      (root.querySelector('.warning-message button') as HTMLButtonElement).click();
+      httpMock.expectOne(isExams).flush([exam('e1', 'Maths Final')]);
+      fixture.detectChanges();
+
+      expect(root.querySelector('.warning-message')).toBeNull();
+      expect(field('Exam').options.length).toBe(2);
+    });
+  });
+
+  it('creates the batch for the exam chosen and goes back to the list', () => {
     const { fill, submit, navigate } = open();
     fill('Exam', 'e1');
     fill('Batch name', 'Morning');

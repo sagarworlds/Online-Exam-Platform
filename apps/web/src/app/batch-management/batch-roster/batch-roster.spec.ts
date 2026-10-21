@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { vi } from 'vitest';
+import { ToastService } from '../../shared/toast/toast.service';
 import { BatchApiService } from '../batch-api.service';
 import { BatchRoster } from './batch-roster';
 
@@ -13,6 +14,8 @@ describe('BatchRoster', () => {
   let importSpy: ReturnType<typeof vi.spyOn>;
 
   const isMembersRead = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/batches/batch-1/members');
+  const isBatchesRead = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/batches');
+  const isAdd = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/batches/batch-1/members');
   const isImport = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/batches/batch-1/members/import');
 
   beforeEach(async () => {
@@ -32,6 +35,8 @@ describe('BatchRoster', () => {
     fixture.detectChanges();
     root = fixture.nativeElement as HTMLElement;
     httpMock.expectOne(isMembersRead).flush([]);
+    // There is no read of one batch, so the heading's name comes from the list of batches.
+    httpMock.expectOne(isBatchesRead).flush([{ id: 'batch-0', name: 'Other batch' }, { id: 'batch-1', name: 'Morning batch' }]);
     fixture.detectChanges();
   });
 
@@ -72,7 +77,7 @@ describe('BatchRoster', () => {
     const icon = () => root.querySelector<HTMLButtonElement>('app-refresh-button button')!;
 
     it('sits in the page header, beside the title', () => {
-      expect(root.querySelector('.page-header h1')?.textContent).toContain('Batch Roster');
+      expect(root.querySelector('.page-header h1')?.textContent).toContain('Roster: Morning batch');
       expect(root.querySelector('.page-header app-refresh-button')).not.toBeNull();
     });
 
@@ -117,6 +122,121 @@ describe('BatchRoster', () => {
       fixture.detectChanges();
       expect(root.querySelector('.error-message')).toBeNull();
       expect(root.textContent).toContain('No members added yet');
+    });
+  });
+
+  describe('the heading', () => {
+    it('names the batch, so a person with two rosters open knows which this is', () => {
+      expect(root.querySelector('h1')?.textContent?.trim()).toBe('Roster: Morning batch');
+    });
+
+    it('is the plain one when the name could not be read, and the roster still works', () => {
+      const other = TestBed.createComponent(BatchRoster);
+      other.detectChanges();
+      httpMock.expectOne(isMembersRead).flush([]);
+      httpMock.expectOne(isBatchesRead).flush({}, { status: 500, statusText: 'Server Error' });
+      other.detectChanges();
+
+      expect((other.nativeElement as HTMLElement).querySelector('h1')?.textContent?.trim()).toBe('Batch roster');
+    });
+  });
+
+  describe('searching the members', () => {
+    const members = [
+      { id: 'm1', email: 'amy@example.com', phone: '98200 11111', status: 'Registered' },
+      { id: 'm2', email: 'ben@example.com', status: 'Pending' },
+      { id: 'm3', email: 'cara@school.org', phone: '98200 22222', status: 'Verified' },
+    ];
+    const search = (value: string) => {
+      const input = root.querySelector('input[type="search"]') as HTMLInputElement;
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    };
+    const emails = () => Array.from(root.querySelectorAll('tbody th')).map((c) => c.textContent?.trim());
+
+    beforeEach(() => {
+      (root.querySelector('app-refresh-button button') as HTMLButtonElement).click();
+      httpMock.expectOne(isMembersRead).flush(members);
+      fixture.detectChanges();
+    });
+
+    it('is offered once there are members, and not before', () => {
+      expect(root.querySelector('input[type="search"]')).not.toBeNull();
+      expect(root.querySelector('label[for]')?.textContent).toBeDefined();
+    });
+
+    it('narrows the list by email, by phone number, and ignores case', () => {
+      search('SCHOOL');
+      expect(emails()).toEqual(['cara@school.org']);
+
+      search('22222');
+      expect(emails()).toEqual(['cara@school.org']);
+
+      search('example');
+      expect(emails()).toEqual(['amy@example.com', 'ben@example.com']);
+    });
+
+    it('says how many of the members are shown', () => {
+      expect(root.querySelector('h2#members-heading')?.textContent).toContain('Members (3)');
+
+      search('example');
+      expect(root.querySelector('h2#members-heading')?.textContent).toContain('Members (2 of 3)');
+    });
+
+    it('says nothing matches, rather than showing an empty table, and clears the search from there', () => {
+      search('zzz');
+      expect(root.querySelector('table')).toBeNull();
+      expect(root.textContent).toContain('No member matches the search.');
+
+      (Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.includes('Clear search')) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(emails().length).toBe(3);
+    });
+  });
+
+  describe('adding a member', () => {
+    const fillEmail = (value: string) => {
+      const input = root.querySelector('input[type="email"]') as HTMLInputElement;
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+    };
+    const submit = () => {
+      root.querySelector('form')!.dispatchEvent(new Event('submit'));
+      fixture.detectChanges();
+    };
+
+    it('does not switch Add member off: pressing it with no address says so, and sends nothing', () => {
+      expect((root.querySelector('form button[type="submit"]') as HTMLButtonElement).disabled).toBe(false);
+
+      submit();
+
+      expect(root.querySelector('.field-error')?.textContent).toContain('Enter a valid email address.');
+      httpMock.expectNone(isAdd);
+    });
+
+    it('adds the member, says so, clears the form and reads the members again', () => {
+      fillEmail('amy@example.com');
+      submit();
+
+      httpMock.expectOne(isAdd).flush(null);
+      httpMock.expectOne(isMembersRead).flush([{ id: 'm1', email: 'amy@example.com', status: 'Pending' }]);
+      fixture.detectChanges();
+
+      expect(TestBed.inject(ToastService).toasts().map((t) => t.message)).toEqual(['The member is added.']);
+      expect((root.querySelector('input[type="email"]') as HTMLInputElement).value).toBe('');
+      expect(root.querySelector('.field-error')).toBeNull();
+      expect(root.textContent).toContain('Members (1)');
+    });
+
+    it('shows the reason the server gives when the member cannot be added', () => {
+      fillEmail('amy@example.com');
+      submit();
+
+      httpMock.expectOne(isAdd).flush({ detail: 'The batch is full.' }, { status: 409, statusText: 'Conflict' });
+      fixture.detectChanges();
+
+      expect(root.querySelector('.card .error-message')?.textContent).toContain('The batch is full.');
     });
   });
 
