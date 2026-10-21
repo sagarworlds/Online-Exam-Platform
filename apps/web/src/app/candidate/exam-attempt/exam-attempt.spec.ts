@@ -382,6 +382,62 @@ describe('ExamAttempt', () => {
       expect(waitingNotice(fixture)).toBe('');
     });
 
+    describe('the line that says where the answers stand', () => {
+      const saveLine = (fixture: ComponentFixture<ExamAttempt>) =>
+        (root(fixture).querySelector('.exam-save')?.textContent ?? '').replace(/\s+/g, ' ').trim();
+      const restored = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector('.exam-sync-restored')?.textContent?.trim();
+      // The check mark in front is decorative, so the words are what is read.
+      const words = (fixture: ComponentFixture<ExamAttempt>) => saveLine(fixture).replace(/^\S+ /, '');
+
+      it('says all answers are saved before anything has been changed', async () => {
+        const fixture = await open(attempt());
+
+        expect(words(fixture)).toBe('All answers saved');
+      });
+
+      it('says it is saving while an answer is on its way, then when it was saved', async () => {
+        const fixture = await open(attempt());
+        await chooseRome(fixture);
+        expect(words(fixture)).toBe('Saving…');
+
+        httpMock.expectOne((r) => r.url.endsWith('/answers/q2')).flush(null, { status: 204, statusText: 'No Content' });
+        fixture.detectChanges();
+
+        expect(words(fixture)).toMatch(/^All answers saved at \d{1,2}:\d{2}/);
+      });
+
+      it('says it is offline while answers are kept on the device, and tells a screen reader when the connection is back', async () => {
+        const fixture = await open(attempt());
+        await chooseRome(fixture);
+        httpMock.expectOne((r) => r.url.endsWith('/answers/q2')).error(new ProgressEvent('error'));
+        fixture.detectChanges();
+        expect(words(fixture)).toBe('Offline: answers are kept on this device');
+        expect(restored(fixture)).toBe('');
+
+        await vi.advanceTimersByTimeAsync(2000);
+        answerCalls().forEach((call) => call.flush(null, { status: 204, statusText: 'No Content' }));
+        fixture.detectChanges();
+
+        expect(words(fixture)).toMatch(/^All answers saved at /);
+        expect(restored(fixture)).toBe('Back online. Your answers are saved.');
+        await vi.advanceTimersByTimeAsync(5000);
+        fixture.detectChanges();
+        expect(restored(fixture)).toBe('');
+      });
+
+      it('goes offline when the browser says the connection dropped, and back when it returns', async () => {
+        const fixture = await open(attempt());
+
+        window.dispatchEvent(new Event('offline'));
+        fixture.detectChanges();
+        expect(words(fixture)).toBe('Offline: answers are kept on this device');
+
+        window.dispatchEvent(new Event('online'));
+        fixture.detectChanges();
+        expect(words(fixture)).toBe('All answers saved');
+      });
+    });
+
     it('treats a server that is not answering the same way, and does not call it a refusal', async () => {
       const fixture = await open(attempt());
       await chooseRome(fixture);
@@ -986,6 +1042,34 @@ describe('ExamAttempt', () => {
     vi.advanceTimersByTime(2 * 60_000);
     fixture.detectChanges();
     expect(warning()).toBe('1 minute left.');
+  });
+
+  it('shows the time warning in words until the candidate puts it away, and shows the next one again (A-06)', async () => {
+    const fixture = await open(attempt());
+    const banner = () => root(fixture).querySelector<HTMLElement>('.exam-time-banner')!;
+    expect(banner().classList.contains('exam-time-banner--shown')).toBe(false);
+    expect(banner().querySelector('button')).toBeNull();
+
+    vi.advanceTimersByTime(25 * 60_000);
+    fixture.detectChanges();
+    expect(banner().classList.contains('exam-time-banner--shown')).toBe(true);
+    expect(banner().textContent).toContain('5 minutes left.');
+
+    banner().querySelector('button')!.click();
+    fixture.detectChanges();
+    expect(banner().classList.contains('exam-time-banner--shown')).toBe(false);
+    expect(root(fixture).querySelector('.exam-time-warning')?.textContent?.trim()).toBe('');
+
+    vi.advanceTimersByTime(4 * 60_000);
+    fixture.detectChanges();
+    expect(banner().classList.contains('exam-time-banner--shown')).toBe(true);
+    expect(banner().textContent).toContain('1 minute left.');
+  });
+
+  it('underlines the countdown in the last minute, so it is not told by colour alone', async () => {
+    const fixture = await open(attempt({ serverTimeUtc: '2026-10-05T04:59:15Z' }));
+
+    expect(root(fixture).querySelector('.countdown')?.classList.contains('countdown--low')).toBe(true);
   });
 
   it('speaks only the one-minute warning when the page opens with under a minute left', async () => {

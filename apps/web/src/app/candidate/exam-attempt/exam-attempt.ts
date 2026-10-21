@@ -221,6 +221,33 @@ export class ExamAttempt {
   protected readonly timeUpNotice = signal('');
   private warnedFiveMinutes = false;
   private warnedOneMinute = false;
+  /** Whether the candidate has put away the time warning on screen. A new warning shows again, so the one-minute warning is never missed. */
+  private readonly timeWarningDismissed = signal(false);
+  /** The time warning as the banner shows it: empty before the first warning and after it is dismissed. */
+  protected readonly timeWarningVisible = computed(() => (this.timeWarningDismissed() ? '' : this.timeWarning()));
+
+  /**
+   * Whether the browser says it has a connection. The answer queue knows more (a connection can be there while the server does not
+   * answer), so this only adds to what it says: either one makes the page say "offline".
+   */
+  private readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
+
+  /** Where the answers stand, for the line under the time: all on the server, on their way, or kept here for lack of a connection. */
+  protected readonly saveState = computed<'saved' | 'saving' | 'offline'>(() => {
+    if (!this.online() || (this.sync?.waiting() ?? false)) {
+      return 'offline';
+    }
+    return (this.sync?.pendingCount() ?? 0) > 0 ? 'saving' : 'saved';
+  });
+
+  /** When the last waiting answer reached the server; null until one has, which reads as "all answers saved" with no time. */
+  protected readonly lastSavedAt = signal<Date | null>(null);
+
+  /** What is said to a screen reader when the connection comes back and the waiting answers have been sent; empty otherwise. */
+  protected readonly syncRestored = signal('');
+  private restoredTimer: ReturnType<typeof setTimeout> | undefined;
+  private hadPendingAnswers = false;
+  private wasWaitingForConnection = false;
 
   /** The question text size, as a multiple of normal. */
   protected readonly zoom = signal<number>(loadZoomLevel());
@@ -443,11 +470,27 @@ export class ExamAttempt {
       this.webcam.stop();
       this.screen.stop();
       clearTimeout(this.noticeTimer);
+      clearTimeout(this.restoredTimer);
       // What is still waiting stays on this device for the next time the attempt is opened.
       this.sync?.dispose();
     });
     effect(() => (this.protectContent() ? this.guard.start() : this.guard.stop()));
     effect(() => (this.watchFocus() ? this.focus.start() : this.focus.stop()));
+    // Notes when the queue empties after holding answers (the time they were saved) and when the connection comes back with nothing left waiting.
+    effect(() => {
+      const count = this.sync?.pendingCount() ?? 0;
+      const waiting = this.sync?.waiting() ?? false;
+      if (count > 0) {
+        this.hadPendingAnswers = true;
+      } else if (this.hadPendingAnswers) {
+        this.hadPendingAnswers = false;
+        this.lastSavedAt.set(new Date());
+      }
+      if (this.wasWaitingForConnection && !waiting && count === 0) {
+        this.announceRestored();
+      }
+      this.wasWaitingForConnection = waiting;
+    });
 
     this.sync =
       this.attemptId === null
@@ -470,6 +513,28 @@ export class ExamAttempt {
       next: (attempt) => this.show(attempt),
       error: (error: unknown) => this.fail(error),
     });
+  }
+
+  @HostListener('window:online')
+  protected onBrowserOnline(): void {
+    this.online.set(true);
+  }
+
+  @HostListener('window:offline')
+  protected onBrowserOffline(): void {
+    this.online.set(false);
+  }
+
+  /** Says, once and politely, that the connection is back and what was waiting has been sent. */
+  private announceRestored(): void {
+    this.syncRestored.set(this.i18n.t('attempt.sync.restored'));
+    clearTimeout(this.restoredTimer);
+    this.restoredTimer = setTimeout(() => this.syncRestored.set(''), NOTICE_MS);
+  }
+
+  /** Puts the time warning away. The next one, if there is one, shows again. */
+  protected dismissTimeWarning(): void {
+    this.timeWarningDismissed.set(true);
   }
 
   @HostListener('document:fullscreenchange')
@@ -1184,9 +1249,11 @@ export class ExamAttempt {
     if (remainingSeconds <= ONE_MINUTE_WARNING_SECONDS && !this.warnedOneMinute) {
       this.warnedOneMinute = true;
       this.warnedFiveMinutes = true;
+      this.timeWarningDismissed.set(false);
       this.timeWarning.set(this.i18n.t('attempt.warn.oneMinute'));
     } else if (remainingSeconds <= FIVE_MINUTE_WARNING_SECONDS && !this.warnedFiveMinutes) {
       this.warnedFiveMinutes = true;
+      this.timeWarningDismissed.set(false);
       this.timeWarning.set(this.i18n.t('attempt.warn.fiveMinutes'));
     }
   }

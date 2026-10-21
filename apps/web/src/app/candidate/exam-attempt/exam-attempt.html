@@ -34,6 +34,28 @@
           </div>
         </header>
 
+        <!-- Always there while the exam is open: whether the answers have reached the server, and since when. A preview saves nothing. -->
+        @if (!preview) {
+          <p class="exam-save" [attr.data-state]="saveState()">
+            <span class="exam-save__icon" aria-hidden="true">{{ saveState() === 'saved' ? '✓' : saveState() === 'saving' ? '…' : '!' }}</span>
+            @switch (saveState()) {
+              @case ('saved') {
+                @if (lastSavedAt(); as at) {
+                  {{ 'attempt.save.savedAt' | t: { time: (at | date: 'shortTime') ?? '' } }}
+                } @else {
+                  {{ 'attempt.save.saved' | t }}
+                }
+              }
+              @case ('saving') {
+                {{ 'attempt.save.saving' | t }}
+              }
+              @case ('offline') {
+                {{ 'attempt.save.offline' | t }}
+              }
+            }
+          </p>
+        }
+
         @if (confirmingSubmit()) {
           <div class="submit-confirm exam-submit-confirm" role="alertdialog" [attr.aria-label]="'attempt.submit.aria' | t">
             <p #confirmText tabindex="-1">
@@ -106,8 +128,16 @@
       <p class="exam-protection-notice" role="status" aria-live="polite">{{ protectionNotice() }}</p>
       <!-- Always present for the same reason: answers kept on this device while the connection is down (FR-53). -->
       <p class="exam-sync" role="status" aria-live="polite" [class.exam-sync--active]="syncMessage() !== ''">{{ syncMessage() }}</p>
-      <!-- Spoken once at five minutes and at one minute left, and at time-up. The countdown changes every second and is not announced (A-06). -->
-      <p class="visually-hidden exam-time-warning" role="status" aria-live="polite">{{ timeWarning() }}</p>
+      <!-- Said once at five minutes and at one minute left, in words on the page and to a screen reader, and at time-up. The countdown
+           changes every second and is not announced (A-06). The warning stays until the candidate dismisses it, and a new one shows again. -->
+      <div class="exam-time-banner" [class.exam-time-banner--shown]="timeWarningVisible() !== ''">
+        <p class="exam-time-warning" role="status" aria-live="polite">{{ timeWarningVisible() }}</p>
+        @if (timeWarningVisible() !== '') {
+          <button type="button" (click)="dismissTimeWarning()">{{ 'common.ok' | t }}</button>
+        }
+      </div>
+      <!-- Said politely when the connection comes back and the waiting answers have reached the server. -->
+      <p class="visually-hidden exam-sync-restored" role="status" aria-live="polite">{{ syncRestored() }}</p>
       <p class="visually-hidden exam-time-up" role="alert">{{ timeUpNotice() }}</p>
 
       <!-- Outside the paused branch below on purpose: a candidate who was stopped is the one most likely to have something to report. A preview has no real attempt to report from. -->

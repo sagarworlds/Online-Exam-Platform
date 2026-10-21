@@ -39,6 +39,71 @@
   color: var(--text);
 }
 
+/* The time warning (A-06): said in words on the page as well as to a screen reader, and kept until the candidate puts it away. The live
+   region is always in the page, so what is put into it is announced; it takes no room while empty. */
+.exam-time-banner {
+  margin: 0;
+}
+
+.exam-time-warning {
+  margin: 0;
+}
+
+.exam-time-banner--shown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border: 2px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: var(--warning-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Where the answers stand, under the time: saved, on their way, or kept on this device for lack of a connection. The mark and the words say
+   it, so it does not rest on colour. */
+.exam-save {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.5rem;
+  padding: 0 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.exam-save__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.exam-save[data-state='saved'] {
+  color: var(--success);
+}
+
+.exam-save[data-state='offline'] {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+@media (max-width: 40rem) {
+  .exam-save {
+    padding: 0 0.75rem;
+  }
+}
+
 /*
  * A browser's own Print menu cannot be cancelled from the page, so while the exam is protected the printout is blank
  * except for a sentence saying why. The body class is set by the exam page's content guard and removed when it leaves.
@@ -168,8 +233,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The last minute: red and underlined, so it does not rest on colour alone. */
 .countdown--low {
   color: var(--danger);
+  text-decoration: underline;
+  text-decoration-thickness: 0.15em;
+  text-underline-offset: 0.2em;
 }
 
 .exam-layout {
