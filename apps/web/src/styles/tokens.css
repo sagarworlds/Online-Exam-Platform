@@ -41,6 +41,43 @@
   --focus-ring: 0 0 0 3px rgb(26 86 219 / 30%);
 }
 
+/*
+ * Scales for what is not a colour. A new rule picks from these rather than writing a number of its own, so two screens cannot drift apart a
+ * pixel at a time. They are the values the app already used most (0.75rem alone appeared 144 times); they are for new rules and for the shared
+ * components, and old rules move to them as they are touched.
+ *
+ * Breakpoints cannot be custom properties (a media query cannot read one), so they are written here and used as literals:
+ *   phone  up to 40rem   one column, large targets, the menu behind a button, the palette in a sheet
+ *   tablet up to 64rem   the admin menu is a rail that opens over the page, wide tables scroll
+ *   and, for a phone on its side, `(max-height: 30rem) and (orientation: landscape)`.
+ */
+:root {
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  /* Smallest text that carries information is --text-sm (14px); --text-xs is for a count or a tag that is also said in words. */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.15rem;
+  --text-xl: 1.35rem;
+
+  /* What is drawn over what: a pinned bar, a sheet or menu opened over the page, a tooltip, and a toast above everything but a dialog. */
+  --z-sticky: 4;
+  --z-pinned: 5;
+  --z-overlay: 20;
+  --z-tooltip: 1000;
+  --z-toast: 1100;
+
+  /* A control a finger can hit (WCAG 2.5.5) and the smaller size a mouse can use. */
+  --target-touch: 2.75rem;
+  --target-fine: 2.25rem;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0e1320;
