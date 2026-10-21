@@ -102,21 +102,27 @@ describe('ToastHost', () => {
   it('has both live regions in the page from the start, empty, so what is put into them is announced', () => {
     const { root } = make();
 
-    expect(root.querySelector('[role="status"][aria-live="polite"]')).not.toBeNull();
-    expect(root.querySelector('[role="alert"]')).not.toBeNull();
+    expect(root.querySelector('[aria-live="polite"]')).not.toBeNull();
+    expect(root.querySelector('[aria-live="assertive"]')).not.toBeNull();
     expect(root.querySelectorAll('.toast')).toHaveLength(0);
   });
 
-  it('puts an error in the alert region and anything else in the status region', () => {
+  it('adds no alert or status role of its own to the page, so a page’s own alert is still the only one', () => {
+    const { root } = make();
+
+    expect(root.querySelector('[role="alert"], [role="status"]')).toBeNull();
+  });
+
+  it('puts an error in the assertive region and anything else in the polite one', () => {
     const { fixture, root, toasts } = make();
 
     toasts.success('Saved');
     toasts.error('Could not save');
     fixture.detectChanges();
 
-    expect(root.querySelector('[role="status"] .toast')?.textContent).toContain('Saved');
-    expect(root.querySelector('[role="alert"] .toast')?.textContent).toContain('Could not save');
-    expect(root.querySelector('[role="alert"] .toast')?.classList.contains('toast--error')).toBe(true);
+    expect(root.querySelector('[aria-live="polite"] .toast')?.textContent).toContain('Saved');
+    expect(root.querySelector('[aria-live="assertive"] .toast')?.textContent).toContain('Could not save');
+    expect(root.querySelector('[aria-live="assertive"] .toast')?.classList.contains('toast--error')).toBe(true);
   });
 
   it('marks each kind with a shape as well as a colour', () => {

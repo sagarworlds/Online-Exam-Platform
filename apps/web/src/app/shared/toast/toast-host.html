@@ -1,10 +1,10 @@
 <div class="toast-host">
-  <div class="toast-host__polite" role="status" aria-live="polite">
+  <div class="toast-host__polite" aria-live="polite" aria-atomic="false">
     @for (toast of others(); track toast.id) {
       <ng-container [ngTemplateOutlet]="item" [ngTemplateOutletContext]="{ $implicit: toast }" />
     }
   </div>
-  <div class="toast-host__assertive" role="alert">
+  <div class="toast-host__assertive" aria-live="assertive" aria-atomic="false">
     @for (toast of errors(); track toast.id) {
       <ng-container [ngTemplateOutlet]="item" [ngTemplateOutletContext]="{ $implicit: toast }" />
     }
