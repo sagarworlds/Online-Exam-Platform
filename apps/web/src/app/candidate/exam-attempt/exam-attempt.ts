@@ -512,6 +512,12 @@ export class ExamAttempt {
     });
     // While an attempt is open the page around this one puts its header down to the name and the language (see ExamMode).
     effect(() => this.examMode.active.set(this.isOpen() && !this.preview));
+    // The sheet goes with the questions: a paused or finished attempt removes its dialog without a close event, which would leave it "open".
+    effect(() => {
+      if (this.paused() || !this.isOpen()) {
+        this.paletteOpen.set(false);
+      }
+    });
     effect(() => (this.protectContent() ? this.guard.start() : this.guard.stop()));
     effect(() => (this.watchFocus() ? this.focus.start() : this.focus.stop()));
     // Notes when the queue empties after holding answers (the time they were saved) and when the connection comes back with nothing left waiting.
@@ -582,7 +588,10 @@ export class ExamAttempt {
   protected chooseFromSheet(index: number): void {
     this.paletteSheet()?.close();
     this.goTo(index);
-    afterNextRender(() => this.questionPosition()?.nativeElement.focus(), { injector: this.injector });
+    // A move into a later locked section asks first, and the question that asks takes the focus; the position line only when the move was made.
+    if (this.leavingTo() === null) {
+      afterNextRender(() => this.questionPosition()?.nativeElement.focus(), { injector: this.injector });
+    }
   }
 
   /** Closes the sheet and opens the submit confirmation under the time, which takes the focus. */
@@ -885,8 +894,10 @@ export class ExamAttempt {
    * Records what the candidate typed for a text question, and shows it at once. It is saved in the background like a choice; blank text
    * takes the answer back, as clearing it does.
    */
-  private changeText(question: AttemptQuestionDto, text: string): void {
-    this.setText(question.id, text);
+  private changeText(question: AttemptQuestionDto, text: string, shown: string = text): void {
+    // The page shows what is in the box, spaces and all: the box is bound to it, so showing the trimmed text would rewrite the box under the
+    // candidate's fingers and take away the space they have just typed. Only what is sent is trimmed.
+    this.setText(question.id, shown);
     this.errorMessage.set(null);
     this.sync?.enqueue({
       questionId: question.id,
@@ -950,7 +961,7 @@ export class ExamAttempt {
     if (typed === (question.answerText ?? '').trim()) {
       return;
     }
-    this.changeText(question, typed);
+    this.changeText(question, typed, text);
   }
 
   /** Records a choice. It shows at once and is saved in the background, and kept and sent again if the connection fails. */
@@ -999,6 +1010,11 @@ export class ExamAttempt {
     }
 
     if (question.isTextAnswer) {
+      // Words typed a moment ago and not yet saved are taken back with the rest, not saved after the box has been emptied.
+      if (this.typedDraft?.questionId === question.id) {
+        this.typedDraft = null;
+        clearTimeout(this.typedTimer);
+      }
       this.changeText(question, '');
       return;
     }

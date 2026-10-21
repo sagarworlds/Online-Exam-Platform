@@ -119,10 +119,11 @@ export class MyExams {
    * candidate is checking when they come to this page is whether they have time.
    */
   protected countdown(exam: MyExamDto): string | null {
-    if (exam.state === 'Open') {
+    // A moment that has passed on this device's clock is no countdown: the list is read again when the page is, and says what is true then.
+    if (exam.state === 'Open' && Date.parse(exam.endUtc) > this.now()) {
       return this.i18n.t('myExams.closesIn', { time: this.timeUntil(exam.endUtc) });
     }
-    if (exam.state === 'NotOpen') {
+    if (exam.state === 'NotOpen' && Date.parse(exam.startUtc) > this.now()) {
       return this.i18n.t('myExams.opensIn', { time: this.timeUntil(exam.startUtc) });
     }
     return null;

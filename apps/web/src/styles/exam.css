@@ -266,7 +266,7 @@
   }
 }
 
-@media (min-width: 40.01rem) and (max-width: 52rem) {
+@media (40rem < width <= 52rem) {
   .exam-layout {
     grid-template-columns: minmax(0, 1fr) 13rem;
     gap: 1rem;
@@ -497,8 +497,9 @@
 /* A pane beside the question that stays in view and scrolls by itself, so a long list of questions is reachable on a screen of any height. */
 .exam-side {
   position: sticky;
-  top: 5.5rem;
-  max-height: calc(100dvh - 7rem);
+  /* Just under the pinned block, whose measured height exam-attempt.ts keeps in this variable (it holds the time, the saved line and any warning). */
+  top: var(--exam-pinned-clearance, 5.5rem);
+  max-height: calc(100dvh - var(--exam-pinned-clearance, 5.5rem) - 1rem);
   overflow-y: auto;
 }
 
@@ -538,10 +539,6 @@
     margin: 0 0 0.5rem;
   }
 
-  .exam-side {
-    top: 4rem;
-    max-height: calc(100dvh - 5rem);
-  }
 }
 
 .exam-side h2 {
@@ -917,6 +914,14 @@
    never under it. exam-attempt.ts sets the clearance from the block's measured height. */
 html:has(.exam-top) {
   scroll-padding-top: var(--exam-pinned-clearance, 5rem);
+}
+
+/* On a phone the Previous, Questions and Save & Next bar is pinned to the bottom, so a control that is tabbed to, or reached by a screen reader,
+   is scrolled to just above it and never under it (WCAG 2.4.11). */
+@media (max-width: 40rem) {
+  html:has(.exam-pager) {
+    scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 .exam-zoom {

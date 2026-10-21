@@ -351,6 +351,42 @@ describe('ExamAttempt', () => {
         calls[0].flush(null);
       });
 
+      it('leaves the box as it is, trailing space and all, when the pause saves what was typed so far', async () => {
+        const fixture = await open(typedAttempt());
+        // "New " is typed and the candidate stops to think: the space must still be there when they go on with "Delhi".
+        type(fixture, 'New ');
+
+        await vi.advanceTimersByTimeAsync(900);
+        const calls = savedCalls();
+        expect(calls).toHaveLength(1);
+        expect(calls[0].request.body).toEqual({ text: 'New', sequence: 1 });
+        calls[0].flush(null);
+        fixture.detectChanges();
+
+        expect(answerBox(fixture).value).toBe('New ');
+        type(fixture, 'New Delhi');
+        answerBox(fixture).dispatchEvent(new Event('change'));
+        const second = savedCalls();
+        expect(second).toHaveLength(1);
+        expect(second[0].request.body).toEqual({ text: 'New Delhi', sequence: 2 });
+        second[0].flush(null);
+      });
+
+      it('does not save what was typed after Clear response has taken the answer back', async () => {
+        const fixture = await open(typedAttempt('Par'));
+        type(fixture, 'Paris');
+
+        buttonLabelled(fixture, 'Clear response')!.click();
+        fixture.detectChanges();
+        const clear = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q3') && r.method === 'DELETE');
+        clear.flush(null, { status: 204, statusText: 'No Content' });
+        await vi.advanceTimersByTimeAsync(2000);
+        fixture.detectChanges();
+
+        expect(savedCalls()).toHaveLength(0);
+        expect(answerBox(fixture).value).toBe('');
+      });
+
       it('does not send the same text again when the box then loses focus', async () => {
         const fixture = await open(typedAttempt());
         type(fixture, 'Paris');
@@ -1177,6 +1213,12 @@ describe('ExamAttempt', () => {
     expect(banner().textContent).toContain('1 minute left.');
   });
 
+  it('keeps the warning in the pinned block, so it is seen wherever the page is scrolled and does not push the question down', async () => {
+    const fixture = await open(attempt());
+
+    expect(root(fixture).querySelector('.exam-top .exam-time-banner')).not.toBeNull();
+  });
+
   it('underlines the countdown in the last minute, so it is not told by colour alone', async () => {
     const fixture = await open(attempt({ serverTimeUtc: '2026-10-05T04:59:15Z' }));
 
@@ -1564,6 +1606,23 @@ describe('ExamAttempt', () => {
       expect((buttonLabelled(fixture, 'Save & Next') as HTMLButtonElement).disabled).toBe(true);
       expect(document.activeElement).toBe(root(fixture).querySelector('.question__meta'));
       expect(document.activeElement?.textContent).toContain('Section B · Question 3 of 3');
+    });
+
+    it('asks first, with the focus on the question, when a question in a later section is chosen from the Questions sheet', async () => {
+      const fixture = await open(lockedAttempt());
+      (root(fixture).querySelector('.exam-pager__palette') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      root(fixture)
+        .querySelector<HTMLElement>('app-modal-dialog')!
+        .querySelectorAll<HTMLButtonElement>('.palette__item')[2]
+        .click();
+      fixture.detectChanges();
+      fixture.detectChanges();
+
+      const confirmation = root(fixture).querySelector<HTMLElement>('[role="alertdialog"][aria-describedby="leave-section-text"]');
+      expect(confirmation).not.toBeNull();
+      expect(document.activeElement).toBe(confirmation);
     });
 
     it('opens in the section the server says the candidate is in, after a reload', async () => {
@@ -2070,6 +2129,23 @@ describe('ExamAttempt', () => {
       const request = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/me/attempts/a1/issues'));
       expect(request.request.body).toEqual({ category: 'Question', message: 'Option C is missing', questionId: 'q1' });
       request.flush({ id: 'r1', category: 'Question', questionId: 'q1', message: 'Option C is missing', reportedAtUtc: '2026-10-05T04:31:00Z' });
+    });
+
+    it('puts the Questions sheet away when an organiser pauses the attempt, and it does not reopen by itself on resume', async () => {
+      const fixture = await open(attempt());
+      (root(fixture).querySelector('.exam-pager__palette') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('app-modal-dialog')).not.toBeNull();
+
+      beat(fixture, status({ pausedAtUtc: new Date(Date.now()).toISOString() }));
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('app-modal-dialog')).toBeNull();
+
+      beat(fixture, status());
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('What is 2 + 2?');
+      expect(root(fixture).querySelector('app-modal-dialog')).toBeNull();
     });
 
     it('still offers to report an issue while an organiser has the attempt paused', async () => {

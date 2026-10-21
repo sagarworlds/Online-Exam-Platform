@@ -26,7 +26,7 @@
     <div class="card empty-state">
       {{ 'myExams.empty' | t }}
     </div>
-  } @else {
+  } @else if (exams().length > 0) {
     @for (section of sections(); track section.id) {
       <section class="exam-section" [attr.aria-labelledby]="'exams-' + section.id + '-heading'">
         @if (section.collapsible) {

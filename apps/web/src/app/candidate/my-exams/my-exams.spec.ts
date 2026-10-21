@@ -265,7 +265,10 @@ describe('MyExams', () => {
     fixture.detectChanges();
 
     expect(root.querySelector('[role="alert"]')?.textContent).toContain('Down for a moment.');
+    // Neither "no exams yet" nor "nothing to take" may sit beside the failure: the list was not read, so nothing is known about it.
     expect(root.textContent).not.toContain('You have no exams yet');
+    expect(root.textContent).not.toContain('Nothing to take right now.');
+    expect(root.querySelector('.exam-section')).toBeNull();
     buttonIn(root, 'Try again')!.click();
     fixture.detectChanges();
     expect(root.querySelector('[role="alert"]')).toBeNull();
@@ -317,6 +320,12 @@ describe('MyExams', () => {
       vi.advanceTimersByTime(30_000);
       fixture.detectChanges();
       expect(countdownOf(root)).toBe('Closes in less than a minute');
+    });
+
+    it('shows no countdown once the moment has passed on this device, instead of "closes in less than a minute" for ever', () => {
+      const { root } = openWith([exam({ endUtc: '2026-10-05T04:59:00Z' })]);
+
+      expect(countdownOf(root)).toBeUndefined();
     });
 
     it('shows no countdown for an exam that is over', () => {
