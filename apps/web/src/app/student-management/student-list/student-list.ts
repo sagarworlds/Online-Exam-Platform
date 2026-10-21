@@ -9,6 +9,7 @@ import { InviteDto, InviteStatus } from '../../invite-management/invite.models';
 import { Icon } from '../../shared/icon/icon';
 import { ModalDialog } from '../../shared/modal-dialog/modal-dialog';
 import { extractErrorMessage } from '../../shared/problem-details';
+import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { InvitedAddress, InvitedAddressChange } from '../invited-address/invited-address';
 import { StudentApiService } from '../student-api.service';
 import { StudentInvitations } from '../student-invitations/student-invitations';
@@ -34,7 +35,7 @@ const LISTING_LIMIT = 200;
  */
 @Component({
   selector: 'app-student-list',
-  imports: [RouterLink, StudentProfile, StudentInvitations, InvitedAddress, ModalDialog, Icon],
+  imports: [RouterLink, StudentProfile, StudentInvitations, InvitedAddress, ModalDialog, Icon, RefreshButton],
   templateUrl: './student-list.html',
   styleUrl: './student-list.css',
 })
@@ -50,6 +51,8 @@ export class StudentList {
 
   protected readonly search = signal('');
   protected readonly loading = signal(true);
+  /** Whether the list is being read, for the refresh icon to turn: after it was pressed, and after a change that makes the list stale. */
+  protected readonly refreshing = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   /** What the last change did to an invited address, said above the list because the row it was on is gone. */
   protected readonly notice = signal<string | null>(null);
@@ -121,6 +124,16 @@ export class StudentList {
         takeUntilDestroyed(),
       )
       .subscribe();
+  }
+
+  /**
+   * Reads the students and their invitations again, so a candidate who has registered or accepted an invitation shows without reloading the
+   * tab. The rows stay as they are, with the search, the open rows and any open edit, until the answer replaces them.
+   */
+  protected onRefresh(): void {
+    if (!this.refreshing()) {
+      this.reload.next();
+    }
   }
 
   protected onSearch(text: string): void {
@@ -264,6 +277,7 @@ export class StudentList {
   /** Reads the accounts and the invitations, then asks which invited addresses without a listed account have one. */
   private read(): Observable<void> {
     this.errorMessage.set(null);
+    this.refreshing.set(true);
     return forkJoin({
       accounts: this.studentApi.getStudents(this.search()),
       invites: this.canInvite ? this.inviteApi.getInvites() : of<InviteDto[]>([]),
@@ -278,10 +292,12 @@ export class StudentList {
         this.invites.set(invites);
         this.holders.set(holders);
         this.loading.set(false);
+        this.refreshing.set(false);
       }),
       map(() => undefined),
       catchError((error: unknown) => {
         this.loading.set(false);
+        this.refreshing.set(false);
         this.errorMessage.set(extractErrorMessage(error));
         return EMPTY;
       }),

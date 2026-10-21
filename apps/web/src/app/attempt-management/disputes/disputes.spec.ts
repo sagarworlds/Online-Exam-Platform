@@ -797,6 +797,77 @@ describe('Disputes', () => {
     });
   });
 
+  describe('the refresh icon', () => {
+    const icon = () => root.querySelector<HTMLButtonElement>('app-refresh-button button')!;
+
+    it('reads the queue again without blanking it, and adds the disputes that came in', async () => {
+      await open([row('amy')]);
+
+      icon().click();
+      fixture.detectChanges();
+      expect(icon().getAttribute('aria-busy')).toBe('true');
+      expect(text()).toContain('amy@example.com');
+      expect(text()).not.toContain('Loading');
+
+      const read = httpMock.expectOne(isList);
+      expect(read.request.params.get('status')).toBe('open');
+      read.flush([row('amy'), row('ben')]);
+      fixture.detectChanges();
+
+      expect(text()).toContain('ben@example.com');
+      expect(icon().hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('keeps the lines for decisions made in this visit, and an open form, though the API no longer lists those disputes', async () => {
+      await open([row('amy'), row('ben'), row('cara')]);
+      press('Reject…', 0);
+      type(root.querySelector('textarea') as HTMLTextAreaElement, 'Rome was the capital then');
+      press('Reject dispute');
+      httpMock.expectOne(isReject('amy')).flush(row('amy', { status: 'Rejected', resolutionNote: 'Rome was the capital then' }));
+      fixture.detectChanges();
+      press('Reject…', 0);
+      type(root.querySelector('textarea') as HTMLTextAreaElement, 'Still thinking');
+
+      icon().click();
+      httpMock.expectOne(isList).flush([row('ben'), row('cara'), row('dev')]);
+      fixture.detectChanges();
+
+      expect(results()).toHaveLength(1);
+      expect(line(results()[0])).toContain('Rejected the dispute from amy@example.com');
+      expect(text()).toContain('dev@example.com');
+      expect((root.querySelector('textarea') as HTMLTextAreaElement).value).toBe('Still thinking');
+    });
+
+    it('keeps the queue and says why when the read fails, and clears the reason once it works', async () => {
+      await open([row('amy')]);
+
+      icon().click();
+      httpMock.expectOne(isList).flush({ title: 'forbidden', detail: 'No access.' }, { status: 403, statusText: 'Forbidden' });
+      fixture.detectChanges();
+      expect(text()).toContain('amy@example.com');
+      expect(text()).toContain('No access.');
+      expect(icon().hasAttribute('aria-busy')).toBe(false);
+
+      icon().click();
+      httpMock.expectOne(isList).flush([row('amy')]);
+      fixture.detectChanges();
+      expect(text()).not.toContain('No access.');
+    });
+
+    it('reads the status that is chosen', async () => {
+      await open([row('amy')]);
+      choose('accepted');
+      httpMock.expectOne(isList).flush([row('amy', { status: 'Accepted', resolutionNote: 'Fixed.' })]);
+      fixture.detectChanges();
+
+      icon().click();
+
+      const read = httpMock.expectOne(isList);
+      expect(read.request.params.get('status')).toBe('accepted');
+      read.flush([]);
+    });
+  });
+
   describe('in another language', () => {
     it('shows the title and the heading of a group in the language chosen', async () => {
       localStorage.setItem(LANGUAGE_STORAGE_KEY, 'hi');

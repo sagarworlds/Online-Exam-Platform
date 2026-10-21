@@ -250,6 +250,94 @@ describe('AttemptRequests', () => {
     expect(text()).not.toContain('null');
   });
 
+  describe('the refresh icon', () => {
+    const icon = () => root.querySelector<HTMLButtonElement>('app-refresh-button button')!;
+    const refresh = (pending: AttemptRequestRow[]) => {
+      icon().click();
+      fixture.detectChanges();
+      httpMock.expectOne(isList).flush(pending);
+      fixture.detectChanges();
+    };
+
+    it('reads the queue again without blanking it, and adds the requests that came in', () => {
+      open([row('amy')]);
+
+      icon().click();
+      fixture.detectChanges();
+      expect(icon().getAttribute('aria-busy')).toBe('true');
+      expect(text()).toContain('amy@example.com');
+      expect(text()).not.toContain('Loading');
+
+      httpMock.expectOne(isList).flush([row('amy'), row('ben')]);
+      fixture.detectChanges();
+
+      expect(text()).toContain('ben@example.com');
+      expect(icon().hasAttribute('aria-busy')).toBe(false);
+      expect(root.querySelector('.request-queue__count')?.textContent?.trim()).toBe('2 requests are waiting.');
+    });
+
+    it('keeps the lines for decisions made in this visit, though the API no longer lists those requests', () => {
+      open([row('amy'), row('ben')]);
+      press('Give another attempt', 0);
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/attempt-requests/amy/approve'))
+        .flush(row('amy', { status: 'Approved', candidateNotified: true }));
+      fixture.detectChanges();
+
+      refresh([row('ben'), row('cara')]);
+
+      expect(resultLines()).toHaveLength(1);
+      expect(resultLines()[0].textContent).toContain('Gave amy@example.com another attempt');
+      expect(text()).toContain('cara@example.com');
+      expect(root.querySelector('.request-queue__count')?.textContent?.trim()).toBe('2 requests are waiting.');
+    });
+
+    it('drops a request someone else has handled, and puts away a decline form that was open for it', () => {
+      open([row('amy'), row('ben')]);
+      press('Decline…', 0);
+      expect(reasonBox()).not.toBeNull();
+
+      refresh([row('ben')]);
+
+      expect(text()).not.toContain('amy@example.com');
+      expect(reasonBox()).toBeNull();
+    });
+
+    it('keeps a decline form that is open, with what was typed, for a request that is still waiting', () => {
+      open([row('amy')]);
+      press('Decline…', 0);
+      reasonBox().value = 'Not this time';
+      reasonBox().dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      refresh([row('amy')]);
+
+      expect(reasonBox().value).toBe('Not this time');
+    });
+
+    it('keeps the queue and says why when the read fails', () => {
+      open([row('amy')]);
+
+      icon().click();
+      httpMock.expectOne(isList).flush({ title: 'forbidden', detail: 'No access.' }, { status: 403, statusText: 'Forbidden' });
+      fixture.detectChanges();
+
+      expect(text()).toContain('amy@example.com');
+      expect(text()).toContain('No access.');
+      expect(icon().hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('is there when the first read failed, and clears the reason once it works', () => {
+      open('error');
+      expect(text()).toContain('No access.');
+
+      refresh([row('amy')]);
+
+      expect(text()).toContain('amy@example.com');
+      expect(text()).not.toContain('No access.');
+    });
+  });
+
   describe('in another language', () => {
     it('shows the page in the language chosen, with the decision line in that language too', async () => {
       await TestBed.inject(I18nService).setLanguage('mr');

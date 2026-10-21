@@ -216,4 +216,113 @@ describe('RiskFlagQueue', () => {
     expect(text()).toContain('Note: Checked');
     expect(buttons('Mark reviewed')).toHaveLength(0);
   });
+
+  describe('the refresh icon', () => {
+    const isList = (r: { method: string; url: string }) => r.method === 'GET' && r.url === `${base}/exams/e1/risk-flags`;
+    const icon = () => root.querySelector<HTMLButtonElement>('app-refresh-button button')!;
+    const cards = () => Array.from(root.querySelectorAll('.risk-flag'));
+
+    it('reads the first page again without blanking the queue, and adds the flags raised since', () => {
+      open(queue([flag('f1')]));
+
+      icon().click();
+      fixture.detectChanges();
+      expect(icon().getAttribute('aria-busy')).toBe('true');
+      expect(text()).toContain('f1@example.com');
+      expect(text()).not.toContain('Loading');
+
+      const read = httpMock.expectOne(isList);
+      expect(read.request.params.get('page')).toBe('1');
+      read.flush(queue([flag('f1'), flag('f2')]));
+      fixture.detectChanges();
+
+      expect(cards()).toHaveLength(2);
+      expect(icon().hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('keeps the lines for flags decided in this visit, though the API no longer lists them as open', () => {
+      open(queue([flag('f1'), flag('f2')]));
+      press('Mark reviewed');
+      httpMock.expectOne(`${base}/risk-flags/f1/review`).flush(null);
+      fixture.detectChanges();
+
+      icon().click();
+      httpMock.expectOne(isList).flush(queue([flag('f2'), flag('f3')]));
+      fixture.detectChanges();
+
+      expect(cards()).toHaveLength(3);
+      expect(cards()[0].textContent).toContain('Marked reviewed.');
+      expect(text()).toContain('f3@example.com');
+    });
+
+    it('keeps a dismissal form that is open, with what was typed, for a flag that is still open', () => {
+      open(queue([flag('f1')]));
+      press('Dismiss…');
+      typeNote('Power cut at the centre');
+
+      icon().click();
+      httpMock.expectOne(isList).flush(queue([flag('f1')]));
+      fixture.detectChanges();
+
+      expect(root.querySelector<HTMLTextAreaElement>('textarea')?.value).toBe('Power cut at the centre');
+    });
+
+    it('puts away a dismissal form for a flag someone else has since decided', () => {
+      open(queue([flag('f1'), flag('f2')]));
+      press('Dismiss…');
+
+      icon().click();
+      httpMock.expectOne(isList).flush(queue([flag('f2')]));
+      fixture.detectChanges();
+
+      expect(root.querySelector('textarea')).toBeNull();
+      expect(text()).not.toContain('f1@example.com');
+    });
+
+    it('keeps the queue and says why when the read fails, and "Try again" repeats the refresh instead of adding a second copy of the page', () => {
+      open(queue([flag('f1')]));
+
+      icon().click();
+      httpMock.expectOne(isList).flush({ title: 'Server error', detail: 'The queue is not available.' }, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(text()).toContain('f1@example.com');
+      expect(root.querySelector('[role="alert"]')?.textContent).toContain('The queue is not available.');
+      expect(icon().hasAttribute('aria-busy')).toBe(false);
+
+      press('Try again');
+      httpMock.expectOne(isList).flush(queue([flag('f1'), flag('f2')]));
+      fixture.detectChanges();
+
+      expect(cards()).toHaveLength(2);
+      expect(root.querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('is there when the first read failed, and recovers the queue', () => {
+      open('error');
+
+      icon().click();
+      httpMock.expectOne(isList).flush(queue([flag('f1')]));
+      fixture.detectChanges();
+
+      expect(text()).toContain('f1@example.com');
+      expect(root.querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('drops a read for a view that was left, so its answer cannot land in the one chosen since', () => {
+      open(queue([flag('f1')]));
+
+      icon().click();
+      const refreshRead = httpMock.expectOne(isList);
+      root.querySelector<HTMLSelectElement>('select')!.value = 'all';
+      root.querySelector<HTMLSelectElement>('select')!.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      expect(refreshRead.cancelled).toBe(true);
+      httpMock.expectOne(isList).flush({ ...queue([flag('f9', { status: 'Reviewed' })]), filter: 'all' });
+      fixture.detectChanges();
+      expect(text()).toContain('f9@example.com');
+      expect(text()).not.toContain('f1@example.com');
+    });
+  });
 });

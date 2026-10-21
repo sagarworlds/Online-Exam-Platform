@@ -2,10 +2,15 @@
   <a [routerLink]="['/exams', examId, 'attempts']" class="back-link">{{ 'proctoring.backToAttempts' | t }}</a>
 
   <div class="page-header">
-    <h1>{{ 'proctoring.title' | t }}</h1>
-    @if (examName(); as name) {
-      <p class="risk-exam-name">{{ name }}</p>
-    }
+    <div>
+      <h1>{{ 'proctoring.title' | t }}</h1>
+      @if (examName(); as name) {
+        <p class="risk-exam-name">{{ name }}</p>
+      }
+    </div>
+    <div class="page-header__actions">
+      <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
+    </div>
   </div>
 
   <p class="hint">{{ 'proctoring.hint' | t }}</p>

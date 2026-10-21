@@ -20,6 +20,7 @@ import { TranslatePipe } from '../../i18n/translate.pipe';
 import { AnswerKeyCorrection } from '../../question-bank/answer-key-correction/answer-key-correction';
 import { AnswerKeyCorrectionResult } from '../../question-bank/question.models';
 import { extractErrorMessage } from '../../shared/problem-details';
+import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { MathDirective } from '../../shared/rich-text/math.directive';
 import { AttemptAdminApiService } from '../attempt-admin-api.service';
 import {
@@ -63,7 +64,7 @@ const EMPTY_KEYS: Readonly<Record<DisputeFilterStatus, MessageKey>> = {
  */
 @Component({
   selector: 'app-disputes',
-  imports: [DatePipe, RouterLink, MathDirective, AnswerKeyCorrection, TranslatePipe],
+  imports: [DatePipe, RouterLink, MathDirective, AnswerKeyCorrection, RefreshButton, TranslatePipe],
   templateUrl: './disputes.html',
   styleUrl: './disputes.css',
 })
@@ -79,6 +80,8 @@ export class Disputes {
 
   protected readonly disputes = signal<DisputeRow[]>([]);
   protected readonly loading = signal(true);
+  /** Whether the queue is being read again because the refresh icon was pressed. */
+  protected readonly refreshing = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly status = signal<DisputeFilterStatus>('open');
   protected readonly statuses: readonly { value: DisputeFilterStatus; label: MessageKey }[] = [
@@ -130,6 +133,20 @@ export class Disputes {
   });
 
   constructor() {
+    this.fetch();
+  }
+
+  /**
+   * Reads the queue again for new disputes. What is on screen stays until the answer comes, and the decisions made in this visit keep their
+   * lines, as {@link keepDecided} sees to. A failed read leaves the queue and says why.
+   */
+  protected onRefresh(): void {
+    if (this.refreshing()) {
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.refreshing.set(true);
     this.fetch();
   }
 
@@ -317,9 +334,11 @@ export class Disputes {
       next: (fresh) => {
         this.disputes.set(this.keepDecided(fresh));
         this.loading.set(false);
+        this.refreshing.set(false);
       },
       error: (error: unknown) => {
         this.loading.set(false);
+        this.refreshing.set(false);
         this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });

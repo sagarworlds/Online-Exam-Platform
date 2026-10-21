@@ -1,13 +1,14 @@
 import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Observable } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AttemptAdminApiService } from '../attempt-admin-api.service';
 import { CandidateAccommodation } from '../candidate-accommodation/candidate-accommodation';
 import { AttemptSummaryDto } from '../../candidate/candidate.models';
 import { AttemptClientDto, AttemptPaperDto, ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
 import { MathDirective } from '../../shared/rich-text/math.directive';
+import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { AnswerVerdict } from '../../candidate/candidate.models';
 
@@ -52,7 +53,7 @@ const ACTIONS: Record<ActionKind, { label: string; hint: string; button: string;
  */
 @Component({
   selector: 'app-exam-attempts',
-  imports: [RouterLink, DatePipe, MathDirective, CandidateAccommodation, TranslatePipe],
+  imports: [RouterLink, DatePipe, MathDirective, CandidateAccommodation, RefreshButton, TranslatePipe],
   templateUrl: './exam-attempts.html',
 })
 export class ExamAttempts {
@@ -65,6 +66,10 @@ export class ExamAttempts {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
   protected readonly busy = signal(false);
+  /** Whether the page is reading the candidates again because the refresh icon was pressed; what is on screen stays until the answer comes. */
+  protected readonly refreshing = signal(false);
+  /** The read on its way, so an action can drop it: an old answer must not overwrite the row an action has just made current. */
+  private reading: Subscription | null = null;
 
   /** The candidate whose "give another attempt" form is open; only one at a time, so a stray click cannot grant two. */
   protected readonly grantingFor = signal<string | null>(null);
@@ -102,16 +107,54 @@ export class ExamAttempts {
   protected readonly actions = ACTIONS;
 
   constructor() {
-    this.api.getExamAttempts(this.examId).subscribe({
+    this.read();
+  }
+
+  /**
+   * Reads the candidates and their attempts again, so a new attempt, a pause or a changed score shows without reloading the tab. The page is
+   * not blanked: the candidates stay as they are until the answer replaces them, and a form that is open stays open. An open paper and open
+   * sign-in details are read again with them. A failed read leaves what is shown and says why.
+   */
+  protected onRefresh(): void {
+    if (this.refreshing() || this.busy()) {
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.refreshing.set(true);
+    this.read();
+  }
+
+  private read(): void {
+    this.reading = this.api.getExamAttempts(this.examId).subscribe({
       next: (data) => {
+        this.reading = null;
         this.data.set(data);
         this.loading.set(false);
+        this.refreshing.set(false);
+        const paperFor = this.paperFor();
+        if (paperFor !== null) {
+          this.refreshPaper(paperFor);
+        }
+        const clientsFor = this.clientsFor();
+        if (clientsFor !== null) {
+          this.refreshClients(clientsFor);
+        }
       },
       error: (error: unknown) => {
+        this.reading = null;
         this.loading.set(false);
+        this.refreshing.set(false);
         this.errorMessage.set(extractErrorMessage(error));
       },
     });
+  }
+
+  /** Drops a read still on its way; an action is about to make a row current, and an older answer would undo it. */
+  private cancelReading(): void {
+    this.reading?.unsubscribe();
+    this.reading = null;
+    this.refreshing.set(false);
   }
 
   /** The marks the questions of the paper earned, added up: what a stored score should equal. */
@@ -154,6 +197,16 @@ export class ExamAttempts {
       error: (error: unknown) => {
         this.paperFor.set(null);
         this.errorMessage.set(extractErrorMessage(error, 'The paper could not be loaded. Please try again.'));
+      },
+    });
+  }
+
+  private refreshClients(attemptId: string): void {
+    this.api.getAttemptClients(this.examId, attemptId).subscribe({
+      next: (rows) => {
+        if (this.clientsFor() === attemptId) {
+          this.clients.set(rows);
+        }
       },
     });
   }
@@ -245,6 +298,7 @@ export class ExamAttempts {
       return;
     }
 
+    this.cancelReading();
     this.busy.set(true);
     this.errorMessage.set(null);
     call.subscribe({
@@ -281,6 +335,7 @@ export class ExamAttempts {
       return;
     }
 
+    this.cancelReading();
     this.busy.set(true);
     this.errorMessage.set(null);
     const reason = this.reason().trim();
