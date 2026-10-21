@@ -246,6 +246,8 @@ export const EN = {
   'attempt.screen.share': 'Share screen',
   'attempt.screen.on': 'Your screen is being shared. A picture is taken every {interval} and kept for the organisers.',
   'attempt.screen.denied': 'Your screen is not shared, so no pictures are being taken. Tell the organisers if you meant to allow it.',
+  'attempt.webcam.help': 'To turn it on, allow the camera for this site in your browser (look for the camera icon beside the address, or open the site\'s settings), then press Try again.',
+  'attempt.screen.help': 'To share it, press Try again and choose a screen in the window your browser shows.',
   'attempt.interval.minutes.one': 'minute',
   'attempt.interval.minutes.other': '{count} minutes',
   'attempt.interval.seconds.one': 'second',

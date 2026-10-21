@@ -2510,6 +2510,40 @@ describe('ExamAttempt', () => {
       expect(textOf(fixture)).toContain(sentence);
     });
 
+    it('says how to allow a refused camera and lets the candidate try again, without leaving the exam', async () => {
+      const getUserMedia = vi
+        .fn<() => Promise<MediaStream>>()
+        .mockRejectedValueOnce(new Error('NotAllowedError'))
+        .mockResolvedValue(stream());
+      stubCamera(getUserMedia);
+      const fixture = await open(attempt(), undefined, true);
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('allow the camera for this site in your browser');
+
+      buttonLabelled(fixture, 'Try again')?.click();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(getUserMedia).toHaveBeenCalledTimes(2);
+      expect(textOf(fixture)).toContain('Your camera is on.');
+      expect(textOf(fixture)).not.toContain('Your camera is off');
+    });
+
+    it('keeps the notice when the camera is refused again', async () => {
+      stubCamera(() => Promise.reject(new Error('NotAllowedError')));
+      const fixture = await open(attempt(), undefined, true);
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      buttonLabelled(fixture, 'Try again')?.click();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Your camera is off, so no photos are being taken.');
+      expect(buttonLabelled(fixture, 'Try again')).toBeTruthy();
+    });
+
     it('says no photos are being taken when the candidate refuses the camera, and the exam carries on', async () => {
       stubCamera(() => Promise.reject(new Error('NotAllowedError')));
 
@@ -2566,6 +2600,27 @@ describe('ExamAttempt', () => {
       fixture.detectChanges();
 
       expect(textOf(fixture)).toContain('A picture is taken every 5 minutes');
+    });
+
+    it('lets the candidate share again after declining, from the notice', async () => {
+      const getDisplayMedia = vi
+        .fn<() => Promise<MediaStream>>()
+        .mockRejectedValueOnce(new Error('NotAllowedError'))
+        .mockResolvedValue(stream());
+      stubDisplay(getDisplayMedia);
+      const fixture = await open(attempt(), undefined, false, true);
+      fixture.detectChanges();
+      buttonLabelled(fixture, 'Share screen')?.click();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('Your screen is not shared');
+
+      buttonLabelled(fixture, 'Try again')?.click();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(getDisplayMedia).toHaveBeenCalledTimes(2);
+      expect(textOf(fixture)).toContain('Your screen is being shared.');
     });
 
     it('says no pictures are being taken when the candidate declines, and the exam carries on', async () => {

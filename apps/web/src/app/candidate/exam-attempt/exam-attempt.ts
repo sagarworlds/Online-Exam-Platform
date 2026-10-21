@@ -1184,6 +1184,14 @@ export class ExamAttempt {
     });
   }
 
+  /**
+   * Asks for the camera again, from the candidate's click, after it was refused. A refusal the candidate has since reversed in the browser's
+   * settings (or one that was a slip) is put right here, without leaving the exam; if the browser still says no, the notice stays.
+   */
+  protected retryCamera(): void {
+    void this.webcam.start(this.webcamEverySeconds());
+  }
+
   /** Starts sharing the screen. Runs from the candidate's click on the share button, as the browser requires. */
   protected shareScreen(): void {
     void this.screen.start(this.screenIntervalSeconds);
