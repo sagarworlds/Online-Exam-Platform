@@ -1,0 +1,112 @@
+/* Over the page and out of its flow, at the bottom of the screen, clear of a phone's home bar. A dialog is in the browser's top layer, above it. */
+.toast-host {
+  position: fixed;
+  inset-inline: var(--space-4);
+  bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+
+/* Nothing on screen: the regions stay in the page for a screen reader, and take no room and catch no pointer. */
+.toast-host__polite,
+.toast-host__assertive {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(100%, 30rem);
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+
+.toast__message {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.toast__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.toast--success {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
+
+.toast--success .toast__mark {
+  color: var(--success);
+}
+
+.toast--error {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.toast--error .toast__mark {
+  color: var(--danger);
+}
+
+.toast--warning {
+  border-color: var(--warning);
+  background: var(--warning-soft);
+}
+
+.toast--warning .toast__mark {
+  color: var(--warning);
+}
+
+.toast--info {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.toast--info .toast__mark {
+  color: var(--primary-ink);
+}
+
+.toast__action {
+  flex: none;
+  border-color: currentColor;
+  font-weight: 600;
+}
+
+.toast__close {
+  flex: none;
+  min-width: var(--target-touch);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+@media (forced-colors: active) {
+  .toast {
+    border-width: 2px;
+  }
+}
