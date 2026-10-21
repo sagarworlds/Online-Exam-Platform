@@ -415,6 +415,7 @@
 
 .palette-legend .legend--answered::before {
   content: '\2713';
+  content: '\2713' / '';
   background: var(--success-soft);
   border-color: var(--success);
   color: var(--success);
@@ -787,9 +788,9 @@ html:has(.exam-top) {
     border-color: ButtonText;
   }
 
+  /* A border, not an outline, so the focus ring on the same button is not drawn over it. */
   .palette__item--current {
-    outline: 3px solid Highlight;
-    outline-offset: 1px;
+    border: 3px solid Highlight;
   }
 
   .palette__item--marked::after {
@@ -797,6 +798,8 @@ html:has(.exam-top) {
     background: CanvasText;
   }
 
+  /* `[class]` so this outranks the per-state swatch rules above it, which set their own border colours. */
+  .palette-legend li[class]::before,
   .palette-legend li::before {
     forced-color-adjust: none;
     border-color: CanvasText;

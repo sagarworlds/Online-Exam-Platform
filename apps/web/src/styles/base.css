@@ -56,6 +56,11 @@ code {
   outline-offset: 2px;
 }
 
+/* A page's heading takes the focus when the page opens (RouteFocus). It is not a control, so it shows no ring. */
+#main-content h1[tabindex='-1']:focus {
+  outline: none;
+}
+
 /* Page widths: a form, a list, and the exam screen with its question palette. */
 .page {
   max-width: 30rem;

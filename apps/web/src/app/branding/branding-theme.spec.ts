@@ -1,4 +1,4 @@
-import { applyBrandPalette, contrastRatio, inkOn, paletteFor, relativeLuminance, textColourOn, tintOf } from './branding-theme';
+import { applyBrandPalette, contrastRatio, hoverOf, inkOn, paletteFor, relativeLuminance, textColourOn, tintOf } from './branding-theme';
 import { MAX_LOGO_BYTES, isHexColour, logoProblem } from './branding.models';
 
 /** A root element that records the custom properties written onto it, without relying on the DOM's own handling of them. */
@@ -40,7 +40,7 @@ describe('branding theme', () => {
       onPrimary: '#ffffff',
       // A wash over the page's own surface and a step toward its text, so both follow the light or dark scheme.
       primarySoft: 'color-mix(in srgb, #1A56DB 14%, var(--surface))',
-      primaryHover: 'color-mix(in srgb, #1A56DB 85%, var(--text))',
+      primaryHover: hoverOf('#1A56DB'),
       // The platform blue already reads on a light page; on a dark one it is lightened.
       inkLight: '#1a56db',
       inkDark: expect.stringMatching(/^#[0-9a-f]{6}$/),
@@ -52,9 +52,20 @@ describe('branding theme', () => {
     expect(contrastRatio('#ffffff', '#ffffff')).toBeCloseTo(1, 5);
   });
 
+  it.each(['#2e7d32', '#0f7fe0', '#0066cc', '#00897b', '#ffe600', '#1a56db', '#000000', '#ffffff'])(
+    'moves a hovered button away from its label, so the label reads at least as well as before (%s)',
+    (colour) => {
+      const label = textColourOn(colour);
+      const hover = hoverOf(colour);
+
+      expect(hover).toMatch(/^#[0-9a-f]{6}$/);
+      expect(contrastRatio(hover, label)).toBeGreaterThanOrEqual(contrastRatio(colour, label) - 1e-9);
+    },
+  );
+
   describe('the colour used for text and outlines (WCAG 1.4.3)', () => {
     const lightPage = ['#f3f5fa', '#ffffff'];
-    const darkPage = ['#0e1320', '#161c2d'];
+    const darkPage = ['#0e1320', '#161c2d', '#1b2236'];
 
     it.each(['#ffe600', '#1a56db', '#ff8800', '#00a86b', '#000000', '#ffffff', '#0b1226', '#7f7fff'])(
       'reads at 4.5:1 on a light and on a dark page, whatever colour %s the institute chose',

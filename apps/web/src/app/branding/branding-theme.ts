@@ -7,7 +7,7 @@ export interface BrandPalette {
   onPrimary: string;
   /** A wash of the colour over the page's own surface, so it is pale on a light page and dark on a dark one. Written as CSS, resolved by the page. */
   primarySoft: string;
-  /** The colour a hovered control moves to: a little toward the page's text colour, so it darkens on a light page and lightens on a dark one. */
+  /** The colour a hovered control moves to: a little away from the label's colour, so the label reads at least as well on it as on the base colour. */
   primaryHover: string;
   /** The colour for text, links and outlines on a light page: the brand colour, darkened until it reads at 4.5:1. */
   inkLight: string;
@@ -17,7 +17,7 @@ export interface BrandPalette {
 
 /** The page backgrounds tokens.css gives a light and a dark page: the page itself and a card on it. Text must read against both. */
 const LIGHT_PAGE = ['#f3f5fa', '#ffffff'];
-const DARK_PAGE = ['#0e1320', '#161c2d'];
+const DARK_PAGE = ['#0e1320', '#161c2d', '#1b2236'];
 
 /** The share of the brand colour in its wash over a surface, as `primarySoft` uses it, in percent and as a fraction. */
 const SOFT_PERCENT = 14;
@@ -68,6 +68,14 @@ function mix(first: string, second: string, share: number): string {
 }
 
 /**
+ * The colour a hovered control with the brand colour as its fill moves to. It moves away from the label's colour (toward black under a white
+ * label, toward white under a black one), whatever the page's colour scheme, so the label's contrast never drops below what the base colour had.
+ */
+export function hoverOf(colour: string): string {
+  return mix(colour, textColourOn(colour) === '#ffffff' ? '#000000' : '#ffffff', 0.85);
+}
+
+/**
  * The colour to write text, links and outlines in on a page: the brand colour itself when it already reads at 4.5:1 against the page and
  * against its own wash on it, otherwise the brand colour moved toward black (light page) or white (dark page) a step at a time until it does.
  * A yellow brand colour on a white page is 1.4:1, so without this its links could not be read.
@@ -109,7 +117,7 @@ export function paletteFor(colour: string | null): BrandPalette | null {
     primary: colour,
     onPrimary: textColourOn(colour),
     primarySoft: `color-mix(in srgb, ${colour} ${SOFT_PERCENT}%, var(--surface))`,
-    primaryHover: `color-mix(in srgb, ${colour} 85%, var(--text))`,
+    primaryHover: hoverOf(colour),
     inkLight: inkOn(colour, LIGHT_PAGE, '#000000'),
     inkDark: inkOn(colour, DARK_PAGE, '#ffffff'),
   };

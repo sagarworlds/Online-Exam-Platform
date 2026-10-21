@@ -91,7 +91,7 @@
   /* Transparent, not none: the ring below is a shadow, which a forced-colour mode (Windows High Contrast) removes, and an outline that is
      transparent is the one cue it keeps, drawn in a system colour. */
   outline: 2px solid transparent;
-  border-color: var(--primary);
+  border-color: var(--primary-ink);
   box-shadow: var(--focus-ring);
 }
 
@@ -101,7 +101,7 @@
  * the primary colour on focus.
  */
 .field input:not([type='radio']):not([type='checkbox']):focus {
-  border-color: var(--primary);
+  border-color: var(--primary-ink);
 }
 
 .field-hint {
@@ -142,7 +142,7 @@
 
 .code-entry:focus-within .code-entry__box--next {
   outline: 2px solid transparent;
-  border-color: var(--primary);
+  border-color: var(--primary-ink);
   box-shadow: var(--focus-ring);
 }
 
@@ -428,7 +428,7 @@ button.btn--primary:hover:not(:disabled),
 
 .status-Registered {
   background: var(--primary-soft);
-  border-color: var(--primary);
+  border-color: var(--primary-ink);
   color: var(--primary-ink);
 }
 
@@ -673,7 +673,7 @@ button.btn--primary:hover:not(:disabled),
   position: sticky;
   top: 0.5rem;
   z-index: 1;
-  border-color: var(--primary);
+  border-color: var(--primary-ink);
 }
 
 .bulk-bar__count {
@@ -1101,7 +1101,7 @@ button.btn--primary:hover:not(:disabled),
 }
 
 .whatsapp-steps__step--current {
-  border-color: var(--primary);
+  border-color: var(--primary-ink);
   background: var(--primary-soft);
   color: var(--text);
   font-weight: 700;
@@ -1387,11 +1387,12 @@ label:has(> input[type='radio']) {
  * chosen) is given an outline in a system colour, and a field's focus keeps its transparent outline as a visible one.
  */
 @media (forced-colors: active) {
+  /* A thicker border says "pressed" or "selected". The outline stays free for the focus ring, so a toggle that has just been pressed, and so
+     has the focus, shows both. */
   button[aria-pressed='true'],
   [role='tab'][aria-selected='true'],
   [role='radio'][aria-checked='true'] {
-    outline: 3px solid Highlight;
-    outline-offset: -3px;
+    border: 3px solid Highlight;
   }
 
   .field input:focus,

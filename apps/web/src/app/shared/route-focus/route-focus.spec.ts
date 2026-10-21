@@ -1,7 +1,6 @@
-import { Component } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
-import { RouterOutlet, provideRouter } from '@angular/router';
-import { RouterTestingHarness } from '@angular/router/testing';
+import { ApplicationRef, Component } from '@angular/core';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router, RouterOutlet, Routes, provideRouter } from '@angular/router';
 import { RouteFocus } from './route-focus';
 
 @Component({ template: '<h1>One</h1>' })
@@ -20,40 +19,53 @@ class OwnFocus {
   }
 }
 
+/** A page with a child route for a panel, as the question bank has: the list stays while the panel opens and closes. */
+@Component({ imports: [RouterOutlet], template: '<h1>Bank</h1><router-outlet />' })
+class Bank {}
+
+@Component({ template: '<p>Panel</p>' })
+class Panel {}
+
+@Component({ template: '' })
+class Nothing {}
+
 @Component({
   imports: [RouterOutlet],
   template: '<a id="header-link" href="#">Header</a><main id="main-content" tabindex="-1"><router-outlet /></main>',
 })
 class Shell {}
 
-describe('RouteFocus', () => {
-  let harness: RouterTestingHarness;
+const routes: Routes = [
+  { path: 'one', component: One },
+  { path: 'two', component: Two },
+  { path: 'item/:id', component: One },
+  { path: 'headless', component: Headless },
+  { path: 'own', component: OwnFocus },
+  {
+    path: 'bank',
+    component: Bank,
+    children: [
+      { path: '', pathMatch: 'full', component: Nothing },
+      { path: ':id/edit', component: Panel },
+    ],
+  },
+];
 
-  beforeEach(async () => {
-    TestBed.configureTestingModule({
-      providers: [
-        provideRouter([
-          {
-            path: '',
-            component: Shell,
-            children: [
-              { path: 'one', component: One },
-              { path: 'two', component: Two },
-              { path: 'headless', component: Headless },
-              { path: 'own', component: OwnFocus },
-            ],
-          },
-        ]),
-      ],
-    });
+describe('RouteFocus', () => {
+  let fixture: ComponentFixture<Shell>;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideRouter(routes)] });
     TestBed.inject(RouteFocus).start();
-    harness = await RouterTestingHarness.create();
+    fixture = TestBed.createComponent(Shell);
+    fixture.detectChanges();
   });
 
   const go = async (url: string) => {
-    await harness.navigateByUrl(url);
-    harness.detectChanges();
-    await harness.fixture.whenStable();
+    await TestBed.inject(Router).navigateByUrl(url);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    TestBed.inject(ApplicationRef).tick();
   };
 
   it('leaves the focus alone for the first page the app opens', async () => {
@@ -90,6 +102,27 @@ describe('RouteFocus', () => {
     await go('/one?page=2#top');
 
     expect(document.activeElement).toBe(link);
+  });
+
+  it('does not move the focus when only a panel inside the page opens or closes', async () => {
+    await go('/bank');
+    const link = document.getElementById('header-link');
+    link?.focus();
+
+    await go('/bank/q1/edit');
+    expect(document.activeElement).toBe(link);
+
+    await go('/bank');
+    expect(document.activeElement).toBe(link);
+  });
+
+  it('moves the focus when the same page opens for another item', async () => {
+    await go('/item/1');
+    document.getElementById('header-link')?.focus();
+
+    await go('/item/2');
+
+    expect(document.activeElement).toBe(document.querySelector('h1'));
   });
 
   it('keeps the focus a page placed inside itself', async () => {
