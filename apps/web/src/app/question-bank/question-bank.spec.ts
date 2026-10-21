@@ -1032,7 +1032,7 @@ describe('QuestionBank', () => {
         fixture.detectChanges();
         const panel = fixture.debugElement.query(By.directive(QuestionPanel)).componentInstance as unknown as { form: FormGroup };
         panel.form.controls['text'].setValue('Capital of France?');
-        const inputs = root.querySelectorAll<HTMLInputElement>('.option-row input[type="text"]');
+        const inputs = root.querySelectorAll<HTMLTextAreaElement>('.option-row textarea');
         ['Paris', 'Rome'].forEach((value, i) => {
           inputs[i].value = value;
           inputs[i].dispatchEvent(new Event('input'));

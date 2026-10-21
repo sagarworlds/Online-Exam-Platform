@@ -930,7 +930,7 @@ export class ExamAttempt {
     this.typedTimer = setTimeout(() => this.flushTyped(), TYPED_SAVE_DELAY_MS);
   }
 
-  /** The field lost focus or Enter was pressed: what is in it is saved now, and the pause timer is not needed. */
+  /** The field lost focus (Enter in it starts a new line): what is in it is saved now, and the pause timer is not needed. */
   protected commitTyped(question: AttemptQuestionDto, text: string): void {
     this.typedDraft = null;
     clearTimeout(this.typedTimer);
@@ -949,7 +949,7 @@ export class ExamAttempt {
   }
 
   /**
-   * Saves what the candidate typed for a text question: when the typing pauses, when the field loses focus or Enter is pressed. Unchanged
+   * Saves what the candidate typed for a text question: when the typing pauses, or when the field loses focus. Unchanged
    * text, spaces around it aside, is not sent again.
    */
   protected saveTyped(question: AttemptQuestionDto, text: string): void {

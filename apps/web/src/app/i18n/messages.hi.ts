@@ -285,7 +285,7 @@ export const HI: Messages = {
   'attempt.position': '{section} · प्रश्न {number} / {total}',
   'attempt.chooseAll': 'लागू होने वाले सभी उत्तर चुनें।',
   'attempt.typedAnswer': 'आपका उत्तर',
-  'attempt.typeHint': 'अपना उत्तर लिखें। बॉक्स से बाहर निकलने या Enter दबाने पर यह सहेजा जाता है।',
+  'attempt.typeHint': 'अपना उत्तर लिखें। टाइप करना रुकने पर और बॉक्स से बाहर निकलने पर यह सहेजा जाता है।',
   'review.typed.accepted': 'स्वीकृत उत्तर',
   'review.typed.none': 'कुछ नहीं लिखा गया',
   'attempt.markReview': 'समीक्षा के लिए चिह्नित करें',

@@ -4,7 +4,8 @@ import { CreateQuestionRequest, QUESTION_LIMITS, QuestionDifficulty, QuestionDto
 /** One option row of the question form. `id` is the existing option's id when editing, and '' for a new option. */
 function newOptionGroup(formBuilder: FormBuilder, id = '', text = '', pinned = false, correct = false) {
   // `correct` is the tick of a multiple-answer question; a single-answer one keeps its answer in the form's `correctIndex`.
-  return formBuilder.nonNullable.group({ id: [id], text: [text, Validators.required], pinned: [pinned], correct: [correct] });
+  const textRules = [Validators.required, Validators.maxLength(QUESTION_LIMITS.maxOptionTextLength)];
+  return formBuilder.nonNullable.group({ id: [id], text: [text, textRules], pinned: [pinned], correct: [correct] });
 }
 
 /**

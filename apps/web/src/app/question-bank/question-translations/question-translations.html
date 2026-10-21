@@ -35,9 +35,14 @@
       <fieldset class="field">
         <legend>{{ 'qb.tr.optionsIn' | t: { language: labelOf(language) } }}</legend>
         @for (control of options.controls; track control; let i = $index) {
-          <div class="option-row">
+          <div class="option-row option-row--stacked">
             <span class="hint">{{ question().options[i].text }}@if (question().options[i].isCorrect) { {{ 'qb.tr.correctMark' | t }}}</span>
-            <input type="text" [formControl]="control" [attr.aria-label]="'qb.tr.optionIn' | t: { number: i + 1, language: labelOf(language) }" />
+            <textarea
+              rows="3"
+              [formControl]="control"
+              [attr.maxlength]="limits.maxOptionTextLength"
+              [attr.aria-label]="'qb.tr.optionIn' | t: { number: i + 1, language: labelOf(language) }"
+            ></textarea>
           </div>
         }
       </fieldset>

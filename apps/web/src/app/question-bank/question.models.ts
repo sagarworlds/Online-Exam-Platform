@@ -259,7 +259,8 @@ export const QUESTION_LIMITS = {
   maxTopics: 5,
   maxTopicLength: 40,
   maxAcceptedAnswers: 10,
-  maxAcceptedAnswerLength: 200,
+  maxOptionTextLength: 10000,
+  maxAcceptedAnswerLength: 10000,
   maxExplanationLength: 2000,
 } as const;
 
