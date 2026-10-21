@@ -176,6 +176,9 @@ test.describe('the list of questions', () => {
     await openQuestionBank(page);
     await addQuestion(page, text);
     const line = row(page, text);
+    // Adding the question left the pointer where the Save button was, which is over one of the row's icons once the list has been redrawn;
+    // a resting pointer shows a hover tip of its own, and two tips on screen are not what is being checked. The pointer is moved away first.
+    await page.mouse.move(0, 0);
 
     for (const name of ['Edit', 'Translations', 'Statistics', 'File under…', 'Delete', 'Show details']) {
       const icon = line.getByRole(name === 'Edit' ? 'link' : 'button', { name, exact: true });
