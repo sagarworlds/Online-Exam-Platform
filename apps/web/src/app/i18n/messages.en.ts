@@ -96,6 +96,8 @@ export const EN = {
   // ---- my exams ----
   'myExams.title': 'My exams',
   'myExams.empty': 'You have no exams yet. Open the link in your invitation e-mail to add one.',
+  'myExams.closesIn': 'Closes in {time}',
+  'myExams.opensIn': 'Opens in {time}',
   'myExams.state.notOpen': 'Not open yet',
   'myExams.state.open': 'Open',
   'myExams.state.closed': 'Closed',
@@ -164,6 +166,11 @@ export const EN = {
   'time.untilClose': 'until the exam closes',
   'time.minutes.one': '{count} minute',
   'time.minutes.other': '{count} minutes',
+  'time.days.one': '{count} day',
+  'time.days.other': '{count} days',
+  'time.hours.one': '{count} hour',
+  'time.hours.other': '{count} hours',
+  'time.lessThanMinute': 'less than a minute',
   'rules.untilClose': 'You can work until the exam closes. The timer starts when you press Start exam.',
   'rules.timeLimit': 'You have {time} from the moment you press Start exam.',
   'rules.serverTimer':

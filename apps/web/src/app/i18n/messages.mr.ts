@@ -91,6 +91,8 @@ export const MR: Messages = {
   // ---- my exams ----
   'myExams.title': 'माझ्या परीक्षा',
   'myExams.empty': 'तुमच्याकडे अजून कोणतीही परीक्षा नाही. परीक्षा जोडण्यासाठी तुमच्या आमंत्रण ईमेलमधील लिंक उघडा.',
+  'myExams.closesIn': 'बंद होण्यास {time}',
+  'myExams.opensIn': 'सुरू होण्यास {time}',
   'myExams.state.notOpen': 'अजून सुरू झालेली नाही',
   'myExams.state.open': 'खुली आहे',
   'myExams.state.closed': 'बंद',
@@ -159,6 +161,11 @@ export const MR: Messages = {
   'time.untilClose': 'परीक्षा बंद होईपर्यंत',
   'time.minutes.one': '{count} मिनिट',
   'time.minutes.other': '{count} मिनिटे',
+  'time.days.one': '{count} दिवस',
+  'time.days.other': '{count} दिवस',
+  'time.hours.one': '{count} तास',
+  'time.hours.other': '{count} तास',
+  'time.lessThanMinute': 'एका मिनिटापेक्षा कमी',
   'rules.untilClose': 'तुम्ही परीक्षा बंद होईपर्यंत काम करू शकता. "परीक्षा सुरू करा" दाबताच टाइमर सुरू होतो.',
   'rules.timeLimit': '"परीक्षा सुरू करा" दाबल्यापासून तुमच्याकडे {time} आहेत.',
   'rules.serverTimer':

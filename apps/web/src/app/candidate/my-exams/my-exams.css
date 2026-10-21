@@ -112,3 +112,67 @@
     margin-inline-start: 0;
   }
 }
+
+/* How long the candidate has, as the first thing on the card: it is what they came to check. */
+.exam-card__countdown {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The exam to do next, first among those available now: a heavier edge, a bigger name, and a button the width of the card at any size. */
+.exam-card--next {
+  border: 2px solid var(--primary);
+}
+
+.exam-card--next .card__title {
+  font-size: 1.35rem;
+}
+
+.exam-card--next .actions .btn--primary {
+  flex: 1 1 100%;
+  min-height: 3rem;
+  font-size: 1.05rem;
+}
+
+/* Grey lines in the shape of a card while the exams are read, so the page does not jump when they arrive. */
+.exam-skeleton {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.25rem;
+}
+
+.exam-skeleton__line {
+  display: block;
+  height: 0.9rem;
+  border-radius: var(--radius-sm);
+  background: var(--border);
+  animation: exam-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.exam-skeleton__line--title {
+  width: 55%;
+  height: 1.2rem;
+}
+
+.exam-skeleton__line--short {
+  width: 35%;
+}
+
+@keyframes exam-skeleton-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exam-skeleton__line {
+    animation: none;
+  }
+}
+
+.my-exams__more {
+  margin: 1.5rem 0 0;
+  font-size: 0.95rem;
+}

@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 import { provideRouter } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
 import { AttemptSummaryDto } from '../candidate.models';
@@ -240,6 +241,104 @@ describe('MyExams', () => {
     fixture.detectChanges();
 
     expect(root.querySelector('[role="alert"]')?.textContent).toContain('The exams could not be loaded.');
+  });
+
+  it('shows grey placeholder cards while the exams are read, and says it is loading', () => {
+    const fixture = TestBed.createComponent(MyExams);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.querySelectorAll('.exam-skeleton')).toHaveLength(2);
+    expect(root.querySelector('.exam-skeleton')?.getAttribute('aria-hidden')).toBe('true');
+    expect(root.querySelector('[role="status"] .visually-hidden')?.textContent).toContain('Loading');
+
+    httpMock.expectOne(isMyExams).flush([]);
+    fixture.detectChanges();
+    expect(root.querySelector('.exam-skeleton')).toBeNull();
+  });
+
+  it('offers Try again when the exams cannot be read, without saying there are none, and shows them once they can', () => {
+    const fixture = TestBed.createComponent(MyExams);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    httpMock.expectOne(isMyExams).flush({ detail: 'Down for a moment.' }, { status: 503, statusText: 'Service Unavailable' });
+    fixture.detectChanges();
+
+    expect(root.querySelector('[role="alert"]')?.textContent).toContain('Down for a moment.');
+    expect(root.textContent).not.toContain('You have no exams yet');
+    buttonIn(root, 'Try again')!.click();
+    fixture.detectChanges();
+    expect(root.querySelector('[role="alert"]')).toBeNull();
+    expect(root.querySelectorAll('.exam-skeleton').length).toBeGreaterThan(0);
+
+    httpMock.expectOne(isMyExams).flush([exam({})]);
+    fixture.detectChanges();
+
+    expect(root.querySelector('[role="alert"]')).toBeNull();
+    expect(titlesIn(root)).toEqual(['Maths Final']);
+  });
+
+  it('keeps the performance link at the end of the page, not beside the title where the exams are looked for', () => {
+    const { root } = openWith([exam({})]);
+
+    const link = root.querySelector<HTMLAnchorElement>('a[href="/analytics"]')!;
+    expect(root.querySelector('.page-header a')).toBeNull();
+    expect(root.querySelector('article')!.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  describe('how long the candidate has', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-10-05T05:00:00Z'));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    const countdownOf = (root: HTMLElement) => root.querySelector('.exam-card__countdown')?.textContent?.trim();
+
+    it('says when an open exam closes, in its two largest units', () => {
+      // 07:30 is 2 hours 30 minutes from 05:00.
+      expect(countdownOf(openWith([exam({})]).root)).toBe('Closes in 2 hours 30 minutes');
+    });
+
+    it('says when an exam that has not opened yet opens, in days and hours', () => {
+      const { root } = openWith([exam({ state: 'NotOpen', canStartAttempt: false, startUtc: '2026-10-07T08:05:00Z', endUtc: '2026-10-07T11:00:00Z' })]);
+
+      expect(countdownOf(root)).toBe('Opens in 2 days 3 hours');
+    });
+
+    it('says minutes alone when under an hour is left, and "less than a minute" at the end', () => {
+      expect(countdownOf(openWith([exam({ endUtc: '2026-10-05T05:12:30Z' })]).root)).toBe('Closes in 12 minutes');
+    });
+
+    it('moves on with the clock while the page stays open', () => {
+      const { fixture, root } = openWith([exam({ endUtc: '2026-10-05T05:01:20Z' })]);
+      expect(countdownOf(root)).toBe('Closes in 1 minute');
+
+      vi.advanceTimersByTime(30_000);
+      fixture.detectChanges();
+      expect(countdownOf(root)).toBe('Closes in less than a minute');
+    });
+
+    it('shows no countdown for an exam that is over', () => {
+      const { root, fixture } = openWith([exam({ state: 'Closed', canStartAttempt: false, attempts: [attempt(1, 'Submitted', 10)] })]);
+      toggleAttempted(root, fixture);
+
+      expect(root.querySelector('.exam-card__countdown')).toBeNull();
+    });
+  });
+
+  describe('the exam to do next', () => {
+    it('is the first of those available now, and only that one', () => {
+      const { root } = openWith([
+        exam({ examId: 'e1', name: 'Soon', endUtc: '2026-10-05T06:00:00Z' }),
+        exam({ examId: 'e2', name: 'Later', endUtc: '2026-10-06T06:00:00Z' }),
+        exam({ examId: 'e3', name: 'Not yet', state: 'NotOpen', canStartAttempt: false }),
+      ]);
+
+      const next = Array.from(root.querySelectorAll('article')).filter((card) => card.classList.contains('exam-card--next'));
+      expect(next).toHaveLength(1);
+      expect(next[0].querySelector('.card__title')?.childNodes[0].textContent?.trim()).toBe('Soon');
+    });
   });
 
   describe('several attempts', () => {
