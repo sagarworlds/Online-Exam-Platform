@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
+import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { BookApiService } from '../book-api.service';
 import { compareNames } from '../book-class';
 import { BOOK_LIMITS, BookDto } from '../book.models';
@@ -23,7 +24,7 @@ interface BookGroup {
  */
 @Component({
   selector: 'app-book-list',
-  imports: [ReactiveFormsModule, RouterLink, ClassManager],
+  imports: [ReactiveFormsModule, RouterLink, ClassManager, RefreshButton],
   templateUrl: './book-list.html',
 })
 export class BookList {
@@ -38,6 +39,10 @@ export class BookList {
   protected readonly classes = signal<ClassDto[]>([]);
   protected readonly openClasses = computed(() => this.classes().filter((item) => !item.isArchived).sort((a, b) => compareNames(a.name, b.name)));
   protected readonly loading = signal(true);
+  /** Whether the books are being read again because the refresh icon was pressed; the list stays until the answer comes. */
+  protected readonly refreshing = signal(false);
+  /** Counts the reads of the books, so the answer to a refresh is dropped if another read started after it. */
+  private latestRead = 0;
   protected readonly saving = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   /** Archived books are loaded only when asked for, so the list an author works from stays short. */
@@ -74,6 +79,21 @@ export class BookList {
 
   constructor() {
     this.refresh();
+    this.loadClasses();
+  }
+
+  /**
+   * Reads the books and the classes again, so a change made elsewhere shows without reloading the tab. The list is not blanked, and the
+   * New book form, with what has been typed in it, and the choice to show archived books are kept. A failed read leaves what is shown and
+   * says why.
+   */
+  protected onRefresh(): void {
+    if (this.refreshing()) {
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.refresh(true);
     this.loadClasses();
   }
 
@@ -123,15 +143,29 @@ export class BookList {
     });
   }
 
-  private refresh(): void {
-    this.loading.set(true);
+  /** Reads the books. A quiet read, for the refresh icon, does not blank the list while it is on its way. */
+  private refresh(quiet = false): void {
+    this.loading.set(!quiet);
+    this.refreshing.set(quiet);
+    const read = ++this.latestRead;
     this.api.list(this.showArchived()).subscribe({
       next: (books) => {
+        // The refresh was for a list that is no longer the one chosen (archived books shown or hidden since): its answer would be the wrong one.
+        if (quiet && read !== this.latestRead) {
+          return;
+        }
+
         this.books.set(books);
         this.loading.set(false);
+        this.refreshing.set(false);
       },
       error: (error: unknown) => {
+        if (quiet && read !== this.latestRead) {
+          return;
+        }
+
         this.loading.set(false);
+        this.refreshing.set(false);
         this.errorMessage.set(extractErrorMessage(error));
       },
     });

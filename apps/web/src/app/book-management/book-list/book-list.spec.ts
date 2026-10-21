@@ -271,4 +271,75 @@ describe('BookList', () => {
       expect(root.textContent).toContain('Maths');
     });
   });
+
+  describe('the refresh icon', () => {
+    const icon = (root: HTMLElement) => root.querySelector<HTMLButtonElement>('app-refresh-button button')!;
+
+    it('reads the books and classes again without blanking the list, and shows the books added since', () => {
+      const { fixture, root } = open([book('b1', 'Maths Grade 10')]);
+
+      icon(root).click();
+      fixture.detectChanges();
+      expect(icon(root).getAttribute('aria-busy')).toBe('true');
+      expect(bookTitles(root)).toEqual(['Maths Grade 10']);
+
+      httpMock.expectOne(isList).flush([book('b1', 'Maths Grade 10'), book('b2', 'Physics')]);
+      httpMock.expectOne(isClassList).flush([]);
+      fixture.detectChanges();
+
+      expect(bookTitles(root)).toEqual(['Maths Grade 10', 'Physics']);
+      expect(icon(root).hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('keeps the choice to show archived books, and the New book form with what was typed in it', () => {
+      const { fixture, root } = open([book('b1', 'Open one')]);
+      (root.querySelector('input[type="checkbox"]') as HTMLInputElement).click();
+      httpMock.expectOne(isList).flush([book('b1', 'Open one'), book('b2', 'Old one', { isArchived: true })]);
+      fixture.detectChanges();
+      set(fixture, root, 'book-name', 'Chemistry');
+
+      icon(root).click();
+      const read = httpMock.expectOne(isList);
+      expect(read.request.params.get('includeArchived')).toBe('true');
+      read.flush([book('b1', 'Open one'), book('b2', 'Old one', { isArchived: true })]);
+      httpMock.expectOne(isClassList).flush([]);
+      fixture.detectChanges();
+
+      expect((root.querySelector('#book-name') as HTMLInputElement).value).toBe('Chemistry');
+    });
+
+    it('keeps the list and says why when the read fails, and clears that once it works', () => {
+      const { fixture, root } = open([book('b1', 'Maths Grade 10')]);
+
+      icon(root).click();
+      httpMock.expectOne(isList).flush({ title: 'server_error', detail: 'The books are not available.' }, { status: 500, statusText: 'Server Error' });
+      httpMock.expectOne(isClassList).flush([]);
+      fixture.detectChanges();
+
+      expect(bookTitles(root)).toEqual(['Maths Grade 10']);
+      expect(root.querySelector('.error-message')?.textContent).toContain('The books are not available.');
+      expect(icon(root).hasAttribute('aria-busy')).toBe(false);
+
+      icon(root).click();
+      httpMock.expectOne(isList).flush([book('b1', 'Maths Grade 10')]);
+      httpMock.expectOne(isClassList).flush([]);
+      fixture.detectChanges();
+      expect(root.querySelector('.error-message')).toBeNull();
+    });
+
+    it('ignores the answer to a refresh once archived books have been shown or hidden since', () => {
+      const { fixture, root } = open([book('b1', 'Open one')]);
+      icon(root).click();
+      const refreshRead = httpMock.expectOne(isList);
+      httpMock.expectOne(isClassList).flush([]);
+
+      (root.querySelector('input[type="checkbox"]') as HTMLInputElement).click();
+      httpMock.expectOne(isList).flush([book('b1', 'Open one'), book('b2', 'Old one', { isArchived: true })]);
+      refreshRead.flush([book('b1', 'Open one')]);
+      fixture.detectChanges();
+
+      expect(bookTitles(root)).toEqual(['Open one', 'Old one']);
+      expect(icon(root).hasAttribute('aria-busy')).toBe(false);
+    });
+  });
 });

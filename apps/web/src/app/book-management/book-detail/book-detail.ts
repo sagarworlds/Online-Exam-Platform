@@ -1,8 +1,9 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Observable } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 import { extractErrorMessage } from '../../shared/problem-details';
+import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { BookApiService } from '../book-api.service';
 import { compareNames } from '../book-class';
 import { BOOK_LIMITS, BookDto, ChapterDto } from '../book.models';
@@ -22,18 +23,22 @@ interface ClassOption {
  */
 @Component({
   selector: 'app-book-detail',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, RefreshButton],
   templateUrl: './book-detail.html',
 })
 export class BookDetail {
   private readonly formBuilder = inject(FormBuilder);
   private readonly api = inject(BookApiService);
   private readonly classApi = inject(ClassApiService);
-  private readonly bookId = inject(ActivatedRoute).snapshot.paramMap.get('id');
+  protected readonly bookId = inject(ActivatedRoute).snapshot.paramMap.get('id');
 
   protected readonly limits = BOOK_LIMITS;
   protected readonly book = signal<BookDto | null>(null);
   protected readonly loading = signal(true);
+  /** Whether the book is being read again because the refresh icon was pressed; the page stays as it is until the answer comes. */
+  protected readonly refreshing = signal(false);
+  /** The read of the book in flight, so a change can drop it: an old answer must not undo the book the change has just stored. */
+  private reading: Subscription | null = null;
   protected readonly busy = signal(false);
   protected readonly saved = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
@@ -77,10 +82,39 @@ export class BookDetail {
       return;
     }
 
-    this.api.get(this.bookId).subscribe({
-      next: (book) => this.show(book),
-      error: (error: unknown) => this.fail(error),
+    this.read(this.bookId);
+    this.loadClasses();
+  }
+
+  /**
+   * Reads the book and the classes again, so a chapter added or a question filed elsewhere shows without reloading the tab. The page is not
+   * blanked. Details typed but not yet saved are kept, and a chapter being renamed stays open. A failed read leaves what is shown and says why.
+   */
+  protected onRefresh(): void {
+    if (this.bookId === null || this.refreshing() || this.busy()) {
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.refreshing.set(true);
+    this.read(this.bookId);
+    this.loadClasses();
+  }
+
+  private read(bookId: string): void {
+    this.reading = this.api.get(bookId).subscribe({
+      next: (book) => {
+        this.refreshing.set(false);
+        this.show(book, this.detailsForm.dirty);
+      },
+      error: (error: unknown) => {
+        this.refreshing.set(false);
+        this.fail(error);
+      },
     });
+  }
+
+  private loadClasses(): void {
     this.classApi.list(true).subscribe({
       next: (classes) => this.classes.set(classes),
       error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
@@ -143,6 +177,8 @@ export class BookDetail {
 
   // Runs one change and shows the book the API answers with; a refusal is shown and the page stays as it was.
   private change(call: Observable<BookDto>, afterSuccess?: () => void): void {
+    this.reading?.unsubscribe();
+    this.refreshing.set(false);
     this.busy.set(true);
     this.saved.set(false);
     this.errorMessage.set(null);
@@ -159,10 +195,13 @@ export class BookDetail {
     });
   }
 
-  private show(book: BookDto): void {
+  /** Shows the book. Details typed but not saved are kept when asked to, as after a refresh; after a save they are the stored ones. */
+  private show(book: BookDto, keepDraft = false): void {
     this.loading.set(false);
     this.book.set(book);
-    this.detailsForm.reset({ classId: book.classId ?? '', name: book.name, subject: book.subject ?? '', description: book.description ?? '' });
+    if (!keepDraft) {
+      this.detailsForm.reset({ classId: book.classId ?? '', name: book.name, subject: book.subject ?? '', description: book.description ?? '' });
+    }
   }
 
   private fail(error: unknown): void {
