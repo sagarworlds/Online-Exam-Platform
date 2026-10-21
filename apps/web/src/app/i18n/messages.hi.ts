@@ -760,6 +760,7 @@ export const HI: Messages = {
   'common.save': 'सहेजें',
   'common.edit': 'संपादित करें',
   'common.change': 'बदलें',
+  'common.refresh': 'ताज़ा करें',
 
   // ---- exam editor: the page, its readiness list and settings rows ----
   'exams.editor.back': 'सभी परीक्षाएँ',

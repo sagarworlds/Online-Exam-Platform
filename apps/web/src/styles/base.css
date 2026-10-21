@@ -85,6 +85,14 @@ code {
   margin: 0;
 }
 
+/* The page's buttons, links and filters, kept together at the end of the header, with the refresh icon last on every page. */
+.page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .back-link {
   display: inline-block;
   margin-bottom: 0.75rem;

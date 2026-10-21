@@ -1,0 +1,25 @@
+:host {
+  display: inline-flex;
+}
+
+.refresh-button--busy {
+  cursor: progress;
+}
+
+.refresh-button--busy app-icon {
+  animation: refresh-spin 0.9s linear infinite;
+}
+
+@keyframes refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* No turning for people who ask for it: a softer, still icon says the same thing. */
+@media (prefers-reduced-motion: reduce) {
+  .refresh-button--busy app-icon {
+    animation: none;
+    opacity: 0.45;
+  }
+}

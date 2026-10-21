@@ -760,6 +760,7 @@ export const MR: Messages = {
   'common.save': 'जतन करा',
   'common.edit': 'संपादित करा',
   'common.change': 'बदला',
+  'common.refresh': 'ताजे करा',
 
   // ---- exam editor: the page, its readiness list and settings rows ----
   'exams.editor.back': 'सर्व परीक्षा',

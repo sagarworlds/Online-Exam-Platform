@@ -10,7 +10,7 @@ describe('Icon', () => {
     return fixture;
   }
 
-  const names: IconName[] = ['edit', 'trash', 'restore', 'language', 'chart', 'folder', 'upload', 'download', 'transfer', 'filter', 'plus', 'close', 'pin', 'search', 'choice', 'text', 'chevron-down', 'chevron-up'];
+  const names: IconName[] = ['edit', 'trash', 'restore', 'refresh', 'language', 'chart', 'folder', 'upload', 'download', 'transfer', 'filter', 'plus', 'close', 'pin', 'search', 'choice', 'text', 'chevron-down', 'chevron-up'];
 
   it.each(names)('draws something for %s', async (name) => {
     const fixture = await render(name);

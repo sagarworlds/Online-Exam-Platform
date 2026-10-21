@@ -766,6 +766,7 @@ export const EN = {
   'common.save': 'Save',
   'common.edit': 'Edit',
   'common.change': 'Change',
+  'common.refresh': 'Refresh',
 
   // ---- exam editor: the page, its readiness list and settings rows ----
   'exams.editor.back': 'All exams',
