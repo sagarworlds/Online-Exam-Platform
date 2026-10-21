@@ -1,0 +1,18 @@
+<details class="disclosure" [attr.data-status]="status()" [attr.name]="group()" [open]="open()" (toggle)="onToggle($event)">
+  <summary class="disclosure__row">
+    @if (status() !== 'none') {
+      <span class="disclosure__mark" aria-hidden="true">{{ mark() }}</span>
+    }
+    <span class="disclosure__title">{{ heading() }}</span>
+    @if (summary()) {
+      <span class="disclosure__summary">{{ summary() }}</span>
+    }
+    @if (statusLabel()) {
+      <span class="disclosure__tag">{{ statusLabel() }}</span>
+    }
+    <span class="disclosure__chevron" aria-hidden="true"></span>
+  </summary>
+  <div class="disclosure__body">
+    <ng-content />
+  </div>
+</details>

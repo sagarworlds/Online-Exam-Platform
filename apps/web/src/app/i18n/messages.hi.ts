@@ -9,6 +9,8 @@ export const HI: Messages = {
   'common.cancel': 'रद्द करें',
   'common.close': 'बंद करें',
   'common.retry': 'फिर से कोशिश करें',
+  'common.expandAll': 'सभी खोलें',
+  'common.collapseAll': 'सभी बंद करें',
   'common.ok': 'ठीक है',
   'common.skipToContent': 'मुख्य सामग्री पर जाएँ',
   'common.email': 'ईमेल',

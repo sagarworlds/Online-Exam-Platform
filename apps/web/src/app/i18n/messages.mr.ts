@@ -9,6 +9,8 @@ export const MR: Messages = {
   'common.cancel': 'रद्द करा',
   'common.close': 'बंद करा',
   'common.retry': 'पुन्हा प्रयत्न करा',
+  'common.expandAll': 'सर्व उघडा',
+  'common.collapseAll': 'सर्व बंद करा',
   'common.ok': 'ठीक आहे',
   'common.skipToContent': 'मुख्य मजकुरावर जा',
   'common.email': 'ईमेल',

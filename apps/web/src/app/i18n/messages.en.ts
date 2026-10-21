@@ -14,6 +14,8 @@ export const EN = {
   'common.cancel': 'Cancel',
   'common.close': 'Close',
   'common.retry': 'Try again',
+  'common.expandAll': 'Expand all',
+  'common.collapseAll': 'Collapse all',
   'common.ok': 'OK',
   'common.skipToContent': 'Skip to main content',
   'common.email': 'Email',
