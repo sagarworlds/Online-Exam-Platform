@@ -24,6 +24,8 @@ const question = (id: string, text: string, filedUnder: { chapterId: string; boo
     { id: `${id}-a`, text: 'A', isCorrect: true, isPinned: false },
     { id: `${id}-b`, text: 'B', isCorrect: false, isPinned: false },
   ],
+  difficulty: null,
+  topics: [] as string[],
   createdBy: 'u1',
   createdAtUtc: '2026-10-02T00:00:00Z',
 });
@@ -80,13 +82,31 @@ describe('ExamEditor', () => {
     httpMock.verify();
   });
 
-  function open(exam = examBody(), bank = [question('q1', 'What is 2 + 2?'), question('q2', 'Capital of France?')]) {
+  function open(exam = examBody()) {
     const fixture = TestBed.createComponent(ExamEditor);
     fixture.detectChanges();
     httpMock.expectOne(isExam).flush(exam);
-    httpMock.expectOne(isBank).flush(bank);
     fixture.detectChanges();
     return { fixture, root: fixture.nativeElement as HTMLElement };
+  }
+
+  /**
+   * Opens a section's question picker and answers its read of the bank with `bank`. The page does not read the bank itself: the picker does,
+   * when it is opened, so that a bank of any size can be searched. Returns the request, for the filters it asked with.
+   */
+  function openPicker(
+    fixture: ReturnType<typeof open>['fixture'],
+    root: HTMLElement,
+    bank = [question('q1', 'What is 2 + 2?'), question('q2', 'Capital of France?')],
+  ) {
+    const details = Array.from(root.querySelectorAll<HTMLDetailsElement>('app-exam-section-card details')).find((d) => d.textContent?.includes('Add a question from the bank'))!;
+    details.open = true;
+    details.dispatchEvent(new Event('toggle'));
+    fixture.detectChanges();
+    const request = httpMock.expectOne(isBank);
+    request.flush(bank);
+    fixture.detectChanges();
+    return request.request;
   }
 
   const button = (root: HTMLElement, label: string) =>
@@ -175,7 +195,7 @@ describe('ExamEditor', () => {
     it('are one row each, in a group with Expand all and Collapse all, closed to begin with', () => {
       const { root } = open();
 
-      const rows = Array.from(root.querySelectorAll('app-disclosure'));
+      const rows = Array.from(root.querySelectorAll('app-disclosure-group app-disclosure'));
       expect(rows).toHaveLength(11);
       expect(root.querySelector('app-disclosure-group .disclosure-group__tools')).not.toBeNull();
       expect(rows.every((row) => !row.querySelector('details')!.open)).toBe(true);
@@ -186,7 +206,7 @@ describe('ExamEditor', () => {
     it('tags the schedule of a draft that has none, with a mark and words', () => {
       const { root } = open();
 
-      const schedule = root.querySelector('app-disclosure')!;
+      const schedule = root.querySelector('app-disclosure-group app-disclosure')!;
       expect(schedule.querySelector('.disclosure__title')?.textContent).toBe('Schedule');
       expect(schedule.querySelector('.disclosure__tag')?.textContent?.trim()).toBe('Not scheduled yet.');
       expect(schedule.querySelector('details')!.getAttribute('data-status')).toBe('warning');
@@ -198,14 +218,14 @@ describe('ExamEditor', () => {
       (root.querySelectorAll('.disclosure-group__tools button')[0] as HTMLButtonElement).click();
       fixture.detectChanges();
 
-      expect(Array.from(root.querySelectorAll('app-disclosure details')).every((d) => (d as HTMLDetailsElement).open)).toBe(true);
+      expect(Array.from(root.querySelectorAll('app-disclosure-group app-disclosure details')).every((d) => (d as HTMLDetailsElement).open)).toBe(true);
       // Opening the Instructions row is what asks for the templates, so they are answered here.
       httpMock.match((r) => r.method === 'GET' && r.url.includes('/instruction-templates')).forEach((r) => r.flush([]));
     });
 
     it('keeps a row open or closed for the visit', () => {
       const { fixture, root } = open();
-      const details = root.querySelectorAll<HTMLDetailsElement>('app-disclosure details')[2];
+      const details = root.querySelectorAll<HTMLDetailsElement>('app-disclosure-group app-disclosure details')[2];
 
       details.open = true;
       details.dispatchEvent(new Event('toggle'));
@@ -217,7 +237,7 @@ describe('ExamEditor', () => {
     it('asks for the instruction templates only when the Instructions row is first opened', () => {
       const { fixture, root } = open();
       httpMock.expectNone((r) => r.url.includes('/instruction-templates'));
-      const row = Array.from(root.querySelectorAll('app-disclosure')).find((r) => r.querySelector('.disclosure__title')?.textContent === 'Instructions')!;
+      const row = Array.from(root.querySelectorAll('app-disclosure-group app-disclosure')).find((r) => r.querySelector('.disclosure__title')?.textContent === 'Instructions')!;
 
       const details = row.querySelector('details')!;
       details.open = true;
@@ -264,14 +284,11 @@ describe('ExamEditor', () => {
     httpMock.expectOne(isExam).flush(examBody());
   });
 
-  it('adds the chosen bank question to a section', () => {
+  it('adds the bank question chosen from the picker to a section', () => {
     const { fixture, root } = open();
-    const select = root.querySelector('select') as HTMLSelectElement;
-    select.value = 'q2';
-    select.dispatchEvent(new Event('change'));
-    fixture.detectChanges();
+    openPicker(fixture, root);
 
-    button(root, 'Add question').click();
+    (root.querySelector('button[aria-label="Add “Capital of France?” to Algebra"]') as HTMLButtonElement).click();
 
     const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/exams/exam-1/sections/s1/questions'));
     expect(post.request.body).toEqual({ questionId: 'q2' });
@@ -310,25 +327,35 @@ describe('ExamEditor', () => {
     expect(root.textContent).toContain('only 2 match');
   });
 
-  it('says so, and sends nothing, when Add question is pressed with no question chosen', () => {
-    const { fixture, root } = open();
+  it('does not read the question bank until the picker is opened', () => {
+    open();
 
-    button(root, 'Add question').click();
-    fixture.detectChanges();
-
-    httpMock.expectNone((r) => r.method === 'POST');
-    expect(root.textContent).toContain('Choose a question to add.');
+    httpMock.expectNone(isBank);
   });
 
   it('does not offer a question that is already in the exam', () => {
     const withQuestion = examBody({
       sections: [{ id: 's1', name: 'Algebra', timeSeconds: null, order: 1, questions: [{ id: 'eq1', questionId: 'q1', order: 1, text: 'What is 2 + 2?' }] }],
     });
-    const { root } = open(withQuestion);
+    const { fixture, root } = open(withQuestion);
+    openPicker(fixture, root);
 
-    const options = Array.from(root.querySelectorAll('select option')).map((o) => o.textContent?.trim());
-    expect(options).toContain('Capital of France?');
-    expect(options).not.toContain('What is 2 + 2?');
+    const stems = Array.from(root.querySelectorAll('.picker__stem')).map((o) => o.textContent?.trim());
+    expect(stems).toEqual(['Capital of France?']);
+  });
+
+  it('stops offering a question once it is in the exam, without closing the picker', () => {
+    const { fixture, root } = open();
+    openPicker(fixture, root);
+
+    (root.querySelector('button[aria-label="Add “What is 2 + 2?” to Algebra"]') as HTMLButtonElement).click();
+    httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/sections/s1/questions')).flush({ id: 'eq', questionId: 'q1', order: 1, text: 'What is 2 + 2?' }, { status: 201, statusText: 'Created' });
+    httpMock.expectOne(isExam).flush(
+      examBody({ sections: [{ id: 's1', name: 'Algebra', timeSeconds: null, order: 1, questions: [{ id: 'eq', questionId: 'q1', order: 1, text: 'What is 2 + 2?' }] }] }),
+    );
+    fixture.detectChanges();
+
+    expect(Array.from(root.querySelectorAll('.picker__stem')).map((o) => o.textContent?.trim())).toEqual(['Capital of France?']);
   });
 
   it('shows the API error and keeps the page when a change is refused', () => {
@@ -362,16 +389,18 @@ describe('ExamEditor', () => {
     const elsewhere = question('q3', 'Optics question', { chapterId: 'c9', bookId: 'b2' });
     const unfiled = question('q4', 'Unfiled question');
 
-    /** Opens a scoped exam; its bank is read with the API's own book filter, so the page expects that request. */
-    function openScoped(exam = examBody({ scope: chaptersScope }), bank = [inAlgebra, inGeometry]) {
-      const fixture = TestBed.createComponent(ExamEditor);
-      fixture.detectChanges();
-      httpMock.expectOne(isExam).flush(exam);
-      const request = httpMock.expectOne(isBank);
-      request.flush(bank);
-      fixture.detectChanges();
-      return { fixture, root: fixture.nativeElement as HTMLElement, request: request.request };
+    /** Opens a scoped exam. The bank is read when a section's picker is opened: see {@link openScopedPicker}. */
+    function openScoped(exam = examBody({ scope: chaptersScope })) {
+      return open(exam);
     }
+
+    /** Opens a scoped exam's picker, which asks the bank with the API's own book filter. */
+    function openScopedPicker(exam = examBody({ scope: chaptersScope }), bank = [inAlgebra, inGeometry]) {
+      const { fixture, root } = open(exam);
+      const request = openPicker(fixture, root, bank);
+      return { fixture, root, request };
+    }
+    const stemsOf = (root: HTMLElement) => Array.from(root.querySelectorAll('.picker__stem')).map((o) => o.textContent?.trim());
 
     it('says what an unlimited exam draws from', () => {
       const { root } = open();
@@ -380,10 +409,15 @@ describe('ExamEditor', () => {
       expect(root.textContent).toContain('Any question in the bank');
     });
 
-    it('says what a chapter-wise exam draws from, and reads the bank with the book filter', () => {
-      const { root, request } = openScoped();
+    it('says what a chapter-wise exam draws from', () => {
+      const { root } = openScoped();
 
       expect(root.textContent).toContain('Maths Grade 10: Algebra');
+    });
+
+    it('asks the bank for the exam’s book, so the book’s questions are not hidden behind newer ones from elsewhere', () => {
+      const { request } = openScopedPicker();
+
       expect(request.params.get('bookId')).toBe('b1');
     });
 
@@ -394,32 +428,25 @@ describe('ExamEditor', () => {
     });
 
     it('offers only the questions inside the exam scope', () => {
-      const { root } = openScoped(undefined, [inAlgebra, inGeometry, elsewhere, unfiled]);
+      const { root } = openScopedPicker(undefined, [inAlgebra, inGeometry, elsewhere, unfiled]);
 
-      const options = Array.from(root.querySelectorAll('select option')).map((o) => o.textContent?.trim());
-      expect(options).toContain('Solve x');
-      expect(options).not.toContain('Angles of a triangle');
-      expect(options).not.toContain('Optics question');
-      expect(options).not.toContain('Unfiled question');
+      expect(stemsOf(root)).toEqual(['Solve x']);
       expect(root.textContent).toContain("Only questions from this exam's chapters are offered.");
     });
 
     it('offers every question of the book to a whole-book exam', () => {
-      const { root } = openScoped(examBody({ scope: { type: 'Book', bookId: 'b1', bookName: 'Maths Grade 10', className: null, chapters: [] } }), [inAlgebra, inGeometry, elsewhere]);
+      const { root } = openScopedPicker(examBody({ scope: { type: 'Book', bookId: 'b1', bookName: 'Maths Grade 10', className: null, chapters: [] } }), [inAlgebra, inGeometry, elsewhere]);
 
-      const options = Array.from(root.querySelectorAll('select option')).map((o) => o.textContent?.trim());
-      expect(options).toContain('Solve x');
-      expect(options).toContain('Angles of a triangle');
-      expect(options).not.toContain('Optics question');
+      expect(stemsOf(root)).toEqual(['Solve x', 'Angles of a triangle']);
     });
 
     it('says what to do when the scope has no questions left to add', () => {
-      const { root } = openScoped(undefined, []);
+      const { root } = openScopedPicker(undefined, []);
 
       expect(root.textContent).toContain('There are none left to add');
     });
 
-    it('changes the scope: loads the books, saves, shows the new scope and reads the bank for it', () => {
+    it('changes the scope: loads the books, saves and shows the new scope', () => {
       const { fixture, root } = open();
       button(root, 'Change').click();
       fixture.detectChanges();
@@ -439,7 +466,6 @@ describe('ExamEditor', () => {
       expect(put.request.body).toEqual({ type: 'Book', bookId: 'b1' });
       put.flush(examBody({ scope: { type: 'Book', bookId: 'b1', bookName: 'Maths Grade 10', className: null, chapters: [] } }));
       httpMock.expectOne(isExam).flush(examBody({ scope: { type: 'Book', bookId: 'b1', bookName: 'Maths Grade 10', className: null, chapters: [] } }));
-      expect(httpMock.expectOne(isBank).request.params.get('bookId')).toBe('b1');
       fixture.detectChanges();
 
       expect(root.textContent).toContain('The whole book Maths Grade 10');
@@ -898,7 +924,8 @@ describe('ExamEditor', () => {
 
       expect(root.querySelectorAll('app-exam-section-card li').length).toBe(1);
       // It can be added again now: the picker offers it.
-      expect(Array.from(root.querySelectorAll('select option')).map((o) => o.textContent?.trim())).toContain('Capital of France?');
+      openPicker(fixture, root);
+      expect(Array.from(root.querySelectorAll('.picker__stem')).map((o) => o.textContent?.trim())).toContain('Capital of France?');
     });
 
     it('removes a section after asking, and reads the exam again', () => {
@@ -1272,27 +1299,24 @@ describe('ExamEditor', () => {
       expect(root.textContent).not.toContain('Loading');
 
       httpMock.expectOne(isExam).flush(examBody({ name: 'Maths Final (renamed)' }));
-      httpMock.expectOne(isBank).flush([question('q1', 'What is 2 + 2?')]);
       fixture.detectChanges();
 
       expect(root.querySelector('h1')?.textContent).toContain('Maths Final (renamed)');
       expect(refreshIcon(root).hasAttribute('aria-busy')).toBe(false);
     });
 
-    it('reads the questions and topics it can draw on again too', () => {
+    it('reads the topics it can draw on again too', () => {
       const { fixture, root } = open();
 
       refreshIcon(root).click();
       httpMock.expectOne(isExam).flush(examBody());
-      const bank = httpMock.expectOne(isBank);
-      bank.flush([question('q1', 'What is 2 + 2?'), question('q2', 'Capital of France?'), question('q3', 'Largest planet?')]);
       // The page's own first read of the topics was never answered, so the refresh's is the second.
       const topics = httpMock.match(isTopics);
       expect(topics).toHaveLength(2);
       topics.forEach((request) => request.flush(['Algebra']));
       fixture.detectChanges();
 
-      expect(root.textContent).toContain('Largest planet?');
+      expect(root.querySelector('h1')?.textContent).toContain('Maths Final');
     });
 
     it('leaves a form that is open alone', () => {
@@ -1306,7 +1330,6 @@ describe('ExamEditor', () => {
 
       refreshIcon(root).click();
       httpMock.expectOne(isExam).flush(examBody());
-      httpMock.expectOne(isBank).flush([]);
       fixture.detectChanges();
 
       expect((root.querySelector('#exam-name') as HTMLInputElement).value).toBe('Maths Final 2026');
@@ -1334,7 +1357,6 @@ describe('ExamEditor', () => {
 
       refreshIcon(root).click();
       httpMock.expectOne(isExam).flush(examBody());
-      httpMock.expectOne(isBank).flush([]);
       fixture.detectChanges();
 
       expect(root.querySelector('h1')?.textContent).toContain('Maths Final');

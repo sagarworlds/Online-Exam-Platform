@@ -55,15 +55,17 @@
   }
 
   @if (editable()) {
-    <div class="option-row">
-      <select #pick [attr.aria-label]="'exams.section.pickLabel' | t: { name: section().name }">
-        <option value="">{{ 'exams.section.choose' | t }}</option>
-        @for (question of choices(); track question.id) {
-          <option [value]="question.id">{{ question.text | plainText: 100 }}</option>
-        }
-      </select>
-      <button type="button" (click)="addRequested.emit({ sectionId: section().id, questionId: pick.value })" [disabled]="busy()">{{ 'exams.section.addQuestion' | t }}</button>
-    </div>
+    <app-disclosure [heading]="'exams.picker.heading' | t" [(open)]="picking">
+      @if (picking()) {
+        <app-question-picker
+          [scope]="examScope()"
+          [excluded]="excluded()"
+          [sectionName]="section().name"
+          [busy]="busy()"
+          (picked)="addRequested.emit({ sectionId: section().id, questionId: $event })"
+        />
+      }
+    </app-disclosure>
     <div class="section-card__draw">
       <button type="button" class="btn--small" (click)="drawing.set(!drawing())" [attr.aria-expanded]="drawing()" [disabled]="busy()">
         {{ 'exams.section.drawOpen' | t }}
@@ -113,15 +115,6 @@
         </p>
       }
     </div>
-    @if (scope() !== 'Independent') {
-      <p class="hint">
-        {{ (scope() === 'Book' ? 'exams.section.onlyBook' : 'exams.section.onlyChapters') | t }}
-        @if (choices().length === 0) {
-          {{ (scope() === 'Book' ? 'exams.section.noneLeftBook' : 'exams.section.noneLeftChapters') | t }}
-        }
-      </p>
-    }
-
     <div class="actions section-card__actions">
       @if (!renaming()) {
         <button type="button" class="btn--small" (click)="startRenaming()" [disabled]="busy()" [attr.aria-label]="'exams.section.renameLabel' | t: { name: section().name }">{{ 'exams.section.rename' | t }}</button>

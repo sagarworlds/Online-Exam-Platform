@@ -9,7 +9,6 @@ import { I18nService } from '../../i18n/i18n.service';
 import { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { QuestionApiService } from '../../question-bank/question-api.service';
-import { QuestionDto } from '../../question-bank/question.models';
 import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 import { Disclosure, DisclosureGroup } from '../../shared/disclosure/disclosure';
 import { extractErrorMessage } from '../../shared/problem-details';
@@ -19,7 +18,7 @@ import { InstructionTemplateApiService } from '../../instruction-templates/instr
 import { InstructionTemplateDto } from '../../instruction-templates/instruction-template.models';
 import { ExamInstructions } from '../exam-instructions/exam-instructions';
 import { ExamApiService } from '../exam-api.service';
-import { ContentProtectionRequest, DrawQuestionsRequest, ExamDto, ExamScopeDto, ExamStatus, FocusViolationLimitRequest, MarkingSchemeDto, ShuffleRequest, UpdateExamDetailsRequest } from '../exam.models';
+import { ContentProtectionRequest, DrawQuestionsRequest, ExamDto, ExamStatus, FocusViolationLimitRequest, MarkingSchemeDto, ShuffleRequest, UpdateExamDetailsRequest } from '../exam.models';
 import { ExamMarkingScheme } from '../exam-marking-scheme/exam-marking-scheme';
 import { ExamContentProtection } from '../exam-content-protection/exam-content-protection';
 import { ExamFocusViolationLimit } from '../exam-focus-violation-limit/exam-focus-violation-limit';
@@ -41,18 +40,6 @@ const STATUS_KEYS: Readonly<Record<ExamStatus, MessageKey>> = {
   Published: 'exams.status.Published',
   Archived: 'exams.status.Archived',
 };
-
-/** Whether a question may go into an exam with this scope; mirrors the rule the API enforces. */
-function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): boolean {
-  switch (scope?.type) {
-    case 'Book':
-      return question.bookId !== null && question.bookId === scope.bookId;
-    case 'Chapters':
-      return question.chapterId !== null && scope.chapters.some((chapter) => chapter.id === question.chapterId);
-    default:
-      return true;
-  }
-}
 
 /**
  * Admin page for one exam: its sections and questions, the schedule, and publishing (FR-11, FR-13). While the exam is a
@@ -89,7 +76,6 @@ export class ExamEditor {
   private readonly injector = inject(Injector);
 
   protected readonly exam = signal<ExamDto | null>(null);
-  protected readonly bank = signal<QuestionDto[]>([]);
   /** Topics in use in the bank, for the sections' draw pickers. */
   protected readonly topics = signal<string[]>([]);
   protected readonly loading = signal(true);
@@ -162,19 +148,12 @@ export class ExamEditor {
   );
 
   /**
-   * Bank questions that may go into this exam: not already in it (a question is included once), and inside its scope.
-   * The API refuses the rest anyway; offering only what it will accept saves the author finding that out one by one.
+   * The bank ids of the questions already in the exam (a question is included once), which each section's question picker leaves out. The
+   * picker reads the bank itself, so the page no longer loads two hundred questions it may never show.
    */
-  protected readonly availableQuestions = computed(() => {
-    const used = new Set(
-      this.exam()?.sections?.flatMap((section) => section.questions.map((question) => question.questionId)) ?? [],
-    );
-    const scope = this.exam()?.scope;
-    return this.bank().filter((question) => !used.has(question.id) && isInScope(question, scope));
-  });
-
-  /** The scope the bank list was loaded for, so it is read again only when the scope changes. */
-  private bankKey: string | null = null;
+  protected readonly usedQuestionIds = computed<ReadonlySet<string>>(
+    () => new Set(this.exam()?.sections?.flatMap((section) => section.questions.map((question) => question.questionId)) ?? []),
+  );
 
   protected readonly sectionForm = this.formBuilder.nonNullable.group({
     name: ['', Validators.required],
@@ -196,8 +175,6 @@ export class ExamEditor {
     }
 
     this.errorMessage.set(null);
-    // The questions are kept between reads of the exam, since only a change of scope makes them stale; a refresh asks for the latest anyway.
-    this.bankKey = null;
     this.reload();
     this.loadTopics();
   }
@@ -424,13 +401,6 @@ export class ExamEditor {
       return;
     }
 
-    // Said out loud rather than ignored: the list behind the picker is redrawn after every change, which can
-    // clear a choice made a moment earlier, and a silent no-op would look like a button that does nothing.
-    if (!questionId) {
-      this.errorMessage.set('Choose a question to add.');
-      return;
-    }
-
     this.run(this.examApi.addQuestion(this.examId, sectionId, questionId));
   }
 
@@ -546,25 +516,6 @@ export class ExamEditor {
     });
   }
 
-  // A scoped exam is offered the questions of its book, read by the API's own filter, so the newest-200 cap of the
-  // unfiltered list cannot hide a chapter's questions behind newer ones from elsewhere.
-  private loadBank(scope: ExamScopeDto | undefined): void {
-    const key = scope && scope.type !== 'Independent' ? `${scope.type}:${scope.bookId}` : 'all';
-    if (key === this.bankKey) {
-      return;
-    }
-
-    this.bankKey = key;
-    this.questionApi.list(key === 'all' ? {} : { bookId: scope?.bookId ?? undefined }).subscribe({
-      next: (questions) => this.bank.set(questions),
-      error: (error: unknown) => {
-        // Forget the key, so the next reload tries again instead of leaving the picker empty for good.
-        this.bankKey = null;
-        this.errorMessage.set(extractErrorMessage(error));
-      },
-    });
-  }
-
   private reload(): void {
     this.refreshing.set(true);
     this.reading?.unsubscribe();
@@ -573,7 +524,6 @@ export class ExamEditor {
         this.exam.set(exam);
         this.loading.set(false);
         this.refreshing.set(false);
-        this.loadBank(exam.scope);
       },
       error: (error: unknown) => {
         this.loading.set(false);
