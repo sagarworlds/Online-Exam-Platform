@@ -16,6 +16,7 @@ import { I18nService } from '../../i18n/i18n.service';
 import { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
+import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { MathDirective } from '../../shared/rich-text/math.directive';
 import { AttemptAdminApiService } from '../attempt-admin-api.service';
 import {
@@ -57,7 +58,7 @@ const EMPTY_KEYS: Readonly<Record<IssueReportFilterStatus, MessageKey>> = {
  */
 @Component({
   selector: 'app-issue-reports',
-  imports: [DatePipe, RouterLink, MathDirective, TranslatePipe],
+  imports: [DatePipe, RouterLink, MathDirective, RefreshButton, TranslatePipe],
   templateUrl: './issue-reports.html',
   styleUrl: './issue-reports.css',
 })
@@ -72,6 +73,8 @@ export class IssueReports {
 
   protected readonly reports = signal<IssueReportRow[]>([]);
   protected readonly loading = signal(true);
+  /** Whether the queue is being read again because the refresh icon was pressed. */
+  protected readonly refreshing = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly status = signal<IssueReportFilterStatus>('open');
   protected readonly statuses: readonly { value: IssueReportFilterStatus; label: MessageKey }[] = [
@@ -100,6 +103,20 @@ export class IssueReports {
   );
 
   constructor() {
+    this.fetch();
+  }
+
+  /**
+   * Reads the queue again for new reports. What is on screen stays until the answer comes, and the reports resolved in this visit keep their
+   * lines, as {@link keepResolved} sees to. A failed read leaves the queue and says why.
+   */
+  protected onRefresh(): void {
+    if (this.refreshing()) {
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.refreshing.set(true);
     this.fetch();
   }
 
@@ -190,19 +207,41 @@ export class IssueReports {
     });
   }
 
-  /** Reads the queue for the chosen status. Resolutions made here are not re-read: they keep their place until the page is left. */
+  /** Reads the queue for the chosen status. Reports resolved here keep their place, even once the API stops listing them as open. */
   private fetch(): void {
     this.listing?.unsubscribe();
     this.listing = this.api.listIssueReports(this.status()).subscribe({
-      next: (reports) => {
-        this.reports.set(reports);
+      next: (fresh) => {
+        this.reports.set(this.keepResolved(fresh));
         this.loading.set(false);
+        this.refreshing.set(false);
       },
       error: (error: unknown) => {
         this.loading.set(false);
+        this.refreshing.set(false);
         this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
+  }
+
+  /**
+   * The queue as the API gives it now, with the reports resolved in this visit kept in their places. The API no longer lists a resolved
+   * report as open, so without this the line for a resolution would vanish under the person who made it.
+   */
+  private keepResolved(fresh: IssueReportRow[]): IssueReportRow[] {
+    const resolved = this.resolutions();
+    const incoming = new Map(fresh.map((report): [string, IssueReportRow] => [report.id, report]));
+    const kept: IssueReportRow[] = [];
+    for (const previous of this.reports()) {
+      const current = incoming.get(previous.id);
+      if (current !== undefined) {
+        kept.push(current);
+        incoming.delete(previous.id);
+      } else if (resolved[previous.id] !== undefined) {
+        kept.push(previous);
+      }
+    }
+    return [...kept, ...incoming.values()];
   }
 
   /**

@@ -2,7 +2,10 @@
   <!-- The padlock at the end of the heading says whether the questions are encrypted; its details are in a tip. -->
   <div class="page-header">
     <h1>Question bank</h1>
-    <app-content-encryption-status />
+    <div class="page-header__actions">
+      <app-content-encryption-status />
+      <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
+    </div>
   </div>
 
   <!-- Why the page could not load something; what happened to the form's Save is shown under the form instead. -->

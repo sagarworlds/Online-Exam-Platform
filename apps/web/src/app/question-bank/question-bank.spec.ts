@@ -264,6 +264,130 @@ describe('QuestionBank', () => {
     });
   });
 
+  describe('the refresh icon', () => {
+    const icon = (fixture: ComponentFixture<QuestionBank>) => (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('app-refresh-button button')!;
+    const rows = (fixture: ComponentFixture<QuestionBank>) => (fixture.nativeElement as HTMLElement).querySelectorAll('app-question-row').length;
+
+    function open(questions = [listedQuestion('q1', 'What is 2 + 2?')]) {
+      const fixture = create();
+      httpMock.expectOne(isList).flush(questions);
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    /** Answers the three reads a refresh makes, with the list as given. */
+    function answerRefresh(fixture: ComponentFixture<QuestionBank>, questions: ReturnType<typeof listedQuestion>[], topics: string[] = []) {
+      httpMock.expectOne(isList).flush(questions);
+      httpMock.expectOne(isBooks).flush([]);
+      httpMock.match(isTopics).forEach((request) => request.flush(topics));
+      fixture.detectChanges();
+    }
+
+    it('sits in the page header, beside the encryption padlock', () => {
+      const fixture = open();
+
+      const actions = (fixture.nativeElement as HTMLElement).querySelector('.page-header .page-header__actions')!;
+      expect(actions.querySelector('app-content-encryption-status')).not.toBeNull();
+      expect(actions.querySelector('app-refresh-button')).not.toBeNull();
+    });
+
+    it('reads the list, books and topics again without blanking the list, and shows the questions added since', () => {
+      const fixture = open();
+      const root = fixture.nativeElement as HTMLElement;
+
+      icon(fixture).click();
+      fixture.detectChanges();
+      expect(icon(fixture).getAttribute('aria-busy')).toBe('true');
+      // The list is still drawn while the answer is on its way: no "Loading…" stands in for it.
+      expect(rows(fixture)).toBe(1);
+      expect(root.querySelector('.question-list')).not.toBeNull();
+
+      answerRefresh(fixture, [listedQuestion('q2', 'Name a prime'), listedQuestion('q1', 'What is 2 + 2?')]);
+
+      expect(rows(fixture)).toBe(2);
+      expect(root.textContent).toContain('Name a prime');
+      expect(icon(fixture).hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('keeps the filters it was reading with', () => {
+      const fixture = create([], ['fractions']);
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+      const box = (fixture.nativeElement as HTMLElement).querySelector('#filter-search') as HTMLInputElement;
+      box.value = 'half of';
+      box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      fixture.detectChanges();
+      httpMock.expectOne(isList).flush([listedQuestion('q1', 'Half of ten?')]);
+      fixture.detectChanges();
+
+      icon(fixture).click();
+
+      expect(httpMock.expectOne(isList).request.params.get('q')).toBe('half of');
+      httpMock.expectOne(isBooks).flush([]);
+      httpMock.match(isTopics).forEach((request) => request.flush([]));
+    });
+
+    it('reads again the statistics of a question whose card was opened, and no longer lists none that went', () => {
+      const fixture = open();
+      const root = fixture.nativeElement as HTMLElement;
+      const statistics = Array.from(root.querySelectorAll('button')).find((b) => b.getAttribute('aria-label') === 'Statistics') as HTMLButtonElement;
+      statistics.click();
+      const isStats = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/questions/q1/statistics');
+      const stats = (answered: number) => ({ examCount: 1, examNames: ['Mock'], answered, correct: 1, percentCorrect: 50, options: [] });
+      httpMock.expectOne(isStats).flush(stats(2));
+      fixture.detectChanges();
+      expect(root.textContent).toContain('Answered 2 times');
+
+      icon(fixture).click();
+      answerRefresh(fixture, [listedQuestion('q1', 'What is 2 + 2?')]);
+      httpMock.expectOne(isStats).flush(stats(5));
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Answered 5 times');
+    });
+
+    it('keeps the list and says why when the read fails, and clears that once it works', () => {
+      const fixture = open();
+      const root = fixture.nativeElement as HTMLElement;
+
+      icon(fixture).click();
+      httpMock.expectOne(isList).flush({ title: 'server_error', detail: 'The questions are not available.' }, { status: 500, statusText: 'Server Error' });
+      httpMock.expectOne(isBooks).flush([]);
+      httpMock.match(isTopics).forEach((request) => request.flush([]));
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('What is 2 + 2?');
+      expect(root.querySelector('.error-message')?.textContent).toContain('The questions are not available.');
+      expect(icon(fixture).hasAttribute('aria-busy')).toBe(false);
+
+      icon(fixture).click();
+      answerRefresh(fixture, [listedQuestion('q1', 'What is 2 + 2?')]);
+      expect(root.querySelector('.error-message')).toBeNull();
+    });
+
+    it('ignores the answer to a refresh once another filter has been chosen, so the wrong questions never land in the list', () => {
+      const fixture = open();
+      icon(fixture).click();
+      const refreshRead = httpMock.expectOne(isList);
+      httpMock.expectOne(isBooks).flush([]);
+      httpMock.match(isTopics).forEach((request) => request.flush([]));
+
+      const box = (fixture.nativeElement as HTMLElement).querySelector('#filter-search') as HTMLInputElement;
+      box.value = 'prime';
+      box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      fixture.detectChanges();
+      httpMock.expectOne(isList).flush([listedQuestion('q7', 'Name a prime')]);
+      // The slow answer to the refresh arrives last, for the list that was left.
+      refreshRead.flush([listedQuestion('q1', 'What is 2 + 2?')]);
+      fixture.detectChanges();
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.textContent).toContain('Name a prime');
+      expect(root.textContent).not.toContain('What is 2 + 2?');
+      expect(icon(fixture).hasAttribute('aria-busy')).toBe(false);
+    });
+  });
+
   describe('searching', () => {
     const search = (fixture: ComponentFixture<QuestionBank>, text: string, how: 'enter' | 'change' = 'enter') => {
       const box = (fixture.nativeElement as HTMLElement).querySelector('#filter-search') as HTMLInputElement;

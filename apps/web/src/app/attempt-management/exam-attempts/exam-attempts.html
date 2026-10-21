@@ -1,6 +1,16 @@
 <div class="page page--wide">
   <a [routerLink]="['/exams', examId]" class="back-link">&larr; Back to the exam</a>
 
+  <!-- Always there, so the page can be read again (and its links used) even when the first read failed. -->
+  <div class="page-header">
+    <h1>Candidates and attempts</h1>
+    <div class="page-header__actions">
+      <a [routerLink]="['/exams', examId, 'risk-flags']" class="risk-link">{{ 'proctoring.exam.link' | t }}</a>
+      <a [routerLink]="['/exams', examId, 'item-analysis']" class="btn">Item analysis</a>
+      <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
+    </div>
+  </div>
+
   @if (errorMessage()) {
     <p class="error-message" role="alert">{{ errorMessage() }}</p>
   }
@@ -11,11 +21,6 @@
   @if (loading()) {
     <p>Loading…</p>
   } @else if (data(); as d) {
-    <div class="page-header">
-      <h1>Candidates and attempts</h1>
-      <a [routerLink]="['/exams', examId, 'risk-flags']" class="risk-link">{{ 'proctoring.exam.link' | t }}</a>
-      <a [routerLink]="['/exams', examId, 'item-analysis']" class="btn">Item analysis</a>
-    </div>
     <p class="hint">
       {{ d.examName }}. Every candidate has {{ d.attemptsPerCandidate === 1 ? 'one attempt' : d.attemptsPerCandidate + ' attempts' }}; you can
       change that on the exam's page. If a candidate asks for another (a power cut, a dropped connection), you can give them one

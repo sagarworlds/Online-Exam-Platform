@@ -82,6 +82,67 @@ describe('InstructionTemplates', () => {
     expect(root.textContent).toContain('Board rules');
   });
 
+  describe('the refresh icon', () => {
+    const icon = () => root.querySelector<HTMLButtonElement>('app-refresh-button button')!;
+
+    it('reads the templates again without blanking the list, and shows one added since', () => {
+      open([template('t1', 'Board rules')]);
+
+      icon().click();
+      fixture.detectChanges();
+      expect(icon().getAttribute('aria-busy')).toBe('true');
+      expect(root.textContent).toContain('Board rules');
+      expect(root.textContent).not.toContain('Loading');
+
+      httpMock.expectOne(isList).flush([template('t1', 'Board rules'), template('t2', 'Practice rules')]);
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Practice rules');
+      expect(icon().hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('leaves a form that is open, with what was typed, alone', () => {
+      open([template('t1', 'Board rules')]);
+      buttonWithText('New template')?.click();
+      fixture.detectChanges();
+      type('#template-title', 'Mock rules');
+
+      icon().click();
+      httpMock.expectOne(isList).flush([template('t1', 'Board rules')]);
+      fixture.detectChanges();
+
+      expect((root.querySelector('#template-title') as HTMLInputElement).value).toBe('Mock rules');
+    });
+
+    it('keeps the list and says why above it when the read fails, and clears that once it works', () => {
+      open([template('t1', 'Board rules')]);
+
+      icon().click();
+      httpMock.expectOne(isList).flush({ title: 'server_error', detail: 'Try later.' }, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Board rules');
+      expect(root.querySelector('.error-message')?.textContent).toContain('Try later.');
+      expect(icon().hasAttribute('aria-busy')).toBe(false);
+
+      icon().click();
+      httpMock.expectOne(isList).flush([template('t1', 'Board rules')]);
+      fixture.detectChanges();
+      expect(root.querySelector('.error-message')).toBeNull();
+    });
+
+    it('is there when the first read failed, and recovers the list', () => {
+      open('error');
+
+      icon().click();
+      httpMock.expectOne(isList).flush([template('t1', 'Board rules')]);
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Board rules');
+      expect(root.querySelector('.error-message')).toBeNull();
+    });
+  });
+
   it('creates a template from the form and places it in the list', () => {
     open([]);
     buttonWithText('New template')?.click();

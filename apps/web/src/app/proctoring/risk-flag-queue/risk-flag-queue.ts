@@ -10,9 +10,11 @@ import {
   viewChildren,
 } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { MessageKey } from '../../i18n/messages.en';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
+import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { ProctoringApiService } from '../proctoring-api.service';
 import {
@@ -55,7 +57,7 @@ const FILTERS: readonly { value: RiskFlagFilterName; label: MessageKey }[] = [
  */
 @Component({
   selector: 'app-risk-flag-queue',
-  imports: [DatePipe, RouterLink, TranslatePipe],
+  imports: [DatePipe, RouterLink, RefreshButton, TranslatePipe],
   templateUrl: './risk-flag-queue.html',
   styleUrl: './risk-flag-queue.css',
 })
@@ -83,7 +85,13 @@ export class RiskFlagQueue {
   protected readonly page = signal(1);
   protected readonly loading = signal(true);
   protected readonly loadingMore = signal(false);
+  /** Whether the queue is being read again because the refresh icon was pressed; the cards stay until the answer comes. */
+  protected readonly refreshing = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+  /** The read that failed last, so "Try again" repeats exactly it: a refresh that failed must not come back as a second copy of the page. */
+  private failedRead: { page: number; append: boolean; refresh: boolean } | null = null;
+  /** The read of the queue in flight. */
+  private reading: Subscription | null = null;
 
   protected readonly scanning = signal(false);
   protected readonly scanResult = signal<RiskScanResult | null>(null);
@@ -123,7 +131,24 @@ export class RiskFlagQueue {
 
   /** Tries the read again after it failed. */
   protected retry(): void {
+    const failed = this.failedRead;
+    if (failed !== null) {
+      this.request(failed.page, failed.append, failed.refresh);
+      return;
+    }
     this.request(this.page(), this.entries().length > 0);
+  }
+
+  /**
+   * Reads the first page of the view again, so flags raised since the page opened show without reloading the tab. The cards stay until the
+   * answer comes, the cards decided in this visit keep their lines, and a form that is open stays open. "Show more" then continues from
+   * the first page. A failed read leaves the queue as it was and says why.
+   */
+  protected onRefresh(): void {
+    if (this.refreshing() || this.loading() || this.loadingMore()) {
+      return;
+    }
+    this.request(1, false, true);
   }
 
   /** Asks the server to score the exam's finished attempts, then reads the queue again. */
@@ -246,12 +271,21 @@ export class RiskFlagQueue {
       : this.i18n.t('proctoring.result.dismissed');
   }
 
-  /** Reads one page of a view. An appended page keeps the cards already shown and any decisions made on them. */
-  private request(page: number, append: boolean): void {
-    this.loading.set(!append);
+  /**
+   * Reads one page of a view. An appended page keeps the cards already shown and any decisions made on them. A refresh does not blank the
+   * page, and keeps the lines for the decisions made in this visit, though the API no longer lists those flags as open.
+   */
+  private request(page: number, append: boolean, refresh = false): void {
+    if (!refresh) {
+      this.loading.set(!append);
+    }
     this.loadingMore.set(append);
+    this.refreshing.set(refresh);
     this.errorMessage.set(null);
-    this.api.listRiskFlags(this.examId, this.filter(), page).subscribe({
+    this.failedRead = null;
+    // A newer read replaces one still on its way, so the answer for a view that was left cannot land in the one chosen since.
+    this.reading?.unsubscribe();
+    this.reading = this.api.listRiskFlags(this.examId, this.filter(), page).subscribe({
       next: (queue) => {
         this.examName.set(queue.examName);
         this.total.set(queue.total);
@@ -260,16 +294,48 @@ export class RiskFlagQueue {
         this.loaded.set(true);
         this.page.set(page);
         const fresh: QueueEntry[] = queue.items.map((flag) => ({ flag, decision: null }));
-        this.entries.update((list) => (append ? [...list, ...fresh] : fresh));
+        this.entries.update((list) => (append ? [...list, ...fresh] : refresh ? this.keepDecided(list, fresh) : fresh));
+        // A form left open for a flag someone else has since decided has nothing to send.
+        const dismissing = this.dismissingId();
+        if (refresh && dismissing !== null && !this.entries().some((entry) => entry.flag.id === dismissing && entry.decision === null)) {
+          this.dismissingId.set(null);
+        }
         this.loading.set(false);
         this.loadingMore.set(false);
+        this.refreshing.set(false);
       },
       error: (error: unknown) => {
+        this.failedRead = { page, append, refresh };
         this.loading.set(false);
         this.loadingMore.set(false);
+        this.refreshing.set(false);
         this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
+  }
+
+  /**
+   * The first page as the API gives it now, with the flags decided in this visit kept in their places. The API no longer lists a decided
+   * flag as open, so without this the line for a decision would vanish under the person who made it. A flag someone else has decided
+   * drops out, and a new one is added at the end.
+   */
+  private keepDecided(current: QueueEntry[], fresh: QueueEntry[]): QueueEntry[] {
+    const incoming = new Map(fresh.map((entry): [string, QueueEntry] => [entry.flag.id, entry]));
+    const kept: QueueEntry[] = [];
+    for (const entry of current) {
+      if (entry.decision !== null) {
+        kept.push(entry);
+        incoming.delete(entry.flag.id);
+        continue;
+      }
+
+      const latest = incoming.get(entry.flag.id);
+      if (latest !== undefined) {
+        kept.push(latest);
+        incoming.delete(entry.flag.id);
+      }
+    }
+    return [...kept, ...incoming.values()];
   }
 
   /** Sends one decision for a flag and turns its card into the line that says what was decided. */

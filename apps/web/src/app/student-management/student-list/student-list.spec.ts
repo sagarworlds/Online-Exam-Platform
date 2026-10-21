@@ -628,6 +628,74 @@ describe('StudentList', () => {
     expect(root.textContent).toContain('Showing the first 200 students by name.');
   });
 
+  describe('the refresh icon', () => {
+    const icon = (root: HTMLElement) => root.querySelector<HTMLButtonElement>('app-refresh-button button')!;
+
+    it('reads the students and invitations again without blanking the list, and shows a student who registered since', () => {
+      const { fixture, root } = open({ students: [asha] });
+
+      icon(root).click();
+      fixture.detectChanges();
+      expect(icon(root).getAttribute('aria-busy')).toBe('true');
+      expect(titles(root)).toEqual(['Asha Rao']);
+      expect(root.textContent).not.toContain('Loading');
+
+      answerRead({ students: [asha, ben] });
+      fixture.detectChanges();
+
+      expect(titles(root)).toEqual(['Asha Rao', 'Ben Das']);
+      expect(icon(root).hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('keeps a row that is open, open', () => {
+      const { fixture, root } = open({ students: [asha], invites: [invite('1', 'asha@example.com', 'Maths Final')] }, ['student.read', 'invite.manage']);
+      toggleOf(root, 'Asha Rao').click();
+      fixture.detectChanges();
+      httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/admin/students/a1')).flush({ ...asha, dateOfBirth: '2000-01-01', ageBand: 'Adult' });
+      fixture.detectChanges();
+
+      icon(root).click();
+      answerRead({ students: [asha], invites: [invite('1', 'asha@example.com', 'Maths Final'), invite('2', 'asha@example.com', 'Physics')] });
+      fixture.detectChanges();
+
+      expect(toggleOf(root, 'Asha Rao').getAttribute('aria-expanded')).toBe('true');
+      expect(root.textContent).toContain('Physics');
+    });
+
+    it('turns while a change reads the list again too, and is pressable once that is over', () => {
+      const { fixture, root } = open({ students: [asha] });
+      iconOf(root, 'Asha Rao', 'Deactivate')!.click();
+      fixture.detectChanges();
+      buttonNamed(root, 'Deactivate')!.click();
+      fixture.detectChanges();
+      httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/admin/students/a1/deactivate')).flush({ ...asha, status: 'Deactivated' });
+      fixture.detectChanges();
+
+      expect(icon(root).getAttribute('aria-busy')).toBe('true');
+      answerRead({ students: [{ ...asha, status: 'Deactivated' }] });
+      fixture.detectChanges();
+      expect(icon(root).hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('keeps the list and says why when the read fails, and clears the reason when it works', () => {
+      const { fixture, root } = open({ students: [asha] });
+
+      icon(root).click();
+      httpMock.expectOne(isStudents).flush({ title: 'server_error', detail: 'The list is not available.' }, { status: 500, statusText: 'Server Error' });
+      httpMock.match(isInvites).forEach((r) => r.cancelled || r.flush([]));
+      fixture.detectChanges();
+
+      expect(titles(root)).toEqual(['Asha Rao']);
+      expect(root.querySelector('[role="alert"]')?.textContent).toContain('The list is not available.');
+      expect(icon(root).hasAttribute('aria-busy')).toBe(false);
+
+      icon(root).click();
+      answerRead({ students: [asha] });
+      fixture.detectChanges();
+      expect(root.querySelector('[role="alert"]')).toBeNull();
+    });
+  });
+
   it("shows the API's message when the list cannot be read", () => {
     configure(['student.read', 'invite.manage']);
     const fixture = TestBed.createComponent(StudentList);

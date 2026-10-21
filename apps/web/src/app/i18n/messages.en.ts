@@ -540,7 +540,6 @@ export const EN = {
   'whatsapp.title': 'WhatsApp test',
   'whatsapp.intro': "Send a message to a phone number through the platform's WhatsApp connection to check that it works. If it does not, this page says why.",
   'whatsapp.setup.heading': 'Setup check',
-  'whatsapp.setup.refresh': 'Refresh',
   'whatsapp.setup.retry': 'Retry',
   'whatsapp.status.on': 'WhatsApp is on',
   'whatsapp.status.off': 'WhatsApp is off',
@@ -766,6 +765,7 @@ export const EN = {
   'common.save': 'Save',
   'common.edit': 'Edit',
   'common.change': 'Change',
+  'common.refresh': 'Refresh',
 
   // ---- exam editor: the page, its readiness list and settings rows ----
   'exams.editor.back': 'All exams',

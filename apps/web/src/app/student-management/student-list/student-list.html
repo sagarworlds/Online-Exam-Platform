@@ -1,9 +1,12 @@
 <div class="page page--wide">
   <div class="page-header">
     <h1>Students</h1>
-    @if (canInvite) {
-      <a routerLink="/invites/create" class="btn btn--primary">Invite a candidate</a>
-    }
+    <div class="page-header__actions">
+      @if (canInvite) {
+        <a routerLink="/invites/create" class="btn btn--primary">Invite a candidate</a>
+      }
+      <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
+    </div>
   </div>
 
   <div class="field student-search" role="search">

@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { I18nService } from '../i18n/i18n.service';
 import { TranslatePipe } from '../i18n/translate.pipe';
 import { extractErrorMessage } from '../shared/problem-details';
+import { RefreshButton } from '../shared/refresh-button/refresh-button';
 import { InstructionTemplateApiService } from './instruction-template-api.service';
 import { InstructionTemplateForm } from './instruction-template-form/instruction-template-form';
 import { InstructionTemplateDto, InstructionTemplateRequest } from './instruction-template.models';
@@ -17,7 +18,7 @@ function withSaved(list: readonly InstructionTemplateDto[], saved: InstructionTe
  */
 @Component({
   selector: 'app-instruction-templates',
-  imports: [TranslatePipe, InstructionTemplateForm],
+  imports: [TranslatePipe, InstructionTemplateForm, RefreshButton],
   templateUrl: './instruction-templates.html',
   styleUrl: './instruction-templates.css',
 })
@@ -27,6 +28,8 @@ export class InstructionTemplates {
 
   protected readonly templates = signal<InstructionTemplateDto[]>([]);
   protected readonly loading = signal(true);
+  /** Whether the templates are being read, for the refresh icon to turn. */
+  protected readonly refreshing = signal(false);
   protected readonly loadError = signal<string | null>(null);
   /** What the last action did, as a short line above the list. */
   protected readonly message = signal<string | null>(null);
@@ -48,15 +51,39 @@ export class InstructionTemplates {
   /** Reads the templates. Used on opening the page and by the retry after a failed read. */
   protected load(): void {
     this.loading.set(true);
+    this.read();
+  }
+
+  /**
+   * Reads the templates again, so one added or changed by a colleague shows without reloading the tab. The list is not blanked, and a form
+   * that is open stays open. A failed read leaves the list and says why above it.
+   */
+  protected onRefresh(): void {
+    if (!this.refreshing()) {
+      this.read();
+    }
+  }
+
+  private read(): void {
+    this.refreshing.set(true);
     this.loadError.set(null);
+    this.rowError.set(null);
     this.api.list().subscribe({
       next: (templates) => {
         this.templates.set(templates);
         this.loading.set(false);
+        this.refreshing.set(false);
       },
       error: (error: unknown) => {
+        const message = extractErrorMessage(error, this.i18n.t('templates.loadFailed'));
+        // Templates already on screen stay, with the reason above them; with none to keep, the error stands in the list's place, with its retry.
+        if (this.loading() || this.templates().length === 0) {
+          this.loadError.set(message);
+        } else {
+          this.rowError.set(message);
+        }
         this.loading.set(false);
-        this.loadError.set(extractErrorMessage(error, this.i18n.t('templates.loadFailed')));
+        this.refreshing.set(false);
       },
     });
   }

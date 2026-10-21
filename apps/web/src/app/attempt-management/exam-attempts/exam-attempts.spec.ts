@@ -672,4 +672,110 @@ describe('ExamAttempts', () => {
       expect(buttonLabelled(fixture, 'Sign-in details')).toHaveLength(1);
     });
   });
+
+  describe('the refresh icon', () => {
+    const isRead = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts');
+    const staff = (overrides: Partial<AttemptSummaryDto> = {}): AttemptSummaryDto => ({ ...attempt(1, 'InProgress'), ...overrides });
+    const withAttempt = (summary: AttemptSummaryDto) => candidate({ attempts: [summary] });
+    const icon = (fixture: ComponentFixture<ExamAttempts>) => root(fixture).querySelector<HTMLButtonElement>('app-refresh-button button')!;
+
+    it('reads the candidates again, keeping the page as it is until the answer arrives', () => {
+      const fixture = open(exam([candidate()]));
+
+      icon(fixture).click();
+      fixture.detectChanges();
+
+      expect(icon(fixture).getAttribute('aria-busy')).toBe('true');
+      expect(textOf(fixture)).toContain('amy@example.com');
+      expect(textOf(fixture)).not.toContain('Loading…');
+
+      httpMock.expectOne(isRead).flush(exam([candidate(), candidate({ candidateId: 'c2', email: 'ben@example.com', attempts: [] })]));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('ben@example.com');
+      expect(icon(fixture).hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('shows a change made elsewhere, such as an attempt that was paused', () => {
+      const fixture = open(exam([withAttempt(staff())]));
+      expect(textOf(fixture)).toContain('In progress');
+
+      icon(fixture).click();
+      httpMock.expectOne(isRead).flush(exam([withAttempt(staff({ paused: true, focusViolations: 3 }))]));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Paused');
+      expect(textOf(fixture)).toContain('Left the page 3 times');
+    });
+
+    it('leaves a form that is open, with what was typed, alone', () => {
+      const fixture = open(exam([withAttempt(staff())]));
+      buttonLabelled(fixture, 'Warn')[0].click();
+      fixture.detectChanges();
+      const field = root(fixture).querySelector('textarea') as HTMLTextAreaElement;
+      field.value = 'Eyes on your own screen.';
+      field.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      icon(fixture).click();
+      httpMock.expectOne(isRead).flush(exam([withAttempt(staff({ focusViolations: 1 }))]));
+      fixture.detectChanges();
+
+      expect((root(fixture).querySelector('textarea') as HTMLTextAreaElement).value).toBe('Eyes on your own screen.');
+      expect(textOf(fixture)).toContain('Left the page 1 time');
+    });
+
+    it('reads an open paper and open sign-in details again with the candidates', () => {
+      const fixture = open(exam([withAttempt(staff({ devices: 2 }))]));
+      buttonLabelled(fixture, 'Show paper')[0].click();
+      httpMock.expectOne((r) => r.url.endsWith('/v1/exams/exam-1/attempts/a1/paper')).flush({ attemptId: 'a1', number: 1, hasDrawnQuestions: false, sections: [] });
+      buttonLabelled(fixture, 'Sign-in details')[0].click();
+      httpMock.expectOne((r) => r.url.endsWith('/v1/exams/exam-1/attempts/a1/clients')).flush([]);
+      fixture.detectChanges();
+
+      icon(fixture).click();
+      httpMock.expectOne(isRead).flush(exam([withAttempt(staff({ devices: 2 }))]));
+
+      httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts/a1/paper')).flush({ attemptId: 'a1', number: 1, hasDrawnQuestions: false, sections: [] });
+      httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts/a1/clients')).flush([]);
+    });
+
+    it('keeps what is shown and says why when the read fails', () => {
+      const fixture = open(exam([candidate()]));
+
+      icon(fixture).click();
+      httpMock.expectOne(isRead).flush({ title: 'exam_not_found', detail: 'No exam matches the given id.' }, { status: 404, statusText: 'Not Found' });
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('amy@example.com');
+      expect(textOf(fixture)).toContain('No exam matches the given id.');
+      expect(icon(fixture).hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('is there after the first read failed, and recovers the page', () => {
+      const fixture = open('error');
+      expect(textOf(fixture)).toContain('No exam matches the given id.');
+
+      icon(fixture).click();
+      httpMock.expectOne(isRead).flush(exam([candidate()]));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('amy@example.com');
+      expect(textOf(fixture)).not.toContain('No exam matches the given id.');
+    });
+
+    it('drops a read still on its way when an action is taken, so the old answer cannot undo it', () => {
+      const fixture = open(exam([withAttempt(staff())]));
+
+      icon(fixture).click();
+      const read = httpMock.expectOne(isRead);
+      buttonLabelled(fixture, 'Pause')[0].click();
+
+      expect(read.cancelled).toBe(true);
+      httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/exams/exam-1/attempts/a1/pause')).flush(staff({ paused: true }));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Paused');
+    });
+  });
 });

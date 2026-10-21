@@ -13,6 +13,7 @@ import { RouterLink } from '@angular/router';
 import { MAX_ATTEMPT_REQUEST_TEXT } from '../../candidate/candidate.models';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
+import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AttemptAdminApiService } from '../attempt-admin-api.service';
 import { AttemptRequestRow } from '../attempt-admin.models';
@@ -41,7 +42,7 @@ interface QueueEntry {
  */
 @Component({
   selector: 'app-attempt-requests',
-  imports: [DatePipe, RouterLink, TranslatePipe],
+  imports: [DatePipe, RouterLink, RefreshButton, TranslatePipe],
   templateUrl: './attempt-requests.html',
   styleUrl: './attempt-requests.css',
 })
@@ -56,6 +57,8 @@ export class AttemptRequests {
 
   protected readonly entries = signal<QueueEntry[]>([]);
   protected readonly loading = signal(true);
+  /** Whether the queue is being read again because the refresh icon was pressed. */
+  protected readonly refreshing = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   /** The request a call is running for, so only its buttons are locked meanwhile. */
   protected readonly busyId = signal<string | null>(null);
@@ -72,16 +75,65 @@ export class AttemptRequests {
   );
 
   constructor() {
+    this.read();
+  }
+
+  /**
+   * Reads the queue again for new requests. What is on screen stays until the answer comes, and the decisions made in this visit keep their
+   * lines, as {@link merge} sees to. A failed read leaves the queue and says why.
+   */
+  protected onRefresh(): void {
+    if (this.refreshing()) {
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.refreshing.set(true);
+    this.read();
+  }
+
+  private read(): void {
     this.api.listAttemptRequests('pending').subscribe({
       next: (requests) => {
-        this.entries.set(requests.map((request) => ({ request, decision: null })));
+        this.entries.update((current) => this.merge(current, requests));
+        // A form left open for a request someone else has since handled has nothing to send.
+        const declining = this.decliningId();
+        if (declining !== null && !this.entries().some((entry) => entry.request.id === declining && entry.decision === null)) {
+          this.decliningId.set(null);
+        }
         this.loading.set(false);
+        this.refreshing.set(false);
       },
       error: (error: unknown) => {
         this.loading.set(false);
+        this.refreshing.set(false);
         this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
+  }
+
+  /**
+   * The queue as the API gives it now, with the requests decided in this visit kept in their places. The API no longer lists a decided
+   * request as pending, so without this the line for a decision would vanish under the person who made it. A request someone else has
+   * handled drops out, and a new one is added at the end.
+   */
+  private merge(current: QueueEntry[], pending: AttemptRequestRow[]): QueueEntry[] {
+    const incoming = new Map(pending.map((request): [string, AttemptRequestRow] => [request.id, request]));
+    const kept: QueueEntry[] = [];
+    for (const entry of current) {
+      if (entry.decision !== null) {
+        kept.push(entry);
+        incoming.delete(entry.request.id);
+        continue;
+      }
+
+      const fresh = incoming.get(entry.request.id);
+      if (fresh !== undefined) {
+        kept.push({ request: fresh, decision: null });
+        incoming.delete(entry.request.id);
+      }
+    }
+    return [...kept, ...Array.from(incoming.values(), (request): QueueEntry => ({ request, decision: null }))];
   }
 
   /** The count line, in words: how many requests are waiting, or that none are. */

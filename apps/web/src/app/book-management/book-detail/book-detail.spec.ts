@@ -315,4 +315,109 @@ describe('BookDetail', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('No book matches the given id.');
   });
+
+  describe('the refresh icon', () => {
+    const isBook = (r: { method: string; url: string }) => r.method === 'GET' && url(r, '');
+    const icon = (root: HTMLElement) => root.querySelector<HTMLButtonElement>('app-refresh-button button')!;
+
+    it('reads the book and the classes again without blanking the page, and shows a chapter added elsewhere', () => {
+      const { fixture, root } = open();
+
+      icon(root).click();
+      fixture.detectChanges();
+      expect(icon(root).getAttribute('aria-busy')).toBe('true');
+      expect(root.querySelector('h1')?.textContent).toContain('Maths Grade 10');
+      expect(root.textContent).not.toContain('Loading…');
+
+      httpMock.expectOne(isBook).flush(book({ chapters: [chapter('c1', 1, 'Algebra', { questionCount: 12 }), chapter('c2', 2, 'Geometry'), chapter('c3', 3, 'Trigonometry')] }));
+      httpMock.expectOne(isClassList).flush([]);
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Trigonometry');
+      expect(icon(root).hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('updates the details that were not touched, and keeps the ones typed but not saved', () => {
+      const { fixture, root } = open();
+      type(fixture, root.querySelector('#detail-name') as HTMLInputElement, 'Maths Grade 11');
+
+      icon(root).click();
+      httpMock.expectOne(isBook).flush(book({ subject: 'Mathematics' }));
+      httpMock.expectOne(isClassList).flush([]);
+      fixture.detectChanges();
+
+      expect((root.querySelector('#detail-name') as HTMLInputElement).value).toBe('Maths Grade 11');
+      expect(button(root, 'Save details').disabled).toBe(false);
+    });
+
+    it('shows the stored details when none were being changed', () => {
+      const { fixture, root } = open();
+
+      icon(root).click();
+      httpMock.expectOne(isBook).flush(book({ name: 'Maths Grade 10 (2026)' }));
+      httpMock.expectOne(isClassList).flush([]);
+      fixture.detectChanges();
+
+      expect((root.querySelector('#detail-name') as HTMLInputElement).value).toBe('Maths Grade 10 (2026)');
+      expect(button(root, 'Save details').disabled).toBe(true);
+    });
+
+    it('keeps a chapter rename that is open', () => {
+      const { fixture, root } = open();
+      button(root, 'Rename', rowOf(root, 'Geometry')).click();
+      fixture.detectChanges();
+
+      icon(root).click();
+      httpMock.expectOne(isBook).flush(book());
+      httpMock.expectOne(isClassList).flush([]);
+      fixture.detectChanges();
+
+      expect(root.querySelector('form[aria-label="Rename chapter"]')).not.toBeNull();
+    });
+
+    it('keeps the page and says why when the read fails', () => {
+      const { fixture, root } = open();
+
+      icon(root).click();
+      httpMock.expectOne(isBook).flush({ title: 'server_error', detail: 'The book is not available.' }, { status: 500, statusText: 'Server Error' });
+      httpMock.expectOne(isClassList).flush([]);
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Algebra');
+      expect(root.querySelector('.error-message')?.textContent).toContain('The book is not available.');
+      expect(icon(root).hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('drops a read still on its way when a change is made, so the old book cannot undo it', () => {
+      const { fixture, root } = open();
+      icon(root).click();
+      const read = httpMock.expectOne(isBook);
+      httpMock.expectOne(isClassList).flush([]);
+
+      button(root, 'Archive book').click();
+      expect(read.cancelled).toBe(true);
+      httpMock.expectOne((r) => r.method === 'POST' && url(r, '/archive')).flush(book({ isArchived: true }));
+      fixture.detectChanges();
+
+      expect(button(root, 'Restore book')).toBeDefined();
+      expect(icon(root).hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('is there when the book could not be read at first, and recovers the page', () => {
+      const fixture = TestBed.createComponent(BookDetail);
+      fixture.detectChanges();
+      httpMock.expectOne(isBook).flush({ title: 'book_not_found', detail: 'No book matches the given id.' }, { status: 404, statusText: 'Not Found' });
+      httpMock.expectOne(isClassList).flush([]);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      icon(root).click();
+      httpMock.expectOne(isBook).flush(book());
+      httpMock.expectOne(isClassList).flush([]);
+      fixture.detectChanges();
+
+      expect(root.querySelector('h1')?.textContent).toContain('Maths Grade 10');
+      expect(root.querySelector('.error-message')).toBeNull();
+    });
+  });
 });

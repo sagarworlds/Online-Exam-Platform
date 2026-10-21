@@ -338,6 +338,63 @@ describe('IssueReports (FR-42)', () => {
     });
   });
 
+  describe('the refresh icon', () => {
+    const icon = () => root.querySelector<HTMLButtonElement>('app-refresh-button button')!;
+
+    it('reads the queue again without blanking it, and adds the reports that came in', async () => {
+      await open([row('r1')]);
+
+      icon().click();
+      fixture.detectChanges();
+      expect(icon().getAttribute('aria-busy')).toBe('true');
+      expect(text()).toContain('r1@example.com');
+      expect(text()).not.toContain('Loading');
+
+      const read = httpMock.expectOne(isList);
+      expect(read.request.params.get('status')).toBe('open');
+      read.flush([row('r1'), row('r2')]);
+      fixture.detectChanges();
+
+      expect(cards()).toHaveLength(2);
+      expect(icon().hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('keeps the lines for reports resolved in this visit, though the API no longer lists them as open', async () => {
+      await open([row('r1'), row('r2')]);
+      press('Resolve…', 0);
+      type(root.querySelector('textarea') as HTMLTextAreaElement, 'Added option C');
+      press('Mark resolved');
+      httpMock.expectOne(isResolve('r1')).flush(row('r1', { status: 'Resolved' }));
+      fixture.detectChanges();
+
+      icon().click();
+      httpMock.expectOne(isList).flush([row('r2'), row('r3')]);
+      fixture.detectChanges();
+
+      expect(results()).toHaveLength(1);
+      expect(results()[0].textContent).toContain('Marked the report from r1@example.com as resolved.');
+      expect(cards()[0].textContent).toContain('r1@example.com');
+      expect(text()).toContain('r3@example.com');
+      expect(root.querySelector('.issue-queue__count')?.textContent?.trim()).toBe('2 reports are waiting.');
+    });
+
+    it('keeps the queue and says why when the read fails, and clears the reason once it works', async () => {
+      await open([row('r1')]);
+
+      icon().click();
+      httpMock.expectOne(isList).flush({ title: 'forbidden', detail: 'No access.' }, { status: 403, statusText: 'Forbidden' });
+      fixture.detectChanges();
+      expect(text()).toContain('r1@example.com');
+      expect(text()).toContain('No access.');
+      expect(icon().hasAttribute('aria-busy')).toBe(false);
+
+      icon().click();
+      httpMock.expectOne(isList).flush([row('r1')]);
+      fixture.detectChanges();
+      expect(text()).not.toContain('No access.');
+    });
+  });
+
   describe('in another language', () => {
     it('shows the title, the count and the resolved line in the language chosen', async () => {
       localStorage.setItem(LANGUAGE_STORAGE_KEY, 'hi');

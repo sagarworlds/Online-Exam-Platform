@@ -5,6 +5,7 @@ export type IconName =
   | 'edit'
   | 'trash'
   | 'restore'
+  | 'refresh'
   | 'language'
   | 'chart'
   | 'folder'
@@ -46,6 +47,10 @@ export type IconName =
         @case ('restore') {
           <path d="M4 12a8 8 0 1 0 2.4-5.7" />
           <path d="M4 4v4.5h4.5" />
+        }
+        @case ('refresh') {
+          <path d="M20 12a8 8 0 1 1-2.4-5.7" />
+          <path d="M20 4v4.5h-4.5" />
         }
         @case ('language') {
           <circle cx="12" cy="12" r="9" />

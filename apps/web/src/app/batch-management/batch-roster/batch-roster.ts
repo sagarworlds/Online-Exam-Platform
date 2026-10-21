@@ -1,7 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { extractErrorMessage } from '../../shared/problem-details';
+import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { BatchApiService } from '../batch-api.service';
 import { BatchMemberDto } from '../batch.models';
 import { RosterImport } from './roster-import/roster-import';
@@ -9,10 +11,15 @@ import { RosterImport } from './roster-import/roster-import';
 @Component({
   selector: 'app-batch-roster',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, RosterImport],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, RosterImport, RefreshButton],
   template: `
     <div class="page page--wide">
-      <h1>Batch Roster</h1>
+      <div class="page-header">
+        <h1>Batch Roster</h1>
+        <div class="page-header__actions">
+          <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
+        </div>
+      </div>
 
       <div class="card">
         <h3>Add Member</h3>
@@ -49,16 +56,19 @@ import { RosterImport } from './roster-import/roster-import';
       <app-roster-import [batchId]="batchId" (imported)="loadMembers()" />
 
       <div>
-        <h3>Members ({{ members.length }})</h3>
-        @if (membersLoading) {
+        <h3>Members ({{ members().length }})</h3>
+        @if (membersError(); as message) {
+          <div class="error-message" role="alert">{{ message }}</div>
+        }
+        @if (membersLoading()) {
           <div class="empty-state">Loading members...</div>
         }
-        @if (!membersLoading && members.length === 0) {
+        @if (!membersLoading() && members().length === 0 && !membersError()) {
           <div class="empty-state">
             No members added yet
           </div>
         }
-        @if (!membersLoading && members.length > 0) {
+        @if (!membersLoading() && members().length > 0) {
           <div class="table-wrap">
             <table class="table">
               <thead>
@@ -69,7 +79,7 @@ import { RosterImport } from './roster-import/roster-import';
                 </tr>
               </thead>
               <tbody>
-                @for (member of members; track member.id) {
+                @for (member of members(); track member.id) {
                 <tr>
                   <td>{{ member.email }}</td>
                   <td>{{ member.phone || '-' }}</td>
@@ -96,10 +106,16 @@ export class BatchRoster implements OnInit {
 
   batchId = '';
   form!: FormGroup;
-  members: BatchMemberDto[] = [];
   loading = false;
-  membersLoading = true;
   error = '';
+
+  // Signals, so that the list repaints when a read lands whatever else is going on in the page.
+  protected readonly members = signal<BatchMemberDto[]>([]);
+  /** True for the first read only: later reads keep the members on screen until the answer replaces them. */
+  protected readonly membersLoading = signal(true);
+  /** Whether the members are being read again, after the refresh icon was pressed or after one was added or imported. */
+  protected readonly refreshing = signal(false);
+  protected readonly membersError = signal<string | null>(null);
 
   ngOnInit() {
     this.batchId = this.route.snapshot.params['id'];
@@ -116,16 +132,27 @@ export class BatchRoster implements OnInit {
     this.loadMembers();
   }
 
+  /** Reads the members again, so one who registered since shows without reloading the tab. A failed read leaves the list and says why. */
+  protected onRefresh() {
+    if (!this.refreshing()) {
+      this.loadMembers();
+    }
+  }
+
   loadMembers() {
-    this.membersLoading = true;
+    this.refreshing.set(true);
+    this.membersError.set(null);
     this.batchApi.getBatchMembers(this.batchId).subscribe({
       next: (data) => {
-        this.members = data;
-        this.membersLoading = false;
+        this.members.set(data);
+        this.membersLoading.set(false);
+        this.refreshing.set(false);
       },
       error: (err) => {
         console.error(err);
-        this.membersLoading = false;
+        this.membersLoading.set(false);
+        this.refreshing.set(false);
+        this.membersError.set(extractErrorMessage(err, 'The members could not be loaded. Please try again.'));
       },
     });
   }

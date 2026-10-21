@@ -18,11 +18,14 @@
           <span class="badge badge--inactive">Archived</span>
         }
       </h1>
-      @if (b.isArchived) {
-        <button type="button" (click)="setBookArchived(false)" [disabled]="busy()">Restore book</button>
-      } @else {
-        <button type="button" (click)="setBookArchived(true)" [disabled]="busy()">Archive book</button>
-      }
+      <div class="page-header__actions">
+        @if (b.isArchived) {
+          <button type="button" (click)="setBookArchived(false)" [disabled]="busy()">Restore book</button>
+        } @else {
+          <button type="button" (click)="setBookArchived(true)" [disabled]="busy()">Archive book</button>
+        }
+        <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
+      </div>
     </div>
     @if (b.className) {
       <p class="hint book-class">Class: <strong>{{ b.className }}</strong></p>
@@ -130,5 +133,12 @@
         <button type="submit" class="primary" [disabled]="chapterForm.invalid || busy()">Add chapter</button>
       </form>
     }
+  } @else if (bookId !== null) {
+    <!-- The book could not be read: the icon is still here, so it can be tried again without reloading the tab. -->
+    <div class="page-header">
+      <div class="page-header__actions">
+        <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
+      </div>
+    </div>
   }
 </div>

@@ -6,6 +6,7 @@ import { I18nService } from '../../i18n/i18n.service';
 import { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage, extractProblemCode } from '../../shared/problem-details';
+import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { WhatsAppTestApiService } from './whatsapp-test-api.service';
 import {
   WhatsAppDeliveryDto,
@@ -52,7 +53,7 @@ const isFinal = (status: WhatsAppDeliveryStatus | undefined): boolean =>
  */
 @Component({
   selector: 'app-whatsapp-test',
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, RefreshButton],
   templateUrl: './whatsapp-test.html',
 })
 export class WhatsAppTest implements OnInit {

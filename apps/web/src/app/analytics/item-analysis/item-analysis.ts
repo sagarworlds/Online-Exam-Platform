@@ -5,6 +5,7 @@ import type { MessageKey } from '../../i18n/messages.en';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractBlobErrorMessage, extractErrorMessage } from '../../shared/problem-details';
+import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { AnalyticsApiService } from '../analytics-api.service';
 import { ExamItemAnalysisDto, ItemRowDto, ScoreBandDto } from '../analytics.models';
 import { ReportFormat, saveDownload } from '../report-download';
@@ -33,7 +34,7 @@ const SORT_LABEL_KEYS = {
  */
 @Component({
   selector: 'app-item-analysis',
-  imports: [RouterLink, TranslatePipe],
+  imports: [RouterLink, RefreshButton, TranslatePipe],
   templateUrl: './item-analysis.html',
   styleUrl: './item-analysis.css',
 })
@@ -49,6 +50,8 @@ export class ItemAnalysis {
 
   protected readonly sortKeys = ITEM_SORT_KEYS;
   protected readonly view = signal<ItemAnalysisView>('loading');
+  /** Whether the analysis is being read, for the refresh icon to turn. */
+  protected readonly refreshing = signal(false);
   protected readonly analysis = signal<ExamItemAnalysisDto | null>(null);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly sortKey = signal<ItemSortKey>('position');
@@ -70,6 +73,17 @@ export class ItemAnalysis {
   /** Reads the analysis again, e.g. after a failed read. */
   protected retry(): void {
     this.load();
+  }
+
+  /**
+   * Reads the analysis again, so figures from results released since show without reloading the tab. The figures stay, with the sort chosen,
+   * until the answer replaces them; a failed read leaves them and says why. When there is nothing on screen to keep, this is a retry.
+   */
+  protected onRefresh(): void {
+    if (this.refreshing()) {
+      return;
+    }
+    this.load(this.view() !== 'error' && this.view() !== 'loading');
   }
 
   /**
@@ -189,17 +203,25 @@ export class ItemAnalysis {
     return this.i18n.t('admin.items.summary', { count: analysis.candidateCount, group: analysis.groupSize });
   }
 
-  private load(): void {
+  /**
+   * Reads the analysis. A quiet read, for the refresh icon, keeps what is on screen while the answer is on its way, and if it fails keeps it
+   * still and says why above it; a read that is not quiet shows "loading" in its place.
+   */
+  private load(quiet = false): void {
     const examId = this.examId;
     if (examId === null) {
       return;
     }
 
-    this.view.set('loading');
+    if (!quiet) {
+      this.view.set('loading');
+    }
+    this.refreshing.set(true);
     this.errorMessage.set(null);
     this.api.getItemAnalysis(examId).subscribe({
       next: (analysis) => {
         this.analysis.set(analysis);
+        this.refreshing.set(false);
         if (!analysis.resultsReleased) {
           this.view.set('held');
         } else {
@@ -207,8 +229,11 @@ export class ItemAnalysis {
         }
       },
       error: (error: unknown) => {
+        this.refreshing.set(false);
         this.errorMessage.set(extractErrorMessage(error, this.i18n.t('admin.items.loadError')));
-        this.view.set('error');
+        if (!quiet) {
+          this.view.set('error');
+        }
       },
     });
   }

@@ -8,6 +8,7 @@ import { BookDto } from '../book-management/book.models';
 import { Icon } from '../shared/icon/icon';
 import { ModalDialog } from '../shared/modal-dialog/modal-dialog';
 import { extractErrorMessage } from '../shared/problem-details';
+import { RefreshButton } from '../shared/refresh-button/refresh-button';
 import { Tooltip } from '../shared/tooltip/tooltip';
 import { BookChapterPicker, NO_PLACEMENT, Placement } from './book-chapter-picker/book-chapter-picker';
 import { ContentEncryptionStatusPanel } from './content-encryption-status/content-encryption-status';
@@ -48,7 +49,7 @@ export type FilterKey = 'class' | 'book' | 'chapter' | 'difficulty' | 'status' |
  */
 @Component({
   selector: 'app-question-bank',
-  imports: [Icon, BookChapterPicker, ContentEncryptionStatusPanel, ModalDialog, QuestionPanel, QuestionRow, QuestionTransfer, Tooltip],
+  imports: [Icon, BookChapterPicker, ContentEncryptionStatusPanel, ModalDialog, QuestionPanel, QuestionRow, QuestionTransfer, RefreshButton, Tooltip],
   templateUrl: './question-bank.html',
   styleUrl: './question-bank.css',
 })
@@ -76,6 +77,10 @@ export class QuestionBank {
   protected readonly questions = signal<QuestionDto[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadingMore = signal(false);
+  /** Whether the list is being read again because the refresh icon was pressed; the questions stay until the answer comes. */
+  protected readonly refreshing = signal(false);
+  /** Counts the reads of the first page, so the answer to a refresh is dropped if another read (a filter chosen meanwhile) started after it. */
+  private latestRead = 0;
   /** Whether the last page came back full, so there may be older questions to load. */
   protected readonly mayHaveMore = signal(false);
   /** Why the page could not load something: the list, the books or the topics. */
@@ -169,10 +174,7 @@ export class QuestionBank {
   constructor() {
     this.refresh();
     this.loadTopics();
-    this.bookApi.list(true).subscribe({
-      next: (books) => this.books.set(books),
-      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
-    });
+    this.loadBooks();
 
     // The edit panel follows the address: opened by a link to it or the Edit icon, closed by Back as well as by its own buttons.
     this.editingId.set(this.editedQuestionId());
@@ -182,6 +184,30 @@ export class QuestionBank {
         takeUntilDestroyed(),
       )
       .subscribe(() => this.editingId.set(this.editedQuestionId()));
+  }
+
+  /**
+   * Reads the list again, with the books and topics it is filtered by and the statistics of the questions that were opened, so questions
+   * added or changed by others show without reloading the tab. The list is not blanked, and the filters, the search, the ticked questions
+   * and an open panel are kept. The list starts again from its first page, and "Load more" continues from there. A failed read leaves what
+   * is shown and says why.
+   */
+  protected onRefresh(): void {
+    if (this.refreshing()) {
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.refresh(true);
+    this.loadTopics();
+    this.loadBooks();
+  }
+
+  private loadBooks(): void {
+    this.bookApi.list(true).subscribe({
+      next: (books) => this.books.set(books),
+      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
+    });
   }
 
   /**
@@ -495,21 +521,50 @@ export class QuestionBank {
     });
   }
 
-  private refresh(): void {
-    this.loading.set(true);
+  /** Reads the first page of the list. A quiet read, for the refresh icon, does not blank the list while it is on its way. */
+  private refresh(quiet = false): void {
+    this.loading.set(!quiet);
+    this.refreshing.set(quiet);
+    const read = ++this.latestRead;
     this.api.list(this.currentFilter(), 0, QUESTION_LIST_PAGE_SIZE).subscribe({
       next: (questions) => {
+        // The refresh was for a list that is no longer the one chosen: its answer would put the wrong questions on screen.
+        if (quiet && read !== this.latestRead) {
+          return;
+        }
+
         this.questions.set(questions);
         this.mayHaveMore.set(questions.length >= QUESTION_LIST_PAGE_SIZE);
         // Only what is still in the list can stay ticked: a filter change or a filing may have taken questions out of it.
         const present = new Set(questions.map((q) => q.id));
         this.selectedIds.update((current) => new Set([...current].filter((id) => present.has(id))));
+        if (quiet) {
+          this.refreshStatistics(present);
+        }
         this.loading.set(false);
+        this.refreshing.set(false);
       },
       error: (error: unknown) => {
+        if (quiet && read !== this.latestRead) {
+          return;
+        }
+
         this.loading.set(false);
+        this.refreshing.set(false);
         this.errorMessage.set(extractErrorMessage(error));
       },
     });
+  }
+
+  /** Reads again the statistics of the questions whose cards were opened and are still listed; those no longer listed are forgotten. */
+  private refreshStatistics(present: ReadonlySet<string>): void {
+    const opened = Object.keys(this.statistics()).filter((id) => present.has(id));
+    this.statistics.update((all) => Object.fromEntries(Object.entries(all).filter(([id]) => present.has(id))));
+    for (const id of opened) {
+      this.api.statistics(id).subscribe({
+        next: (stats) => this.statistics.update((all) => ({ ...all, [id]: stats })),
+        error: (error: unknown) => this.failAction(id, error),
+      });
+    }
   }
 }

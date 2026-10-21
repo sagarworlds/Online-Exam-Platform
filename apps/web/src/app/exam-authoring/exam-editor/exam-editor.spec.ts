@@ -1132,4 +1132,87 @@ describe('ExamEditor', () => {
       expect(button(card(root), 'Choose a profile')).toBeUndefined();
     });
   });
+
+  describe('the refresh icon', () => {
+    const refreshIcon = (root: HTMLElement) => root.querySelector<HTMLButtonElement>('app-refresh-button button')!;
+
+    it('reads the exam again without blanking the page, and shows what changed elsewhere', () => {
+      const { fixture, root } = open();
+
+      refreshIcon(root).click();
+      fixture.detectChanges();
+      expect(refreshIcon(root).getAttribute('aria-busy')).toBe('true');
+      expect(root.querySelector('h1')?.textContent).toContain('Maths Final');
+      expect(root.textContent).not.toContain('Loading');
+
+      httpMock.expectOne(isExam).flush(examBody({ name: 'Maths Final (renamed)' }));
+      httpMock.expectOne(isBank).flush([question('q1', 'What is 2 + 2?')]);
+      fixture.detectChanges();
+
+      expect(root.querySelector('h1')?.textContent).toContain('Maths Final (renamed)');
+      expect(refreshIcon(root).hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('reads the questions and topics it can draw on again too', () => {
+      const { fixture, root } = open();
+
+      refreshIcon(root).click();
+      httpMock.expectOne(isExam).flush(examBody());
+      const bank = httpMock.expectOne(isBank);
+      bank.flush([question('q1', 'What is 2 + 2?'), question('q2', 'Capital of France?'), question('q3', 'Largest planet?')]);
+      // The page's own first read of the topics was never answered, so the refresh's is the second.
+      const topics = httpMock.match(isTopics);
+      expect(topics).toHaveLength(2);
+      topics.forEach((request) => request.flush(['Algebra']));
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Largest planet?');
+    });
+
+    it('leaves a form that is open alone', () => {
+      const { fixture, root } = open();
+      button(root, 'Edit details').click();
+      fixture.detectChanges();
+      const name = root.querySelector('#exam-name') as HTMLInputElement;
+      name.value = 'Maths Final 2026';
+      name.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      refreshIcon(root).click();
+      httpMock.expectOne(isExam).flush(examBody());
+      httpMock.expectOne(isBank).flush([]);
+      fixture.detectChanges();
+
+      expect((root.querySelector('#exam-name') as HTMLInputElement).value).toBe('Maths Final 2026');
+    });
+
+    it('keeps the exam and says why when the read fails', () => {
+      const { fixture, root } = open();
+
+      refreshIcon(root).click();
+      httpMock.expectOne(isExam).flush({ title: 'server_error', detail: 'The exam is not available.' }, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(root.querySelector('h1')?.textContent).toContain('Maths Final');
+      expect(root.querySelector('.error-message')?.textContent).toContain('The exam is not available.');
+      expect(refreshIcon(root).hasAttribute('aria-busy')).toBe(false);
+    });
+
+    it('is there when the exam could not be read at first, and recovers the page', () => {
+      const fixture = TestBed.createComponent(ExamEditor);
+      fixture.detectChanges();
+      httpMock.expectOne(isExam).flush({ title: 'exam_not_found', detail: 'No exam matches the given id.' }, { status: 404, statusText: 'Not Found' });
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('.error-message')?.textContent).toContain('No exam matches the given id.');
+
+      refreshIcon(root).click();
+      httpMock.expectOne(isExam).flush(examBody());
+      httpMock.expectOne(isBank).flush([]);
+      fixture.detectChanges();
+
+      expect(root.querySelector('h1')?.textContent).toContain('Maths Final');
+      expect(root.querySelector('.error-message')).toBeNull();
+    });
+  });
 });
