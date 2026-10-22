@@ -1,6 +1,8 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable } from 'rxjs';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { compareNames } from '../book-class';
 import { ClassApiService } from '../class-api.service';
@@ -13,10 +15,11 @@ import { CLASS_LIMITS, ClassDto } from '../class.models';
  */
 @Component({
   selector: 'app-class-manager',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, TranslatePipe],
   templateUrl: './class-manager.html',
 })
 export class ClassManager {
+  protected readonly i18n = inject(I18nService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly api = inject(ClassApiService);
 

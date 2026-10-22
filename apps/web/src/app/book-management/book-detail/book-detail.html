@@ -1,85 +1,84 @@
 <div class="page page--admin">
-  <a routerLink="/admin/books" class="back-link">&larr; All books</a>
+  <a routerLink="/admin/books" class="back-link">&larr; {{ 'books.detail.back' | t }}</a>
 
   @if (errorMessage()) {
     <p class="error-message" role="alert">{{ errorMessage() }}</p>
   }
   @if (saved()) {
-    <p class="success-message">Saved.</p>
+    <p class="success-message">{{ 'books.detail.saved' | t }}</p>
   }
 
   @if (loading()) {
-    <p>Loading…</p>
+    <p role="status">{{ 'common.loading' | t }}</p>
   } @else if (book(); as b) {
     <div class="page-header">
       <h1>
         {{ b.name }}
         @if (b.isArchived) {
-          <span class="badge badge--inactive">Archived</span>
+          <span class="badge badge--inactive">{{ 'books.archived' | t }}</span>
         }
       </h1>
       <div class="page-header__actions">
         @if (b.isArchived) {
-          <button type="button" (click)="setBookArchived(false)" [disabled]="busy()">Restore book</button>
+          <button type="button" (click)="setBookArchived(false)" [disabled]="busy()">{{ 'books.detail.restoreBook' | t }}</button>
         } @else {
-          <button type="button" (click)="setBookArchived(true)" [disabled]="busy()">Archive book</button>
+          <button type="button" (click)="setBookArchived(true)" [disabled]="busy()">{{ 'books.detail.archiveBook' | t }}</button>
         }
         <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
       </div>
     </div>
     @if (b.className) {
-      <p class="hint book-class">Class: <strong>{{ b.className }}</strong></p>
+      <p class="hint book-class">{{ 'books.detail.class' | t }} <strong>{{ b.className }}</strong></p>
     }
     @if (b.isArchived) {
       <p class="hint">
-        This book is archived. Its {{ totalQuestions() }} questions are kept, but no chapters can be added and it is hidden
-        from pickers until it is restored.
+        {{ 'books.detail.archivedNote' | t: { count: totalQuestions() } }}
       </p>
     }
 
-    <form class="card" [formGroup]="detailsForm" (ngSubmit)="saveDetails()" aria-label="Book details">
-      <h2>Details</h2>
+    <form class="card" [formGroup]="detailsForm" (ngSubmit)="saveDetails()" [attr.aria-label]="'books.detail.detailsForm' | t">
+      <h2>{{ 'books.detail.details' | t }}</h2>
       <div class="form-row form-row--pair">
         <div class="field">
-          <label for="detail-class">Class (optional)</label>
+          <label for="detail-class">{{ 'books.classOptional' | t }}</label>
           <select id="detail-class" formControlName="classId">
-            <option value="">No class</option>
+            <option value="">{{ 'books.noClass' | t }}</option>
             @for (option of classOptions(); track option.id) {
               <option [value]="option.id">{{ option.label }}</option>
             }
           </select>
         </div>
         <div class="field">
-          <label for="detail-name">Name</label>
+          <label for="detail-name">{{ 'books.name' | t }}</label>
           <input id="detail-name" type="text" formControlName="name" [attr.maxlength]="limits.name" />
         </div>
       </div>
       <div class="form-row form-row--pair">
         <div class="field">
-          <label for="detail-subject">Subject (optional)</label>
+          <label for="detail-subject">{{ 'books.subjectOptional' | t }}</label>
           <input id="detail-subject" type="text" formControlName="subject" [attr.maxlength]="limits.subject" />
         </div>
         <div class="field">
-          <label for="detail-description">Description (optional)</label>
+          <label for="detail-description">{{ 'books.descriptionOptional' | t }}</label>
           <input id="detail-description" type="text" formControlName="description" [attr.maxlength]="limits.description" />
         </div>
       </div>
-      <button type="submit" class="primary" [disabled]="detailsForm.invalid || detailsForm.pristine || busy()">Save details</button>
+      <button type="submit" class="primary" [disabled]="detailsForm.invalid || detailsForm.pristine || busy()">{{ 'books.detail.saveDetails' | t }}</button>
     </form>
 
-    <h2>Chapters</h2>
+    <h2>{{ 'books.detail.chapters' | t }}</h2>
     @if (b.chapters.length === 0) {
-      <div class="card empty-state">No chapters yet. Add the first one below.</div>
+      <div class="card empty-state">{{ 'books.detail.noChapters' | t }}</div>
     } @else {
-      <div class="table-wrap" role="region" tabindex="0" aria-label="Chapters">
+      <div class="table-wrap" role="region" tabindex="0" [attr.aria-label]="'books.detail.chapters' | t">
         <table class="table">
           <thead>
             <tr>
               <th scope="col">#</th>
-              <th scope="col">Chapter</th>
-              <th scope="col">Questions</th>
-              <th scope="col">Status</th>
-              <th scope="col"><span class="visually-hidden">Actions</span></th>
+              <th scope="col">{{ 'books.detail.chapter' | t }}</th>
+              <th scope="col">{{ 'books.detail.questions' | t }}</th>
+              <th scope="col">{{ 'batches.col.status' | t }}</th>
+              <th scope="col"><span class="visually-hidden">{{ 'batches.col.actions' | t }}</span></th>
             </tr>
           </thead>
           <tbody>
@@ -88,10 +87,10 @@
                 <td>{{ chapter.order }}</td>
                 <td>
                   @if (renamingId() === chapter.id) {
-                    <form class="inline-edit" [formGroup]="renameForm" (ngSubmit)="saveRename(chapter)" aria-label="Rename chapter">
-                      <input type="text" formControlName="title" [attr.aria-label]="'New title for ' + chapter.title" [attr.maxlength]="limits.chapterTitle" />
-                      <button type="submit" class="primary btn--small" [disabled]="renameForm.invalid || busy()">Save</button>
-                      <button type="button" class="btn--small" (click)="cancelRename()">Cancel</button>
+                    <form class="inline-edit" [formGroup]="renameForm" (ngSubmit)="saveRename(chapter)" [attr.aria-label]="'books.detail.renameChapter' | t">
+                      <input type="text" formControlName="title" [attr.aria-label]="'books.detail.newTitleFor' | t: { title: chapter.title }" [attr.maxlength]="limits.chapterTitle" />
+                      <button type="submit" class="primary btn--small" [disabled]="renameForm.invalid || busy()">{{ 'common.save' | t }}</button>
+                      <button type="button" class="btn--small" (click)="cancelRename()">{{ 'common.cancel' | t }}</button>
                     </form>
                   } @else {
                     <strong>{{ chapter.title }}</strong>
@@ -100,20 +99,20 @@
                 <td>{{ chapter.questionCount }}</td>
                 <td>
                   @if (chapter.isArchived) {
-                    <span class="badge badge--inactive">Archived</span>
+                    <span class="badge badge--inactive">{{ 'books.archived' | t }}</span>
                   } @else {
-                    <span class="badge badge--active">Open</span>
+                    <span class="badge badge--active">{{ 'books.open' | t }}</span>
                   }
                 </td>
                 <td>
                   <div class="actions">
                     @if (renamingId() !== chapter.id) {
-                      <button type="button" class="btn--small" (click)="startRename(chapter)" [disabled]="busy()">Rename</button>
+                      <button type="button" class="btn--small" (click)="startRename(chapter)" [disabled]="busy()">{{ 'books.rename' | t }}</button>
                     }
                     @if (chapter.isArchived) {
-                      <button type="button" class="btn--small" (click)="setChapterArchived(chapter, false)" [disabled]="busy()">Restore</button>
+                      <button type="button" class="btn--small" (click)="setChapterArchived(chapter, false)" [disabled]="busy()">{{ 'books.restore' | t }}</button>
                     } @else {
-                      <button type="button" class="btn--small" (click)="setChapterArchived(chapter, true)" [disabled]="busy()">Archive</button>
+                      <button type="button" class="btn--small" (click)="setChapterArchived(chapter, true)" [disabled]="busy()">{{ 'books.archive' | t }}</button>
                     }
                   </div>
                 </td>
@@ -125,12 +124,12 @@
     }
 
     @if (!b.isArchived) {
-      <form class="card add-chapter" [formGroup]="chapterForm" (ngSubmit)="addChapter()" aria-label="New chapter">
+      <form class="card add-chapter" [formGroup]="chapterForm" (ngSubmit)="addChapter()" [attr.aria-label]="'books.detail.newChapter' | t">
         <div class="field">
-          <label for="chapter-title">New chapter title</label>
+          <label for="chapter-title">{{ 'books.detail.newChapterTitle' | t }}</label>
           <input id="chapter-title" type="text" formControlName="title" [attr.maxlength]="limits.chapterTitle" />
         </div>
-        <button type="submit" class="primary" [disabled]="chapterForm.invalid || busy()">Add chapter</button>
+        <button type="submit" class="primary" [disabled]="chapterForm.invalid || busy()">{{ 'books.detail.addChapter' | t }}</button>
       </form>
     }
   } @else if (bookId !== null) {

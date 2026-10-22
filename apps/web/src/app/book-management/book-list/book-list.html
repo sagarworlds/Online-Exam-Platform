@@ -1,10 +1,10 @@
 <div class="page page--admin">
   <div class="page-header">
-    <h1>Books</h1>
+    <h1>{{ 'admin.area.books.name' | t }}</h1>
     <div class="page-header__actions">
       <label class="inline-check">
         <input type="checkbox" [checked]="showArchived()" (change)="toggleArchived()" />
-        Show archived books
+        {{ 'books.showArchived' | t }}
       </label>
       <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
     </div>
@@ -16,47 +16,47 @@
 
   <app-class-manager [classes]="classes()" (changed)="onClassesChanged()" />
 
-  <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="New book">
-    <h2>New book</h2>
+  <form class="card" [formGroup]="form" (ngSubmit)="submit()" [attr.aria-label]="'books.newBook' | t">
+    <h2>{{ 'books.newBook' | t }}</h2>
     <div class="form-row form-row--pair">
       <div class="field">
-        <label for="book-class">Class (optional)</label>
+        <label for="book-class">{{ 'books.classOptional' | t }}</label>
         <select id="book-class" formControlName="classId">
-          <option value="">No class</option>
+          <option value="">{{ 'books.noClass' | t }}</option>
           @for (item of openClasses(); track item.id) {
             <option [value]="item.id">{{ item.name }}</option>
           }
         </select>
       </div>
       <div class="field">
-        <label for="book-name">Name</label>
+        <label for="book-name">{{ 'books.name' | t }}</label>
         <input id="book-name" type="text" formControlName="name" [attr.maxlength]="limits.name" />
       </div>
     </div>
     <div class="form-row form-row--pair">
       <div class="field">
-        <label for="book-subject">Subject (optional)</label>
-        <input id="book-subject" type="text" formControlName="subject" placeholder="Maths, Physics…" [attr.maxlength]="limits.subject" />
+        <label for="book-subject">{{ 'books.subjectOptional' | t }}</label>
+        <input id="book-subject" type="text" formControlName="subject" [placeholder]="'books.subjectPlaceholder' | t" [attr.maxlength]="limits.subject" />
       </div>
       <div class="field">
-        <label for="book-description">Description (optional)</label>
+        <label for="book-description">{{ 'books.descriptionOptional' | t }}</label>
         <input id="book-description" type="text" formControlName="description" [attr.maxlength]="limits.description" />
       </div>
     </div>
-    <button type="submit" class="primary" [disabled]="form.invalid || saving()">Create book</button>
+    <button type="submit" class="primary" [disabled]="form.invalid || saving()">{{ 'books.create' | t }}</button>
   </form>
 
   @if (loading()) {
-    <p>Loading…</p>
+    <p role="status">{{ 'common.loading' | t }}</p>
   } @else if (books().length === 0) {
-    <div class="card empty-state">No books yet. Create one above, then add its chapters.</div>
+    <div class="card empty-state">{{ 'books.empty' | t }}</div>
   } @else {
     @for (group of groups(); track group.classId) {
       @if (grouped()) {
         <h2 class="book-group__title">
-          {{ group.name ?? 'No class' }}
+          {{ group.name ?? ('books.noClass' | t) }}
           @if (group.archived) {
-            <span class="badge badge--inactive">Archived</span>
+            <span class="badge badge--inactive">{{ 'books.archived' | t }}</span>
           }
         </h2>
       }
@@ -65,7 +65,7 @@
           <h3 class="card__title">
             <a [routerLink]="['/admin/books', book.id]">{{ book.name }}</a>
             @if (book.isArchived) {
-              <span class="badge badge--inactive">Archived</span>
+              <span class="badge badge--inactive">{{ 'books.archived' | t }}</span>
             } @else if (book.subject) {
               <span class="badge">{{ book.subject }}</span>
             }
@@ -74,7 +74,7 @@
             <p>{{ book.description }}</p>
           }
           <p class="card__meta">
-            {{ book.chapters.length }} {{ book.chapters.length === 1 ? 'chapter' : 'chapters' }}
+            {{ i18n.plural('books.chapterCount', book.chapters.length) }}
           </p>
         </div>
       }

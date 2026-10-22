@@ -2,6 +2,8 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable, Subscription } from 'rxjs';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { BookApiService } from '../book-api.service';
@@ -23,10 +25,11 @@ interface ClassOption {
  */
 @Component({
   selector: 'app-book-detail',
-  imports: [ReactiveFormsModule, RouterLink, RefreshButton],
+  imports: [ReactiveFormsModule, RouterLink, RefreshButton, TranslatePipe],
   templateUrl: './book-detail.html',
 })
 export class BookDetail {
+  private readonly i18n = inject(I18nService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly api = inject(BookApiService);
   private readonly classApi = inject(ClassApiService);
@@ -54,7 +57,7 @@ export class BookDetail {
       .map((item) => ({ id: item.id, label: item.isArchived ? `${item.name} (archived)` : item.name }));
     // The classes may not have loaded (or the call failed); the book's class must still be there to keep on saving.
     if (current?.classId && !options.some((option) => option.id === current.classId)) {
-      options.push({ id: current.classId, label: current.className ?? 'Unnamed class' });
+      options.push({ id: current.classId, label: current.className ?? this.i18n.t('books.unnamedClass') });
     }
 
     return options.sort((a, b) => compareNames(a.label, b.label));
@@ -78,7 +81,7 @@ export class BookDetail {
   constructor() {
     if (this.bookId === null) {
       this.loading.set(false);
-      this.errorMessage.set('No book was given.');
+      this.errorMessage.set(this.i18n.t('books.detail.noBook'));
       return;
     }
 
