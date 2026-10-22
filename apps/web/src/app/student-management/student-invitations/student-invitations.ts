@@ -69,7 +69,7 @@ export class StudentInvitations {
       },
       error: (error: unknown) => {
         this.generatingFor.set(null);
-        this.errorMessage.set(extractErrorMessage(error));
+        this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }
@@ -97,7 +97,7 @@ export class StudentInvitations {
     this.errorMessage.set(null);
     this.inviteApi.revokeInvite(invite.id).subscribe({
       next: () => this.revoked.emit(),
-      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
+      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong'))),
     });
   }
 }

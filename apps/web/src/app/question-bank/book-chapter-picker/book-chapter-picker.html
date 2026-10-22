@@ -32,7 +32,7 @@
         }
       </select>
       @if (openChapters().length === 0) {
-        <span class="hint">{{ 'qb.picker.noOpenChapters' | t }} <a [routerLink]="['/admin/books', value().bookId]">{{ 'qb.picker.addOne' | t }}</a></span>
+        <span class="hint">{{ 'qb.picker.noOpenChapters' | t }} <a [routerLink]="['/admin/books', value().bookId]">{{ 'qb.picker.addOne' | t }}</a>.</span>
       }
     </div>
   }

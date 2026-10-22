@@ -89,7 +89,7 @@ export class ClassManager {
       },
       error: (error: unknown) => {
         this.busy.set(false);
-        this.errorMessage.set(extractErrorMessage(error));
+        this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }

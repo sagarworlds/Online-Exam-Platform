@@ -163,7 +163,7 @@ export class StudentProfile implements OnInit {
       },
       error: (error: unknown) => {
         this.loading.set(false);
-        this.loadError.set(extractErrorMessage(error));
+        this.loadError.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }
@@ -214,7 +214,7 @@ export class StudentProfile implements OnInit {
         },
         error: (error: unknown) => {
           this.saving.set(false);
-          this.saveError.set(extractErrorMessage(error));
+          this.saveError.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
         },
       });
   }

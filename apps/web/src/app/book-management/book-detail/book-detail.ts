@@ -54,7 +54,7 @@ export class BookDetail {
     const current = this.book();
     const options = this.classes()
       .filter((item) => !item.isArchived || item.id === current?.classId)
-      .map((item) => ({ id: item.id, label: item.isArchived ? `${item.name} (archived)` : item.name }));
+      .map((item) => ({ id: item.id, label: item.isArchived ? `${item.name} ${this.i18n.t('qb.archivedSuffix')}` : item.name }));
     // The classes may not have loaded (or the call failed); the book's class must still be there to keep on saving.
     if (current?.classId && !options.some((option) => option.id === current.classId)) {
       options.push({ id: current.classId, label: current.className ?? this.i18n.t('books.unnamedClass') });
@@ -120,7 +120,7 @@ export class BookDetail {
   private loadClasses(): void {
     this.classApi.list(true).subscribe({
       next: (classes) => this.classes.set(classes),
-      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
+      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong'))),
     });
   }
 
@@ -193,7 +193,7 @@ export class BookDetail {
       },
       error: (error: unknown) => {
         this.busy.set(false);
-        this.errorMessage.set(extractErrorMessage(error));
+        this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }
@@ -209,6 +209,6 @@ export class BookDetail {
 
   private fail(error: unknown): void {
     this.loading.set(false);
-    this.errorMessage.set(extractErrorMessage(error));
+    this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
   }
 }

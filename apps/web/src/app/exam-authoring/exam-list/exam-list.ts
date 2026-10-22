@@ -57,7 +57,7 @@ export class ExamList {
       error: (error: unknown) => {
         this.loading.set(false);
         this.refreshing.set(false);
-        this.errorMessage.set(extractErrorMessage(error));
+        this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }

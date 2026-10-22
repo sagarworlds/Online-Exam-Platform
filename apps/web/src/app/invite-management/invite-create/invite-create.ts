@@ -8,6 +8,7 @@ import { extractErrorMessage } from '../../shared/problem-details';
 import { InviteApiService } from '../invite-api.service';
 import { InviteHandover } from '../invite-handover/invite-handover';
 import { InviteCodeDto, InviteDto } from '../invite.models';
+import { I18nService } from '../../i18n/i18n.service';
 
 /**
  * Staff page: invite an email address to a published exam (FR-14). The invitation email carries a link; when nothing could be sent
@@ -21,6 +22,7 @@ import { InviteCodeDto, InviteDto } from '../invite.models';
 })
 export class InviteCreate {
   private readonly formBuilder = inject(FormBuilder);
+  private readonly i18n = inject(I18nService);
   private readonly inviteApi = inject(InviteApiService);
   private readonly examApi = inject(ExamApiService);
 
@@ -48,7 +50,7 @@ export class InviteCreate {
       },
       error: (error: unknown) => {
         this.loading.set(false);
-        this.errorMessage.set(extractErrorMessage(error));
+        this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }
@@ -68,7 +70,7 @@ export class InviteCreate {
       },
       error: (error: unknown) => {
         this.generating.set(false);
-        this.errorMessage.set(extractErrorMessage(error));
+        this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }
@@ -91,7 +93,7 @@ export class InviteCreate {
       },
       error: (error: unknown) => {
         this.saving.set(false);
-        this.errorMessage.set(extractErrorMessage(error));
+        this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }

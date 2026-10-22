@@ -279,7 +279,7 @@ export class StudentList {
       error: (error: unknown) => {
         this.reactivatingId.set(null);
         this.notice.set(null);
-        this.errorMessage.set(extractErrorMessage(error));
+        this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }
@@ -308,7 +308,7 @@ export class StudentList {
       },
       error: (error: unknown) => {
         this.deactivateBusy.set(false);
-        this.deactivateError.set(extractErrorMessage(error));
+        this.deactivateError.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }
@@ -350,7 +350,7 @@ export class StudentList {
       catchError((error: unknown) => {
         this.loading.set(false);
         this.refreshing.set(false);
-        this.errorMessage.set(extractErrorMessage(error));
+        this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
         return EMPTY;
       }),
     );

@@ -7,6 +7,7 @@ import { extractErrorMessage } from '../../shared/problem-details';
 import { QuestionApiService } from '../question-api.service';
 import { QuestionStatus, ReviewEntry, ReviewResult, ReviewStep } from '../question.models';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
+import { I18nService } from '../../i18n/i18n.service';
 
 /** How each status is written for a person. */
 export const STATUS_LABELS: Record<QuestionStatus, string> = {
@@ -74,6 +75,7 @@ export class QuestionReview {
   readonly statusChanged = output<QuestionStatus>();
 
   private readonly api = inject(QuestionApiService);
+  private readonly i18n = inject(I18nService);
   private readonly session = inject(AuthSessionService);
 
   protected readonly open = signal(false);
@@ -96,7 +98,7 @@ export class QuestionReview {
     if (this.open() && this.entries() === null) {
       this.api.reviewLog(this.questionId()).subscribe({
         next: (entries) => this.entries.set(entries),
-        error: (error: unknown) => this.loadError.set(extractErrorMessage(error)),
+        error: (error: unknown) => this.loadError.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong'))),
       });
     }
   }
@@ -131,7 +133,7 @@ export class QuestionReview {
         }
       },
       error: (error: unknown) => {
-        this.error.set(extractErrorMessage(error));
+        this.error.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
         this.busy.set(false);
       },
     });

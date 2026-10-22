@@ -68,7 +68,7 @@ describe('RosterImport', () => {
       });
       fixture.detectChanges();
 
-      expect(text()).toContain('1 उम्मीदवार जोड़ा गया, 1 पंक्ति छोड़ी गई।');
+      expect(text()).toContain('1 उम्मीदवार जोड़ा गया। छोड़ी गई: 1 पंक्ति।');
     });
   });
 

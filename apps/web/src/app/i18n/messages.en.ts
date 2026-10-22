@@ -1077,7 +1077,7 @@ export const EN = {
   'qb.picker.book': 'Book (optional)',
   'qb.picker.noBook': 'Not filed under a book',
   'qb.picker.noOpenChapters': 'This book has no open chapters.',
-  'qb.picker.addOne': 'Add one.',
+  'qb.picker.addOne': 'Add one',
   'qb.row.select': 'Select this question',
   'qb.row.typeSingle': 'One correct answer',
   'qb.row.typeMultiple': 'Several answers may be correct',

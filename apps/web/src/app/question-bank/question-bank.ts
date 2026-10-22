@@ -228,7 +228,7 @@ export class QuestionBank {
   private loadBooks(): void {
     this.bookApi.list(true).subscribe({
       next: (books) => this.books.set(books),
-      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
+      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong'))),
     });
   }
 
@@ -423,7 +423,7 @@ export class QuestionBank {
       },
       error: (error: unknown) => {
         this.bulkBusy.set(false);
-        this.bulkError.set(extractErrorMessage(error));
+        this.bulkError.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }
@@ -467,7 +467,7 @@ export class QuestionBank {
 
   private failAction(id: string, error: unknown): void {
     this.busyId.set(null);
-    this.cardErrors.update((errors) => ({ ...errors, [id]: extractErrorMessage(error) }));
+    this.cardErrors.update((errors) => ({ ...errors, [id]: extractErrorMessage(error, this.i18n.t('common.somethingWrong')) }));
   }
 
   /** The filter the list is currently narrowed by; a chapter implies its book, so only one of them is sent. The class is sent besides them, since it narrows too. */
@@ -514,7 +514,7 @@ export class QuestionBank {
     this.api.topics().subscribe({
       next: (topics) => this.topics.set(topics),
       // Suggestions and the topic filter are conveniences; a failure here must not stop the page, but it is not hidden.
-      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
+      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong'))),
     });
   }
 
@@ -534,7 +534,7 @@ export class QuestionBank {
       },
       error: (error: unknown) => {
         this.loadingMore.set(false);
-        this.errorMessage.set(extractErrorMessage(error));
+        this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }
@@ -569,7 +569,7 @@ export class QuestionBank {
 
         this.loading.set(false);
         this.refreshing.set(false);
-        this.errorMessage.set(extractErrorMessage(error));
+        this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }

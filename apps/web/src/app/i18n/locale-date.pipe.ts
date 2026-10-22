@@ -15,7 +15,8 @@ export class LocaleDatePipe implements PipeTransform {
   private readonly i18n = inject(I18nService);
 
   transform(value: Date | string | number | null | undefined, format = 'mediumDate', timezone?: string): string | null {
-    if (value === null || value === undefined || value === '') {
+    // Like Angular's own pipe, nothing for a missing date and for one that is not a number.
+    if (value === null || value === undefined || value === '' || (typeof value === 'number' && Number.isNaN(value))) {
       return null;
     }
 
