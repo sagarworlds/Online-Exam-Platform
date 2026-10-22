@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { afterEach, beforeEach, vi } from 'vitest';
 import { AttemptDto, AttemptStatusDto } from '../candidate.models';
 import { ExamAttempt } from './exam-attempt';
+import { ExamMode } from '../../shared/exam-mode/exam-mode';
 import { FakeResizeObserver } from './fake-resize-observer';
 
 describe('ExamAttempt', () => {
@@ -61,7 +62,7 @@ describe('ExamAttempt', () => {
   const buttonLabelled = (fixture: ComponentFixture<ExamAttempt>, label: string) =>
     Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes(label));
 
-  async function open(initial: AttemptDto, onRead?: (request: TestRequest) => void, webcamEnabled = false, screenEnabled = false) {
+  async function open(initial: AttemptDto, onRead?: (request: TestRequest) => void, webcamEnabled = false, screenEnabled = false, intervalSeconds = 120) {
     await TestBed.configureTestingModule({
       imports: [ExamAttempt],
       providers: [
@@ -79,7 +80,7 @@ describe('ExamAttempt', () => {
     onRead?.(read);
     read.flush(initial);
     fixture.detectChanges();
-    answerWebcamPolicy(webcamEnabled, 120, screenEnabled);
+    answerWebcamPolicy(webcamEnabled, intervalSeconds, screenEnabled);
     return fixture;
   }
 
@@ -323,6 +324,152 @@ describe('ExamAttempt', () => {
       expect(textOf(fixture)).toContain('0 of 1 answered');
     });
 
+    /** Types into the box without leaving it, key by key as far as the page can tell. */
+    const type = (fixture: ComponentFixture<ExamAttempt>, text: string) => {
+      const box = answerBox(fixture);
+      box.value = text;
+      box.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    };
+    const savedCalls = () => httpMock.match((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q3'));
+
+    describe('while the candidate is still typing (a closed tab or the end of the time must not lose it)', () => {
+      it('saves what is typed once the typing pauses, without waiting for the box to lose focus', async () => {
+        const fixture = await open(typedAttempt());
+
+        type(fixture, 'Par');
+        await vi.advanceTimersByTimeAsync(500);
+        type(fixture, 'Paris');
+        await vi.advanceTimersByTimeAsync(500);
+        // The pause is counted from the last key, so nothing has been sent yet.
+        expect(savedCalls()).toHaveLength(0);
+
+        await vi.advanceTimersByTimeAsync(400);
+        const calls = savedCalls();
+        expect(calls).toHaveLength(1);
+        expect(calls[0].request.body).toEqual({ text: 'Paris', sequence: 1 });
+        calls[0].flush(null);
+      });
+
+      it('leaves the box as it is, trailing space and all, when the pause saves what was typed so far', async () => {
+        const fixture = await open(typedAttempt());
+        // "New " is typed and the candidate stops to think: the space must still be there when they go on with "Delhi".
+        type(fixture, 'New ');
+
+        await vi.advanceTimersByTimeAsync(900);
+        const calls = savedCalls();
+        expect(calls).toHaveLength(1);
+        expect(calls[0].request.body).toEqual({ text: 'New', sequence: 1 });
+        calls[0].flush(null);
+        fixture.detectChanges();
+
+        expect(answerBox(fixture).value).toBe('New ');
+        type(fixture, 'New Delhi');
+        answerBox(fixture).dispatchEvent(new Event('change'));
+        const second = savedCalls();
+        expect(second).toHaveLength(1);
+        expect(second[0].request.body).toEqual({ text: 'New Delhi', sequence: 2 });
+        second[0].flush(null);
+      });
+
+      it('does not save what was typed after Clear response has taken the answer back', async () => {
+        const fixture = await open(typedAttempt('Par'));
+        type(fixture, 'Paris');
+
+        buttonLabelled(fixture, 'Clear response')!.click();
+        fixture.detectChanges();
+        const clear = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q3') && r.method === 'DELETE');
+        clear.flush(null, { status: 204, statusText: 'No Content' });
+        await vi.advanceTimersByTimeAsync(2000);
+        fixture.detectChanges();
+
+        expect(savedCalls()).toHaveLength(0);
+        expect(answerBox(fixture).value).toBe('');
+      });
+
+      it('does not send the same text again when the box then loses focus', async () => {
+        const fixture = await open(typedAttempt());
+        type(fixture, 'Paris');
+        await vi.advanceTimersByTimeAsync(900);
+        savedCalls().forEach((call) => call.flush(null));
+        fixture.detectChanges();
+
+        answerBox(fixture).dispatchEvent(new Event('change'));
+
+        expect(savedCalls()).toHaveLength(0);
+      });
+
+      it('saves at once when the box loses focus, and does not send it a second time when the pause ends', async () => {
+        const fixture = await open(typedAttempt());
+        type(fixture, 'Paris');
+
+        answerBox(fixture).dispatchEvent(new Event('change'));
+        const first = savedCalls();
+        expect(first).toHaveLength(1);
+        first[0].flush(null);
+        await vi.advanceTimersByTimeAsync(2000);
+
+        expect(savedCalls()).toHaveLength(0);
+      });
+
+      it('saves the words when the candidate goes to another question, before the box is replaced', async () => {
+        const fixture = await open(
+          attempt({
+            sections: [
+              {
+                id: 's1',
+                name: 'Section A',
+                questions: [
+                  { id: 'q3', text: 'Capital of France?', options: [], selectedOptionId: null, markedForReview: false, isTextAnswer: true, answerText: null },
+                  { id: 'q4', text: 'Capital of Italy?', options: [], selectedOptionId: null, markedForReview: false, isTextAnswer: true, answerText: null },
+                ],
+              },
+            ],
+          }),
+        );
+        type(fixture, 'Paris');
+
+        (buttonLabelled(fixture, 'Next') as HTMLButtonElement).click();
+        fixture.detectChanges();
+
+        const calls = savedCalls();
+        expect(calls).toHaveLength(1);
+        expect(calls[0].request.body).toEqual({ text: 'Paris', sequence: 1 });
+        calls[0].flush(null);
+      });
+
+      it('saves the words when the candidate submits, before the answers are checked as sent', async () => {
+        const fixture = await open(typedAttempt());
+        type(fixture, 'Paris');
+
+        (buttonLabelled(fixture, 'Submit exam') as HTMLButtonElement).click();
+        fixture.detectChanges();
+        (buttonLabelled(fixture, 'Yes, submit') as HTMLButtonElement).click();
+
+        const calls = savedCalls();
+        expect(calls).toHaveLength(1);
+        expect(calls[0].request.body).toEqual({ text: 'Paris', sequence: 1 });
+        calls[0].flush(null);
+        httpMock.match((r) => r.url.endsWith('/submit')).forEach((call) => call.flush(attempt({ status: 'Submitted', score: 0, maxScore: 1, sections: [] })));
+      });
+
+      it('saves the words in the last seconds, so they are not left in the box when the time runs out', async () => {
+        const fixture = await open(typedAttempt());
+        // 30 minutes allowed: type at 29:57, a second before the point within which typing is saved without a pause.
+        vi.advanceTimersByTime(30 * 60_000 - 3_000);
+        fixture.detectChanges();
+        type(fixture, 'Paris');
+        expect(savedCalls()).toHaveLength(0);
+
+        vi.advanceTimersByTime(1_000);
+
+        const calls = savedCalls();
+        expect(calls).toHaveLength(1);
+        expect(calls[0].request.body).toEqual({ text: 'Paris', sequence: 1 });
+        calls[0].flush(null);
+      });
+    });
+
     it('puts the typed answer back and says so when the server refuses it', async () => {
       const fixture = await open(typedAttempt('Paris'));
 
@@ -380,6 +527,62 @@ describe('ExamAttempt', () => {
 
       expect(radios(fixture).map((r) => r.checked)).toEqual([false, true]);
       expect(waitingNotice(fixture)).toBe('');
+    });
+
+    describe('the line that says where the answers stand', () => {
+      const saveLine = (fixture: ComponentFixture<ExamAttempt>) =>
+        (root(fixture).querySelector('.exam-save')?.textContent ?? '').replace(/\s+/g, ' ').trim();
+      const restored = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector('.exam-sync-restored')?.textContent?.trim();
+      // The check mark in front is decorative, so the words are what is read.
+      const words = (fixture: ComponentFixture<ExamAttempt>) => saveLine(fixture).replace(/^\S+ /, '');
+
+      it('says all answers are saved before anything has been changed', async () => {
+        const fixture = await open(attempt());
+
+        expect(words(fixture)).toBe('All answers saved');
+      });
+
+      it('says it is saving while an answer is on its way, then when it was saved', async () => {
+        const fixture = await open(attempt());
+        await chooseRome(fixture);
+        expect(words(fixture)).toBe('Saving…');
+
+        httpMock.expectOne((r) => r.url.endsWith('/answers/q2')).flush(null, { status: 204, statusText: 'No Content' });
+        fixture.detectChanges();
+
+        expect(words(fixture)).toMatch(/^All answers saved at \d{1,2}:\d{2}/);
+      });
+
+      it('says it is offline while answers are kept on the device, and tells a screen reader when the connection is back', async () => {
+        const fixture = await open(attempt());
+        await chooseRome(fixture);
+        httpMock.expectOne((r) => r.url.endsWith('/answers/q2')).error(new ProgressEvent('error'));
+        fixture.detectChanges();
+        expect(words(fixture)).toBe('Offline: answers are kept on this device');
+        expect(restored(fixture)).toBe('');
+
+        await vi.advanceTimersByTimeAsync(2000);
+        answerCalls().forEach((call) => call.flush(null, { status: 204, statusText: 'No Content' }));
+        fixture.detectChanges();
+
+        expect(words(fixture)).toMatch(/^All answers saved at /);
+        expect(restored(fixture)).toBe('Back online. Your answers are saved.');
+        await vi.advanceTimersByTimeAsync(5000);
+        fixture.detectChanges();
+        expect(restored(fixture)).toBe('');
+      });
+
+      it('goes offline when the browser says the connection dropped, and back when it returns', async () => {
+        const fixture = await open(attempt());
+
+        window.dispatchEvent(new Event('offline'));
+        fixture.detectChanges();
+        expect(words(fixture)).toBe('Offline: answers are kept on this device');
+
+        window.dispatchEvent(new Event('online'));
+        fixture.detectChanges();
+        expect(words(fixture)).toBe('All answers saved');
+      });
     });
 
     it('treats a server that is not answering the same way, and does not call it a refusal', async () => {
@@ -988,6 +1191,40 @@ describe('ExamAttempt', () => {
     expect(warning()).toBe('1 minute left.');
   });
 
+  it('shows the time warning in words until the candidate puts it away, and shows the next one again (A-06)', async () => {
+    const fixture = await open(attempt());
+    const banner = () => root(fixture).querySelector<HTMLElement>('.exam-time-banner')!;
+    expect(banner().classList.contains('exam-time-banner--shown')).toBe(false);
+    expect(banner().querySelector('button')).toBeNull();
+
+    vi.advanceTimersByTime(25 * 60_000);
+    fixture.detectChanges();
+    expect(banner().classList.contains('exam-time-banner--shown')).toBe(true);
+    expect(banner().textContent).toContain('5 minutes left.');
+
+    banner().querySelector('button')!.click();
+    fixture.detectChanges();
+    expect(banner().classList.contains('exam-time-banner--shown')).toBe(false);
+    expect(root(fixture).querySelector('.exam-time-warning')?.textContent?.trim()).toBe('');
+
+    vi.advanceTimersByTime(4 * 60_000);
+    fixture.detectChanges();
+    expect(banner().classList.contains('exam-time-banner--shown')).toBe(true);
+    expect(banner().textContent).toContain('1 minute left.');
+  });
+
+  it('keeps the warning in the pinned block, so it is seen wherever the page is scrolled and does not push the question down', async () => {
+    const fixture = await open(attempt());
+
+    expect(root(fixture).querySelector('.exam-top .exam-time-banner')).not.toBeNull();
+  });
+
+  it('underlines the countdown in the last minute, so it is not told by colour alone', async () => {
+    const fixture = await open(attempt({ serverTimeUtc: '2026-10-05T04:59:15Z' }));
+
+    expect(root(fixture).querySelector('.countdown')?.classList.contains('countdown--low')).toBe(true);
+  });
+
   it('speaks only the one-minute warning when the page opens with under a minute left', async () => {
     // The server says it is 04:59:15 and the deadline is 05:00, so 45 seconds are left and the five-minute warning was never due.
     const fixture = await open(attempt({ serverTimeUtc: '2026-10-05T04:59:15Z' }));
@@ -1087,6 +1324,95 @@ describe('ExamAttempt', () => {
     fixture.detectChanges();
     expect(textOf(fixture)).toContain('Question 2 of 2');
     expect(buttonLabelled(fixture, 'Save & Next')!.disabled).toBe(true);
+  });
+
+  describe('the page around the exam (ExamMode)', () => {
+    it('is told an exam is open while the attempt is in progress, and not once it is over', async () => {
+      const fixture = await open(attempt());
+      const mode = TestBed.inject(ExamMode);
+      expect(mode.active()).toBe(true);
+
+      (buttonLabelled(fixture, 'Submit exam') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      (buttonLabelled(fixture, 'Yes, submit') as HTMLButtonElement).click();
+      httpMock.expectOne((r) => r.url.endsWith('/submit')).flush(attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [] }));
+      fixture.detectChanges();
+
+      expect(mode.active()).toBe(false);
+    });
+
+    it('is told the exam is over when the page is left', async () => {
+      const fixture = await open(attempt());
+
+      fixture.destroy();
+
+      expect(TestBed.inject(ExamMode).active()).toBe(false);
+    });
+  });
+
+  it('has one button to go forward, since every answer is saved as it is chosen', async () => {
+    const fixture = await open(attempt());
+
+    const forward = Array.from(root(fixture).querySelectorAll('.exam-pager button')).filter((b) => /Next/.test(b.textContent ?? ''));
+
+    expect(forward).toHaveLength(1);
+    expect(forward[0].textContent?.trim()).toBe('Save & Next');
+  });
+
+  describe('the Questions sheet, which is the palette on a phone', () => {
+    const sheet = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector<HTMLElement>('app-modal-dialog');
+    const questionsButton = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector<HTMLButtonElement>('.exam-pager__palette')!;
+    const openSheet = (fixture: ComponentFixture<ExamAttempt>) => {
+      questionsButton(fixture).click();
+      fixture.detectChanges();
+    };
+
+    it('is not in the page until the Questions button is pressed, and the button says where the candidate is', async () => {
+      const fixture = await open(attempt());
+
+      expect(sheet(fixture)).toBeNull();
+      expect(questionsButton(fixture).textContent?.replace(/\s+/g, ' ').trim()).toBe('Questions 1/2');
+      expect(questionsButton(fixture).getAttribute('aria-haspopup')).toBe('dialog');
+
+      openSheet(fixture);
+
+      expect(sheet(fixture)?.querySelector('h2')?.textContent).toContain('Questions');
+      expect(sheet(fixture)?.querySelectorAll('.palette__item')).toHaveLength(2);
+    });
+
+    it('goes to the question that was chosen, closes, and puts the focus on that question’s position line', async () => {
+      const fixture = await open(attempt());
+      openSheet(fixture);
+
+      sheet(fixture)!.querySelectorAll<HTMLButtonElement>('.palette__item')[1].click();
+      fixture.detectChanges();
+      fixture.detectChanges();
+
+      expect(sheet(fixture)).toBeNull();
+      expect(textOf(fixture)).toContain('Question 2 of 2');
+      expect(document.activeElement).toBe(root(fixture).querySelector('.question__meta'));
+    });
+
+    it('says how many questions are still open, and Submit in it opens the confirmation under the time', async () => {
+      const fixture = await open(attempt());
+      openSheet(fixture);
+
+      expect(sheet(fixture)?.querySelector('.exam-sheet-unanswered')?.textContent?.trim()).toMatch(/not answered/);
+
+      (sheet(fixture)!.querySelector('.exam-sheet-submit') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      fixture.detectChanges();
+
+      expect(sheet(fixture)).toBeNull();
+      expect(root(fixture).querySelector('.exam-submit-confirm')).not.toBeNull();
+    });
+
+    it('stays out of the way of the palette pane, which is always in the page for the layouts with room for it', async () => {
+      const fixture = await open(attempt());
+
+      expect(root(fixture).querySelectorAll('.exam-side .palette__item')).toHaveLength(2);
+      expect(root(fixture).querySelector('.exam-side h2')?.textContent).toContain('Questions');
+    });
   });
 
   it('makes the question text larger and smaller, within limits, and remembers the size', async () => {
@@ -1282,6 +1608,23 @@ describe('ExamAttempt', () => {
       expect(document.activeElement?.textContent).toContain('Section B · Question 3 of 3');
     });
 
+    it('asks first, with the focus on the question, when a question in a later section is chosen from the Questions sheet', async () => {
+      const fixture = await open(lockedAttempt());
+      (root(fixture).querySelector('.exam-pager__palette') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      root(fixture)
+        .querySelector<HTMLElement>('app-modal-dialog')!
+        .querySelectorAll<HTMLButtonElement>('.palette__item')[2]
+        .click();
+      fixture.detectChanges();
+      fixture.detectChanges();
+
+      const confirmation = root(fixture).querySelector<HTMLElement>('[role="alertdialog"][aria-describedby="leave-section-text"]');
+      expect(confirmation).not.toBeNull();
+      expect(document.activeElement).toBe(confirmation);
+    });
+
     it('opens in the section the server says the candidate is in, after a reload', async () => {
       const fixture = await open(lockedAttempt('s2'));
 
@@ -1315,6 +1658,79 @@ describe('ExamAttempt', () => {
     fixture.detectChanges();
 
     expect(textOf(fixture)).toContain('No attempt matches the given id.');
+  });
+
+  describe('when the attempt cannot be read from the server', () => {
+    const tryAgain = (fixture: ComponentFixture<ExamAttempt>) => buttonLabelled(fixture, 'Try again');
+    const backLink = (fixture: ComponentFixture<ExamAttempt>) =>
+      Array.from(root(fixture).querySelectorAll('a')).find((a) => a.textContent?.includes('Back to my exams'));
+
+    it('offers to try again and a way back, instead of leaving only the error', async () => {
+      await TestBed.configureTestingModule({
+        imports: [ExamAttempt],
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideRouter([]),
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ attemptId: 'a1' }) } } },
+        ],
+      }).compileComponents();
+      httpMock = TestBed.inject(HttpTestingController);
+      const fixture = TestBed.createComponent(ExamAttempt);
+      fixture.detectChanges();
+
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1')).error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('[role="alert"]')).not.toBeNull();
+      expect(tryAgain(fixture)).toBeTruthy();
+      expect(backLink(fixture)?.getAttribute('href')).toBe('/my-exams');
+
+      tryAgain(fixture)!.click();
+      fixture.detectChanges();
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET').flush(attempt());
+      fixture.detectChanges();
+      answerWebcamPolicy(false);
+
+      expect(root(fixture).querySelector('[role="alert"].error-message')).toBeNull();
+      expect(textOf(fixture)).toContain('What is 2 + 2?');
+      expect(tryAgain(fixture)).toBeFalsy();
+    });
+
+    it('offers to try again when the attempt could not be read as the time ran out', async () => {
+      const fixture = await open(attempt());
+
+      vi.advanceTimersByTime(30 * 60_000 + 1_000);
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET').error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+      fixture.detectChanges();
+      expect(tryAgain(fixture)).toBeTruthy();
+
+      tryAgain(fixture)!.click();
+      httpMock
+        .expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET')
+        .flush(attempt({ status: 'Submitted', autoSubmitted: true, score: 1, maxScore: 2, sections: [] }));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('1 / 2');
+      expect(tryAgain(fixture)).toBeFalsy();
+    });
+
+    it('offers only the way back when no attempt was given, since trying again could not help', async () => {
+      await TestBed.configureTestingModule({
+        imports: [ExamAttempt],
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideRouter([]),
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({}) } } },
+        ],
+      }).compileComponents();
+      httpMock = TestBed.inject(HttpTestingController);
+      const fixture = TestBed.createComponent(ExamAttempt);
+      fixture.detectChanges();
+
+      expect(tryAgain(fixture)).toBeFalsy();
+      expect(backLink(fixture)).toBeTruthy();
+    });
   });
 
   describe('display options and keyboard shortcuts', () => {
@@ -1713,6 +2129,23 @@ describe('ExamAttempt', () => {
       const request = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/me/attempts/a1/issues'));
       expect(request.request.body).toEqual({ category: 'Question', message: 'Option C is missing', questionId: 'q1' });
       request.flush({ id: 'r1', category: 'Question', questionId: 'q1', message: 'Option C is missing', reportedAtUtc: '2026-10-05T04:31:00Z' });
+    });
+
+    it('puts the Questions sheet away when an organiser pauses the attempt, and it does not reopen by itself on resume', async () => {
+      const fixture = await open(attempt());
+      (root(fixture).querySelector('.exam-pager__palette') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('app-modal-dialog')).not.toBeNull();
+
+      beat(fixture, status({ pausedAtUtc: new Date(Date.now()).toISOString() }));
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('app-modal-dialog')).toBeNull();
+
+      beat(fixture, status());
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('What is 2 + 2?');
+      expect(root(fixture).querySelector('app-modal-dialog')).toBeNull();
     });
 
     it('still offers to report an issue while an organiser has the attempt paused', async () => {
@@ -2139,6 +2572,54 @@ describe('ExamAttempt', () => {
       expect(textOf(fixture)).toContain('Your camera is on.');
     });
 
+    it.each([
+      [120, 'A photo is taken every 2 minutes'],
+      [60, 'A photo is taken every minute'],
+      [45, 'A photo is taken every 45 seconds'],
+    ])('says how often photos are taken from the server’s policy (%i seconds), not a fixed time', async (seconds, sentence) => {
+      stubCamera(() => Promise.resolve(stream()));
+
+      const fixture = await open(attempt(), undefined, true, false, seconds);
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain(sentence);
+    });
+
+    it('says how to allow a refused camera and lets the candidate try again, without leaving the exam', async () => {
+      const getUserMedia = vi
+        .fn<() => Promise<MediaStream>>()
+        .mockRejectedValueOnce(new Error('NotAllowedError'))
+        .mockResolvedValue(stream());
+      stubCamera(getUserMedia);
+      const fixture = await open(attempt(), undefined, true);
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('allow the camera for this site in your browser');
+
+      buttonLabelled(fixture, 'Try again')?.click();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(getUserMedia).toHaveBeenCalledTimes(2);
+      expect(textOf(fixture)).toContain('Your camera is on.');
+      expect(textOf(fixture)).not.toContain('Your camera is off');
+    });
+
+    it('keeps the notice when the camera is refused again', async () => {
+      stubCamera(() => Promise.reject(new Error('NotAllowedError')));
+      const fixture = await open(attempt(), undefined, true);
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      buttonLabelled(fixture, 'Try again')?.click();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Your camera is off, so no photos are being taken.');
+      expect(buttonLabelled(fixture, 'Try again')).toBeTruthy();
+    });
+
     it('says no photos are being taken when the candidate refuses the camera, and the exam carries on', async () => {
       stubCamera(() => Promise.reject(new Error('NotAllowedError')));
 
@@ -2180,6 +2661,41 @@ describe('ExamAttempt', () => {
       fixture.detectChanges();
 
       expect(getDisplayMedia).toHaveBeenCalledTimes(1);
+      expect(textOf(fixture)).toContain('Your screen is being shared.');
+    });
+
+    it('says how often the screen is captured from the server’s policy, before and after it is shared', async () => {
+      stubDisplay(() => Promise.resolve(stream()));
+
+      const fixture = await open(attempt(), undefined, false, true, 300);
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('A picture of it is taken every 5 minutes');
+
+      buttonLabelled(fixture, 'Share screen')?.click();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('A picture is taken every 5 minutes');
+    });
+
+    it('lets the candidate share again after declining, from the notice', async () => {
+      const getDisplayMedia = vi
+        .fn<() => Promise<MediaStream>>()
+        .mockRejectedValueOnce(new Error('NotAllowedError'))
+        .mockResolvedValue(stream());
+      stubDisplay(getDisplayMedia);
+      const fixture = await open(attempt(), undefined, false, true);
+      fixture.detectChanges();
+      buttonLabelled(fixture, 'Share screen')?.click();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('Your screen is not shared');
+
+      buttonLabelled(fixture, 'Try again')?.click();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(getDisplayMedia).toHaveBeenCalledTimes(2);
       expect(textOf(fixture)).toContain('Your screen is being shared.');
     });
 

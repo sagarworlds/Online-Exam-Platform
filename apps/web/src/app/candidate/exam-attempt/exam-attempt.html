@@ -5,6 +5,19 @@
 
   @if (errorMessage()) {
     <p class="error-message" role="alert">{{ errorMessage() }}</p>
+    <!-- An attempt that could not be read must not leave the candidate with nothing to press: try again, or go back. -->
+    @if (loadFailed() || attempt() === null) {
+      <div class="actions">
+        @if (loadFailed()) {
+          <button type="button" class="primary" (click)="retryLoad()">{{ 'common.retry' | t }}</button>
+        }
+        @if (preview) {
+          <a class="btn" [routerLink]="['/exams', examIdForLinks]">{{ 'attempt.preview.back' | t }}</a>
+        } @else {
+          <a class="btn" routerLink="/my-exams">{{ 'common.backToMyExams' | t }}</a>
+        }
+      </div>
+    }
   }
 
   @if (attempt(); as current) {
@@ -33,6 +46,38 @@
             <button type="button" #submitButton class="primary exam-bar__submit" (click)="askToSubmit()">{{ 'attempt.submit.ask' | t }}</button>
           </div>
         </header>
+
+        <!-- Always there while the exam is open: whether the answers have reached the server, and since when. A preview saves nothing. -->
+        @if (!preview) {
+          <p class="exam-save" [attr.data-state]="saveState()">
+            <span class="exam-save__icon" aria-hidden="true">{{ saveState() === 'saved' ? '✓' : saveState() === 'saving' ? '…' : '!' }}</span>
+            @switch (saveState()) {
+              @case ('saved') {
+                @if (lastSavedAt(); as at) {
+                  {{ 'attempt.save.savedAt' | t: { time: (at | date: 'shortTime') ?? '' } }}
+                } @else {
+                  {{ 'attempt.save.saved' | t }}
+                }
+              }
+              @case ('saving') {
+                {{ 'attempt.save.saving' | t }}
+              }
+              @case ('offline') {
+                {{ 'attempt.save.offline' | t }}
+              }
+            }
+          </p>
+        }
+
+        <!-- Said once at five minutes and at one minute left, in words on the page and to a screen reader, and at time-up. The countdown
+             changes every second and is not announced (A-06). It is in the pinned block, so it is seen wherever the page is scrolled and does
+             not push the question down under a finger. It stays until the candidate dismisses it, and a new one shows again. -->
+        <div class="exam-time-banner" [class.exam-time-banner--shown]="timeWarningVisible() !== ''">
+          <p class="exam-time-warning" role="status" aria-live="polite">{{ timeWarningVisible() }}</p>
+          @if (timeWarningVisible() !== '') {
+            <button type="button" (click)="dismissTimeWarning()">{{ 'common.ok' | t }}</button>
+          }
+        </div>
 
         @if (confirmingSubmit()) {
           <div class="submit-confirm exam-submit-confirm" role="alertdialog" [attr.aria-label]="'attempt.submit.aria' | t">
@@ -88,28 +133,36 @@
         </p>
       }
       @if (webcamState() === 'on') {
-        <p class="hint exam-webcam" role="status">{{ 'attempt.webcam.on' | t }}</p>
+        <p class="hint exam-webcam" role="status">{{ 'attempt.webcam.on' | t: { interval: intervalText(webcamEverySeconds()) } }}</p>
       } @else if (webcamState() === 'denied') {
-        <p class="exam-focus-warning" role="alert">{{ 'attempt.webcam.denied' | t }}</p>
+        <p class="exam-focus-warning" role="alert">
+          {{ 'attempt.webcam.denied' | t }} {{ 'attempt.webcam.help' | t }}
+          <button type="button" (click)="retryCamera()">{{ 'common.retry' | t }}</button>
+        </p>
       }
       @if (screenState() === 'idle') {
         <p class="exam-focus-warning" role="alert">
-          {{ 'attempt.screen.ask' | t }}
+          {{ 'attempt.screen.ask' | t: { interval: intervalText(screenEverySeconds()) } }}
           <button type="button" (click)="shareScreen()">{{ 'attempt.screen.share' | t }}</button>
         </p>
       } @else if (screenState() === 'on') {
-        <p class="hint exam-screen" role="status">{{ 'attempt.screen.on' | t }}</p>
+        <p class="hint exam-screen" role="status">{{ 'attempt.screen.on' | t: { interval: intervalText(screenEverySeconds()) } }}</p>
       } @else if (screenState() === 'denied') {
-        <p class="exam-focus-warning" role="alert">{{ 'attempt.screen.denied' | t }}</p>
+        <p class="exam-focus-warning" role="alert">
+          {{ 'attempt.screen.denied' | t }} {{ 'attempt.screen.help' | t }}
+          <button type="button" (click)="shareScreen()">{{ 'common.retry' | t }}</button>
+        </p>
       }
       <!-- Always present, so what was just refused is announced politely instead of interrupting. -->
       <p class="exam-protection-notice" role="status" aria-live="polite">{{ protectionNotice() }}</p>
       <!-- Always present for the same reason: answers kept on this device while the connection is down (FR-53). -->
       <p class="exam-sync" role="status" aria-live="polite" [class.exam-sync--active]="syncMessage() !== ''">{{ syncMessage() }}</p>
-      <!-- Spoken once at five minutes and at one minute left, and at time-up. The countdown changes every second and is not announced (A-06). -->
-      <p class="visually-hidden exam-time-warning" role="status" aria-live="polite">{{ timeWarning() }}</p>
+      <!-- Said politely when the connection comes back and the waiting answers have reached the server. -->
+      <p class="visually-hidden exam-sync-restored" role="status" aria-live="polite">{{ syncRestored() }}</p>
       <p class="visually-hidden exam-time-up" role="alert">{{ timeUpNotice() }}</p>
 
+      <!-- The two aids sit in one row, so they take one line above the question, not two. -->
+      <div class="exam-aids">
       <!-- Outside the paused branch below on purpose: a candidate who was stopped is the one most likely to have something to report. A preview has no real attempt to report from. -->
       @if (!preview) {
         <app-report-issue [attemptId]="current.id" />
@@ -137,6 +190,7 @@
           <p class="hint exam-protection">{{ 'attempt.protect' | t }}</p>
         }
       </details>
+      </div>
 
       @if (paused()) {
         <div class="card exam-paused" role="status">
@@ -180,7 +234,8 @@
                     [id]="'answer-' + question.id"
                     [attr.aria-describedby]="'answer-hint-' + question.id"
                     [value]="question.answerText ?? ''"
-                    (change)="saveTyped(question, $any($event.target).value)"
+                    (input)="typing(question, $any($event.target).value)"
+                    (change)="commitTyped(question, $any($event.target).value)"
                   />
                 }
               </fieldset>
@@ -194,9 +249,17 @@
               </div>
             </div>
 
+            <!-- On a phone this bar is pinned to the bottom of the screen: where the thumb is, with the questions one tap away. Every answer is
+                 saved the moment it is chosen, so Next is the one forward button: Save & Next, which is all Next ever did. -->
             <div class="exam-pager">
               <button type="button" [disabled]="isFirst()" (click)="previous()">&larr; {{ 'attempt.previous' | t }}</button>
-              <button type="button" [disabled]="isLast()" (click)="next()">{{ 'attempt.next' | t }} &rarr;</button>
+              <button type="button" class="exam-pager__palette" aria-haspopup="dialog" (click)="openPalette()">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <rect x="2" y="2" width="5" height="5" rx="1" /><rect x="9" y="2" width="5" height="5" rx="1" />
+                  <rect x="2" y="9" width="5" height="5" rx="1" /><rect x="9" y="9" width="5" height="5" rx="1" />
+                </svg>
+                {{ 'attempt.paletteOpen' | t: { number: position() + 1, total: questions().length } }}
+              </button>
               <button type="button" class="primary" [disabled]="isLast()" (click)="saveAndNext()">{{ nextLeavesSection() ? ('attempt.saveNextSection' | t) : ('attempt.saveNext' | t) }}</button>
             </div>
 
@@ -212,8 +275,9 @@
           }
         </section>
 
-        <aside class="card exam-side" [attr.aria-label]="'attempt.palette' | t">
-          <h2>{{ 'attempt.questions' | t }}</h2>
+        <!-- The palette, drawn twice: as a pane beside the question where there is room, and in a sheet that the Questions button opens on a
+             phone. The stylesheet shows one or the other; the sheet is only in the page while it is open. -->
+        <ng-template #paletteBody let-sheet="sheet">
           <p class="hint">
             {{ 'attempt.answeredOf' | t: { answered: answeredCount(), total: questions().length } }}@if (markedCount() > 0) { · {{ 'attempt.markedCount' | t: { count: markedCount() } }} }
           </p>
@@ -232,7 +296,7 @@
                   [attr.aria-current]="item.index === position() ? 'true' : null"
                   [attr.aria-label]="'attempt.paletteItem' | t: { number: item.number, status: item.status }"
                   [disabled]="item.closed"
-                  (click)="goTo(item.index)"
+                  (click)="sheet ? chooseFromSheet(item.index) : goTo(item.index)"
                 >
                   {{ item.number }}
                 </button>
@@ -247,8 +311,25 @@
             <li class="legend--marked">{{ 'attempt.legend.marked' | t }}</li>
             <li class="legend--current">{{ 'attempt.legend.current' | t }}</li>
           </ul>
+        </ng-template>
+
+        <aside class="card exam-side" [attr.aria-label]="'attempt.palette' | t">
+          <h2>{{ 'attempt.questions' | t }}</h2>
+          <ng-container [ngTemplateOutlet]="paletteBody" [ngTemplateOutletContext]="{ sheet: false }" />
         </aside>
       </div>
+
+      @if (paletteOpen()) {
+        <app-modal-dialog #paletteSheet bottom [heading]="'attempt.questions' | t" (closed)="paletteOpen.set(false)">
+          <ng-container [ngTemplateOutlet]="paletteBody" [ngTemplateOutletContext]="{ sheet: true }" />
+          @if (unansweredCount() > 0) {
+            <p class="exam-sheet-unanswered" role="status">{{ unansweredText() }}</p>
+          }
+          <div modalFooter>
+            <button type="button" class="primary exam-sheet-submit" (click)="submitFromSheet()">{{ 'attempt.submit.ask' | t }}</button>
+          </div>
+        </app-modal-dialog>
+      }
       }
     } @else {
       <div class="card result">

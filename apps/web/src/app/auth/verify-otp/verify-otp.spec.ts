@@ -1,8 +1,10 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { vi } from 'vitest';
 import { environment } from '../../../environments/environment';
 import { VerifyOtp } from './verify-otp';
 
@@ -135,6 +137,118 @@ describe('VerifyOtp', () => {
     const request = httpMock.expectOne(verifyUrl);
     expect(request.request.body).toEqual({ otpChallengeId: 'challenge-1', code: '123456' });
     request.flush({ accessToken: undefined }, { status: 200, statusText: 'OK' });
+  });
+
+  it('sends the code as soon as the sixth digit is in, and not before', async () => {
+    const { fixture, compiled, httpMock } = await renderForm();
+
+    type(fixture, compiled, '12345');
+    httpMock.expectNone(verifyUrl);
+    type(fixture, compiled, '123456');
+
+    const request = httpMock.expectOne(verifyUrl);
+    expect(request.request.body).toEqual({ otpChallengeId: 'challenge-1', code: '123456' });
+    request.flush({ accessToken: undefined }, { status: 200, statusText: 'OK' });
+  });
+
+  it('sends a pasted or auto-filled code once, even if the button is pressed too', async () => {
+    const { fixture, compiled, httpMock } = await renderForm();
+
+    type(fixture, compiled, '654321');
+    (compiled.querySelector('button[type="submit"]') as HTMLButtonElement).click();
+
+    httpMock.expectOne(verifyUrl).flush({ accessToken: undefined }, { status: 200, statusText: 'OK' });
+  });
+
+  it('puts the cursor back in the box with the refused digits selected, so a new code can be typed straight over them', async () => {
+    const { fixture, compiled, httpMock } = await renderForm();
+    type(fixture, compiled, '123456');
+
+    httpMock.expectOne(verifyUrl).flush({ detail: 'That code is not right.' }, { status: 400, statusText: 'Bad Request' });
+    fixture.detectChanges();
+    fixture.detectChanges();
+
+    const input = compiled.querySelector('#verify-otp-code') as HTMLInputElement;
+    expect(document.activeElement).toBe(input);
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe(6);
+  });
+
+  describe('asking for a new code', () => {
+    const requestUrl = `${environment.apiBaseUrl}/v1/auth/otp/request`;
+    const resendButton = (compiled: HTMLElement) => compiled.querySelector<HTMLButtonElement>('.verify-resend button');
+
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it('waits half a minute first, counting down in words on the button', async () => {
+      const { compiled } = await navigateWithDestination('Login', 'jane@example.com');
+
+      expect(resendButton(compiled)?.textContent?.trim()).toBe('Send a new code in 0:30');
+      expect(resendButton(compiled)?.disabled).toBe(true);
+
+      await vi.advanceTimersByTimeAsync(10_000);
+      TestBed.inject(ApplicationRef).tick();
+      expect(resendButton(compiled)?.textContent?.trim()).toBe('Send a new code in 0:20');
+
+      await vi.advanceTimersByTimeAsync(20_000);
+      TestBed.inject(ApplicationRef).tick();
+      expect(resendButton(compiled)?.textContent?.trim()).toBe('Send a new code');
+      expect(resendButton(compiled)?.disabled).toBe(false);
+    });
+
+    it('sends a new code to where the first went, then checks the next code against the new challenge', async () => {
+      const { compiled } = await navigateWithDestination('Login', 'jane@example.com');
+      const httpMock = TestBed.inject(HttpTestingController);
+      await vi.advanceTimersByTimeAsync(30_000);
+      TestBed.inject(ApplicationRef).tick();
+
+      resendButton(compiled)!.click();
+      const request = httpMock.expectOne(requestUrl);
+      expect(request.request.body).toEqual({ channel: 'Email', destination: 'jane@example.com' });
+      request.flush({ otpChallengeId: 'challenge-2' });
+      TestBed.inject(ApplicationRef).tick();
+
+      expect(compiled.querySelector('[role="status"]')?.textContent).toContain('A new code was sent.');
+      // And the wait starts again, so the button cannot be pressed in a row.
+      expect(resendButton(compiled)?.disabled).toBe(true);
+
+      const input = compiled.querySelector('#verify-otp-code') as HTMLInputElement;
+      input.value = '111222';
+      input.dispatchEvent(new Event('input'));
+      expect(httpMock.expectOne(verifyUrl).request.body).toEqual({ otpChallengeId: 'challenge-2', code: '111222' });
+    });
+
+    it('sends a mobile number as a text message', async () => {
+      const { compiled } = await navigateWithDestination('Login', '9876543210');
+      const httpMock = TestBed.inject(HttpTestingController);
+      await vi.advanceTimersByTimeAsync(30_000);
+      TestBed.inject(ApplicationRef).tick();
+
+      resendButton(compiled)!.click();
+
+      expect(httpMock.expectOne(requestUrl).request.body).toEqual({ channel: 'Sms', destination: '9876543210' });
+    });
+
+    it('says why when a new code cannot be sent, and leaves the button to try again', async () => {
+      const { compiled } = await navigateWithDestination('Login', 'jane@example.com');
+      const httpMock = TestBed.inject(HttpTestingController);
+      await vi.advanceTimersByTimeAsync(30_000);
+      TestBed.inject(ApplicationRef).tick();
+
+      resendButton(compiled)!.click();
+      httpMock.expectOne(requestUrl).flush({ detail: 'Too many codes. Wait a while.' }, { status: 429, statusText: 'Too Many Requests' });
+      TestBed.inject(ApplicationRef).tick();
+
+      expect(compiled.querySelector('[role="alert"]')?.textContent).toContain('Too many codes.');
+      expect(resendButton(compiled)?.disabled).toBe(false);
+    });
+
+    it.each(['Registration', 'TwoFactor'])('is not offered for a %s code, which the login page is the way back from', async (purpose) => {
+      const { compiled } = await navigateWithDestination(purpose, 'jane@example.com');
+
+      expect(resendButton(compiled)).toBeNull();
+    });
   });
 
   it('announces a refused code above the button and keeps the digits that were typed', async () => {

@@ -22,6 +22,29 @@ const SESSION_END_MESSAGES: Record<SessionEndReason, string> = {
   session_unknown: 'Your session is no longer valid. Please log in again.',
 };
 
+/** The two ways to sign in. */
+type LoginMode = 'password' | 'otp';
+
+/** Where the way the candidate last signed in is kept, on this device only: it is a convenience, not part of the account. */
+const LOGIN_MODE_KEY = 'login.mode';
+
+/** The way the candidate last chose to sign in, so a one-time-code user is not shown the password form every time. Password until a choice is made. */
+function rememberedLoginMode(): LoginMode {
+  try {
+    return localStorage.getItem(LOGIN_MODE_KEY) === 'otp' ? 'otp' : 'password';
+  } catch {
+    return 'password';
+  }
+}
+
+function rememberLoginMode(mode: LoginMode): void {
+  try {
+    localStorage.setItem(LOGIN_MODE_KEY, mode);
+  } catch {
+    // A blocked store only means the choice is forgotten; the form on screen is the one chosen.
+  }
+}
+
 @Component({
   selector: 'app-login',
   imports: [ReactiveFormsModule, RouterLink, TranslatePipe],
@@ -39,7 +62,7 @@ export class Login {
   private readonly passwordSubmit = viewChild<ElementRef<HTMLButtonElement>>('passwordSubmit');
   private readonly otpSubmit = viewChild<ElementRef<HTMLButtonElement>>('otpSubmit');
 
-  protected readonly mode = signal<'password' | 'otp'>('password');
+  protected readonly mode = signal<LoginMode>(rememberedLoginMode());
   protected readonly submitting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   /** Whether the user has pressed submit on the current form; field problems are shown only after that. */
@@ -58,8 +81,9 @@ export class Login {
     destination: ['', Validators.required],
   });
 
-  protected setMode(mode: 'password' | 'otp'): void {
+  protected setMode(mode: LoginMode): void {
     this.mode.set(mode);
+    rememberLoginMode(mode);
     this.errorMessage.set(null);
     this.attempted.set(false);
   }

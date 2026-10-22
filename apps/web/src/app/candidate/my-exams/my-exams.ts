@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, ElementRef, Injector, afterNextRender, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
 import type { MessageKey } from '../../i18n/messages.en';
@@ -18,6 +18,9 @@ interface ExamSection {
   exams: MyExamDto[];
   collapsible: boolean;
 }
+
+/** How often the countdowns are worked out again. They are in minutes, so a finer beat would only redraw the same words. */
+const COUNTDOWN_TICK_MS = 30_000;
 
 /** How the window of an exam is written: the date and the minute, without seconds, which only make the line longer on a phone. */
 const WINDOW_FORMAT = 'MMM d, y, h:mm a';
@@ -47,6 +50,9 @@ export class MyExams {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly bestAttemptId = bestAttemptId;
   protected readonly windowFormat = WINDOW_FORMAT;
+
+  /** The time the countdowns count from, moved on every half minute so "Closes in 1 hour 20 minutes" does not go stale while the page is open. */
+  private readonly now = signal(Date.now());
 
   /** The candidate's own choice to show or hide the attempted exams, remembered on this device; null until they make one. */
   private readonly attemptedChoice = signal<boolean | null>(rememberedAttemptedOpen());
@@ -87,6 +93,15 @@ export class MyExams {
   protected readonly maxRequestText = MAX_ATTEMPT_REQUEST_TEXT;
 
   constructor() {
+    this.load();
+    const timer = setInterval(() => this.now.set(Date.now()), COUNTDOWN_TICK_MS);
+    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+  }
+
+  /** Reads the list of exams. Also what Try again does, so a list that could not be read does not leave the page with nothing to press. */
+  protected load(): void {
+    this.errorMessage.set(null);
+    this.loading.set(true);
     this.api.listMyExams().subscribe({
       next: (exams) => {
         this.exams.set(exams);
@@ -97,6 +112,48 @@ export class MyExams {
         this.errorMessage.set(extractErrorMessage(error));
       },
     });
+  }
+
+  /**
+   * How long until the exam closes, if it is open, or opens, if it has not yet, in words; null for an exam that is over. The one thing a
+   * candidate is checking when they come to this page is whether they have time.
+   */
+  protected countdown(exam: MyExamDto): string | null {
+    // A moment that has passed on this device's clock is no countdown: the list is read again when the page is, and says what is true then.
+    if (exam.state === 'Open' && Date.parse(exam.endUtc) > this.now()) {
+      return this.i18n.t('myExams.closesIn', { time: this.timeUntil(exam.endUtc) });
+    }
+    if (exam.state === 'NotOpen' && Date.parse(exam.startUtc) > this.now()) {
+      return this.i18n.t('myExams.opensIn', { time: this.timeUntil(exam.startUtc) });
+    }
+    return null;
+  }
+
+  /** The time until a moment as its two largest units ("2 days 3 hours", "1 hour 20 minutes", "12 minutes"), or "less than a minute". */
+  private timeUntil(utc: string): string {
+    const total = Math.floor((Date.parse(utc) - this.now()) / 60_000);
+    if (total < 1) {
+      return this.i18n.t('time.lessThanMinute');
+    }
+
+    const days = Math.floor(total / 1440);
+    const hours = Math.floor((total % 1440) / 60);
+    const minutes = total % 60;
+    const parts: string[] = [];
+    if (days > 0) {
+      parts.push(this.i18n.plural('time.days', days));
+      if (hours > 0) {
+        parts.push(this.i18n.plural('time.hours', hours));
+      }
+    } else if (hours > 0) {
+      parts.push(this.i18n.plural('time.hours', hours));
+      if (minutes > 0) {
+        parts.push(this.i18n.plural('time.minutes', minutes));
+      }
+    } else {
+      parts.push(this.i18n.plural('time.minutes', minutes));
+    }
+    return parts.join(' ');
   }
 
   /** Shows or hides the attempted exams, and remembers the choice for the next visit. */

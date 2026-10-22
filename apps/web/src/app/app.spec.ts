@@ -7,6 +7,7 @@ import { environment } from '../environments/environment';
 import { App } from './app';
 import { AUTH_TOKEN_STORAGE_KEY, AuthSessionService } from './auth/auth-session.service';
 import { buildFakeJwt } from './auth/testing/fake-jwt';
+import { ExamMode } from './shared/exam-mode/exam-mode';
 
 describe('App', () => {
   let httpMock: HttpTestingController;
@@ -54,6 +55,53 @@ describe('App', () => {
       expect(skip?.textContent?.trim()).toBe('Skip to main content');
       expect(skip?.getAttribute('href')).toBe('#main-content');
       expect(root.querySelector('main#main-content')?.getAttribute('tabindex')).toBe('-1');
+    });
+  });
+
+  describe('while an exam is open (ExamMode)', () => {
+    const open = () => {
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      httpMock.expectOne(() => true).flush('Healthy');
+      return fixture;
+    };
+
+    it('shows the whole header when no exam is open', () => {
+      const root = open().nativeElement as HTMLElement;
+
+      expect(root.querySelector('header.nav nav')).not.toBeNull();
+      expect(root.querySelector('header.nav--exam')).toBeNull();
+      expect(root.querySelector('.health-widget')).not.toBeNull();
+    });
+
+    it('puts the header down to the name and the language, with no links, no Log out and no status dot', () => {
+      const fixture = open();
+      TestBed.inject(ExamMode).active.set(true);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+
+      const header = root.querySelector('header.nav--exam');
+      expect(header?.querySelector('.brand')?.textContent?.trim()).toBe('Online Exam Platform');
+      expect(header?.querySelector('a')).toBeNull();
+      expect(header?.querySelector('button')).toBeNull();
+      expect(header?.querySelector('select.language-switcher')).not.toBeNull();
+      expect(root.querySelector('header.nav nav')).toBeNull();
+      expect(root.querySelector('.health-widget')).toBeNull();
+      // The skip link and the main region stay, so the keyboard still has its way to the exam.
+      expect(root.querySelector('a.skip-link')).not.toBeNull();
+      expect(root.querySelector('main#main-content')).not.toBeNull();
+    });
+
+    it('gives the whole header back when the exam is over', () => {
+      const fixture = open();
+      const mode = TestBed.inject(ExamMode);
+      mode.active.set(true);
+      fixture.detectChanges();
+
+      mode.active.set(false);
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('header.nav nav')).not.toBeNull();
     });
   });
 

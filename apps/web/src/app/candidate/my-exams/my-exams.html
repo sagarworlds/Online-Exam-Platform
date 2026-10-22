@@ -1,20 +1,32 @@
 <div class="page page--wide">
   <div class="page-header">
     <h1>{{ 'myExams.title' | t }}</h1>
-    <a routerLink="/analytics" class="btn">{{ 'analytics.link' | t }}</a>
   </div>
 
   @if (errorMessage()) {
     <p class="error-message" role="alert">{{ errorMessage() }}</p>
+    <div class="actions">
+      <button type="button" class="primary" (click)="load()">{{ 'common.retry' | t }}</button>
+    </div>
   }
 
   @if (loading()) {
-    <p role="status">{{ 'common.loading' | t }}</p>
-  } @else if (exams().length === 0) {
+    <!-- Two cards' worth of grey lines where the exams will be, so the page does not jump when they arrive. -->
+    <div role="status">
+      <span class="visually-hidden">{{ 'common.loading' | t }}</span>
+      @for (placeholder of [1, 2]; track placeholder) {
+        <div class="card exam-skeleton" aria-hidden="true">
+          <span class="exam-skeleton__line exam-skeleton__line--title"></span>
+          <span class="exam-skeleton__line"></span>
+          <span class="exam-skeleton__line exam-skeleton__line--short"></span>
+        </div>
+      }
+    </div>
+  } @else if (exams().length === 0 && !errorMessage()) {
     <div class="card empty-state">
       {{ 'myExams.empty' | t }}
     </div>
-  } @else {
+  } @else if (exams().length > 0) {
     @for (section of sections(); track section.id) {
       <section class="exam-section" [attr.aria-labelledby]="'exams-' + section.id + '-heading'">
         @if (section.collapsible) {
@@ -39,8 +51,9 @@
 
         @if (!section.collapsible || attemptedOpen()) {
           <div [attr.id]="'exams-' + section.id">
-            @for (exam of section.exams; track exam.examId) {
-              <article class="card exam-card" [class.exam-card--past]="section.collapsible">
+            @for (exam of section.exams; track exam.examId; let first = $first) {
+              <!-- The first of the exams to take now is the one to do next: it gets the most room and a full-width button. -->
+              <article class="card exam-card" [class.exam-card--past]="section.collapsible" [class.exam-card--next]="section.id === 'available' && first">
                 <h3 class="card__title" [attr.id]="'exam-title-' + exam.examId" tabindex="-1">
                   {{ exam.name }}
                   <span class="badge" [class.badge--active]="exam.state === 'Open'" [class.badge--inactive]="exam.state !== 'Open'">
@@ -49,6 +62,9 @@
                 </h3>
                 @if (exam.description) {
                   <p>{{ exam.description }}</p>
+                }
+                @if (!section.collapsible && countdown(exam); as countdown) {
+                  <p class="exam-card__countdown">{{ countdown }}</p>
                 }
                 <p class="exam-card__window">
                   {{ 'myExams.window' | t: { start: (exam.startUtc | date: windowFormat) ?? '', end: (exam.endUtc | date: windowFormat) ?? '' } }}
@@ -146,4 +162,7 @@
       </section>
     }
   }
+
+  <!-- Secondary, so it does not compete with the exams for the candidate's attention. -->
+  <p class="my-exams__more"><a routerLink="/analytics">{{ 'analytics.link' | t }}</a></p>
 </div>

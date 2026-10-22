@@ -9,6 +9,8 @@ import { Login } from './login';
 
 describe('Login', () => {
   beforeEach(async () => {
+    // The way of signing in that was last chosen is kept on the device, so a test must not inherit the last one's.
+    localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [Login],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
@@ -33,6 +35,28 @@ describe('Login', () => {
     expect(link.textContent?.trim()).toBe('Privacy policy');
     expect(link.target).toBe('_blank');
     expect(link.rel).toContain('noopener');
+  });
+
+  it('remembers the way of signing in that was last chosen, on this device', () => {
+    const first = TestBed.createComponent(Login);
+    first.detectChanges();
+    expect((first.nativeElement as HTMLElement).querySelector('input[type="password"]')).not.toBeNull();
+
+    first.componentInstance['setMode']('otp');
+    first.detectChanges();
+    first.destroy();
+
+    const second = TestBed.createComponent(Login);
+    second.detectChanges();
+    const compiled = second.nativeElement as HTMLElement;
+    expect(compiled.querySelector('input[type="password"]')).toBeNull();
+    expect(compiled.querySelector('button[aria-pressed="true"]')?.textContent).toContain('One-time code');
+
+    second.componentInstance['setMode']('password');
+    second.destroy();
+    const third = TestBed.createComponent(Login);
+    third.detectChanges();
+    expect((third.nativeElement as HTMLElement).querySelector('input[type="password"]')).not.toBeNull();
   });
 
   it('switches to the one-time-code form', () => {

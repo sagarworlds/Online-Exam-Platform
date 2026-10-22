@@ -27,6 +27,9 @@ export class ModalDialog implements AfterViewInit {
   /** Shows the dialog as a full-height sheet down the right-hand edge instead of a box in the middle. */
   readonly side = input(false, { transform: booleanAttribute });
 
+  /** Shows the dialog as a sheet up from the bottom edge, as wide as the screen: for a short list a thumb can reach on a phone. */
+  readonly bottom = input(false, { transform: booleanAttribute });
+
   /**
    * Whether closing needs the page's say-so, because something would be lost. While it is true, Escape, the Close button and a click on the
    * dimmed area do not close the dialog; they emit {@link closeRequested} and the page chooses, calling {@link close} to let it go.

@@ -1,4 +1,4 @@
-import { DOCUMENT, DatePipe, DecimalPipe } from '@angular/common';
+import { DOCUMENT, DatePipe, DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, ElementRef, HostListener, Injector, afterNextRender, afterRenderEffect, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -19,6 +19,8 @@ import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-
 import { QuestionTimeTracker } from './question-time';
 import { PictureLoader } from '../../shared/rich-text/lazy-pictures';
 import { MathDirective } from '../../shared/rich-text/math.directive';
+import { ExamMode } from '../../shared/exam-mode/exam-mode';
+import { ModalDialog } from '../../shared/modal-dialog/modal-dialog';
 
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
@@ -42,6 +44,12 @@ function loadDismissedWarnings(attemptId: string | null): Set<string> {
     return new Set();
   }
 }
+
+/** How long a typed answer rests before it is saved, without waiting for the field to lose focus: a candidate who is cut off mid-sentence loses at most this much. */
+const TYPED_SAVE_DELAY_MS = 800;
+
+/** Within this many seconds of the deadline a typed answer is saved at once, so the last words are not left in the field when the time runs out. */
+const TYPED_SAVE_NEAR_DEADLINE_SECONDS = 2;
 
 /** How long the "that is turned off" sentence stays on screen. Long enough to read once, short enough not to nag. */
 const NOTICE_MS = 4000;
@@ -135,7 +143,7 @@ function paletteStatus(answered: boolean, marked: boolean, seen: boolean, t: Tra
  */
 @Component({
   selector: 'app-exam-attempt',
-  imports: [RouterLink, DatePipe, DecimalPipe, MathDirective, TranslatePipe, ReportIssue],
+  imports: [RouterLink, DatePipe, DecimalPipe, NgTemplateOutlet, MathDirective, ModalDialog, TranslatePipe, ReportIssue],
   templateUrl: './exam-attempt.html',
 })
 export class ExamAttempt {
@@ -143,6 +151,7 @@ export class ExamAttempt {
   private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute).snapshot;
   private readonly router = inject(Router);
+  private readonly examMode = inject(ExamMode);
 
   /**
    * Whether a staff member is previewing the exam (FR-15) rather than a candidate sitting it. The page is the same, but nothing is
@@ -159,6 +168,8 @@ export class ExamAttempt {
   protected readonly attempt = signal<AttemptDto | null>(null);
   protected readonly loading = signal(true);
   protected readonly errorMessage = signal<string | null>(null);
+  /** Whether the attempt could not be read from the server (on opening, or when the time ran out and it was read again), so the page offers to try again. */
+  protected readonly loadFailed = signal(false);
   protected readonly confirmingSubmit = signal(false);
   protected readonly submitting = signal(false);
 
@@ -221,6 +232,33 @@ export class ExamAttempt {
   protected readonly timeUpNotice = signal('');
   private warnedFiveMinutes = false;
   private warnedOneMinute = false;
+  /** Whether the candidate has put away the time warning on screen. A new warning shows again, so the one-minute warning is never missed. */
+  private readonly timeWarningDismissed = signal(false);
+  /** The time warning as the banner shows it: empty before the first warning and after it is dismissed. */
+  protected readonly timeWarningVisible = computed(() => (this.timeWarningDismissed() ? '' : this.timeWarning()));
+
+  /**
+   * Whether the browser says it has a connection. The answer queue knows more (a connection can be there while the server does not
+   * answer), so this only adds to what it says: either one makes the page say "offline".
+   */
+  private readonly online = signal(typeof navigator === 'undefined' ? true : navigator.onLine);
+
+  /** Where the answers stand, for the line under the time: all on the server, on their way, or kept here for lack of a connection. */
+  protected readonly saveState = computed<'saved' | 'saving' | 'offline'>(() => {
+    if (!this.online() || (this.sync?.waiting() ?? false)) {
+      return 'offline';
+    }
+    return (this.sync?.pendingCount() ?? 0) > 0 ? 'saving' : 'saved';
+  });
+
+  /** When the last waiting answer reached the server; null until one has, which reads as "all answers saved" with no time. */
+  protected readonly lastSavedAt = signal<Date | null>(null);
+
+  /** What is said to a screen reader when the connection comes back and the waiting answers have been sent; empty otherwise. */
+  protected readonly syncRestored = signal('');
+  private restoredTimer: ReturnType<typeof setTimeout> | undefined;
+  private hadPendingAnswers = false;
+  private wasWaitingForConnection = false;
 
   /** The question text size, as a multiple of normal. */
   protected readonly zoom = signal<number>(loadZoomLevel());
@@ -230,9 +268,16 @@ export class ExamAttempt {
   protected readonly canZoomOut = computed(() => this.zoom() > ZOOM_LEVELS[0]);
   protected readonly canZoomIn = computed(() => this.zoom() < ZOOM_LEVELS[ZOOM_LEVELS.length - 1]);
 
+  /** Whether the sheet that lists the questions is open. On a phone the palette is in this sheet; elsewhere it is a pane beside the question. */
+  protected readonly paletteOpen = signal(false);
+  private readonly paletteSheet = viewChild<ModalDialog>('paletteSheet');
+
   protected readonly questions = computed(() => this.attempt()?.sections.flatMap((s) => s.questions) ?? []);
   protected readonly answeredCount = computed(() => this.questions().filter((q) => hasAnswer(q)).length);
   protected readonly markedCount = computed(() => this.questions().filter((q) => q.markedForReview).length);
+  protected readonly unansweredCount = computed(() => this.questions().length - this.answeredCount());
+  /** "3 questions are not answered", for the sheet, where Submit is one tap away. */
+  protected readonly unansweredText = computed(() => this.i18n.plural('attempt.unanswered', this.unansweredCount()));
   protected readonly isOpen = computed(() => this.attempt()?.status === 'InProgress');
 
   /** Whether an administrator has paused the attempt (FR-29): the questions are hidden and the clock is stopped until it is resumed. */
@@ -255,6 +300,10 @@ export class ExamAttempt {
   protected readonly protectionNotice = signal<string | null>(null);
 
   private noticeTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** The text being typed for a text question and not yet saved, and the timer that saves it when the typing pauses. */
+  private typedDraft: { questionId: string; text: string } | null = null;
+  private typedTimer: ReturnType<typeof setTimeout> | undefined;
 
   private readonly guard = new ContentGuard(inject(DOCUMENT), (action) => this.showNotice(action));
 
@@ -299,6 +348,17 @@ export class ExamAttempt {
 
   /** Seconds between screen captures, from the policy. */
   private screenIntervalSeconds = 0;
+
+  /** How often the camera and the screen are captured, as the server's policy says, so what the page tells the candidate is what happens. */
+  protected readonly webcamEverySeconds = signal(120);
+  protected readonly screenEverySeconds = signal(120);
+
+  /** An interval as words: "2 minutes" for a whole number of minutes, otherwise "30 seconds". */
+  protected intervalText(seconds: number): string {
+    return seconds >= 60 && seconds % 60 === 0
+      ? this.i18n.plural('attempt.interval.minutes', seconds / 60)
+      : this.i18n.plural('attempt.interval.seconds', seconds);
+  }
 
   /** Whether the policy has been asked for in this page, so reloading the attempt after a save does not ask, or switch the camera on, again. */
   private webcamPolicyAsked = false;
@@ -432,6 +492,7 @@ export class ExamAttempt {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
+      this.examMode.active.set(false);
       this.stopTimer();
       // Report what has been counted on the question on screen before the page goes; best effort, as the time is only a measure.
       this.reportQuestionTimes();
@@ -443,11 +504,37 @@ export class ExamAttempt {
       this.webcam.stop();
       this.screen.stop();
       clearTimeout(this.noticeTimer);
+      clearTimeout(this.restoredTimer);
+      // Words still being typed are handed to the answer queue, which keeps them on this device if they cannot be sent now.
+      this.flushTyped();
       // What is still waiting stays on this device for the next time the attempt is opened.
       this.sync?.dispose();
     });
+    // While an attempt is open the page around this one puts its header down to the name and the language (see ExamMode).
+    effect(() => this.examMode.active.set(this.isOpen() && !this.preview));
+    // The sheet goes with the questions: a paused or finished attempt removes its dialog without a close event, which would leave it "open".
+    effect(() => {
+      if (this.paused() || !this.isOpen()) {
+        this.paletteOpen.set(false);
+      }
+    });
     effect(() => (this.protectContent() ? this.guard.start() : this.guard.stop()));
     effect(() => (this.watchFocus() ? this.focus.start() : this.focus.stop()));
+    // Notes when the queue empties after holding answers (the time they were saved) and when the connection comes back with nothing left waiting.
+    effect(() => {
+      const count = this.sync?.pendingCount() ?? 0;
+      const waiting = this.sync?.waiting() ?? false;
+      if (count > 0) {
+        this.hadPendingAnswers = true;
+      } else if (this.hadPendingAnswers) {
+        this.hadPendingAnswers = false;
+        this.lastSavedAt.set(new Date());
+      }
+      if (this.wasWaitingForConnection && !waiting && count === 0) {
+        this.announceRestored();
+      }
+      this.wasWaitingForConnection = waiting;
+    });
 
     this.sync =
       this.attemptId === null
@@ -472,6 +559,52 @@ export class ExamAttempt {
     });
   }
 
+  @HostListener('window:online')
+  protected onBrowserOnline(): void {
+    this.online.set(true);
+  }
+
+  @HostListener('window:offline')
+  protected onBrowserOffline(): void {
+    this.online.set(false);
+  }
+
+  /** Says, once and politely, that the connection is back and what was waiting has been sent. */
+  private announceRestored(): void {
+    this.syncRestored.set(this.i18n.t('attempt.sync.restored'));
+    clearTimeout(this.restoredTimer);
+    this.restoredTimer = setTimeout(() => this.syncRestored.set(''), NOTICE_MS);
+  }
+
+  /** Opens the sheet that lists the questions (a phone's palette). Focus goes into it, and back to this button when it closes. */
+  protected openPalette(): void {
+    this.paletteOpen.set(true);
+  }
+
+  /**
+   * Goes to the question chosen in the sheet and closes it. Focus then goes to the line giving the question's position, not back to the
+   * button that opened the sheet: it is the new question that has to be announced.
+   */
+  protected chooseFromSheet(index: number): void {
+    this.paletteSheet()?.close();
+    this.goTo(index);
+    // A move into a later locked section asks first, and the question that asks takes the focus; the position line only when the move was made.
+    if (this.leavingTo() === null) {
+      afterNextRender(() => this.questionPosition()?.nativeElement.focus(), { injector: this.injector });
+    }
+  }
+
+  /** Closes the sheet and opens the submit confirmation under the time, which takes the focus. */
+  protected submitFromSheet(): void {
+    this.paletteSheet()?.close();
+    this.askToSubmit();
+  }
+
+  /** Puts the time warning away. The next one, if there is one, shows again. */
+  protected dismissTimeWarning(): void {
+    this.timeWarningDismissed.set(true);
+  }
+
   @HostListener('document:fullscreenchange')
   protected onFullscreenChange(): void {
     this.inFullscreen.set(this.focus.isFullscreen);
@@ -479,10 +612,16 @@ export class ExamAttempt {
 
   @HostListener('document:visibilitychange')
   protected onVisibilityChange(): void {
-    // A hidden page stops counting, so what was counted before it went out of view is reported now.
+    // A hidden page stops counting, so what was counted before it went out of view is reported now, and typing is saved before the tab can be closed.
     if (document.hidden) {
+      this.flushTyped();
       this.reportQuestionTimes();
     }
+  }
+
+  @HostListener('window:pagehide')
+  protected onPageHide(): void {
+    this.flushTyped();
   }
 
   /** Asks for full screen; must come from the candidate's own click. */
@@ -565,6 +704,9 @@ export class ExamAttempt {
     if (index < 0 || index >= this.questions().length) {
       return;
     }
+
+    // The field being typed in goes with the question on screen, so what is in it is saved before another question replaces it.
+    this.flushTyped();
 
     const active = this.activeRange();
     if (active !== null && (index < active.start || index > active.end)) {
@@ -752,8 +894,10 @@ export class ExamAttempt {
    * Records what the candidate typed for a text question, and shows it at once. It is saved in the background like a choice; blank text
    * takes the answer back, as clearing it does.
    */
-  private changeText(question: AttemptQuestionDto, text: string): void {
-    this.setText(question.id, text);
+  private changeText(question: AttemptQuestionDto, text: string, shown: string = text): void {
+    // The page shows what is in the box, spaces and all: the box is bound to it, so showing the trimmed text would rewrite the box under the
+    // candidate's fingers and take away the space they have just typed. Only what is sent is trimmed.
+    this.setText(question.id, shown);
     this.errorMessage.set(null);
     this.sync?.enqueue({
       questionId: question.id,
@@ -776,8 +920,36 @@ export class ExamAttempt {
   }
 
   /**
-   * Saves what the candidate typed for a text question. It is called when the field loses focus or Enter is pressed, not on every key,
-   * so a half-typed answer is not sent. Unchanged text, spaces around it aside, is not sent again.
+   * Notes what is being typed for a text question and saves it when the typing pauses (TYPED_SAVE_DELAY_MS), so a closed tab, a dead battery or
+   * the end of the time does not lose it. Every key restarts the pause, so a half-typed word is not sent while the candidate is still typing.
+   */
+  protected typing(question: AttemptQuestionDto, text: string): void {
+    this.typedDraft = { questionId: question.id, text };
+    clearTimeout(this.typedTimer);
+    this.typedTimer = setTimeout(() => this.flushTyped(), TYPED_SAVE_DELAY_MS);
+  }
+
+  /** The field lost focus or Enter was pressed: what is in it is saved now, and the pause timer is not needed. */
+  protected commitTyped(question: AttemptQuestionDto, text: string): void {
+    this.typedDraft = null;
+    clearTimeout(this.typedTimer);
+    this.saveTyped(question, text);
+  }
+
+  /** Saves what is being typed, if anything: when the typing pauses, and before the page changes question, submits, hides or runs out of time. */
+  private flushTyped(): void {
+    clearTimeout(this.typedTimer);
+    const draft = this.typedDraft;
+    this.typedDraft = null;
+    const question = draft === null ? undefined : this.questions().find((q) => q.id === draft.questionId);
+    if (draft !== null && question !== undefined) {
+      this.saveTyped(question, draft.text);
+    }
+  }
+
+  /**
+   * Saves what the candidate typed for a text question: when the typing pauses, when the field loses focus or Enter is pressed. Unchanged
+   * text, spaces around it aside, is not sent again.
    */
   protected saveTyped(question: AttemptQuestionDto, text: string): void {
     const attempt = this.attempt();
@@ -789,7 +961,7 @@ export class ExamAttempt {
     if (typed === (question.answerText ?? '').trim()) {
       return;
     }
-    this.changeText(question, typed);
+    this.changeText(question, typed, text);
   }
 
   /** Records a choice. It shows at once and is saved in the background, and kept and sent again if the connection fails. */
@@ -838,6 +1010,11 @@ export class ExamAttempt {
     }
 
     if (question.isTextAnswer) {
+      // Words typed a moment ago and not yet saved are taken back with the rest, not saved after the box has been emptied.
+      if (this.typedDraft?.questionId === question.id) {
+        this.typedDraft = null;
+        clearTimeout(this.typedTimer);
+      }
       this.changeText(question, '');
       return;
     }
@@ -890,6 +1067,8 @@ export class ExamAttempt {
       return;
     }
 
+    // What is still in the field is saved first, so the last words are in the attempt that is scored.
+    this.flushTyped();
     this.submitting.set(true);
     this.errorMessage.set(null);
     // The time on the question on screen is reported as the attempt closes. It may land after the submit, which then refuses it: that loses only
@@ -957,6 +1136,10 @@ export class ExamAttempt {
 
   private show(attempt: AttemptDto): void {
     this.loading.set(false);
+    if (this.loadFailed()) {
+      this.loadFailed.set(false);
+      this.errorMessage.set(null);
+    }
     this.attempt.set(attempt);
     this.applyAccommodationFormats(attempt);
     this.focusViolations.set(attempt.focusViolations ?? 0);
@@ -1002,17 +1185,27 @@ export class ExamAttempt {
     this.api.getWebcamPolicy(attemptId).subscribe({
       next: (policy) => {
         if (policy.enabled) {
+          this.webcamEverySeconds.set(policy.intervalSeconds);
           void this.webcam.start(policy.intervalSeconds);
         }
         if (policy.screenEnabled) {
           // Sharing the screen needs the candidate's click, so the page only offers it here.
           this.screenIntervalSeconds = policy.screenIntervalSeconds;
+          this.screenEverySeconds.set(policy.screenIntervalSeconds);
           this.screen.offer();
         }
       },
       // Without an answer no camera is switched on: photos are only ever taken on the server's word.
       error: () => (this.webcamPolicyAsked = false),
     });
+  }
+
+  /**
+   * Asks for the camera again, from the candidate's click, after it was refused. A refusal the candidate has since reversed in the browser's
+   * settings (or one that was a slip) is put right here, without leaving the exam; if the browser still says no, the notice stays.
+   */
+  protected retryCamera(): void {
+    void this.webcam.start(this.webcamEverySeconds());
   }
 
   /** Starts sharing the screen. Runs from the candidate's click on the share button, as the browser requires. */
@@ -1164,6 +1357,9 @@ export class ExamAttempt {
     // A paused clock has nothing new to warn about, and a preview has no real time to run out.
     if (pausedAt === null && !this.preview) {
       this.announceTimeWarning(remainingSeconds);
+      if (remainingSeconds <= TYPED_SAVE_NEAR_DEADLINE_SECONDS) {
+        this.flushTyped();
+      }
     }
 
     // A preview that runs out of time just shows zero: there is no attempt for the server to close, and reloading would redraw the paper.
@@ -1184,9 +1380,11 @@ export class ExamAttempt {
     if (remainingSeconds <= ONE_MINUTE_WARNING_SECONDS && !this.warnedOneMinute) {
       this.warnedOneMinute = true;
       this.warnedFiveMinutes = true;
+      this.timeWarningDismissed.set(false);
       this.timeWarning.set(this.i18n.t('attempt.warn.oneMinute'));
     } else if (remainingSeconds <= FIVE_MINUTE_WARNING_SECONDS && !this.warnedFiveMinutes) {
       this.warnedFiveMinutes = true;
+      this.timeWarningDismissed.set(false);
       this.timeWarning.set(this.i18n.t('attempt.warn.fiveMinutes'));
     }
   }
@@ -1256,7 +1454,16 @@ export class ExamAttempt {
 
   private fail(error: unknown): void {
     this.loading.set(false);
+    this.loadFailed.set(true);
     this.errorMessage.set(extractErrorMessage(error));
+  }
+
+  /** Reads the attempt again after it could not be read. The clock and the answers are the server's, so nothing is lost by waiting. */
+  protected retryLoad(): void {
+    this.errorMessage.set(null);
+    this.loadFailed.set(false);
+    this.loading.set(this.attempt() === null);
+    this.reload();
   }
 
   private stopTimer(): void {

@@ -8,6 +8,9 @@
 
 body {
   margin: 0;
+  /* The page is drawn under a phone's notch and rounded corners (viewport-fit=cover in index.html), so a phone on its side does not show bars
+     at the edges; the content keeps clear of them with these. Zero where there is no notch. */
+  padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);

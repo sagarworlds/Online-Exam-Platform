@@ -39,6 +39,71 @@
   color: var(--text);
 }
 
+/* The time warning (A-06): said in words on the page as well as to a screen reader, and kept until the candidate puts it away. The live
+   region is always in the page, so what is put into it is announced; it takes no room while empty. */
+.exam-time-banner {
+  margin: 0;
+}
+
+.exam-time-warning {
+  margin: 0;
+}
+
+.exam-time-banner--shown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border: 2px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: var(--warning-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Where the answers stand, under the time: saved, on their way, or kept on this device for lack of a connection. The mark and the words say
+   it, so it does not rest on colour. */
+.exam-save {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.5rem;
+  padding: 0 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.exam-save__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.exam-save[data-state='saved'] {
+  color: var(--success);
+}
+
+.exam-save[data-state='offline'] {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+@media (max-width: 40rem) {
+  .exam-save {
+    padding: 0 0.75rem;
+  }
+}
+
 /*
  * A browser's own Print menu cannot be cancelled from the page, so while the exam is protected the printout is blank
  * except for a sentence saying why. The body class is set by the exam page's content guard and removed when it leaves.
@@ -168,8 +233,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The last minute: red and underlined, so it does not rest on colour alone. */
 .countdown--low {
   color: var(--danger);
+  text-decoration: underline;
+  text-decoration-thickness: 0.15em;
+  text-underline-offset: 0.2em;
 }
 
 .exam-layout {
@@ -179,9 +248,28 @@
   align-items: start;
 }
 
-@media (max-width: 52rem) {
+/*
+ * Three layouts, chosen by the room there is, not by the device or how it is held:
+ *  - a phone's width (up to 40rem): one column, the palette in a sheet that the Questions button opens, and the Previous, Questions and
+ *    Save & Next buttons pinned to the bottom of the screen where a thumb is;
+ *  - from 40rem (a tablet, or a phone on its side): the question beside a palette pane that scrolls on its own, so a long palette is
+ *    reachable whatever the height;
+ *  - from 52rem, the same with a wider pane.
+ */
+@media (max-width: 40rem) {
   .exam-layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .exam-side {
+    display: none;
+  }
+}
+
+@media (40rem < width <= 52rem) {
+  .exam-layout {
+    grid-template-columns: minmax(0, 1fr) 13rem;
+    gap: 1rem;
   }
 }
 
@@ -312,9 +400,145 @@
   gap: 0.75rem;
 }
 
+/* The two aids above the question, the report button and the help and display settings, share a row. */
+.exam-aids {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0 1.25rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.exam-aids > app-report-issue {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+/* Open, the report form or the settings take the whole row, so they are not squeezed beside the other. */
+.exam-aids > .report-issue--expanded,
+.exam-aids > .exam-help[open] {
+  flex-basis: 100%;
+}
+
+.exam-aids > .exam-help {
+  flex: 1 1 12rem;
+  margin: 0;
+}
+
+/* The Questions button is for the phone layout only: with the palette pane beside the question there is nothing for it to open. */
+.exam-pager__palette {
+  display: none;
+  gap: 0.4rem;
+}
+
+@media (max-width: 40rem) {
+  /* Pinned to the bottom of the screen while the question scrolls under it, and kept clear of a phone's home bar. The three buttons share the
+     width, so each is a large target and the one to go forward is the widest. */
+  .exam-pager {
+    position: sticky;
+    bottom: 0;
+    z-index: 4;
+    gap: 0.5rem;
+    margin: 0.75rem -1rem 0;
+    padding: 0.5rem 1rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .exam-pager > button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 0.5rem;
+  }
+
+  .exam-pager > .primary {
+    flex: 1.4 1 0;
+  }
+
+  /* The icon over the words, so "Questions 7/40" fits the third of the width it has without wrapping. */
+  .exam-pager__palette {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .exam-pager > .exam-pager__palette {
+    flex: 1.3 1 0;
+  }
+
+  /* Squares to tap, the width of a finger. */
+  .palette {
+    grid-template-columns: repeat(auto-fill, minmax(2.75rem, 1fr));
+  }
+
+  .palette__item {
+    height: 2.75rem;
+  }
+
+  /* Large rows to tap, one finger wide, and a little more room between them. */
+  .option-choice {
+    padding-block: 0.9rem;
+  }
+}
+
+/* The sheet's closing lines: how many questions are still open, above Submit. */
+.exam-sheet-unanswered {
+  margin: 0.75rem 0 0;
+  font-weight: 600;
+}
+
+.exam-sheet-submit {
+  width: 100%;
+}
+
+/* A pane beside the question that stays in view and scrolls by itself, so a long list of questions is reachable on a screen of any height. */
 .exam-side {
   position: sticky;
-  top: 5.5rem;
+  /* Just under the pinned block, whose measured height exam-attempt.ts keeps in this variable (it holds the time, the saved line and any warning). */
+  top: var(--exam-pinned-clearance, 5.5rem);
+  max-height: calc(100dvh - var(--exam-pinned-clearance, 5.5rem) - 1rem);
+  overflow-y: auto;
+}
+
+/* A phone on its side: there is little height, so the pinned bar gives up what it can (the title is still read by a screen reader, it just
+   does not take a line) and the pane starts higher. */
+@media (max-height: 30rem) and (orientation: landscape) {
+  .exam-bar__heading {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .exam-top .exam-bar {
+    margin-bottom: 0.25rem;
+    padding-block: 0.2rem;
+  }
+
+  /* The time and Submit sit at the end of the bar, so the empty start of it carries the saved line, and the two take one row between them. */
+  .exam-save {
+    position: absolute;
+    top: 0.7rem;
+    inset-inline-start: 1.25rem;
+    max-width: calc(100% - 20rem);
+    margin: 0;
+    padding: 0;
+    font-size: 0.8rem;
+    line-height: 1.15;
+  }
+
+  .exam-aids {
+    margin: 0 0 0.5rem;
+  }
+
 }
 
 .exam-side h2 {
@@ -690,6 +914,14 @@
    never under it. exam-attempt.ts sets the clearance from the block's measured height. */
 html:has(.exam-top) {
   scroll-padding-top: var(--exam-pinned-clearance, 5rem);
+}
+
+/* On a phone the Previous, Questions and Save & Next bar is pinned to the bottom, so a control that is tabbed to, or reached by a screen reader,
+   is scrolled to just above it and never under it (WCAG 2.4.11). */
+@media (max-width: 40rem) {
+  html:has(.exam-pager) {
+    scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 .exam-zoom {

@@ -37,6 +37,19 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* While an exam is open the header is one short row: the name and the language. */
+.nav--exam {
+  flex-wrap: nowrap;
+  padding-block: 0.3rem;
+}
+
+.nav--exam .brand {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .nav .brand {
   display: inline-flex;
   align-items: center;

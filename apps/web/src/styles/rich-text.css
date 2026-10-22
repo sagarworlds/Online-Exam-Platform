@@ -123,3 +123,10 @@
   margin: 0;
   padding: 0.4rem 0.75rem 0;
 }
+
+/* A displayed formula wider than a phone scrolls inside its own line instead of pushing the whole page sideways (WCAG 1.4.10). */
+.rich-text .katex-display {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}

@@ -3,6 +3,19 @@
 
 <app-api-activity />
 
+@if (examMode.active()) {
+  <!-- While an exam is open the site's links, Log out and the rest are put away, so one tap cannot take a candidate out of the exam and the
+       question gets the screen. The name stays, as plain text, and so does the language. -->
+  <header class="nav nav--exam">
+    <span class="brand">
+      @if (branding.logoUrl(); as logo) {
+        <img class="brand__logo" [src]="logo" alt="" />
+      }
+      {{ branding.instituteName() ?? 'Online Exam Platform' }}
+    </span>
+    <app-language-switcher />
+  </header>
+} @else {
 <header class="nav">
   <a class="brand" routerLink="/">
     @if (branding.logoUrl(); as logo) {
@@ -37,9 +50,10 @@
     <app-language-switcher />
   </nav>
 </header>
+}
 
 <div class="shell">
-  @if (adminGroups().length > 0) {
+  @if (adminGroups().length > 0 && !examMode.active()) {
     <app-admin-sidebar [groups]="adminGroups()" />
   }
   <main class="shell__content" id="main-content" tabindex="-1">
@@ -48,6 +62,7 @@
 </div>
 
 <!-- A dot, not a sentence: green or red at a glance, with the words in the hover tooltip and as the accessible name. -->
+@if (!examMode.active()) {
 <footer class="health-widget">
   @switch (health().state) {
     @case ('checking') {
@@ -66,3 +81,4 @@
     }
   }
 </footer>
+}

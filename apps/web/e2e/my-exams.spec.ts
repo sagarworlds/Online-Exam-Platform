@@ -57,6 +57,9 @@ test.describe('the exams page', () => {
   });
 
   test('opens and closes the attempted exams without moving their heading, or the new exams above it', async ({ page }) => {
+    // The countdown on each card makes the page taller, so the heading may start below the fold: it is brought into view first, as a
+    // candidate would, so that the click itself does not scroll the page and move it between the two measurements.
+    await toggle(page).scrollIntoViewIfNeeded();
     const before = await toggle(page).boundingBox();
     const newBefore = await page.getByRole('heading', { name: /Chemistry Mock 2/ }).boundingBox();
 

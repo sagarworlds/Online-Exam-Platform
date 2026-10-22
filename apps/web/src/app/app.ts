@@ -12,6 +12,7 @@ import { AdminSidebar } from './shared/admin-sidebar/admin-sidebar';
 import { LanguageSwitcher } from './i18n/language-switcher';
 import { TranslatePipe } from './i18n/translate.pipe';
 import { ApiActivity } from './shared/api-activity/api-activity';
+import { ExamMode } from './shared/exam-mode/exam-mode';
 import { RouteFocus } from './shared/route-focus/route-focus';
 
 @Component({
@@ -25,6 +26,9 @@ export class App {
   private readonly signOutService = inject(SignOutService);
   private readonly router = inject(Router);
   protected readonly authSession = inject(AuthSessionService);
+
+  /** Whether an exam is open on screen, in which case the header is put down to the institute's name and the language. */
+  protected readonly examMode = inject(ExamMode);
 
   /** The institute's name and logo for the header (FR-41); the platform's own look while none is set. */
   protected readonly branding = inject(BrandingService);
