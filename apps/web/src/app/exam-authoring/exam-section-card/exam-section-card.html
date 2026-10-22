@@ -13,18 +13,37 @@
     <p class="hint">{{ 'exams.section.noQuestions' | t }}</p>
   } @else {
     <ol>
-      @for (question of section().questions; track question.id) {
+      @for (question of section().questions; track question.id; let place = $index) {
         <li>
           <div class="section-card__row">
             <span class="section-card__text">{{ question.text ? (question.text | plainText: 160) : ('exams.section.questionGone' | t) }}</span>
             @if (editable()) {
-              <app-confirm-remove
-                [label]="removeLabel(question)"
-                [prompt]="'exams.section.removeQuestionConfirm' | t"
-                [confirmLabel]="'exams.section.remove' | t"
-                [busy]="busy()"
-                (confirmed)="takeOutRequested.emit({ sectionId: section().id, questionId: question.questionId })"
-              />
+              <span class="section-card__tools">
+                @if (section().questions.length > 1) {
+                  <!-- Up and down are the one pair of icons everyone reads; each carries the question's name, and a dimmed one says why in its tooltip. -->
+                  @for (direction of directions; track direction) {
+                    <button
+                      type="button"
+                      class="icon-btn"
+                      [attr.data-move]="direction"
+                      [attr.data-question]="question.questionId"
+                      [attr.aria-label]="moveQuestionLabel(question, direction)"
+                      [attr.aria-disabled]="canMoveQuestion(place, direction) ? null : 'true'"
+                      [appTooltip]="canMoveQuestion(place, direction) || busy() ? moveQuestionLabel(question, direction) : whyNot(direction)"
+                      (click)="moveQuestion(question, place, direction)"
+                    >
+                      <app-icon [name]="direction === 'up' ? 'chevron-up' : 'chevron-down'" />
+                    </button>
+                  }
+                }
+                <app-confirm-remove
+                  [label]="removeLabel(question)"
+                  [prompt]="'exams.section.removeQuestionConfirm' | t"
+                  [confirmLabel]="'exams.section.remove' | t"
+                  [busy]="busy()"
+                  (confirmed)="takeOutRequested.emit({ sectionId: section().id, questionId: question.questionId })"
+                />
+              </span>
             }
           </div>
         </li>
@@ -116,6 +135,21 @@
       }
     </div>
     <div class="actions section-card__actions">
+      @if (sectionCount() > 1) {
+        @for (direction of directions; track direction) {
+          <button
+            type="button"
+            class="btn--small"
+            [attr.data-section-move]="direction"
+            [attr.aria-label]="moveSectionLabel(direction)"
+            [attr.aria-disabled]="canMoveSection(direction) ? null : 'true'"
+            [appTooltip]="canMoveSection(direction) || busy() ? '' : whyNot(direction)"
+            (click)="moveSection(direction)"
+          >
+            {{ (direction === 'up' ? 'exams.section.moveUp' : 'exams.section.moveDown') | t }}
+          </button>
+        }
+      }
       @if (!renaming()) {
         <button type="button" class="btn--small" (click)="startRenaming()" [disabled]="busy()" [attr.aria-label]="'exams.section.renameLabel' | t: { name: section().name }">{{ 'exams.section.rename' | t }}</button>
       }

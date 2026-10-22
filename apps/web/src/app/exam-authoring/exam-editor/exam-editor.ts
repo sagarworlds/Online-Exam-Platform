@@ -32,6 +32,7 @@ import { INSTANT_RELEASE, ReleaseSelection, isReleaseComplete, selectionOfReleas
 import { ExamReleaseFields } from '../exam-release-fields/exam-release-fields';
 import { ExamSectionCard } from '../exam-section-card/exam-section-card';
 import { ExamTimePipe, formatInExamZone } from '../exam-time/exam-time';
+import { MoveDirection, movedBy } from '../reorder';
 import { ExamSettingsSummary } from './exam-settings-summary';
 
 /** The word each exam status is shown as; the API's own word is kept for the checks that compare it. */
@@ -420,6 +421,23 @@ export class ExamEditor {
   protected removeQuestion(target: { sectionId: string; questionId: string }): void {
     if (!this.busy()) {
       this.run(this.examApi.removeQuestion(this.examId, target.sectionId, target.questionId));
+    }
+  }
+
+  /** Moves a section a place up or down, as the whole new order, which is what the API takes. */
+  protected moveSection(move: { sectionId: string; direction: MoveDirection }): void {
+    const order = movedBy(this.exam()?.sections?.map((section) => section.id) ?? [], move.sectionId, move.direction);
+    if (order !== null && !this.busy() && !this.refreshing()) {
+      this.run(this.examApi.reorderSections(this.examId, order), undefined, 'exams.editor.moved');
+    }
+  }
+
+  /** Moves a question a place up or down within its section; `questionId` is its id in the question bank. */
+  protected moveQuestion(move: { sectionId: string; questionId: string; direction: MoveDirection }): void {
+    const section = this.exam()?.sections?.find((candidate) => candidate.id === move.sectionId);
+    const order = movedBy(section?.questions.map((question) => question.questionId) ?? [], move.questionId, move.direction);
+    if (order !== null && !this.busy() && !this.refreshing()) {
+      this.run(this.examApi.reorderQuestions(this.examId, move.sectionId, order), undefined, 'exams.editor.moved');
     }
   }
 
