@@ -76,6 +76,8 @@
       @for (section of e.sections ?? []; track section.id) {
         <app-exam-section-card
           [section]="section"
+          [sectionIndex]="$index"
+          [sectionCount]="(e.sections ?? []).length"
           [editable]="isDraft()"
           [busy]="busy() || refreshing()"
           [examScope]="e.scope"
@@ -88,6 +90,8 @@
           (drawRuleRequested)="addDrawRule($event.sectionId, $event.request)"
           (drawRuleRemoveRequested)="removeDrawRule($event)"
           (takeOutRequested)="removeQuestion($event)"
+          (moveSectionRequested)="moveSection($event)"
+          (moveQuestionRequested)="moveQuestion($event)"
         />
       } @empty {
         <p>{{ 'exams.editor.noSections' | t }}</p>

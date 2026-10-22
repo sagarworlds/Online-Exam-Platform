@@ -344,6 +344,112 @@ describe('ExamEditor', () => {
     expect(stems).toEqual(['Capital of France?']);
   });
 
+  describe('putting sections and questions in another order', () => {
+    const withThreeSections = () =>
+      examBody({
+        sections: [
+          { id: 's1', name: 'Algebra', timeSeconds: null, order: 1, questions: [
+            { id: 'eq1', questionId: 'q1', order: 1, text: 'One' },
+            { id: 'eq2', questionId: 'q2', order: 2, text: 'Two' },
+            { id: 'eq3', questionId: 'q3', order: 3, text: 'Three' },
+          ] },
+          { id: 's2', name: 'Geometry', timeSeconds: null, order: 2, questions: [] },
+          { id: 's3', name: 'Statistics', timeSeconds: null, order: 3, questions: [] },
+        ],
+      });
+    const isReorder = (suffix: string) => (r: { method: string; url: string }) => r.method === 'PUT' && r.url.endsWith(`/v1/exams/exam-1${suffix}`);
+    const moveSection = (root: HTMLElement, name: string, direction: 'up' | 'down') =>
+      root.querySelector<HTMLButtonElement>(`button[aria-label="Move ${direction}: ${name}"]`)!;
+    const moveQuestion = (root: HTMLElement, text: string, direction: 'up' | 'down') =>
+      root.querySelector<HTMLButtonElement>(`button[aria-label="Move ${text} ${direction}"]`)!;
+
+    it('sends the whole new order of the sections when one is moved down, then says it is saved and reads the exam again', () => {
+      const { fixture, root } = open(withThreeSections());
+
+      moveSection(root, 'Algebra', 'down').click();
+
+      const put = httpMock.expectOne(isReorder('/sections/order'));
+      expect(put.request.body).toEqual({ sectionIds: ['s2', 's1', 's3'] });
+      put.flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectOne(isExam).flush(withThreeSections());
+      fixture.detectChanges();
+      expect(TestBed.inject(ToastService).toasts().map((t) => t.message)).toEqual(['The new order is saved.']);
+    });
+
+    it('sends the whole new order of a section’s questions, by their ids in the bank, when one is moved up', () => {
+      const { root } = open(withThreeSections());
+
+      moveQuestion(root, 'Three', 'up').click();
+
+      expect(httpMock.expectOne(isReorder('/sections/s1/questions/order')).request.body).toEqual({ questionIds: ['q1', 'q3', 'q2'] });
+    });
+
+    it('sends nothing for the first section moved up, or the last question moved down', () => {
+      const { root } = open(withThreeSections());
+
+      moveSection(root, 'Algebra', 'up').click();
+      moveQuestion(root, 'Three', 'down').click();
+
+      httpMock.expectNone((r) => r.method === 'PUT');
+    });
+
+    it('keeps every arrow off while the order is being saved and the exam is read again, so a second move cannot use the old order', () => {
+      const { fixture, root } = open(withThreeSections());
+
+      moveSection(root, 'Geometry', 'up').click();
+      fixture.detectChanges();
+      expect(moveSection(root, 'Statistics', 'up').getAttribute('aria-disabled')).toBe('true');
+      moveSection(root, 'Statistics', 'up').click();
+
+      httpMock.expectOne(isReorder('/sections/order')).flush(null, { status: 204, statusText: 'No Content' });
+      fixture.detectChanges();
+      moveSection(root, 'Statistics', 'up').click();
+      httpMock.expectNone(isReorder('/sections/order'));
+
+      httpMock.expectOne(isExam).flush(withThreeSections());
+      fixture.detectChanges();
+      expect(moveSection(root, 'Statistics', 'up').hasAttribute('aria-disabled')).toBe(false);
+    });
+
+    it('shows the API’s reason when the order is refused, and reads the exam again, so a page that was out of date shows what is there', () => {
+      const { fixture, root } = open(withThreeSections());
+
+      moveSection(root, 'Algebra', 'down').click();
+      httpMock
+        .expectOne(isReorder('/sections/order'))
+        .flush({ title: 'invalid_exam_config', detail: 'List every section of the exam exactly once.' }, { status: 400, statusText: 'Bad Request' });
+      fixture.detectChanges();
+      expect(root.textContent).toContain('List every section of the exam exactly once.');
+
+      // Another tab added a section meanwhile: the page reads the exam and shows it, instead of sending the same stale list at the next press.
+      const current = withThreeSections();
+      current.sections.push({ id: 's4', name: 'Probability', timeSeconds: null, order: 4, questions: [] });
+      httpMock.expectOne(isExam).flush(current);
+      fixture.detectChanges();
+
+      expect(Array.from(root.querySelectorAll('app-exam-section-card h3')).map((h) => h.textContent?.trim())).toEqual(['1. Algebra', '2. Geometry', '3. Statistics', '4. Probability']);
+      moveSection(root, 'Algebra', 'down').click();
+      expect(httpMock.expectOne(isReorder('/sections/order')).request.body).toEqual({ sectionIds: ['s2', 's1', 's3', 's4'] });
+    });
+
+    it('does not read the exam again after a move that was saved, beyond the one read it always makes', () => {
+      const { fixture, root } = open(withThreeSections());
+
+      moveSection(root, 'Algebra', 'down').click();
+      httpMock.expectOne(isReorder('/sections/order')).flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectOne(isExam).flush(withThreeSections());
+      fixture.detectChanges();
+
+      httpMock.expectNone(isExam);
+    });
+
+    it('offers no arrows on a published exam', () => {
+      const { root } = open({ ...withThreeSections(), status: 'Published' });
+
+      expect(root.querySelector('[data-move], [data-section-move]')).toBeNull();
+    });
+  });
+
   it('keeps every Add off until the exam has been read again, so a second press cannot add the same question twice', () => {
     const { fixture, root } = open();
     openPicker(fixture, root);

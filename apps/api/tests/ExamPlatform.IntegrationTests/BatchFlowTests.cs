@@ -318,6 +318,112 @@ public class BatchFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_batch_config");
     }
 
+    // ---- taking a member out ------------------------------------------------------------------------
+
+    private static async Task<IReadOnlyList<(Guid Id, string Email)>> MembersAsync(HttpClient client, Guid batchId)
+    {
+        var members = await client.GetFromJsonAsync<JsonElement>($"/v1/batches/{batchId}/members");
+        return [.. members.EnumerateArray().Select(m => (m.GetProperty("id").GetGuid(), m.GetProperty("email").GetString()!))];
+    }
+
+    [Fact]
+    public async Task RemoveMember_TakesThemOffTheRoster_FreesTheSeat_AndLetsTheAddressBeAddedAgain()
+    {
+        using var client = AuthorizedClient(await factory.SignInAsAsync("SuperAdmin"));
+        var batchId = await CreateBatchAsync(client, maxMembers: 2);
+        (await AddMemberAsync(client, batchId, "keep@example.com")).EnsureSuccessStatusCode();
+        (await AddMemberAsync(client, batchId, "leave@example.com")).EnsureSuccessStatusCode();
+        await AssertProblemAsync(await AddMemberAsync(client, batchId, "third@example.com"), HttpStatusCode.BadRequest, "invalid_batch_config");
+        var leaving = (await MembersAsync(client, batchId)).Single(m => m.Email == "leave@example.com").Id;
+
+        var removed = await client.DeleteAsync($"/v1/batches/{batchId}/members/{leaving}");
+
+        Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
+        Assert.Equal(["keep@example.com"], (await MembersAsync(client, batchId)).Select(m => m.Email));
+
+        // The seat is free again, and the same address can be given one afresh.
+        (await AddMemberAsync(client, batchId, "leave@example.com")).EnsureSuccessStatusCode();
+        Assert.Equal(["keep@example.com", "leave@example.com"], (await MembersAsync(client, batchId)).Select(m => m.Email).Order());
+    }
+
+    [Fact]
+    public async Task RemoveMember_LeavesTheBatchCountAtTheSeatsStillHeld()
+    {
+        using var client = AuthorizedClient(await factory.SignInAsAsync("SuperAdmin"));
+        var batchId = await CreateBatchAsync(client, maxMembers: 5);
+        (await AddMemberAsync(client, batchId, "a@example.com")).EnsureSuccessStatusCode();
+        (await AddMemberAsync(client, batchId, "b@example.com")).EnsureSuccessStatusCode();
+        var leaving = (await MembersAsync(client, batchId)).Single(m => m.Email == "a@example.com").Id;
+
+        (await client.DeleteAsync($"/v1/batches/{batchId}/members/{leaving}")).EnsureSuccessStatusCode();
+
+        var batches = await client.GetFromJsonAsync<JsonElement>("/v1/batches");
+        var batch = batches.EnumerateArray().Single(b => b.GetProperty("id").GetGuid() == batchId);
+        Assert.Equal(1, batch.GetProperty("activeMemberCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task RemoveMember_NobodyOfThatId_Returns404()
+    {
+        using var client = AuthorizedClient(await factory.SignInAsAsync("SuperAdmin"));
+        var batchId = await CreateBatchAsync(client, maxMembers: 5);
+        (await AddMemberAsync(client, batchId, "a@example.com")).EnsureSuccessStatusCode();
+
+        var response = await client.DeleteAsync($"/v1/batches/{batchId}/members/{Guid.NewGuid()}");
+
+        await AssertProblemAsync(response, HttpStatusCode.NotFound, "batch_member_not_found");
+        Assert.Single(await MembersAsync(client, batchId));
+    }
+
+    [Fact]
+    public async Task RemoveMember_AMemberOfAnotherBatch_Returns404_AndLeavesThemWhereTheyAre()
+    {
+        using var client = AuthorizedClient(await factory.SignInAsAsync("SuperAdmin"));
+        var mine = await CreateBatchAsync(client, maxMembers: 5);
+        var other = await CreateBatchAsync(client, maxMembers: 5);
+        (await AddMemberAsync(client, other, "elsewhere@example.com")).EnsureSuccessStatusCode();
+        var theirs = (await MembersAsync(client, other)).Single().Id;
+
+        var response = await client.DeleteAsync($"/v1/batches/{mine}/members/{theirs}");
+
+        await AssertProblemAsync(response, HttpStatusCode.NotFound, "batch_member_not_found");
+        Assert.Single(await MembersAsync(client, other));
+    }
+
+    [Fact]
+    public async Task RemoveMember_TwiceInARow_SecondIs404()
+    {
+        using var client = AuthorizedClient(await factory.SignInAsAsync("SuperAdmin"));
+        var batchId = await CreateBatchAsync(client, maxMembers: 5);
+        (await AddMemberAsync(client, batchId, "a@example.com")).EnsureSuccessStatusCode();
+        var member = (await MembersAsync(client, batchId)).Single().Id;
+
+        (await client.DeleteAsync($"/v1/batches/{batchId}/members/{member}")).EnsureSuccessStatusCode();
+        var second = await client.DeleteAsync($"/v1/batches/{batchId}/members/{member}");
+
+        await AssertProblemAsync(second, HttpStatusCode.NotFound, "batch_member_not_found");
+    }
+
+    [Fact]
+    public async Task RemoveMember_UnknownBatch_Returns404WithTitleBatchNotFound()
+    {
+        using var client = AuthorizedClient(await factory.SignInAsAsync("SuperAdmin"));
+
+        var response = await client.DeleteAsync($"/v1/batches/{Guid.NewGuid()}/members/{Guid.NewGuid()}");
+
+        await AssertProblemAsync(response, HttpStatusCode.NotFound, "batch_not_found");
+    }
+
+    [Fact]
+    public async Task RemoveMember_WithoutAuth_ReturnsUnauthorized()
+    {
+        using var client = factory.CreateClient();
+
+        var response = await client.DeleteAsync($"/v1/batches/{Guid.NewGuid()}/members/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     private static async Task<Guid> CreateBatchAsync(HttpClient client, int maxMembers)
     {
         var response = await client.PostAsJsonAsync("/v1/batches", new CreateBatchRequest(Guid.NewGuid(), "Batch", null, maxMembers));

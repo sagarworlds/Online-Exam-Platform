@@ -196,6 +196,22 @@ public static class ExamAuthoringEndpoints
             .WithName("EditExamSection")
             .WithDescription("Rename a section of a draft exam and set its time limit");
 
+        exams.MapPut("/{examId:guid}/sections/order", ReorderSections)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ReorderExamSections")
+            .WithDescription("Put the sections of a draft exam in a new order; the list must name every section once");
+
+        exams.MapPut("/{examId:guid}/sections/{sectionId:guid}/questions/order", ReorderQuestions)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ReorderExamQuestions")
+            .WithDescription("Put the questions of one section of a draft exam in a new order; the list must name every question of the section once");
+
         exams.MapDelete("/{examId:guid}/sections/{sectionId:guid}", RemoveSection)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status204NoContent)
@@ -360,6 +376,20 @@ public static class ExamAuthoringEndpoints
         return Results.NoContent();
     }
 
+    private static async Task<IResult> ReorderSections(
+        Guid examId, ReorderSectionsRequest request, ReorderSectionsHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(new ReorderSectionsCommand(examId, request.SectionIds), ct);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> ReorderQuestions(
+        Guid examId, Guid sectionId, ReorderQuestionsRequest request, ReorderQuestionsHandler handler, CancellationToken ct)
+    {
+        await handler.HandleAsync(new ReorderQuestionsCommand(examId, sectionId, request.QuestionIds), ct);
+        return Results.NoContent();
+    }
+
     private static async Task<IResult> RemoveSection(
         Guid examId, Guid sectionId, RemoveSectionHandler handler, CancellationToken ct)
     {
@@ -502,6 +532,14 @@ public record EditSectionRequest(string? Name, int? TimeSeconds);
 /// <param name="Name">The section's name.</param>
 /// <param name="TimeSeconds">An optional time limit for the section.</param>
 public record AddSectionRequest(string? Name, int? TimeSeconds);
+
+/// <summary>Request body for putting the sections of a draft exam in a new order.</summary>
+/// <param name="SectionIds">Every section's id, once each, in the order wanted.</param>
+public record ReorderSectionsRequest(IReadOnlyList<Guid>? SectionIds);
+
+/// <summary>Request body for putting the questions of one section in a new order.</summary>
+/// <param name="QuestionIds">Every question's id in the question bank, once each, in the order wanted.</param>
+public record ReorderQuestionsRequest(IReadOnlyList<Guid>? QuestionIds);
 
 /// <summary>Request body for adding a bank question to a section.</summary>
 /// <param name="QuestionId">The question's id in the question bank.</param>

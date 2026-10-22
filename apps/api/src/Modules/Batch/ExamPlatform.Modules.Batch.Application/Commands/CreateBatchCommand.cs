@@ -22,6 +22,11 @@ public sealed record AddBatchMemberCommand(
     string Email,
     string? Phone = null);
 
+/// <summary>Takes a member out of a batch, freeing the seat.</summary>
+/// <param name="BatchId">The batch.</param>
+/// <param name="MemberId">The member to remove.</param>
+public sealed record RemoveBatchMemberCommand(Guid BatchId, Guid MemberId);
+
 /// <summary>Activates a batch so that its members can be invited.</summary>
 /// <param name="BatchId">The batch to activate.</param>
 public sealed record ActivateBatchCommand(Guid BatchId);

@@ -50,6 +50,26 @@ public sealed class AddBatchMemberHandler(IBatchRepository repository, IBatchUni
     }
 }
 
+/// <summary>Handles <see cref="RemoveBatchMemberCommand"/>: takes a member out of a batch.</summary>
+public sealed class RemoveBatchMemberHandler(IBatchRepository repository, IBatchUnitOfWork unitOfWork, Clock clock)
+{
+    /// <summary>
+    /// Takes the member out and persists the change. The seat is free again, and the address can be given a seat afresh. The member is only marked
+    /// removed, as every module's records are: the batch leaves them off its rankings from then on, and nothing a candidate did at the exam changes.
+    /// </summary>
+    /// <param name="command">The batch and the member to remove.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="BatchNotFoundError">No batch has that id.</exception>
+    /// <exception cref="BatchMemberNotFoundError">The batch has no member with that id who still holds a seat.</exception>
+    public async Task HandleAsync(RemoveBatchMemberCommand command, CancellationToken cancellationToken)
+    {
+        var batch = await repository.GetByIdAsync(command.BatchId, cancellationToken)
+            ?? throw new BatchNotFoundError(command.BatchId);
+        batch.RemoveMember(command.MemberId, clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
 /// <summary>Handles <see cref="ActivateBatchCommand"/>: moves a batch out of draft.</summary>
 public sealed class ActivateBatchHandler(IBatchRepository repository, IBatchUnitOfWork unitOfWork, Clock clock)
 {

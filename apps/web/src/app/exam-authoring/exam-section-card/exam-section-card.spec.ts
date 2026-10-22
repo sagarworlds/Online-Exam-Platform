@@ -100,7 +100,7 @@ describe('ExamSectionCard', () => {
     it('has a trash icon for each question, named for it, that asks before taking it out', () => {
       show();
 
-      const icons = Array.from(root.querySelectorAll('li button')) as HTMLButtonElement[];
+      const icons = Array.from(root.querySelectorAll('li app-confirm-remove button')) as HTMLButtonElement[];
       expect(icons.map((b) => b.textContent?.trim())).toEqual(['', '']);
       expect(icons[0].getAttribute('aria-label')).toBe('Remove What is 2 + 2? from the exam');
       expect(icons[1].getAttribute('aria-label')).toBe('Remove a question that is no longer in the bank from the exam');
@@ -136,7 +136,185 @@ describe('ExamSectionCard', () => {
     it('cannot be pressed while a request is running', () => {
       show(section(), { busy: true });
 
-      expect((root.querySelector('li button') as HTMLButtonElement).disabled).toBe(true);
+      expect((root.querySelector('li app-confirm-remove button') as HTMLButtonElement).disabled).toBe(true);
+    });
+  });
+
+  describe('moving', () => {
+    const questionsOf = () => [
+      { id: 'eq1', questionId: 'q1', order: 1, text: '<p>First?</p>' },
+      { id: 'eq2', questionId: 'q2', order: 2, text: '<p>Second?</p>' },
+      { id: 'eq3', questionId: 'q3', order: 3, text: '<p>Third?</p>' },
+    ];
+    const moveQuestionButton = (id: string, direction: 'up' | 'down') =>
+      root.querySelector<HTMLButtonElement>(`[data-question="${id}"][data-move="${direction}"]`)!;
+    const moveSectionButton = (direction: 'up' | 'down') => root.querySelector<HTMLButtonElement>(`[data-section-move="${direction}"]`)!;
+    let movedQuestions: { sectionId: string; questionId: string; direction: string }[];
+    let movedSections: { sectionId: string; direction: string }[];
+
+    function showWith(inputs: { index?: number; count?: number; busy?: boolean; editable?: boolean; questions?: ExamSectionDto['questions'] } = {}) {
+      show(section({ questions: inputs.questions ?? questionsOf() }), { editable: inputs.editable, busy: inputs.busy });
+      movedQuestions = [];
+      movedSections = [];
+      fixture.componentInstance.moveQuestionRequested.subscribe((m) => movedQuestions.push(m));
+      fixture.componentInstance.moveSectionRequested.subscribe((m) => movedSections.push(m));
+      fixture.componentRef.setInput('sectionIndex', inputs.index ?? 0);
+      fixture.componentRef.setInput('sectionCount', inputs.count ?? 1);
+      fixture.detectChanges();
+    }
+
+    it('gives each question an arrow up and an arrow down, named for the question', () => {
+      showWith();
+
+      expect(moveQuestionButton('q2', 'up').getAttribute('aria-label')).toBe('Move Second? up');
+      expect(moveQuestionButton('q2', 'down').getAttribute('aria-label')).toBe('Move Second? down');
+    });
+
+    it('asks to move a question the way the arrow points, naming the section and the question', () => {
+      showWith();
+
+      moveQuestionButton('q2', 'up').click();
+      moveQuestionButton('q2', 'down').click();
+
+      expect(movedQuestions).toEqual([
+        { sectionId: 's1', questionId: 'q2', direction: 'up' },
+        { sectionId: 's1', questionId: 'q2', direction: 'down' },
+      ]);
+    });
+
+    it('dims the first question’s up arrow and the last one’s down arrow, and does nothing when they are pressed', () => {
+      showWith();
+
+      expect(moveQuestionButton('q1', 'up').getAttribute('aria-disabled')).toBe('true');
+      expect(moveQuestionButton('q3', 'down').getAttribute('aria-disabled')).toBe('true');
+      expect(moveQuestionButton('q1', 'down').hasAttribute('aria-disabled')).toBe(false);
+
+      moveQuestionButton('q1', 'up').click();
+      moveQuestionButton('q3', 'down').click();
+
+      expect(movedQuestions).toEqual([]);
+    });
+
+    it('does not use the disabled attribute for a dimmed arrow, so it can still be reached to read why', () => {
+      showWith();
+
+      expect(moveQuestionButton('q1', 'up').disabled).toBe(false);
+    });
+
+    it('offers no arrows on a section with one question, since there is nowhere to go', () => {
+      showWith({ questions: [questionsOf()[0]] });
+
+      expect(root.querySelector('[data-move]')).toBeNull();
+    });
+
+    it('offers none while a request is running, and none on a section that cannot be changed', () => {
+      showWith({ busy: true });
+      expect(moveQuestionButton('q2', 'up').getAttribute('aria-disabled')).toBe('true');
+      moveQuestionButton('q2', 'up').click();
+      expect(movedQuestions).toEqual([]);
+
+      showWith({ editable: false });
+      expect(root.querySelector('[data-move]')).toBeNull();
+      expect(root.querySelector('[data-section-move]')).toBeNull();
+    });
+
+    it('names the arrow of a question whose text is gone, rather than leaving it blank', () => {
+      showWith({ questions: [{ id: 'eq1', questionId: 'q1', order: 1, text: null }, ...questionsOf().slice(1)] });
+
+      expect(moveQuestionButton('q1', 'down').getAttribute('aria-label')).toContain('Move ');
+      expect(moveQuestionButton('q1', 'down').getAttribute('aria-label')).not.toBe('Move  down');
+    });
+
+    it('has Move up and Move down for a section, in words, named for the section, when the exam has more than one', () => {
+      showWith({ index: 1, count: 3 });
+
+      expect(moveSectionButton('up').textContent?.trim()).toBe('Move up');
+      expect(moveSectionButton('down').textContent?.trim()).toBe('Move down');
+      expect(moveSectionButton('up').getAttribute('aria-label')).toBe('Move up: Algebra');
+    });
+
+    it('asks to move the section the way the button says', () => {
+      showWith({ index: 1, count: 3 });
+
+      moveSectionButton('up').click();
+      moveSectionButton('down').click();
+
+      expect(movedSections).toEqual([
+        { sectionId: 's1', direction: 'up' },
+        { sectionId: 's1', direction: 'down' },
+      ]);
+    });
+
+    it('dims Move up on the first section and Move down on the last, and offers neither for the only section', () => {
+      showWith({ index: 0, count: 2 });
+      expect(moveSectionButton('up').getAttribute('aria-disabled')).toBe('true');
+      expect(moveSectionButton('down').hasAttribute('aria-disabled')).toBe(false);
+      moveSectionButton('up').click();
+      expect(movedSections).toEqual([]);
+
+      showWith({ index: 1, count: 2 });
+      expect(moveSectionButton('down').getAttribute('aria-disabled')).toBe('true');
+
+      showWith({ index: 0, count: 1 });
+      expect(root.querySelector('[data-section-move]')).toBeNull();
+    });
+
+    describe('focus', () => {
+      it('goes back to the same arrow once the page has read the exam again', async () => {
+        showWith();
+        document.body.appendChild(root);
+        const arrow = moveQuestionButton('q3', 'up');
+        arrow.focus();
+
+        arrow.click();
+        fixture.componentRef.setInput('busy', true);
+        fixture.detectChanges();
+        // The page reads the exam again: the question is in its new place, so its row is drawn afresh.
+        fixture.componentRef.setInput('section', section({ questions: [questionsOf()[0], questionsOf()[2], questionsOf()[1]].map((q, i) => ({ ...q, order: i + 1 })) }));
+        fixture.componentRef.setInput('busy', false);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        // Second now, so it can still go up: focus is on the same arrow.
+        expect(document.activeElement).toBe(moveQuestionButton('q3', 'up'));
+        root.remove();
+      });
+
+      it('goes to the other arrow when the moved question has reached the end the first one points to', async () => {
+        showWith();
+        document.body.appendChild(root);
+        const arrow = moveQuestionButton('q2', 'up');
+        arrow.focus();
+
+        arrow.click();
+        fixture.componentRef.setInput('busy', true);
+        fixture.componentRef.setInput('section', section({ questions: [questionsOf()[1], questionsOf()[0], questionsOf()[2]].map((q, i) => ({ ...q, order: i + 1 })) }));
+        fixture.componentRef.setInput('busy', false);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        // Now first, so its up arrow is dimmed: focus stays on the pair, on the arrow that still works.
+        expect(moveQuestionButton('q2', 'up').getAttribute('aria-disabled')).toBe('true');
+        expect(document.activeElement).toBe(moveQuestionButton('q2', 'down'));
+        root.remove();
+      });
+
+      it('goes back to the section’s button after a section was moved', async () => {
+        showWith({ index: 1, count: 3 });
+        document.body.appendChild(root);
+        const button = moveSectionButton('up');
+        button.focus();
+
+        button.click();
+        fixture.componentRef.setInput('busy', true);
+        fixture.componentRef.setInput('sectionIndex', 0);
+        fixture.componentRef.setInput('busy', false);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        expect(document.activeElement).toBe(moveSectionButton('down'));
+        root.remove();
+      });
     });
   });
 

@@ -154,6 +154,16 @@ export class ExamApiService {
     return this.http.delete<void>(`${this.apiUrl}/${examId}/sections/${sectionId}`);
   }
 
+  /** Puts the sections of a draft exam in a new order: every section's id, once each, in the order wanted. */
+  reorderSections(examId: string, sectionIds: readonly string[]): Observable<void> {
+    return this.http.put<void>(`${this.apiUrl}/${examId}/sections/order`, { sectionIds });
+  }
+
+  /** Puts the questions of one section of a draft exam in a new order: every question's id in the bank, once each, in the order wanted. */
+  reorderQuestions(examId: string, sectionId: string, questionIds: readonly string[]): Observable<void> {
+    return this.http.put<void>(`${this.apiUrl}/${examId}/sections/${sectionId}/questions/order`, { questionIds });
+  }
+
   /** Takes a question out of a section of a draft exam; `questionId` is its id in the question bank. */
   removeQuestion(examId: string, sectionId: string, questionId: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${examId}/sections/${sectionId}/questions/${questionId}`);

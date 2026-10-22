@@ -8,6 +8,13 @@
   gap: 0.25rem 0.75rem;
 }
 
+/* A question's arrows and its trash icon sit together at the end of the line. */
+.section-card__tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
 .section-card__text {
   flex: 1 1 8rem;
   min-width: 0;

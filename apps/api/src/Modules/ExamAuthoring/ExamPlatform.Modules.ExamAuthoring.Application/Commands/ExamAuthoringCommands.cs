@@ -75,6 +75,17 @@ public sealed record EditSectionCommand(Guid ExamId, Guid SectionId, string? Nam
 /// <param name="SectionId">The section to remove.</param>
 public sealed record RemoveSectionCommand(Guid ExamId, Guid SectionId);
 
+/// <summary>Puts the sections of a draft exam in a new order.</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="SectionIds">Every section's id, in the order wanted; null if the caller did not send it.</param>
+public sealed record ReorderSectionsCommand(Guid ExamId, IReadOnlyList<Guid>? SectionIds);
+
+/// <summary>Puts the questions of one section of a draft exam in a new order.</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="SectionId">The section.</param>
+/// <param name="QuestionIds">Every question's id in the question bank, in the order wanted; null if the caller did not send it.</param>
+public sealed record ReorderQuestionsCommand(Guid ExamId, Guid SectionId, IReadOnlyList<Guid>? QuestionIds);
+
 /// <summary>Takes a question out of a section of a draft exam.</summary>
 /// <param name="ExamId">The exam.</param>
 /// <param name="SectionId">The section the question is in.</param>

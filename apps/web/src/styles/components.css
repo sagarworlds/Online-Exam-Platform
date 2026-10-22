@@ -292,12 +292,19 @@ button,
   cursor: pointer;
 }
 
-button:hover:not(:disabled),
-.btn:hover {
+button:hover:not(:disabled):where(:not([aria-disabled='true'])),
+.btn:hover:where(:not([aria-disabled='true'])) {
   background: var(--surface-muted);
 }
 
 button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Unavailable but still reachable (`aria-disabled`, not `disabled`), so a keyboard user can land on it and read why. It looks as a disabled button does.
+   A class that dims it further, such as .icon-btn, is more specific and keeps its own value. */
+button[aria-disabled='true'] {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -322,8 +329,8 @@ button.btn--primary:hover:not(:disabled),
 /* A pressed button is a shade deeper than a hovered one, so the press is seen as well as felt. */
 /* The exclusions are in :where(), which adds no weight: a selected toggle or tab (`.mode-toggle button.active`, a pressed tab) keeps its own
    background while it is pressed, and its label stays readable on it. */
-button:active:not(:disabled):where(:not(.primary, .btn--primary, .danger, .btn--danger)),
-.btn:active:where(:not(.btn--primary, .btn--danger)) {
+button:active:not(:disabled):where(:not(.primary, .btn--primary, .danger, .btn--danger, [aria-disabled='true'])),
+.btn:active:where(:not(.btn--primary, .btn--danger, [aria-disabled='true'])) {
   background: var(--border);
 }
 

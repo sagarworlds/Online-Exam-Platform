@@ -127,6 +127,18 @@ describe('ExamApiService', () => {
     expect(exam.request.method).toBe('DELETE');
   });
 
+  it('puts the sections, and the questions of one section, in a new order with PUTs of the whole order', () => {
+    service.reorderSections('exam-1', ['s2', 's1']).subscribe();
+    const sections = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1/sections/order`);
+    expect(sections.request.method).toBe('PUT');
+    expect(sections.request.body).toEqual({ sectionIds: ['s2', 's1'] });
+
+    service.reorderQuestions('exam-1', 's1', ['q2', 'q1', 'q3']).subscribe();
+    const questions = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1/sections/s1/questions/order`);
+    expect(questions.request.method).toBe('PUT');
+    expect(questions.request.body).toEqual({ questionIds: ['q2', 'q1', 'q3'] });
+  });
+
   it('publishes an exam with a POST to its publish route', () => {
     service.publish('exam-1').subscribe();
 

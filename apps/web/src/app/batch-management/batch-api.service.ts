@@ -22,6 +22,11 @@ export class BatchApiService {
     return this.http.post<void>(`${this.apiUrl}/${batchId}/members`, request);
   }
 
+  /** Takes a member out of a batch, freeing the seat. The API marks the member removed rather than erasing them. */
+  removeMember(batchId: string, memberId: string) {
+    return this.http.delete<void>(`${this.apiUrl}/${batchId}/members/${memberId}`);
+  }
+
   /** Adds the candidates in a CSV roster (FR-50). A bad row is reported and skipped; only an unreadable or oversized file is refused. */
   importRoster(batchId: string, csv: string) {
     return this.http.post<ImportRosterResult>(`${this.apiUrl}/${batchId}/members/import`, { csv });

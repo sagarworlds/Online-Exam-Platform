@@ -644,6 +644,58 @@ public class Exam : AggregateRoot
         UpdatedAt = nowUtc;
     }
 
+    /// <summary>
+    /// Puts the sections in a new order. Candidates meet them in this order, and a section's number is its place in it, so the list must name
+    /// every section of the exam once; the numbers are then 1, 2, 3 ... again.
+    /// </summary>
+    /// <param name="orderedSectionIds">Every section's id, in the order wanted.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamNotDraftError">The exam is already published. A published exam may already have been sat, and sections are met in order.</exception>
+    /// <exception cref="InvalidExamConfigError">The list is missing, leaves a section out, repeats one, or names one the exam does not have.</exception>
+    public void ReorderSections(IReadOnlyList<Guid>? orderedSectionIds, DateTime nowUtc)
+    {
+        EnsureDraft();
+
+        if (!NamesEachOnce(orderedSectionIds, _sections.Select(s => s.Id)))
+            throw new InvalidExamConfigError("List every section of the exam exactly once.");
+
+        for (var place = 0; place < orderedSectionIds!.Count; place++)
+            _sections.First(s => s.Id == orderedSectionIds[place]).Order = place + 1;
+
+        UpdatedAt = nowUtc;
+    }
+
+    /// <summary>
+    /// Puts the questions of one section in a new order, which is the order candidates meet them in (unless the exam shuffles them). The list
+    /// must name every question of the section once, and the numbers are then 1, 2, 3 ... again.
+    /// </summary>
+    /// <param name="sectionId">The section.</param>
+    /// <param name="orderedQuestionIds">Every question's id in the question bank, in the order wanted.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="ExamNotDraftError">The exam is already published. A published exam may already have been sat, and its questions are what its scores mean.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="InvalidExamConfigError">The list is missing, leaves a question out, repeats one, or names one the section does not hold.</exception>
+    public void ReorderQuestions(Guid sectionId, IReadOnlyList<Guid>? orderedQuestionIds, DateTime nowUtc)
+    {
+        EnsureDraft();
+
+        var section = GetSection(sectionId) ?? throw new SectionNotFoundError(sectionId);
+        if (!section.ReorderQuestions(orderedQuestionIds))
+            throw new InvalidExamConfigError("List every question of the section exactly once.");
+
+        UpdatedAt = nowUtc;
+    }
+
+    // Whether the list holds each of the expected ids once and nothing else: the same set, in any order.
+    private static bool NamesEachOnce(IReadOnlyList<Guid>? listed, IEnumerable<Guid> expected)
+    {
+        if (listed is null)
+            return false;
+
+        var wanted = expected.ToHashSet();
+        return listed.Count == wanted.Count && listed.ToHashSet().SetEquals(wanted);
+    }
+
     public ExamSection? GetSection(Guid sectionId) => _sections.FirstOrDefault(s => s.Id == sectionId);
 
     /// <summary>Checks the part of "may this exam be deleted?" that the exam itself knows: only a draft may.</summary>
