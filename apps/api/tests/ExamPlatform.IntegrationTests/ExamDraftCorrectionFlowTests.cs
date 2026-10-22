@@ -32,6 +32,112 @@ public sealed class ExamDraftCorrectionFlowTests(ApiFactory factory) : IClassFix
             .SelectMany(section => section.GetProperty("questions").EnumerateArray())
             .Select(question => question.GetProperty("questionId").GetGuid());
 
+    private static IEnumerable<Guid> SectionIdsIn(JsonElement exam) =>
+        exam.GetProperty("sections").EnumerateArray().Select(section => section.GetProperty("id").GetGuid());
+
+    // ---- putting the sections and questions in another order ---------------------------------------
+
+    [Fact]
+    public async Task ReorderedSections_ComeBackInTheNewOrder_NumberedFromOne_WithTheirQuestionsWithThem()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var question = await CreateQuestionAsync(admin, "In the first section", "A", "B");
+        var examId = await CreateExamAsync(admin, "Reordered sections", [question], TimeSpan.FromHours(1), publish: false);
+        var first = await FirstSectionAsync(admin, examId);
+        var second = await AddSectionAsync(admin, examId, "Second");
+        var third = await AddSectionAsync(admin, examId, "Third");
+
+        var response = await admin.PutAsJsonAsync($"/v1/exams/{examId}/sections/order", new { sectionIds = new[] { third, first, second } });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var exam = await ReadExamAsync(admin, examId);
+        Assert.Equal([third, first, second], SectionIdsIn(exam));
+        Assert.Equal([1, 2, 3], exam.GetProperty("sections").EnumerateArray().Select(s => s.GetProperty("order").GetInt32()));
+        Assert.Equal([question], exam.GetProperty("sections")[1].GetProperty("questions").EnumerateArray().Select(q => q.GetProperty("questionId").GetGuid()));
+
+        // The next section added goes after the last one, whatever order the others were put in.
+        var fourth = await AddSectionAsync(admin, examId, "Fourth");
+        Assert.Equal([third, first, second, fourth], SectionIdsIn(await ReadExamAsync(admin, examId)));
+    }
+
+    [Fact]
+    public async Task ReorderedQuestions_ComeBackInTheNewOrder_NumberedFromOne()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var one = await CreateQuestionAsync(admin, "One", "A", "B");
+        var two = await CreateQuestionAsync(admin, "Two", "A", "B");
+        var three = await CreateQuestionAsync(admin, "Three", "A", "B");
+        var examId = await CreateExamAsync(admin, "Reordered questions", [one, two, three], TimeSpan.FromHours(1), publish: false);
+        var sectionId = await FirstSectionAsync(admin, examId);
+
+        var response = await admin.PutAsJsonAsync($"/v1/exams/{examId}/sections/{sectionId}/questions/order", new { questionIds = new[] { three, one, two } });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var exam = await ReadExamAsync(admin, examId);
+        Assert.Equal([three, one, two], QuestionIdsIn(exam));
+        Assert.Equal([1, 2, 3], exam.GetProperty("sections")[0].GetProperty("questions").EnumerateArray().Select(q => q.GetProperty("order").GetInt32()));
+    }
+
+    [Fact]
+    public async Task AReorderThatDoesNotNameEverySectionOnce_IsRefused_AndChangesNothing()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var question = await CreateQuestionAsync(admin, "Q", "A", "B");
+        var examId = await CreateExamAsync(admin, "Refused section order", [question], TimeSpan.FromHours(1), publish: false);
+        var first = await FirstSectionAsync(admin, examId);
+        var second = await AddSectionAsync(admin, examId, "Second");
+
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{examId}/sections/order", new { sectionIds = new[] { second } }), HttpStatusCode.BadRequest, "invalid_exam_config");
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{examId}/sections/order", new { sectionIds = new[] { first, first } }), HttpStatusCode.BadRequest, "invalid_exam_config");
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{examId}/sections/order", new { sectionIds = new[] { first, Guid.NewGuid() } }), HttpStatusCode.BadRequest, "invalid_exam_config");
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{examId}/sections/order", new { }), HttpStatusCode.BadRequest, "invalid_exam_config");
+
+        Assert.Equal([first, second], SectionIdsIn(await ReadExamAsync(admin, examId)));
+    }
+
+    [Fact]
+    public async Task AReorderThatDoesNotNameEveryQuestionOfTheSectionOnce_IsRefused_AndChangesNothing()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var one = await CreateQuestionAsync(admin, "One", "A", "B");
+        var two = await CreateQuestionAsync(admin, "Two", "A", "B");
+        var elsewhere = await CreateQuestionAsync(admin, "Not in the exam", "A", "B");
+        var examId = await CreateExamAsync(admin, "Refused question order", [one, two], TimeSpan.FromHours(1), publish: false);
+        var sectionId = await FirstSectionAsync(admin, examId);
+        var url = $"/v1/exams/{examId}/sections/{sectionId}/questions/order";
+
+        await AssertProblemAsync(await admin.PutAsJsonAsync(url, new { questionIds = new[] { two } }), HttpStatusCode.BadRequest, "invalid_exam_config");
+        await AssertProblemAsync(await admin.PutAsJsonAsync(url, new { questionIds = new[] { one, one } }), HttpStatusCode.BadRequest, "invalid_exam_config");
+        await AssertProblemAsync(await admin.PutAsJsonAsync(url, new { questionIds = new[] { one, elsewhere } }), HttpStatusCode.BadRequest, "invalid_exam_config");
+        await AssertProblemAsync(await admin.PutAsJsonAsync(url, new { }), HttpStatusCode.BadRequest, "invalid_exam_config");
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{examId}/sections/{Guid.NewGuid()}/questions/order", new { questionIds = new[] { one, two } }), HttpStatusCode.NotFound, "section_not_found");
+
+        Assert.Equal([one, two], QuestionIdsIn(await ReadExamAsync(admin, examId)));
+    }
+
+    [Fact]
+    public async Task APublishedExam_RefusesToBeReordered_ForItMayAlreadyHaveBeenSat()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var one = await CreateQuestionAsync(admin, "One", "A", "B");
+        var two = await CreateQuestionAsync(admin, "Two", "A", "B");
+        var published = await CreateExamAsync(admin, "Published, in order", [one, two], TimeSpan.FromHours(1));
+        var sectionId = await FirstSectionAsync(admin, published);
+
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{published}/sections/{sectionId}/questions/order", new { questionIds = new[] { two, one } }), HttpStatusCode.Conflict, "exam_not_draft");
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{published}/sections/order", new { sectionIds = new[] { sectionId } }), HttpStatusCode.Conflict, "exam_not_draft");
+
+        Assert.Equal([one, two], QuestionIdsIn(await ReadExamAsync(admin, published)));
+    }
+
+    [Fact]
+    public async Task ReorderingAnUnknownExam_Returns404()
+    {
+        using var admin = await factory.AdminClientAsync();
+
+        await AssertProblemAsync(await admin.PutAsJsonAsync($"/v1/exams/{Guid.NewGuid()}/sections/order", new { sectionIds = Array.Empty<Guid>() }), HttpStatusCode.NotFound, "exam_not_found");
+    }
+
     [Fact]
     public async Task ATakenOutQuestion_LeavesTheExam_TheOthersAreRenumbered_AndTheQuestionCanBeDeletedAgain()
     {

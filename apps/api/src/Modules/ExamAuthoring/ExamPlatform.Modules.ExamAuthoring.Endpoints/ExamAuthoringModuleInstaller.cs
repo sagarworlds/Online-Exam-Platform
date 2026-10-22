@@ -52,6 +52,8 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
         services.AddScoped<DrawPoolChecker>();
         services.TryAddSingleton<IQuestionPicker, RandomQuestionPicker>();
         services.AddScoped<RemoveSectionHandler>();
+        services.AddScoped<ReorderSectionsHandler>();
+        services.AddScoped<ReorderQuestionsHandler>();
         services.AddScoped<UpdateExamDetailsHandler>();
         services.AddScoped<DeleteExamHandler>();
         services.AddScoped<EditSectionHandler>();

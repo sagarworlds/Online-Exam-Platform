@@ -111,6 +111,41 @@ public sealed class RemoveSectionHandler(IExamRepository repository, IExamAuthor
     }
 }
 
+/// <summary>Handles <see cref="ReorderSectionsCommand"/>.</summary>
+public sealed class ReorderSectionsHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, Clock clock)
+{
+    /// <summary>Puts the sections in the order given and saves.</summary>
+    /// <param name="command">The order wanted.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="InvalidExamConfigError">The list is missing, leaves a section out, repeats one, or names one the exam does not have.</exception>
+    public async Task HandleAsync(ReorderSectionsCommand command, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.ReorderSections(command.SectionIds, clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>Handles <see cref="ReorderQuestionsCommand"/>.</summary>
+public sealed class ReorderQuestionsHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, Clock clock)
+{
+    /// <summary>Puts the section's questions in the order given and saves.</summary>
+    /// <param name="command">The section and the order wanted.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="InvalidExamConfigError">The list is missing, leaves a question out, repeats one, or names one the section does not hold.</exception>
+    public async Task HandleAsync(ReorderQuestionsCommand command, CancellationToken cancellationToken)
+    {
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        exam.ReorderQuestions(command.SectionId, command.QuestionIds, clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+}
+
 /// <summary>Handles <see cref="AddExamQuestionCommand"/>.</summary>
 public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, IQuestionBank questionBank, Clock clock)
 {

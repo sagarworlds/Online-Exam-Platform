@@ -81,6 +81,27 @@ public class ExamSection
         return true;
     }
 
+    /// <summary>Puts the section's questions in the order given and numbers them 1, 2, 3 ... in it.</summary>
+    /// <param name="orderedQuestionVersionIds">Every question's id in the question bank, once each, in the order wanted.</param>
+    /// <returns>
+    /// <see langword="true"/> when the list named exactly the section's questions; <see langword="false"/> when it did not, in which case nothing
+    /// was changed, so the caller can say so.
+    /// </returns>
+    public bool ReorderQuestions(IReadOnlyList<Guid>? orderedQuestionVersionIds)
+    {
+        if (orderedQuestionVersionIds is null || orderedQuestionVersionIds.Count != _questions.Count)
+            return false;
+
+        var held = _questions.Select(q => q.QuestionVersionId).ToHashSet();
+        if (!orderedQuestionVersionIds.ToHashSet().SetEquals(held))
+            return false;
+
+        for (var place = 0; place < orderedQuestionVersionIds.Count; place++)
+            _questions.First(q => q.QuestionVersionId == orderedQuestionVersionIds[place]).Order = place + 1;
+
+        return true;
+    }
+
     /// <summary>Takes a question out of the section and closes the gap it leaves in the numbering.</summary>
     /// <param name="questionVersionId">The question's id in the question bank.</param>
     /// <returns><see langword="true"/> when the question was here; <see langword="false"/> when it was not, so the caller can say so.</returns>
