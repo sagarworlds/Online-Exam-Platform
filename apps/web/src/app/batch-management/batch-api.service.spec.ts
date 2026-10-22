@@ -49,6 +49,13 @@ describe('BatchApiService', () => {
     expect(req.request.method).toBe('POST');
   });
 
+  it('should take a member out of a batch with a DELETE to the member’s own route', () => {
+    service.removeMember('batch-123', 'member-9').subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/batches/batch-123/members/member-9`);
+    expect(req.request.method).toBe('DELETE');
+  });
+
   it('should import a roster as csv text to the batch', () => {
     service.importRoster('batch-123', 'email\r\namy@example.com\r\n').subscribe();
 

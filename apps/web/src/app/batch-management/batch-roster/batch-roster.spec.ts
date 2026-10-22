@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { vi } from 'vitest';
+import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import { BatchApiService } from '../batch-api.service';
 import { BatchRoster } from './batch-roster';
@@ -192,6 +193,115 @@ describe('BatchRoster', () => {
       (Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.includes('Clear search')) as HTMLButtonElement).click();
       fixture.detectChanges();
       expect(emails().length).toBe(3);
+    });
+  });
+
+  describe('removing a member', () => {
+    const members = [
+      { id: 'm1', email: 'amy@example.com', phone: '98200 11111', status: 'Registered' },
+      { id: 'm2', email: 'ben@example.com', status: 'Pending' },
+      { id: 'm3', email: 'cara@school.org', status: 'Verified' },
+    ];
+    const isRemove = (id: string) => (r: { method: string; url: string }) => r.method === 'DELETE' && r.url.endsWith(`/v1/batches/batch-1/members/${id}`);
+    const removeButton = (email: string) => root.querySelector<HTMLButtonElement>(`button[aria-label="Remove ${email} from the batch"]`)!;
+    const answer = (confirmed: boolean) => vi.spyOn(TestBed.inject(ConfirmService), 'ask').mockResolvedValue(confirmed);
+
+    beforeEach(() => {
+      (root.querySelector('app-refresh-button button') as HTMLButtonElement).click();
+      httpMock.expectOne(isMembersRead).flush(members);
+      fixture.detectChanges();
+    });
+
+    it('has a Remove button for each member, in words, named for the member', () => {
+      expect(Array.from(root.querySelectorAll('tbody tr')).map((row) => row.querySelector('button')?.textContent?.trim())).toEqual(['Remove', 'Remove', 'Remove']);
+      expect(removeButton('ben@example.com')).not.toBeNull();
+      expect(root.querySelector('thead')?.textContent).toContain('Actions');
+    });
+
+    it('asks first, saying what removing does, and sends nothing when the answer is no', async () => {
+      const ask = answer(false);
+
+      removeButton('ben@example.com').click();
+      await fixture.whenStable();
+
+      expect(ask).toHaveBeenCalledOnce();
+      const options = ask.mock.calls[0][0];
+      expect(options.title).toBe('Remove ben@example.com from this batch?');
+      expect(options.danger).toBe(true);
+      expect(options.confirmLabel).toBe('Remove');
+      expect(options.consequences).toEqual(["They no longer appear on this batch's rankings.", 'You can add the address again later.']);
+      httpMock.expectNone((r) => r.method === 'DELETE');
+    });
+
+    it('removes the member once confirmed, says so, and reads the roster again for who is left', async () => {
+      answer(true);
+
+      removeButton('ben@example.com').click();
+      await fixture.whenStable();
+      httpMock.expectOne(isRemove('m2')).flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectOne(isMembersRead).flush([members[0], members[2]]);
+      fixture.detectChanges();
+
+      expect(TestBed.inject(ToastService).toasts().map((t) => [t.kind, t.message])).toEqual([['success', 'ben@example.com is removed from the batch.']]);
+      expect(Array.from(root.querySelectorAll('tbody th')).map((c) => c.textContent?.trim())).toEqual(['amy@example.com', 'cara@school.org']);
+      expect(root.querySelector('h2#members-heading')?.textContent).toContain('Members (2)');
+    });
+
+    it('does not start a second removal while the first is on its way', async () => {
+      answer(true);
+
+      removeButton('ben@example.com').click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(removeButton('amy@example.com').getAttribute('aria-disabled')).toBe('true');
+      removeButton('amy@example.com').click();
+      await fixture.whenStable();
+
+      httpMock.expectOne((r) => r.method === 'DELETE').flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectOne(isMembersRead).flush(members);
+    });
+
+    it('says why when the member could not be removed, keeps the list as it was, and lets another try', async () => {
+      answer(true);
+
+      removeButton('ben@example.com').click();
+      await fixture.whenStable();
+      httpMock.expectOne(isRemove('m2')).flush({ title: 'batch_member_not_found', detail: 'Batch member not found.' }, { status: 404, statusText: 'Not Found' });
+      fixture.detectChanges();
+
+      expect(TestBed.inject(ToastService).toasts().map((t) => [t.kind, t.message])).toEqual([['error', 'Batch member not found.']]);
+      expect(root.querySelectorAll('tbody tr')).toHaveLength(3);
+      expect(removeButton('ben@example.com').hasAttribute('aria-disabled')).toBe(false);
+    });
+
+    it('puts focus on the row that takes the removed one’s place, not on the top of the page', async () => {
+      answer(true);
+      document.body.appendChild(root);
+      removeButton('ben@example.com').focus();
+
+      removeButton('ben@example.com').click();
+      await fixture.whenStable();
+      httpMock.expectOne(isRemove('m2')).flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectOne(isMembersRead).flush([members[0], members[2]]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(removeButton('cara@school.org'));
+      root.remove();
+    });
+
+    it('puts focus on the add form when the last member was removed', async () => {
+      answer(true);
+      document.body.appendChild(root);
+      removeButton('amy@example.com').click();
+      await fixture.whenStable();
+      httpMock.expectOne(isRemove('m1')).flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectOne(isMembersRead).flush([]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(root.querySelector('input[type="email"]'));
+      root.remove();
     });
   });
 
