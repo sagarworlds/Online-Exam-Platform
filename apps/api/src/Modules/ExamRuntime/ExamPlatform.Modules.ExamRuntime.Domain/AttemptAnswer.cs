@@ -33,6 +33,49 @@ public sealed class AttemptAnswer : Entity
     /// <summary>When the answer was last saved.</summary>
     public DateTime AnsweredAtUtc { get; private set; }
 
+    /// <summary>The longest reason the evaluator may give that is kept; a longer one is cut.</summary>
+    public const int MaxEvaluationReasonLength = 500;
+
+    /// <summary>The longest failure description kept.</summary>
+    public const int MaxEvaluationErrorLength = 200;
+
+    /// <summary>
+    /// What the AI evaluator decided about the typed answer, or null while it has decided nothing: it was never asked, or is still being
+    /// asked. An answer that matches an accepted answer word for word is right without being asked, so it never gets one. A verdict stays
+    /// until a new one replaces it, so a result being checked again keeps showing the verdict it had.
+    /// </summary>
+    public TypedAnswerVerdict? TextVerdict { get; private set; }
+
+    /// <summary>The evaluator's reason for its verdict, a sentence or two, for staff who are asked about the result. Never shown to the candidate.</summary>
+    public string? EvaluationReason { get; private set; }
+
+    /// <summary>The model that gave the verdict, as the service named it, so a result can be traced to what produced it.</summary>
+    public string? EvaluationModel { get; private set; }
+
+    /// <summary>When the verdict was given.</summary>
+    public DateTime? EvaluatedAtUtc { get; private set; }
+
+    /// <summary>When the answer was queued for evaluation, or null when it is not waiting for one.</summary>
+    public DateTime? EvaluationRequestedAtUtc { get; private set; }
+
+    /// <summary>Not before this instant: after a failure the next try waits, longer each time.</summary>
+    public DateTime? EvaluationNextAttemptAtUtc { get; private set; }
+
+    /// <summary>
+    /// Until this instant a worker holds the answer, so that two running hosts do not ask about the same answer at once. A worker that dies
+    /// holding it lets go by the clock, when the instant passes.
+    /// </summary>
+    public DateTime? EvaluationLeaseUntilUtc { get; private set; }
+
+    /// <summary>How many times asking failed since the answer was queued, for backing off and for staff to see that something is wrong.</summary>
+    public int EvaluationFailures { get; private set; }
+
+    /// <summary>What went wrong the last time, in a few words and never with the answer's content in it; null when nothing has.</summary>
+    public string? EvaluationLastError { get; private set; }
+
+    /// <summary>Whether the answer is queued for evaluation and has not had its verdict yet.</summary>
+    public bool IsAwaitingEvaluation => EvaluationRequestedAtUtc is not null;
+
     // For EF Core.
     private AttemptAnswer() : base(Guid.Empty)
     {
@@ -55,5 +98,70 @@ public sealed class AttemptAnswer : Entity
         SelectedOptionIds = selectedOptionIds.ToArray();
         AnswerText = answerText;
         AnsweredAtUtc = answeredAtUtc;
+        // A verdict is about the words that were typed, so a different answer has none. Only an open attempt changes answers, and evaluation
+        // starts when the attempt ends, so this clears nothing in practice and keeps the two from ever disagreeing.
+        ClearEvaluation();
+    }
+
+    /// <summary>Queues the answer for evaluation. Any earlier verdict stays in force until the new one replaces it.</summary>
+    /// <param name="nowUtc">The current instant.</param>
+    internal void RequestEvaluation(DateTime nowUtc)
+    {
+        EvaluationRequestedAtUtc = nowUtc;
+        EvaluationNextAttemptAtUtc = null;
+        EvaluationLeaseUntilUtc = null;
+        EvaluationFailures = 0;
+        EvaluationLastError = null;
+    }
+
+    /// <summary>Records the evaluator's verdict and takes the answer out of the queue.</summary>
+    /// <param name="verdict">Right or wrong.</param>
+    /// <param name="reason">The evaluator's reason; kept to <see cref="MaxEvaluationReasonLength"/> characters.</param>
+    /// <param name="model">The model that decided.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    internal void RecordEvaluation(TypedAnswerVerdict verdict, string? reason, string? model, DateTime nowUtc)
+    {
+        TextVerdict = verdict;
+        EvaluationReason = Shorten(reason, MaxEvaluationReasonLength);
+        EvaluationModel = Shorten(model, 100);
+        EvaluatedAtUtc = nowUtc;
+        EvaluationRequestedAtUtc = null;
+        EvaluationNextAttemptAtUtc = null;
+        EvaluationLeaseUntilUtc = null;
+        EvaluationFailures = 0;
+        EvaluationLastError = null;
+    }
+
+    /// <summary>Records that asking failed, and when to try again. The answer stays in the queue: a result waits for its verdict.</summary>
+    /// <param name="error">What went wrong, in a few words; never the answer's content.</param>
+    /// <param name="nextAttemptAtUtc">The earliest instant to try again.</param>
+    internal void RecordEvaluationFailure(string error, DateTime nextAttemptAtUtc)
+    {
+        EvaluationFailures++;
+        EvaluationLastError = Shorten(error, MaxEvaluationErrorLength);
+        EvaluationNextAttemptAtUtc = nextAttemptAtUtc;
+        EvaluationLeaseUntilUtc = null;
+    }
+
+    private void ClearEvaluation()
+    {
+        TextVerdict = null;
+        EvaluationReason = null;
+        EvaluationModel = null;
+        EvaluatedAtUtc = null;
+        EvaluationRequestedAtUtc = null;
+        EvaluationNextAttemptAtUtc = null;
+        EvaluationLeaseUntilUtc = null;
+        EvaluationFailures = 0;
+        EvaluationLastError = null;
+    }
+
+    private static string? Shorten(string? text, int maxLength)
+    {
+        var trimmed = text?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+            return null;
+
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
 }

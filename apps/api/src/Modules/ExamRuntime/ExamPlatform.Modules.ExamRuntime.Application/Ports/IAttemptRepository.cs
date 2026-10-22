@@ -6,7 +6,9 @@ namespace ExamPlatform.Modules.ExamRuntime.Application.Ports;
 /// <param name="SelectedOptionIds">The options the candidate chose.</param>
 /// <param name="VersionNumber">The version of the question the attempt sat, or null for an attempt made before versions were recorded.</param>
 /// <param name="AnswerText">What the candidate typed, for a text question; null for an answer made by choosing options.</param>
-public sealed record SubmittedAnswer(IReadOnlyCollection<Guid> SelectedOptionIds, int? VersionNumber, string? AnswerText = null);
+/// <param name="TextVerdict">What the AI evaluator decided about the typed answer, or null when it decided nothing.</param>
+public sealed record SubmittedAnswer(
+    IReadOnlyCollection<Guid> SelectedOptionIds, int? VersionNumber, string? AnswerText = null, TypedAnswerVerdict? TextVerdict = null);
 
 /// <summary>The score of one submitted attempt, as the leaderboards read it.</summary>
 /// <param name="AttemptId">The attempt.</param>

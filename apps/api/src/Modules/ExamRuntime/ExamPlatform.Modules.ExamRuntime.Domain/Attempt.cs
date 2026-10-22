@@ -128,6 +128,21 @@ public sealed class Attempt : AggregateRoot
     public decimal? MaxScore { get; private set; }
 
     /// <summary>
+    /// Why the score will be worked out again, while typed answers are being checked again after a question's answer key was corrected
+    /// (FR-31); null otherwise. When the checking is done the score is revised with this as the reason, so the candidate sees why it moved.
+    /// </summary>
+    public string? PendingRevisionReason { get; private set; }
+
+    /// <summary>The longest revision reason kept, the length an <see cref="AttemptResultRevision"/> stores.</summary>
+    public const int MaxRevisionReasonLength = 500;
+
+    /// <summary>Whether any typed answer is queued for the AI evaluator and has not had its verdict yet.</summary>
+    public bool IsAwaitingEvaluation => _answers.Any(a => a.IsAwaitingEvaluation);
+
+    /// <summary>The typed answers queued for the AI evaluator that have not had their verdict yet.</summary>
+    public IEnumerable<AttemptAnswer> AnswersAwaitingEvaluation => _answers.Where(a => a.IsAwaitingEvaluation);
+
+    /// <summary>
     /// Position (the section's <c>Order</c>, from 1) of the section the candidate is in. It only moves forward, which is
     /// what makes a locked section stay left; exams without section lock never read it.
     /// </summary>
@@ -613,6 +628,30 @@ public sealed class Attempt : AggregateRoot
     }
 
     /// <summary>
+    /// Ends the attempt early on an administrator's decision like <see cref="Terminate"/>, but holds back the score: the typed answers named
+    /// still have to be checked by the AI evaluator, and <see cref="ApplyEvaluatedScore"/> gives the score when they have been.
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <param name="byUserId">The administrator, from their token.</param>
+    /// <param name="reason">Why, 1 to <see cref="MaxReasonLength"/> characters.</param>
+    /// <param name="questionsToEvaluate">The questions whose typed answers are to be checked; at least one.</param>
+    /// <exception cref="InvalidAttemptError">The reason is empty or too long, or a question named has no typed answer, or none is named.</exception>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
+    public void TerminateForGrading(DateTime nowUtc, Guid byUserId, string? reason, IReadOnlyCollection<Guid> questionsToEvaluate)
+    {
+        var text = CleanReason(reason);
+        if (Status != AttemptStatus.InProgress)
+            throw new AttemptNotInProgressError();
+
+        QueueForEvaluation(questionsToEvaluate, nowUtc);
+        PausedAtUtc = null;
+        TerminatedByUserId = byUserId;
+        TerminationReason = text;
+        Close(nowUtc, score: null, maxScore: null, endedByViolations: false, endedByAdmin: true);
+        AddDomainEvent(new AttemptTerminatedEvent(Id, ExamId, CandidateId, text));
+    }
+
+    /// <summary>
     /// Invalidates a submitted attempt's result (FR-29), for example after proof of cheating: it no longer counts, and the candidate is
     /// told why instead of being shown a score. The score is kept for the record.
     /// </summary>
@@ -625,6 +664,8 @@ public sealed class Attempt : AggregateRoot
     public void Invalidate(Guid byUserId, string? reason, DateTime nowUtc)
     {
         var text = CleanReason(reason);
+        if (Status == AttemptStatus.Grading)
+            throw new AttemptBeingGradedError();
         if (Status != AttemptStatus.Submitted)
             throw new AttemptNotSubmittedError();
         if (IsInvalidated)
@@ -686,7 +727,30 @@ public sealed class Attempt : AggregateRoot
         Close(nowUtc, score, maxScore, endedByViolations, endedByAdmin: false);
     }
 
-    private void Close(DateTime nowUtc, decimal score, decimal maxScore, bool endedByViolations, bool endedByAdmin)
+    /// <summary>
+    /// Ends the attempt like <see cref="Submit"/>, but holds back the score: the typed answers named still have to be checked by the AI
+    /// evaluator, which can take a while and can fail and be tried again. The attempt is <see cref="AttemptStatus.Grading"/> until
+    /// <see cref="ApplyEvaluatedScore"/> gives it its score, and nothing that reads results counts it before then.
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <param name="questionsToEvaluate">The questions whose typed answers are to be checked; at least one.</param>
+    /// <param name="endedByViolations">Whether the server is ending the attempt because the candidate left the exam page too often (FR-22).</param>
+    /// <exception cref="InvalidAttemptError">None is named, or a question named has no typed answer.</exception>
+    /// <exception cref="AttemptNotInProgressError">The attempt is already submitted.</exception>
+    /// <exception cref="AttemptPausedError">An administrator paused the attempt.</exception>
+    public void SubmitForGrading(DateTime nowUtc, IReadOnlyCollection<Guid> questionsToEvaluate, bool endedByViolations = false)
+    {
+        if (Status != AttemptStatus.InProgress)
+            throw new AttemptNotInProgressError();
+
+        if (PausedAtUtc is not null)
+            throw new AttemptPausedError();
+
+        QueueForEvaluation(questionsToEvaluate, nowUtc);
+        Close(nowUtc, score: null, maxScore: null, endedByViolations, endedByAdmin: false);
+    }
+
+    private void Close(DateTime nowUtc, decimal? score, decimal? maxScore, bool endedByViolations, bool endedByAdmin)
     {
         // Ended by the server either way: time ran out, or the violation limit was reached.
         AutoSubmitted = IsExpired(nowUtc) || endedByViolations || endedByAdmin;
@@ -696,7 +760,115 @@ public sealed class Attempt : AggregateRoot
         SubmittedAtUtc = IsExpired(nowUtc) ? DeadlineUtc : nowUtc;
         Score = score;
         MaxScore = maxScore;
-        Status = AttemptStatus.Submitted;
+        // No score yet means the typed answers are still being checked.
+        Status = score is null ? AttemptStatus.Grading : AttemptStatus.Submitted;
+    }
+
+    // Queues the typed answers to the named questions for the evaluator. Every one must be a typed answer this attempt holds: asking about
+    // a question the candidate left blank, or answered by choosing options, would be a mistake in the caller, and failing loudly beats
+    // an attempt that waits forever for a verdict nobody will give.
+    private void QueueForEvaluation(IReadOnlyCollection<Guid> questionIds, DateTime nowUtc)
+    {
+        if (questionIds.Count == 0)
+            throw new InvalidAttemptError("There is no typed answer to check.");
+
+        foreach (var questionId in questionIds.Distinct())
+        {
+            var answer = _answers.FirstOrDefault(a => a.QuestionId == questionId && !string.IsNullOrWhiteSpace(a.AnswerText))
+                ?? throw new InvalidAttemptError("A typed answer can only be checked for a question the candidate typed an answer to.");
+            answer.RequestEvaluation(nowUtc);
+        }
+    }
+
+    /// <summary>
+    /// Queues the typed answers to the named questions to be checked again, because staff corrected a question's answer key and the earlier
+    /// verdicts were given against the old one (FR-31). The attempt keeps its score, and each answer keeps its verdict, until the new
+    /// verdicts are in; then <see cref="ApplyEvaluatedScore"/> revises the score with <paramref name="reason"/>.
+    /// </summary>
+    /// <param name="questionIds">The questions whose typed answers are to be checked again; at least one.</param>
+    /// <param name="reason">Why the score may change, shown to the candidate if it does.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="AttemptNotSubmittedError">The attempt has no score yet to revise.</exception>
+    /// <exception cref="InvalidAttemptError">None is named, or a question named has no typed answer.</exception>
+    public void RequestReevaluation(IReadOnlyCollection<Guid> questionIds, string reason, DateTime nowUtc)
+    {
+        if (Status != AttemptStatus.Submitted)
+            throw new AttemptNotSubmittedError();
+
+        QueueForEvaluation(questionIds, nowUtc);
+        var text = reason.Trim();
+        PendingRevisionReason = text.Length <= MaxRevisionReasonLength ? text : text[..MaxRevisionReasonLength];
+    }
+
+    /// <summary>
+    /// Queues one typed answer to be checked again while the attempt is still <see cref="AttemptStatus.Grading"/>, because its question's
+    /// answer key was corrected before the first verdict. The score is still to be given, so there is nothing to revise.
+    /// </summary>
+    /// <param name="questionId">The question.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="AttemptNotGradingError">The attempt is not waiting for its typed answers to be checked.</exception>
+    public void RestartEvaluation(Guid questionId, DateTime nowUtc)
+    {
+        if (Status != AttemptStatus.Grading)
+            throw new AttemptNotGradingError();
+
+        QueueForEvaluation([questionId], nowUtc);
+    }
+
+    /// <summary>Records the evaluator's verdict on the typed answer to a question, and takes that answer out of the queue.</summary>
+    /// <param name="questionId">The question.</param>
+    /// <param name="verdict">Right or wrong.</param>
+    /// <param name="reason">The evaluator's reason, for staff.</param>
+    /// <param name="model">The model that decided.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="InvalidAttemptError">That answer is not waiting for a verdict.</exception>
+    public void RecordEvaluation(Guid questionId, TypedAnswerVerdict verdict, string? reason, string? model, DateTime nowUtc) =>
+        AnswerAwaitingEvaluation(questionId).RecordEvaluation(verdict, reason, model, nowUtc);
+
+    /// <summary>Records that checking the typed answer to a question failed, and when to try again. It stays in the queue.</summary>
+    /// <param name="questionId">The question.</param>
+    /// <param name="error">What went wrong, in a few words, without the answer's content.</param>
+    /// <param name="nextAttemptAtUtc">The earliest instant to try again.</param>
+    /// <exception cref="InvalidAttemptError">That answer is not waiting for a verdict.</exception>
+    public void RecordEvaluationFailure(Guid questionId, string error, DateTime nextAttemptAtUtc) =>
+        AnswerAwaitingEvaluation(questionId).RecordEvaluationFailure(error, nextAttemptAtUtc);
+
+    private AttemptAnswer AnswerAwaitingEvaluation(Guid questionId) =>
+        _answers.FirstOrDefault(a => a.QuestionId == questionId && a.IsAwaitingEvaluation)
+        ?? throw new InvalidAttemptError("That answer is not waiting for a verdict.");
+
+    /// <summary>
+    /// Gives the attempt the score worked out once every typed answer has its verdict. An attempt that was <see cref="AttemptStatus.Grading"/>
+    /// becomes <see cref="AttemptStatus.Submitted"/> with this as its score. An attempt that was submitted and queued by
+    /// <see cref="RequestReevaluation"/> has its score revised, with the reason given then.
+    /// </summary>
+    /// <param name="score">The marks scored, worked out with the verdicts.</param>
+    /// <param name="maxScore">The marks available.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns>Whether the attempt's score is now different from before; the first score of a graded attempt always is.</returns>
+    /// <exception cref="InvalidAttemptError">A typed answer is still waiting for its verdict.</exception>
+    /// <exception cref="AttemptNotGradingError">The attempt is not waiting for its typed answers to be checked.</exception>
+    public bool ApplyEvaluatedScore(decimal score, decimal maxScore, DateTime nowUtc)
+    {
+        if (IsAwaitingEvaluation)
+            throw new InvalidAttemptError("A typed answer is still waiting for its verdict.");
+
+        if (Status == AttemptStatus.Grading)
+        {
+            Score = score;
+            MaxScore = maxScore;
+            PendingRevisionReason = null;
+            Status = AttemptStatus.Submitted;
+            return true;
+        }
+
+        if (Status == AttemptStatus.Submitted && PendingRevisionReason is { } reason)
+        {
+            PendingRevisionReason = null;
+            return ReviseScore(score, maxScore, reason, nowUtc);
+        }
+
+        throw new AttemptNotGradingError();
     }
 
     /// <summary>

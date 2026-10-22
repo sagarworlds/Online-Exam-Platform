@@ -70,7 +70,7 @@ public sealed class GetAttemptPaperHandler(IExamCatalog catalog, IAttemptReposit
                 id, question.Text, drawn, options, AllowsMultiple: question.AllowsMultiple,
                 IsTextAnswer: question.IsTextAnswer, AnswerText: answer?.AnswerText, AcceptedAnswers: accepted);
 
-        var mark = AttemptScorer.Mark(paper, question, chosenIds, answer?.AnswerText);
+        var mark = AttemptScorer.Mark(paper, question, chosenIds, answer?.AnswerText, answer?.TextVerdict);
         return new AttemptPaperQuestionDto(
             id, question.Text, drawn, options, mark.Verdict, mark.Marks, question.AllowsMultiple,
             IsTextAnswer: question.IsTextAnswer, AnswerText: answer?.AnswerText, AcceptedAnswers: accepted);

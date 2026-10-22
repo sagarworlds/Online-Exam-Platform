@@ -119,6 +119,6 @@ public sealed class CandidateResultReader(
         // A question the bank cannot return cannot be marked either way, so the result is refused rather than scored as a guess.
         var question = questions.GetValueOrDefault(questionId) ?? throw new ExamContentUnavailableError();
         var answer = answers.GetValueOrDefault(questionId);
-        return AttemptScorer.Mark(exam, question, answer?.SelectedOptionIds ?? [], answer?.AnswerText);
+        return AttemptScorer.Mark(exam, question, answer?.SelectedOptionIds ?? [], answer?.AnswerText, answer?.TextVerdict);
     }
 }

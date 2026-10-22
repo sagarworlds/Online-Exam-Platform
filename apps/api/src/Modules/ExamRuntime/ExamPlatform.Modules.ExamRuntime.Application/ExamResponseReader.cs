@@ -97,7 +97,7 @@ public sealed class ExamResponseReader(IAttemptRepository attempts, IExamCatalog
                 var version = attempt.QuestionVersionOf(questionId);
                 var question = questions.GetValueOrDefault((questionId, version)) ?? throw new ExamContentUnavailableError();
                 var answer = answers.GetValueOrDefault(questionId);
-                var mark = AttemptScorer.Mark(paperExam, question, answer?.SelectedOptionIds ?? [], answer?.AnswerText);
+                var mark = AttemptScorer.Mark(paperExam, question, answer?.SelectedOptionIds ?? [], answer?.AnswerText, answer?.TextVerdict);
                 var seconds = timeSpent.TryGetValue(questionId, out var reported) ? reported : (int?)null;
                 return new QuestionResponse(questionId, mark.Verdict == AnswerVerdict.Correct, Answered: answer is not null, seconds);
             })

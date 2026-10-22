@@ -57,11 +57,11 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
             from answer in context.Set<AttemptAnswer>().AsNoTracking()
             join attempt in context.Attempts.AsNoTracking() on answer.AttemptId equals attempt.Id
             where answer.QuestionId == questionId && attempt.Status == AttemptStatus.Submitted && attempt.InvalidatedAtUtc == null
-            select new { answer.SelectedOptionIds, answer.AnswerText, attempt.QuestionVersions }).ToListAsync(cancellationToken);
+            select new { answer.SelectedOptionIds, answer.AnswerText, answer.TextVerdict, attempt.QuestionVersions }).ToListAsync(cancellationToken);
 
         return rows
             .Select(r => new SubmittedAnswer(
-                r.SelectedOptionIds, r.QuestionVersions.TryGetValue(questionId, out var version) ? version : null, r.AnswerText))
+                r.SelectedOptionIds, r.QuestionVersions.TryGetValue(questionId, out var version) ? version : null, r.AnswerText, r.TextVerdict))
             .ToList();
     }
 
