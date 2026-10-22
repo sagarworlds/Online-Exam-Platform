@@ -63,6 +63,44 @@ describe('AdminAttentionService', () => {
     expect(service.refreshing()).toBe(false);
   });
 
+  it('keeps the first three waiting items of each queue, for the lines under a tile', () => {
+    const service = create(['exam.manage']);
+
+    service.refresh();
+    answerQueues({
+      requests: ['a', 'b', 'c', 'd'].map((id) => ({ id, candidateEmail: `${id}@example.com`, examName: 'Maths' })),
+      disputes: [{ id: 'x', candidateEmail: null, examName: 'Physics' }],
+    });
+
+    expect(service.latest().attemptRequests?.map((item) => item.title)).toEqual(['a@example.com', 'b@example.com', 'c@example.com']);
+    expect(service.latest().attemptRequests?.[0]).toEqual({ id: 'a', title: 'a@example.com', subtitle: 'Maths', path: '/admin/attempt-requests' });
+    expect(service.latest().disputes).toEqual([{ id: 'x', title: 'Physics', subtitle: null, path: '/admin/disputes' }]);
+  });
+
+  it('counts the open risk flags of every exam from one read, exactly, for a reviewer only', () => {
+    const service = create(['proctoring.review']);
+
+    service.refresh();
+    const read = http.expectOne(isRead('/v1/proctoring/risk-flags/open'));
+    expect(read.request.params.get('limit')).toBe('3');
+    read.flush({ total: 250, items: [{ id: 'f1', examId: 'e1', examName: null, attemptNumber: 1, score: 40, maxScore: 100, computedAtUtc: '2026-10-01T05:00:00Z' }] });
+
+    expect(service.counts().riskFlags).toEqual({ status: 'ready', count: 250, atLimit: false });
+    expect(service.latest().riskFlags).toEqual([{ id: 'f1', title: 'Exam no longer available', subtitle: '40 / 100', path: '/exams/e1/risk-flags' }]);
+  });
+
+  it('drops the lines of what was dealt with, and forgets them all on sign-out', () => {
+    const service = create(['exam.manage']);
+    service.refresh();
+    answerQueues({ requests: ['a', 'b'].map((id) => ({ id, candidateEmail: id, examName: null })) });
+
+    service.settled('attemptRequests');
+    expect(service.latest().attemptRequests).toBeUndefined();
+
+    service.clear();
+    expect(service.latest()).toEqual({});
+  });
+
   it('knows a queue may hold more than its list shows when the list is full', () => {
     const service = create(['exam.manage']);
 

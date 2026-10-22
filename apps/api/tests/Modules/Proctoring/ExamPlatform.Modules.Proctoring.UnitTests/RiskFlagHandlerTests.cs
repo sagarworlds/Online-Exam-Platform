@@ -58,6 +58,42 @@ public class RiskFlagHandlerTests
             Task.FromResult<IReadOnlyList<EnrolledCandidate>>(candidates.Select(c => new EnrolledCandidate(c.Candidate, c.Email)).ToList()));
 
     [Fact]
+    public async Task TheCrossExamSummary_CountsEveryOpenFlag_AndListsTheHighestFirstWithTheirExamName()
+    {
+        var modest = Add(focus: 3);
+        var severe = Add(focus: 3, attemptNumber: 2, changes: 2, invalidated: true);
+        Add(focus: 0, attemptNumber: 3);
+        var handler = new ListOpenRiskFlagsHandler(_catalog, _assessments);
+
+        var summary = await handler.HandleAsync(1, CancellationToken.None);
+
+        Assert.Equal(2, summary.Total);
+        var top = Assert.Single(summary.Items);
+        Assert.Equal(severe.Id, top.Id);
+        Assert.Equal("Maths Final", top.ExamName);
+        Assert.NotEqual(modest.Id, top.Id);
+    }
+
+    [Fact]
+    public async Task TheCrossExamSummary_LeavesOutDecidedFlags_HoldsTheLimit_AndNamesNoGoneExam()
+    {
+        var decided = Add(focus: 3);
+        decided.MarkReviewed(Reviewer, null, Now);
+        var gone = Guid.NewGuid();
+        var orphanInput = RiskTestData.Attempt(examId: gone, focus: 3);
+        _assessments.Add(RiskAssessment.Create(gone, orphanInput, RiskScorer.Score(orphanInput, 0, RiskTestData.DefaultPolicy), Now));
+        _catalog.FindAsync(gone, Arg.Any<CancellationToken>()).Returns((ExamSnapshot?)null);
+        var handler = new ListOpenRiskFlagsHandler(_catalog, _assessments);
+
+        var summary = await handler.HandleAsync(500, CancellationToken.None);
+        var none = await handler.HandleAsync(0, CancellationToken.None);
+
+        Assert.Equal(1, summary.Total);
+        Assert.Null(Assert.Single(summary.Items).ExamName);
+        Assert.Single(none.Items);
+    }
+
+    [Fact]
     public async Task TheQueue_ShowsTheHighestScoreFirst_AndOnlyFlaggedAttempts()
     {
         var modest = Add(focus: 3);

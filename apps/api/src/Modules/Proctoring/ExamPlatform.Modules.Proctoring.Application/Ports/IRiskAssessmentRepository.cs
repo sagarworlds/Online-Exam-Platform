@@ -33,6 +33,11 @@ public interface IRiskAssessmentRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<RiskFlagPage> ListFlagsAsync(Guid examId, RiskFlagFilter filter, PageRequest page, CancellationToken cancellationToken);
 
+    /// <summary>Reads the open flags of every exam: how many there are, and the first few, highest score first, for display only.</summary>
+    /// <param name="limit">How many flags to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<RiskFlagPage> ListOpenFlagsAsync(int limit, CancellationToken cancellationToken);
+
     /// <summary>Whether the attempt has a flagged assessment that no reviewer has decided on.</summary>
     /// <param name="attemptId">The attempt.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

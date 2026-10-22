@@ -32,6 +32,13 @@ internal sealed class FakeRiskAssessmentRepository : IRiskAssessmentRepository
         return Task.FromResult(new RiskFlagPage(ordered, matching.Count));
     }
 
+    public Task<RiskFlagPage> ListOpenFlagsAsync(int limit, CancellationToken cancellationToken)
+    {
+        var open = Stored.Where(a => a.Flagged && a.Status == RiskFlagStatus.Open).ToList();
+        var ordered = open.OrderByDescending(a => a.Score).ThenByDescending(a => a.ComputedAtUtc).ThenBy(a => a.Id).Take(limit).ToList();
+        return Task.FromResult(new RiskFlagPage(ordered, open.Count));
+    }
+
     public Task<bool> HasOpenFlagAsync(Guid attemptId, CancellationToken cancellationToken) =>
         Task.FromResult(Stored.Any(a => a.AttemptId == attemptId && a.Flagged && a.Status == RiskFlagStatus.Open));
 

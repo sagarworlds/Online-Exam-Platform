@@ -286,6 +286,78 @@ describe('AdminHome', () => {
       expect(page.querySelector('.admin-attention')).toBeNull();
     });
 
+    describe('the latest items under a tile', () => {
+      const request = (id: string, email: string | null, examName: string | null) => ({ id, candidateEmail: email, examName });
+      const toggle = (page: HTMLElement, name: string) => page.querySelector<HTMLButtonElement>(`button.attention-toggle[aria-label*="${name}"]`)!;
+      const lines = (page: HTMLElement) => Array.from(page.querySelectorAll('.attention-line__title')).map((t) => t.textContent?.trim());
+
+      it('opens from a button that says whether it is open, and lists who is waiting, each with a Review button that names them', () => {
+        const { fixture, page, http } = open(['exam.manage']);
+        answerQueues(http, { requests: [request('r1', 'asha@example.com', 'Maths Final'), request('r2', 'bob@example.com', 'Physics')] });
+        fixture.detectChanges();
+
+        const button = toggle(page, 'Attempt requests');
+        expect(button.getAttribute('aria-expanded')).toBe('false');
+        expect(page.querySelector<HTMLElement>('#attention-items-attemptRequests')!.hidden).toBe(true);
+
+        button.click();
+        fixture.detectChanges();
+
+        expect(button.getAttribute('aria-expanded')).toBe('true');
+        expect(page.querySelector<HTMLElement>('#attention-items-attemptRequests')!.hidden).toBe(false);
+        expect(lines(page)).toEqual(['asha@example.com', 'bob@example.com']);
+        const review = page.querySelector<HTMLAnchorElement>('#attention-items-attemptRequests a')!;
+        expect(review.getAttribute('aria-label')).toBe('Review asha@example.com');
+        expect(review.getAttribute('href')).toBe('/admin/attempt-requests');
+        expect(page.querySelector('#attention-items-attemptRequests .attention-line__subtitle')?.textContent).toBe('Maths Final');
+      });
+
+      it('has no button for a queue with nothing waiting', () => {
+        const { fixture, page, http } = open(['exam.manage']);
+        answerQueues(http, { requests: [request('r1', 'asha@example.com', null)] });
+        fixture.detectChanges();
+
+        expect(toggle(page, 'Attempt requests')).not.toBeNull();
+        expect(toggle(page, 'Disputes')).toBeNull();
+      });
+
+      it('shows a running exam with an Open button to the exam, not a Review', () => {
+        const { fixture, page, http } = open(['exam.read']);
+        http.expectOne(isRead('/v1/exams')).flush([exam('e1', { name: 'Maths Final' })]);
+        fixture.detectChanges();
+
+        toggle(page, 'Exams running').click();
+        fixture.detectChanges();
+
+        const link = page.querySelector<HTMLAnchorElement>('#attention-items-liveExams a')!;
+        expect(link.textContent?.trim()).toBe('Open');
+        expect(link.getAttribute('href')).toBe('/exams/e1');
+        expect(link.getAttribute('aria-label')).toBe('Open Maths Final');
+      });
+
+      it('counts open risk flags across every exam, for a reviewer, and takes each line to its exam’s flags', () => {
+        const { fixture, page, http } = open(['proctoring.review']);
+        http.expectOne(isRead('/v1/proctoring/risk-flags/open')).flush({
+          total: 7,
+          items: [{ id: 'f1', examId: 'e9', examName: 'Board Mock', attemptNumber: 1, score: 60, maxScore: 100, computedAtUtc: '2026-10-01T05:00:00Z' }],
+        });
+        fixture.detectChanges();
+
+        expect(tile(page, 'Risk flags')?.getAttribute('aria-label')).toBe('Risk flags: 7 open for review');
+        toggle(page, 'Risk flags').click();
+        fixture.detectChanges();
+        expect(lines(page)).toEqual(['Board Mock']);
+        expect(page.querySelector('#attention-items-riskFlags .attention-line__subtitle')?.textContent).toBe('60 / 100');
+        expect(page.querySelector('#attention-items-riskFlags a')?.getAttribute('href')).toBe('/exams/e9/risk-flags');
+      });
+
+      it('shows no risk-flag tile, and asks nothing, to staff who may not review', () => {
+        const { page } = open(['exam.manage']);
+
+        expect(tile(page, 'Risk flags')).toBeUndefined();
+      });
+    });
+
     it('reads the counts again from the refresh icon, keeping what was shown until the new numbers arrive', () => {
       const { fixture, page, http } = open(['exam.manage']);
       answerQueues(http);

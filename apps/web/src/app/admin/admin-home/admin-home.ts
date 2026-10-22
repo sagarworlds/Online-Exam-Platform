@@ -1,13 +1,14 @@
-import { Component, OnInit, computed, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AttentionKey, openAdminGroups } from '../../auth/admin-sections';
 import { AuthSessionService } from '../../auth/auth-session.service';
 import { I18nService } from '../../i18n/i18n.service';
 import { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';
+import { Icon } from '../../shared/icon/icon';
 import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { AdminAreaList } from '../admin-area-list/admin-area-list';
-import { AdminAttentionService } from '../admin-attention/admin-attention.service';
+import { AdminAttentionService, AttentionItem } from '../admin-attention/admin-attention.service';
 
 /** One tile of "Needs attention": what it counts, in words, and the page that deals with it. */
 interface TileDefinition {
@@ -15,13 +16,17 @@ interface TileDefinition {
   label: MessageKey;
   detail: MessageKey;
   path: string;
+  /** What the button on each line under the tile says: a queue's items are reviewed, a running exam is opened. */
+  action: 'review' | 'open';
 }
 
 const TILES: readonly TileDefinition[] = [
-  { key: 'attemptRequests', label: 'admin.area.attemptRequests.name', detail: 'admin.attention.attemptRequests.detail', path: '/admin/attempt-requests' },
-  { key: 'disputes', label: 'admin.area.disputes.name', detail: 'admin.attention.disputes.detail', path: '/admin/disputes' },
-  { key: 'issues', label: 'admin.area.issueReports.name', detail: 'admin.attention.issues.detail', path: '/admin/issue-reports' },
-  { key: 'liveExams', label: 'admin.attention.liveExams', detail: 'admin.attention.liveExams.detail', path: '/exams' },
+  { key: 'attemptRequests', label: 'admin.area.attemptRequests.name', detail: 'admin.attention.attemptRequests.detail', path: '/admin/attempt-requests', action: 'review' },
+  { key: 'disputes', label: 'admin.area.disputes.name', detail: 'admin.attention.disputes.detail', path: '/admin/disputes', action: 'review' },
+  { key: 'issues', label: 'admin.area.issueReports.name', detail: 'admin.attention.issues.detail', path: '/admin/issue-reports', action: 'review' },
+  // Flags are reviewed at an exam, there is no page for all of them: the tile opens the exams, and each line goes to its own exam's flags.
+  { key: 'riskFlags', label: 'admin.attention.riskFlags', detail: 'admin.attention.riskFlags.detail', path: '/exams', action: 'review' },
+  { key: 'liveExams', label: 'admin.attention.liveExams', detail: 'admin.attention.liveExams.detail', path: '/exams', action: 'open' },
 ];
 
 /** What a tile shows, ready to draw. */
@@ -37,6 +42,9 @@ interface Tile {
   waiting: boolean;
   /** The whole tile as one sentence, which is how a screen reader reads the link. */
   name: string;
+  /** The first few things waiting, for the lines under the tile. */
+  items: readonly AttentionItem[];
+  action: 'review' | 'open';
 }
 
 /**
@@ -46,7 +54,7 @@ interface Tile {
  */
 @Component({
   selector: 'app-admin-home',
-  imports: [AdminAreaList, RefreshButton, RouterLink, TranslatePipe],
+  imports: [AdminAreaList, Icon, RefreshButton, RouterLink, TranslatePipe],
   templateUrl: './admin-home.html',
   styleUrl: './admin-home.css',
 })
@@ -55,11 +63,34 @@ export class AdminHome implements OnInit {
   private readonly i18n = inject(I18nService);
   protected readonly attention = inject(AdminAttentionService);
 
+  /** The tiles opened to show their latest items. */
+  protected readonly expanded = signal<ReadonlySet<AttentionKey>>(new Set());
+
+  protected isOpen(key: AttentionKey): boolean {
+    return this.expanded().has(key);
+  }
+
+  protected toggle(key: AttentionKey): void {
+    this.expanded.update((open) => {
+      const next = new Set(open);
+      if (!next.delete(key)) {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  /** The words of a line's button, for a screen reader: what it does and to which item. */
+  protected itemName(tile: Tile, item: AttentionItem): string {
+    return this.i18n.t(tile.action === 'review' ? 'admin.attention.reviewItem' : 'admin.attention.openItem', { item: item.title });
+  }
+
   protected readonly groups = computed(() => openAdminGroups(this.authSession));
 
   /** The tiles the user may have, with what is known of each count. A tile whose queue the user may not read is not drawn. */
   protected readonly tiles = computed<Tile[]>(() => {
     const counts = this.attention.counts();
+    const latest = this.attention.latest();
     const tiles: Tile[] = [];
     for (const definition of TILES) {
       const state = counts[definition.key];
@@ -82,7 +113,10 @@ export class AdminHome implements OnInit {
 
       // Only punctuation joins the parts, which reads the same in every language, so it is not a message of its own.
       const name = state.status === 'ready' && waiting ? `${label}: ${figure} ${detail}` : `${label}: ${detail}`;
-      tiles.push({ key: definition.key, path: definition.path, label, figure, detail, waiting, name });
+      const items = latest[definition.key] ?? [];
+      // Flags are reviewed at an exam, and the exams page needs a permission a reviewer may not hold: the tile goes to the first exam's flags.
+      const path = definition.key === 'riskFlags' && items.length > 0 ? items[0].path : definition.path;
+      tiles.push({ key: definition.key, path, label, figure, detail, waiting, name, items, action: definition.action });
     }
     return tiles;
   });

@@ -48,6 +48,7 @@ public sealed class ProctoringModuleInstaller : IModuleInstaller
         services.AddScoped<ProctoringAuditTrail>();
         services.AddScoped<RunRiskScanHandler>();
         services.AddScoped<ListRiskFlagsHandler>();
+        services.AddScoped<ListOpenRiskFlagsHandler>();
         services.AddScoped<ReviewRiskFlagHandler>();
         services.AddScoped<DismissRiskFlagHandler>();
         services.AddScoped<IRiskFlagReader, RiskFlagReader>();

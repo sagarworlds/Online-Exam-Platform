@@ -72,3 +72,21 @@ export const RISK_SIGNAL_NAMES: Readonly<Record<string, MessageKey>> = {
   FastCompletion: 'proctoring.signal.name.FastCompletion',
   SharedWrongAnswers: 'proctoring.signal.name.SharedWrongAnswers',
 };
+
+/** One open flag in the summary across every exam. */
+export interface OpenRiskFlag {
+  id: string;
+  examId: string;
+  /** Null when the exam can no longer be read. */
+  examName: string | null;
+  attemptNumber: number;
+  score: number;
+  maxScore: number;
+  computedAtUtc: string;
+}
+
+/** What waits for review at all exams: the number of open flags and the ones with the highest score. */
+export interface OpenRiskFlags {
+  total: number;
+  items: OpenRiskFlag[];
+}
