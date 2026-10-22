@@ -1,11 +1,13 @@
 import { Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { RichTextEditor } from '../../shared/rich-text/rich-text-editor';
 import { QuestionApiService } from '../question-api.service';
 import { QUESTION_LANGUAGES, QuestionDto, QuestionLanguage, QuestionTranslation } from '../question.models';
-import { STATUS_LABELS } from '../question-review/question-review';
+import { STATUS_KEYS } from '../question-review/question-review';
 
 /**
  * The versions of one question in other languages (FR-10), under its card: which languages it has, each one a link to
@@ -14,12 +16,13 @@ import { STATUS_LABELS } from '../question-review/question-review';
  */
 @Component({
   selector: 'app-question-translations',
-  imports: [ReactiveFormsModule, RouterLink, RichTextEditor],
+  imports: [ReactiveFormsModule, RouterLink, RichTextEditor, TranslatePipe],
   templateUrl: './question-translations.html',
 })
 export class QuestionTranslations implements OnInit {
   private readonly api = inject(QuestionApiService);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly i18n = inject(I18nService);
 
   /** The question whose translations are shown; it is the one a new translation is made from. */
   readonly question = input.required<QuestionDto>();
@@ -27,8 +30,6 @@ export class QuestionTranslations implements OnInit {
   /** A translation was saved, so the page can show the new question in its list. */
   readonly added = output<void>();
 
-  protected readonly languages = QUESTION_LANGUAGES;
-  protected readonly statusLabels = STATUS_LABELS;
   /** The question and its translations; null until they have loaded. */
   protected readonly linked = signal<QuestionTranslation[] | null>(null);
   protected readonly error = signal<string | null>(null);
@@ -58,7 +59,13 @@ export class QuestionTranslations implements OnInit {
   }
 
   protected labelOf(code: string): string {
-    return QUESTION_LANGUAGES.find((language) => language.code === code)?.label ?? code;
+    const language = QUESTION_LANGUAGES.find((entry) => entry.code === code);
+    return language ? this.i18n.t(language.key) : code;
+  }
+
+  /** A status the API names, in the words of the language in use; one this page has no words for is shown as the API wrote it. */
+  protected statusText(status: string): string {
+    return status in STATUS_KEYS ? this.i18n.t(STATUS_KEYS[status as keyof typeof STATUS_KEYS]) : status;
   }
 
   /** Opens an empty form with one option box for each option of the question being translated. */
@@ -92,7 +99,7 @@ export class QuestionTranslations implements OnInit {
       },
       error: (error: unknown) => {
         this.saving.set(false);
-        this.error.set(extractErrorMessage(error));
+        this.error.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }

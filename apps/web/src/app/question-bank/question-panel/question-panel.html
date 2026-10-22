@@ -1,6 +1,6 @@
 <app-modal-dialog [heading]="heading()" side [guarded]="changed" (closeRequested)="askToDiscard()" (closed)="closed.emit()">
   @if (loading()) {
-    <p role="status">Loading…</p>
+    <p role="status">{{ 'common.loading' | t }}</p>
   } @else if (loadError()) {
     <p class="error-message" role="alert">{{ loadError() }}</p>
   } @else {
@@ -13,15 +13,12 @@
             }
             {{ current.bookName }} <span aria-hidden="true">›</span> {{ current.chapterTitle }}
           } @else {
-            <span class="hint">Not filed under a chapter</span>
+            <span class="hint">{{ 'qb.unfiled' | t }}</span>
           }
-          <span class="hint"> · To move it, use “File under” in the question bank.</span>
+          <span class="hint"> · {{ 'qb.panel.moveHint' | t }}</span>
         </p>
         @if (current.usage.examCount > 0) {
-          <p class="hint">
-            In {{ current.usage.examCount === 1 ? 'the exam' : current.usage.examCount + ' exams' }}
-            {{ current.usage.examNames.join(', ') }}{{ current.usage.examCount > current.usage.examNames.length ? ' and others' : '' }}.
-          </p>
+          <p class="hint">{{ inExamText(current) }}</p>
         }
       } @else {
         <app-book-chapter-picker [books]="books()" idPrefix="question" [(value)]="placement" />
@@ -37,46 +34,46 @@
   -->
   <div modalFooter>
     @if (savedNotice()) {
-      <p class="success-message" role="status">Question saved.</p>
+      <p class="success-message" role="status">{{ 'qb.saved' | t }}</p>
     }
     @if (saveError()) {
       <p #saveFailure class="error-message" role="alert" tabindex="-1">{{ saveError() }}</p>
     }
     @if (repeat(); as pending) {
       <section #repeatCard class="card question-repeat" role="alert" tabindex="-1" aria-labelledby="question-repeat-heading">
-        <h3 id="question-repeat-heading">This question is already in the bank</h3>
-        <p>The bank has a question with this wording and these {{ pending.request.isTextAnswer ? 'accepted answers' : 'options' }}:</p>
+        <h3 id="question-repeat-heading">{{ 'qb.panel.repeatHeading' | t }}</h3>
+        <p>{{ (pending.request.isTextAnswer ? 'qb.panel.repeatAnswers' : 'qb.panel.repeatOptions') | t }}</p>
         <ul>
           @for (match of pending.matches; track match.id) {
             @if (match.sameOptions) {
-              <li>{{ match.preview }} <span class="badge">{{ match.status }}</span></li>
+              <li>{{ match.preview }} <span class="badge">{{ statusText(match.status) }}</span></li>
             }
           }
         </ul>
         <div class="panel-actions">
-          <button type="button" (click)="addAnyway()" [disabled]="saving()">Add it anyway</button>
-          <button type="button" class="primary" (click)="dismissRepeat()">Don't add it</button>
+          <button type="button" (click)="addAnyway()" [disabled]="saving()">{{ 'qb.panel.addAnyway' | t }}</button>
+          <button type="button" class="primary" (click)="dismissRepeat()">{{ 'qb.panel.dontAdd' | t }}</button>
         </div>
       </section>
     }
 
     @if (confirmingDiscard()) {
       <div #discardAsk class="panel-confirm" role="alertdialog" aria-labelledby="panel-discard-text" tabindex="-1">
-        <p id="panel-discard-text">Throw away what you have {{ isEdit() ? 'changed' : 'typed' }}?</p>
+        <p id="panel-discard-text">{{ (isEdit() ? 'qb.panel.discardEdit' : 'qb.panel.discardNew') | t }}</p>
         <div class="panel-actions">
-          <button type="button" class="btn--danger" (click)="discard()">Discard</button>
-          <button type="button" class="primary" (click)="keepEditing()">Keep editing</button>
+          <button type="button" class="btn--danger" (click)="discard()">{{ 'qb.panel.discard' | t }}</button>
+          <button type="button" class="primary" (click)="keepEditing()">{{ 'qb.panel.keepEditing' | t }}</button>
         </div>
       </div>
     } @else {
       <div class="panel-actions">
         @if (isEdit()) {
-          <button type="submit" form="question-panel-form" class="primary" [disabled]="!canSave">Save changes</button>
+          <button type="submit" form="question-panel-form" class="primary" [disabled]="!canSave">{{ 'qb.panel.saveChanges' | t }}</button>
         } @else {
-          <button type="submit" form="question-panel-form" class="primary" [disabled]="!canSave">Save</button>
-          <button type="button" (click)="saveAndAddAnother()" [disabled]="!canSave">Save and add another</button>
+          <button type="submit" form="question-panel-form" class="primary" [disabled]="!canSave">{{ 'common.save' | t }}</button>
+          <button type="button" (click)="saveAndAddAnother()" [disabled]="!canSave">{{ 'qb.panel.saveAnother' | t }}</button>
         }
-        <button type="button" (click)="requestClose()">Cancel</button>
+        <button type="button" (click)="requestClose()">{{ 'common.cancel' | t }}</button>
       </div>
     }
   </div>

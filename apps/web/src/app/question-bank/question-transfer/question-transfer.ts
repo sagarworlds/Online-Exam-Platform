@@ -1,4 +1,6 @@
 import { Component, inject, input, output, signal } from '@angular/core';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { QuestionApiService } from '../question-api.service';
 import { ImportQuestionsResult, QuestionFileFormat, QuestionFilter } from '../question.models';
@@ -36,6 +38,7 @@ function toBase64(buffer: ArrayBuffer): string {
  */
 @Component({
   selector: 'app-question-transfer',
+  imports: [TranslatePipe],
   templateUrl: './question-transfer.html',
 })
 export class QuestionTransfer {
@@ -58,6 +61,15 @@ export class QuestionTransfer {
   protected readonly allowDuplicates = signal(false);
 
   private readonly api = inject(QuestionApiService);
+  private readonly i18n = inject(I18nService);
+
+  /** What an import did, in a sentence: how many questions it created, and how many rows it left out if any. */
+  protected reportText(report: ImportQuestionsResult): string {
+    const created = report.created.length;
+    return report.rejected.length > 0
+      ? this.i18n.plural('qb.transfer.createdLeftOut', created, { left: report.rejected.length })
+      : this.i18n.plural('qb.transfer.created', created);
+  }
 
   protected onFormatChanged(value: string): void {
     this.exportFormat.set(value as QuestionFileFormat);
@@ -75,9 +87,7 @@ export class QuestionTransfer {
         link.click();
         URL.revokeObjectURL(url);
         if (file.skipped > 0) {
-          this.exportNote.set(
-            `${file.skipped} question${file.skipped === 1 ? ' was' : 's were'} left out because the text is too long for an Excel cell (pictures make a question long). Export as CSV or JSON to include ${file.skipped === 1 ? 'it' : 'them'}.`,
-          );
+          this.exportNote.set(this.i18n.plural('qb.transfer.skipped', file.skipped));
         }
         this.busy.set(false);
       },
@@ -97,7 +107,7 @@ export class QuestionTransfer {
     this.begin();
     const format = formatOfFile(file.name);
     if (format === null) {
-      this.error.set('Choose a .csv, .xlsx or .json file.');
+      this.error.set(this.i18n.t('qb.transfer.badFile'));
       this.busy.set(false);
       return;
     }
@@ -127,7 +137,7 @@ export class QuestionTransfer {
   }
 
   private fail(error: unknown): void {
-    this.error.set(extractErrorMessage(error));
+    this.error.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
     this.busy.set(false);
   }
 }

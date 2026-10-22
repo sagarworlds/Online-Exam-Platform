@@ -1,33 +1,30 @@
-<form class="key-correction" (submit)="$event.preventDefault(); save()" aria-label="Correct the answer key">
+<form class="key-correction" (submit)="$event.preventDefault(); save()" [attr.aria-label]="'qb.key.region' | t">
   @if (loadError()) {
     <p class="error-message" role="alert">{{ loadError() }}</p>
     <div class="actions">
-      <button type="button" (click)="cancelled.emit()">Close</button>
+      <button type="button" (click)="cancelled.emit()">{{ 'common.close' | t }}</button>
     </div>
   } @else if (question(); as q) {
-    <p class="warning-note">
-      This changes the result of every candidate who answered this question: their scores are worked out again, and each of them is shown your reason.
-      The disputes about this question are accepted.
-    </p>
+    <p class="warning-note">{{ 'qb.key.warning' | t }}</p>
 
     @if (q.isTextAnswer) {
       <fieldset class="field">
-        <legend>Accepted answers</legend>
-        <p class="hint">A typed answer is right when it matches one of these, ignoring capital letters and extra spaces.</p>
+        <legend>{{ 'qb.field.accepted' | t }}</legend>
+        <p class="hint">{{ 'qb.key.acceptedHint' | t }}</p>
         @for (answer of answers(); track $index; let i = $index) {
           <div class="option-row">
-            <input type="text" [value]="answer" (input)="setAnswer(i, $any($event.target).value)" [attr.aria-label]="'Accepted answer ' + (i + 1)" [disabled]="busy()" />
-            <button type="button" (click)="removeAnswer(i)" [disabled]="busy() || answers().length <= 1">Remove</button>
+            <input type="text" [value]="answer" (input)="setAnswer(i, $any($event.target).value)" [attr.aria-label]="'qb.field.acceptedAnswer' | t: { number: i + 1 }" [disabled]="busy()" />
+            <button type="button" (click)="removeAnswer(i)" [disabled]="busy() || answers().length <= 1">{{ 'qb.key.remove' | t }}</button>
           </div>
         }
-        <button type="button" (click)="addAnswer()" [disabled]="busy() || answers().length >= limits.maxAcceptedAnswers">Add accepted answer</button>
+        <button type="button" (click)="addAnswer()" [disabled]="busy() || answers().length >= limits.maxAcceptedAnswers">{{ 'qb.field.addAccepted' | t }}</button>
         @if (answersProblem()) {
           <p class="field-error">{{ answersProblem() }}</p>
         }
       </fieldset>
     } @else {
     <fieldset class="field">
-      <legend>{{ q.allowsMultiple ? 'Correct options (tick every one)' : 'Correct option' }}</legend>
+      <legend>{{ (q.allowsMultiple ? 'qb.key.optionsMultiple' : 'qb.key.optionSingle') | t }}</legend>
       @for (option of q.options; track option.id; let i = $index) {
         @if (q.allowsMultiple) {
           <label class="inline-check">
@@ -48,7 +45,7 @@
     }
 
     <div class="field">
-      <label [for]="'key-reason-' + q.id">Reason (shown to every candidate whose score changes)</label>
+      <label [for]="'key-reason-' + q.id">{{ 'qb.key.reason' | t }}</label>
       <textarea
         [id]="'key-reason-' + q.id"
         rows="2"
@@ -64,10 +61,10 @@
       <p class="error-message" role="alert">{{ error() }}</p>
     }
     <div class="actions">
-      <button type="submit" class="primary" [disabled]="!canSave()">Correct the answer key</button>
-      <button type="button" (click)="cancelled.emit()" [disabled]="busy()">Cancel</button>
+      <button type="submit" class="primary" [disabled]="!canSave()">{{ 'qb.key.region' | t }}</button>
+      <button type="button" (click)="cancelled.emit()" [disabled]="busy()">{{ 'common.cancel' | t }}</button>
     </div>
   } @else {
-    <p class="hint">Loading…</p>
+    <p class="hint">{{ 'common.loading' | t }}</p>
   }
 </form>

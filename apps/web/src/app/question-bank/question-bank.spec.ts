@@ -6,6 +6,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { beforeAll } from 'vitest';
+import { I18nService } from '../i18n/i18n.service';
 import { QuestionBank } from './question-bank';
 import { QuestionPanel } from './question-panel/question-panel';
 import { QuestionUsageDto } from './question.models';
@@ -97,6 +98,42 @@ describe('QuestionBank', () => {
     (root.querySelector('button[aria-label="Show details"]') as HTMLButtonElement).click();
     fixture.detectChanges();
     expect(root.querySelector('.correct-option')?.textContent).toContain('4');
+  });
+
+  describe('in another language', () => {
+    afterEach(() => localStorage.clear());
+
+    it('says the page, a row and its badges in the language the staff member chose', async () => {
+      const fixture = create([MATHS]);
+      httpMock.expectOne(isList).flush([{ ...listedQuestion('q1', 'What is 2 + 2?'), difficulty: 'hard', language: 'hi' }]);
+
+      await TestBed.inject(I18nService).setLanguage('hi');
+      fixture.detectChanges();
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('h1')?.textContent?.trim()).toBe('प्रश्न बैंक');
+      expect(root.querySelector('label[for="filter-difficulty"]')?.textContent?.trim()).toBe('कठिनाई');
+      expect(root.querySelector('.badge--language')?.textContent?.trim()).toBe('हिन्दी');
+      expect(root.querySelector('.question-row__badges .badge--difficulty-hard')?.textContent?.trim()).toBe('कठिन');
+      expect(root.querySelector('button[aria-label="विवरण दिखाएँ"]')).not.toBeNull();
+    });
+
+    it('words a filter chip and the empty list under it in the language chosen', async () => {
+      const fixture = create([MATHS]);
+      httpMock.expectOne(isList).flush([]);
+      await TestBed.inject(I18nService).setLanguage('hi');
+      fixture.detectChanges();
+
+      const root = fixture.nativeElement as HTMLElement;
+      const difficulty = root.querySelector('#filter-difficulty') as HTMLSelectElement;
+      difficulty.value = 'hard';
+      difficulty.dispatchEvent(new Event('change'));
+      httpMock.expectOne(isList).flush([]);
+      fixture.detectChanges();
+
+      expect(root.querySelector('.filter-chip')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('कठिनाई: कठिन');
+      expect(root.textContent).toContain('इस फ़िल्टर से कोई प्रश्न मेल नहीं खाता।');
+    });
   });
 
   describe('paging', () => {

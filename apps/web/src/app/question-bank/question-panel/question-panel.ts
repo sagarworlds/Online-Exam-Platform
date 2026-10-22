@@ -1,6 +1,8 @@
 import { afterNextRender, Component, computed, ElementRef, inject, Injector, input, model, OnInit, output, Signal, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { BookDto } from '../../book-management/book.models';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { ModalDialog } from '../../shared/modal-dialog/modal-dialog';
 import { extractErrorMessage, extractProblemCode } from '../../shared/problem-details';
 import { BookChapterPicker, isCompletePlacement, NO_PLACEMENT, Placement } from '../book-chapter-picker/book-chapter-picker';
@@ -21,6 +23,7 @@ import {
   toNewOptions,
 } from '../question-form';
 import { CreateQuestionRequest, DuplicateQuestion, QuestionDto, QuestionLanguage } from '../question.models';
+import { STATUS_KEYS } from '../question-review/question-review';
 
 /** What the panel says when it has added a question: whether the author asked for the next one, so the page knows whether the panel stays. */
 export interface QuestionCreated {
@@ -41,13 +44,14 @@ export interface QuestionCreated {
  */
 @Component({
   selector: 'app-question-panel',
-  imports: [ReactiveFormsModule, BookChapterPicker, ModalDialog, QuestionFields],
+  imports: [ReactiveFormsModule, BookChapterPicker, ModalDialog, QuestionFields, TranslatePipe],
   templateUrl: './question-panel.html',
   styleUrl: './question-panel.css',
 })
 export class QuestionPanel implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly api = inject(QuestionApiService);
+  private readonly i18n = inject(I18nService);
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
@@ -99,10 +103,22 @@ export class QuestionPanel implements OnInit {
   protected readonly confirmingDiscard = signal(false);
 
   protected readonly isEdit = computed(() => this.questionId() !== null);
-  protected readonly heading = computed(() => (this.isEdit() ? 'Edit question' : 'New question'));
+  protected readonly heading = computed(() => this.i18n.t(this.isEdit() ? 'qb.panel.edit' : 'qb.new'));
   /** Whether candidates have answered the question, which locks its answer key and option list. */
   protected readonly wordingOnly = computed(() => this.question()?.usage.answered ?? false);
   protected readonly placementComplete = computed(() => isCompletePlacement(this.placement()));
+
+  /** Which exams hold the question, for the line under where it is filed: the first few by name, and that there are more if there are. */
+  protected inExamText(current: QuestionDto): string {
+    const { examCount, examNames } = current.usage;
+    const names = examNames.join(', ');
+    return this.i18n.plural('qb.panel.inExams', examCount, { names: examCount > examNames.length ? `${names} ${this.i18n.t('qb.panel.andOthers')}` : names });
+  }
+
+  /** A status the API names, in the words of the language in use; one this page has no words for is shown as the API wrote it. */
+  protected statusText(status: string): string {
+    return status in STATUS_KEYS ? this.i18n.t(STATUS_KEYS[status as keyof typeof STATUS_KEYS]) : status;
+  }
 
   /** Whether the form differs from how it began. It is what the panel would lose by closing. */
   protected get changed(): boolean {
@@ -272,7 +288,7 @@ export class QuestionPanel implements OnInit {
       },
       error: (error: unknown) => {
         this.loading.set(false);
-        this.loadError.set(extractErrorMessage(error, 'The question could not be loaded.'));
+        this.loadError.set(extractErrorMessage(error, this.i18n.t('qb.panel.loadError')));
       },
     });
   }
@@ -294,7 +310,7 @@ export class QuestionPanel implements OnInit {
 
   /** Shows why Save was refused, in the footer for the same reason as the repeat warning, and takes the author there. */
   private showSaveError(error: unknown): void {
-    this.saveError.set(extractErrorMessage(error));
+    this.saveError.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
     this.focusOnceRendered(this.saveFailure);
   }
 
