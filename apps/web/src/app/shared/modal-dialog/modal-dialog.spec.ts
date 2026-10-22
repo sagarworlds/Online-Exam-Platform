@@ -1,5 +1,6 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { ToastService } from '../toast/toast.service';
 import { ModalDialog } from './modal-dialog';
 
 @Component({
@@ -196,6 +197,32 @@ describe('ModalDialog', () => {
 
       expect(host.requested).toBe(0);
       expect(host.closedCount).toBe(1);
+    });
+  });
+
+  describe('messages (ToastService)', () => {
+    it('are drawn inside the dialog while it is open, since the page behind a modal dialog is inert', () => {
+      const fixture = TestBed.createComponent(Host);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const toasts = TestBed.inject(ToastService);
+
+      toasts.error('Could not save');
+      fixture.detectChanges();
+
+      expect(root.querySelector('dialog .toast')?.textContent).toContain('Could not save');
+    });
+
+    it('go back to the page when the dialog closes', () => {
+      const fixture = TestBed.createComponent(Host);
+      fixture.detectChanges();
+      const toasts = TestBed.inject(ToastService);
+      expect(toasts.activeScope()).not.toBe('root');
+
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.modal__close')!.click();
+      fixture.detectChanges();
+
+      expect(toasts.activeScope()).toBe('root');
     });
   });
 });

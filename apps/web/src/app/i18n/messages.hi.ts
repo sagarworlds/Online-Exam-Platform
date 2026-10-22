@@ -9,6 +9,8 @@ export const HI: Messages = {
   'common.cancel': 'रद्द करें',
   'common.close': 'बंद करें',
   'common.retry': 'फिर से कोशिश करें',
+  'common.expandAll': 'सभी खोलें',
+  'common.collapseAll': 'सभी बंद करें',
   'common.ok': 'ठीक है',
   'common.skipToContent': 'मुख्य सामग्री पर जाएँ',
   'common.email': 'ईमेल',
@@ -19,6 +21,7 @@ export const HI: Messages = {
 
   // ---- navigation ----
   'nav.main': 'मुख्य',
+  'nav.menu': 'मेन्यू',
   'nav.myExams': 'मेरी परीक्षाएँ',
   'nav.redeemInvite': 'निमंत्रण भुनाएँ',
   'nav.profile': 'प्रोफ़ाइल',
@@ -1195,6 +1198,8 @@ export const HI: Messages = {
   'branding.logoChosen': 'आपका चुना हुआ लोगो',
   'branding.logoUpload': 'लोगो अपलोड करें',
   'branding.logoRemove': 'लोगो हटाएँ',
+  'branding.logoRemoveTitle': 'लोगो हटाएँ?',
+  'branding.logoRemoveMessage': 'लोगो सभी उम्मीदवार पृष्ठों से तुरंत हट जाएगा। उसे वापस लाने के लिए आपको उसे फिर से अपलोड करना होगा।',
   'branding.logoTypeProblem': 'PNG, JPEG या WebP छवि चुनें। दूसरे फ़ाइल प्रकार स्वीकार नहीं होते।',
   'branding.logoSizeProblem': 'यह फ़ाइल 256 KB से बड़ी है। छोटी छवि चुनें।',
   'branding.logoSaved': 'लोगो सहेजा गया।',

@@ -319,10 +319,87 @@ button.btn--primary:hover:not(:disabled),
   border-color: var(--primary-hover);
 }
 
-.btn--danger {
+/* A pressed button is a shade deeper than a hovered one, so the press is seen as well as felt. */
+/* The exclusions are in :where(), which adds no weight: a selected toggle or tab (`.mode-toggle button.active`, a pressed tab) keeps its own
+   background while it is pressed, and its label stays readable on it. */
+button:active:not(:disabled):where(:not(.primary, .btn--primary, .danger, .btn--danger)),
+.btn:active:where(:not(.btn--primary, .btn--danger)) {
+  background: var(--border);
+}
+
+button.primary:active:not(:disabled),
+button.btn--primary:active:not(:disabled),
+.btn--primary:active {
+  filter: brightness(0.92);
+}
+
+/* The button varieties, in the order a screen reaches for them: primary (one per view, the thing to do), the plain button, danger for
+   what cannot be undone, ghost for a quiet action beside others, and link for a move to somewhere else that sits in a sentence. */
+.btn--danger,
+button.danger {
   background: var(--danger-soft);
   border-color: var(--danger);
   color: var(--danger);
+}
+
+/* More specific than the plain button's hover, so a danger button deepens its own colour instead of turning grey. */
+button.danger:hover:not(:disabled),
+button.btn--danger:hover:not(:disabled),
+.btn--danger:hover {
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface));
+  border-color: var(--danger);
+}
+
+button.ghost,
+.btn--ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+button.link,
+.btn--link {
+  padding-inline: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--primary-ink);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+button.link:hover:not(:disabled),
+.btn--link:hover {
+  background: transparent;
+  text-decoration-thickness: 2px;
+}
+
+/* A request is running: the label stays, a ring turns after it, and a second press does nothing. aria-busy tells a screen reader; the
+   button is not disabled, so it keeps focus and does not drop the keyboard user to the top of the page. */
+button[aria-busy='true'] {
+  cursor: progress;
+}
+
+/* Not on an icon button: a refresh icon already turns itself while it reads, and a ring beside it would not fit its square. */
+button[aria-busy='true']:not(.icon-btn)::after {
+  content: '';
+  width: 1em;
+  height: 1em;
+  margin-inline-start: 0.4rem;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  animation: button-busy 0.8s linear infinite;
+}
+
+@keyframes button-busy {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button[aria-busy='true']:not(.icon-btn)::after {
+    animation: none;
+  }
 }
 
 .btn--small {
@@ -1314,6 +1391,13 @@ label:has(> input[type='radio']) {
   min-height: 2.75rem;
 }
 
+/* The small size is for a mouse. A finger still gets the full 44px, which is what `pointer: coarse` and a phone's width ask for. */
+@media (pointer: fine) and (min-width: 40.01rem) {
+  .btn--small {
+    min-height: var(--target-fine);
+  }
+}
+
 /* ---------- Icon buttons and their tooltip ---------- */
 /* A button or link that is only an icon: its name is its aria-label, and appTooltip shows the same words. 36px with a mouse, 44px on a phone. */
 .icon-btn {
@@ -1321,8 +1405,10 @@ label:has(> input[type='radio']) {
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: var(--target-fine);
+  height: var(--target-fine);
+  /* The global touch rule gives every button a 44px minimum; without this a button icon was 36 wide and 44 tall and a link icon 36 square. */
+  min-height: var(--target-fine);
   padding: 0;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -1353,14 +1439,15 @@ label:has(> input[type='radio']) {
 
 @media (pointer: coarse), (max-width: 40rem) {
   .icon-btn {
-    width: 2.75rem;
-    height: 2.75rem;
+    width: var(--target-touch);
+    height: var(--target-touch);
+    min-height: var(--target-touch);
   }
 }
 
 .app-tooltip {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--z-tooltip);
   max-width: 16rem;
   padding: 0.25rem 0.55rem;
   border-radius: var(--radius-sm);

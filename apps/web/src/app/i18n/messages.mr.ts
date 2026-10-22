@@ -9,6 +9,8 @@ export const MR: Messages = {
   'common.cancel': 'रद्द करा',
   'common.close': 'बंद करा',
   'common.retry': 'पुन्हा प्रयत्न करा',
+  'common.expandAll': 'सर्व उघडा',
+  'common.collapseAll': 'सर्व बंद करा',
   'common.ok': 'ठीक आहे',
   'common.skipToContent': 'मुख्य मजकुरावर जा',
   'common.email': 'ईमेल',
@@ -19,6 +21,7 @@ export const MR: Messages = {
 
   // ---- navigation ----
   'nav.main': 'मुख्य',
+  'nav.menu': 'मेनू',
   'nav.myExams': 'माझ्या परीक्षा',
   'nav.redeemInvite': 'आमंत्रण वापरा',
   'nav.profile': 'प्रोफाइल',
@@ -1195,6 +1198,8 @@ export const MR: Messages = {
   'branding.logoChosen': 'तुम्ही निवडलेला लोगो',
   'branding.logoUpload': 'लोगो अपलोड करा',
   'branding.logoRemove': 'लोगो काढा',
+  'branding.logoRemoveTitle': 'लोगो काढायचा?',
+  'branding.logoRemoveMessage': 'लोगो सर्व उमेदवार पृष्ठांवरून लगेच नाहीसा होईल. तो परत आणण्यासाठी तुम्हाला तो पुन्हा अपलोड करावा लागेल.',
   'branding.logoTypeProblem': 'PNG, JPEG किंवा WebP प्रतिमा निवडा. इतर फाइल प्रकार स्वीकारले जात नाहीत.',
   'branding.logoSizeProblem': 'ही फाइल 256 KB पेक्षा मोठी आहे. लहान प्रतिमा निवडा.',
   'branding.logoSaved': 'लोगो जतन झाला.',

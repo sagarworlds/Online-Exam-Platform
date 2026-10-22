@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
@@ -173,6 +174,37 @@ describe('AdminSidebar', () => {
     second.detectChanges();
 
     expect((second.nativeElement as HTMLElement).querySelector('.admin-sidebar--collapsed')).not.toBeNull();
+  });
+
+  describe('on a tablet’s width, where the page is worth more than the labels', () => {
+    const fresh = () => {
+      const created = TestBed.createComponent(AdminSidebar);
+      created.componentRef.setInput('groups', groups);
+      created.detectChanges();
+      return created.nativeElement as HTMLElement;
+    };
+    const width = (tablet: boolean) =>
+      vi.stubGlobal('matchMedia', (query: string) => ({ matches: tablet && query === '(max-width: 64rem)', media: query }));
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('starts as a rail of icons when the visitor has not chosen', () => {
+      width(true);
+
+      expect(fresh().querySelector('.admin-sidebar--collapsed')).not.toBeNull();
+    });
+
+    it('starts open on a wide screen', () => {
+      width(false);
+
+      expect(fresh().querySelector('.admin-sidebar--collapsed')).toBeNull();
+    });
+
+    it('keeps what the visitor chose, whatever the width', () => {
+      width(true);
+      localStorage.setItem('exam-platform.admin-sidebar-collapsed', '0');
+
+      expect(fresh().querySelector('.admin-sidebar--collapsed')).toBeNull();
+    });
   });
 
   describe('the current section', () => {

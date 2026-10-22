@@ -1,6 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
+import { ToastService } from '../toast/toast.service';
 import { Tooltip } from './tooltip';
 
 @Component({
@@ -8,6 +9,7 @@ import { Tooltip } from './tooltip';
   template: `
     <button type="button" id="one" [appTooltip]="text()" aria-label="Edit">x</button>
     <button type="button" id="two" appTooltip="Delete" aria-label="Delete">y</button>
+    <button type="button" id="three" appTooltip="Edit: the exam has started" aria-label="Edit" aria-disabled="true">z</button>
   `,
 })
 class Host {
@@ -31,7 +33,12 @@ describe('Tooltip', () => {
     const fixture = TestBed.createComponent(Host);
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
-    return { fixture, one: root.querySelector<HTMLElement>('#one')!, two: root.querySelector<HTMLElement>('#two')! };
+    return {
+      fixture,
+      one: root.querySelector<HTMLElement>('#one')!,
+      two: root.querySelector<HTMLElement>('#two')!,
+      three: root.querySelector<HTMLElement>('#three')!,
+    };
   }
 
   const bubbles = () => Array.from(document.querySelectorAll('.app-tooltip'));
@@ -177,5 +184,45 @@ describe('Tooltip', () => {
     const bubble = bubbles()[0] as HTMLElement;
     expect(bubble.style.top).toMatch(/^-?\d+px$/);
     expect(bubble.style.left).toMatch(/^\d+px$/);
+  });
+
+  describe('on a touch screen, where there is no hover', () => {
+    const touch = (matches: boolean) =>
+      vi.stubGlobal('matchMedia', (query: string) => ({ matches: matches && query.includes('pointer: coarse'), media: query }));
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('says why a control is unavailable when it is tapped, as a message, since the tip cannot be hovered', () => {
+      touch(true);
+      const { three } = render();
+
+      three.click();
+
+      expect(TestBed.inject(ToastService).toasts().map((t) => [t.kind, t.message])).toEqual([['info', 'Edit: the exam has started']]);
+    });
+
+    it('says nothing for a tap on a control that works, which simply does what it says', () => {
+      touch(true);
+      const { one } = render();
+
+      one.click();
+
+      expect(TestBed.inject(ToastService).toasts()).toHaveLength(0);
+    });
+
+    it('leaves the reason to the hover tip when there is a mouse', () => {
+      touch(false);
+      const { three } = render();
+
+      three.click();
+
+      expect(TestBed.inject(ToastService).toasts()).toHaveLength(0);
+    });
+
+    it('does not fail where the browser cannot tell (no matchMedia)', () => {
+      const { three } = render();
+
+      expect(() => three.click()).not.toThrow();
+      expect(TestBed.inject(ToastService).toasts()).toHaveLength(0);
+    });
   });
 });

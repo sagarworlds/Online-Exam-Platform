@@ -6,6 +6,7 @@ import { BrandingApiService } from '../branding-api.service';
 import { BrandingService } from '../branding.service';
 import { DEFAULT_PRIMARY_COLOUR } from '../branding-theme';
 import { BrandingDto, LOGO_MEDIA_TYPES, MAX_INSTITUTE_NAME_LENGTH, isHexColour, logoProblem } from '../branding.models';
+import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 
 /**
  * Admin page: the institute's name, primary colour and logo for the candidate pages (FR-41). Saving applies the change at once, through
@@ -22,6 +23,7 @@ export class BrandingSettings {
   private readonly api = inject(BrandingApiService);
   private readonly branding = inject(BrandingService);
   private readonly i18n = inject(I18nService);
+  private readonly confirm = inject(ConfirmService);
   private readonly logoInput = viewChild<ElementRef<HTMLInputElement>>('logoInput');
 
   protected readonly maxNameLength = MAX_INSTITUTE_NAME_LENGTH;
@@ -153,9 +155,18 @@ export class BrandingSettings {
     });
   }
 
-  /** Removes the logo the institute has. */
-  protected removeLogo(): void {
+  /** Removes the logo the institute has, after asking: it is gone from every candidate page at once and has to be uploaded again to return. */
+  protected async removeLogo(): Promise<void> {
     if (this.logoBusy()) {
+      return;
+    }
+    const confirmed = await this.confirm.ask({
+      title: this.i18n.t('branding.logoRemoveTitle'),
+      message: this.i18n.t('branding.logoRemoveMessage'),
+      confirmLabel: this.i18n.t('branding.logoRemove'),
+      danger: true,
+    });
+    if (!confirmed) {
       return;
     }
 

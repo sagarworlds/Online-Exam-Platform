@@ -9,5 +9,18 @@ import { ElementRef, Injector, afterNextRender } from '@angular/core';
  * @param injector The component's injector, which the after-render hook needs.
  */
 export function focusFirstInvalidFieldAfterRender(host: ElementRef<HTMLElement>, injector: Injector): void {
-  afterNextRender(() => host.nativeElement.querySelector<HTMLElement>('form [aria-invalid="true"]')?.focus(), { injector });
+  afterNextRender(
+    () => {
+      const field = host.nativeElement.querySelector<HTMLElement>('form [aria-invalid="true"]');
+      if (field === null) {
+        return;
+      }
+      // A field inside a block that is folded away cannot take the focus: the blocks around it are opened first (a Disclosure follows).
+      for (let block = field.closest('details'); block !== null; block = block.parentElement?.closest('details') ?? null) {
+        block.open = true;
+      }
+      field.focus();
+    },
+    { injector },
+  );
 }

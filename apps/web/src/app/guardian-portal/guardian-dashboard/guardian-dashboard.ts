@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { GuardianApiService } from '../guardian-api.service';
 import { GuardianLinkDto } from '../guardian.models';
 import { AuthSessionService } from '../../auth/auth-session.service';
+import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 
 @Component({
   selector: 'app-guardian-dashboard',
@@ -78,6 +79,7 @@ import { AuthSessionService } from '../../auth/auth-session.service';
 export class GuardianDashboard implements OnInit {
   private guardianApi = inject(GuardianApiService);
   private authSession = inject(AuthSessionService);
+  private confirmDialog = inject(ConfirmService);
 
   links: GuardianLinkDto[] = [];
   loading = true;
@@ -114,8 +116,14 @@ export class GuardianDashboard implements OnInit {
     });
   }
 
-  revokeLink(link: GuardianLinkDto) {
-    if (!confirm(`Revoke link for ${link.candidateEmail}?`)) return;
+  async revokeLink(link: GuardianLinkDto): Promise<void> {
+    const confirmed = await this.confirmDialog.ask({
+      title: 'Revoke this link?',
+      message: `${link.candidateEmail} will no longer be linked to this guardian account.`,
+      confirmLabel: 'Revoke link',
+      danger: true,
+    });
+    if (!confirmed) return;
     this.guardianApi.revokeLink(this.guardianId, link.candidateId).subscribe({
       next: () => {
         this.loadLinks();

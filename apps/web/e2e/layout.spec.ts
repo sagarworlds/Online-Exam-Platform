@@ -33,6 +33,30 @@ test.describe('layout at the size of the screen', () => {
     expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   });
 
+  test('the header is one short row on a phone, with its links behind a Menu button, and all in view where there is room', async ({ page, api }) => {
+    await signIn(page, api);
+    const menu = page.getByRole('button', { name: text('nav.menu'), exact: false });
+    const exams = page.getByRole('link', { name: text('nav.myExams'), exact: true });
+
+    if (isPhoneWidth(page)) {
+      await expect(menu).toBeVisible();
+      await expect(exams).toBeHidden();
+      // One short row: the page begins within the first 90 pixels instead of after three rows of links.
+      const header = (await page.locator('header.nav').boundingBox())!;
+      expect(header.height).toBeLessThan(90);
+
+      await menu.click();
+      await expect(menu).toHaveAttribute('aria-expanded', 'true');
+      await expect(exams).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(exams).toBeHidden();
+      await expect(menu).toBeFocused();
+    } else {
+      await expect(menu).toBeHidden();
+      await expect(exams).toBeVisible();
+    }
+  });
+
   test('the exam screen fits the width, puts the site away, and leaves the way forward on screen', async ({ page, api }) => {
     await startExam(page, api);
 

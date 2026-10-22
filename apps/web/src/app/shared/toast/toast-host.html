@@ -1,0 +1,31 @@
+<div class="toast-host">
+  <div class="toast-host__polite" aria-live="polite" aria-atomic="false">
+    @for (toast of others(); track toast.id) {
+      <ng-container [ngTemplateOutlet]="item" [ngTemplateOutletContext]="{ $implicit: toast }" />
+    }
+  </div>
+  <div class="toast-host__assertive" aria-live="assertive" aria-atomic="false">
+    @for (toast of errors(); track toast.id) {
+      <ng-container [ngTemplateOutlet]="item" [ngTemplateOutletContext]="{ $implicit: toast }" />
+    }
+  </div>
+</div>
+
+<ng-template #item let-toast>
+  <div
+    [class]="'toast toast--' + toast.kind"
+    (mouseenter)="service.hold(toast.id)"
+    (mouseleave)="onLeave($event, toast.id)"
+    (focusin)="service.hold(toast.id)"
+    (focusout)="onFocusOut($event, toast.id)"
+  >
+    <span class="toast__mark" aria-hidden="true">{{ mark(toast) }}</span>
+    <span class="toast__message">{{ toast.message }}</span>
+    @if (toast.action; as action) {
+      <button type="button" class="toast__action" (click)="act(toast)">{{ action.label }}</button>
+    }
+    <button type="button" class="toast__close" [attr.aria-label]="'common.close' | t" (click)="service.dismiss(toast.id)">
+      <span aria-hidden="true">×</span>
+    </button>
+  </div>
+</ng-template>

@@ -1,0 +1,20 @@
+@for (pending of shown(); track pending) {
+  <app-modal-dialog [heading]="pending.options.title" (closed)="onClosed()">
+    @if (pending.options.message) {
+      <p class="confirm__message">{{ pending.options.message }}</p>
+    }
+    @if (pending.options.consequences?.length) {
+      <ul class="confirm__consequences">
+        @for (line of pending.options.consequences; track $index) {
+          <li>{{ line }}</li>
+        }
+      </ul>
+    }
+    <div modalFooter class="confirm__actions">
+      <button type="button" #cancelButton (click)="decide(false)">{{ pending.options.cancelLabel ?? ('common.cancel' | t) }}</button>
+      <button type="button" #confirmButton [class.danger]="pending.options.danger" [class.primary]="!pending.options.danger" (click)="decide(true)">
+        {{ pending.options.confirmLabel }}
+      </button>
+    </div>
+  </app-modal-dialog>
+}

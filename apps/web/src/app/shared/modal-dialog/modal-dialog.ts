@@ -1,5 +1,7 @@
-import { AfterViewInit, Component, ElementRef, Renderer2, booleanAttribute, inject, input, output, viewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, Renderer2, booleanAttribute, inject, input, output, viewChild } from '@angular/core';
 import { TranslatePipe } from '../../i18n/translate.pipe';
+import { ToastHost } from '../toast/toast-host';
+import { ToastService } from '../toast/toast.service';
 
 let nextId = 0;
 
@@ -16,11 +18,11 @@ let nextId = 0;
  */
 @Component({
   selector: 'app-modal-dialog',
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, ToastHost],
   templateUrl: './modal-dialog.html',
   styleUrl: './modal-dialog.css',
 })
-export class ModalDialog implements AfterViewInit {
+export class ModalDialog implements AfterViewInit, OnDestroy {
   /** The title, read out when the dialog opens and shown at the top. */
   readonly heading = input.required<string>();
 
@@ -46,6 +48,7 @@ export class ModalDialog implements AfterViewInit {
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly renderer = inject(Renderer2);
+  private readonly toasts = inject(ToastService);
 
   ngAfterViewInit(): void {
     const element = this.dialog().nativeElement;
@@ -58,6 +61,13 @@ export class ModalDialog implements AfterViewInit {
       // A browser without <dialog> support: shown in place, and still closed by the Close button.
       element.setAttribute('open', '');
     }
+    // Messages are drawn in this dialog while it is open: the page behind a modal dialog is inert, and a message there could be neither pressed
+    // nor announced.
+    this.toasts.enterScope(this.titleId);
+  }
+
+  ngOnDestroy(): void {
+    this.toasts.leaveScope(this.titleId);
   }
 
   /** Closes the dialog whatever {@link guarded} says, so a page that has decided to let it go can; {@link closed} follows from its `close` event. */
@@ -96,6 +106,7 @@ export class ModalDialog implements AfterViewInit {
   }
 
   protected onClosed(): void {
+    this.toasts.leaveScope(this.titleId);
     this.closed.emit();
   }
 }

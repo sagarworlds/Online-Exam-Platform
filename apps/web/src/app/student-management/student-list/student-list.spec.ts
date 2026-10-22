@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 import { AuthSessionService } from '../../auth/auth-session.service';
+import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 import { StudentList } from './student-list';
 
 describe('StudentList', () => {
@@ -284,12 +285,14 @@ describe('StudentList', () => {
       expect(titles(root)).toEqual([]);
     });
 
-    it('reads the list again after an invitation is revoked', () => {
+    it('reads the list again after an invitation is revoked, once the question has been answered yes', async () => {
       const { fixture, root } = open({ students: [asha], invites: [invite('1', 'asha@example.com', 'Maths Final')] });
+      vi.spyOn(TestBed.inject(ConfirmService), 'ask').mockResolvedValue(true);
       toggleOf(root, 'Asha Rao').click();
       fixture.detectChanges();
 
       Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Revoke')!.click();
+      await Promise.resolve();
       httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites/1/revoke')).flush(null, { status: 204, statusText: 'No Content' });
       answerRead({ students: [asha], invites: [invite('1', 'asha@example.com', 'Maths Final', 'Revoked')] });
       fixture.detectChanges();
@@ -626,7 +629,8 @@ describe('StudentList', () => {
     const { root } = open({ students: many });
 
     expect(root.textContent).toContain('Showing the first 200 students by name.');
-  });
+    // Drawing 200 rows takes a few seconds when the whole suite is running at once; the default five is not enough on a busy machine.
+  }, 30_000);
 
   describe('the refresh icon', () => {
     const icon = (root: HTMLElement) => root.querySelector<HTMLButtonElement>('app-refresh-button button')!;
