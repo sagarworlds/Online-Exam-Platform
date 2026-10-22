@@ -1,10 +1,13 @@
-import { DatePipe } from '@angular/common';
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { Permission } from '../../auth/admin-sections';
 import { AuthSessionService } from '../../auth/auth-session.service';
+import { MessageKey } from '../../i18n/messages.en';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { QuestionApiService } from '../question-api.service';
 import { QuestionStatus, ReviewEntry, ReviewResult, ReviewStep } from '../question.models';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
+import { I18nService } from '../../i18n/i18n.service';
 
 /** How each status is written for a person. */
 export const STATUS_LABELS: Record<QuestionStatus, string> = {
@@ -14,18 +17,26 @@ export const STATUS_LABELS: Record<QuestionStatus, string> = {
   retired: 'Retired',
 };
 
-const KIND_LABELS: Record<ReviewEntry['kind'], string> = {
-  commented: 'commented',
-  submitted: 'put it forward for review',
-  approved: 'approved it',
-  changes_requested: 'sent it back',
-  retired: 'retired it',
-  restored: 'restored it as a draft',
+/** The message that says each status in the language in use. */
+export const STATUS_KEYS: Record<QuestionStatus, MessageKey> = {
+  draft: 'question.status.draft',
+  in_review: 'question.status.in_review',
+  approved: 'question.status.approved',
+  retired: 'question.status.retired',
+};
+
+const KIND_KEYS: Record<ReviewEntry['kind'], MessageKey> = {
+  commented: 'question.review.kind.commented',
+  submitted: 'question.review.kind.submitted',
+  approved: 'question.review.kind.approved',
+  changes_requested: 'question.review.kind.changes_requested',
+  retired: 'question.review.kind.retired',
+  restored: 'question.review.kind.restored',
 };
 
 interface StepButton {
   step: ReviewStep;
-  label: string;
+  labelKey: MessageKey;
   /** The permission that allows it; the server enforces it too, this only keeps buttons nobody may press out of sight. */
   permission: string;
   /** Whether the step cannot be taken without a comment. */
@@ -34,16 +45,16 @@ interface StepButton {
 
 const STEPS_BY_STATUS: Record<QuestionStatus, readonly StepButton[]> = {
   draft: [
-    { step: 'submit-for-review', label: 'Put forward for review', permission: Permission.QuestionManage, needsComment: false },
-    { step: 'retire', label: 'Retire', permission: Permission.QuestionManage, needsComment: false },
+    { step: 'submit-for-review', labelKey: 'question.review.step.submitForReview', permission: Permission.QuestionManage, needsComment: false },
+    { step: 'retire', labelKey: 'question.review.step.retire', permission: Permission.QuestionManage, needsComment: false },
   ],
   in_review: [
-    { step: 'approve', label: 'Approve', permission: Permission.QuestionReview, needsComment: false },
-    { step: 'request-changes', label: 'Send back', permission: Permission.QuestionReview, needsComment: true },
-    { step: 'retire', label: 'Retire', permission: Permission.QuestionManage, needsComment: false },
+    { step: 'approve', labelKey: 'question.review.step.approve', permission: Permission.QuestionReview, needsComment: false },
+    { step: 'request-changes', labelKey: 'question.review.step.sendBack', permission: Permission.QuestionReview, needsComment: true },
+    { step: 'retire', labelKey: 'question.review.step.retire', permission: Permission.QuestionManage, needsComment: false },
   ],
-  approved: [{ step: 'retire', label: 'Retire', permission: Permission.QuestionManage, needsComment: false }],
-  retired: [{ step: 'restore', label: 'Restore as a draft', permission: Permission.QuestionManage, needsComment: false }],
+  approved: [{ step: 'retire', labelKey: 'question.review.step.retire', permission: Permission.QuestionManage, needsComment: false }],
+  retired: [{ step: 'restore', labelKey: 'question.review.step.restore', permission: Permission.QuestionManage, needsComment: false }],
 };
 
 /**
@@ -53,7 +64,7 @@ const STEPS_BY_STATUS: Record<QuestionStatus, readonly StepButton[]> = {
  */
 @Component({
   selector: 'app-question-review',
-  imports: [DatePipe],
+  imports: [LocaleDatePipe, TranslatePipe],
   templateUrl: './question-review.html',
 })
 export class QuestionReview {
@@ -64,6 +75,7 @@ export class QuestionReview {
   readonly statusChanged = output<QuestionStatus>();
 
   private readonly api = inject(QuestionApiService);
+  private readonly i18n = inject(I18nService);
   private readonly session = inject(AuthSessionService);
 
   protected readonly open = signal(false);
@@ -75,10 +87,10 @@ export class QuestionReview {
 
   protected readonly canComment = computed(() => this.session.hasPermission(Permission.QuestionRead));
   protected readonly steps = computed(() => STEPS_BY_STATUS[this.status()].filter((s) => this.session.hasPermission(s.permission)));
-  protected readonly statusLabels = STATUS_LABELS;
+  protected readonly statusKeys = STATUS_KEYS;
 
-  protected kindLabel(kind: ReviewEntry['kind']): string {
-    return KIND_LABELS[kind];
+  protected kindKey(kind: ReviewEntry['kind']): MessageKey {
+    return KIND_KEYS[kind];
   }
 
   protected toggle(): void {
@@ -86,7 +98,7 @@ export class QuestionReview {
     if (this.open() && this.entries() === null) {
       this.api.reviewLog(this.questionId()).subscribe({
         next: (entries) => this.entries.set(entries),
-        error: (error: unknown) => this.loadError.set(extractErrorMessage(error)),
+        error: (error: unknown) => this.loadError.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong'))),
       });
     }
   }
@@ -121,7 +133,7 @@ export class QuestionReview {
         }
       },
       error: (error: unknown) => {
-        this.error.set(extractErrorMessage(error));
+        this.error.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
         this.busy.set(false);
       },
     });

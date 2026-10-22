@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, ElementRef, Injector, afterNextRender, inject, signal } from '@angular/core';
 import { I18nService } from '../../i18n/i18n.service';
 import { MessageKey } from '../../i18n/messages.en';
@@ -8,6 +7,7 @@ import { extractErrorMessage } from '../../shared/problem-details';
 import { ToastService } from '../../shared/toast/toast.service';
 import { OtpCodesApiService } from './otp-codes-api.service';
 import { OutstandingOtp } from './otp-codes.models';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** How long a revealed code stays on screen before it is hidden again: long enough to read out, not long enough to be left up. */
 export const REVEAL_MS = 60_000;
@@ -31,7 +31,7 @@ const CHANNEL_KEYS: Readonly<Record<OutstandingOtp['channel'], MessageKey>> = {
  */
 @Component({
   selector: 'app-otp-codes',
-  imports: [DatePipe, TranslatePipe],
+  imports: [LocaleDatePipe, TranslatePipe],
   templateUrl: './otp-codes.html',
 })
 export class OtpCodes {

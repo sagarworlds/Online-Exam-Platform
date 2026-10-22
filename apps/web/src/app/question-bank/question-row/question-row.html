@@ -2,7 +2,7 @@
   <div class="question-row__line">
     <label class="inline-check question-row__select">
       <input type="checkbox" [checked]="selected()" (change)="selectionChanged.emit($any($event.target).checked)" />
-      <span class="visually-hidden">Select this question</span>
+      <span class="visually-hidden">{{ 'qb.row.select' | t }}</span>
     </label>
 
     <span class="question-row__type" role="img" [attr.aria-label]="typeLabel()" [appTooltip]="typeLabel()">
@@ -18,7 +18,7 @@
           }
           {{ question().bookName }} <span aria-hidden="true">›</span> {{ question().chapterTitle }}
         } @else {
-          <span class="hint">Not filed under a chapter</span>
+          <span class="hint">{{ 'qb.unfiled' | t }}</span>
         }
       </p>
     </div>
@@ -28,10 +28,10 @@
         <span class="badge badge--language">{{ language }}</span>
       }
       @if (question().status; as status) {
-        <span class="badge badge--status-{{ status }}">{{ statusLabels[status] }}</span>
+        <span class="badge badge--status-{{ status }}">{{ statusKeys[status] | t }}</span>
       }
-      @if (question().difficulty; as difficulty) {
-        <span class="badge badge--difficulty-{{ difficulty }}">{{ difficulty }}</span>
+      @if (difficultyLabel(); as difficulty) {
+        <span class="badge badge--difficulty-{{ question().difficulty }}">{{ difficulty }}</span>
       }
       @if (inExam()) {
         <span class="badge badge--inactive" [attr.title]="question().usage.examNames.join(', ')">{{ examLabel() }}</span>
@@ -39,14 +39,14 @@
     </div>
 
     <div class="question-row__actions">
-      <a class="icon-btn" [routerLink]="['/admin/questions', question().id, 'edit']" appTooltip="Edit" aria-label="Edit">
+      <a class="icon-btn" [routerLink]="['/admin/questions', question().id, 'edit']" [appTooltip]="'common.edit' | t" [attr.aria-label]="'common.edit' | t">
         <app-icon name="edit" />
       </a>
       <button
         type="button"
         class="icon-btn"
-        appTooltip="Translations"
-        aria-label="Translations"
+        [appTooltip]="'qb.row.translations' | t"
+        [attr.aria-label]="'qb.row.translations' | t"
         (click)="toggleTranslations()"
         [attr.aria-expanded]="showingTranslations()"
       >
@@ -55,8 +55,8 @@
       <button
         type="button"
         class="icon-btn"
-        appTooltip="Statistics"
-        aria-label="Statistics"
+        [appTooltip]="'qb.row.statistics' | t"
+        [attr.aria-label]="'qb.row.statistics' | t"
         (click)="toggleStatistics()"
         [attr.aria-expanded]="showingStatistics()"
       >
@@ -65,8 +65,8 @@
       <button
         type="button"
         class="icon-btn"
-        appTooltip="File under…"
-        aria-label="File under…"
+        [appTooltip]="'qb.row.fileUnder' | t"
+        [attr.aria-label]="'qb.row.fileUnder' | t"
         (click)="toggleFiling()"
         [attr.aria-expanded]="filing()"
         [disabled]="busy()"
@@ -76,8 +76,8 @@
       <button
         type="button"
         class="icon-btn icon-btn--danger"
-        [appTooltip]="inExam() ? deleteReason : 'Delete'"
-        aria-label="Delete"
+        [appTooltip]="(inExam() ? 'qb.row.deleteReason' : 'qb.row.delete') | t"
+        [attr.aria-label]="'qb.row.delete' | t"
         (click)="askDelete()"
         [disabled]="busy()"
         [attr.aria-disabled]="inExam() ? 'true' : null"
@@ -86,13 +86,13 @@
         <app-icon name="trash" />
       </button>
       @if (inExam()) {
-        <span class="visually-hidden" [id]="'delete-reason-' + question().id">{{ deleteReason }}</span>
+        <span class="visually-hidden" [id]="'delete-reason-' + question().id">{{ 'qb.row.deleteReason' | t }}</span>
       }
       <button
         type="button"
         class="icon-btn"
-        [appTooltip]="open() ? 'Hide details' : 'Show details'"
-        [attr.aria-label]="open() ? 'Hide details' : 'Show details'"
+        [appTooltip]="(open() ? 'qb.row.hideDetails' : 'qb.row.showDetails') | t"
+        [attr.aria-label]="(open() ? 'qb.row.hideDetails' : 'qb.row.showDetails') | t"
         (click)="toggleOpen()"
         [attr.aria-expanded]="open()"
         [attr.aria-controls]="detailId()"
@@ -104,10 +104,10 @@
 
   @if (confirmingDelete()) {
     <div class="question-row__detail">
-      <span class="question-row__confirm" role="alertdialog" aria-label="Delete this question?">
-        Delete this question for good?
-        <button type="button" class="btn--danger btn--small" (click)="confirmDelete()" [disabled]="busy()">Delete</button>
-        <button type="button" class="btn--small" (click)="confirmingDelete.set(false)">Cancel</button>
+      <span class="question-row__confirm" role="alertdialog" [attr.aria-label]="'qb.row.confirmAria' | t">
+        {{ 'qb.row.confirm' | t }}
+        <button type="button" class="btn--danger btn--small" (click)="confirmDelete()" [disabled]="busy()">{{ 'qb.row.delete' | t }}</button>
+        <button type="button" class="btn--small" (click)="confirmingDelete.set(false)">{{ 'common.cancel' | t }}</button>
       </span>
     </div>
   }
@@ -123,10 +123,10 @@
       @if (question().isTextAnswer || question().allowsMultiple || question().topics.length > 0) {
         <p class="question-row__labels">
           @if (question().isTextAnswer) {
-            <span class="badge">Text answer</span>
+            <span class="badge">{{ 'question.type.text' | t }}</span>
           }
           @if (question().allowsMultiple) {
-            <span class="badge">Several answers</span>
+            <span class="badge">{{ 'qb.row.severalAnswers' | t }}</span>
           }
           @for (topic of question().topics; track topic) {
             <span class="badge">{{ topic }}</span>
@@ -136,7 +136,7 @@
 
       @if (question().isTextAnswer) {
         <p class="question-row__accepted">
-          <span class="hint">Accepted answers:</span>
+          <span class="hint">{{ 'qb.row.accepted' | t }}</span>
           @for (answer of question().acceptedAnswers ?? []; track $index) {
             <span class="badge badge--active">{{ answer }}</span>
           }
@@ -146,10 +146,10 @@
           @for (option of question().options; track option.id) {
             <li [class.correct-option]="option.isCorrect">
               {{ option.text }}@if (option.isCorrect) {
-                <span class="badge badge--active">correct</span>
+                <span class="badge badge--active">{{ 'qb.row.correct' | t }}</span>
               }
               @if (option.isPinned) {
-                <span class="badge">stays in place</span>
+                <span class="badge">{{ 'qb.row.staysInPlace' | t }}</span>
               }
             </li>
           }
@@ -158,28 +158,25 @@
 
       @if (question().usage.answered) {
         <p class="question-row__usage">
-          <span class="badge badge--inactive">Answered by candidates</span>
+          <span class="badge badge--inactive">{{ 'qb.row.answered' | t }}</span>
         </p>
       }
 
       @if (showingStatistics()) {
-        <div class="question-row__statistics" aria-label="Statistics">
+        <div class="question-row__statistics" [attr.aria-label]="'qb.row.statistics' | t">
           @if (statistics(); as stats) {
             @if (stats.answered === 0) {
-              <p class="hint">No candidate has answered this question yet.</p>
+              <p class="hint">{{ 'qb.row.noAnswers' | t }}</p>
             } @else {
-              <p>
-                Answered {{ stats.answered }} {{ stats.answered === 1 ? 'time' : 'times' }}, fully correct {{ stats.correct }}
-                ({{ stats.percentCorrect }}%).
-              </p>
+              <p>{{ answeredText(stats) }}</p>
               <ul>
                 @for (option of stats.options; track option.id) {
-                  <li>{{ option.text }}: chosen {{ option.timesChosen }} {{ option.timesChosen === 1 ? 'time' : 'times' }}@if (option.isCorrect) { (correct)}</li>
+                  <li>{{ chosenText(option) }}</li>
                 }
               </ul>
             }
           } @else {
-            <p class="hint">Loading…</p>
+            <p class="hint">{{ 'common.loading' | t }}</p>
           }
         </div>
       }
@@ -193,11 +190,11 @@
           <app-book-chapter-picker
             [books]="books()"
             [idPrefix]="'file-' + question().id"
-            bookLabel="File under book"
-            noBookLabel="Choose a book…"
+            [bookLabel]="'qb.bulk.book' | t"
+            [noBookLabel]="'qb.bulk.chooseBook' | t"
             [(value)]="placement"
           />
-          <button type="button" class="primary btn--small" (click)="fileHere()" [disabled]="!placement().chapterId || busy()">File question</button>
+          <button type="button" class="primary btn--small" (click)="fileHere()" [disabled]="!placement().chapterId || busy()">{{ 'qb.row.fileQuestion' | t }}</button>
         </div>
       }
 

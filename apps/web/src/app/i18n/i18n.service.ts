@@ -1,5 +1,5 @@
-import { DOCUMENT } from '@angular/common';
-import { Injectable, inject, signal } from '@angular/core';
+import { DOCUMENT, registerLocaleData } from '@angular/common';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { DEFAULT_LANGUAGE, UI_LANGUAGES, UiLanguage, isUiLanguage } from './languages';
 import { EN, MessageKey, Messages, PluralKey } from './messages.en';
 
@@ -15,6 +15,18 @@ const LOADERS: Record<Exclude<UiLanguage, 'en'>, () => Promise<Messages>> = {
   hi: () => import('./messages.hi').then((module) => module.HI),
   mr: () => import('./messages.mr').then((module) => module.MR),
 };
+
+/**
+ * How each language's calendar and number data is fetched, for dates written in it (see `LocaleDatePipe`). English's is built into Angular.
+ * It is fetched with the messages, so a language is never half ready.
+ */
+const LOCALE_DATA: Record<Exclude<UiLanguage, 'en'>, () => Promise<unknown[]>> = {
+  hi: () => import('@angular/common/locales/hi').then((module) => module.default),
+  mr: () => import('@angular/common/locales/mr').then((module) => module.default),
+};
+
+/** The locale each language writes its dates in. English keeps Angular's own default, so its dates are what they were before languages. */
+const LOCALES: Record<UiLanguage, string> = { en: 'en-US', hi: 'hi', mr: 'mr' };
 
 /** Values that can fill a `{name}` in a message. */
 export type MessageParams = Record<string, string | number>;
@@ -62,6 +74,9 @@ export class I18nService implements Words {
   /** The language in use. */
   readonly language = signal<UiLanguage>(this.initialLanguage());
 
+  /** The locale that dates are written in, following the language. */
+  readonly locale = computed(() => LOCALES[this.language()]);
+
   /** The languages that can be chosen, for a picker. */
   readonly languages = UI_LANGUAGES;
 
@@ -104,7 +119,8 @@ export class I18nService implements Words {
     if (language === 'en' || this.tables()[language] !== undefined) {
       return;
     }
-    const messages = await LOADERS[language]();
+    const [messages, localeData] = await Promise.all([LOADERS[language](), LOCALE_DATA[language]()]);
+    registerLocaleData(localeData, LOCALES[language]);
     this.tables.update((tables) => ({ ...tables, [language]: messages }));
   }
 
@@ -113,6 +129,11 @@ export class I18nService implements Words {
    * types prevent) falls back to English rather than showing a key.
    */
   readonly t: Translate = (key, params) => fill((this.tables()[this.language()] ?? EN)[key] ?? EN[key], params);
+
+  /** Whether there is a message under this key, for a key built from data the API sends (a status), which may be one this page has no words for. */
+  has(key: string): key is MessageKey {
+    return key in EN;
+  }
 
   /**
    * A message whose wording depends on a count: `base.one` for exactly one, `base.other` for anything else. The count is also passed

@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { BookDto } from '../../book-management/book.models';
+import { I18nService } from '../../i18n/i18n.service';
 import { QuestionDto } from '../question.models';
 import { QuestionRow } from './question-row';
 
@@ -68,6 +69,44 @@ describe('QuestionRow', () => {
   };
   const text = (selector: string) => root.querySelector(selector)?.textContent?.replace(/\s+/g, ' ').trim();
 
+  describe('in another language', () => {
+    afterEach(() => localStorage.clear());
+
+    it('says the badges, the tools and the options of an open row in the language the staff member chose', async () => {
+      show(question({ difficulty: 'easy', status: 'approved', usage: { examCount: 2, examNames: ['Mock 1', 'Mock 2'], answered: false } }));
+
+      await TestBed.inject(I18nService).setLanguage('hi');
+      fixture.detectChanges();
+
+      const badges = Array.from(root.querySelectorAll('.question-row__badges .badge')).map((badge) => badge.textContent?.trim());
+      expect(badges).toEqual(['स्वीकृत', 'आसान', '2 परीक्षाओं में']);
+      expect(control('संपादित करें')).toBeTruthy();
+      press('विवरण दिखाएँ');
+      expect(text('.correct-option .badge')).toBe('सही');
+    });
+
+    it('asks whether to delete for good in the language chosen', async () => {
+      show();
+
+      await TestBed.inject(I18nService).setLanguage('hi');
+      fixture.detectChanges();
+      press('हटाएँ');
+
+      expect(text('.question-row__confirm')).toContain('यह प्रश्न हमेशा के लिए हटाएँ?');
+    });
+
+    it('says how many times a question was answered with the right ending for one and for many', async () => {
+      show(question(), {});
+      await TestBed.inject(I18nService).setLanguage('mr');
+      fixture.componentRef.setInput('statistics', { answered: 3, correct: 2, percentCorrect: 67, options: [{ id: 'o1', text: 'Paris', isCorrect: true, timesChosen: 2 }] });
+      fixture.detectChanges();
+      press('आकडेवारी');
+
+      expect(text('.question-row__statistics p')).toBe('3 वेळा उत्तर दिले, पूर्णपणे बरोबर 2 (67%).');
+      expect(text('.question-row__statistics li')).toBe('Paris: 2 वेळा निवडले (बरोबर)');
+    });
+  });
+
   it('shows where the question is filed and its text on the line, and keeps its options for when it is opened', () => {
     show();
 
@@ -108,7 +147,7 @@ describe('QuestionRow', () => {
     show(question({ status: 'approved', difficulty: 'hard' }));
 
     expect(root.querySelector('.question-row__badges .badge--status-approved')?.textContent?.trim()).toBe('Approved');
-    expect(root.querySelector('.question-row__badges .badge--difficulty-hard')?.textContent?.trim()).toBe('hard');
+    expect(root.querySelector('.question-row__badges .badge--difficulty-hard')?.textContent?.trim()).toBe('Hard');
   });
 
   it('shows the formatting of the text and nothing executable', () => {

@@ -1,22 +1,22 @@
 <div class="form-row" [class.form-row--pair]="!cascade.offered()" [class.form-row--triple]="cascade.offered()">
   @if (cascade.offered()) {
     <div class="field">
-      <label [for]="idPrefix() + '-class'">Class</label>
+      <label [for]="idPrefix() + '-class'">{{ 'qb.class' | t }}</label>
       <select [id]="idPrefix() + '-class'" (change)="chooseClass($any($event.target).value)">
-        <option [value]="anyClass" [selected]="cascade.key() === anyClass">Any class</option>
+        <option [value]="anyClass" [selected]="cascade.key() === anyClass">{{ 'qb.anyClass' | t }}</option>
         @for (item of cascade.classes(); track item.id) {
           <option [value]="item.id" [selected]="cascade.key() === item.id">{{ item.name }}</option>
         }
         @if (cascade.offersNoClass()) {
-          <option [value]="noClass" [selected]="cascade.key() === noClass">No class</option>
+          <option [value]="noClass" [selected]="cascade.key() === noClass">{{ 'qb.noClass' | t }}</option>
         }
       </select>
     </div>
   }
   <div class="field">
-    <label [for]="idPrefix() + '-book'">{{ bookLabel() }}</label>
+    <label [for]="idPrefix() + '-book'">{{ bookLabel() ?? ('qb.picker.book' | t) }}</label>
     <select [id]="idPrefix() + '-book'" (change)="chooseBook($any($event.target).value)">
-      <option value="" [selected]="!value().bookId">{{ noBookLabel() }}</option>
+      <option value="" [selected]="!value().bookId">{{ noBookLabel() ?? ('qb.picker.noBook' | t) }}</option>
       @for (book of cascade.books(); track book.id) {
         <option [value]="book.id" [selected]="book.id === value().bookId">{{ optionLabel(book, cascade.key()) }}</option>
       }
@@ -24,15 +24,15 @@
   </div>
   @if (value().bookId) {
     <div class="field">
-      <label [for]="idPrefix() + '-chapter'">Chapter</label>
+      <label [for]="idPrefix() + '-chapter'">{{ 'qb.chapter' | t }}</label>
       <select [id]="idPrefix() + '-chapter'" (change)="chooseChapter($any($event.target).value)">
-        <option value="" [selected]="!value().chapterId">Choose a chapter…</option>
+        <option value="" [selected]="!value().chapterId">{{ 'qb.chooseChapter' | t }}</option>
         @for (chapter of openChapters(); track chapter.id) {
           <option [value]="chapter.id" [selected]="chapter.id === value().chapterId">{{ chapter.order }}. {{ chapter.title }}</option>
         }
       </select>
       @if (openChapters().length === 0) {
-        <span class="hint">This book has no open chapters. <a [routerLink]="['/admin/books', value().bookId]">Add one</a>.</span>
+        <span class="hint">{{ 'qb.picker.noOpenChapters' | t }} <a [routerLink]="['/admin/books', value().bookId]">{{ 'qb.picker.addOne' | t }}</a>.</span>
       }
     </div>
   }

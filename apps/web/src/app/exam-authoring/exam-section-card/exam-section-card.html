@@ -100,7 +100,7 @@
             <select [value]="drawDifficulty()" (change)="drawDifficulty.set($any($event.target).value)">
               <option value="">{{ 'exams.section.any' | t }}</option>
               @for (level of difficulties; track level.value) {
-                <option [value]="level.value">{{ level.label }}</option>
+                <option [value]="level.value">{{ level.key | t }}</option>
               }
             </select>
           </label>

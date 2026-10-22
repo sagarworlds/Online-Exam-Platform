@@ -1,8 +1,8 @@
 <div class="page page--admin">
   <div class="page-header">
-    <h1>Exams</h1>
+    <h1>{{ 'admin.area.exams.name' | t }}</h1>
     <div class="page-header__actions">
-      <a routerLink="/exams/create" class="btn btn--primary">Create exam</a>
+      <a routerLink="/exams/create" class="btn btn--primary">{{ 'exams.list.create' | t }}</a>
       <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
     </div>
   </div>
@@ -12,27 +12,27 @@
   }
 
   @if (loading()) {
-    <p>Loading…</p>
+    <p role="status">{{ 'common.loading' | t }}</p>
   } @else if (exams().length === 0) {
-    <div class="card empty-state">No exams yet.</div>
+    <div class="card empty-state">{{ 'exams.list.empty' | t }}</div>
   } @else {
     @for (exam of exams(); track exam.id) {
       <div class="card">
         <h3 class="card__title">
           <a [routerLink]="['/exams', exam.id]">{{ exam.name }}</a>
-          <span class="badge" [class.badge--active]="exam.status === 'Published'" [class.badge--inactive]="exam.status !== 'Published'">{{ exam.status }}</span>
+          <app-status-badge [tone]="exam.status === 'Published' ? 'success' : 'neutral'" [label]="statusLabel(exam)" />
         </h3>
         @if (exam.description) {
           <p>{{ exam.description }}</p>
         }
         <p class="card__meta">
           @if (exam.isScheduled) {
-            Opens {{ exam.scheduledStartTime | date: 'medium' }}
+            {{ 'exams.list.opens' | t: { time: (exam.scheduledStartTime | examTime: exam.timeZone) } }}
           } @else {
-            Not scheduled yet
+            {{ 'exams.list.notScheduled' | t }}
           }
           <br />
-          Questions from: {{ describeScope(exam.scope) }}
+          {{ 'exams.list.scope' | t: { scope: describeScope(exam.scope, i18n.t) } }}
         </p>
       </div>
     }

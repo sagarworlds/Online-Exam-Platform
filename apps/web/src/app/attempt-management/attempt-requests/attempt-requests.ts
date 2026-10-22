@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import {
   Component,
   ElementRef,
@@ -18,6 +17,7 @@ import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AttemptAdminApiService } from '../attempt-admin-api.service';
 import { AttemptRequestRow } from '../attempt-admin.models';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** What was done with a request during this visit, and whether the candidate was emailed the answer. */
 interface RequestDecision {
@@ -43,7 +43,7 @@ interface QueueEntry {
  */
 @Component({
   selector: 'app-attempt-requests',
-  imports: [DatePipe, RouterLink, RefreshButton, TranslatePipe],
+  imports: [LocaleDatePipe, RouterLink, RefreshButton, TranslatePipe],
   templateUrl: './attempt-requests.html',
   styleUrl: './attempt-requests.css',
 })

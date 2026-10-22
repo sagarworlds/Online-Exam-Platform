@@ -708,7 +708,7 @@ describe('AttemptReview', () => {
         const text = textOf(fixture);
         expect(text).toContain('परिणाम का संस्करण 2');
         expect(text).toContain('संस्करण 2:');
-        expect(text).toContain(`आप ${formatDate(CLOSES, 'medium', 'en-US')} तक उत्तर कुंजी पर आपत्ति दर्ज कर सकते हैं।`);
+        expect(text).toContain(`आप ${formatDate(CLOSES, 'medium', 'hi')} तक उत्तर कुंजी पर आपत्ति दर्ज कर सकते हैं।`);
         expect(card(fixture, 1).textContent).toContain('आपकी आपत्ति');
         expect(card(fixture, 1).textContent).toContain('स्वीकार की गई — उत्तर कुंजी सुधार दी गई');
         expect(card(fixture, 1).textContent).toContain('सुधार का कारण: कुंजी में गलती थी');

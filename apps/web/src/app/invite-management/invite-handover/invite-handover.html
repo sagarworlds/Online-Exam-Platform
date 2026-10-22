@@ -1,28 +1,28 @@
-<div class="handover" role="group" [attr.aria-label]="'Invite code for ' + email()">
+<div class="handover" role="group" [attr.aria-label]="'invites.handover.group' | t: { email: email() }">
   <div class="handover__row">
-    <span class="handover__name">Invite code</span>
+    <span class="handover__name">{{ 'invites.handover.code' | t }}</span>
     <code class="handover__value handover__value--code">{{ code() }}</code>
-    <button type="button" class="btn btn--small" (click)="copyCode()">Copy code</button>
+    <button type="button" class="btn btn--small" (click)="copyCode()">{{ 'invites.handover.copyCode' | t }}</button>
   </div>
 
   @if (link(); as url) {
     <div class="handover__row">
-      <span class="handover__name">Link</span>
+      <span class="handover__name">{{ 'invites.handover.link' | t }}</span>
       <code class="handover__value">{{ url }}</code>
-      <button type="button" class="btn btn--small" (click)="copyLink()">Copy link</button>
+      <button type="button" class="btn btn--small" (click)="copyLink()">{{ 'invites.handover.copyLink' | t }}</button>
     </div>
   }
 
   <p class="hint">
-    It works once, and only for the account that holds {{ email() }}.
+    {{ 'invites.handover.once' | t: { email: email() } }}
     @if (expiresAt()) {
-      It expires {{ expiresAt() | date: 'medium' }}.
+      {{ 'invites.handover.expires' | t: { time: (expiresAt() | date: 'medium') ?? '' } }}
     }
   </p>
 
   <p class="handover__status" role="status">{{ message() }}</p>
 
   @if (dismissible()) {
-    <button type="button" class="btn btn--small" (click)="dismissed.emit()">Hide</button>
+    <button type="button" class="btn btn--small" (click)="dismissed.emit()">{{ 'invites.handover.hide' | t }}</button>
   }
 </div>

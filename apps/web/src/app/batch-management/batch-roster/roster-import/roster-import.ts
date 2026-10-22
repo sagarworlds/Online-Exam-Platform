@@ -1,4 +1,6 @@
 import { Component, inject, input, output, signal } from '@angular/core';
+import { I18nService } from '../../../i18n/i18n.service';
+import { TranslatePipe } from '../../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../../shared/problem-details';
 import { BatchApiService } from '../../batch-api.service';
 import { ImportRosterResult } from '../../batch.models';
@@ -22,6 +24,7 @@ function readText(file: File): Promise<string> {
  */
 @Component({
   selector: 'app-roster-import',
+  imports: [TranslatePipe],
   templateUrl: './roster-import.html',
 })
 export class RosterImport {
@@ -36,6 +39,15 @@ export class RosterImport {
   protected readonly result = signal<ImportRosterResult | null>(null);
 
   private readonly api = inject(BatchApiService);
+  private readonly i18n = inject(I18nService);
+
+  /** What an import did, in a sentence: how many candidates it added, and how many rows it left out if any. */
+  protected reportText(report: ImportRosterResult): string {
+    const added = report.added.length;
+    return report.skipped.length > 0
+      ? this.i18n.plural('roster.import.addedLeftOut', added, { left: this.i18n.plural('roster.import.rows', report.skipped.length) })
+      : this.i18n.plural('roster.import.added', added);
+  }
 
   protected async onFilePicked(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
@@ -51,7 +63,7 @@ export class RosterImport {
     this.result.set(null);
 
     if (!file.name.toLowerCase().endsWith('.csv')) {
-      this.fail('Choose a .csv file. A spreadsheet can be saved as CSV from its File menu.');
+      this.fail(this.i18n.t('roster.import.notCsv'));
       return;
     }
 
@@ -59,7 +71,7 @@ export class RosterImport {
     try {
       csv = await readText(file);
     } catch {
-      this.fail('The file could not be read.');
+      this.fail(this.i18n.t('roster.import.unreadable'));
       return;
     }
 
@@ -71,7 +83,7 @@ export class RosterImport {
           this.imported.emit();
         }
       },
-      error: (error: unknown) => this.fail(extractErrorMessage(error)),
+      error: (error: unknown) => this.fail(extractErrorMessage(error, this.i18n.t('common.somethingWrong'))),
     });
   }
 

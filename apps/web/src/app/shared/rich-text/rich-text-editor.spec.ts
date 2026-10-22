@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { beforeAll, vi } from 'vitest';
+import { I18nService } from '../../i18n/i18n.service';
 import { ImageRejectedError } from './image-limits';
 import { IMAGE_PREPARER, ImagePreparer } from './image-resizer';
 import { RichTextEditor } from './rich-text-editor';
@@ -53,6 +54,17 @@ describe('RichTextEditor', () => {
     await fixture.whenStable();
     fixture.detectChanges();
   }
+
+  it('names the toolbar and its buttons in the language the author chose, still with the glyph in the name', async () => {
+    const { fixture, root } = await open();
+
+    await TestBed.inject(I18nService).setLanguage('hi');
+    fixture.detectChanges();
+
+    expect(root.querySelector('[role="toolbar"]')?.getAttribute('aria-label')).toBe('पाठ का स्वरूप');
+    expect(button(root, 'Σ')?.getAttribute('aria-label')).toBe('Σ सूत्र जोड़ें (LaTeX)');
+    expect(button(root, 'चित्र')?.textContent?.trim()).toBe('चित्र');
+  });
 
   it('offers the formatting a question can carry, none of it pressed to start with', async () => {
     const { root } = await open();

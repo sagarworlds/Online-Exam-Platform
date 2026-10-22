@@ -1,4 +1,4 @@
-import { DatePipe, DOCUMENT } from '@angular/common';
+import { DOCUMENT } from '@angular/common';
 import { Component, computed, HostListener, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
@@ -8,6 +8,7 @@ import { AnalyticsApiService } from '../analytics-api.service';
 import { CandidateAnalyticsDto, ScorePointDto } from '../analytics.models';
 import { ReportFormat, saveDownload } from '../report-download';
 import { plotTrend, TREND_MARGINS, TREND_SIZE, TrendPlot, TrendPoint } from '../trend-plot';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** What the page shows at any moment: the figures are being read, they are here, no result is released yet, or they could not be read. */
 export type AnalyticsView = 'loading' | 'ready' | 'empty' | 'error';
@@ -25,7 +26,7 @@ export interface DrawnResult {
  */
 @Component({
   selector: 'app-candidate-analytics',
-  imports: [DatePipe, RouterLink, TranslatePipe],
+  imports: [LocaleDatePipe, RouterLink, TranslatePipe],
   templateUrl: './candidate-analytics.html',
   styleUrl: './candidate-analytics.css',
 })

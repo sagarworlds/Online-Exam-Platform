@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
@@ -11,6 +10,7 @@ import { MAX_ATTEMPT_REQUEST_TEXT, MyExamDto } from '../candidate.models';
 import { Skeleton } from '../../shared/skeleton/skeleton';
 import { rememberAttemptedOpen, rememberedAttemptedOpen } from './attempted-section-memory';
 import { groupExams } from './exam-groups';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** One block of the page: a heading and the exams under it. Only the attempted exams can be hidden. */
 interface ExamSection {
@@ -36,7 +36,7 @@ const WINDOW_FORMAT = 'MMM d, y, h:mm a';
  */
 @Component({
   selector: 'app-my-exams',
-  imports: [DatePipe, RouterLink, Skeleton, TranslatePipe],
+  imports: [LocaleDatePipe, RouterLink, Skeleton, TranslatePipe],
   templateUrl: './my-exams.html',
   styleUrl: './my-exams.css',
 })

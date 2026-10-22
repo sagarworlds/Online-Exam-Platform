@@ -1,21 +1,21 @@
 <div class="page page--admin">
   <div class="page-header">
-    <h1>Students</h1>
+    <h1>{{ 'admin.area.students.name' | t }}</h1>
     <div class="page-header__actions">
       @if (canInvite) {
-        <a routerLink="/invites/create" class="btn btn--primary">Invite a candidate</a>
+        <a routerLink="/invites/create" class="btn btn--primary">{{ 'students.invite' | t }}</a>
       }
       <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
     </div>
   </div>
 
   <div class="field student-search" role="search">
-    <label for="student-search">Search students</label>
+    <label for="student-search">{{ 'students.search' | t }}</label>
     <input
       id="student-search"
       type="search"
       autocomplete="off"
-      placeholder="Name, email address or mobile number"
+      [placeholder]="'students.searchPlaceholder' | t"
       [value]="search()"
       (input)="onSearch($any($event.target).value)"
     />
@@ -30,13 +30,13 @@
   }
 
   @if (loading()) {
-    <p role="status">Loading…</p>
+    <p role="status">{{ 'common.loading' | t }}</p>
   } @else if (rows().length === 0) {
-    <div class="card empty-state">{{ search().trim() ? 'No students match that search.' : 'No students yet.' }}</div>
+    <div class="card empty-state">{{ (search().trim() ? 'students.noMatch' : 'students.none') | t }}</div>
   } @else {
     <p class="student-summary">{{ summary() }}</p>
     @if (truncated()) {
-      <p class="field-hint">Showing the first 200 students by name. Search to find someone else.</p>
+      <p class="field-hint">{{ 'students.truncated' | t }}</p>
     }
 
     @for (row of rows(); track row.key) {
@@ -60,13 +60,13 @@
               </span>
               <span class="student-row__statuses">
                 @if (!row.account) {
-                  <app-status-badge tone="neutral" label="Not registered yet" />
+                  <app-status-badge tone="neutral" [label]="'students.notRegistered' | t" />
                 } @else if (row.account.status !== 'Active') {
-                  <app-status-badge [tone]="row.account.status === 'Deactivated' ? 'danger' : 'neutral'" [label]="row.account.status" />
+                  <app-status-badge [tone]="row.account.status === 'Deactivated' ? 'danger' : 'neutral'" [label]="accountStatus(row.account.status)" />
                 }
                 @if (row.invitations) {
                   @for (entry of row.invitations.statusCounts; track entry.status) {
-                    <app-status-badge [tone]="inviteTone(entry.status)" [label]="entry.count + ' ' + entry.status" />
+                    <app-status-badge [tone]="inviteTone(entry.status)" [label]="entry.count + ' ' + inviteStatus(entry.status)" />
                   }
                 }
               </span>
@@ -92,7 +92,7 @@
             @if (row.account; as account) {
               @if (!canManage) {
                 <section class="student-row__section" [attr.aria-labelledby]="'student-profile-heading-' + $index">
-                  <h3 [attr.id]="'student-profile-heading-' + $index">Profile</h3>
+                  <h3 [attr.id]="'student-profile-heading-' + $index">{{ 'students.profile' | t }}</h3>
                   <app-student-profile [studentId]="account.id" [canEdit]="false" />
                 </section>
               }
@@ -100,14 +100,14 @@
 
             @if (row.invitations; as group) {
               <section class="student-row__section" [attr.aria-labelledby]="'student-invites-heading-' + $index">
-                <h3 [attr.id]="'student-invites-heading-' + $index">Invitations</h3>
+                <h3 [attr.id]="'student-invites-heading-' + $index">{{ 'students.invitations' | t }}</h3>
                 <app-student-invitations [invites]="group.invites" (revoked)="onInvitationRevoked()" />
               </section>
             }
 
             @if (!row.account && canInvite) {
               <section class="student-row__section" [attr.aria-labelledby]="'student-address-heading-' + $index">
-                <h3 [attr.id]="'student-address-heading-' + $index">Invited address</h3>
+                <h3 [attr.id]="'student-address-heading-' + $index">{{ 'students.invitedAddress' | t }}</h3>
                 <app-invited-address [email]="row.title" (changed)="onAddressChanged(row, $event)" />
               </section>
             }
@@ -118,17 +118,17 @@
   }
 
   @if (editing(); as student) {
-    <app-modal-dialog heading="Edit profile" (closed)="closeEdit()">
+    <app-modal-dialog [heading]="'students.editProfile' | t" (closed)="closeEdit()">
       <app-student-profile [studentId]="student.id" [canEdit]="true" (saved)="onProfileSaved($event)" />
     </app-modal-dialog>
   }
 
   @if (deactivating(); as student) {
-    <app-modal-dialog [heading]="'Deactivate ' + student.name + '?'" (closed)="closeDeactivate()">
+    <app-modal-dialog [heading]="'students.deactivateTitle' | t: { name: student.name }" (closed)="closeDeactivate()">
       <p>
-        {{ student.name }} will be signed out and will not be able to sign in again. Their results, certificates and records are kept.
+        {{ 'students.deactivateMessage' | t: { name: student.name } }}
       </p>
-      <p class="field-hint">You can turn the account back on from this page later.</p>
+      <p class="field-hint">{{ 'students.deactivateHint' | t }}</p>
 
       @if (deactivateError()) {
         <p class="error-message" role="alert">{{ deactivateError() }}</p>
@@ -136,9 +136,9 @@
 
       <div class="actions">
         <button type="button" class="btn btn--danger" (click)="confirmDeactivate()" [disabled]="deactivateBusy()">
-          {{ deactivateBusy() ? 'Deactivating…' : 'Deactivate' }}
+          {{ (deactivateBusy() ? 'students.deactivating' : 'students.action.deactivate') | t }}
         </button>
-        <button type="button" (click)="closeDeactivate()">Cancel</button>
+        <button type="button" (click)="closeDeactivate()">{{ 'common.cancel' | t }}</button>
       </div>
     </app-modal-dialog>
   }

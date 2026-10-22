@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
@@ -8,6 +7,7 @@ import { CandidateApiService } from '../candidate-api.service';
 import { MyExamDto } from '../candidate.models';
 import { CheckResult, CheckStatus, SystemCheckService } from '../system-check/system-check';
 import { instructionLines, timeAllowed } from './exam-rules-text';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /**
  * The page between "Start exam" and the exam itself (FR-17): the exam's instructions, a check that this browser and connection can
@@ -16,7 +16,7 @@ import { instructionLines, timeAllowed } from './exam-rules-text';
  */
 @Component({
   selector: 'app-exam-instructions',
-  imports: [DatePipe, RouterLink, TranslatePipe],
+  imports: [LocaleDatePipe, RouterLink, TranslatePipe],
   templateUrl: './exam-instructions.html',
   styleUrl: './exam-instructions.css',
 })

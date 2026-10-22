@@ -1,3 +1,6 @@
+import type { MessageParams } from '../../i18n/i18n.service';
+import type { MessageKey } from '../../i18n/messages.en';
+
 /**
  * The limits on a picture in a question. The server enforces its own (see `Question` on the API: at most 5 pictures,
  * each at most 512 KB); these are stricter on purpose, so a picture that passes here is always accepted there.
@@ -14,9 +17,16 @@ export const IMAGE_LIMITS = {
   acceptedTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
 } as const;
 
-/** A picture that cannot be used; the message says why and is meant to be shown to the author. */
+/**
+ * A picture that cannot be used; the message says why, in English, and is meant to be shown to the author. The key and parameters say the
+ * same in the language the author reads, for whoever shows it.
+ */
 export class ImageRejectedError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly key?: MessageKey,
+    readonly params?: MessageParams,
+  ) {
     super(message);
     this.name = 'ImageRejectedError';
   }

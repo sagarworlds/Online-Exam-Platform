@@ -1,8 +1,7 @@
 <section class="card class-manager" aria-labelledby="class-manager-title">
-  <h2 id="class-manager-title">Classes</h2>
+  <h2 id="class-manager-title">{{ 'classes.title' | t }}</h2>
   <p class="hint">
-    A class, such as 4th, groups books: the question bank and the exam form can then be narrowed from class to book to chapter. A
-    book does not need one.
+    {{ 'classes.hint' | t }}
   </p>
 
   @if (errorMessage()) {
@@ -10,34 +9,34 @@
   }
 
   @if (sorted().length === 0) {
-    <p class="hint">No classes yet. Add the first one below.</p>
+    <p class="hint">{{ 'classes.empty' | t }}</p>
   } @else {
     <ul class="class-list">
       @for (item of sorted(); track item.id) {
         <li class="class-list__item">
           <div class="class-list__name">
             @if (renamingId() === item.id) {
-              <form class="inline-edit" [formGroup]="renameForm" (ngSubmit)="saveRename(item)" aria-label="Rename class">
-                <input type="text" formControlName="name" [attr.aria-label]="'New name for ' + item.name" [attr.maxlength]="limits.name" />
-                <button type="submit" class="primary btn--small" [disabled]="renameForm.invalid || busy()">Save</button>
-                <button type="button" class="btn--small" (click)="cancelRename()">Cancel</button>
+              <form class="inline-edit" [formGroup]="renameForm" (ngSubmit)="saveRename(item)" [attr.aria-label]="'classes.renameForm' | t">
+                <input type="text" formControlName="name" [attr.aria-label]="'classes.newNameFor' | t: { name: item.name }" [attr.maxlength]="limits.name" />
+                <button type="submit" class="primary btn--small" [disabled]="renameForm.invalid || busy()">{{ 'common.save' | t }}</button>
+                <button type="button" class="btn--small" (click)="cancelRename()">{{ 'common.cancel' | t }}</button>
               </form>
             } @else {
               <strong>{{ item.name }}</strong>
               @if (item.isArchived) {
-                <span class="badge badge--inactive">Archived</span>
+                <span class="badge badge--inactive">{{ 'books.archived' | t }}</span>
               }
             }
           </div>
-          <span class="card__meta">{{ item.bookCount }} {{ item.bookCount === 1 ? 'book' : 'books' }}</span>
+          <span class="card__meta">{{ i18n.plural('books.bookCount', item.bookCount) }}</span>
           <div class="actions">
             @if (renamingId() !== item.id) {
-              <button type="button" class="btn--small" (click)="startRename(item)" [disabled]="busy()">Rename</button>
+              <button type="button" class="btn--small" (click)="startRename(item)" [disabled]="busy()">{{ 'books.rename' | t }}</button>
             }
             @if (item.isArchived) {
-              <button type="button" class="btn--small" (click)="setArchived(item, false)" [disabled]="busy()">Restore</button>
+              <button type="button" class="btn--small" (click)="setArchived(item, false)" [disabled]="busy()">{{ 'books.restore' | t }}</button>
             } @else {
-              <button type="button" class="btn--small" (click)="setArchived(item, true)" [disabled]="busy()">Archive</button>
+              <button type="button" class="btn--small" (click)="setArchived(item, true)" [disabled]="busy()">{{ 'books.archive' | t }}</button>
             }
           </div>
         </li>
@@ -45,11 +44,11 @@
     </ul>
   }
 
-  <form class="class-add" [formGroup]="addForm" (ngSubmit)="add()" aria-label="New class">
+  <form class="class-add" [formGroup]="addForm" (ngSubmit)="add()" [attr.aria-label]="'classes.newClass' | t">
     <div class="field">
-      <label for="class-name">New class name</label>
-      <input id="class-name" type="text" formControlName="name" placeholder="4th, Grade 10…" [attr.maxlength]="limits.name" />
+      <label for="class-name">{{ 'classes.newClassName' | t }}</label>
+      <input id="class-name" type="text" formControlName="name" [placeholder]="'classes.newClassPlaceholder' | t" [attr.maxlength]="limits.name" />
     </div>
-    <button type="submit" class="primary" [disabled]="addForm.invalid || busy()">Add class</button>
+    <button type="submit" class="primary" [disabled]="addForm.invalid || busy()">{{ 'classes.add' | t }}</button>
   </form>
 </section>

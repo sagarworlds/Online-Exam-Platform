@@ -12,17 +12,20 @@ import {
   toLocalIsoDate,
   visibleErrorMessage,
 } from '../../auth/validators';
+import { I18nService } from '../../i18n/i18n.service';
+import { MessageKey } from '../../i18n/messages.en';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { StudentApiService } from '../student-api.service';
 import { StudentDto, StudentField, UpdateStudentResult } from '../student.models';
 import { ageBandOn } from './age-band';
 
 /** What each field a change can touch is called in the words staff read. */
-const FIELD_LABELS: Record<StudentField, string> = {
-  name: 'name',
-  email: 'email address',
-  phoneNumber: 'mobile number',
-  dateOfBirth: 'date of birth',
+const FIELD_LABELS: Record<StudentField, MessageKey> = {
+  name: 'students.field.name',
+  email: 'students.field.email',
+  phoneNumber: 'students.field.phoneNumber',
+  dateOfBirth: 'students.field.dateOfBirth',
 };
 
 /**
@@ -34,11 +37,12 @@ const FIELD_LABELS: Record<StudentField, string> = {
  */
 @Component({
   selector: 'app-student-profile',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, TranslatePipe],
   templateUrl: './student-profile.html',
   styleUrl: './student-profile.css',
 })
 export class StudentProfile implements OnInit {
+  private readonly i18n = inject(I18nService);
   private readonly studentApi = inject(StudentApiService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly injector = inject(Injector);
@@ -114,20 +118,14 @@ export class StudentProfile implements OnInit {
     const changes = this.changes();
     const consequences: string[] = [];
     if (changes.includes('email')) {
-      consequences.push(
-        'The student is signed out and signs in again with a code sent to the new address. Their invitations move to it. Nothing is sent to the old address.',
-      );
+      consequences.push(this.i18n.t('students.consequence.email'));
     }
     if (changes.includes('phoneNumber')) {
-      consequences.push('The student is signed out and signs in again with a code sent to the new number. Nothing is sent to the old number.');
+      consequences.push(this.i18n.t('students.consequence.phone'));
     }
     const band = this.ageBandChange();
     if (band !== null && changes.includes('dateOfBirth')) {
-      consequences.push(
-        band.to === 'Minor'
-          ? 'This makes the student a minor, so guardian consent applies to them.'
-          : 'This makes the student an adult, so guardian consent no longer applies to them.',
-      );
+      consequences.push(this.i18n.t(band.to === 'Minor' ? 'students.consequence.minor' : 'students.consequence.adult'));
     }
     return consequences;
   });
@@ -139,15 +137,15 @@ export class StudentProfile implements OnInit {
       return [];
     }
     if (result.changed.length === 0) {
-      return ['Nothing was different, so nothing was changed.'];
+      return [this.i18n.t('students.result.nothing')];
     }
 
-    const lines = [`Saved: ${result.changed.map((field) => FIELD_LABELS[field]).join(', ')}.`];
+    const lines = [this.i18n.t('students.result.saved', { fields: result.changed.map((field) => this.i18n.t(FIELD_LABELS[field])).join(', ') })];
     if (result.invitationsMoved > 0) {
-      lines.push(`${result.invitationsMoved} ${result.invitationsMoved === 1 ? 'invitation' : 'invitations'} moved to the new email address.`);
+      lines.push(this.i18n.plural('students.result.movedInvites', result.invitationsMoved));
     }
     if (result.signedOut) {
-      lines.push('The student was signed out. They sign in again with a code sent to their email address or mobile number.');
+      lines.push(this.i18n.t('students.result.signedOut'));
     }
     return lines;
   });
@@ -165,7 +163,7 @@ export class StudentProfile implements OnInit {
       },
       error: (error: unknown) => {
         this.loading.set(false);
-        this.loadError.set(extractErrorMessage(error));
+        this.loadError.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }
@@ -216,7 +214,7 @@ export class StudentProfile implements OnInit {
         },
         error: (error: unknown) => {
           this.saving.set(false);
-          this.saveError.set(extractErrorMessage(error));
+          this.saveError.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
         },
       });
   }
@@ -234,10 +232,16 @@ export class StudentProfile implements OnInit {
 
   // Methods and not computed values: whether a control has been touched is not a signal, so a computed would never see a field being left.
   protected nameError(): string | null {
-    return visibleErrorMessage(this.form.controls.displayName, displayNameErrorMessage);
+    return visibleErrorMessage(this.form.controls.displayName, (errors) => displayNameErrorMessage(errors, this.i18n.t));
+  }
+
+  /** The age band as the staff member reads it: a minor or an adult. */
+  protected ageBandLabel(band: string): string {
+    const key = `students.ageBand.${band}` as MessageKey;
+    return this.i18n.has(key) ? this.i18n.t(key) : band;
   }
 
   protected dateOfBirthError(): string | null {
-    return visibleErrorMessage(this.form.controls.dateOfBirth, dateOfBirthErrorMessage);
+    return visibleErrorMessage(this.form.controls.dateOfBirth, (errors) => dateOfBirthErrorMessage(errors, this.i18n.t));
   }
 }

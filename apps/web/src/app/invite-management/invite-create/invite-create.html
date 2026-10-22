@@ -1,5 +1,5 @@
 <div class="page">
-  <h1>Invite a candidate</h1>
+  <h1>{{ 'invites.create.title' | t }}</h1>
 
   @if (errorMessage()) {
     <p class="error-message">{{ errorMessage() }}</p>
@@ -9,22 +9,21 @@
     @if (invite.emailSent || invite.whatsAppSent) {
       @if (invite.emailSent) {
         <p class="success-message">
-          Invitation emailed to {{ invite.email }}.
+          {{ 'invites.create.emailed' | t: { email: invite.email } }}
           @if (invite.whatsAppSent) {
-            The exam code was also sent to their phone on WhatsApp.
+            {{ 'invites.create.alsoWhatsApp' | t }}
           }
         </p>
       } @else {
         <p class="success-message">
-          Invitation created for {{ invite.email }}. No email could be sent, but the exam code and link were sent to their phone on
-          WhatsApp.
+          {{ 'invites.create.whatsAppOnly' | t: { email: invite.email } }}
         </p>
       }
 
       <div class="card">
-        <p>To hand the code over yourself as well, by phone or in a chat:</p>
-        <button type="button" (click)="copyCode(invite)" [disabled]="generating()">Copy an invite code to hand over</button>
-        <p class="hint">Makes another single-use code. The one already sent keeps working until one of them is used.</p>
+        <p>{{ 'invites.create.handOver' | t }}</p>
+        <button type="button" (click)="copyCode(invite)" [disabled]="generating()">{{ 'invites.create.copyForHandOver' | t }}</button>
+        <p class="hint">{{ 'invites.create.anotherCodeHint' | t }}</p>
         @if (handover(); as code) {
           <app-invite-handover
             [code]="code.code"
@@ -37,8 +36,8 @@
       </div>
     } @else {
       <div class="card">
-        <p class="success-message">Invitation created for {{ invite.email }}, but no email could be sent.</p>
-        <p>Send the link or the code to the candidate yourself:</p>
+        <p class="success-message">{{ 'invites.create.noEmail' | t: { email: invite.email } }}</p>
+        <p>{{ 'invites.create.sendYourself' | t }}</p>
         @if (invite.inviteCode; as inviteCode) {
           <app-invite-handover [code]="inviteCode" [link]="invite.inviteLink" [email]="invite.email" />
         }
@@ -47,15 +46,15 @@
   }
 
   @if (loading()) {
-    <p>Loading…</p>
+    <p role="status">{{ 'common.loading' | t }}</p>
   } @else if (exams().length === 0) {
-    <div class="card empty-state">There are no published exams to invite candidates to yet.</div>
+    <div class="card empty-state">{{ 'invites.create.noExams' | t }}</div>
   } @else {
-    <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="New invitation">
+    <form class="card" [formGroup]="form" (ngSubmit)="submit()" [attr.aria-label]="'invites.create.form' | t">
       <div class="field">
-        <label for="invite-exam">Exam</label>
+        <label for="invite-exam">{{ 'invites.create.exam' | t }}</label>
         <select id="invite-exam" formControlName="examId">
-          <option value="">Choose an exam…</option>
+          <option value="">{{ 'invites.create.chooseExam' | t }}</option>
           @for (exam of exams(); track exam.id) {
             <option [value]="exam.id">{{ exam.name }}</option>
           }
@@ -63,13 +62,13 @@
       </div>
 
       <div class="field">
-        <label for="invite-email">Candidate's email</label>
+        <label for="invite-email">{{ 'invites.create.email' | t }}</label>
         <input id="invite-email" type="email" formControlName="email" autocomplete="off" />
       </div>
 
-      <button type="submit" class="primary" [disabled]="form.invalid || saving()">Send invitation</button>
+      <button type="submit" class="primary" [disabled]="form.invalid || saving()">{{ 'invites.create.send' | t }}</button>
     </form>
   }
 
-  <p class="link-row"><a routerLink="/students">All students and invitations</a></p>
+  <p class="link-row"><a routerLink="/students">{{ 'invites.create.allStudents' | t }}</a></p>
 </div>

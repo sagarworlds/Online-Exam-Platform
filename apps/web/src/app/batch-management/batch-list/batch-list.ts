@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ExamApiService } from '../../exam-authoring/exam-api.service';
@@ -10,13 +9,14 @@ import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { StatusBadge, StatusTone } from '../../shared/status-badge/status-badge';
 import { BatchApiService } from '../batch-api.service';
 import { BatchDto, BatchStatus } from '../batch.models';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** What each state of a batch means to the person reading the list: one that is taking candidates is good, one that is over is only a fact. */
 const STATUS_TONES: Record<BatchStatus, StatusTone> = { Draft: 'neutral', Active: 'success', Closed: 'info', Archived: 'neutral' };
 
 @Component({
   selector: 'app-batch-list',
-  imports: [DatePipe, RouterLink, RefreshButton, StatusBadge, EmptyState, TranslatePipe],
+  imports: [LocaleDatePipe, RouterLink, RefreshButton, StatusBadge, EmptyState, TranslatePipe],
   template: `
     <div class="page page--admin">
       <div class="page-header">

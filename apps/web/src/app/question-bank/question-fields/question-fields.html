@@ -1,26 +1,26 @@
 <div class="field">
-  <label id="question-text-label" for="question-text">Question</label>
+  <label id="question-text-label" for="question-text">{{ 'qb.field.question' | t }}</label>
   <app-rich-text-editor formControlName="text" inputId="question-text" labelledBy="question-text-label" />
 </div>
 
 <div class="field-row">
   <div class="field">
-    <label for="question-type">Question type</label>
+    <label for="question-type">{{ 'qb.field.type' | t }}</label>
     <select id="question-type" formControlName="questionType" [attr.disabled]="wordingOnly() ? '' : null" aria-describedby="question-type-hint">
       @for (type of questionTypes; track type.value) {
-        <option [value]="type.value">{{ type.label }}</option>
+        <option [value]="type.value">{{ type.key | t }}</option>
       }
     </select>
     <p class="hint" id="question-type-hint">
-      {{ isText ? 'The candidate types the answer. It is right when it matches an accepted answer.' : 'The candidate chooses from the options.' }}
+      {{ (isText ? 'qb.field.typeHintText' : 'qb.field.typeHintChoice') | t }}
     </p>
   </div>
   @if (showLanguage()) {
     <div class="field">
-      <label for="question-language">Language</label>
+      <label for="question-language">{{ 'qb.language' | t }}</label>
       <select id="question-language" formControlName="language">
         @for (language of languages; track language.code) {
-          <option [value]="language.code">{{ language.label }}</option>
+          <option [value]="language.code">{{ language.key | t }}</option>
         }
       </select>
     </div>
@@ -29,17 +29,14 @@
 
 @if (!isText) {
 <fieldset class="field" formArrayName="options">
-  <legend>Options ({{ form.controls.allowsMultiple.value ? 'tick every correct one' : 'pick the correct one' }})</legend>
+  <legend>{{ (form.controls.allowsMultiple.value ? 'qb.field.optionsMultiple' : 'qb.field.optionsSingle') | t }}</legend>
   @if (wordingOnly()) {
-    <p class="hint question-lock-note" role="note">
-      Candidates have answered this question, so only its wording can change. The correct option or options, whether several can be correct, the list of options and
-      which options stay in place are locked, because their results were worked out against them. To change the answers, create a new question instead.
-    </p>
+    <p class="hint question-lock-note" role="note">{{ 'qb.field.lockNote' | t }}</p>
   }
   @for (option of options.controls; track option; let i = $index) {
     <div class="option-row" [formGroupName]="i">
       @if (form.controls.allowsMultiple.value) {
-        <input type="checkbox" formControlName="correct" [attr.disabled]="wordingOnly() ? '' : null" [attr.aria-label]="'Option ' + (i + 1) + ' is correct'" />
+        <input type="checkbox" formControlName="correct" [attr.disabled]="wordingOnly() ? '' : null" [attr.aria-label]="'qb.field.optionIsCorrect' | t: { number: i + 1 }" />
       } @else {
         <input
           type="radio"
@@ -48,16 +45,16 @@
           [checked]="form.controls.correctIndex.value === i"
           [disabled]="wordingOnly()"
           (change)="form.controls.correctIndex.setValue(i)"
-          [attr.aria-label]="'Option ' + (i + 1) + ' is correct'"
+          [attr.aria-label]="'qb.field.optionIsCorrect' | t: { number: i + 1 }"
         />
       }
-      <input type="text" formControlName="text" [placeholder]="'Option ' + (i + 1)" [attr.aria-label]="'Option ' + (i + 1) + ' text'" />
+      <input type="text" formControlName="text" [placeholder]="'qb.field.optionPlaceholder' | t: { number: i + 1 }" [attr.aria-label]="'qb.field.optionText' | t: { number: i + 1 }" />
       <button
         type="button"
         class="icon-btn option-pin"
         [class.icon-btn--on]="option.controls.pinned.value"
-        appTooltip="Keep in place when options are shuffled"
-        [attr.aria-label]="'Keep option ' + (i + 1) + ' in place when options are shuffled'"
+        [appTooltip]="'qb.field.pin' | t"
+        [attr.aria-label]="'qb.field.pinOption' | t: { number: i + 1 }"
         [attr.aria-pressed]="option.controls.pinned.value"
         [disabled]="wordingOnly()"
         (click)="togglePin(i)"
@@ -67,8 +64,8 @@
       <button
         type="button"
         class="icon-btn icon-btn--danger"
-        [appTooltip]="'Remove option ' + (i + 1)"
-        [attr.aria-label]="'Remove option ' + (i + 1)"
+        [appTooltip]="'qb.field.removeOption' | t: { number: i + 1 }"
+        [attr.aria-label]="'qb.field.removeOption' | t: { number: i + 1 }"
         [disabled]="wordingOnly() || options.length <= limits.minOptions"
         (click)="removeOption(i)"
       >
@@ -78,7 +75,7 @@
   }
   <div class="option-tools">
     <button type="button" class="btn--small" (click)="addOption()" [disabled]="wordingOnly() || options.length >= limits.maxOptions">
-      <app-icon name="plus" /> Add option
+      <app-icon name="plus" /> {{ 'qb.field.addOption' | t }}
     </button>
     <label class="inline-check">
       <input
@@ -88,39 +85,30 @@
         aria-describedby="question-multiple-hint"
         (change)="setAllowsMultiple($any($event.target).checked)"
       />
-      More than one answer can be correct
+      {{ 'qb.field.allowsMultiple' | t }}
     </label>
   </div>
   <p class="hint" id="question-multiple-hint">
-    {{
-      form.controls.allowsMultiple.value
-        ? 'Candidates are marked right only when they choose exactly the correct ones, with none missing and none extra.'
-        : 'The pin keeps an option such as "None of the above" in place when options are shuffled.'
-    }}
+    {{ (form.controls.allowsMultiple.value ? 'qb.field.multipleHint' : 'qb.field.pinHint') | t }}
   </p>
 </fieldset>
 }
 
 @if (isText) {
   <fieldset class="field" formArrayName="acceptedAnswers">
-    <legend>Accepted answers</legend>
-    <p class="hint">
-      A typed answer is right when it matches one of these. Capital letters and extra spaces do not matter, so "Paris" also accepts "paris".
-      List each spelling the candidate may type as its own row.
-    </p>
+    <legend>{{ 'qb.field.accepted' | t }}</legend>
+    <p class="hint">{{ 'qb.field.acceptedHint' | t }}</p>
     @if (wordingOnly()) {
-      <p class="hint question-lock-note" role="note">
-        Candidates have answered this question, so its accepted answers are locked, because their results were worked out against them. To change them, create a new question instead.
-      </p>
+      <p class="hint question-lock-note" role="note">{{ 'qb.field.acceptedLock' | t }}</p>
     }
     @for (answer of acceptedAnswers.controls; track $index; let i = $index) {
       <div class="option-row">
-        <input type="text" [formControlName]="i" [attr.disabled]="wordingOnly() ? '' : null" [attr.aria-label]="'Accepted answer ' + (i + 1)" />
+        <input type="text" [formControlName]="i" [attr.disabled]="wordingOnly() ? '' : null" [attr.aria-label]="'qb.field.acceptedAnswer' | t: { number: i + 1 }" />
         <button
           type="button"
           class="icon-btn icon-btn--danger"
-          [appTooltip]="'Remove accepted answer ' + (i + 1)"
-          [attr.aria-label]="'Remove accepted answer ' + (i + 1)"
+          [appTooltip]="'qb.field.removeAccepted' | t: { number: i + 1 }"
+          [attr.aria-label]="'qb.field.removeAccepted' | t: { number: i + 1 }"
           [disabled]="wordingOnly() || acceptedAnswers.length <= 1"
           (click)="removeAcceptedAnswer(i)"
         >
@@ -130,17 +118,17 @@
     }
     <div class="option-tools">
       <button type="button" class="btn--small" (click)="addAcceptedAnswer()" [disabled]="wordingOnly() || acceptedAnswers.length >= limits.maxAcceptedAnswers">
-        <app-icon name="plus" /> Add accepted answer
+        <app-icon name="plus" /> {{ 'qb.field.addAccepted' | t }}
       </button>
     </div>
     @if (form.errors?.['noAcceptedAnswer']) {
-      <p class="error-message" role="alert">Add at least one accepted answer.</p>
+      <p class="error-message" role="alert">{{ 'qb.field.noAccepted' | t }}</p>
     }
     @if (form.errors?.['tooManyAcceptedAnswers']) {
-      <p class="error-message" role="alert">Use at most {{ limits.maxAcceptedAnswers }} accepted answers.</p>
+      <p class="error-message" role="alert">{{ 'qb.field.tooManyAccepted' | t: { max: limits.maxAcceptedAnswers } }}</p>
     }
     @if (form.errors?.['duplicateAcceptedAnswer']) {
-      <p class="error-message" role="alert">Two accepted answers match the same typed answer. Keep only one of them.</p>
+      <p class="error-message" role="alert">{{ 'qb.field.duplicateAccepted' | t }}</p>
     }
   </fieldset>
 }
@@ -149,7 +137,7 @@
 <div class="more-details">
   <button type="button" class="more-details__toggle" aria-controls="question-more" [attr.aria-expanded]="showMore" (click)="moreOpen.set(!moreOpen())">
     <app-icon [name]="showMore ? 'chevron-up' : 'chevron-down'" />
-    More details
+    {{ 'qb.field.moreDetails' | t }}
   </button>
   @if (!showMore && detailsSummary) {
     <span class="hint">{{ detailsSummary }}</span>
@@ -159,28 +147,28 @@
 <div id="question-more" [hidden]="!showMore">
   <div class="field-row">
     <div class="field">
-      <label for="question-difficulty">Difficulty</label>
+      <label for="question-difficulty">{{ 'qb.difficulty' | t }}</label>
       <select id="question-difficulty" formControlName="difficulty">
-        <option value="">Not set</option>
+        <option value="">{{ 'qb.field.notSet' | t }}</option>
         @for (level of difficulties; track level.value) {
-          <option [value]="level.value">{{ level.label }}</option>
+          <option [value]="level.value">{{ level.key | t }}</option>
         }
       </select>
     </div>
     <div class="field">
-      <label for="question-topics">Topics</label>
+      <label for="question-topics">{{ 'qb.field.topics' | t }}</label>
       <input id="question-topics" type="text" formControlName="topics" list="question-topic-suggestions" autocomplete="off" aria-describedby="question-topics-hint" />
       <datalist id="question-topic-suggestions">
         @for (topic of topicSuggestions(); track topic) {
           <option [value]="topic"></option>
         }
       </datalist>
-      <p class="hint" id="question-topics-hint">Separate with commas, up to {{ limits.maxTopics }}, for example "fractions, ratios".</p>
+      <p class="hint" id="question-topics-hint">{{ 'qb.field.topicsHint' | t: { max: limits.maxTopics } }}</p>
       @if (form.controls.topics.errors?.['tooManyTopics']) {
-        <p class="error-message" role="alert">Use at most {{ limits.maxTopics }} topics.</p>
+        <p class="error-message" role="alert">{{ 'qb.field.tooManyTopics' | t: { max: limits.maxTopics } }}</p>
       }
       @if (form.controls.topics.errors?.['topicTooLong']) {
-        <p class="error-message" role="alert">A topic can be at most {{ limits.maxTopicLength }} characters.</p>
+        <p class="error-message" role="alert">{{ 'qb.field.topicTooLong' | t: { max: limits.maxTopicLength } }}</p>
       }
     </div>
   </div>

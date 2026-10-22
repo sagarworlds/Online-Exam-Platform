@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import {
   Component,
   ElementRef,
@@ -29,6 +28,7 @@ import {
   DisputeRow,
   MAX_DISPUTE_REJECTION_NOTE,
 } from '../attempt-admin.models';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** The status a dispute got from a decision made on this page: the two ways it can be settled. */
 type DecidedStatus = Exclude<DisputeStatus, 'Open'>;
@@ -65,7 +65,7 @@ const EMPTY_KEYS: Readonly<Record<DisputeFilterStatus, MessageKey>> = {
  */
 @Component({
   selector: 'app-disputes',
-  imports: [DatePipe, RouterLink, MathDirective, AnswerKeyCorrection, RefreshButton, TranslatePipe],
+  imports: [LocaleDatePipe, RouterLink, MathDirective, AnswerKeyCorrection, RefreshButton, TranslatePipe],
   templateUrl: './disputes.html',
   styleUrl: './disputes.css',
 })

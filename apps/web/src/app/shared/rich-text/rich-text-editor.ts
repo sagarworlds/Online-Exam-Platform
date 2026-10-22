@@ -6,13 +6,17 @@ import Superscript from '@tiptap/extension-superscript';
 import Image from '@tiptap/extension-image';
 import StarterKit from '@tiptap/starter-kit';
 
+import { I18nService } from '../../i18n/i18n.service';
+import { MessageKey } from '../../i18n/messages.en';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { IMAGE_LIMITS, ImageRejectedError } from './image-limits';
 import { IMAGE_PREPARER } from './image-resizer';
 
 /** One formatting button in the toolbar. `name` is the TipTap node or mark it toggles, which also tells whether it is active. */
 interface ToolbarAction {
   readonly name: string;
-  readonly label: string;
+  /** The message that says what the button does, in the language the author reads. */
+  readonly labelKey: MessageKey;
   readonly glyph: string;
   readonly run: (chain: ChainedCommands) => ChainedCommands;
 }
@@ -21,17 +25,17 @@ interface ToolbarAction {
 export const FORMULA_TEMPLATE = '$x^{2}$';
 
 const ACTIONS: readonly ToolbarAction[] = [
-  { name: 'bold', label: 'Bold', glyph: 'B', run: (chain) => chain.toggleBold() },
-  { name: 'italic', label: 'Italic', glyph: 'I', run: (chain) => chain.toggleItalic() },
-  { name: 'underline', label: 'Underline', glyph: 'U', run: (chain) => chain.toggleUnderline() },
-  { name: 'subscript', label: 'Subscript', glyph: 'x₂', run: (chain) => chain.toggleSubscript() },
-  { name: 'superscript', label: 'Superscript', glyph: 'x²', run: (chain) => chain.toggleSuperscript() },
-  { name: 'bulletList', label: 'Bulleted list', glyph: '• List', run: (chain) => chain.toggleBulletList() },
-  { name: 'orderedList', label: 'Numbered list', glyph: '1. List', run: (chain) => chain.toggleOrderedList() },
-  { name: 'code', label: 'Inline code', glyph: '</>', run: (chain) => chain.toggleCode() },
-  { name: 'codeBlock', label: 'Code block', glyph: '{ }', run: (chain) => chain.toggleCodeBlock() },
+  { name: 'bold', labelKey: 'richtext.bold', glyph: 'B', run: (chain) => chain.toggleBold() },
+  { name: 'italic', labelKey: 'richtext.italic', glyph: 'I', run: (chain) => chain.toggleItalic() },
+  { name: 'underline', labelKey: 'richtext.underline', glyph: 'U', run: (chain) => chain.toggleUnderline() },
+  { name: 'subscript', labelKey: 'richtext.subscript', glyph: 'x₂', run: (chain) => chain.toggleSubscript() },
+  { name: 'superscript', labelKey: 'richtext.superscript', glyph: 'x²', run: (chain) => chain.toggleSuperscript() },
+  { name: 'bulletList', labelKey: 'richtext.bulletList', glyph: '• List', run: (chain) => chain.toggleBulletList() },
+  { name: 'orderedList', labelKey: 'richtext.orderedList', glyph: '1. List', run: (chain) => chain.toggleOrderedList() },
+  { name: 'code', labelKey: 'richtext.code', glyph: '</>', run: (chain) => chain.toggleCode() },
+  { name: 'codeBlock', labelKey: 'richtext.codeBlock', glyph: '{ }', run: (chain) => chain.toggleCodeBlock() },
   // A formula is plain text between dollar signs, typeset where the question is shown (see math-typesetter.ts).
-  { name: 'formula', label: 'Insert formula (LaTeX)', glyph: 'Σ', run: (chain) => chain.insertContent(FORMULA_TEMPLATE) },
+  { name: 'formula', labelKey: 'richtext.formula', glyph: 'Σ', run: (chain) => chain.insertContent(FORMULA_TEMPLATE) },
 ];
 
 /** The editor keeps an empty paragraph after a list or picture so there is always somewhere to keep typing; it is not worth storing. */
@@ -49,6 +53,7 @@ function withoutTrailingEmptyParagraphs(html: string): string {
  */
 @Component({
   selector: 'app-rich-text-editor',
+  imports: [TranslatePipe],
   templateUrl: './rich-text-editor.html',
   providers: [{ provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => RichTextEditor), multi: true }],
 })
@@ -66,6 +71,7 @@ export class RichTextEditor implements ControlValueAccessor {
 
   private readonly host = viewChild.required<ElementRef<HTMLElement>>('host');
   private readonly changeDetector = inject(ChangeDetectorRef);
+  private readonly i18n = inject(I18nService);
   private readonly prepareImage = inject(IMAGE_PREPARER);
 
   /** Bumped on every editor transaction so the toolbar's pressed states are re-read; the editor itself is not a signal. */
@@ -97,7 +103,12 @@ export class RichTextEditor implements ControlValueAccessor {
    * (WCAG 2.5.3). The glyph is not wrapped in brackets: axe does not match a bracketed glyph (such as "Subscript (x₂)") to the visible text.
    */
   protected accessibleName(action: ToolbarAction): string {
-    return `${action.glyph} ${action.label}`;
+    return `${action.glyph} ${this.labelOf(action)}`;
+  }
+
+  /** What a formatting button does, in the language the author reads. */
+  protected labelOf(action: ToolbarAction): string {
+    return this.i18n.t(action.labelKey);
   }
 
   protected run(action: ToolbarAction): void {
@@ -118,7 +129,7 @@ export class RichTextEditor implements ControlValueAccessor {
 
     this.imageError.set(null);
     if (this.imageCount() >= IMAGE_LIMITS.maxPerQuestion) {
-      this.imageError.set(`A question can have at most ${IMAGE_LIMITS.maxPerQuestion} pictures.`);
+      this.imageError.set(this.i18n.t('richtext.tooManyImages', { max: IMAGE_LIMITS.maxPerQuestion }));
       return;
     }
 
@@ -130,11 +141,11 @@ export class RichTextEditor implements ControlValueAccessor {
       this.tiptap.chain().focus().insertContentAt(after, { type: 'image', attrs: { src, alt: 'Question image' } }).run();
     } catch (error) {
       if (error instanceof ImageRejectedError) {
-        this.imageError.set(error.message);
+        this.imageError.set(error.key ? this.i18n.t(error.key, error.params) : error.message);
       } else {
         // Not the author's file: something is broken. Keep the evidence and still tell the author it failed.
         console.error('Preparing a picture failed', error);
-        this.imageError.set('The picture could not be added. Please try another one.');
+        this.imageError.set(this.i18n.t('richtext.imageFailed'));
       }
     }
   }

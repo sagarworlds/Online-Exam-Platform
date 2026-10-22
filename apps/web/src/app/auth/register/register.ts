@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, ValidationErrors, Validators, Abstrac
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AuthApiService } from '../auth-api.service';
+import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { MessageKey } from '../../i18n/messages.en';
 import { OtpChannel, VerifyOtpNavigationState } from '../auth.models';
@@ -24,6 +25,7 @@ import {
   templateUrl: './register.html',
 })
 export class Register {
+  private readonly i18n = inject(I18nService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly authApi = inject(AuthApiService);
   private readonly router = inject(Router);
@@ -50,12 +52,12 @@ export class Register {
 
   /** Inline message for the display name field, once the user has interacted with it or tried to submit. */
   protected displayNameError(): string | null {
-    return this.fieldError(this.form.controls.displayName, displayNameErrorMessage);
+    return this.fieldError(this.form.controls.displayName, (errors) => displayNameErrorMessage(errors, this.i18n.t));
   }
 
   /** Inline message for the date of birth field, once the user has interacted with it or tried to submit. */
   protected dateOfBirthError(): string | null {
-    return this.fieldError(this.form.controls.dateOfBirth, dateOfBirthErrorMessage);
+    return this.fieldError(this.form.controls.dateOfBirth, (errors) => dateOfBirthErrorMessage(errors, this.i18n.t));
   }
 
   /** Message key for the contact field, once the user has tried to submit with it empty. */

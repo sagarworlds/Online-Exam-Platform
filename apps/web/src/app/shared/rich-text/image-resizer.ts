@@ -24,15 +24,17 @@ const JPEG_QUALITIES = [0.85, 0.7, 0.55] as const;
  */
 export async function prepareImage(file: File): Promise<string> {
   if (!isAcceptedImageType(file.type)) {
-    throw new ImageRejectedError('Use a PNG, JPEG, GIF or WebP picture.');
+    throw new ImageRejectedError('Use a PNG, JPEG, GIF or WebP picture.', 'richtext.image.type');
   }
   if (file.size > IMAGE_LIMITS.maxInputBytes) {
-    throw new ImageRejectedError(`That file is too large to open. Pictures can be up to ${IMAGE_LIMITS.maxInputBytes / (1024 * 1024)} MB.`);
+    const max = IMAGE_LIMITS.maxInputBytes / (1024 * 1024);
+    throw new ImageRejectedError(`That file is too large to open. Pictures can be up to ${max} MB.`, 'richtext.image.tooLarge', { max });
   }
 
   if (file.type === 'image/gif') {
     if (file.size > IMAGE_LIMITS.maxBytes) {
-      throw new ImageRejectedError(`A GIF can be at most ${IMAGE_LIMITS.maxBytes / 1024} KB. Use a PNG or JPEG for a bigger picture.`);
+      const max = IMAGE_LIMITS.maxBytes / 1024;
+      throw new ImageRejectedError(`A GIF can be at most ${max} KB. Use a PNG or JPEG for a bigger picture.`, 'richtext.image.gifTooBig', { max });
     }
     return readAsDataUrl(file);
   }
@@ -45,7 +47,7 @@ export async function prepareImage(file: File): Promise<string> {
     canvas.height = height;
     const context = canvas.getContext('2d');
     if (context === null) {
-      throw new ImageRejectedError('This browser cannot prepare pictures.');
+      throw new ImageRejectedError('This browser cannot prepare pictures.', 'richtext.image.noBrowser');
     }
 
     if (file.type === 'image/png') {
@@ -66,7 +68,8 @@ export async function prepareImage(file: File): Promise<string> {
         return jpeg;
       }
     }
-    throw new ImageRejectedError(`That picture is too detailed to fit in ${IMAGE_LIMITS.maxBytes / 1024} KB. Try a smaller or simpler one.`);
+    const max = IMAGE_LIMITS.maxBytes / 1024;
+    throw new ImageRejectedError(`That picture is too detailed to fit in ${max} KB. Try a smaller or simpler one.`, 'richtext.image.tooDetailed', { max });
   } finally {
     bitmap.close();
   }
@@ -77,14 +80,14 @@ async function decode(file: File): Promise<ImageBitmap> {
     return await createImageBitmap(file);
   } catch {
     // A corrupt file or one with the wrong extension: the author needs to know, and the cause is always the file.
-    throw new ImageRejectedError('That file could not be read as a picture.');
+    throw new ImageRejectedError('That file could not be read as a picture.', 'richtext.image.unreadable');
   }
 }
 
 function toDataUrl(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<string> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
-      (blob) => (blob === null ? reject(new ImageRejectedError('The picture could not be prepared.')) : readAsDataUrl(blob).then(resolve, reject)),
+      (blob) => (blob === null ? reject(new ImageRejectedError('The picture could not be prepared.', 'richtext.image.notPrepared')) : readAsDataUrl(blob).then(resolve, reject)),
       type,
       quality,
     );
@@ -95,7 +98,7 @@ function readAsDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new ImageRejectedError('The picture could not be read.'));
+    reader.onerror = () => reject(new ImageRejectedError('The picture could not be read.', 'richtext.image.notRead'));
     reader.readAsDataURL(blob);
   });
 }

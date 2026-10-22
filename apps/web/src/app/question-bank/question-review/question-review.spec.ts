@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AuthSessionService } from '../../auth/auth-session.service';
 import { QuestionStatus, ReviewEntry } from '../question.models';
-import { QuestionReview } from './question-review';
+import { QuestionReview, STATUS_LABELS } from './question-review';
 
 describe('QuestionReview', () => {
   let fixture: ComponentFixture<QuestionReview>;
@@ -55,7 +55,7 @@ describe('QuestionReview', () => {
     fixture.detectChanges();
   };
   const open = (entries: ReviewEntry[] = []) => {
-    button(`Review: ${fixture.componentInstance['statusLabels'][fixture.componentInstance.status()]}`)!.click();
+    button(`Review: ${STATUS_LABELS[fixture.componentInstance.status()]}`)!.click();
     httpMock.expectOne(log).flush(entries);
     fixture.detectChanges();
   };

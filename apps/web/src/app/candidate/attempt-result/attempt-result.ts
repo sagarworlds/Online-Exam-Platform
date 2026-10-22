@@ -1,4 +1,4 @@
-import { DOCUMENT, DatePipe } from '@angular/common';
+import { DOCUMENT } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -7,6 +7,7 @@ import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage, extractProblemCode } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
 import { AttemptResultDto } from '../candidate.models';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /**
  * What the result page shows at any moment: the result is being read, it is here, it is held until the exam's author releases it, it was
@@ -22,7 +23,7 @@ export type ResultView = 'loading' | 'ready' | 'locked' | 'invalidated' | 'error
  */
 @Component({
   selector: 'app-attempt-result',
-  imports: [DatePipe, RouterLink, TranslatePipe],
+  imports: [LocaleDatePipe, RouterLink, TranslatePipe],
   templateUrl: './attempt-result.html',
   styleUrl: './attempt-result.css',
 })

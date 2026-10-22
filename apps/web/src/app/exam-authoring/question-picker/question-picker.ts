@@ -7,7 +7,6 @@ import { QuestionApiService } from '../../question-bank/question-api.service';
 import { QUESTION_DIFFICULTIES, QuestionDifficulty, QuestionDto } from '../../question-bank/question.models';
 import { FieldControl, FormField } from '../../shared/form-field/form-field';
 import { htmlToPlainText } from '../../shared/rich-text/html-to-text';
-import { PlainTextPipe } from '../../shared/rich-text/plain-text.pipe';
 import { ExamScopeDto } from '../exam.models';
 import { isInScope } from './in-scope';
 
@@ -29,7 +28,7 @@ const SEARCH_DELAY_MS = 300;
  */
 @Component({
   selector: 'app-question-picker',
-  imports: [FormField, FieldControl, PlainTextPipe, TranslatePipe],
+  imports: [FormField, FieldControl, TranslatePipe],
   templateUrl: './question-picker.html',
   styleUrl: './question-picker.css',
 })
@@ -160,7 +159,8 @@ export class QuestionPicker {
 
   /** What else is worth knowing about a question when choosing: how hard, what topics, where it is filed. */
   protected meta(question: QuestionDto): string {
-    const level = QUESTION_DIFFICULTIES.find((entry) => entry.value === question.difficulty)?.label;
+    const entry = QUESTION_DIFFICULTIES.find((item) => item.value === question.difficulty);
+    const level = entry ? this.i18n.t(entry.key) : undefined;
     return [level, question.topics.slice(0, 3).join(', '), question.chapterTitle].filter((part): part is string => !!part).join(' · ');
   }
 

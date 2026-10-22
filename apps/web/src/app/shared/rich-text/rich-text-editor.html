@@ -1,12 +1,12 @@
 <div class="rich-editor" [class.rich-editor--disabled]="disabled()">
-  <div class="rich-editor__toolbar" role="toolbar" aria-label="Text formatting">
+  <div class="rich-editor__toolbar" role="toolbar" [attr.aria-label]="'richtext.toolbar' | t">
     @for (action of actions; track action.name) {
       <!-- mousedown is cancelled so pressing a button keeps the selection in the text instead of stealing focus. -->
       <button
         type="button"
         [attr.aria-pressed]="isActive(action)"
         [attr.aria-label]="accessibleName(action)"
-        [title]="action.label"
+        [title]="labelOf(action)"
         [disabled]="disabled()"
         (mousedown)="$event.preventDefault()"
         (click)="run(action)"
@@ -16,13 +16,13 @@
     }
     <button
       type="button"
-      aria-label="Insert image"
-      title="Insert image"
+      [attr.aria-label]="'richtext.insertImage' | t"
+      [title]="'richtext.insertImage' | t"
       [disabled]="disabled()"
       (mousedown)="$event.preventDefault()"
       (click)="picker.click()"
     >
-      Image
+      {{ 'richtext.image' | t }}
     </button>
     <input #picker type="file" hidden [accept]="acceptedImageTypes" (change)="onImagePicked($event)" />
   </div>

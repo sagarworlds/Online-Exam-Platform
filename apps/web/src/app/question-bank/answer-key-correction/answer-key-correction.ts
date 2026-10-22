@@ -1,4 +1,6 @@
 import { Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { QuestionApiService } from '../question-api.service';
 import { acceptedAnswersErrors } from '../question-form';
@@ -13,10 +15,12 @@ import { AnswerKeyCorrectionResult, MAX_KEY_CORRECTION_REASON, QUESTION_LIMITS, 
  */
 @Component({
   selector: 'app-answer-key-correction',
+  imports: [TranslatePipe],
   templateUrl: './answer-key-correction.html',
 })
 export class AnswerKeyCorrection implements OnInit {
   private readonly api = inject(QuestionApiService);
+  private readonly i18n = inject(I18nService);
 
   readonly questionId = input.required<string>();
 
@@ -46,10 +50,10 @@ export class AnswerKeyCorrection implements OnInit {
 
     const count = this.chosen().size;
     if (count === 0) {
-      return question.allowsMultiple ? 'Tick at least one correct option.' : 'Choose the correct option.';
+      return this.i18n.t(question.allowsMultiple ? 'qb.key.tickOne' : 'qb.key.chooseOne');
     }
 
-    return question.allowsMultiple && count >= question.options.length ? 'At least one option must stay incorrect.' : null;
+    return question.allowsMultiple && count >= question.options.length ? this.i18n.t('qb.key.keepOneWrong') : null;
   });
 
   /** Why the accepted answers cannot be sent, or null when they have the shape the API accepts (the same rules as the question form). */
@@ -59,11 +63,11 @@ export class AnswerKeyCorrection implements OnInit {
       return null;
     }
     if (errors['noAcceptedAnswer']) {
-      return 'Add at least one accepted answer.';
+      return this.i18n.t('qb.field.noAccepted');
     }
     return errors['tooManyAcceptedAnswers']
-      ? `Use at most ${QUESTION_LIMITS.maxAcceptedAnswers} accepted answers.`
-      : 'Two accepted answers match the same typed answer. Keep only one of them.';
+      ? this.i18n.t('qb.field.tooManyAccepted', { max: QUESTION_LIMITS.maxAcceptedAnswers })
+      : this.i18n.t('qb.field.duplicateAccepted');
   });
 
   /** The problem with the key as the question takes it: its options for a multiple-choice question, its accepted answers for a text one. */
@@ -87,7 +91,7 @@ export class AnswerKeyCorrection implements OnInit {
         this.chosen.set(new Set(question.options.filter((option) => option.isCorrect).map((option) => option.id)));
         this.answers.set(question.acceptedAnswers ?? []);
       },
-      error: (error: unknown) => this.loadError.set(extractErrorMessage(error, 'The question could not be loaded. Please try again.')),
+      error: (error: unknown) => this.loadError.set(extractErrorMessage(error, this.i18n.t('qb.key.loadError'))),
     });
   }
 
@@ -150,7 +154,7 @@ export class AnswerKeyCorrection implements OnInit {
       },
       error: (error: unknown) => {
         this.busy.set(false);
-        this.error.set(extractErrorMessage(error));
+        this.error.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }

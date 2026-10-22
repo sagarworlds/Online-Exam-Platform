@@ -1,3 +1,5 @@
+import type { MessageKey } from '../i18n/messages.en';
+
 /** One answer option of a question, as the authoring side sees it. */
 export interface QuestionOptionDto {
   id: string;
@@ -20,21 +22,21 @@ export interface QuestionUsageDto {
 /** How hard an author judges a question to be; a label for finding questions, never part of a score. */
 export type QuestionDifficulty = 'easy' | 'medium' | 'hard';
 
-/** The difficulties in the order a picker lists them, with the words an author reads. */
-export const QUESTION_DIFFICULTIES: readonly { value: QuestionDifficulty; label: string }[] = [
-  { value: 'easy', label: 'Easy' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'hard', label: 'Hard' },
+/** The difficulties in the order a picker lists them: the English words, and the message that says them in the language in use. */
+export const QUESTION_DIFFICULTIES: readonly { value: QuestionDifficulty; label: string; key: MessageKey }[] = [
+  { value: 'easy', label: 'Easy', key: 'question.difficulty.easy' },
+  { value: 'medium', label: 'Medium', key: 'question.difficulty.medium' },
+  { value: 'hard', label: 'Hard', key: 'question.difficulty.hard' },
 ];
 
 /** A language a question can be written in (FR-10). */
 export type QuestionLanguage = 'en' | 'hi' | 'mr';
 
-/** The languages in the order a picker lists them, with the words an author reads. */
-export const QUESTION_LANGUAGES: readonly { code: QuestionLanguage; label: string }[] = [
-  { code: 'en', label: 'English' },
-  { code: 'hi', label: 'Hindi' },
-  { code: 'mr', label: 'Marathi' },
+/** The languages in the order a picker lists them: the English words, and the message that says them in the language in use. */
+export const QUESTION_LANGUAGES: readonly { code: QuestionLanguage; label: string; key: MessageKey }[] = [
+  { code: 'en', label: 'English', key: 'question.language.en' },
+  { code: 'hi', label: 'Hindi', key: 'question.language.hi' },
+  { code: 'mr', label: 'Marathi', key: 'question.language.mr' },
 ];
 
 /** One question in a group of translations (FR-10). */
@@ -265,9 +267,9 @@ export const QUESTION_LIMITS = {
 export type QuestionType = 'choice' | 'text';
 
 /** The question types in the order the type picker lists them, with the words an author reads. Multiple choice is the default. */
-export const QUESTION_TYPES: readonly { value: QuestionType; label: string }[] = [
-  { value: 'choice', label: 'Multiple choice' },
-  { value: 'text', label: 'Text answer' },
+export const QUESTION_TYPES: readonly { value: QuestionType; label: string; key: MessageKey }[] = [
+  { value: 'choice', label: 'Multiple choice', key: 'question.type.choice' },
+  { value: 'text', label: 'Text answer', key: 'question.type.text' },
 ];
 
 /**

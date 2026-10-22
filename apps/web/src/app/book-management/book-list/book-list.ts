@@ -1,6 +1,8 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { BookApiService } from '../book-api.service';
@@ -24,10 +26,11 @@ interface BookGroup {
  */
 @Component({
   selector: 'app-book-list',
-  imports: [ReactiveFormsModule, RouterLink, ClassManager, RefreshButton],
+  imports: [ReactiveFormsModule, RouterLink, ClassManager, RefreshButton, TranslatePipe],
   templateUrl: './book-list.html',
 })
 export class BookList {
+  protected readonly i18n = inject(I18nService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly api = inject(BookApiService);
   private readonly classApi = inject(ClassApiService);
@@ -125,7 +128,7 @@ export class BookList {
       },
       error: (error: unknown) => {
         this.saving.set(false);
-        this.errorMessage.set(extractErrorMessage(error));
+        this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }
@@ -139,7 +142,7 @@ export class BookList {
           this.form.controls.classId.setValue('');
         }
       },
-      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
+      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong'))),
     });
   }
 
@@ -166,7 +169,7 @@ export class BookList {
 
         this.loading.set(false);
         this.refreshing.set(false);
-        this.errorMessage.set(extractErrorMessage(error));
+        this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }

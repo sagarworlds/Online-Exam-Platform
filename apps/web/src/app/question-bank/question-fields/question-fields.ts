@@ -1,5 +1,6 @@
 import { Component, inject, input, OnInit, signal } from '@angular/core';
 import { ControlContainer, FormBuilder, FormGroupDirective, ReactiveFormsModule } from '@angular/forms';
+import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { Icon } from '../../shared/icon/icon';
 import { RichTextEditor } from '../../shared/rich-text/rich-text-editor';
@@ -25,6 +26,7 @@ import { QUESTION_DIFFICULTIES, QUESTION_LANGUAGES, QUESTION_LIMITS, QUESTION_TY
 export class QuestionFields implements OnInit {
   private readonly container = inject(ControlContainer);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly i18n = inject(I18nService);
 
   /**
    * Candidates have answered the question, so which option is correct and the list of options are locked: stored scores
@@ -76,14 +78,14 @@ export class QuestionFields implements OnInit {
     const parts: string[] = [];
     const level = this.difficulties.find((item) => item.value === difficulty);
     if (level) {
-      parts.push(level.label);
+      parts.push(this.i18n.t(level.key));
     }
     const topicList = parseTopics(topics);
     if (topicList.length > 0) {
       parts.push(topicList.join(', '));
     }
     if (explanation.trim() !== '') {
-      parts.push('explanation');
+      parts.push(this.i18n.t('qb.field.explanationWord'));
     }
     return parts.join(' · ');
   }

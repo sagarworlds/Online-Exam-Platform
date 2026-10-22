@@ -1,12 +1,15 @@
-import { DatePipe } from '@angular/common';
 import { Component, inject, input, output, signal } from '@angular/core';
 import { InviteApiService } from '../../invite-management/invite-api.service';
 import { InviteHandover } from '../../invite-management/invite-handover/invite-handover';
 import { InviteCodeDto, InviteDto, InviteStatus } from '../../invite-management/invite.models';
+import { I18nService } from '../../i18n/i18n.service';
+import { MessageKey } from '../../i18n/messages.en';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { StatusBadge, StatusTone } from '../../shared/status-badge/status-badge';
 import { inviteStatusTone } from '../invite-status';
 import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /**
  * One student's invitations, newest first, each with its exam and status. A pending one can be revoked, and staff can copy a code for it
@@ -14,11 +17,12 @@ import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
  */
 @Component({
   selector: 'app-student-invitations',
-  imports: [DatePipe, InviteHandover, StatusBadge],
+  imports: [LocaleDatePipe, InviteHandover, StatusBadge, TranslatePipe],
   templateUrl: './student-invitations.html',
   styleUrl: './student-invitations.css',
 })
 export class StudentInvitations {
+  private readonly i18n = inject(I18nService);
   private readonly inviteApi = inject(InviteApiService);
   private readonly confirm = inject(ConfirmService);
 
@@ -36,13 +40,17 @@ export class StudentInvitations {
 
   protected readonly errorMessage = signal<string | null>(null);
 
+  protected statusLabel(status: InviteStatus): string {
+    return this.i18n.t(`invites.status.${status}` as MessageKey);
+  }
+
   protected statusTone(status: InviteStatus): StatusTone {
     return inviteStatusTone(status);
   }
 
   /** The exam an invitation is to; the API leaves the name out for an exam it can no longer find. */
   protected examLabel(invite: InviteDto): string {
-    return invite.examName ?? 'Exam not found';
+    return invite.examName ?? this.i18n.t('students.invite.examGone');
   }
 
   protected copyCode(invite: InviteDto): void {
@@ -61,7 +69,7 @@ export class StudentInvitations {
       },
       error: (error: unknown) => {
         this.generatingFor.set(null);
-        this.errorMessage.set(extractErrorMessage(error));
+        this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
   }
@@ -77,9 +85,9 @@ export class StudentInvitations {
   /** Asks first: a revoked invitation cannot be brought back, only sent again, and its code stops working at once. */
   protected async revoke(invite: InviteDto): Promise<void> {
     const confirmed = await this.confirm.ask({
-      title: 'Revoke this invitation?',
-      message: `The invitation to ${this.examLabel(invite)} stops working, and its code can no longer be used. It cannot be brought back; a new invitation can be sent.`,
-      confirmLabel: 'Revoke invitation',
+      title: this.i18n.t('students.invite.revokeTitle'),
+      message: this.i18n.t('students.invite.revokeMessage', { exam: this.examLabel(invite) }),
+      confirmLabel: this.i18n.t('students.invite.revokeConfirm'),
       danger: true,
     });
     if (!confirmed) {
@@ -89,7 +97,7 @@ export class StudentInvitations {
     this.errorMessage.set(null);
     this.inviteApi.revokeInvite(invite.id).subscribe({
       next: () => this.revoked.emit(),
-      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error)),
+      error: (error: unknown) => this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong'))),
     });
   }
 }
