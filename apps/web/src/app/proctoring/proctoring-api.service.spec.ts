@@ -28,6 +28,15 @@ describe('ProctoringApiService', () => {
     req.flush({ examId: 'e1', examName: 'Maths', filter: 'open', page: 2, pageSize: 25, total: 0, items: [] });
   });
 
+  it('asks for the open flags of every exam, with a limit', () => {
+    api.listOpenRiskFlags(3).subscribe();
+
+    const req = httpMock.expectOne((r) => r.url === `${base}/risk-flags/open`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('limit')).toBe('3');
+    req.flush({ total: 0, items: [] });
+  });
+
   it('asks the server to score an exam', () => {
     api.runRiskScan('e1').subscribe();
 

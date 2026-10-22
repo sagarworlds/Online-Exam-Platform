@@ -20,7 +20,7 @@ export const Permission = {
 } as const;
 
 /** A count of things waiting for staff, shown as a tile on the admin home page and, for a queue, as a badge on its sidebar entry. */
-export type AttentionKey = 'attemptRequests' | 'disputes' | 'issues' | 'liveExams';
+export type AttentionKey = 'attemptRequests' | 'disputes' | 'issues' | 'riskFlags' | 'liveExams';
 
 /**
  * One area of the admin section: where it lives and which permissions open it. The name and the description are message keys, so

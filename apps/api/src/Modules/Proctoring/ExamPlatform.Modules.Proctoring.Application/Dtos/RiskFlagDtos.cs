@@ -72,3 +72,18 @@ public sealed record RiskSignalDto(
 /// <param name="KeptDecided">How many attempts were left as they were, because a reviewer had already decided on them.</param>
 /// <param name="ExcludedUnder18">How many finished attempts were not scored because the candidate was under 18. Zero when minors may be scanned.</param>
 public sealed record RiskScanResultDto(Guid ExamId, int Scored, int Flagged, int KeptDecided, int ExcludedUnder18);
+
+/// <summary>What waits for review across every exam: the number of open flags and the ones with the highest score.</summary>
+/// <param name="Total">How many flags are open across all exams.</param>
+/// <param name="Items">The open flags with the highest score, up to the number asked for.</param>
+public sealed record OpenRiskFlagsDto(int Total, IReadOnlyList<OpenRiskFlagDto> Items);
+
+/// <summary>One open flag in the cross-exam summary.</summary>
+/// <param name="Id">The assessment's id.</param>
+/// <param name="ExamId">The exam it belongs to, whose queue decides on it.</param>
+/// <param name="ExamName">The exam's name; null when the exam can no longer be read.</param>
+/// <param name="AttemptNumber">Which attempt it was for the candidate.</param>
+/// <param name="Score">The points scored.</param>
+/// <param name="MaxScore">The most points available.</param>
+/// <param name="ComputedAtUtc">When the score was last worked out.</param>
+public sealed record OpenRiskFlagDto(Guid Id, Guid ExamId, string? ExamName, int AttemptNumber, int Score, int MaxScore, DateTime ComputedAtUtc);

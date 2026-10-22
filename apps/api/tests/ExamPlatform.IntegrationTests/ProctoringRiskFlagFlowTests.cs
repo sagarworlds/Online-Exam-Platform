@@ -103,6 +103,40 @@ public sealed class ProctoringRiskFlagFlowTests(ApiFactory factory) : IClassFixt
     }
 
     [Fact]
+    public async Task TheCrossExamSummary_CountsOpenFlagsAndListsTheHighestWithTheirExam()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var examId = await PublishedExamAsync(admin);
+        var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _c = candidate;
+        await SitAndSubmitAsync(candidate, examId, departures: 3);
+        (await admin.PostAsync($"/v1/proctoring/exams/{examId}/risk-scan", content: null)).EnsureSuccessStatusCode();
+
+        var summary = await admin.GetFromJsonAsync<JsonElement>("/v1/proctoring/risk-flags/open?limit=1");
+
+        Assert.True(summary.GetProperty("total").GetInt32() >= 1);
+        // Asked for one, given one: the highest score of every open flag, whichever exam it is at.
+        var items = summary.GetProperty("items");
+        Assert.Equal(1, items.GetArrayLength());
+        var top = items[0];
+        Assert.True(top.GetProperty("score").GetInt32() >= 30);
+        Assert.NotEqual(Guid.Empty, top.GetProperty("examId").GetGuid());
+        Assert.False(string.IsNullOrEmpty(top.GetProperty("examName").GetString()));
+    }
+
+    [Fact]
+    public async Task TheCrossExamSummary_HoldsALimitThatIsTooBigOrTooSmall()
+    {
+        using var admin = await factory.AdminClientAsync();
+
+        var big = await admin.GetFromJsonAsync<JsonElement>("/v1/proctoring/risk-flags/open?limit=500");
+        var small = await admin.GetFromJsonAsync<JsonElement>("/v1/proctoring/risk-flags/open?limit=0");
+
+        Assert.True(big.GetProperty("items").GetArrayLength() <= 10);
+        Assert.True(small.GetProperty("items").GetArrayLength() <= 1);
+    }
+
+    [Fact]
     public async Task AScan_LeavesAnAttemptWithNoSignalsUnflagged()
     {
         using var admin = await factory.AdminClientAsync();

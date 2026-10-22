@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { RiskFlagFilterName, RiskFlagQueue, RiskScanResult } from './proctoring.models';
+import { OpenRiskFlags, RiskFlagFilterName, RiskFlagQueue, RiskScanResult } from './proctoring.models';
 
 /** Thin HTTP wrapper over the Proctoring module's staff routes: the risk score and the review of flagged attempts (FR-27). */
 @Injectable({ providedIn: 'root' })
@@ -15,6 +15,11 @@ export class ProctoringApiService {
     return this.http.get<RiskFlagQueue>(`${this.baseUrl}/exams/${examId}/risk-flags`, {
       params: { filter, page, pageSize },
     });
+  }
+
+  /** How many flags are open at every exam, and the few with the highest score, each with its exam's name. For the admin home. */
+  listOpenRiskFlags(limit = 5): Observable<OpenRiskFlags> {
+    return this.http.get<OpenRiskFlags>(`${this.baseUrl}/risk-flags/open`, { params: { limit } });
   }
 
   /** Scores the exam's finished attempts. Only the reviewer asks for this; nothing scores attempts on its own. */

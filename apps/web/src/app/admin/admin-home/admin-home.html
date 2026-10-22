@@ -11,15 +11,46 @@
       </div>
       <ul class="attention-tiles">
         @for (tile of tiles(); track tile.key) {
-          <li>
-            <!-- The link is named with the whole sentence ("Disputes: 3 waiting for an answer"), so the figure and its words are read together. -->
-            <a class="attention-tile" [class.attention-tile--waiting]="tile.waiting" [routerLink]="tile.path" [attr.aria-label]="tile.name">
-              <span class="attention-tile__figure" aria-hidden="true">{{ tile.figure }}</span>
-              <span class="attention-tile__text" aria-hidden="true">
-                <span class="attention-tile__label">{{ tile.label }}</span>
-                <span class="attention-tile__detail">{{ tile.detail }}</span>
-              </span>
-            </a>
+          <li class="attention-item" [class.attention-item--waiting]="tile.waiting">
+            <div class="attention-row">
+              <!-- The link is named with the whole sentence ("Disputes: 3 waiting for an answer"), so the figure and its words are read together. -->
+              <a class="attention-tile" [class.attention-tile--waiting]="tile.waiting" [routerLink]="tile.path" [attr.aria-label]="tile.name">
+                <span class="attention-tile__figure" aria-hidden="true">{{ tile.figure }}</span>
+                <span class="attention-tile__text" aria-hidden="true">
+                  <span class="attention-tile__label">{{ tile.label }}</span>
+                  <span class="attention-tile__detail">{{ tile.detail }}</span>
+                </span>
+              </a>
+              @if (tile.items.length > 0) {
+                <button
+                  type="button"
+                  class="icon-btn attention-toggle"
+                  [attr.aria-expanded]="isOpen(tile.key)"
+                  [attr.aria-controls]="'attention-items-' + tile.key"
+                  [attr.aria-label]="(isOpen(tile.key) ? 'admin.attention.hideItems' : 'admin.attention.showItems') | t: { label: tile.label }"
+                  (click)="toggle(tile.key)"
+                >
+                  <app-icon [name]="isOpen(tile.key) ? 'chevron-up' : 'chevron-down'" />
+                </button>
+              }
+            </div>
+            @if (tile.items.length > 0) {
+              <ul class="attention-items" [id]="'attention-items-' + tile.key" [hidden]="!isOpen(tile.key)">
+                @for (item of tile.items; track item.id) {
+                  <li class="attention-line">
+                    <span class="attention-line__text">
+                      <span class="attention-line__title">{{ item.title }}</span>
+                      @if (item.subtitle) {
+                        <span class="attention-line__subtitle">{{ item.subtitle }}</span>
+                      }
+                    </span>
+                    <a class="btn btn--small" [routerLink]="item.path" [attr.aria-label]="itemName(tile, item)">{{
+                      (tile.action === 'review' ? 'admin.attention.review' : 'admin.attention.open') | t
+                    }}</a>
+                  </li>
+                }
+              </ul>
+            }
           </li>
         }
       </ul>

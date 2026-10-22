@@ -34,6 +34,14 @@ public static class ProctoringEndpoints
             .WithName("ListRiskFlags")
             .WithDescription("List one page of an exam's review queue, highest score first, with the signals behind each score");
 
+        proctoring.MapGet("/risk-flags/open", ListOpenRiskFlags)
+            .RequireAuthorization(ProctoringPermissions.Review)
+            .Produces<OpenRiskFlagsDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("ListOpenRiskFlags")
+            .WithDescription("Count the open risk flags of every exam and list the few with the highest score, each with its exam's name");
+
         proctoring.MapPost("/exams/{examId:guid}/risk-scan", RunRiskScan)
             .RequireAuthorization(ProctoringPermissions.Review)
             .Produces<RiskScanResultDto>(StatusCodes.Status200OK)
@@ -82,6 +90,9 @@ public static class ProctoringEndpoints
         var result = await handler.HandleAsync(examId, parsedFilter, PageRequest.Create(page, pageSize), ct);
         return Results.Ok(result);
     }
+
+    private static async Task<IResult> ListOpenRiskFlags(int? limit, ListOpenRiskFlagsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(limit, ct));
 
     private static async Task<IResult> RunRiskScan(
         Guid examId, RunRiskScanHandler handler, CancellationToken ct) =>

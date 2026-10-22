@@ -50,6 +50,21 @@ public sealed class RiskAssessmentRepository(ProctoringDbContext context) : IRis
     }
 
     /// <inheritdoc />
+    public async Task<RiskFlagPage> ListOpenFlagsAsync(int limit, CancellationToken cancellationToken)
+    {
+        var open = context.RiskAssessments.AsNoTracking().Where(a => a.Flagged && a.Status == RiskFlagStatus.Open);
+        var total = await open.CountAsync(cancellationToken);
+        // The same order as an exam's own queue, with the assessment's id last so equal rows keep a fixed order.
+        var items = await open
+            .OrderByDescending(a => a.Score)
+            .ThenByDescending(a => a.ComputedAtUtc)
+            .ThenBy(a => a.Id)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+        return new RiskFlagPage(items, total);
+    }
+
+    /// <inheritdoc />
     public Task<bool> HasOpenFlagAsync(Guid attemptId, CancellationToken cancellationToken) =>
         context.RiskAssessments.AsNoTracking()
             .AnyAsync(a => a.AttemptId == attemptId && a.Flagged && a.Status == RiskFlagStatus.Open, cancellationToken);
