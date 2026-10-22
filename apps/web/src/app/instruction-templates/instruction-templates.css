@@ -31,3 +31,7 @@
     flex: 1 1 100%;
   }
 }
+
+.template app-row-actions {
+  margin-top: 0.75rem;
+}

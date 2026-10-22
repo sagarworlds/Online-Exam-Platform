@@ -175,4 +175,24 @@ describe('InstructionTemplates', () => {
     expect(root.textContent).not.toContain('Board rules');
     expect(root.querySelector('.success-message')?.textContent).toContain('Template deleted.');
   });
+
+  describe('the actions of a template', () => {
+    const icons = () => Array.from(root.querySelectorAll<HTMLButtonElement>('.row-actions--icons button'));
+
+    it('are icons named for the template they act on, and delete is marked as the one that cannot be undone', () => {
+      open([template('t1', 'Board rules')]);
+
+      expect(icons().map((b) => b.getAttribute('aria-label'))).toEqual(['Edit Board rules', 'Delete Board rules']);
+      expect(icons()[1].classList.contains('icon-btn--danger')).toBe(true);
+    });
+
+    it('wait while a form is open, and say why, instead of vanishing', () => {
+      open([template('t1', 'Board rules')]);
+      buttonWithText('New template')?.click();
+      fixture.detectChanges();
+
+      expect(icons().map((b) => b.getAttribute('aria-disabled'))).toEqual(['true', 'true']);
+      expect(root.querySelector('.row-actions__reason')?.textContent).toContain('Finish or cancel the open form first.');
+    });
+  });
 });

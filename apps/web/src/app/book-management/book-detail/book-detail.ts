@@ -6,6 +6,7 @@ import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { RefreshButton } from '../../shared/refresh-button/refresh-button';
+import { RowAction, RowActions } from '../../shared/row-actions/row-actions';
 import { BookApiService } from '../book-api.service';
 import { compareNames } from '../book-class';
 import { BOOK_LIMITS, BookDto, ChapterDto } from '../book.models';
@@ -25,7 +26,7 @@ interface ClassOption {
  */
 @Component({
   selector: 'app-book-detail',
-  imports: [ReactiveFormsModule, RouterLink, RefreshButton, TranslatePipe],
+  imports: [ReactiveFormsModule, RouterLink, RefreshButton, RowActions, TranslatePipe],
   templateUrl: './book-detail.html',
 })
 export class BookDetail {
@@ -146,6 +147,30 @@ export class BookDetail {
     this.change(this.api.addChapter(book.id, this.chapterForm.getRawValue().title), () => this.chapterForm.reset({ title: '' }));
   }
 
+  /** Rename and archive or restore, for one chapter; they wait while another change is on its way. Rename is not offered while its own form is open. */
+  protected chapterActions(chapter: ChapterDto): readonly RowAction[] {
+    const busy = this.busy();
+    const reason = this.i18n.t('rowActions.busy');
+    const actions: RowAction[] = [];
+    if (this.renamingId() !== chapter.id) {
+      actions.push({ id: 'rename', label: this.i18n.t('books.rename'), icon: 'edit', disabled: busy, disabledReason: reason });
+    }
+    actions.push(
+      chapter.isArchived
+        ? { id: 'restore', label: this.i18n.t('books.restore'), icon: 'restore', disabled: busy, disabledReason: reason }
+        : { id: 'archive', label: this.i18n.t('books.archive'), icon: 'archive', disabled: busy, disabledReason: reason },
+    );
+    return actions;
+  }
+
+  protected onChapterAction(chapter: ChapterDto, id: string): void {
+    if (id === 'rename') {
+      this.startRename(chapter);
+    } else {
+      this.setChapterArchived(chapter, id === 'archive');
+    }
+  }
+
   protected startRename(chapter: ChapterDto): void {
     this.renamingId.set(chapter.id);
     this.renameForm.reset({ title: chapter.title });
@@ -180,6 +205,10 @@ export class BookDetail {
 
   // Runs one change and shows the book the API answers with; a refusal is shown and the page stays as it was.
   private change(call: Observable<BookDto>, afterSuccess?: () => void): void {
+    if (this.busy()) {
+      return;
+    }
+
     this.reading?.unsubscribe();
     this.refreshing.set(false);
     this.busy.set(true);

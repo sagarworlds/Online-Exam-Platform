@@ -13,6 +13,7 @@ import { syncQueryParam } from '../../shared/list-shell/query-state';
 import { I18nService } from '../../i18n/i18n.service';
 import { MessageKey } from '../../i18n/messages.en';
 import { RefreshButton } from '../../shared/refresh-button/refresh-button';
+import { RowAction, RowActions } from '../../shared/row-actions/row-actions';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { AnswerVerdict } from '../../candidate/candidate.models';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
@@ -64,7 +65,7 @@ const ACTIONS: Record<ActionKind, { label: string; hint: string; button: string;
  */
 @Component({
   selector: 'app-exam-attempts',
-  imports: [RouterLink, LocaleDatePipe, MathDirective, CandidateAccommodation, ListToolbar, LoadMore, RefreshButton, TranslatePipe],
+  imports: [RouterLink, LocaleDatePipe, MathDirective, CandidateAccommodation, ListToolbar, LoadMore, RefreshButton, RowActions, TranslatePipe],
   templateUrl: './exam-attempts.html',
 })
 export class ExamAttempts {
@@ -97,6 +98,41 @@ export class ExamAttempts {
       ? ''
       : this.i18n.t('list.showing', { shown: this.shownCandidates().length, total: this.matchingCandidates().length });
   });
+
+  /**
+   * What the organiser can do to one attempt: warn, pause or resume, and end it while it runs; invalidate once it is over; rescore a
+   * submitted one. All wait while another action is on its way. Showing the paper and the sign-in details are toggles, and stay buttons.
+   */
+  protected attemptActions(attempt: AttemptSummaryDto): readonly RowAction[] {
+    const busy = this.busy();
+    const reason = this.i18n.t('rowActions.busy');
+    const actions: RowAction[] = [];
+    if (attempt.status === 'InProgress') {
+      actions.push({ id: 'warn', label: 'Warn', icon: 'warning', disabled: busy, disabledReason: reason });
+      actions.push(
+        attempt.paused
+          ? { id: 'resume', label: 'Resume', icon: 'play', disabled: busy, disabledReason: reason }
+          : { id: 'pause', label: 'Pause', icon: 'pause', disabled: busy, disabledReason: reason },
+      );
+      actions.push({ id: 'terminate', label: 'End attempt', icon: 'stop', danger: true, disabled: busy, disabledReason: reason });
+    } else if (!attempt.invalidated) {
+      actions.push({ id: 'invalidate', label: 'Invalidate result', icon: 'ban', danger: true, disabled: busy, disabledReason: reason });
+    }
+    if (attempt.status === 'Submitted') {
+      actions.push({ id: 'rescore', label: 'Rescore', icon: 'refresh', disabled: busy, disabledReason: reason });
+    }
+    return actions;
+  }
+
+  protected onAttemptAction(candidate: ExamCandidateDto, attempt: AttemptSummaryDto, id: string): void {
+    if (id === 'resume') {
+      this.resume(candidate, attempt);
+    } else if (id === 'pause') {
+      this.pause(candidate, attempt);
+    } else {
+      this.beginAction(attempt.id, id as ActionKind);
+    }
+  }
 
   protected stateText(state: CandidateState): string {
     return this.i18n.t(`attempts.state.${state}` as MessageKey);
@@ -295,6 +331,10 @@ export class ExamAttempts {
   }
 
   protected beginAction(attemptId: string, kind: ActionKind): void {
+    if (this.busy()) {
+      return;
+    }
+
     this.notice.set(null);
     this.errorMessage.set(null);
     this.actionText.set('');

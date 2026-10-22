@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
+import { RowAction, RowActions } from '../../shared/row-actions/row-actions';
 import { compareNames } from '../book-class';
 import { ClassApiService } from '../class-api.service';
 import { CLASS_LIMITS, ClassDto } from '../class.models';
@@ -15,7 +16,7 @@ import { CLASS_LIMITS, ClassDto } from '../class.models';
  */
 @Component({
   selector: 'app-class-manager',
-  imports: [ReactiveFormsModule, TranslatePipe],
+  imports: [ReactiveFormsModule, RowActions, TranslatePipe],
   templateUrl: './class-manager.html',
 })
 export class ClassManager {
@@ -46,6 +47,30 @@ export class ClassManager {
     }
 
     this.run(this.api.create({ name: this.addForm.getRawValue().name.trim() }), () => this.addForm.reset({ name: '' }));
+  }
+
+  /** Rename and archive or restore, for one class; they wait while another change is on its way. Rename is not offered while its own form is open. */
+  protected actionsFor(item: ClassDto): readonly RowAction[] {
+    const busy = this.busy();
+    const reason = this.i18n.t('rowActions.busy');
+    const actions: RowAction[] = [];
+    if (this.renamingId() !== item.id) {
+      actions.push({ id: 'rename', label: this.i18n.t('books.rename'), icon: 'edit', disabled: busy, disabledReason: reason });
+    }
+    actions.push(
+      item.isArchived
+        ? { id: 'restore', label: this.i18n.t('books.restore'), icon: 'restore', disabled: busy, disabledReason: reason }
+        : { id: 'archive', label: this.i18n.t('books.archive'), icon: 'archive', disabled: busy, disabledReason: reason },
+    );
+    return actions;
+  }
+
+  protected onAction(item: ClassDto, id: string): void {
+    if (id === 'rename') {
+      this.startRename(item);
+    } else {
+      this.setArchived(item, id === 'archive' ? true : false);
+    }
   }
 
   protected startRename(item: ClassDto): void {
