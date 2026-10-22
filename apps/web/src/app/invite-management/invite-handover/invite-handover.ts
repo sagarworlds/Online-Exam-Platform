@@ -1,5 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { ClipboardService } from '../../shared/clipboard/clipboard.service';
 
 /** What the last copy did: nothing yet, put the code or the link on the clipboard, or was refused by the browser. */
@@ -12,11 +14,12 @@ type CopyState = 'none' | 'code' | 'link' | 'refused';
  */
 @Component({
   selector: 'app-invite-handover',
-  imports: [DatePipe],
+  imports: [DatePipe, TranslatePipe],
   templateUrl: './invite-handover.html',
 })
 export class InviteHandover {
   private readonly clipboard = inject(ClipboardService);
+  private readonly i18n = inject(I18nService);
 
   /** The code the invited person enters on the invitation page. */
   readonly code = input.required<string>();
@@ -43,11 +46,11 @@ export class InviteHandover {
   protected readonly message = computed(() => {
     switch (this.copied()) {
       case 'code':
-        return 'Invite code copied to the clipboard.';
+        return this.i18n.t('invites.handover.codeCopied');
       case 'link':
-        return 'Link copied to the clipboard.';
+        return this.i18n.t('invites.handover.linkCopied');
       case 'refused':
-        return 'The browser would not let this page copy. Select the text above and copy it yourself.';
+        return this.i18n.t('invites.handover.refused');
       default:
         return '';
     }

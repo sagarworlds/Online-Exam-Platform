@@ -3,6 +3,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ExamApiService } from '../../exam-authoring/exam-api.service';
 import { ExamDto } from '../../exam-authoring/exam.models';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { InviteApiService } from '../invite-api.service';
 import { InviteHandover } from '../invite-handover/invite-handover';
@@ -15,7 +16,7 @@ import { InviteCodeDto, InviteDto } from '../invite.models';
  */
 @Component({
   selector: 'app-invite-create',
-  imports: [ReactiveFormsModule, RouterLink, InviteHandover],
+  imports: [ReactiveFormsModule, RouterLink, InviteHandover, TranslatePipe],
   templateUrl: './invite-create.html',
 })
 export class InviteCreate {
