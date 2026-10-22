@@ -77,7 +77,7 @@ public sealed class AttemptReviewBuilder(IQuestionBank questionBank, Clock clock
         var question = questions.GetValueOrDefault(questionId) ?? throw new ExamContentUnavailableError();
         var answer = answers.GetValueOrDefault(questionId);
         var chosenIds = answer?.SelectedOptionIds ?? [];
-        var mark = AttemptScorer.Mark(exam, question, chosenIds, answer?.AnswerText);
+        var mark = AttemptScorer.Mark(exam, question, chosenIds, answer?.AnswerText, answer?.TextVerdict);
 
         return new ReviewQuestionDto(
             question.Id,

@@ -72,7 +72,7 @@ public sealed class AttemptSignalSource(IAttemptRepository attempts, IExamCatalo
         {
             var question = questions.GetValueOrDefault(answer.QuestionId) ?? throw new ExamContentUnavailableError();
             // Partial credit is not wrong: a candidate who got part of a multiple-answer question right is not sharing a mistake.
-            var mark = AttemptScorer.Mark(exam, question, answer.SelectedOptionIds, answer.AnswerText);
+            var mark = AttemptScorer.Mark(exam, question, answer.SelectedOptionIds, answer.AnswerText, answer.TextVerdict);
             if (mark.Verdict == AnswerVerdict.Wrong)
             {
                 wrong.Add(new WrongAnswer(answer.QuestionId, ChoiceKeyOf(answer)));

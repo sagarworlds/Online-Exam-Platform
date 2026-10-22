@@ -105,6 +105,11 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             b.Ignore(a => a.IsInvalidated);
             b.Ignore(a => a.IsTerminated);
 
+            // Why the score will be revised when typed answers have been checked again after an answer-key correction; null otherwise.
+            b.Property(a => a.PendingRevisionReason).HasMaxLength(Attempt.MaxRevisionReasonLength);
+            b.Ignore(a => a.IsAwaitingEvaluation);
+            b.Ignore(a => a.AnswersAwaitingEvaluation);
+
             b.HasMany(a => a.Revisions).WithOne().HasForeignKey(x => x.AttemptId).OnDelete(DeleteBehavior.Cascade);
             b.Navigation(a => a.Revisions).HasField("_revisions").UsePropertyAccessMode(PropertyAccessMode.Field);
         });
@@ -131,6 +136,16 @@ public sealed class ExamRuntimeDbContext(DbContextOptions<ExamRuntimeDbContext> 
             b.Property(x => x.AnswerText).HasMaxLength(ExamPlatform.SharedKernel.Domain.TypedAnswer.MaxLength);
             // The first chosen option, derived for readers that only know single answers.
             b.Ignore(x => x.SelectedOptionId);
+
+            // The AI evaluator's verdict on a typed answer, with what is needed to trace it and to ask again after a failure. A verdict is stored by name.
+            b.Property(x => x.TextVerdict).HasConversion<string>().HasMaxLength(10);
+            b.Property(x => x.EvaluationReason).HasMaxLength(AttemptAnswer.MaxEvaluationReasonLength);
+            b.Property(x => x.EvaluationModel).HasMaxLength(100);
+            b.Property(x => x.EvaluationLastError).HasMaxLength(AttemptAnswer.MaxEvaluationErrorLength);
+            b.Ignore(x => x.IsAwaitingEvaluation);
+            // The worker asks "which answers are waiting for a verdict, oldest first?" every few seconds. Almost no answer is waiting at any time,
+            // so the index holds only those, and costs next to nothing to keep.
+            b.HasIndex(x => x.EvaluationRequestedAtUtc).HasFilter("\"EvaluationRequestedAtUtc\" IS NOT NULL");
 
             // At most one answer per question: saving again changes the row rather than adding another.
             b.HasIndex(x => new { x.AttemptId, x.QuestionId }).IsUnique();

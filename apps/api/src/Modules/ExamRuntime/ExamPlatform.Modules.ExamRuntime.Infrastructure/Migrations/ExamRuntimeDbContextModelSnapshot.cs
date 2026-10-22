@@ -122,6 +122,10 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
                     b.Property<DateTime?>("PausedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("PendingRevisionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("QuestionVersions")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -181,6 +185,33 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
                     b.Property<Guid>("AttemptId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("EvaluatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EvaluationFailures")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EvaluationLastError")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("EvaluationLeaseUntilUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EvaluationModel")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("EvaluationNextAttemptAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EvaluationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("EvaluationRequestedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("QuestionId")
                         .HasColumnType("uuid");
 
@@ -188,7 +219,14 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("uuid[]");
 
+                    b.Property<string>("TextVerdict")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("EvaluationRequestedAtUtc")
+                        .HasFilter("\"EvaluationRequestedAtUtc\" IS NOT NULL");
 
                     b.HasIndex("QuestionId");
 

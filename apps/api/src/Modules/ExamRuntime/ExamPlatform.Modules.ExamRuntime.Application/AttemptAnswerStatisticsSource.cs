@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
+using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.SharedKernel.Domain;
 
@@ -44,11 +45,12 @@ public sealed class AttemptAnswerStatisticsSource(IAttemptRepository attempts, I
             // An attempt made before versions were recorded read the question as it was then; the current key is all that is left of it.
             var version = answer.VersionNumber;
 
-            // A typed answer is right when it matches an accepted answer of the version it was given against. It has no option to count.
+            // A typed answer is right when it matches an accepted answer of the version it was given against, or when the AI evaluator judged
+            // it right against that key. It has no option to count.
             if (answer.AnswerText is { } typed)
             {
                 var accepted = version is { } acceptedVersion && acceptedByVersion.TryGetValue(acceptedVersion, out var known) ? known : acceptedNow;
-                if (TypedAnswer.Matches(typed, accepted))
+                if (TypedAnswer.Matches(typed, accepted) || answer.TextVerdict == TypedAnswerVerdict.Correct)
                     correct++;
                 continue;
             }

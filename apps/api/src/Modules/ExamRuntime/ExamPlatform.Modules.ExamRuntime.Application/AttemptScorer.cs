@@ -49,18 +49,24 @@ public static class AttemptScorer
 
     /// <summary>
     /// Marks one question against what the candidate answered: the options they chose, or, for a text question, the answer they typed.
-    /// A typed answer is right when it matches one of the question's accepted answers (<see cref="TypedAnswer.Matches"/>), and there is no
-    /// partial credit for it: it is right or wrong, and a blank one is unanswered.
+    /// A typed answer is right when it matches one of the question's accepted answers (<see cref="TypedAnswer.Matches"/>), or, when it does
+    /// not, when the AI evaluator judged it right (<paramref name="textVerdict"/>). There is no partial credit for it: it is right or wrong,
+    /// and a blank one is unanswered.
     /// </summary>
     /// <param name="exam">The exam, which holds the marking scheme.</param>
     /// <param name="question">The question from the question bank, answer key included.</param>
     /// <param name="chosenOptionIds">The options the candidate chose; empty for a text question or when they chose none.</param>
     /// <param name="answerText">What the candidate typed to a text question; null for one answered by choosing options.</param>
+    /// <param name="textVerdict">
+    /// What the AI evaluator decided about the typed answer, or null when it decided nothing (it was not asked, as when no evaluator is set
+    /// up, or an attempt made before evaluation existed). A typed answer with no verdict is judged by the accepted answers alone.
+    /// </param>
     /// <exception cref="ExamContentUnavailableError">A chosen option is not one of the question's options.</exception>
-    public static QuestionMark Mark(ExamSnapshot exam, QuestionSnapshot question, IReadOnlyCollection<Guid> chosenOptionIds, string? answerText)
+    public static QuestionMark Mark(
+        ExamSnapshot exam, QuestionSnapshot question, IReadOnlyCollection<Guid> chosenOptionIds, string? answerText, TypedAnswerVerdict? textVerdict = null)
     {
         if (question.IsTextAnswer)
-            return MarkTyped(exam, question, answerText);
+            return MarkTyped(exam, question, answerText, textVerdict);
 
         if (chosenOptionIds.Count == 0)
             return new QuestionMark(AnswerVerdict.Unanswered, exam.UnattemptedMarks);
@@ -89,13 +95,17 @@ public static class AttemptScorer
         return new QuestionMark(AnswerVerdict.Wrong, exam.IncorrectMarks);
     }
 
-    /// <summary>A typed answer is right or wrong, never partly right: a blank one is unanswered, and every other is compared with the accepted answers.</summary>
-    private static QuestionMark MarkTyped(ExamSnapshot exam, QuestionSnapshot question, string? answerText)
+    /// <summary>
+    /// A typed answer is right or wrong, never partly right: a blank one is unanswered. One that matches an accepted answer is right, whatever
+    /// the evaluator said, so a correction that adds the candidate's words to the key fixes the mark without asking again. Any other is right
+    /// only if the evaluator judged it right.
+    /// </summary>
+    private static QuestionMark MarkTyped(ExamSnapshot exam, QuestionSnapshot question, string? answerText, TypedAnswerVerdict? textVerdict)
     {
         if (string.IsNullOrWhiteSpace(answerText))
             return new QuestionMark(AnswerVerdict.Unanswered, exam.UnattemptedMarks);
 
-        return TypedAnswer.Matches(answerText, question.AcceptedAnswers ?? [])
+        return TypedAnswer.Matches(answerText, question.AcceptedAnswers ?? []) || textVerdict == TypedAnswerVerdict.Correct
             ? new QuestionMark(AnswerVerdict.Correct, exam.CorrectMarks)
             : new QuestionMark(AnswerVerdict.Wrong, exam.IncorrectMarks);
     }
@@ -124,7 +134,7 @@ public static class AttemptScorer
 
             max += exam.CorrectMarks;
             var answer = byQuestion.GetValueOrDefault(questionId);
-            score += Mark(exam, question, answer?.SelectedOptionIds ?? [], answer?.AnswerText).Marks;
+            score += Mark(exam, question, answer?.SelectedOptionIds ?? [], answer?.AnswerText, answer?.TextVerdict).Marks;
         }
 
         return new AttemptScore(score, max);

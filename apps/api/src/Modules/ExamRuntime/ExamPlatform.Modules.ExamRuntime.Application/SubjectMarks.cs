@@ -39,7 +39,7 @@ public sealed class SubjectMarks(IQuestionBank questionBank, IQuestionSubjects q
 
                 var question = snapshots[attemptId].GetValueOrDefault(questionId) ?? throw new ExamContentUnavailableError();
                 var answer = answers.GetValueOrDefault(questionId);
-                var mark = AttemptScorer.Mark(paper, question, answer?.SelectedOptionIds ?? [], answer?.AnswerText).Marks;
+                var mark = AttemptScorer.Mark(paper, question, answer?.SelectedOptionIds ?? [], answer?.AnswerText, answer?.TextVerdict).Marks;
                 totals[subject] = totals.GetValueOrDefault(subject) + mark;
             }
 
