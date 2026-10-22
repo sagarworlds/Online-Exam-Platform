@@ -12,10 +12,11 @@ import { AdminSidebar } from './shared/admin-sidebar/admin-sidebar';
 import { LanguageSwitcher } from './i18n/language-switcher';
 import { TranslatePipe } from './i18n/translate.pipe';
 import { ApiActivity } from './shared/api-activity/api-activity';
+import { AppUpdateNotice } from './shared/pwa/app-update-notice';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, AdminSidebar, ApiActivity, LanguageSwitcher, TranslatePipe],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, AdminSidebar, ApiActivity, AppUpdateNotice, LanguageSwitcher, TranslatePipe],
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
