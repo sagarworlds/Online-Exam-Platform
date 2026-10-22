@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { ApiActivityService } from './api-activity.service';
 
 /**
@@ -9,12 +11,17 @@ import { ApiActivityService } from './api-activity.service';
 @Component({
   selector: 'app-api-activity',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [TranslatePipe],
   templateUrl: './api-activity.html',
   styleUrl: './api-activity.css',
 })
 export class ApiActivity {
   protected readonly activity = inject(ApiActivityService);
 
-  protected readonly slowMessage =
-    'Still working on it. The server can take a few seconds to wake up, and there is nothing you need to do.';
+  private readonly i18n = inject(I18nService);
+
+  /** What is said after a long wait, in the language in use. */
+  protected slowMessage(): string {
+    return this.i18n.t('activity.slow');
+  }
 }

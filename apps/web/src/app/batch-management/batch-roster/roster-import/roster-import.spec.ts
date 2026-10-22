@@ -2,6 +2,7 @@ import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
+import { I18nService } from '../../../i18n/i18n.service';
 import { BatchApiService } from '../../batch-api.service';
 import { RosterImport } from './roster-import';
 
@@ -50,6 +51,26 @@ describe('RosterImport', () => {
       { timeout: 5000, interval: 5 },
     );
   }
+
+  describe('in another language', () => {
+    afterEach(() => localStorage.clear());
+
+    it('says what the import did, with the rows it left out, in the language the staff member chose', async () => {
+      await TestBed.inject(I18nService).setLanguage('hi');
+      fixture.detectChanges();
+      expect(root.querySelector('h3')?.textContent?.trim()).toBe('सूची आयात करें');
+
+      await choose(new File(['email\r\namy@example.com\r\nnope\r\n'], 'roster.csv'));
+      httpMock.expectOne(isImport).flush({
+        added: [{ row: 2, memberId: 'm1' }],
+        skipped: [{ row: 3, code: 'invalid_email', message: 'The email address is not valid.' }],
+        ignoredColumns: [],
+      });
+      fixture.detectChanges();
+
+      expect(text()).toContain('1 उम्मीदवार जोड़ा गया, 1 पंक्ति छोड़ी गई।');
+    });
+  });
 
   it('sends the text of the file to the batch, and reports who was added and which rows were left out, by number', async () => {
     await choose(new File(['email\r\namy@example.com\r\nnope\r\n'], 'roster.csv'));

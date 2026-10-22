@@ -3,11 +3,11 @@
 <!-- What assistive technology hears. Always present, so changes are announced politely instead of interrupting. -->
 <p class="api-activity__sr-only" role="status" aria-live="polite">
   @if (activity.slow()) {
-    {{ slowMessage }}
+    {{ slowMessage() }}
   } @else if (activity.visible()) {
-    Loading
+    {{ 'activity.loading' | t }}
   }
 </p>
 
 <!-- What everyone else sees after a long wait; the same words as above, so it is hidden from assistive technology. -->
-<p class="api-activity__note" [class.api-activity__note--on]="activity.slow()" aria-hidden="true">{{ slowMessage }}</p>
+<p class="api-activity__note" [class.api-activity__note--on]="activity.slow()" aria-hidden="true">{{ slowMessage() }}</p>
