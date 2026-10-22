@@ -108,7 +108,7 @@ describe('QuestionRow', () => {
     show(question({ status: 'approved', difficulty: 'hard' }));
 
     expect(root.querySelector('.question-row__badges .badge--status-approved')?.textContent?.trim()).toBe('Approved');
-    expect(root.querySelector('.question-row__badges .badge--difficulty-hard')?.textContent?.trim()).toBe('hard');
+    expect(root.querySelector('.question-row__badges .badge--difficulty-hard')?.textContent?.trim()).toBe('Hard');
   });
 
   it('shows the formatting of the text and nothing executable', () => {

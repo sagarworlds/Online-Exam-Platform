@@ -4,7 +4,10 @@ import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter, take } from 'rxjs';
 import { BookApiService } from '../book-management/book-api.service';
 import { ANY_CLASS, bookOptionLabel, booksInClass, classChoicesOf } from '../book-management/book-class';
-import { BookDto } from '../book-management/book.models';
+import { BookDto, ChapterDto } from '../book-management/book.models';
+import { I18nService } from '../i18n/i18n.service';
+import { TranslatePipe } from '../i18n/translate.pipe';
+import { MessageKey } from '../i18n/messages.en';
 import { Icon } from '../shared/icon/icon';
 import { ModalDialog } from '../shared/modal-dialog/modal-dialog';
 import { extractErrorMessage } from '../shared/problem-details';
@@ -28,7 +31,7 @@ import {
   QuestionStatus,
 } from './question.models';
 import { QuestionTransfer } from './question-transfer/question-transfer';
-import { STATUS_LABELS } from './question-review/question-review';
+import { STATUS_KEYS } from './question-review/question-review';
 
 /** The value of the list filter's book select that means "questions not filed under any chapter". */
 export const UNFILED = 'unfiled';
@@ -49,13 +52,14 @@ export type FilterKey = 'class' | 'book' | 'chapter' | 'difficulty' | 'status' |
  */
 @Component({
   selector: 'app-question-bank',
-  imports: [Icon, BookChapterPicker, ContentEncryptionStatusPanel, ModalDialog, QuestionPanel, QuestionRow, QuestionTransfer, RefreshButton, Tooltip],
+  imports: [Icon, BookChapterPicker, ContentEncryptionStatusPanel, ModalDialog, QuestionPanel, QuestionRow, QuestionTransfer, RefreshButton, Tooltip, TranslatePipe],
   templateUrl: './question-bank.html',
   styleUrl: './question-bank.css',
 })
 export class QuestionBank {
   private readonly api = inject(QuestionApiService);
   private readonly bookApi = inject(BookApiService);
+  private readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -131,7 +135,6 @@ export class QuestionBank {
   protected readonly filterClasses = computed(() => classChoicesOf(this.books()));
   /** The books the book filter offers: those of the chosen class, or every book. */
   protected readonly filterBooks = computed(() => booksInClass(this.books(), this.filterClass()));
-  protected readonly optionLabel = bookOptionLabel;
   protected readonly filterChapters = computed(() => this.books().find((book) => book.id === this.filterBook())?.chapters ?? []);
 
   /** The filters that are on, as the words a chip shows. The search is not one: it has its own box, which says what it is. */
@@ -139,37 +142,56 @@ export class QuestionBank {
     const chips: { key: FilterKey; label: string }[] = [];
     const classId = this.filterClass();
     if (classId) {
-      chips.push({ key: 'class', label: `Class: ${this.filterClasses().find((item) => item.id === classId)?.name ?? 'unknown'}` });
+      const name = this.filterClasses().find((item) => item.id === classId)?.name ?? this.i18n.t('qb.chip.unknown');
+      chips.push({ key: 'class', label: this.i18n.t('qb.chip.class', { value: name }) });
     }
 
     const bookId = this.filterBook();
     if (bookId === UNFILED) {
-      chips.push({ key: 'book', label: 'Not filed under a chapter' });
+      chips.push({ key: 'book', label: this.i18n.t('qb.unfiled') });
     } else if (bookId) {
-      chips.push({ key: 'book', label: `Book: ${this.books().find((book) => book.id === bookId)?.name ?? 'unknown'}` });
+      const name = this.books().find((book) => book.id === bookId)?.name ?? this.i18n.t('qb.chip.unknown');
+      chips.push({ key: 'book', label: this.i18n.t('qb.chip.book', { value: name }) });
       const chapter = this.filterChapters().find((item) => item.id === this.filterChapter());
       if (chapter) {
-        chips.push({ key: 'chapter', label: `Chapter: ${chapter.order}. ${chapter.title}` });
+        chips.push({ key: 'chapter', label: this.i18n.t('qb.chip.chapter', { value: `${chapter.order}. ${chapter.title}` }) });
       }
     }
 
     const difficulty = this.difficulties.find((level) => level.value === this.filterDifficulty());
     if (difficulty) {
-      chips.push({ key: 'difficulty', label: `Difficulty: ${difficulty.label}` });
+      chips.push({ key: 'difficulty', label: this.i18n.t('qb.chip.difficulty', { value: this.i18n.t(difficulty.key) }) });
     }
     const status = this.statuses.find((item) => item.value === this.filterStatus());
     if (status) {
-      chips.push({ key: 'status', label: `Status: ${status.label}` });
+      chips.push({ key: 'status', label: this.i18n.t('qb.chip.status', { value: this.i18n.t(status.key) }) });
     }
     const language = this.languages.find((item) => item.code === this.filterLanguage());
     if (language) {
-      chips.push({ key: 'language', label: `Language: ${language.label}` });
+      chips.push({ key: 'language', label: this.i18n.t('qb.chip.language', { value: this.i18n.t(language.key) }) });
     }
     if (this.filterTopic()) {
-      chips.push({ key: 'topic', label: `Topic: ${this.filterTopic()}` });
+      chips.push({ key: 'topic', label: this.i18n.t('qb.chip.topic', { value: this.filterTopic() }) });
     }
     return chips;
   });
+
+  /** What a book is called in the filter's book select: with its class while every class is listed, and marked when archived. */
+  protected bookOption(book: BookDto): string {
+    const label = bookOptionLabel(book, this.filterClass());
+    return book.isArchived ? `${label} ${this.i18n.t('qb.archivedSuffix')}` : label;
+  }
+
+  /** What a chapter is called in the filter's chapter select. */
+  protected chapterOption(chapter: ChapterDto): string {
+    const label = `${chapter.order}. ${chapter.title}`;
+    return chapter.isArchived ? `${label} ${this.i18n.t('qb.archivedSuffix')}` : label;
+  }
+
+  /** What the button that files the ticked questions says. */
+  protected fileSelectedText(): string {
+    return this.i18n.plural('qb.bulk.file', this.selectedIds().size);
+  }
 
   constructor() {
     this.refresh();
@@ -237,7 +259,7 @@ export class QuestionBank {
    * stays open for the next question says so itself.
    */
   protected onCreated(created: QuestionCreated): void {
-    this.notice.set(created.another ? null : 'Question saved.');
+    this.notice.set(created.another ? null : this.i18n.t('qb.saved'));
     this.refresh();
     // The new question may have brought a topic nobody used before.
     this.loadTopics();
@@ -246,7 +268,7 @@ export class QuestionBank {
   /** A question was edited: its line shows it as it is now, without reading the whole list again. */
   protected onEdited(updated: QuestionDto): void {
     this.questions.update((list) => list.map((question) => (question.id === updated.id ? updated : question)));
-    this.notice.set('Question saved.');
+    this.notice.set(this.i18n.t('qb.saved'));
     this.loadTopics();
   }
 
@@ -273,9 +295,9 @@ export class QuestionBank {
     this.refresh();
   }
 
-  protected readonly statuses: readonly { value: QuestionStatus; label: string }[] = (Object.keys(STATUS_LABELS) as QuestionStatus[]).map((value) => ({
+  protected readonly statuses: readonly { value: QuestionStatus; key: MessageKey }[] = (Object.keys(STATUS_KEYS) as QuestionStatus[]).map((value) => ({
     value,
-    label: STATUS_LABELS[value],
+    key: STATUS_KEYS[value],
   }));
 
   protected onFilterStatusChanged(value: string): void {
@@ -426,7 +448,7 @@ export class QuestionBank {
         this.busyId.set(null);
         this.questions.update((list) => list.filter((question) => question.id !== id));
         this.selectedIds.update((current) => new Set([...current].filter((selectedId) => selectedId !== id)));
-        this.notice.set('Question deleted.');
+        this.notice.set(this.i18n.t('qb.deleted'));
       },
       error: (error: unknown) => this.failAction(id, error),
     });
@@ -434,11 +456,7 @@ export class QuestionBank {
 
   private announceFiled(result: FileQuestionsResult): void {
     const where = `${result.bookName} › ${result.chapterTitle}`;
-    this.notice.set(
-      result.moved === 0
-        ? `Nothing to move: those questions are already in ${where}.`
-        : `Filed ${result.moved} ${result.moved === 1 ? 'question' : 'questions'} under ${where}.`,
-    );
+    this.notice.set(result.moved === 0 ? this.i18n.t('qb.filedNothing', { where }) : this.i18n.plural('qb.filed', result.moved, { where }));
   }
 
   private startAction(id: string): void {

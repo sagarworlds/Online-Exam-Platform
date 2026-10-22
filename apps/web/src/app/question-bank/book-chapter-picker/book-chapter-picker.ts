@@ -2,6 +2,7 @@ import { Component, computed, input, model } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ANY_CLASS, ClassCascade, NO_CLASS, bookOptionLabel } from '../../book-management/book-class';
 import { BookDto } from '../../book-management/book.models';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 
 /** A book and a chapter chosen together; both are '' while nothing is chosen. */
 export interface Placement {
@@ -27,7 +28,7 @@ export function isCompletePlacement(placement: Placement): boolean {
  */
 @Component({
   selector: 'app-book-chapter-picker',
-  imports: [RouterLink],
+  imports: [RouterLink, TranslatePipe],
   templateUrl: './book-chapter-picker.html',
 })
 export class BookChapterPicker {
@@ -35,9 +36,9 @@ export class BookChapterPicker {
   readonly books = input.required<readonly BookDto[]>();
   /** Prefix of the selects' ids (`<prefix>-class`, `<prefix>-book`, `<prefix>-chapter`), so several pickers can share a page. */
   readonly idPrefix = input.required<string>();
-  readonly bookLabel = input('Book (optional)');
+  readonly bookLabel = input<string | null>(null);
   /** The text of the choice that means "no book". */
-  readonly noBookLabel = input('Not filed under a book');
+  readonly noBookLabel = input<string | null>(null);
   /** The choice, two-way bound so the page always has the latest. */
   readonly value = model<Placement>(NO_PLACEMENT);
 

@@ -11,7 +11,7 @@
       <select appFieldControl [value]="difficulty()" (change)="onDifficulty($any($event.target).value)">
         <option value="">{{ 'exams.section.any' | t }}</option>
         @for (level of difficulties; track level.value) {
-          <option [value]="level.value">{{ level.label }}</option>
+          <option [value]="level.value">{{ level.key | t }}</option>
         }
       </select>
     </app-form-field>

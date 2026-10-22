@@ -1,13 +1,15 @@
-import { Component, computed, effect, input, output, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { BookDto } from '../../book-management/book.models';
+import { I18nService } from '../../i18n/i18n.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { Icon } from '../../shared/icon/icon';
 import { MathDirective } from '../../shared/rich-text/math.directive';
 import { Tooltip } from '../../shared/tooltip/tooltip';
 import { BookChapterPicker, NO_PLACEMENT, Placement } from '../book-chapter-picker/book-chapter-picker';
-import { QUESTION_LANGUAGES, QuestionDto, QuestionStatistics, QuestionStatus } from '../question.models';
+import { QUESTION_DIFFICULTIES, QUESTION_LANGUAGES, QuestionDto, OptionStatistics, QuestionStatistics, QuestionStatus } from '../question.models';
 import { QuestionTranslations } from '../question-translations/question-translations';
-import { QuestionReview, STATUS_LABELS } from '../question-review/question-review';
+import { QuestionReview, STATUS_KEYS } from '../question-review/question-review';
 
 /**
  * One question in the question bank list (FR-5), as a line: its text (two lines of it), where it is filed, its language, review status and
@@ -19,12 +21,14 @@ import { QuestionReview, STATUS_LABELS } from '../question-review/question-revie
  */
 @Component({
   selector: 'app-question-row',
-  imports: [RouterLink, Icon, BookChapterPicker, MathDirective, QuestionReview, QuestionTranslations, Tooltip],
+  imports: [RouterLink, Icon, BookChapterPicker, MathDirective, QuestionReview, QuestionTranslations, Tooltip, TranslatePipe],
   templateUrl: './question-row.html',
   styleUrl: './question-row.css',
   host: { role: 'listitem' },
 })
 export class QuestionRow {
+  private readonly i18n = inject(I18nService);
+
   readonly question = input.required<QuestionDto>();
   /** Every book, for the "File under" choice; archived ones are not offered there. */
   readonly books = input<readonly BookDto[]>([]);
@@ -52,8 +56,8 @@ export class QuestionRow {
   readonly selectionChanged = output<boolean>();
   /** The question's review status changed (FR-8); carries the new one. */
   readonly statusChanged = output<{ questionId: string; status: QuestionStatus }>();
-  /** The question's review status, as a person reads it. */
-  protected readonly statusLabels = STATUS_LABELS;
+  /** The messages that say the question's review status as a person reads it. */
+  protected readonly statusKeys = STATUS_KEYS;
 
   /** The author chose a chapter to file this question under. */
   readonly fileRequested = output<{ questionId: string; chapterId: string }>();
@@ -86,23 +90,38 @@ export class QuestionRow {
 
   /** An exam holds the question, so the API would refuse to delete it; say so up front instead of after a click. */
   protected readonly inExam = computed(() => this.question().usage.examCount > 0);
-  protected readonly examLabel = computed(() => {
-    const count = this.question().usage.examCount;
-    return `In ${count} ${count === 1 ? 'exam' : 'exams'}`;
-  });
-  protected readonly deleteReason = 'Cannot be deleted while it is in an exam.';
+  protected readonly examLabel = computed(() => this.i18n.plural('qb.row.inExams', this.question().usage.examCount));
 
   /** The question's language as an author reads it, or null for a question from an API that predates languages. */
-  protected readonly languageLabel = computed(() => QUESTION_LANGUAGES.find((language) => language.code === this.question().language)?.label ?? null);
+  protected readonly languageLabel = computed(() => {
+    const entry = QUESTION_LANGUAGES.find((language) => language.code === this.question().language);
+    return entry ? this.i18n.t(entry.key) : null;
+  });
+
+  /** How hard the question is as an author reads it, or null when nobody said. */
+  protected readonly difficultyLabel = computed(() => {
+    const entry = QUESTION_DIFFICULTIES.find((level) => level.value === this.question().difficulty);
+    return entry ? this.i18n.t(entry.key) : null;
+  });
 
   /** What kind of question it is, for the icon in front of its text. */
   protected readonly typeLabel = computed(() => {
     const question = this.question();
     if (question.isTextAnswer) {
-      return 'Text answer';
+      return this.i18n.t('question.type.text');
     }
-    return question.allowsMultiple ? 'Several answers may be correct' : 'One correct answer';
+    return this.i18n.t(question.allowsMultiple ? 'qb.row.typeMultiple' : 'qb.row.typeSingle');
   });
+
+  /** How many times the question was answered and how many of those were fully right. */
+  protected answeredText(stats: QuestionStatistics): string {
+    return this.i18n.plural('qb.row.answeredTimes', stats.answered, { correct: stats.correct, percent: stats.percentCorrect ?? 0 });
+  }
+
+  /** How many times an option was chosen, and that it is the right one if it is. */
+  protected chosenText(option: OptionStatistics): string {
+    return this.i18n.plural(option.isCorrect ? 'qb.row.chosenCorrect' : 'qb.row.chosen', option.timesChosen, { text: option.text });
+  }
 
   protected toggleOpen(): void {
     this.open.update((open) => !open);
