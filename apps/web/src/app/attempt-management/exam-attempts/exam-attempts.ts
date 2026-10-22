@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable, Subscription } from 'rxjs';
@@ -11,6 +10,7 @@ import { MathDirective } from '../../shared/rich-text/math.directive';
 import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { AnswerVerdict } from '../../candidate/candidate.models';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** The longest reason the API accepts. */
 const MAX_REASON_LENGTH = 500;
@@ -53,7 +53,7 @@ const ACTIONS: Record<ActionKind, { label: string; hint: string; button: string;
  */
 @Component({
   selector: 'app-exam-attempts',
-  imports: [RouterLink, DatePipe, MathDirective, CandidateAccommodation, RefreshButton, TranslatePipe],
+  imports: [RouterLink, LocaleDatePipe, MathDirective, CandidateAccommodation, RefreshButton, TranslatePipe],
   templateUrl: './exam-attempts.html',
 })
 export class ExamAttempts {

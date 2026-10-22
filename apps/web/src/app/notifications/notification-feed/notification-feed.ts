@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
@@ -8,6 +7,7 @@ import { extractErrorMessage } from '../../shared/problem-details';
 import { NotificationsApiService } from '../notifications-api.service';
 import { NotificationsStateService } from '../notifications-state.service';
 import { NOTIFICATION_PAGE_SIZE, NotificationDto, NotificationKind } from '../notifications.models';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** The sentence that says what each kind of notice is, with the exam's name in it. */
 const KIND_MESSAGES: Record<NotificationKind, MessageKey> = {
@@ -29,7 +29,7 @@ const KIND_MESSAGES: Record<NotificationKind, MessageKey> = {
  */
 @Component({
   selector: 'app-notification-feed',
-  imports: [DatePipe, RouterLink, TranslatePipe],
+  imports: [LocaleDatePipe, RouterLink, TranslatePipe],
   templateUrl: './notification-feed.html',
   styleUrl: './notification-feed.css',
 })

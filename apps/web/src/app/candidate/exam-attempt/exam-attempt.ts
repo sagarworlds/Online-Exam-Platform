@@ -1,4 +1,4 @@
-import { DOCUMENT, DatePipe, DecimalPipe, NgTemplateOutlet } from '@angular/common';
+import { DOCUMENT, DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, ElementRef, HostListener, Injector, afterNextRender, afterRenderEffect, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -21,6 +21,7 @@ import { PictureLoader } from '../../shared/rich-text/lazy-pictures';
 import { MathDirective } from '../../shared/rich-text/math.directive';
 import { ExamMode } from '../../shared/exam-mode/exam-mode';
 import { ModalDialog } from '../../shared/modal-dialog/modal-dialog';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
@@ -143,7 +144,7 @@ function paletteStatus(answered: boolean, marked: boolean, seen: boolean, t: Tra
  */
 @Component({
   selector: 'app-exam-attempt',
-  imports: [RouterLink, DatePipe, DecimalPipe, NgTemplateOutlet, MathDirective, ModalDialog, TranslatePipe, ReportIssue],
+  imports: [RouterLink, LocaleDatePipe, DecimalPipe, NgTemplateOutlet, MathDirective, ModalDialog, TranslatePipe, ReportIssue],
   templateUrl: './exam-attempt.html',
 })
 export class ExamAttempt {

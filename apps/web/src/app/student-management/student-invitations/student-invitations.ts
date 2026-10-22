@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, inject, input, output, signal } from '@angular/core';
 import { InviteApiService } from '../../invite-management/invite-api.service';
 import { InviteHandover } from '../../invite-management/invite-handover/invite-handover';
@@ -10,6 +9,7 @@ import { extractErrorMessage } from '../../shared/problem-details';
 import { StatusBadge, StatusTone } from '../../shared/status-badge/status-badge';
 import { inviteStatusTone } from '../invite-status';
 import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /**
  * One student's invitations, newest first, each with its exam and status. A pending one can be revoked, and staff can copy a code for it
@@ -17,7 +17,7 @@ import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
  */
 @Component({
   selector: 'app-student-invitations',
-  imports: [DatePipe, InviteHandover, StatusBadge, TranslatePipe],
+  imports: [LocaleDatePipe, InviteHandover, StatusBadge, TranslatePipe],
   templateUrl: './student-invitations.html',
   styleUrl: './student-invitations.css',
 })

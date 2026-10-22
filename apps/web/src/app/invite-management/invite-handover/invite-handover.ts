@@ -1,8 +1,8 @@
-import { DatePipe } from '@angular/common';
 import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { ClipboardService } from '../../shared/clipboard/clipboard.service';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** What the last copy did: nothing yet, put the code or the link on the clipboard, or was refused by the browser. */
 type CopyState = 'none' | 'code' | 'link' | 'refused';
@@ -14,7 +14,7 @@ type CopyState = 'none' | 'code' | 'link' | 'refused';
  */
 @Component({
   selector: 'app-invite-handover',
-  imports: [DatePipe, TranslatePipe],
+  imports: [LocaleDatePipe, TranslatePipe],
   templateUrl: './invite-handover.html',
 })
 export class InviteHandover {

@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import {
   Component,
   ElementRef,
@@ -26,6 +25,7 @@ import {
   IssueReportStatus,
   MAX_ISSUE_RESOLUTION_NOTE,
 } from '../attempt-admin.models';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** A report resolved during this visit, with the note written with it (null when none was). It stands in the report's place until the page is left. */
 interface ResolutionDecision {
@@ -59,7 +59,7 @@ const EMPTY_KEYS: Readonly<Record<IssueReportFilterStatus, MessageKey>> = {
  */
 @Component({
   selector: 'app-issue-reports',
-  imports: [DatePipe, RouterLink, MathDirective, RefreshButton, TranslatePipe],
+  imports: [LocaleDatePipe, RouterLink, MathDirective, RefreshButton, TranslatePipe],
   templateUrl: './issue-reports.html',
   styleUrl: './issue-reports.css',
 })

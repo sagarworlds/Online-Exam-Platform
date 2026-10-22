@@ -1,4 +1,4 @@
-import { DOCUMENT, DatePipe } from '@angular/common';
+import { DOCUMENT } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
@@ -7,6 +7,7 @@ import { extractErrorMessage, extractProblemCode } from '../../shared/problem-de
 import { CandidateApiService } from '../candidate-api.service';
 import { AnswerVerdict, AttemptReviewDto, DisputeStatus, MAX_DISPUTE_REASON, MyDisputeDto, ReviewQuestionDto } from '../candidate.models';
 import { MathDirective } from '../../shared/rich-text/math.directive';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** A question with its place in the exam, so the page can number it across sections. */
 interface NumberedQuestion extends ReviewQuestionDto {
@@ -24,7 +25,7 @@ interface NumberedQuestion extends ReviewQuestionDto {
  */
 @Component({
   selector: 'app-attempt-review',
-  imports: [RouterLink, DatePipe, MathDirective, TranslatePipe],
+  imports: [RouterLink, LocaleDatePipe, MathDirective, TranslatePipe],
   templateUrl: './attempt-review.html',
   styleUrl: './attempt-review.css',
 })

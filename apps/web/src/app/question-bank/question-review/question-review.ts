@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { Permission } from '../../auth/admin-sections';
 import { AuthSessionService } from '../../auth/auth-session.service';
@@ -7,6 +6,7 @@ import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { QuestionApiService } from '../question-api.service';
 import { QuestionStatus, ReviewEntry, ReviewResult, ReviewStep } from '../question.models';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** How each status is written for a person. */
 export const STATUS_LABELS: Record<QuestionStatus, string> = {
@@ -63,7 +63,7 @@ const STEPS_BY_STATUS: Record<QuestionStatus, readonly StepButton[]> = {
  */
 @Component({
   selector: 'app-question-review',
-  imports: [DatePipe, TranslatePipe],
+  imports: [LocaleDatePipe, TranslatePipe],
   templateUrl: './question-review.html',
 })
 export class QuestionReview {

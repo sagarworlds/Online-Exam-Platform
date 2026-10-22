@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import {
   Component,
   ElementRef,
@@ -25,6 +24,7 @@ import {
   RiskScanResult,
   RiskSignal,
 } from '../proctoring.models';
+import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** What a reviewer did to a flag during this visit, so its card can become the line that says so. */
 interface RecordedDecision {
@@ -57,7 +57,7 @@ const FILTERS: readonly { value: RiskFlagFilterName; label: MessageKey }[] = [
  */
 @Component({
   selector: 'app-risk-flag-queue',
-  imports: [DatePipe, RouterLink, RefreshButton, TranslatePipe],
+  imports: [LocaleDatePipe, RouterLink, RefreshButton, TranslatePipe],
   templateUrl: './risk-flag-queue.html',
   styleUrl: './risk-flag-queue.css',
 })
