@@ -544,6 +544,7 @@ export const EN = {
   'admin.attention.badgeAtLimit': '{count} or more waiting',
   'admin.attention.riskFlags': 'Risk flags',
   'admin.attention.riskFlags.detail': 'open for review',
+  'admin.attention.unknownExam': 'Exam no longer available',
   'admin.attention.review': 'Review',
   'admin.attention.open': 'Open',
   'admin.attention.reviewItem': 'Review {item}',

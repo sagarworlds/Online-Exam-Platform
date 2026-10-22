@@ -113,7 +113,10 @@ export class AdminHome implements OnInit {
 
       // Only punctuation joins the parts, which reads the same in every language, so it is not a message of its own.
       const name = state.status === 'ready' && waiting ? `${label}: ${figure} ${detail}` : `${label}: ${detail}`;
-      tiles.push({ key: definition.key, path: definition.path, label, figure, detail, waiting, name, items: latest[definition.key] ?? [], action: definition.action });
+      const items = latest[definition.key] ?? [];
+      // Flags are reviewed at an exam, and the exams page needs a permission a reviewer may not hold: the tile goes to the first exam's flags.
+      const path = definition.key === 'riskFlags' && items.length > 0 ? items[0].path : definition.path;
+      tiles.push({ key: definition.key, path, label, figure, detail, waiting, name, items, action: definition.action });
     }
     return tiles;
   });

@@ -4,6 +4,7 @@ import { AttemptAdminApiService } from '../../attempt-management/attempt-admin-a
 import { AttentionKey, Permission } from '../../auth/admin-sections';
 import { AuthSessionService } from '../../auth/auth-session.service';
 import { ExamApiService } from '../../exam-authoring/exam-api.service';
+import { I18nService } from '../../i18n/i18n.service';
 import { ProctoringApiService } from '../../proctoring/proctoring-api.service';
 
 /** How many rows a queue's list holds at most (the API stops there), so a count that reaches it is "at least". */
@@ -49,6 +50,7 @@ export class AdminAttentionService {
   private readonly attempts = inject(AttemptAdminApiService);
   private readonly exams = inject(ExamApiService);
   private readonly proctoring = inject(ProctoringApiService);
+  private readonly i18n = inject(I18nService);
 
   /** Each count that has been asked for. A key is absent when the user may not read it. */
   readonly counts = signal<Readonly<Partial<Record<AttentionKey, AttentionState>>>>({});
@@ -81,7 +83,7 @@ export class AdminAttentionService {
             atLimit: false,
             items: open.items.map((flag) => ({
               id: flag.id,
-              title: flag.examName ?? '–',
+              title: flag.examName ?? this.i18n.t('admin.attention.unknownExam'),
               subtitle: `${flag.score} / ${flag.maxScore}`,
               path: `/exams/${flag.examId}/risk-flags`,
             })),
@@ -161,8 +163,8 @@ export class AdminAttentionService {
       }
       return { ...known, [key]: { ...state, count: Math.max(0, state.count - count) } };
     });
-    // The lines under the tile drop the ones dealt with, which are the oldest first on a queue's list.
-    this.latest.update((known) => (known[key] === undefined ? known : { ...known, [key]: known[key].slice(count) }));
+    // Which of the lines was dealt with is not known here, so none is kept as if it still waited: the next read brings the real ones.
+    this.latest.update((known) => Object.fromEntries(Object.entries(known).filter(([other]) => other !== key)));
     // Not read again on the next page change as if nothing had happened: whatever else changed meanwhile is worth reading too.
     this.loadedAt = 0;
   }

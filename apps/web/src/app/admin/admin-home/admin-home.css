@@ -94,7 +94,8 @@
 }
 
 /* A tile that has latest items beside it opens to list them. The list is hidden by the attribute, so its display must be named for it. */
-.attention-item {
+/* An open tile is taller than its neighbours; they keep their own height instead of stretching to it. */
+.attention-item:has(.attention-items:not([hidden])) {
   align-self: start;
 }
 

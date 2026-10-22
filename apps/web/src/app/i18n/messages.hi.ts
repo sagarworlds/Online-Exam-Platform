@@ -538,6 +538,7 @@ export const HI: Messages = {
   'admin.attention.badgeAtLimit': '{count} या अधिक प्रतीक्षा में',
   'admin.attention.riskFlags': 'जोखिम फ़्लैग',
   'admin.attention.riskFlags.detail': 'समीक्षा के लिए खुले',
+  'admin.attention.unknownExam': 'परीक्षा अब उपलब्ध नहीं है',
   'admin.attention.review': 'समीक्षा करें',
   'admin.attention.open': 'खोलें',
   'admin.attention.reviewItem': '{item} की समीक्षा करें',

@@ -538,6 +538,7 @@ export const MR: Messages = {
   'admin.attention.badgeAtLimit': '{count} किंवा अधिक प्रतीक्षेत',
   'admin.attention.riskFlags': 'जोखीम फ्लॅग',
   'admin.attention.riskFlags.detail': 'पुनरावलोकनासाठी खुले',
+  'admin.attention.unknownExam': 'परीक्षा आता उपलब्ध नाही',
   'admin.attention.review': 'पुनरावलोकन करा',
   'admin.attention.open': 'उघडा',
   'admin.attention.reviewItem': '{item} चे पुनरावलोकन करा',

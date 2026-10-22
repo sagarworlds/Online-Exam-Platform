@@ -86,7 +86,7 @@ describe('AdminAttentionService', () => {
     read.flush({ total: 250, items: [{ id: 'f1', examId: 'e1', examName: null, attemptNumber: 1, score: 40, maxScore: 100, computedAtUtc: '2026-10-01T05:00:00Z' }] });
 
     expect(service.counts().riskFlags).toEqual({ status: 'ready', count: 250, atLimit: false });
-    expect(service.latest().riskFlags).toEqual([{ id: 'f1', title: '–', subtitle: '40 / 100', path: '/exams/e1/risk-flags' }]);
+    expect(service.latest().riskFlags).toEqual([{ id: 'f1', title: 'Exam no longer available', subtitle: '40 / 100', path: '/exams/e1/risk-flags' }]);
   });
 
   it('drops the lines of what was dealt with, and forgets them all on sign-out', () => {
@@ -95,7 +95,7 @@ describe('AdminAttentionService', () => {
     answerQueues({ requests: ['a', 'b'].map((id) => ({ id, candidateEmail: id, examName: null })) });
 
     service.settled('attemptRequests');
-    expect(service.latest().attemptRequests?.map((item) => item.id)).toEqual(['b']);
+    expect(service.latest().attemptRequests).toBeUndefined();
 
     service.clear();
     expect(service.latest()).toEqual({});
