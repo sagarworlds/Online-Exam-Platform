@@ -94,7 +94,7 @@
                     <span class="badge badge--inactive">{{ attempt.warnings }} {{ attempt.warnings === 1 ? 'warning' : 'warnings' }}</span>
                   }
                 </span>
-                <span class="attempt-row__actions">
+                <div class="attempt-row__actions">
                   <app-row-actions
                     [actions]="attemptActions(attempt)"
                     [rowLabel]="candidate.email + ', attempt ' + attempt.number"
@@ -106,7 +106,7 @@
                   <button type="button" class="btn--small" (click)="togglePaper(attempt.id)" [attr.aria-expanded]="paperFor() === attempt.id">
                     {{ paperFor() === attempt.id ? 'Hide paper' : 'Show paper' }}
                   </button>
-                </span>
+                </div>
               </li>
               @if (clientsFor() === attempt.id) {
                 <li class="attempt-paper">

@@ -205,6 +205,10 @@ export class BookDetail {
 
   // Runs one change and shows the book the API answers with; a refusal is shown and the page stays as it was.
   private change(call: Observable<BookDto>, afterSuccess?: () => void): void {
+    if (this.busy()) {
+      return;
+    }
+
     this.reading?.unsubscribe();
     this.refreshing.set(false);
     this.busy.set(true);

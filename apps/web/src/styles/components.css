@@ -1479,3 +1479,11 @@ label:has(> input[type='radio']) {
     outline-color: Highlight;
   }
 }
+
+/* The actions of one attempt and its two toggles share a wrapping row. */
+.attempt-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}

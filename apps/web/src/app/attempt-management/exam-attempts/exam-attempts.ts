@@ -331,6 +331,10 @@ export class ExamAttempts {
   }
 
   protected beginAction(attemptId: string, kind: ActionKind): void {
+    if (this.busy()) {
+      return;
+    }
+
     this.notice.set(null);
     this.errorMessage.set(null);
     this.actionText.set('');
