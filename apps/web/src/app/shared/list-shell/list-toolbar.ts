@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, linkedSignal, model, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, input, linkedSignal, model, output, viewChild } from '@angular/core';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { Icon } from '../icon/icon';
 import { Tooltip } from '../tooltip/tooltip';
@@ -52,6 +52,7 @@ let nextId = 0;
       @if (filterable()) {
         <button
           type="button"
+          #filtersButton
           class="icon-btn list-toolbar__filters"
           [appTooltip]="'list.filters' | t"
           [attr.aria-label]="'list.filters' | t"
@@ -85,14 +86,14 @@ let nextId = 0;
               class="icon-btn"
               [appTooltip]="'list.removeFilter' | t: { filter: chip.label }"
               [attr.aria-label]="'list.removeFilter' | t: { filter: chip.label }"
-              (click)="chipRemoved.emit(chip.key)"
+              (click)="chipRemoved.emit(chip.key); keepFocus()"
             >
               <app-icon name="close" />
             </button>
           </span>
         }
         @if (chips().length > 1) {
-          <button type="button" class="btn--small" (click)="cleared.emit()">{{ 'list.clearAll' | t }}</button>
+          <button type="button" class="btn--small" (click)="cleared.emit(); keepFocus()">{{ 'list.clearAll' | t }}</button>
         }
       </div>
     }
@@ -131,6 +132,13 @@ export class ListToolbar {
 
   protected readonly searchId = `list-search-${nextId}`;
   protected readonly panelId = `list-filters-${nextId++}`;
+
+  private readonly filtersButton = viewChild<ElementRef<HTMLButtonElement>>('filtersButton');
+
+  /** The chip that was pressed is about to go; focus moves to the Filters icon, so a keyboard user is not sent back to the top of the page. */
+  protected keepFocus(): void {
+    this.filtersButton()?.nativeElement.focus();
+  }
 
   protected onInput(value: string): void {
     if (this.liveSearch()) {

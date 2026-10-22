@@ -18,7 +18,7 @@ export const MR: Messages = {
   'list.clearAll': 'सर्व काढा',
   'list.loadMore': 'आणखी पहा',
   'list.showing': '{total} पैकी {shown} दाखवले आहेत',
-  'list.noMatch': 'काहीही जुळत नाही. अधिक पाहण्यासाठी एखादा फिल्टर काढा.',
+  'list.noMatch': 'काहीही जुळत नाही. अधिक पाहण्यासाठी शोध बदला किंवा एखादा फिल्टर काढा.',
   'list.search': 'शोधा',
   'attempts.search': 'ईमेलने उमेदवार शोधा',
   'attempts.state': 'प्रगती',

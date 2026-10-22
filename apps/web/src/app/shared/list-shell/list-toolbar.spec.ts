@@ -131,6 +131,17 @@ describe('ListToolbar', () => {
       expect(host.removed).toEqual(['status']);
     });
 
+    it('leave focus on the Filters icon when a chip goes, so a keyboard user keeps their place', () => {
+      const { fixture, host, root, filtersButton } = open();
+      host.chips.set([{ key: 'status', label: 'Status: Draft' }]);
+      fixture.detectChanges();
+
+      root.querySelector<HTMLButtonElement>('.list-chip button')!.focus();
+      root.querySelector<HTMLButtonElement>('.list-chip button')!.click();
+
+      expect(document.activeElement).toBe(filtersButton());
+    });
+
     it('offer Clear all only when there is more than one', () => {
       const { fixture, host, root } = open();
 

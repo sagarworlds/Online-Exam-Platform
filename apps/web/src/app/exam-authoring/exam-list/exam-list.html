@@ -32,7 +32,7 @@
         <select id="filter-exam-status" [value]="status()" (change)="status.set($any($event.target).value); resetPage()">
           <option value="">{{ 'exams.list.anyStatus' | t }}</option>
           @for (option of statuses; track option) {
-            <option [value]="option">{{ statusText(option) }}</option>
+            <option [value]="option" [selected]="option === status()">{{ statusText(option) }}</option>
           }
         </select>
       </div>

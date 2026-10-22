@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { AttemptSummaryDto } from '../../candidate/candidate.models';
 import { ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
@@ -64,7 +65,7 @@ describe('ExamAttempts', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'exam-1' }), queryParamMap: convertToParamMap({}) } } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'exam-1' }), queryParamMap: convertToParamMap({}) }, queryParamMap: of(convertToParamMap({})) } },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);

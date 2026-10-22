@@ -18,7 +18,7 @@ export const HI: Messages = {
   'list.clearAll': 'सभी हटाएँ',
   'list.loadMore': 'और देखें',
   'list.showing': '{total} में से {shown} दिखाए जा रहे हैं',
-  'list.noMatch': 'कुछ मेल नहीं खाता। अधिक देखने के लिए कोई फ़िल्टर हटाएँ।',
+  'list.noMatch': 'कुछ मेल नहीं खाता। अधिक देखने के लिए खोज बदलें या कोई फ़िल्टर हटाएँ।',
   'list.search': 'खोजें',
   'attempts.search': 'ईमेल से उम्मीदवार खोजें',
   'attempts.state': 'प्रगति',

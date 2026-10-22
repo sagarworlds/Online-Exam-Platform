@@ -23,7 +23,7 @@ export const EN = {
   'list.clearAll': 'Clear all',
   'list.loadMore': 'Load more',
   'list.showing': 'Showing {shown} of {total}',
-  'list.noMatch': 'Nothing matches. Take a filter off to see more.',
+  'list.noMatch': 'Nothing matches. Change the search or take a filter off to see more.',
   'list.search': 'Search',
   'attempts.search': 'Search candidates by email',
   'attempts.state': 'Progress',

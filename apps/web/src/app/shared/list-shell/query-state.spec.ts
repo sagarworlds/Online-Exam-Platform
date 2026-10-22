@@ -66,6 +66,32 @@ describe('syncQueryParam', () => {
     expect(urlOf()).toBe('/list?q=asha');
   });
 
+  it('follows the address when it changes under the page, and back to the default when the filters are left out', async () => {
+    const harness = await RouterTestingHarness.create();
+    const page = await harness.navigateByUrl('/list?q=asha&status=Draft', Page);
+
+    await harness.navigateByUrl('/list?q=bob', Page);
+    expect(page.search()).toBe('bob');
+    expect(page.status()).toBe('');
+
+    await harness.navigateByUrl('/list', Page);
+    expect(page.search()).toBe('');
+  });
+
+  it('does not put an older text back when the person types on before their own write has landed', async () => {
+    const harness = await RouterTestingHarness.create();
+    const page = await harness.navigateByUrl('/list', Page);
+
+    page.search.set('a');
+    harness.detectChanges();
+    await Promise.resolve();
+    page.search.set('ab');
+    await settle(harness);
+
+    expect(page.search()).toBe('ab');
+    expect(urlOf()).toBe('/list?q=ab');
+  });
+
   it('keeps other parameters of the address as they are', async () => {
     const harness = await RouterTestingHarness.create();
     const page = await harness.navigateByUrl('/list?keep=me', Page);

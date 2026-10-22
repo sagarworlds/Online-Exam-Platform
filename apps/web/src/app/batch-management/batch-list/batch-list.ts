@@ -63,7 +63,7 @@ const PAGE_SIZE = 20;
             <select id="filter-batch-status" [value]="status()" (change)="status.set($any($event.target).value); resetPage()">
               <option value="">{{ 'batches.anyStatus' | t }}</option>
               @for (option of statuses; track option) {
-                <option [value]="option">{{ statusLabel(option) }}</option>
+                <option [value]="option" [selected]="option === status()">{{ statusLabel(option) }}</option>
               }
             </select>
           </div>

@@ -24,3 +24,7 @@
 .question-list__head + [role='list'] > :first-child {
   border-top: 0;
 }
+
+.qb-toolbar__spacer {
+  flex: 1;
+}

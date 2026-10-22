@@ -1,4 +1,5 @@
-import { WritableSignal, effect, inject, untracked } from '@angular/core';
+import { DestroyRef, WritableSignal, effect, inject, untracked } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 
 export interface QueryParamOptions<T extends string> {
@@ -7,6 +8,9 @@ export interface QueryParamOptions<T extends string> {
   /** The value a fresh list starts with; it is left out of the address, so an untouched list has a clean one. Empty text by default. */
   readonly default?: T;
 }
+
+/** What a list's own write to the address carries, so the page can tell it from a link followed by the person. */
+const OWN_WRITE = 'listShellWrite';
 
 /** The changes waiting to be written to the address, per router: several filters set in one go make one navigation, not one each. */
 const pending = new WeakMap<Router, Record<string, string | null>>();
@@ -24,11 +28,24 @@ export function syncQueryParam<T extends string>(name: string, state: WritableSi
   const route = inject(ActivatedRoute);
   const router = inject(Router);
   const fallback = options.default ?? ('' as T);
+  const accepts = (value: string): value is T => options.allowed === undefined || options.allowed.includes(value as T);
 
   const initial = route.snapshot.queryParamMap.get(name);
-  if (initial !== null && (options.allowed === undefined || options.allowed.includes(initial as T))) {
-    state.set(initial as T);
+  if (initial !== null && accepts(initial)) {
+    state.set(initial);
   }
+
+  // The address changed under the page (a link to the page without its filters, a pasted address): the list follows it.
+  route.queryParamMap.pipe(takeUntilDestroyed(inject(DestroyRef))).subscribe((params) => {
+    // Not the echo of this list's own write: by the time it arrives the person may have typed on, and it would put back an older text.
+    if (router.getCurrentNavigation()?.extras.state?.[OWN_WRITE] === true) {
+      return;
+    }
+    const value = params.get(name) ?? fallback;
+    if (value !== untracked(state) && (value === fallback || accepts(value))) {
+      state.set(value as T);
+    }
+  });
 
   effect(() => {
     const value = state();
@@ -43,7 +60,12 @@ export function syncQueryParam<T extends string>(name: string, state: WritableSi
       pending.set(router, queryParams);
       queueMicrotask(() => {
         pending.delete(router);
-        void router.navigate([], { relativeTo: route, queryParams, queryParamsHandling: 'merge', replaceUrl: true });
+        // A link the person has just followed is on its way: it must not be taken over by the list writing its filters.
+        const under = router.getCurrentNavigation();
+        if (under !== null && under.extras.state?.[OWN_WRITE] !== true) {
+          return;
+        }
+        void router.navigate([], { relativeTo: route, queryParams, queryParamsHandling: 'merge', replaceUrl: true, state: { [OWN_WRITE]: true } });
       });
     });
   });

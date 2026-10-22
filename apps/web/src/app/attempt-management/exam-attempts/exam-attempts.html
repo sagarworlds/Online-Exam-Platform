@@ -47,7 +47,7 @@
           <select id="filter-candidate-state" [value]="state()" (change)="state.set($any($event.target).value); resetPage()">
             <option value="">{{ 'attempts.anyState' | t }}</option>
             @for (option of states; track option) {
-              <option [value]="option">{{ stateText(option) }}</option>
+              <option [value]="option" [selected]="option === state()">{{ stateText(option) }}</option>
             }
           </select>
         </div>

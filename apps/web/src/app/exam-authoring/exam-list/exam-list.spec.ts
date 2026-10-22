@@ -218,6 +218,8 @@ describe('ExamList', () => {
       const titles = Array.from((harness.routeNativeElement as HTMLElement).querySelectorAll('.card__title a')).map((a) => a.textContent?.trim());
       expect(titles).toEqual(['Maths Final']);
       expect(component).toBeTruthy();
+      // The choice is shown in the panel, not only applied: the options come after the select's value is set.
+      expect((harness.routeNativeElement as HTMLElement).querySelector<HTMLSelectElement>('#filter-exam-status')!.value).toBe('Published');
     });
   });
 });
