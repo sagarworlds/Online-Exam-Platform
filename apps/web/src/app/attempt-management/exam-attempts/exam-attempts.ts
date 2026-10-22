@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable, Subscription } from 'rxjs';
 import { extractErrorMessage } from '../../shared/problem-details';
@@ -7,6 +7,11 @@ import { CandidateAccommodation } from '../candidate-accommodation/candidate-acc
 import { AttemptSummaryDto } from '../../candidate/candidate.models';
 import { AttemptClientDto, AttemptPaperDto, ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
 import { MathDirective } from '../../shared/rich-text/math.directive';
+import { ListChip, ListToolbar } from '../../shared/list-shell/list-toolbar';
+import { LoadMore } from '../../shared/list-shell/load-more';
+import { syncQueryParam } from '../../shared/list-shell/query-state';
+import { I18nService } from '../../i18n/i18n.service';
+import { MessageKey } from '../../i18n/messages.en';
 import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { AnswerVerdict } from '../../candidate/candidate.models';
@@ -14,6 +19,12 @@ import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** The longest reason the API accepts. */
 const MAX_REASON_LENGTH = 500;
+
+/** How many candidates are drawn before "Load more". */
+const PAGE_SIZE = 20;
+
+/** Where a candidate stands, for the filter: no attempt yet, one still running, or every attempt over. */
+type CandidateState = 'notStarted' | 'inProgress' | 'submitted';
 
 /** The actions that need words from the administrator: a warning's text, or the reason shown to the candidate. */
 type ActionKind = 'warn' | 'terminate' | 'invalidate' | 'rescore';
@@ -53,7 +64,7 @@ const ACTIONS: Record<ActionKind, { label: string; hint: string; button: string;
  */
 @Component({
   selector: 'app-exam-attempts',
-  imports: [RouterLink, LocaleDatePipe, MathDirective, CandidateAccommodation, RefreshButton, TranslatePipe],
+  imports: [RouterLink, LocaleDatePipe, MathDirective, CandidateAccommodation, ListToolbar, LoadMore, RefreshButton, TranslatePipe],
   templateUrl: './exam-attempts.html',
 })
 export class ExamAttempts {
@@ -61,7 +72,48 @@ export class ExamAttempts {
   protected readonly examId = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
   protected readonly maxReasonLength = MAX_REASON_LENGTH;
 
+  private readonly i18n = inject(I18nService);
+
   protected readonly data = signal<ExamAttemptsDto | null>(null);
+
+  /** The search (by email address) and the state filter, kept in the address (`?q=&state=`) so a filtered list can be shared. */
+  protected readonly search = signal('');
+  protected readonly state = signal<CandidateState | ''>('');
+  protected readonly states: readonly CandidateState[] = ['notStarted', 'inProgress', 'submitted'];
+  private readonly pages = signal(1);
+
+  protected readonly matchingCandidates = computed(() => {
+    const text = this.search().trim().toLowerCase();
+    const state = this.state();
+    return (this.data()?.candidates ?? []).filter((candidate) => (state === '' || stateOf(candidate) === state) && (text === '' || candidate.email.toLowerCase().includes(text)));
+  });
+  protected readonly shownCandidates = computed(() => this.matchingCandidates().slice(0, this.pages() * PAGE_SIZE));
+  protected readonly chips = computed<ListChip[]>(() =>
+    this.state() === '' ? [] : [{ key: 'state', label: this.i18n.t('attempts.chip.state', { value: this.stateText(this.state() as CandidateState) }) }],
+  );
+  protected readonly count = computed(() => {
+    const all = this.data()?.candidates.length ?? 0;
+    return this.matchingCandidates().length === all && this.shownCandidates().length === all
+      ? ''
+      : this.i18n.t('list.showing', { shown: this.shownCandidates().length, total: this.matchingCandidates().length });
+  });
+
+  protected stateText(state: CandidateState): string {
+    return this.i18n.t(`attempts.state.${state}` as MessageKey);
+  }
+
+  protected resetPage(): void {
+    this.pages.set(1);
+  }
+
+  protected showMore(): void {
+    this.pages.update((pages) => pages + 1);
+  }
+
+  protected clearFilter(): void {
+    this.state.set('');
+    this.resetPage();
+  }
   protected readonly loading = signal(true);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
@@ -107,6 +159,8 @@ export class ExamAttempts {
   protected readonly actions = ACTIONS;
 
   constructor() {
+    syncQueryParam('q', this.search);
+    syncQueryParam('state', this.state, { allowed: this.states });
     this.read();
   }
 
@@ -377,4 +431,11 @@ export class ExamAttempts {
   protected setReason(value: string): void {
     this.reason.set(value);
   }
+}
+
+function stateOf(candidate: ExamCandidateDto): CandidateState {
+  if (candidate.attempts.length === 0) {
+    return 'notStarted';
+  }
+  return candidate.attempts.some((attempt) => attempt.status === 'InProgress') ? 'inProgress' : 'submitted';
 }

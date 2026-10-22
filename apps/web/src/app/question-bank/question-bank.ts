@@ -9,6 +9,7 @@ import { I18nService } from '../i18n/i18n.service';
 import { TranslatePipe } from '../i18n/translate.pipe';
 import { MessageKey } from '../i18n/messages.en';
 import { Icon } from '../shared/icon/icon';
+import { ListToolbar } from '../shared/list-shell/list-toolbar';
 import { ModalDialog } from '../shared/modal-dialog/modal-dialog';
 import { extractErrorMessage } from '../shared/problem-details';
 import { RefreshButton } from '../shared/refresh-button/refresh-button';
@@ -52,7 +53,7 @@ export type FilterKey = 'class' | 'book' | 'chapter' | 'difficulty' | 'status' |
  */
 @Component({
   selector: 'app-question-bank',
-  imports: [Icon, BookChapterPicker, ContentEncryptionStatusPanel, ModalDialog, QuestionPanel, QuestionRow, QuestionTransfer, RefreshButton, Tooltip, TranslatePipe],
+  imports: [Icon, BookChapterPicker, ContentEncryptionStatusPanel, ListToolbar, ModalDialog, QuestionPanel, QuestionRow, QuestionTransfer, RefreshButton, Tooltip, TranslatePipe],
   templateUrl: './question-bank.html',
   styleUrl: './question-bank.css',
 })

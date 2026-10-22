@@ -62,9 +62,18 @@ export class App {
       }
     });
 
+    let lastPath = '';
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd), takeUntilDestroyed())
-      .subscribe(() => {
+      .subscribe((event) => {
+        // A list writes its search and filters into the address as they change; that is the same page, not a visit.
+        const path = event.urlAfterRedirects.split('?')[0].split('#')[0];
+        const samePage = path === lastPath;
+        lastPath = path;
+        if (samePage) {
+          return;
+        }
+
         // A link was followed: the menu has done its work and the page is what the person wants to see.
         this.menuOpen.set(false);
         if (this.authSession.isAuthenticated()) {

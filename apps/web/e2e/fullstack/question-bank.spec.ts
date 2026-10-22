@@ -202,10 +202,10 @@ test.describe('the list of questions', () => {
     await page.getByRole('button', { name: 'Filters', exact: true }).click();
     await page.locator('#filter-language').selectOption('hi');
     await expect(row(page, text)).toHaveCount(0);
-    await expect(page.locator('.filter-chip')).toContainText('Language: Hindi');
+    await expect(page.locator('.list-chip')).toContainText('Language: Hindi');
 
     await page.getByRole('button', { name: 'Remove filter: Language: Hindi' }).click();
-    await expect(page.locator('.filter-chip')).toHaveCount(0);
+    await expect(page.locator('.list-chip')).toHaveCount(0);
     await expect(row(page, text)).toHaveCount(1);
   });
 

@@ -26,6 +26,7 @@ import {
   MAX_ISSUE_RESOLUTION_NOTE,
 } from '../attempt-admin.models';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
+import { syncQueryParam } from '../../shared/list-shell/query-state';
 
 /** A report resolved during this visit, with the note written with it (null when none was). It stands in the report's place until the page is left. */
 interface ResolutionDecision {
@@ -105,6 +106,7 @@ export class IssueReports {
   );
 
   constructor() {
+    syncQueryParam('status', this.status, { allowed: this.statuses.map((s) => s.value), default: 'open' });
     this.fetch();
   }
 

@@ -16,7 +16,32 @@
   } @else if (exams().length === 0) {
     <div class="card empty-state">{{ 'exams.list.empty' | t }}</div>
   } @else {
-    @for (exam of exams(); track exam.id) {
+    <app-list-toolbar
+      [search]="search()"
+      [searchLabel]="'exams.list.search' | t"
+      [liveSearch]="true"
+      [filterable]="true"
+      [chips]="chips()"
+      [count]="count()"
+      (searchChange)="search.set($event); resetPage()"
+      (chipRemoved)="clearFilter()"
+      (cleared)="clearFilter()"
+    >
+      <div listFilters class="field">
+        <label for="filter-exam-status">{{ 'exams.list.status' | t }}</label>
+        <select id="filter-exam-status" [value]="status()" (change)="status.set($any($event.target).value); resetPage()">
+          <option value="">{{ 'exams.list.anyStatus' | t }}</option>
+          @for (option of statuses; track option) {
+            <option [value]="option" [selected]="option === status()">{{ statusText(option) }}</option>
+          }
+        </select>
+      </div>
+    </app-list-toolbar>
+
+    @if (matching().length === 0) {
+      <div class="card empty-state">{{ 'list.noMatch' | t }}</div>
+    }
+    @for (exam of shown(); track exam.id) {
       <div class="card">
         <h3 class="card__title">
           <a [routerLink]="['/exams', exam.id]">{{ exam.name }}</a>
@@ -36,5 +61,6 @@
         </p>
       </div>
     }
+    <app-load-more [hasMore]="shown().length < matching().length" (more)="showMore()" />
   }
 </div>

@@ -9,17 +9,14 @@
     </div>
   </div>
 
-  <div class="field student-search" role="search">
-    <label for="student-search">{{ 'students.search' | t }}</label>
-    <input
-      id="student-search"
-      type="search"
-      autocomplete="off"
-      [placeholder]="'students.searchPlaceholder' | t"
-      [value]="search()"
-      (input)="onSearch($any($event.target).value)"
-    />
-  </div>
+  <app-list-toolbar
+    [search]="search()"
+    inputId="student-search"
+    [searchLabel]="'students.search' | t"
+    [placeholder]="'students.searchPlaceholder' | t"
+    [liveSearch]="true"
+    (searchChange)="onSearch($event)"
+  />
 
   @if (notice()) {
     <p #noticeElement class="success-message" role="status" tabindex="-1">{{ notice() }}</p>

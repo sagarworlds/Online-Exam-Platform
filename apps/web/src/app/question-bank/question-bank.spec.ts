@@ -131,7 +131,7 @@ describe('QuestionBank', () => {
       httpMock.expectOne(isList).flush([]);
       fixture.detectChanges();
 
-      expect(root.querySelector('.filter-chip')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('कठिनाई: कठिन');
+      expect(root.querySelector('.list-chip')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('कठिनाई: कठिन');
       expect(root.textContent).toContain('इस फ़िल्टर से कोई प्रश्न मेल नहीं खाता।');
     });
   });
@@ -580,7 +580,7 @@ describe('QuestionBank', () => {
       const { root, texts } = open([...BOOKS, english('b10', { id: 'k10', name: '10th' }, ['A']), english('b2', { id: 'k2', name: '2nd' }, ['A'])]);
 
       expect(texts('filter-class')).toEqual(['Any class', '2nd', '3rd', '4th', '5th', '10th']);
-      const selects = Array.from(root.querySelectorAll('.list-filter select')).map((s) => s.id);
+      const selects = Array.from(root.querySelectorAll('.list-toolbar__panel select')).map((s) => s.id);
       expect(selects.indexOf('filter-class')).toBeLessThan(selects.indexOf('filter-book'));
       expect(root.querySelector('label[for="filter-class"]')?.textContent).toBe('Class');
     });
@@ -726,7 +726,7 @@ describe('QuestionBank', () => {
 
     const problem = root.querySelector('.error-message') as HTMLElement;
     expect(problem.textContent).toContain('The questions could not be read.');
-    expect((root.querySelector('.qb-toolbar') as HTMLElement).compareDocumentPosition(problem) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect((root.querySelector('.list-toolbar') as HTMLElement).compareDocumentPosition(problem) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 
   describe('statistics on a question (FR-9)', () => {
@@ -998,15 +998,15 @@ describe('QuestionBank', () => {
       fixture.detectChanges();
       return req.request;
     };
-    const chips = (root: HTMLElement) => Array.from(root.querySelectorAll('.filter-chip')).map((c) => c.textContent?.replace(/\s+/g, ' ').trim());
+    const chips = (root: HTMLElement) => Array.from(root.querySelectorAll('.list-chip')).map((c) => c.textContent?.replace(/\s+/g, ' ').trim());
     const byLabel = (root: HTMLElement, label: string) => root.querySelector(`[aria-label="${label}"]`) as HTMLButtonElement;
     const byText = (root: HTMLElement, text: string) => Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === text) as HTMLButtonElement;
 
     it('folds the filter choices away until they are asked for, shows no chips with no filter on, and has no panel open', () => {
       const { root } = open();
 
-      expect((root.querySelector('#filters-panel') as HTMLElement).hidden).toBe(true);
-      expect(root.querySelector('.filter-chip')).toBeNull();
+      expect((root.querySelector('.list-toolbar__panel') as HTMLElement).hidden).toBe(true);
+      expect(root.querySelector('.list-chip')).toBeNull();
       expect(root.querySelector('.icon-btn__count')).toBeNull();
       expect(root.querySelector('app-question-panel')).toBeNull();
     });
@@ -1100,9 +1100,9 @@ describe('QuestionBank', () => {
       byLabel(root, 'Filters').click();
       fixture.detectChanges();
 
-      expect((root.querySelector('#filters-panel') as HTMLElement).hidden).toBe(false);
+      expect((root.querySelector('.list-toolbar__panel') as HTMLElement).hidden).toBe(false);
       expect(byLabel(root, 'Filters').getAttribute('aria-expanded')).toBe('true');
-      expect(byLabel(root, 'Filters').getAttribute('aria-controls')).toBe('filters-panel');
+      expect(byLabel(root, 'Filters').getAttribute('aria-controls')).toBe(root.querySelector('.list-toolbar__panel')!.id);
     });
 
     it('shows the filters that are on as chips, and how many on the Filters icon, even with the choices folded away', () => {
@@ -1114,7 +1114,7 @@ describe('QuestionBank', () => {
 
       expect(chips(root)).toEqual(['Difficulty: Hard', 'Language: Hindi']);
       expect(root.querySelector('.icon-btn__count')?.textContent?.trim()).toBe('2');
-      expect((root.querySelector('#filters-panel') as HTMLElement).hidden).toBe(true);
+      expect((root.querySelector('.list-toolbar__panel') as HTMLElement).hidden).toBe(true);
     });
 
     it('names the book, the chapter, the status, the topic and the unfiled filter in chips', () => {

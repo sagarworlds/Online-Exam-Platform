@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { AttemptSummaryDto } from '../../candidate/candidate.models';
 import { ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
@@ -64,7 +65,7 @@ describe('ExamAttempts', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'exam-1' }) } } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'exam-1' }), queryParamMap: convertToParamMap({}) }, queryParamMap: of(convertToParamMap({})) } },
       ],
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
@@ -776,6 +777,49 @@ describe('ExamAttempts', () => {
       fixture.detectChanges();
 
       expect(textOf(fixture)).toContain('Paused');
+    });
+  });
+
+  describe('finding a candidate', () => {
+    const emails = (fixture: ComponentFixture<ExamAttempts>) => Array.from(root(fixture).querySelectorAll('.card__title')).map((t) => t.firstChild?.textContent?.trim());
+    const people = [
+      candidate({ candidateId: 'c1', email: 'amy@example.com', attempts: [attempt(1, 'Submitted', 4)] }),
+      candidate({ candidateId: 'c2', email: 'bob@example.com', attemptsUsed: 0, canGrant: false, attempts: [] }),
+      candidate({ candidateId: 'c3', email: 'cy@example.com', attempts: [attempt(1, 'InProgress')] }),
+    ];
+
+    it('narrows the candidates by the address typed, and by how far each has got', () => {
+      const fixture = open(exam(people));
+      const box = root(fixture).querySelector<HTMLInputElement>('input[type="search"]')!;
+      box.value = 'BOB';
+      box.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(emails(fixture)).toEqual(['bob@example.com']);
+
+      box.value = '';
+      box.dispatchEvent(new Event('input'));
+      const select = root(fixture).querySelector<HTMLSelectElement>('#filter-candidate-state')!;
+      select.value = 'inProgress';
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      expect(emails(fixture)).toEqual(['cy@example.com']);
+      expect(root(fixture).querySelector('.list-chip')?.textContent).toContain('Progress: In progress');
+
+      select.value = 'notStarted';
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      expect(emails(fixture)).toEqual(['bob@example.com']);
+    });
+
+    it('says nothing matches when the search finds no one, and has no strip when nobody is enrolled', () => {
+      const fixture = open(exam(people));
+      const box = root(fixture).querySelector<HTMLInputElement>('input[type="search"]')!;
+      box.value = 'zzz';
+      box.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('Nothing matches');
+
+      expect(root(open(exam([]))).querySelector('app-list-toolbar')).toBeNull();
     });
   });
 });

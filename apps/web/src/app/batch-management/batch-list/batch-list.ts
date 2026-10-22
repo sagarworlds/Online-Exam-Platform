@@ -1,10 +1,13 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ExamApiService } from '../../exam-authoring/exam-api.service';
 import { I18nService } from '../../i18n/i18n.service';
 import { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { EmptyState } from '../../shared/empty-state/empty-state';
+import { ListChip, ListToolbar } from '../../shared/list-shell/list-toolbar';
+import { LoadMore } from '../../shared/list-shell/load-more';
+import { syncQueryParam } from '../../shared/list-shell/query-state';
 import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { StatusBadge, StatusTone } from '../../shared/status-badge/status-badge';
 import { BatchApiService } from '../batch-api.service';
@@ -14,9 +17,12 @@ import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 /** What each state of a batch means to the person reading the list: one that is taking candidates is good, one that is over is only a fact. */
 const STATUS_TONES: Record<BatchStatus, StatusTone> = { Draft: 'neutral', Active: 'success', Closed: 'info', Archived: 'neutral' };
 
+/** How many batches are drawn before "Load more". */
+const PAGE_SIZE = 20;
+
 @Component({
   selector: 'app-batch-list',
-  imports: [LocaleDatePipe, RouterLink, RefreshButton, StatusBadge, EmptyState, TranslatePipe],
+  imports: [LocaleDatePipe, RouterLink, ListToolbar, LoadMore, RefreshButton, StatusBadge, EmptyState, TranslatePipe],
   template: `
     <div class="page page--admin">
       <div class="page-header">
@@ -41,6 +47,30 @@ const STATUS_TONES: Record<BatchStatus, StatusTone> = { Draft: 'neutral', Active
       }
 
       @if (!loading() && batches().length > 0) {
+        <app-list-toolbar
+          [search]="search()"
+          [searchLabel]="'batches.search' | t"
+          [liveSearch]="true"
+          [filterable]="true"
+          [chips]="chips()"
+          [count]="count()"
+          (searchChange)="search.set($event); resetPage()"
+          (chipRemoved)="clearFilter()"
+          (cleared)="clearFilter()"
+        >
+          <div listFilters class="field">
+            <label for="filter-batch-status">{{ 'batches.col.status' | t }}</label>
+            <select id="filter-batch-status" [value]="status()" (change)="status.set($any($event.target).value); resetPage()">
+              <option value="">{{ 'batches.anyStatus' | t }}</option>
+              @for (option of statuses; track option) {
+                <option [value]="option" [selected]="option === status()">{{ statusLabel(option) }}</option>
+              }
+            </select>
+          </div>
+        </app-list-toolbar>
+        @if (matching().length === 0) {
+          <app-empty-state [title]="'list.noMatch' | t" />
+        }
         <div class="table-wrap" role="region" tabindex="0" [attr.aria-label]="'batches.tableLabel' | t">
           <table class="table">
             <thead>
@@ -54,7 +84,7 @@ const STATUS_TONES: Record<BatchStatus, StatusTone> = { Draft: 'neutral', Active
               </tr>
             </thead>
             <tbody>
-              @for (batch of batches(); track batch.id) {
+              @for (batch of shown(); track batch.id) {
                 <tr>
                   <th scope="row">
                     <a [routerLink]="['/batches', batch.id, 'roster']">{{ batch.name }}</a>
@@ -76,6 +106,7 @@ const STATUS_TONES: Record<BatchStatus, StatusTone> = { Draft: 'neutral', Active
             </tbody>
           </table>
         </div>
+        <app-load-more [hasMore]="shown().length < matching().length" (more)="showMore()" />
       }
     </div>
   `,
@@ -94,6 +125,49 @@ export class BatchList implements OnInit {
   /** Whether the batches are being read again because the refresh icon was pressed. */
   protected readonly refreshing = signal(false);
   protected readonly error = signal('');
+
+  /** The search and the status filter, kept in the address (`?q=&status=`) so a filtered list can be shared. */
+  protected readonly search = signal('');
+  protected readonly status = signal<BatchStatus | ''>('');
+  protected readonly statuses: readonly BatchStatus[] = ['Draft', 'Active', 'Closed', 'Archived'];
+  private readonly pages = signal(1);
+
+  protected readonly matching = computed(() => {
+    const text = this.search().trim().toLowerCase();
+    const status = this.status();
+    return this.batches().filter(
+      (batch) =>
+        (status === '' || batch.status === status) &&
+        (text === '' || `${batch.name} ${this.examNames().get(batch.examId) ?? ''}`.toLowerCase().includes(text)),
+    );
+  });
+  protected readonly shown = computed(() => this.matching().slice(0, this.pages() * PAGE_SIZE));
+  protected readonly chips = computed<ListChip[]>(() =>
+    this.status() === '' ? [] : [{ key: 'status', label: this.i18n.t('batches.chip.status', { value: this.statusLabel(this.status() as BatchStatus) }) }],
+  );
+  protected readonly count = computed(() =>
+    this.matching().length === this.batches().length && this.shown().length === this.matching().length
+      ? ''
+      : this.i18n.t('list.showing', { shown: this.shown().length, total: this.matching().length }),
+  );
+
+  constructor() {
+    syncQueryParam('q', this.search);
+    syncQueryParam('status', this.status, { allowed: this.statuses });
+  }
+
+  protected resetPage(): void {
+    this.pages.set(1);
+  }
+
+  protected showMore(): void {
+    this.pages.update((pages) => pages + 1);
+  }
+
+  protected clearFilter(): void {
+    this.status.set('');
+    this.resetPage();
+  }
 
   ngOnInit() {
     this.loadBatches();
