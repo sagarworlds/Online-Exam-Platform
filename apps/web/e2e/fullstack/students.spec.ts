@@ -154,7 +154,7 @@ test.describe('the Students page', () => {
     expect(await api.isSignedIn(student.accessToken)).toBe(false);
   });
 
-  test("changes a registered student's e-mail address, carries their invitation with it, and signs them out", async ({ page }) => {
+  test("changes a registered student's email address, carries their invitation with it, and signs them out", async ({ page }) => {
     const student = await api.registerCandidate();
     await api.invite(maths, student.email);
     const moved = `moved-${run}-${randomUUID().slice(0, 6)}@e2e.test`;
@@ -163,12 +163,12 @@ test.describe('the Students page', () => {
 
     // The popup is the same one throughout, even though the row behind it is read again once the address has changed.
     const profile = editPopup(page);
-    await profile.getByLabel('E-mail address').fill(moved);
+    await profile.getByLabel('Email address').fill(moved);
     await profile.getByRole('button', { name: 'Save changes' }).click();
     await expect(profile.getByText('Their invitations move to it.')).toBeVisible();
     await profile.getByRole('button', { name: 'Confirm and save' }).click();
 
-    await expect(profile.getByRole('status')).toContainText('1 invitation moved to the new e-mail address.');
+    await expect(profile.getByRole('status')).toContainText('1 invitation moved to the new email address.');
     expect(await api.isSignedIn(student.accessToken)).toBe(false);
     // The page behind a modal popup cannot be used, so it is closed before the search is.
     await profile.getByRole('button', { name: 'Close' }).click();
@@ -186,11 +186,11 @@ test.describe('the Students page', () => {
     await editIcon(page, student.email).click();
 
     const profile = editPopup(page);
-    await profile.getByLabel('E-mail address').fill(other.email);
+    await profile.getByLabel('Email address').fill(other.email);
     await profile.getByRole('button', { name: 'Save changes' }).click();
     await profile.getByRole('button', { name: 'Confirm and save' }).click();
 
-    await expect(profile.getByRole('alert')).toContainText('Another account already uses that e-mail address.');
+    await expect(profile.getByRole('alert')).toContainText(/Another account already uses that e-?mail address\./);
     expect(await api.isSignedIn(student.accessToken)).toBe(true);
   });
 
@@ -255,6 +255,11 @@ test.describe('the Students page', () => {
     // 43.5: Firefox reports a 44px control as 43.99997.
     const height = (await toggle(page, student.email).boundingBox())?.height ?? 0;
     expect(height).toBeGreaterThanOrEqual(43.5);
+    // A phone has no tooltip to read, so the actions are not icons at the end of the line: they are in the open row, with their words.
+    await expect(editIcon(page, student.email)).toHaveCount(0);
+    await toggle(page, student.email).click();
+    await expect(editIcon(page, student.email)).toContainText('Edit');
+    await expect(deactivateIcon(page, student.email)).toContainText('Deactivate');
     for (const icon of [editIcon(page, student.email), deactivateIcon(page, student.email)]) {
       const box = await icon.boundingBox();
       expect(box?.width ?? 0).toBeGreaterThanOrEqual(43.5);

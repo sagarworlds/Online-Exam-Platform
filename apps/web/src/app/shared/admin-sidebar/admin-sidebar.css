@@ -59,6 +59,18 @@
   border-top: 1px solid var(--border);
 }
 
+/* The groups are one block, so a phone can fold them away behind the menu row. Elsewhere it lays them out as the nav itself did. */
+.admin-sidebar__groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* Only a phone draws the row that opens the menu. */
+.admin-sidebar__menu {
+  display: none;
+}
+
 .admin-sidebar__heading {
   margin: 0;
   padding: 0.2rem 0.55rem;
@@ -80,6 +92,7 @@
 }
 
 .admin-sidebar__link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -119,6 +132,33 @@
   display: none;
 }
 
+/* How many are waiting in a queue: at the end of the line, and on the corner of the icon once the rail has no room for the line. The number
+   is in the link's name too, so it is never only a colour. */
+.admin-sidebar__badge {
+  flex-shrink: 0;
+  min-width: 1.25rem;
+  margin-inline-start: auto;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--warning-soft);
+  color: var(--warning);
+  border: 1px solid currentColor;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+}
+
+.admin-sidebar--collapsed .admin-sidebar__badge {
+  position: absolute;
+  inset-block-start: 0.05rem;
+  inset-inline-end: 0.05rem;
+  min-width: 1rem;
+  padding: 0 0.2rem;
+  font-size: 0.65rem;
+  line-height: 0.9rem;
+}
+
 /* A long section name wraps within the column rather than being clipped at the sidebar's edge ("Attempt requests" at 1280px). */
 .admin-sidebar__label {
   min-width: 0;
@@ -147,6 +187,35 @@
     display: none;
   }
 
+  /* One row, 44px, until opened; what is waiting in the queues is on it, so a closed menu hides nothing that needs attention. */
+  .admin-sidebar__menu {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.55rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-weight: 600;
+    text-align: start;
+  }
+
+  .admin-sidebar__menu-label {
+    flex: 1;
+  }
+
+  .admin-sidebar__chevron {
+    color: var(--text-muted);
+  }
+
+  .admin-sidebar:not(.admin-sidebar--phone-open) .admin-sidebar__groups {
+    display: none;
+  }
+
   .admin-sidebar__group {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 7.5rem), 1fr));
@@ -166,6 +235,15 @@
 
   .admin-sidebar--collapsed .admin-sidebar__label {
     display: inline;
+  }
+
+  /* The labels are back on a phone, so the badge is back at the end of the line. */
+  .admin-sidebar--collapsed .admin-sidebar__badge {
+    position: static;
+    min-width: 1.25rem;
+    padding: 0 0.35rem;
+    font-size: 0.75rem;
+    line-height: 1.15rem;
   }
 
   .admin-sidebar__link {

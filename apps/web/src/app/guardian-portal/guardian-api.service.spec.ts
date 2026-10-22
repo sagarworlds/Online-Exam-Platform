@@ -41,7 +41,7 @@ describe('GuardianApiService', () => {
     expect(req.request.method).toBe('POST');
   });
 
-  it('should confirm a link with the code from the e-mail, without a sign-in', () => {
+  it('should confirm a link with the code from the email, without a sign-in', () => {
     service.verifyLink('code-from-email').subscribe();
 
     const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/guardian-links/verify`);

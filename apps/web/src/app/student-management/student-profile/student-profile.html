@@ -6,7 +6,7 @@
   @if (!canEdit()) {
     <dl class="profile-facts">
       <div><dt>Name</dt><dd>{{ current.displayName }}</dd></div>
-      <div><dt>E-mail address</dt><dd>{{ current.email ?? '—' }}</dd></div>
+      <div><dt>Email address</dt><dd>{{ current.email ?? '—' }}</dd></div>
       <div><dt>Mobile number</dt><dd>{{ current.phoneNumber ?? '—' }}</dd></div>
       <div><dt>Date of birth</dt><dd>{{ current.dateOfBirth }} ({{ current.ageBand }})</dd></div>
     </dl>
@@ -28,7 +28,7 @@
       </div>
 
       <div class="field">
-        <label [for]="'student-email-' + current.id">E-mail address</label>
+        <label [for]="'student-email-' + current.id">Email address</label>
         <input
           [id]="'student-email-' + current.id"
           type="email"
@@ -56,7 +56,7 @@
       </div>
 
       @if (noContact()) {
-        <p class="field-error" role="alert">Keep an e-mail address or a mobile number: without one the student cannot get a sign-in code.</p>
+        <p class="field-error" role="alert">Keep an email address or a mobile number: without one the student cannot get a sign-in code.</p>
       }
 
       <div class="field">

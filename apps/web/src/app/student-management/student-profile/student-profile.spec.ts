@@ -117,7 +117,7 @@ describe('StudentProfile', () => {
       expect(button(root, 'Save changes')!.disabled).toBe(true);
     });
 
-    it('sends an emptied e-mail address as none, not as an empty string', () => {
+    it('sends an emptied email address as none, not as an empty string', () => {
       const { fixture, root } = open();
       type(fixture, field(root, 'email'), '  ');
 
@@ -196,8 +196,8 @@ describe('StudentProfile', () => {
       fixture.detectChanges();
 
       const notice = root.querySelector('[role="status"]')!.textContent!;
-      expect(notice).toContain('Saved: e-mail address.');
-      expect(notice).toContain('2 invitations moved to the new e-mail address.');
+      expect(notice).toContain('Saved: email address.');
+      expect(notice).toContain('2 invitations moved to the new email address.');
       expect(notice).toContain('The student was signed out.');
       expect(savedEvents).toHaveBeenCalledTimes(1);
       expect(root.querySelector('.profile-confirm')).toBeNull();
@@ -262,12 +262,12 @@ describe('StudentProfile', () => {
     });
   });
 
-  it('will not save a student with neither an e-mail address nor a mobile number', () => {
+  it('will not save a student with neither an email address nor a mobile number', () => {
     const { fixture, root } = open();
     type(fixture, field(root, 'email'), '');
     type(fixture, field(root, 'phone'), '');
 
-    expect(root.querySelector('[role="alert"]')?.textContent).toContain('Keep an e-mail address or a mobile number');
+    expect(root.querySelector('[role="alert"]')?.textContent).toContain('Keep an email address or a mobile number');
     button(root, 'Save changes')!.click();
     fixture.detectChanges();
 
@@ -293,10 +293,10 @@ describe('StudentProfile', () => {
 
     httpMock
       .expectOne(isUpdate)
-      .flush({ title: 'contact_in_use', detail: 'Another account already uses that e-mail address.' }, { status: 409, statusText: 'Conflict' });
+      .flush({ title: 'contact_in_use', detail: 'Another account already uses that email address.' }, { status: 409, statusText: 'Conflict' });
     fixture.detectChanges();
 
-    expect(root.querySelector('[role="alert"]')?.textContent).toContain('Another account already uses that e-mail address.');
+    expect(root.querySelector('[role="alert"]')?.textContent).toContain('Another account already uses that email address.');
     expect(field(root, 'name').value).toBe('Asha R. Rao');
     expect(button(root, 'Save changes')!.disabled).toBe(false);
     expect(savedEvents).not.toHaveBeenCalled();

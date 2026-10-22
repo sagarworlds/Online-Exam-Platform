@@ -1,4 +1,4 @@
-<div class="page page--wide">
+<div class="page page--admin">
   <div class="page-header">
     <h1>{{ 'admin.codes.title' | t }}</h1>
   </div>
@@ -38,16 +38,19 @@
     } @else {
       <p class="hint">{{ 'admin.codes.revealNote' | t }}</p>
       @for (item of codes(); track item.challengeId) {
-        <div class="card">
+        <div class="card" [attr.data-challenge]="item.challengeId">
           <h3 class="card__title">{{ item.destination }}</h3>
           <p class="card__meta">
             {{ 'admin.codes.sentence' | t: { purpose: purposeKeys[item.purpose] | t, channel: channelKeys[item.channel] | t, time: (item.expiresAtUtc | date: 'shortTime') ?? '' } }}
           </p>
           @if (isRevealed(item.challengeId)) {
             <p class="otp-code" [id]="'otp-code-' + item.challengeId">{{ groupedCode(item.code) }}</p>
-            <button type="button" [attr.aria-expanded]="true" [attr.aria-controls]="'otp-code-' + item.challengeId" (click)="hide(item.challengeId)">
-              {{ 'admin.codes.hide' | t }}
-            </button>
+            <div class="actions">
+              <button type="button" (click)="copy(item)">{{ 'admin.codes.copy' | t }}</button>
+              <button type="button" [attr.aria-expanded]="true" [attr.aria-controls]="'otp-code-' + item.challengeId" (click)="hide(item.challengeId)">
+                {{ 'admin.codes.hide' | t }}
+              </button>
+            </div>
           } @else {
             <button type="button" [attr.aria-expanded]="false" (click)="reveal(item.challengeId)">
               {{ 'admin.codes.show' | t }}

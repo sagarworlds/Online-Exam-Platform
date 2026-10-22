@@ -2,6 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, vi } from 'vitest';
+import { ClipboardService } from '../../shared/clipboard/clipboard.service';
+import { ToastService } from '../../shared/toast/toast.service';
 import { OutstandingOtp } from './otp-codes.models';
 import { OtpCodes, REVEAL_MS } from './otp-codes';
 
@@ -119,6 +121,146 @@ describe('OtpCodes', () => {
     vi.advanceTimersByTime(1);
     fixture.detectChanges();
     expect(root.querySelector('.otp-code')).toBeNull();
+  });
+
+  it('says so, in a message a screen reader hears, when a code hides by itself', () => {
+    vi.useFakeTimers();
+    search('amy');
+    httpMock.expectOne(isList).flush([code()]);
+    fixture.detectChanges();
+    buttonsLabelled('Show code')[0].click();
+    fixture.detectChanges();
+    const toast = TestBed.inject(ToastService);
+    expect(toast.toasts()).toEqual([]);
+
+    vi.advanceTimersByTime(REVEAL_MS);
+
+    expect(toast.toasts().map((t) => [t.kind, t.message])).toEqual([['info', 'The code for amy@example.com was hidden. Show it again if you still need it.']]);
+  });
+
+  it('does not say a code was hidden when the person hid it', () => {
+    vi.useFakeTimers();
+    search('amy');
+    httpMock.expectOne(isList).flush([code()]);
+    fixture.detectChanges();
+    buttonsLabelled('Show code')[0].click();
+    fixture.detectChanges();
+
+    buttonsLabelled('Hide code')[0].click();
+    vi.advanceTimersByTime(REVEAL_MS);
+
+    expect(TestBed.inject(ToastService).toasts()).toEqual([]);
+  });
+
+  describe('copying a code', () => {
+    function reveal(): void {
+      search('amy');
+      httpMock.expectOne(isList).flush([code()]);
+      fixture.detectChanges();
+      buttonsLabelled('Show code')[0].click();
+      fixture.detectChanges();
+    }
+
+    it('is offered beside Hide once a code is shown, and not before', () => {
+      search('amy');
+      httpMock.expectOne(isList).flush([code()]);
+      fixture.detectChanges();
+      expect(buttonsLabelled('Copy code')).toHaveLength(0);
+
+      buttonsLabelled('Show code')[0].click();
+      fixture.detectChanges();
+
+      expect(buttonsLabelled('Copy code')).toHaveLength(1);
+    });
+
+    it('puts the six digits on the clipboard, without the space the screen shows, and says so', async () => {
+      const copy = vi.spyOn(TestBed.inject(ClipboardService), 'copy').mockResolvedValue(true);
+      reveal();
+
+      buttonsLabelled('Copy code')[0].click();
+      await fixture.whenStable();
+
+      expect(copy).toHaveBeenCalledWith('123456');
+      expect(TestBed.inject(ToastService).toasts().map((t) => [t.kind, t.message])).toEqual([['success', 'The code is copied.']]);
+    });
+
+    it('says the browser refused, and leaves the code on screen to be selected', async () => {
+      vi.spyOn(TestBed.inject(ClipboardService), 'copy').mockResolvedValue(false);
+      reveal();
+
+      buttonsLabelled('Copy code')[0].click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(TestBed.inject(ToastService).toasts().map((t) => t.kind)).toEqual(['error']);
+      expect(root.querySelector('.otp-code')?.textContent?.trim()).toBe('123 456');
+    });
+  });
+
+  describe('focus', () => {
+    function show(): void {
+      search('amy');
+      httpMock.expectOne(isList).flush([code()]);
+      fixture.detectChanges();
+      document.body.appendChild(root);
+    }
+
+    afterEach(() => root.remove());
+
+    it('goes to Copy when Show code was pressed, since that button is gone', async () => {
+      show();
+      const showButton = buttonsLabelled('Show code')[0];
+      showButton.focus();
+
+      showButton.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(buttonsLabelled('Copy code')[0]);
+    });
+
+    it('goes to Show code when Hide code was pressed', async () => {
+      show();
+      buttonsLabelled('Show code')[0].click();
+      fixture.detectChanges();
+      const hide = buttonsLabelled('Hide code')[0];
+      hide.focus();
+
+      hide.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(buttonsLabelled('Show code')[0]);
+    });
+
+    it('stays with the card when the code hides itself after a minute', async () => {
+      vi.useFakeTimers();
+      show();
+      buttonsLabelled('Show code')[0].click();
+      fixture.detectChanges();
+      buttonsLabelled('Copy code')[0].focus();
+
+      vi.advanceTimersByTime(REVEAL_MS);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(buttonsLabelled('Show code')[0]);
+    });
+
+    it('does not take focus from somewhere else on the page when a code hides', async () => {
+      vi.useFakeTimers();
+      show();
+      buttonsLabelled('Show code')[0].click();
+      fixture.detectChanges();
+      const field = root.querySelector('input') as HTMLInputElement;
+      field.focus();
+
+      vi.advanceTimersByTime(REVEAL_MS);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(field);
+    });
   });
 
   it('hides every shown code when the search changes', () => {

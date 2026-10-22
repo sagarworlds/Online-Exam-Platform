@@ -16,7 +16,7 @@ describe('InviteApiService', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('creates an invite from an exam and an e-mail, with no inviter id', () => {
+  it('creates an invite from an exam and an email, with no inviter id', () => {
     service.createInvite({ examId: 'exam-123', email: 'test@example.com' }).subscribe();
 
     const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/invites`);

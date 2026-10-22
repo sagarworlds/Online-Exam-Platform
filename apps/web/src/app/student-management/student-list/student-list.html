@@ -1,4 +1,4 @@
-<div class="page page--wide">
+<div class="page page--admin">
   <div class="page-header">
     <h1>Students</h1>
     <div class="page-header__actions">
@@ -15,7 +15,7 @@
       id="student-search"
       type="search"
       autocomplete="off"
-      placeholder="Name, e-mail address or mobile number"
+      placeholder="Name, email address or mobile number"
       [value]="search()"
       (input)="onSearch($any($event.target).value)"
     />
@@ -60,52 +60,35 @@
               </span>
               <span class="student-row__statuses">
                 @if (!row.account) {
-                  <span class="badge badge--inactive">Not registered yet</span>
+                  <app-status-badge tone="neutral" label="Not registered yet" />
                 } @else if (row.account.status !== 'Active') {
-                  <span class="badge badge--inactive">{{ row.account.status }}</span>
+                  <app-status-badge [tone]="row.account.status === 'Deactivated' ? 'danger' : 'neutral'" [label]="row.account.status" />
                 }
                 @if (row.invitations) {
                   @for (entry of row.invitations.statusCounts; track entry.status) {
-                    <span class="badge" [class]="badgeClass(entry.status)">{{ entry.count }} {{ entry.status }}</span>
+                    <app-status-badge [tone]="inviteTone(entry.status)" [label]="entry.count + ' ' + entry.status" />
                   }
                 }
               </span>
             </button>
           </h2>
 
-          @if (row.account && canManage) {
+          <!-- With a mouse and room the actions are icons with a tooltip, here at the end of the line; on a touch screen they are in the open row, in words. -->
+          @if (rowActions().get(row.key); as actions) {
             <div class="student-row__actions">
-              <button type="button" class="student-row__icon" (click)="openEdit(row)" [attr.aria-label]="'Edit ' + row.title" title="Edit profile">
-                <app-icon name="edit" />
-              </button>
-              @if (row.account.status === 'Deactivated') {
-                <button
-                  type="button"
-                  class="student-row__icon"
-                  (click)="reactivate(row)"
-                  [disabled]="reactivatingId() === row.account.id"
-                  [attr.aria-label]="'Reactivate ' + row.title"
-                  title="Reactivate student"
-                >
-                  <app-icon name="restore" />
-                </button>
-              } @else {
-                <button
-                  type="button"
-                  class="student-row__icon student-row__icon--danger"
-                  (click)="openDeactivate(row)"
-                  [attr.aria-label]="'Deactivate ' + row.title"
-                  title="Deactivate student"
-                >
-                  <app-icon name="trash" />
-                </button>
-              }
+              <app-row-actions [actions]="actions" [rowLabel]="row.title" (chosen)="onRowAction(row, $event)" />
             </div>
           }
         </div>
 
         <div class="student-row__panel" [attr.id]="'student-panel-' + $index">
           @if (isOpen(row)) {
+            @if (rowActions().get(row.key); as actions) {
+              <div class="student-row__panel-actions">
+                <app-row-actions [actions]="actions" [rowLabel]="row.title" (chosen)="onRowAction(row, $event)" />
+              </div>
+            }
+
             @if (row.account; as account) {
               @if (!canManage) {
                 <section class="student-row__section" [attr.aria-labelledby]="'student-profile-heading-' + $index">

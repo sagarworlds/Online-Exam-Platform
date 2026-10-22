@@ -1,6 +1,10 @@
 import { Component, Signal, computed, inject, input, signal } from '@angular/core';
-import { Router, RouterLink, isActive } from '@angular/router';
-import { AdminSection, AdminSectionGroup } from '../../auth/admin-sections';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, isActive } from '@angular/router';
+import { filter } from 'rxjs';
+import type { AttentionState } from '../../admin/admin-attention/admin-attention.service';
+import { AdminSection, AdminSectionGroup, AttentionKey } from '../../auth/admin-sections';
+import { I18nService } from '../../i18n/i18n.service';
 import { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { AdminIcon } from '../admin-icon/admin-icon';
@@ -36,11 +40,43 @@ interface SidebarGroup {
 })
 export class AdminSidebar {
   private readonly router = inject(Router);
+  private readonly i18n = inject(I18nService);
 
   /** The groups to draw, already filtered to what the signed-in user may open. */
   readonly groups = input.required<readonly AdminSectionGroup[]>();
 
+  /** How many things wait in each queue, for the badge on its entry; an entry whose count is not known, or is none, has no badge. */
+  readonly attention = input<Readonly<Partial<Record<AttentionKey, AttentionState>>>>({});
+
   protected readonly collapsed = signal(this.readStoredCollapsed());
+
+  /** Whether the menu is open on a phone, where it is one row until opened. It plays no part elsewhere. */
+  protected readonly phoneOpen = signal(false);
+
+  /** How many are waiting in all the queues the menu lists, for the row a phone shows it behind: the sum, and the same in words. Null when none. */
+  protected readonly waiting = computed<{ text: string; words: string } | null>(() => {
+    const counts = this.attention();
+    let total = 0;
+    let atLimit = false;
+    for (const group of this.groups()) {
+      for (const section of group.sections) {
+        const state = section.attention ? counts[section.attention] : undefined;
+        if (state?.status === 'ready') {
+          total += state.count;
+          atLimit ||= state.atLimit;
+        }
+      }
+    }
+    if (total === 0) {
+      return null;
+    }
+    return {
+      text: atLimit ? `${total}+` : String(total),
+      words: this.i18n.t(atLimit ? 'admin.attention.badgeAtLimit' : 'admin.attention.badge', {
+        count: total,
+      }),
+    };
+  });
 
   /** The groups as drawn: each with the id that lets its heading name it, and each link with whether it is the current one. */
   protected readonly menu = computed<SidebarGroup[]>(() =>
@@ -50,6 +86,37 @@ export class AdminSidebar {
       links: group.sections.map((section) => ({ section, current: this.isCurrent(section) })),
     })),
   );
+
+  constructor() {
+    // Following a link is what the open menu was for: on a phone it folds away, so the page that was asked for is the one in view.
+    this.router.events
+      .pipe(
+        filter((event) => event instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.phoneOpen.set(false));
+  }
+
+  /** The badge on a section's entry: the number waiting, and the same in words for a screen reader. Null when nothing waits or it is not known. */
+  protected badgeOf(section: AdminSection): { text: string; words: string } | null {
+    const state = section.attention ? this.attention()[section.attention] : undefined;
+    if (state?.status !== 'ready' || state.count === 0) {
+      return null;
+    }
+    const text = state.atLimit ? `${state.count}+` : String(state.count);
+    const words = this.i18n.t(
+      state.atLimit ? 'admin.attention.badgeAtLimit' : 'admin.attention.badge',
+      { count: state.count },
+    );
+    return { text, words };
+  }
+
+  /** What a link is called: its section, and how many are waiting in it. */
+  protected nameOf(section: AdminSection): string {
+    const name = this.i18n.t(section.label);
+    const badge = this.badgeOf(section);
+    return badge ? `${name}, ${badge.words}` : name;
+  }
 
   protected toggle(): void {
     const next = !this.collapsed();
@@ -88,5 +155,4 @@ export class AdminSidebar {
     }
     return typeof matchMedia === 'function' && matchMedia('(max-width: 64rem)').matches;
   }
-
 }

@@ -9,7 +9,7 @@ import { InviteHandover } from '../invite-handover/invite-handover';
 import { InviteCodeDto, InviteDto } from '../invite.models';
 
 /**
- * Staff page: invite an e-mail address to a published exam (FR-14). The invitation e-mail carries a link; when nothing could be sent
+ * Staff page: invite an email address to a published exam (FR-14). The invitation email carries a link; when nothing could be sent
  * the API gives the link and its code back so they can be passed on by hand, and when something was, staff can still ask for a code
  * of their own to hand over (read out, pasted into a chat).
  */

@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { AuthSessionService } from '../../auth/auth-session.service';
@@ -5,17 +7,22 @@ import { I18nService } from '../../i18n/i18n.service';
 import { AdminHome } from './admin-home';
 
 const holding = (permissions: string[]) => ({
+  hasPermission: (code: string) => permissions.includes(code),
   hasAnyPermission: (codes: readonly string[]) => codes.some((code) => permissions.includes(code)),
 });
 
-function render(permissions: string[]): HTMLElement {
+function open(permissions: string[]) {
   TestBed.configureTestingModule({
     imports: [AdminHome],
-    providers: [provideRouter([]), { provide: AuthSessionService, useValue: holding(permissions) }],
+    providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), { provide: AuthSessionService, useValue: holding(permissions) }],
   });
   const fixture = TestBed.createComponent(AdminHome);
   fixture.detectChanges();
-  return fixture.nativeElement as HTMLElement;
+  return { fixture, page: fixture.nativeElement as HTMLElement, http: TestBed.inject(HttpTestingController) };
+}
+
+function render(permissions: string[]): HTMLElement {
+  return open(permissions).page;
 }
 
 /** The names of the areas listed, in the order shown. */
@@ -166,10 +173,143 @@ describe('AdminHome', () => {
     });
   });
 
+  describe('what needs attention', () => {
+    const isRead = (path: string) => (r: { method: string; url: string }) => r.method === 'GET' && r.url.includes(path);
+    const tile = (page: HTMLElement, name: string) =>
+      Array.from(page.querySelectorAll<HTMLAnchorElement>('a.attention-tile')).find((a) => a.getAttribute('aria-label')?.startsWith(name));
+    const hour = 3_600_000;
+    const exam = (id: string, over: Record<string, unknown> = {}) => ({
+      id,
+      name: id,
+      status: 'Published',
+      isScheduled: true,
+      scheduledStartTime: new Date(Date.now() - hour).toISOString(),
+      scheduledEndTime: new Date(Date.now() + hour).toISOString(),
+      ...over,
+    });
+
+    /** Answers the three reads the page makes for staff who may manage exams. */
+    function answerQueues(http: HttpTestingController, answers: { requests?: unknown[]; disputes?: unknown[]; issues?: unknown[] } = {}) {
+      http.expectOne(isRead('/v1/attempt-requests')).flush(answers.requests ?? []);
+      http.expectOne(isRead('/v1/disputes')).flush(answers.disputes ?? []);
+      http.expectOne(isRead('/v1/issue-reports')).flush(answers.issues ?? []);
+    }
+
+    it('shows a tile for each queue the user may read, checking while the counts are on their way', () => {
+      const { page } = open(['exam.manage', 'exam.read']);
+
+      expect(page.querySelector('h2#admin-attention-heading')?.textContent).toContain('Needs attention');
+      expect(Array.from(page.querySelectorAll('a.attention-tile')).map((a) => a.getAttribute('aria-label'))).toEqual([
+        'Attempt requests: Checking…',
+        'Disputes: Checking…',
+        'Reported issues: Checking…',
+        'Exams running: Checking…',
+      ]);
+    });
+
+    it('counts what waits in each queue, in words, and links each tile to the page that deals with it', () => {
+      const { fixture, page, http } = open(['exam.manage', 'exam.read']);
+
+      answerQueues(http, { requests: [{}, {}, {}], disputes: [{}], issues: [] });
+      http.expectOne(isRead('/v1/exams')).flush([exam('e1'), exam('e2')]);
+      fixture.detectChanges();
+
+      expect(tile(page, 'Attempt requests')?.getAttribute('aria-label')).toBe('Attempt requests: 3 waiting for a decision');
+      expect(tile(page, 'Disputes')?.getAttribute('aria-label')).toBe('Disputes: 1 waiting for an answer');
+      expect(tile(page, 'Reported issues')?.getAttribute('aria-label')).toBe('Reported issues: Nothing waiting');
+      expect(tile(page, 'Exams running')?.getAttribute('aria-label')).toBe('Exams running: 2 open to candidates now');
+      expect(tile(page, 'Attempt requests')?.getAttribute('href')).toBe('/admin/attempt-requests');
+      expect(tile(page, 'Disputes')?.getAttribute('href')).toBe('/admin/disputes');
+      expect(tile(page, 'Reported issues')?.getAttribute('href')).toBe('/admin/issue-reports');
+      expect(tile(page, 'Exams running')?.getAttribute('href')).toBe('/exams');
+    });
+
+    it('tints a tile with something waiting, and leaves a clear one plain', () => {
+      const { fixture, page, http } = open(['exam.manage']);
+
+      answerQueues(http, { requests: [{}] });
+      fixture.detectChanges();
+
+      expect(tile(page, 'Attempt requests')?.classList.contains('attention-tile--waiting')).toBe(true);
+      expect(tile(page, 'Disputes')?.classList.contains('attention-tile--waiting')).toBe(false);
+    });
+
+    it('counts only the exams that are published and open now, not a draft, an archived one, or one not yet started', () => {
+      const { fixture, page, http } = open(['exam.read']);
+
+      http.expectOne(isRead('/v1/exams')).flush([
+        exam('running'),
+        exam('draft', { status: 'Draft' }),
+        exam('archived', { status: 'Archived' }),
+        exam('unscheduled', { isScheduled: false }),
+        exam('later', { scheduledStartTime: new Date(Date.now() + hour).toISOString(), scheduledEndTime: new Date(Date.now() + 2 * hour).toISOString() }),
+        exam('over', { scheduledStartTime: new Date(Date.now() - 2 * hour).toISOString(), scheduledEndTime: new Date(Date.now() - hour).toISOString() }),
+      ]);
+      fixture.detectChanges();
+
+      expect(tile(page, 'Exams running')?.getAttribute('aria-label')).toBe('Exams running: 1 open to candidates now');
+    });
+
+    it('says "200+" when a queue reached the most its list holds', () => {
+      const { fixture, page, http } = open(['exam.manage']);
+
+      answerQueues(http, { requests: Array.from({ length: 200 }, () => ({})) });
+      fixture.detectChanges();
+
+      expect(tile(page, 'Attempt requests')?.getAttribute('aria-label')).toContain('200+ waiting');
+    });
+
+    it('says one queue could not be checked, and still shows the others', () => {
+      const { fixture, page, http } = open(['exam.manage']);
+
+      http.expectOne(isRead('/v1/attempt-requests')).flush({}, { status: 500, statusText: 'Server Error' });
+      http.expectOne(isRead('/v1/disputes')).flush([{}]);
+      http.expectOne(isRead('/v1/issue-reports')).flush([]);
+      fixture.detectChanges();
+
+      expect(tile(page, 'Attempt requests')?.getAttribute('aria-label')).toBe('Attempt requests: Could not be checked');
+      expect(tile(page, 'Disputes')?.getAttribute('aria-label')).toContain('1 waiting');
+    });
+
+    it('asks only for the queues the user may read', () => {
+      const staff = open(['exam.read']);
+
+      staff.http.expectOne(isRead('/v1/exams')).flush([]);
+      staff.http.expectNone(isRead('/v1/disputes'));
+      expect(staff.page.querySelectorAll('a.attention-tile')).toHaveLength(1);
+    });
+
+    it('shows no section at all to a user who has no queue to see', () => {
+      const { page, http } = open(['question.read']);
+
+      http.expectNone(() => true);
+      expect(page.querySelector('.admin-attention')).toBeNull();
+    });
+
+    it('reads the counts again from the refresh icon, keeping what was shown until the new numbers arrive', () => {
+      const { fixture, page, http } = open(['exam.manage']);
+      answerQueues(http);
+      fixture.detectChanges();
+
+      page.querySelector<HTMLButtonElement>('.admin-attention app-refresh-button button')!.click();
+      fixture.detectChanges();
+      expect(tile(page, 'Attempt requests')?.getAttribute('aria-label')).toBe('Attempt requests: Nothing waiting');
+
+      answerQueues(http, { requests: [{}, {}] });
+      fixture.detectChanges();
+      expect(tile(page, 'Attempt requests')?.getAttribute('aria-label')).toBe('Attempt requests: 2 waiting for a decision');
+    });
+  });
+
   it('reads the page and the areas in the language the admin chose', async () => {
     TestBed.configureTestingModule({
       imports: [AdminHome],
-      providers: [provideRouter([]), { provide: AuthSessionService, useValue: { hasAnyPermission: () => true } }],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: AuthSessionService, useValue: { hasPermission: () => true, hasAnyPermission: () => true } },
+      ],
     });
     const fixture = TestBed.createComponent(AdminHome);
     fixture.detectChanges();

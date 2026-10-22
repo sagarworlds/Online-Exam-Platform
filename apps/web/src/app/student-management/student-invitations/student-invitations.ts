@@ -4,6 +4,8 @@ import { InviteApiService } from '../../invite-management/invite-api.service';
 import { InviteHandover } from '../../invite-management/invite-handover/invite-handover';
 import { InviteCodeDto, InviteDto, InviteStatus } from '../../invite-management/invite.models';
 import { extractErrorMessage } from '../../shared/problem-details';
+import { StatusBadge, StatusTone } from '../../shared/status-badge/status-badge';
+import { inviteStatusTone } from '../invite-status';
 import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 
 /**
@@ -12,7 +14,7 @@ import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
  */
 @Component({
   selector: 'app-student-invitations',
-  imports: [DatePipe, InviteHandover],
+  imports: [DatePipe, InviteHandover, StatusBadge],
   templateUrl: './student-invitations.html',
   styleUrl: './student-invitations.css',
 })
@@ -34,16 +36,8 @@ export class StudentInvitations {
 
   protected readonly errorMessage = signal<string | null>(null);
 
-  /** The badge colours of a status: an accepted invitation is done well, a pending one is waiting on someone, the rest are over. */
-  protected badgeClass(status: InviteStatus): string {
-    switch (status) {
-      case 'Accepted':
-        return 'badge--active';
-      case 'Pending':
-        return 'badge--warning';
-      default:
-        return 'badge--inactive';
-    }
+  protected statusTone(status: InviteStatus): StatusTone {
+    return inviteStatusTone(status);
   }
 
   /** The exam an invitation is to; the API leaves the name out for an exam it can no longer find. */

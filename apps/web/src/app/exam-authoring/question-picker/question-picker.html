@@ -1,0 +1,54 @@
+<div class="picker">
+  @if (scopeHint(); as hint) {
+    <p class="hint">{{ hint }}</p>
+  }
+
+  <div class="picker__filters">
+    <app-form-field [label]="'exams.picker.search' | t" [hint]="'exams.picker.searchHint' | t">
+      <input appFieldControl type="search" [value]="query()" (input)="onSearch($any($event.target).value)" autocomplete="off" />
+    </app-form-field>
+    <app-form-field [label]="'exams.section.difficulty' | t">
+      <select appFieldControl [value]="difficulty()" (change)="onDifficulty($any($event.target).value)">
+        <option value="">{{ 'exams.section.any' | t }}</option>
+        @for (level of difficulties; track level.value) {
+          <option [value]="level.value">{{ level.label }}</option>
+        }
+      </select>
+    </app-form-field>
+  </div>
+
+  @if (failed()) {
+    <p class="error-message" role="alert">
+      {{ 'exams.picker.failed' | t }}
+      <button type="button" class="btn btn--link" (click)="retry()">{{ 'exams.picker.retry' | t }}</button>
+    </p>
+  } @else if (loading()) {
+    <p class="hint" role="status">{{ 'exams.picker.loading' | t }}</p>
+  } @else if (choices().length === 0) {
+    <p class="hint" role="status">{{ hasMore() ? ('exams.picker.noneHere' | t) : emptyText() }}</p>
+  } @else {
+    <p class="picker__count" role="status">{{ countText() }}</p>
+    <ul class="picker__list">
+      @for (question of choices(); track question.id) {
+        <li class="picker__row">
+          <div class="picker__text">
+            <span class="picker__stem">{{ stem(question) }}</span>
+            @if (meta(question); as detail) {
+              <span class="picker__meta">{{ detail }}</span>
+            }
+          </div>
+          <button type="button" class="btn--small" [disabled]="busy()" [attr.aria-label]="addLabel(question)" (click)="add(question)">
+            {{ 'exams.picker.add' | t }}
+          </button>
+        </li>
+      }
+    </ul>
+  }
+
+  @if (moreFailed()) {
+    <p class="error-message" role="alert">{{ 'exams.picker.failed' | t }}</p>
+  }
+  @if (!loading() && !failed() && hasMore()) {
+    <button type="button" class="btn--small" (click)="showMore()" [attr.aria-busy]="loadingMore()">{{ 'exams.picker.more' | t }}</button>
+  }
+</div>

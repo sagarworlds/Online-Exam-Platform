@@ -57,9 +57,9 @@ describe('StudentInvitations', () => {
     const { root } = open([invite('i1', 'Physics Quiz'), invite('i2', 'Maths Final', { status: 'Accepted' })]);
 
     expect(exams(root)).toEqual(['Physics Quiz', 'Maths Final']);
-    expect(root.querySelectorAll('.badge')).toHaveLength(2);
-    expect(root.querySelector('.badge--warning')?.textContent).toContain('Pending');
-    expect(root.querySelector('.badge--active')?.textContent).toContain('Accepted');
+    expect(root.querySelectorAll('.status-badge')).toHaveLength(2);
+    expect(root.querySelector('.status-badge[data-tone="warning"]')?.textContent).toContain('Pending');
+    expect(root.querySelector('.status-badge[data-tone="success"]')?.textContent).toContain('Accepted');
   });
 
   it('names an invitation to an exam that cannot be found rather than leaving its row blank', () => {

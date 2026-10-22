@@ -35,11 +35,11 @@ describe('GuardianConfirmLink', () => {
     httpMock.verify();
   });
 
-  it('asks for the link from the e-mail, and sends nothing, when the page has no code', () => {
+  it('asks for the link from the email, and sends nothing, when the page has no code', () => {
     const fixture = open();
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.textContent).toContain('needs the confirmation link from the e-mail');
+    expect(root.textContent).toContain('needs the confirmation link from the email');
     expect(button(root)).toBeNull();
     httpMock.expectNone(VERIFY_URL);
   });

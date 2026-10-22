@@ -1,8 +1,8 @@
-<div class="page page--wide">
+<div class="page page--admin">
   <a routerLink="/exams" class="back-link">&larr; {{ 'exams.editor.back' | t }}</a>
 
   @if (errorMessage()) {
-    <p class="error-message">{{ errorMessage() }}</p>
+    <p class="error-message" role="alert">{{ errorMessage() }}</p>
   }
 
   @if (loading()) {
@@ -37,7 +37,7 @@
             <div class="editor-ready__text">
               <strong>{{ 'exams.editor.scheduleRow' | t }}</strong>
               @if (e.isScheduled) {
-                <span>{{ 'exams.editor.opensCloses' | t: { start: (e.scheduledStartTime | date: 'medium') ?? '', end: (e.scheduledEndTime | date: 'medium') ?? '' } }}</span>
+                <span>{{ 'exams.editor.opensCloses' | t: { start: (e.scheduledStartTime | examTime: e.timeZone) ?? '', end: (e.scheduledEndTime | examTime: e.timeZone) ?? '' } }}</span>
               } @else {
                 <span>{{ 'exams.editor.notScheduled' | t }}</span>
               }
@@ -77,9 +77,9 @@
         <app-exam-section-card
           [section]="section"
           [editable]="isDraft()"
-          [busy]="busy()"
-          [choices]="availableQuestions()"
-          [scope]="e.scope.type"
+          [busy]="busy() || refreshing()"
+          [examScope]="e.scope"
+          [excluded]="usedQuestionIds()"
           [topics]="topics()"
           (renameRequested)="renameSection($event)"
           (removeConfirmed)="removeSection($event)"
@@ -108,231 +108,225 @@
       <h2 id="settings-title">{{ 'exams.editor.settingsTitle' | t }}</h2>
       <p class="hint">{{ 'exams.editor.settingsHint' | t }}</p>
 
-      <details class="setting">
-        <summary>
-          <h3 class="setting__name">{{ 'exams.setting.schedule' | t }}</h3>
-          <span class="setting__value">
-            @if (e.isScheduled) {
-              {{ 'exams.editor.opensAt' | t: { start: (e.scheduledStartTime | date: 'medium') ?? '' } }}
-            } @else {
-              {{ 'exams.editor.notScheduled' | t }}
-            }
-          </span>
-        </summary>
-        <div class="setting__body">
-          @if (e.isScheduled) {
-            <p>
-              <strong>{{ 'exams.editor.opens' | t }}</strong> {{ e.scheduledStartTime | date: 'medium' }}<br />
-              <strong>{{ 'exams.editor.closes' | t }}</strong> {{ e.scheduledEndTime | date: 'medium' }}<br />
-              @if (e.lateEntryDeadline) {
-                <strong>{{ 'exams.editor.lateEntry' | t }}</strong> {{ e.lateEntryDeadline | date: 'medium' }}<br />
-              }
-              <strong>{{ 'exams.editor.timePerAttempt' | t }}</strong>
-              {{ e.config.totalTimeSeconds ? e.config.totalTimeSeconds / 60 + ' ' + ('exams.editor.minutes' | t) : ('exams.editor.untilClosed' | t) }}
-            </p>
-          }
-        </div>
-      </details>
+      <app-disclosure-group>
 
-      <details class="setting">
-        <summary>
-          <h3 class="setting__name">{{ 'exams.setting.scope' | t }}</h3>
-          <span class="setting__value">{{ scopeSummary() }}</span>
-        </summary>
+      <app-disclosure
+        [heading]="'exams.setting.schedule' | t"
+        [summary]="scheduleSummary(e)"
+        rememberAs="exam-editor.schedule"
+        [status]="isDraft() && !e.isScheduled ? 'warning' : 'none'"
+        [statusLabel]="isDraft() && !e.isScheduled ? ('exams.editor.notScheduled' | t) : ''"
+      >
         <div class="setting__body">
-          @if (changingScope()) {
-            @if (booksState() === 'loading') {
-              <p>{{ 'exams.editor.loadingBooks' | t }}</p>
-            } @else if (booksState() === 'unavailable') {
-              <p class="hint">{{ 'exams.editor.booksUnavailable' | t }}</p>
-            } @else {
-              <app-exam-scope-fields [books]="books()" [(scope)]="scopeDraft" [disabled]="busy()" [hideLegend]="true" />
+        @if (e.isScheduled) {
+          <p>
+            <strong>{{ 'exams.editor.opens' | t }}</strong> {{ e.scheduledStartTime | examTime: e.timeZone }}<br />
+            <strong>{{ 'exams.editor.closes' | t }}</strong> {{ e.scheduledEndTime | examTime: e.timeZone }}<br />
+            @if (e.lateEntryDeadline) {
+              <strong>{{ 'exams.editor.lateEntry' | t }}</strong> {{ e.lateEntryDeadline | examTime: e.timeZone }}<br />
             }
-            <div class="actions">
-              <button type="button" class="primary" (click)="saveScope()" [disabled]="!scopeDraftComplete() || busy() || booksState() !== 'ready'">{{ 'exams.editor.saveScope' | t }}</button>
-              <button type="button" (click)="cancelChangingScope()" [disabled]="busy()">{{ 'common.cancel' | t }}</button>
-            </div>
-          } @else if (isDraft()) {
-            <div class="actions">
-              <button type="button" (click)="startChangingScope()">{{ 'common.change' | t }}</button>
-            </div>
-          }
-        </div>
-      </details>
+            <strong>{{ 'exams.editor.timePerAttempt' | t }}</strong>
+            {{ e.config.totalTimeSeconds ? e.config.totalTimeSeconds / 60 + ' ' + ('exams.editor.minutes' | t) : ('exams.editor.untilClosed' | t) }}
+          </p>
+        }
+      </div>
+      </app-disclosure>
 
-      <details class="setting">
-        <summary>
-          <h3 class="setting__name">{{ 'exams.setting.release' | t }}</h3>
-          <span class="setting__value">{{ summary.release(e.config) }}</span>
-        </summary>
+      <app-disclosure
+        [heading]="'exams.setting.scope' | t"
+        [summary]="scopeSummary()"
+        rememberAs="exam-editor.scope"
+      >
         <div class="setting__body">
-          @if (changingRelease()) {
-            <app-exam-release-fields [(selection)]="releaseDraft" [disabled]="busy()" />
-            <div class="actions">
-              <button type="button" class="primary" (click)="saveRelease()" [disabled]="!releaseDraftComplete() || busy()">{{ 'common.save' | t }}</button>
-              <button type="button" (click)="cancelChangingRelease()" [disabled]="busy()">{{ 'common.cancel' | t }}</button>
-            </div>
+        @if (changingScope()) {
+          @if (booksState() === 'loading') {
+            <p>{{ 'exams.editor.loadingBooks' | t }}</p>
+          } @else if (booksState() === 'unavailable') {
+            <p class="hint">{{ 'exams.editor.booksUnavailable' | t }}</p>
           } @else {
-            @switch (e.config.resultReleaseMode) {
-              @case ('Scheduled') {
-                <p>{{ 'exams.editor.releaseScheduled' | t: { time: (e.config.resultReleaseTime | date: 'medium') ?? '' } }}</p>
-              }
-              @case ('Manual') {
-                @if (e.config.resultReleaseTime) {
-                  <p>{{ 'exams.editor.releasedOn' | t: { time: (e.config.resultReleaseTime | date: 'medium') ?? '' } }}</p>
-                } @else if (isDraft()) {
-                  <p>{{ 'exams.editor.heldDraft' | t }}</p>
-                } @else {
-                  <p>{{ 'exams.editor.heldBack' | t }}</p>
-                }
-              }
-              @default {
-                <p>{{ 'exams.editor.releaseInstant' | t }}</p>
-              }
-            }
-            <div class="actions">
-              @if (canChangeRelease()) {
-                <button type="button" (click)="startChangingRelease()" [attr.aria-label]="'exams.editor.editReleaseLabel' | t">{{ 'common.edit' | t }}</button>
-              }
-              @if (canReleaseNow()) {
-                <button type="button" class="primary" (click)="releaseNow()" [disabled]="busy()">{{ 'exams.editor.releaseNow' | t }}</button>
-              }
-            </div>
+            <app-exam-scope-fields [books]="books()" [(scope)]="scopeDraft" [disabled]="busy()" [hideLegend]="true" />
           }
-        </div>
-      </details>
+          <div class="actions">
+            <button type="button" class="primary" (click)="saveScope()" [disabled]="!scopeDraftComplete() || busy() || booksState() !== 'ready'">{{ 'exams.editor.saveScope' | t }}</button>
+            <button type="button" (click)="cancelChangingScope()" [disabled]="busy()">{{ 'common.cancel' | t }}</button>
+          </div>
+        } @else if (isDraft()) {
+          <div class="actions">
+            <button type="button" (click)="startChangingScope()">{{ 'common.change' | t }}</button>
+          </div>
+        }
+      </div>
+      </app-disclosure>
 
-      <details class="setting">
-        <summary>
-          <h3 class="setting__name">{{ 'exams.setting.shuffle' | t }}</h3>
-          <span class="setting__value">{{ summary.shuffle(e.config) }}</span>
-        </summary>
+      <app-disclosure
+        [heading]="'exams.setting.release' | t"
+        [summary]="summary.release(e.config)"
+        rememberAs="exam-editor.release"
+      >
         <div class="setting__body">
-          <app-exam-shuffle
-            [shuffleQuestions]="e.config.shuffleQuestions"
-            [shuffleOptions]="e.config.shuffleOptions"
-            [editable]="isDraft()"
-            [busy]="busy()"
-            (changed)="saveShuffle($event)"
-          />
-        </div>
-      </details>
-
-      <details class="setting" (toggle)="onInstructionsToggled($event)">
-        <summary>
-          <h3 class="setting__name">{{ 'exams.setting.instructions' | t }}</h3>
-          <span class="setting__value">{{ e.instructions ? ('exams.instructions.summarySet' | t) : ('exams.instructions.summaryNone' | t) }}</span>
-        </summary>
-        <div class="setting__body">
-          <app-exam-instructions
-            [instructions]="e.instructions ?? null"
-            [editable]="isDraft()"
-            [busy]="busy()"
-            [templates]="templates()"
-            [templatesLoading]="templatesLoading()"
-            [templatesError]="templatesError()"
-            (changed)="saveInstructions($event)"
-            (templateChosen)="useInstructionTemplate($event)"
-          />
-        </div>
-      </details>
-
-      <details class="setting">
-        <summary>
-          <h3 class="setting__name">{{ 'exams.setting.marking' | t }}</h3>
-          <span class="setting__value">{{ summary.marks(e.config) }}</span>
-        </summary>
-        <div class="setting__body">
-          <app-exam-marking-scheme
-            [scheme]="e.config.markingScheme"
-            [editable]="isDraft()"
-            [busy]="busy()"
-            (changed)="saveMarkingScheme($event)"
-          />
-        </div>
-      </details>
-
-      <details class="setting">
-        <summary>
-          <h3 class="setting__name">{{ 'exams.setting.attempts' | t }}</h3>
-          <span class="setting__value">{{ summary.attempts(e.config) }}</span>
-        </summary>
-        <div class="setting__body">
-          <app-exam-attempt-limit
-            [attempts]="e.config.maxAttempts"
-            [editable]="canChangeRelease()"
-            [busy]="busy()"
-            [releaseMode]="e.config.resultReleaseMode"
-            (changed)="saveAttemptLimit($event)"
-          />
-        </div>
-      </details>
-
-      <details class="setting">
-        <summary>
-          <h3 class="setting__name">{{ 'exams.setting.proctoring' | t }}</h3>
-          <span class="setting__value">{{ e.proctoring?.profileName ?? '' }}</span>
-        </summary>
-        <div class="setting__body">
-          <app-exam-proctoring-profile
-            [proctoring]="e.proctoring"
-            [editable]="canChangeRelease()"
-            [busy]="busy()"
-            (applied)="saveProctoringProfile($event)"
-          />
-        </div>
-      </details>
-
-      <details class="setting">
-        <summary>
-          <h3 class="setting__name">{{ 'exams.setting.copying' | t }}</h3>
-          <span class="setting__value">{{ summary.copying(e.config) }}</span>
-        </summary>
-        <div class="setting__body">
-          <app-exam-content-protection
-            [enabled]="e.config.contentProtection !== false"
-            [editable]="canChangeRelease()"
-            [busy]="busy()"
-            (changed)="saveContentProtection($event)"
-          />
-        </div>
-      </details>
-
-      <details class="setting">
-        <summary>
-          <h3 class="setting__name">{{ 'exams.setting.leaving' | t }}</h3>
-          <span class="setting__value">{{ summary.leaving(e.config) }}</span>
-        </summary>
-        <div class="setting__body">
-          <app-exam-focus-violation-limit
-            [limit]="e.config.focusViolationLimit ?? 0"
-            [editable]="canChangeRelease()"
-            [busy]="busy()"
-            (changed)="saveFocusViolationLimit($event)"
-          />
-        </div>
-      </details>
-
-      <details class="setting">
-        <summary>
-          <h3 class="setting__name">{{ 'exams.setting.passingMark' | t }}</h3>
-          <span class="setting__value">
-            @if (e.config.passingPercentage; as percent) {
-              {{ 'exams.passingMark.readSet' | t: { percent: percent } }}
-            } @else {
-              {{ 'exams.passingMark.readNone' | t }}
+        @if (changingRelease()) {
+          <app-exam-release-fields [(selection)]="releaseDraft" [disabled]="busy()" />
+          <div class="actions">
+            <button type="button" class="primary" (click)="saveRelease()" [disabled]="!releaseDraftComplete() || busy()">{{ 'common.save' | t }}</button>
+            <button type="button" (click)="cancelChangingRelease()" [disabled]="busy()">{{ 'common.cancel' | t }}</button>
+          </div>
+        } @else {
+          @switch (e.config.resultReleaseMode) {
+            @case ('Scheduled') {
+              <p>{{ 'exams.editor.releaseScheduled' | t: { time: (e.config.resultReleaseTime | examTime: e.timeZone) ?? '' } }}</p>
             }
-          </span>
-        </summary>
+            @case ('Manual') {
+              @if (e.config.resultReleaseTime) {
+                <p>{{ 'exams.editor.releasedOn' | t: { time: (e.config.resultReleaseTime | examTime: e.timeZone) ?? '' } }}</p>
+              } @else if (isDraft()) {
+                <p>{{ 'exams.editor.heldDraft' | t }}</p>
+              } @else {
+                <p>{{ 'exams.editor.heldBack' | t }}</p>
+              }
+            }
+            @default {
+              <p>{{ 'exams.editor.releaseInstant' | t }}</p>
+            }
+          }
+          <div class="actions">
+            @if (canChangeRelease()) {
+              <button type="button" (click)="startChangingRelease()" [attr.aria-label]="'exams.editor.editReleaseLabel' | t">{{ 'common.edit' | t }}</button>
+            }
+            @if (canReleaseNow()) {
+              <button type="button" class="primary" (click)="releaseNow()" [disabled]="busy()">{{ 'exams.editor.releaseNow' | t }}</button>
+            }
+          </div>
+        }
+      </div>
+      </app-disclosure>
+
+      <app-disclosure
+        [heading]="'exams.setting.shuffle' | t"
+        [summary]="summary.shuffle(e.config)"
+        rememberAs="exam-editor.shuffle"
+      >
         <div class="setting__body">
-          <app-exam-passing-percentage
-            [percent]="e.config.passingPercentage ?? null"
-            [editable]="canChangeRelease()"
-            [busy]="busy()"
-            (changed)="savePassingPercentage($event)"
-          />
-        </div>
-      </details>
+        <app-exam-shuffle
+          [shuffleQuestions]="e.config.shuffleQuestions"
+          [shuffleOptions]="e.config.shuffleOptions"
+          [editable]="isDraft()"
+          [busy]="busy()"
+          (changed)="saveShuffle($event)"
+        />
+      </div>
+      </app-disclosure>
+
+      <app-disclosure
+        [heading]="'exams.setting.instructions' | t"
+        [summary]="e.instructions ? ('exams.instructions.summarySet' | t) : ('exams.instructions.summaryNone' | t)"
+        rememberAs="exam-editor.instructions"
+        (openChange)="onInstructionsOpenChange($event)"
+      >
+        <div class="setting__body">
+        <app-exam-instructions
+          [instructions]="e.instructions ?? null"
+          [editable]="isDraft()"
+          [busy]="busy()"
+          [templates]="templates()"
+          [templatesLoading]="templatesLoading()"
+          [templatesError]="templatesError()"
+          (changed)="saveInstructions($event)"
+          (templateChosen)="useInstructionTemplate($event)"
+        />
+      </div>
+      </app-disclosure>
+
+      <app-disclosure
+        [heading]="'exams.setting.marking' | t"
+        [summary]="summary.marks(e.config)"
+        rememberAs="exam-editor.marking"
+      >
+        <div class="setting__body">
+        <app-exam-marking-scheme
+          [scheme]="e.config.markingScheme"
+          [editable]="isDraft()"
+          [busy]="busy()"
+          (changed)="saveMarkingScheme($event)"
+        />
+      </div>
+      </app-disclosure>
+
+      <app-disclosure
+        [heading]="'exams.setting.attempts' | t"
+        [summary]="summary.attempts(e.config)"
+        rememberAs="exam-editor.attempts"
+      >
+        <div class="setting__body">
+        <app-exam-attempt-limit
+          [attempts]="e.config.maxAttempts"
+          [editable]="canChangeRelease()"
+          [busy]="busy()"
+          [releaseMode]="e.config.resultReleaseMode"
+          (changed)="saveAttemptLimit($event)"
+        />
+      </div>
+      </app-disclosure>
+
+      <app-disclosure
+        [heading]="'exams.setting.proctoring' | t"
+        [summary]="e.proctoring?.profileName ?? ''"
+        rememberAs="exam-editor.proctoring"
+      >
+        <div class="setting__body">
+        <app-exam-proctoring-profile
+          [proctoring]="e.proctoring"
+          [editable]="canChangeRelease()"
+          [busy]="busy()"
+          (applied)="saveProctoringProfile($event)"
+        />
+      </div>
+      </app-disclosure>
+
+      <app-disclosure
+        [heading]="'exams.setting.copying' | t"
+        [summary]="summary.copying(e.config)"
+        rememberAs="exam-editor.copying"
+      >
+        <div class="setting__body">
+        <app-exam-content-protection
+          [enabled]="e.config.contentProtection !== false"
+          [editable]="canChangeRelease()"
+          [busy]="busy()"
+          (changed)="saveContentProtection($event)"
+        />
+      </div>
+      </app-disclosure>
+
+      <app-disclosure
+        [heading]="'exams.setting.leaving' | t"
+        [summary]="summary.leaving(e.config)"
+        rememberAs="exam-editor.leaving"
+      >
+        <div class="setting__body">
+        <app-exam-focus-violation-limit
+          [limit]="e.config.focusViolationLimit ?? 0"
+          [editable]="canChangeRelease()"
+          [busy]="busy()"
+          (changed)="saveFocusViolationLimit($event)"
+        />
+      </div>
+      </app-disclosure>
+
+      <app-disclosure
+        [heading]="'exams.setting.passingMark' | t"
+        [summary]="passingSummary(e)"
+        rememberAs="exam-editor.passing-mark"
+      >
+        <div class="setting__body">
+        <app-exam-passing-percentage
+          [percent]="e.config.passingPercentage ?? null"
+          [editable]="canChangeRelease()"
+          [busy]="busy()"
+          (changed)="savePassingPercentage($event)"
+        />
+      </div>
+      </app-disclosure>
+      </app-disclosure-group>
     </section>
 
     @if (isDraft()) {

@@ -50,7 +50,7 @@ describe('InviteCreate', () => {
     expect(options).not.toContain('Draft Exam');
   });
 
-  it('sends the exam and e-mail, and says so when the mail went out', () => {
+  it('sends the exam and email, and says so when the mail went out', () => {
     const { fixture, root } = open();
     fill(fixture, root);
 
@@ -61,7 +61,7 @@ describe('InviteCreate', () => {
     post.flush({ id: 'i1', email: 'student@example.com', emailSent: true, inviteLink: null }, { status: 201, statusText: 'Created' });
     fixture.detectChanges();
 
-    expect(root.textContent).toContain('Invitation e-mailed to student@example.com');
+    expect(root.textContent).toContain('Invitation emailed to student@example.com');
     expect(root.textContent).not.toContain('Send this link');
   });
 
@@ -78,7 +78,7 @@ describe('InviteCreate', () => {
       );
     fixture.detectChanges();
 
-    expect(root.textContent).toContain('Invitation e-mailed to student@example.com');
+    expect(root.textContent).toContain('Invitation emailed to student@example.com');
     expect(root.textContent).toContain('also sent to their phone on WhatsApp');
   });
 
@@ -115,7 +115,7 @@ describe('InviteCreate', () => {
     expect(root.textContent).not.toContain('WhatsApp');
   });
 
-  it('shows the link to pass on when no e-mail could be sent', () => {
+  it('shows the link to pass on when no email could be sent', () => {
     const { fixture, root } = open();
     fill(fixture, root);
     (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
@@ -134,7 +134,7 @@ describe('InviteCreate', () => {
       );
     fixture.detectChanges();
 
-    expect(root.textContent).toContain('no e-mail could be sent');
+    expect(root.textContent).toContain('no email could be sent');
     expect(root.textContent).toContain('http://localhost:4200/invite?code=AB12CD34');
     expect(root.textContent).toContain('AB12CD34');
   });

@@ -1,6 +1,7 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { QuestionDto } from '../../question-bank/question.models';
-import { DrawQuestionsRequest, ExamScopeType, ExamSectionDto } from '../exam.models';
+import { DrawQuestionsRequest, ExamScopeDto, ExamSectionDto } from '../exam.models';
 import { ExamSectionCard } from './exam-section-card';
 
 const section = (overrides: Partial<ExamSectionDto> = {}): ExamSectionDto => ({
@@ -15,16 +16,6 @@ const section = (overrides: Partial<ExamSectionDto> = {}): ExamSectionDto => ({
   ...overrides,
 });
 
-const bankQuestion = (id: string, text: string): QuestionDto => ({
-  id, text, createdBy: 'u1', createdAtUtc: '2026-10-02T00:00:00Z',
-  chapterId: null, chapterTitle: null, bookId: null, bookName: null, classId: null, className: null,
-  usage: { examCount: 0, examNames: [], answered: false },
-  difficulty: null,
-  topics: [],
-  allowsMultiple: false,
-  options: [{ id: `${id}-a`, text: 'A', isCorrect: true, isPinned: false }, { id: `${id}-b`, text: 'B', isCorrect: false, isPinned: false }],
-});
-
 describe('ExamSectionCard', () => {
   let fixture: ComponentFixture<ExamSectionCard>;
   let root: HTMLElement;
@@ -35,19 +26,19 @@ describe('ExamSectionCard', () => {
   let drawn: { sectionId: string; request: DrawQuestionsRequest }[];
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [ExamSectionCard] }).compileComponents();
+    await TestBed.configureTestingModule({ imports: [ExamSectionCard], providers: [provideHttpClient(), provideHttpClientTesting()] }).compileComponents();
   });
 
   function show(
     s: ExamSectionDto = section(),
-    inputs: { editable?: boolean; busy?: boolean; choices?: QuestionDto[]; scope?: ExamScopeType; topics?: string[] } = {},
+    inputs: { editable?: boolean; busy?: boolean; examScope?: ExamScopeDto; excluded?: ReadonlySet<string>; topics?: string[] } = {},
   ) {
     fixture = TestBed.createComponent(ExamSectionCard);
     fixture.componentRef.setInput('section', s);
     fixture.componentRef.setInput('editable', inputs.editable ?? true);
     if (inputs.busy !== undefined) fixture.componentRef.setInput('busy', inputs.busy);
-    if (inputs.choices !== undefined) fixture.componentRef.setInput('choices', inputs.choices);
-    if (inputs.scope !== undefined) fixture.componentRef.setInput('scope', inputs.scope);
+    if (inputs.examScope !== undefined) fixture.componentRef.setInput('examScope', inputs.examScope);
+    if (inputs.excluded !== undefined) fixture.componentRef.setInput('excluded', inputs.excluded);
     if (inputs.topics !== undefined) fixture.componentRef.setInput('topics', inputs.topics);
     renamed = [];
     removed = [];
@@ -150,37 +141,51 @@ describe('ExamSectionCard', () => {
   });
 
   describe('adding a question', () => {
-    it('offers the questions it is given and sends the chosen one', () => {
-      show(section(), { choices: [bankQuestion('q9', 'Capital of France?')] });
-      const select = root.querySelector('select') as HTMLSelectElement;
-      expect(Array.from(select.options).map((o) => o.textContent?.trim())).toEqual(['Choose a question…', 'Capital of France?']);
+    const picker = () => root.querySelector('app-question-picker');
+    const pickerRow = () => Array.from(root.querySelectorAll<HTMLDetailsElement>('details')).find((d) => d.textContent?.includes('Add a question from the bank'))!;
 
-      select.value = 'q9';
-      select.dispatchEvent(new Event('change'));
-      press('Add question');
+    function openPicker() {
+      const details = pickerRow();
+      details.open = true;
+      details.dispatchEvent(new Event('toggle'));
+      fixture.detectChanges();
+    }
+
+    it('has a row that opens the question picker, shut to begin with, and does not make the picker until it is opened', () => {
+      show();
+
+      expect(pickerRow().open).toBe(false);
+      expect(picker()).toBeNull();
+
+      openPicker();
+
+      expect(picker()).not.toBeNull();
+    });
+
+    it('passes the picker what it needs: the exam’s scope, the questions already in it and the section’s name', () => {
+      const scope: ExamScopeDto = { type: 'Book', bookId: 'b1', bookName: 'Maths', className: null, chapters: [] };
+      show(section(), { examScope: scope, excluded: new Set(['q1']) });
+      openPicker();
+
+      const picked = fixture.debugElement.query((e) => e.name === 'app-question-picker').componentInstance;
+      expect(picked.scope()).toEqual(scope);
+      expect(Array.from(picked.excluded())).toEqual(['q1']);
+      expect(picked.sectionName()).toBe('Algebra');
+    });
+
+    it('sends the question the picker hands it, with the section it is for', () => {
+      show();
+      openPicker();
+
+      fixture.debugElement.query((e) => e.name === 'app-question-picker').componentInstance.picked.emit('q9');
 
       expect(added).toEqual([{ sectionId: 's1', questionId: 'q9' }]);
     });
 
-    it('sends an empty choice too, so the page can say that nothing was chosen', () => {
-      show();
+    it('has no picker on a section that cannot be changed', () => {
+      show(section(), { editable: false });
 
-      press('Add question');
-
-      expect(added).toEqual([{ sectionId: 's1', questionId: '' }]);
-    });
-
-    it('says what the exam is limited to, and what to do when nothing is left to add', () => {
-      show(section(), { scope: 'Chapters', choices: [] });
-
-      expect(root.textContent).toContain("Only questions from this exam's chapters are offered.");
-      expect(root.textContent).toContain('There are none left to add');
-    });
-
-    it('says nothing about a limit for an exam without one', () => {
-      show(section(), { scope: 'Independent' });
-
-      expect(root.textContent).not.toContain('are offered');
+      expect(pickerRow()).toBeUndefined();
     });
   });
 

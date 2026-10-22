@@ -6,7 +6,7 @@ import { GuardianApiService } from '../guardian-api.service';
 import { GuardianLinkDto } from '../guardian.models';
 
 /**
- * The page a guardian opens from the e-mail to confirm a candidate link. A guardian has no account, so the code in the link is the
+ * The page a guardian opens from the email to confirm a candidate link. A guardian has no account, so the code in the link is the
  * only proof. Confirming takes a button press rather than happening on page load: mail scanners open links by themselves, and a page
  * that confirmed on load would confirm links that nobody read.
  */
@@ -20,14 +20,14 @@ import { GuardianLinkDto } from '../guardian.models';
 
       @if (!token) {
         <div class="error-message" role="alert">
-          This page needs the confirmation link from the e-mail. Open the link exactly as it was sent to you.
+          This page needs the confirmation link from the email. Open the link exactly as it was sent to you.
         </div>
       } @else if (confirmed(); as link) {
         <div class="success-message" role="status">
           Thank you. You have confirmed that you are the guardian of {{ link.candidateEmail }}.
         </div>
       } @else {
-        <p class="hint">Confirm only if you are the guardian of the candidate named in the e-mail.</p>
+        <p class="hint">Confirm only if you are the guardian of the candidate named in the email.</p>
         <div class="actions">
           <button type="button" class="btn btn--primary" [disabled]="loading()" (click)="confirm()">
             {{ loading() ? 'Confirming...' : 'Confirm guardianship' }}

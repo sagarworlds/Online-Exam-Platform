@@ -20,16 +20,16 @@ import { ageBandOn } from './age-band';
 /** What each field a change can touch is called in the words staff read. */
 const FIELD_LABELS: Record<StudentField, string> = {
   name: 'name',
-  email: 'e-mail address',
+  email: 'email address',
   phoneNumber: 'mobile number',
   dateOfBirth: 'date of birth',
 };
 
 /**
- * One student's profile. Staff who may change it (`canEdit`) get a form for the name, e-mail address, mobile number and date of birth;
+ * One student's profile. Staff who may change it (`canEdit`) get a form for the name, email address, mobile number and date of birth;
  * the rest see the same details to read.
  *
- * A change takes effect at once, and a new e-mail address or mobile number signs the student out, so before saving one of those, or a
+ * A change takes effect at once, and a new email address or mobile number signs the student out, so before saving one of those, or a
  * date of birth that moves the student across the age of 18, the form says what will happen and waits for a second click.
  */
 @Component({
@@ -144,10 +144,10 @@ export class StudentProfile implements OnInit {
 
     const lines = [`Saved: ${result.changed.map((field) => FIELD_LABELS[field]).join(', ')}.`];
     if (result.invitationsMoved > 0) {
-      lines.push(`${result.invitationsMoved} ${result.invitationsMoved === 1 ? 'invitation' : 'invitations'} moved to the new e-mail address.`);
+      lines.push(`${result.invitationsMoved} ${result.invitationsMoved === 1 ? 'invitation' : 'invitations'} moved to the new email address.`);
     }
     if (result.signedOut) {
-      lines.push('The student was signed out. They sign in again with a code sent to their e-mail address or mobile number.');
+      lines.push('The student was signed out. They sign in again with a code sent to their email address or mobile number.');
     }
     return lines;
   });

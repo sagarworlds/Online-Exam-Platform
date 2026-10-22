@@ -9,3 +9,86 @@
   font-size: 1rem;
   font-weight: 600;
 }
+
+/* What needs staff comes before the areas: a tile is the whole link, a figure and what it counts. Something waiting is tinted and says so in
+   words, so the colour is never the only sign; with nothing waiting a tile is plain. */
+.admin-attention {
+  margin-bottom: 1.5rem;
+}
+
+.admin-attention__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-attention__head .admin-group__heading {
+  margin: 0;
+}
+
+.attention-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attention-tile {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-height: 4.25rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.attention-tile:hover {
+  border-color: var(--control-border);
+  background: var(--surface-muted);
+}
+
+.attention-tile--waiting {
+  border-color: var(--warning);
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.attention-tile--waiting:hover {
+  background: var(--warning-soft);
+}
+
+.attention-tile__figure {
+  min-width: 2.25rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+}
+
+.attention-tile__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.attention-tile__label {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.attention-tile__detail {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.attention-tile--waiting .attention-tile__detail {
+  color: inherit;
+}

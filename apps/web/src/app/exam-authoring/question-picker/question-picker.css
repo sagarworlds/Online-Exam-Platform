@@ -1,0 +1,57 @@
+/* The search and the difficulty side by side with room, one above the other on a phone. */
+.picker__filters {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 0 var(--space-3, 1rem);
+}
+
+@media (max-width: 40rem) {
+  .picker__filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.picker__count {
+  margin: 0 0 var(--space-2, 0.5rem);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.picker__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 var(--space-3, 0.75rem);
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* A question and its Add button share a line; the question wraps inside the room there is, so a long stem never pushes the button off a phone. */
+.picker__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.picker__row + .picker__row {
+  border-top: 1px solid var(--border);
+}
+
+.picker__text {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 8rem;
+  flex-direction: column;
+}
+
+.picker__stem {
+  overflow-wrap: anywhere;
+}
+
+.picker__meta {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}

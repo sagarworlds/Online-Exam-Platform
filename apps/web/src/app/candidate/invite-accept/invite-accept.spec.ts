@@ -92,13 +92,13 @@ describe('InviteAccept', () => {
 
     (root.querySelector('button.primary') as HTMLButtonElement).click();
     httpMock.expectOne(isAccept).flush(
-      { title: 'invite_email_mismatch', detail: 'This invitation was sent to a different e-mail address. Sign in with the address it was sent to.' },
+      { title: 'invite_email_mismatch', detail: 'This invitation was sent to a different email address. Sign in with the address it was sent to.' },
       { status: 403, statusText: 'Forbidden' },
     );
     fixture.detectChanges();
 
     const alert = root.querySelector('[role="alert"]');
-    expect(alert?.textContent).toContain('sent to a different e-mail address');
+    expect(alert?.textContent).toContain('sent to a different email address');
     expect(alert?.nextElementSibling?.tagName).toBe('BUTTON');
     expect((root.querySelector('button.primary') as HTMLButtonElement).disabled).toBe(false);
   });

@@ -75,6 +75,16 @@ code {
   max-width: 52rem;
 }
 
+/* The staff lists and tables: wide enough for their columns beside the sidebar on a laptop, which 52rem was not. A line of text stays at a
+   readable length, so a paragraph that sits straight in the page does not run across all of it. */
+.page--admin {
+  max-width: 72rem;
+}
+
+.page--admin > p {
+  max-width: 52rem;
+}
+
 .page--exam {
   max-width: 72rem;
 }

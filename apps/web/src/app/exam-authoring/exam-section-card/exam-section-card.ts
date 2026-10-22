@@ -1,11 +1,13 @@
 import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
-import { QUESTION_DIFFICULTIES, QuestionDifficulty, QuestionDto } from '../../question-bank/question.models';
+import { QUESTION_DIFFICULTIES, QuestionDifficulty } from '../../question-bank/question.models';
+import { Disclosure } from '../../shared/disclosure/disclosure';
 import { PlainTextPipe } from '../../shared/rich-text/plain-text.pipe';
 import { htmlToPlainText } from '../../shared/rich-text/html-to-text';
 import { ConfirmRemove } from '../confirm-remove/confirm-remove';
-import { DrawQuestionsRequest, DrawRuleDto, ExamQuestionDto, ExamScopeType, ExamSectionDto, MAX_DRAW_COUNT } from '../exam.models';
+import { DrawQuestionsRequest, DrawRuleDto, ExamQuestionDto, ExamScopeDto, ExamSectionDto, MAX_DRAW_COUNT } from '../exam.models';
+import { QuestionPicker } from '../question-picker/question-picker';
 
 /**
  * One section of an exam in the editor (FR-11): its name, its questions in order, and, while the exam is a draft, what the
@@ -14,7 +16,7 @@ import { DrawQuestionsRequest, DrawRuleDto, ExamQuestionDto, ExamScopeType, Exam
  */
 @Component({
   selector: 'app-exam-section-card',
-  imports: [ConfirmRemove, PlainTextPipe, TranslatePipe],
+  imports: [ConfirmRemove, Disclosure, PlainTextPipe, QuestionPicker, TranslatePipe],
   templateUrl: './exam-section-card.html',
   styleUrl: './exam-section-card.css',
 })
@@ -26,10 +28,10 @@ export class ExamSectionCard {
   readonly editable = input(false);
   /** True while a request about the exam is running, so its buttons cannot be pressed twice. */
   readonly busy = input(false);
-  /** The bank questions that may go into this exam (not already in it, and inside its scope). */
-  readonly choices = input<readonly QuestionDto[]>([]);
-  /** What the exam's questions may come from, which decides what the hint under the picker says. */
-  readonly scope = input<ExamScopeType>('Independent');
+  /** What the exam's questions may come from: the question picker lists only what the exam will accept, and the draw says where it picks from. */
+  readonly examScope = input<ExamScopeDto | undefined>(undefined);
+  /** The bank ids of the questions already in the exam, which the picker leaves out: a question goes into an exam once. */
+  readonly excluded = input<ReadonlySet<string>>(new Set());
 
   /** Topics in use in the bank, offered in the draw's topic picker. */
   readonly topics = input<readonly string[]>([]);
@@ -46,10 +48,15 @@ export class ExamSectionCard {
   readonly renameRequested = output<{ sectionId: string; name: string }>();
   /** The author confirmed removing the section; carries its id. */
   readonly removeConfirmed = output<string>();
-  /** The author asked to add a question; `questionId` is empty when none was chosen, which the page says out loud. */
+  /** The author chose a question from the bank to add; `questionId` is its id there. */
   readonly addRequested = output<{ sectionId: string; questionId: string }>();
   /** The author asked to take a question out; `questionId` is its id in the question bank. */
   readonly takeOutRequested = output<{ sectionId: string; questionId: string }>();
+
+  protected readonly scope = computed(() => this.examScope()?.type ?? 'Independent');
+
+  /** Whether the picker is open. It is closed until asked for, and the questions are not read from the bank until then. */
+  protected readonly picking = signal(false);
 
   protected readonly renaming = signal(false);
   protected readonly nameDraft = signal('');

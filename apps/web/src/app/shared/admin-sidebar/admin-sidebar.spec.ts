@@ -128,6 +128,123 @@ describe('AdminSidebar', () => {
     });
   });
 
+  describe('the count of what is waiting', () => {
+    const reviews: AdminSectionGroup[] = [
+      {
+        heading: 'admin.group.reviews',
+        sections: [
+          { label: 'admin.area.attemptRequests.name', description: 'admin.area.attemptRequests.description', path: '/admin/attempt-requests', permissions: ['exam.manage'], icon: 'attempt-request', attention: 'attemptRequests' },
+          { label: 'admin.area.disputes.name', description: 'admin.area.disputes.description', path: '/admin/disputes', permissions: ['exam.manage'], icon: 'dispute', attention: 'disputes' },
+          { label: 'admin.area.students.name', description: 'admin.area.students.description', path: '/students', permissions: ['student.read'], icon: 'student' },
+        ],
+      },
+    ];
+    const badges = () => links().map((a) => a.querySelector('.admin-sidebar__badge')?.textContent?.trim() ?? null);
+
+    function showing(attention: Record<string, unknown>): void {
+      render(reviews);
+      fixture.componentRef.setInput('attention', attention);
+      fixture.detectChanges();
+    }
+
+    it('shows how many wait beside the entry of each queue that has something waiting, and nothing on one that is clear', () => {
+      showing({ attemptRequests: { status: 'ready', count: 3, atLimit: false }, disputes: { status: 'ready', count: 0, atLimit: false } });
+
+      expect(badges()).toEqual(['3', null, null]);
+    });
+
+    it('says "200+" when the queue reached the most its list holds', () => {
+      showing({ attemptRequests: { status: 'ready', count: 200, atLimit: true } });
+
+      expect(badges()[0]).toBe('200+');
+    });
+
+    it('shows nothing while a count is not known, or could not be read, rather than a zero', () => {
+      showing({ attemptRequests: { status: 'loading' }, disputes: { status: 'failed' } });
+
+      expect(badges()).toEqual([null, null, null]);
+    });
+
+    it('puts the number in the link’s name, in words, and keeps the figure itself from being read twice', () => {
+      showing({ attemptRequests: { status: 'ready', count: 3, atLimit: false }, disputes: { status: 'ready', count: 200, atLimit: true } });
+
+      expect(links().map((a) => a.getAttribute('aria-label'))).toEqual(['Attempt requests, 3 waiting', 'Disputes, 200 or more waiting', 'Students']);
+      expect(links()[0].querySelector('.admin-sidebar__badge')?.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it('has no badge on any entry when it is given no counts', () => {
+      render(reviews);
+
+      expect(badges()).toEqual([null, null, null]);
+    });
+  });
+
+  describe('on a phone, where the menu is one row until it is opened', () => {
+    const menuButton = () => root.querySelector<HTMLButtonElement>('button.admin-sidebar__menu')!;
+
+    it('has a row that opens the groups, shut to begin with, and says which block it opens', () => {
+      expect(menuButton().textContent).toContain('Admin menu');
+      expect(menuButton().getAttribute('aria-expanded')).toBe('false');
+      expect(root.querySelector('.admin-sidebar--phone-open')).toBeNull();
+      expect(menuButton().getAttribute('aria-controls')).toBe(root.querySelector('.admin-sidebar__groups')?.id);
+    });
+
+    it('opens and shuts with the row', () => {
+      menuButton().click();
+      fixture.detectChanges();
+      expect(menuButton().getAttribute('aria-expanded')).toBe('true');
+      expect(root.querySelector('.admin-sidebar--phone-open')).not.toBeNull();
+
+      menuButton().click();
+      fixture.detectChanges();
+      expect(menuButton().getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('folds away after a link is followed, so the page that was asked for is the one in view', async () => {
+      menuButton().click();
+      fixture.detectChanges();
+
+      await TestBed.inject(Router).navigateByUrl('/students');
+      fixture.detectChanges();
+
+      expect(menuButton().getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('folds away when the link of the page already open is followed, which is no navigation at all', () => {
+      menuButton().click();
+      fixture.detectChanges();
+
+      links()[0].click();
+      fixture.detectChanges();
+
+      expect(menuButton().getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('keeps every link in the page, so nothing changes for the other sizes, which never draw the row', () => {
+      expect(labels()).toEqual(['Questions', 'Students', 'Settings']);
+    });
+
+    it('says on the row how many are waiting in all the queues, so a shut menu hides nothing that needs attention', () => {
+      const reviews: AdminSectionGroup[] = [
+        {
+          heading: 'admin.group.reviews',
+          sections: [
+            { label: 'admin.area.attemptRequests.name', description: 'admin.area.attemptRequests.description', path: '/admin/attempt-requests', permissions: ['exam.manage'], icon: 'attempt-request', attention: 'attemptRequests' },
+            { label: 'admin.area.disputes.name', description: 'admin.area.disputes.description', path: '/admin/disputes', permissions: ['exam.manage'], icon: 'dispute', attention: 'disputes' },
+          ],
+        },
+      ];
+      render(reviews);
+      expect(menuButton().querySelector('.admin-sidebar__badge')).toBeNull();
+
+      fixture.componentRef.setInput('attention', { attemptRequests: { status: 'ready', count: 3, atLimit: false }, disputes: { status: 'ready', count: 2, atLimit: false } });
+      fixture.detectChanges();
+
+      expect(menuButton().querySelector('.admin-sidebar__badge')?.textContent?.trim()).toBe('5');
+      expect(menuButton().querySelector('.visually-hidden')?.textContent?.trim()).toBe('5 waiting');
+    });
+  });
+
   describe('collapsed', () => {
     beforeEach(() => {
       toggle().click();

@@ -8,7 +8,7 @@
     <label [for]="fieldId()">New address</label>
     <input [id]="fieldId()" type="email" formControlName="email" autocomplete="off" />
     @if (form.controls.email.invalid && form.controls.email.touched) {
-      <p class="field-error">Enter a valid e-mail address.</p>
+      <p class="field-error">Enter a valid email address.</p>
     }
   </div>
 

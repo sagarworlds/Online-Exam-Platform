@@ -10,6 +10,7 @@ import {
   viewChildren,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { AdminAttentionService } from '../../admin/admin-attention/admin-attention.service';
 import { MAX_ATTEMPT_REQUEST_TEXT } from '../../candidate/candidate.models';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
@@ -18,10 +19,10 @@ import { extractErrorMessage } from '../../shared/problem-details';
 import { AttemptAdminApiService } from '../attempt-admin-api.service';
 import { AttemptRequestRow } from '../attempt-admin.models';
 
-/** What was done with a request during this visit, and whether the candidate was e-mailed the answer. */
+/** What was done with a request during this visit, and whether the candidate was emailed the answer. */
 interface RequestDecision {
   outcome: 'given' | 'declined';
-  /** False means no e-mail reached the candidate, so the administrator has to tell them another way. */
+  /** False means no email reached the candidate, so the administrator has to tell them another way. */
   emailed: boolean;
 }
 
@@ -48,6 +49,7 @@ interface QueueEntry {
 })
 export class AttemptRequests {
   private readonly api = inject(AttemptAdminApiService);
+  private readonly attention = inject(AdminAttentionService);
   private readonly i18n = inject(I18nService);
   private readonly injector = inject(Injector);
   /** The elements focus can be moved to, each marked with its `data-focus` key, so focus lands where the person was working. */
@@ -154,7 +156,7 @@ export class AttemptRequests {
     return request.candidateEmail ?? this.i18n.t('admin.requests.candidateFallback');
   }
 
-  /** The line that stands in for a decided request: what was done, and whether the candidate was e-mailed about it. */
+  /** The line that stands in for a decided request: what was done, and whether the candidate was emailed about it. */
   protected resultText(decision: RequestDecision, request: AttemptRequestRow): string {
     const who = this.candidateName(request);
     const outcome =
@@ -213,6 +215,7 @@ export class AttemptRequests {
         this.entries.update((list) =>
           list.map((entry) => (entry.request.id === request.id ? { ...entry, decision } : entry)),
         );
+        this.attention.settled('attemptRequests');
         this.focusLater(`result:${request.id}`);
       },
       error: (error: unknown) => {

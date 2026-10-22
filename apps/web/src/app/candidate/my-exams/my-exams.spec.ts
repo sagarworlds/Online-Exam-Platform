@@ -161,7 +161,7 @@ describe('MyExams', () => {
     httpMock.expectOne((r) => r.url.endsWith('/v1/me/exams')).flush([]);
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('invitation e-mail');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('invitation email');
   });
 
   it('offers a Start button only for an open exam that has no attempt yet', () => {

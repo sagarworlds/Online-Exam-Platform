@@ -6,11 +6,13 @@ import { Permission } from '../../auth/admin-sections';
 import { AuthSessionService } from '../../auth/auth-session.service';
 import { InviteApiService } from '../../invite-management/invite-api.service';
 import { InviteDto, InviteStatus } from '../../invite-management/invite.models';
-import { Icon } from '../../shared/icon/icon';
 import { ModalDialog } from '../../shared/modal-dialog/modal-dialog';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { RefreshButton } from '../../shared/refresh-button/refresh-button';
+import { RowAction, RowActions } from '../../shared/row-actions/row-actions';
+import { StatusBadge, StatusTone } from '../../shared/status-badge/status-badge';
 import { InvitedAddress, InvitedAddressChange } from '../invited-address/invited-address';
+import { inviteStatusTone } from '../invite-status';
 import { StudentApiService } from '../student-api.service';
 import { StudentInvitations } from '../student-invitations/student-invitations';
 import { StudentProfile } from '../student-profile/student-profile';
@@ -24,9 +26,10 @@ const SEARCH_DELAY_MS = 300;
 const LISTING_LIMIT = 200;
 
 /**
- * Staff page: the students, each with their invitations and a profile. Staff who may manage students get an edit icon that opens the
- * profile in a popup, and a deactivate icon that asks first; the others read the profile in the row. A student is an account, found
- * by name, e-mail address or mobile number; an address that was invited and has no account yet is listed too, as "Not registered yet",
+ * Staff page: the students, each with their invitations and a profile. Staff who may manage students get an edit action that opens the
+ * profile in a popup, and a deactivate action that asks first (icons with a tooltip with a mouse, words in the open row on a touch
+ * screen); the others read the profile in the row. A student is an account, found
+ * by name, email address or mobile number; an address that was invited and has no account yet is listed too, as "Not registered yet",
  * so every invitation is somewhere on the page.
  *
  * The list of accounts is the API's; the invitations are brought together with it here, by the address they were sent to. An invited
@@ -35,7 +38,7 @@ const LISTING_LIMIT = 200;
  */
 @Component({
   selector: 'app-student-list',
-  imports: [RouterLink, StudentProfile, StudentInvitations, InvitedAddress, ModalDialog, Icon, RefreshButton],
+  imports: [RouterLink, StudentProfile, StudentInvitations, InvitedAddress, ModalDialog, RefreshButton, RowActions, StatusBadge],
   templateUrl: './student-list.html',
   styleUrl: './student-list.css',
 })
@@ -82,8 +85,30 @@ export class StudentList {
   protected readonly deactivateBusy = signal(false);
   protected readonly deactivateError = signal<string | null>(null);
 
-  /** The student whose account is being turned back on, so the icon cannot be pressed twice while the answer is on its way. */
+  /** The student whose account is being turned back on, so the action cannot be used twice while the answer is on its way. */
   protected readonly reactivatingId = signal<string | null>(null);
+
+  /** What staff can do to each row that has an account, by row key. A row with no account has nothing, and nor has any row for staff who may not manage. */
+  protected readonly rowActions = computed(() => {
+    const byRow = new Map<string, readonly RowAction[]>();
+    if (!this.canManage) {
+      return byRow;
+    }
+
+    const reactivating = this.reactivatingId();
+    for (const row of this.rows()) {
+      if (row.account === null) {
+        continue;
+      }
+      byRow.set(row.key, [
+        { id: 'edit', label: 'Edit', icon: 'edit' },
+        row.account.status === 'Deactivated'
+          ? { id: 'reactivate', label: 'Reactivate', icon: 'restore', disabled: reactivating === row.account.id, disabledReason: 'Turning the account back on…' }
+          : { id: 'deactivate', label: 'Deactivate', icon: 'user-off', danger: true },
+      ]);
+    }
+    return byRow;
+  });
 
   /** The rows that are open, by {@link StudentRow.key}. Only the staff member's choices change it. */
   protected readonly expanded = signal<ReadonlySet<string>>(new Set());
@@ -161,14 +186,21 @@ export class StudentList {
     return count === 0 ? 'No invitations' : count === 1 ? '1 invitation' : `${count} invitations`;
   }
 
-  protected badgeClass(status: InviteStatus): string {
-    switch (status) {
-      case 'Accepted':
-        return 'badge--active';
-      case 'Pending':
-        return 'badge--warning';
-      default:
-        return 'badge--inactive';
+  protected inviteTone(status: InviteStatus): StatusTone {
+    return inviteStatusTone(status);
+  }
+
+  protected onRowAction(row: StudentRow, action: string): void {
+    switch (action) {
+      case 'edit':
+        this.openEdit(row);
+        break;
+      case 'deactivate':
+        this.openDeactivate(row);
+        break;
+      case 'reactivate':
+        this.reactivate(row);
+        break;
     }
   }
 
@@ -208,7 +240,7 @@ export class StudentList {
 
   /**
    * Turns a deactivated account back on, without asking: it is the safe direction, and a mistake is undone by deactivating again. The
-   * student signs in again with a code sent to their e-mail address or mobile number; nothing is sent to them from here.
+   * student signs in again with a code sent to their email address or mobile number; nothing is sent to them from here.
    */
   protected reactivate(row: StudentRow): void {
     const account = row.account;
@@ -220,7 +252,7 @@ export class StudentList {
     this.studentApi.reactivateStudent(account.id).subscribe({
       next: () => {
         this.reactivatingId.set(null);
-        this.notice.set(`Reactivated ${row.title}. They can sign in again with a code sent to their e-mail address or mobile number.`);
+        this.notice.set(`Reactivated ${row.title}. They can sign in again with a code sent to their email address or mobile number.`);
         afterNextRender(() => this.noticeElement()?.nativeElement.focus(), { injector: this.injector });
         this.reload.next();
       },

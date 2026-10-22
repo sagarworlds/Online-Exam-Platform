@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, ElementRef, Injector, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -9,14 +8,16 @@ import { I18nService } from '../../i18n/i18n.service';
 import { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { QuestionApiService } from '../../question-bank/question-api.service';
-import { QuestionDto } from '../../question-bank/question.models';
+import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
+import { Disclosure, DisclosureGroup } from '../../shared/disclosure/disclosure';
 import { extractErrorMessage } from '../../shared/problem-details';
+import { ToastService } from '../../shared/toast/toast.service';
 import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { InstructionTemplateApiService } from '../../instruction-templates/instruction-template-api.service';
 import { InstructionTemplateDto } from '../../instruction-templates/instruction-template.models';
 import { ExamInstructions } from '../exam-instructions/exam-instructions';
 import { ExamApiService } from '../exam-api.service';
-import { ContentProtectionRequest, DrawQuestionsRequest, ExamDto, ExamScopeDto, ExamStatus, FocusViolationLimitRequest, MarkingSchemeDto, ShuffleRequest, UpdateExamDetailsRequest } from '../exam.models';
+import { ContentProtectionRequest, DrawQuestionsRequest, ExamDto, ExamStatus, FocusViolationLimitRequest, MarkingSchemeDto, ShuffleRequest, UpdateExamDetailsRequest } from '../exam.models';
 import { ExamMarkingScheme } from '../exam-marking-scheme/exam-marking-scheme';
 import { ExamContentProtection } from '../exam-content-protection/exam-content-protection';
 import { ExamFocusViolationLimit } from '../exam-focus-violation-limit/exam-focus-violation-limit';
@@ -30,6 +31,7 @@ import { ExamScopeFields } from '../exam-scope-fields/exam-scope-fields';
 import { INSTANT_RELEASE, ReleaseSelection, isReleaseComplete, selectionOfRelease, toReleaseRequest } from '../exam-release-fields/exam-release';
 import { ExamReleaseFields } from '../exam-release-fields/exam-release-fields';
 import { ExamSectionCard } from '../exam-section-card/exam-section-card';
+import { ExamTimePipe, formatInExamZone } from '../exam-time/exam-time';
 import { ExamSettingsSummary } from './exam-settings-summary';
 
 /** The word each exam status is shown as; the API's own word is kept for the checks that compare it. */
@@ -39,18 +41,6 @@ const STATUS_KEYS: Readonly<Record<ExamStatus, MessageKey>> = {
   Archived: 'exams.status.Archived',
 };
 
-/** Whether a question may go into an exam with this scope; mirrors the rule the API enforces. */
-function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): boolean {
-  switch (scope?.type) {
-    case 'Book':
-      return question.bookId !== null && question.bookId === scope.bookId;
-    case 'Chapters':
-      return question.chapterId !== null && scope.chapters.some((chapter) => chapter.id === question.chapterId);
-    default:
-      return true;
-  }
-}
-
 /**
  * Admin page for one exam: its sections and questions, the schedule, and publishing (FR-11, FR-13). While the exam is a
  * draft, mistakes can be put right: a question or section taken out, a section renamed, the whole draft deleted. A published
@@ -59,7 +49,7 @@ function isInScope(question: QuestionDto, scope: ExamScopeDto | undefined): bool
  */
 @Component({
   selector: 'app-exam-editor',
-  imports: [ReactiveFormsModule, RouterLink, DatePipe, TranslatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamPassingPercentage, ExamProctoringProfile, ExamSectionCard, ExamInstructions, RefreshButton],
+  imports: [ReactiveFormsModule, RouterLink, ExamTimePipe, TranslatePipe, ExamScopeFields, ExamReleaseFields, ExamDetailsForm, ExamMarkingScheme, ExamShuffle, ExamAttemptLimit, ExamContentProtection, ExamFocusViolationLimit, ExamPassingPercentage, ExamProctoringProfile, ExamSectionCard, ExamInstructions, RefreshButton, Disclosure, DisclosureGroup],
   templateUrl: './exam-editor.html',
 })
 export class ExamEditor {
@@ -81,7 +71,6 @@ export class ExamEditor {
   private readonly injector = inject(Injector);
 
   protected readonly exam = signal<ExamDto | null>(null);
-  protected readonly bank = signal<QuestionDto[]>([]);
   /** Topics in use in the bank, for the sections' draw pickers. */
   protected readonly topics = signal<string[]>([]);
   protected readonly loading = signal(true);
@@ -91,6 +80,22 @@ export class ExamEditor {
   private reading: Subscription | null = null;
   protected readonly busy = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+
+  private readonly confirm = inject(ConfirmService);
+  private readonly toast = inject(ToastService);
+
+  /** When the exam opens and closes, for the schedule row; empty while it has no schedule, which the row's tag says instead. */
+  protected scheduleSummary(exam: ExamDto): string {
+    return exam.isScheduled
+      ? this.i18n.t('exams.editor.opensAt', { start: formatInExamZone(exam.scheduledStartTime, exam.timeZone, this.i18n.language()) })
+      : '';
+  }
+
+  /** The passing mark, in words: a percentage, or that there is none. */
+  protected passingSummary(exam: ExamDto): string {
+    const percent = exam.config.passingPercentage;
+    return percent ? this.i18n.t('exams.passingMark.readSet', { percent }) : this.i18n.t('exams.passingMark.readNone');
+  }
 
   /** What the exam's questions come from, in words, in the language on screen. */
   protected scopeSummary(): string {
@@ -138,19 +143,12 @@ export class ExamEditor {
   );
 
   /**
-   * Bank questions that may go into this exam: not already in it (a question is included once), and inside its scope.
-   * The API refuses the rest anyway; offering only what it will accept saves the author finding that out one by one.
+   * The bank ids of the questions already in the exam (a question is included once), which each section's question picker leaves out. The
+   * picker reads the bank itself, so the page no longer loads two hundred questions it may never show.
    */
-  protected readonly availableQuestions = computed(() => {
-    const used = new Set(
-      this.exam()?.sections?.flatMap((section) => section.questions.map((question) => question.questionId)) ?? [],
-    );
-    const scope = this.exam()?.scope;
-    return this.bank().filter((question) => !used.has(question.id) && isInScope(question, scope));
-  });
-
-  /** The scope the bank list was loaded for, so it is read again only when the scope changes. */
-  private bankKey: string | null = null;
+  protected readonly usedQuestionIds = computed<ReadonlySet<string>>(
+    () => new Set(this.exam()?.sections?.flatMap((section) => section.questions.map((question) => question.questionId)) ?? []),
+  );
 
   protected readonly sectionForm = this.formBuilder.nonNullable.group({
     name: ['', Validators.required],
@@ -162,7 +160,7 @@ export class ExamEditor {
   }
 
   /**
-   * Reads the exam again, with the questions and topics it can draw on, so a change made elsewhere shows without reloading the tab. The page
+   * Reads the exam again, with the topics it can draw on, so a change made elsewhere shows without reloading the tab. The page
    * is not blanked, and an edit that is open stays open until the exam it was started on has changed. A failed read leaves what is shown and
    * says why.
    */
@@ -172,8 +170,6 @@ export class ExamEditor {
     }
 
     this.errorMessage.set(null);
-    // The questions are kept between reads of the exam, since only a change of scope makes them stale; a refresh asks for the latest anyway.
-    this.bankKey = null;
     this.reload();
     this.loadTopics();
   }
@@ -276,8 +272,8 @@ export class ExamEditor {
   private templatesLoaded = false;
 
   /** Loads the templates the first time the Instructions setting is opened, so the page does not ask for them before they are needed. */
-  protected onInstructionsToggled(event: Event): void {
-    if ((event.target as HTMLDetailsElement).open && !this.templatesLoaded) {
+  protected onInstructionsOpenChange(open: boolean): void {
+    if (open && !this.templatesLoaded) {
       this.loadTemplates();
     }
   }
@@ -366,7 +362,7 @@ export class ExamEditor {
       return;
     }
 
-    this.run(this.examApi.releaseResults(this.examId));
+    this.run(this.examApi.releaseResults(this.examId), undefined, 'exams.editor.released');
   }
 
   protected startChangingDetails(): void {
@@ -397,13 +393,6 @@ export class ExamEditor {
 
   protected addQuestion(sectionId: string, questionId: string): void {
     if (this.busy()) {
-      return;
-    }
-
-    // Said out loud rather than ignored: the list behind the picker is redrawn after every change, which can
-    // clear a choice made a moment earlier, and a silent no-op would look like a button that does nothing.
-    if (!questionId) {
-      this.errorMessage.set('Choose a question to add.');
       return;
     }
 
@@ -483,45 +472,40 @@ export class ExamEditor {
     });
   }
 
-  protected publish(): void {
+  /**
+   * Publishes the exam, after saying what that fixes: once it is published its questions, scope, marking and instructions cannot be edited
+   * and candidates can start it, so this is the one button on the page that is asked about.
+   */
+  protected async publish(): Promise<void> {
     if (!this.canPublish() || this.busy()) {
       return;
     }
 
-    this.run(this.examApi.publish(this.examId));
+    const opens = this.exam()?.scheduledStartTime;
+    const confirmed = await this.confirm.ask({
+      title: this.i18n.t('exams.editor.publishTitle'),
+      message: opens ? this.i18n.t('exams.editor.publishOpens', { start: formatInExamZone(opens, this.exam()?.timeZone, this.i18n.language()) }) : undefined,
+      consequences: [this.i18n.t('exams.editor.publishFixes.questions'), this.i18n.t('exams.editor.publishFixes.settings')],
+      confirmLabel: this.i18n.t('exams.editor.publish'),
+    });
+    if (confirmed && !this.busy()) {
+      this.run(this.examApi.publish(this.examId), undefined, 'exams.editor.published');
+    }
   }
 
-  // Runs one change, then reloads the exam so the page always shows what the server stored.
-  private run(call: Observable<unknown>, afterSuccess?: () => void): void {
+  // Runs one change, then reloads the exam so the page always shows what the server stored, and says that it was stored.
+  private run(call: Observable<unknown>, afterSuccess?: () => void, saved: MessageKey = 'exams.editor.saved'): void {
     this.busy.set(true);
     this.errorMessage.set(null);
     call.subscribe({
       next: () => {
         afterSuccess?.();
+        this.toast.success(this.i18n.t(saved));
         this.busy.set(false);
         this.reload();
       },
       error: (error: unknown) => {
         this.busy.set(false);
-        this.errorMessage.set(extractErrorMessage(error));
-      },
-    });
-  }
-
-  // A scoped exam is offered the questions of its book, read by the API's own filter, so the newest-200 cap of the
-  // unfiltered list cannot hide a chapter's questions behind newer ones from elsewhere.
-  private loadBank(scope: ExamScopeDto | undefined): void {
-    const key = scope && scope.type !== 'Independent' ? `${scope.type}:${scope.bookId}` : 'all';
-    if (key === this.bankKey) {
-      return;
-    }
-
-    this.bankKey = key;
-    this.questionApi.list(key === 'all' ? {} : { bookId: scope?.bookId ?? undefined }).subscribe({
-      next: (questions) => this.bank.set(questions),
-      error: (error: unknown) => {
-        // Forget the key, so the next reload tries again instead of leaving the picker empty for good.
-        this.bankKey = null;
         this.errorMessage.set(extractErrorMessage(error));
       },
     });
@@ -535,7 +519,6 @@ export class ExamEditor {
         this.exam.set(exam);
         this.loading.set(false);
         this.refreshing.set(false);
-        this.loadBank(exam.scope);
       },
       error: (error: unknown) => {
         this.loading.set(false);
