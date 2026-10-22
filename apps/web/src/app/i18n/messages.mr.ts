@@ -1366,6 +1366,7 @@ export const MR: Messages = {
   'batches.roster.removeMessage': 'त्यांची जागा जाईल, जी नंतर दुसऱ्या कोणाला मिळू शकते. परीक्षेत त्यांनी जे केले त्यात काही बदलत नाही.',
   'batches.roster.removeLeaves': 'ते या बॅचच्या क्रमवारीत दिसणार नाहीत.',
   'batches.roster.removeAgain': 'तुम्ही हा पत्ता नंतर पुन्हा जोडू शकता.',
+  'batches.roster.removeInvites': 'त्यांना आधी पाठवलेली आमंत्रणे रद्द होत नाहीत.',
   'batches.roster.removed': '{email} ला बॅचमधून काढले आहे.',
   'batches.roster.removeFailed': 'सदस्याला काढता आले नाही.',
   'batches.roster.adding': 'जोडत आहे…',

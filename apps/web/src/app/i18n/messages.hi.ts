@@ -1366,6 +1366,7 @@ export const HI: Messages = {
   'batches.roster.removeMessage': 'उनकी सीट चली जाएगी, जो फिर किसी और को मिल सकती है। परीक्षा में उन्होंने जो किया, उसमें कुछ नहीं बदलता।',
   'batches.roster.removeLeaves': 'वे इस बैच की रैंकिंग में नहीं दिखेंगे।',
   'batches.roster.removeAgain': 'आप यह पता बाद में फिर जोड़ सकते हैं।',
+  'batches.roster.removeInvites': 'उन्हें पहले भेजे गए निमंत्रण रद्द नहीं होते।',
   'batches.roster.removed': '{email} को बैच से हटा दिया गया है।',
   'batches.roster.removeFailed': 'सदस्य को हटाया नहीं जा सका।',
   'batches.roster.adding': 'जोड़ा जा रहा है…',

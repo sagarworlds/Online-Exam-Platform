@@ -61,7 +61,7 @@ test.describe('putting a draft exam in another order', () => {
     await page.getByRole('button', { name: 'Add section' }).click();
     await expect(page.getByRole('heading', { name: '2. Second part' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Move Second part up', exact: true }).click();
+    await page.getByRole('button', { name: 'Move up: Second part', exact: true }).click();
 
     await expect(page.getByRole('heading', { name: '1. Second part' })).toBeVisible();
     await expect(page.getByRole('heading', { name: `2. ${exam.sectionName}` })).toBeVisible();

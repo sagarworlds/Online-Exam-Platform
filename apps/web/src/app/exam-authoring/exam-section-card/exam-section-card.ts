@@ -91,9 +91,12 @@ export class ExamSectionCard {
   /** The control that had focus when something was moved, so focus can be put back once the page has read the exam again. */
   private focusAfterMove: { selector: string; other: string } | null = null;
 
+  /** Each question's text as one line, by its id in the bank, worked out when the section changes and not at every look at the page. */
+  private readonly plainTexts = computed(
+    () => new Map(this.section().questions.map((question) => [question.questionId, question.text ? htmlToPlainText(question.text, 60) : ''])),
+  );
+
   constructor() {
-    // Once the section carries its new name the rename row has done its job; close it. A refusal leaves the name as it
-    // was, so the row stays open with what the author typed.
     // A move takes the place of the control that had focus (the item has moved, and the list is drawn again); once the page is done with it
     // the focus goes back to the same arrow, or to the other one when this one has nowhere left to go.
     effect(() => {
@@ -102,6 +105,8 @@ export class ExamSectionCard {
       }
     });
 
+    // Once the section carries its new name the rename row has done its job; close it. A refusal leaves the name as it
+    // was, so the row stays open with what the author typed.
     effect(() => {
       const name = this.section().name;
       untracked(() => {
@@ -140,7 +145,7 @@ export class ExamSectionCard {
 
   /** What a screen reader says for a question's move buttons, which have no words of their own. */
   protected moveQuestionLabel(question: ExamQuestionDto, direction: MoveDirection): string {
-    const text = question.text ? htmlToPlainText(question.text, 60) : this.i18n.t('exams.section.questionGoneLong');
+    const text = this.plainTexts().get(question.questionId) || this.i18n.t('exams.section.questionGoneLong');
     return this.i18n.t(direction === 'up' ? 'exams.section.moveQuestionUp' : 'exams.section.moveQuestionDown', { question: text });
   }
 
@@ -225,7 +230,7 @@ export class ExamSectionCard {
 
   /** What a screen reader says for a question's trash icon, which has no words of its own. */
   protected removeLabel(question: ExamQuestionDto): string {
-    const text = question.text ? htmlToPlainText(question.text, 60) : this.i18n.t('exams.section.questionGoneLong');
+    const text = this.plainTexts().get(question.questionId) || this.i18n.t('exams.section.questionGoneLong');
     return this.i18n.t('exams.section.removeQuestionLabel', { question: text });
   }
 }

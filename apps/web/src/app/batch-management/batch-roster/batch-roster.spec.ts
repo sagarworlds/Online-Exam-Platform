@@ -229,7 +229,11 @@ describe('BatchRoster', () => {
       expect(options.title).toBe('Remove ben@example.com from this batch?');
       expect(options.danger).toBe(true);
       expect(options.confirmLabel).toBe('Remove');
-      expect(options.consequences).toEqual(["They no longer appear on this batch's rankings.", 'You can add the address again later.']);
+      expect(options.consequences).toEqual([
+        "They no longer appear on this batch's rankings.",
+        'Invitations already sent to them are not cancelled.',
+        'You can add the address again later.',
+      ]);
       httpMock.expectNone((r) => r.method === 'DELETE');
     });
 
@@ -261,17 +265,60 @@ describe('BatchRoster', () => {
       httpMock.expectOne(isMembersRead).flush(members);
     });
 
-    it('says why when the member could not be removed, keeps the list as it was, and lets another try', async () => {
+    it('says why when the member could not be removed, reads the roster again so a row that is already gone does not stay, and lets another try', async () => {
       answer(true);
 
       removeButton('ben@example.com').click();
       await fixture.whenStable();
       httpMock.expectOne(isRemove('m2')).flush({ title: 'batch_member_not_found', detail: 'Batch member not found.' }, { status: 404, statusText: 'Not Found' });
+      httpMock.expectOne(isMembersRead).flush([members[0], members[2]]);
       fixture.detectChanges();
 
       expect(TestBed.inject(ToastService).toasts().map((t) => [t.kind, t.message])).toEqual([['error', 'Batch member not found.']]);
-      expect(root.querySelectorAll('tbody tr')).toHaveLength(3);
-      expect(removeButton('ben@example.com').hasAttribute('aria-disabled')).toBe(false);
+      expect(Array.from(root.querySelectorAll('tbody th')).map((c) => c.textContent?.trim())).toEqual(['amy@example.com', 'cara@school.org']);
+      expect(removeButton('amy@example.com').hasAttribute('aria-disabled')).toBe(false);
+    });
+
+    it('does not take focus for a removal after the roster could not be read, when a later read succeeds', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      answer(true);
+      document.body.appendChild(root);
+      removeButton('ben@example.com').click();
+      await fixture.whenStable();
+      httpMock.expectOne(isRemove('m2')).flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectOne(isMembersRead).flush({}, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      const email = root.querySelector('input[type="email"]') as HTMLInputElement;
+      email.focus();
+      (root.querySelector('app-refresh-button button') as HTMLButtonElement).click();
+      httpMock.expectOne(isMembersRead).flush([members[0], members[2]]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(email);
+      root.remove();
+    });
+
+    it('names invitations already sent in the question it asks, since removing does not cancel them', async () => {
+      const ask = answer(false);
+
+      removeButton('ben@example.com').click();
+      await fixture.whenStable();
+
+      expect(ask.mock.calls[0][0].consequences).toContain('Invitations already sent to them are not cancelled.');
+    });
+
+    it('dims the other Remove buttons while one removal is on its way', async () => {
+      answer(true);
+
+      removeButton('ben@example.com').click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(removeButton('amy@example.com').getAttribute('aria-disabled')).toBe('true');
+      httpMock.expectOne(isRemove('m2')).flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectOne(isMembersRead).flush([members[0], members[2]]);
     });
 
     it('puts focus on the row that takes the removed one’s place, not on the top of the page', async () => {

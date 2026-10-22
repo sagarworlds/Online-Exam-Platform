@@ -225,7 +225,7 @@ export class BatchRoster implements OnInit {
     const confirmed = await this.confirm.ask({
       title: this.i18n.t('batches.roster.removeTitle', { email: member.email }),
       message: this.i18n.t('batches.roster.removeMessage'),
-      consequences: [this.i18n.t('batches.roster.removeLeaves'), this.i18n.t('batches.roster.removeAgain')],
+      consequences: [this.i18n.t('batches.roster.removeLeaves'), this.i18n.t('batches.roster.removeInvites'), this.i18n.t('batches.roster.removeAgain')],
       confirmLabel: this.i18n.t('batches.roster.remove'),
       danger: true,
     });
@@ -245,6 +245,8 @@ export class BatchRoster implements OnInit {
       error: (err: unknown) => {
         this.removingId.set(null);
         this.toast.error(extractErrorMessage(err, this.i18n.t('batches.roster.removeFailed')));
+        // The page may be out of date (someone removed the member already): what it shows is read again, so the row is not left to fail the same way.
+        this.loadMembers();
       },
     });
   }
@@ -279,6 +281,8 @@ export class BatchRoster implements OnInit {
       },
       error: (err) => {
         console.error(err);
+        // A failed read has no row to put focus on; the next read, whatever asked for it, must not take focus for a removal long past.
+        this.focusRowAfterLoad = null;
         this.membersLoading.set(false);
         this.refreshing.set(false);
         this.membersError.set(extractErrorMessage(err, this.i18n.t('batches.roster.loadFailed')));

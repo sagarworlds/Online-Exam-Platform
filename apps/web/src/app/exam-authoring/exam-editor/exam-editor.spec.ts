@@ -359,7 +359,7 @@ describe('ExamEditor', () => {
       });
     const isReorder = (suffix: string) => (r: { method: string; url: string }) => r.method === 'PUT' && r.url.endsWith(`/v1/exams/exam-1${suffix}`);
     const moveSection = (root: HTMLElement, name: string, direction: 'up' | 'down') =>
-      root.querySelector<HTMLButtonElement>(`button[aria-label="Move ${name} ${direction}"]`)!;
+      root.querySelector<HTMLButtonElement>(`button[aria-label="Move ${direction}: ${name}"]`)!;
     const moveQuestion = (root: HTMLElement, text: string, direction: 'up' | 'down') =>
       root.querySelector<HTMLButtonElement>(`button[aria-label="Move ${text} ${direction}"]`)!;
 
@@ -411,17 +411,36 @@ describe('ExamEditor', () => {
       expect(moveSection(root, 'Statistics', 'up').hasAttribute('aria-disabled')).toBe(false);
     });
 
-    it('shows the API’s reason when the order is refused, and leaves the sections as they were', () => {
+    it('shows the API’s reason when the order is refused, and reads the exam again, so a page that was out of date shows what is there', () => {
       const { fixture, root } = open(withThreeSections());
 
       moveSection(root, 'Algebra', 'down').click();
       httpMock
         .expectOne(isReorder('/sections/order'))
-        .flush({ title: 'exam_not_draft', detail: 'Only a draft exam can be changed; this one is already published.' }, { status: 409, statusText: 'Conflict' });
+        .flush({ title: 'invalid_exam_config', detail: 'List every section of the exam exactly once.' }, { status: 400, statusText: 'Bad Request' });
+      fixture.detectChanges();
+      expect(root.textContent).toContain('List every section of the exam exactly once.');
+
+      // Another tab added a section meanwhile: the page reads the exam and shows it, instead of sending the same stale list at the next press.
+      const current = withThreeSections();
+      current.sections.push({ id: 's4', name: 'Probability', timeSeconds: null, order: 4, questions: [] });
+      httpMock.expectOne(isExam).flush(current);
       fixture.detectChanges();
 
-      expect(root.textContent).toContain('Only a draft exam can be changed');
-      expect(Array.from(root.querySelectorAll('app-exam-section-card h3')).map((h) => h.textContent?.trim())).toEqual(['1. Algebra', '2. Geometry', '3. Statistics']);
+      expect(Array.from(root.querySelectorAll('app-exam-section-card h3')).map((h) => h.textContent?.trim())).toEqual(['1. Algebra', '2. Geometry', '3. Statistics', '4. Probability']);
+      moveSection(root, 'Algebra', 'down').click();
+      expect(httpMock.expectOne(isReorder('/sections/order')).request.body).toEqual({ sectionIds: ['s2', 's1', 's3', 's4'] });
+    });
+
+    it('does not read the exam again after a move that was saved, beyond the one read it always makes', () => {
+      const { fixture, root } = open(withThreeSections());
+
+      moveSection(root, 'Algebra', 'down').click();
+      httpMock.expectOne(isReorder('/sections/order')).flush(null, { status: 204, statusText: 'No Content' });
+      httpMock.expectOne(isExam).flush(withThreeSections());
+      fixture.detectChanges();
+
+      httpMock.expectNone(isExam);
     });
 
     it('offers no arrows on a published exam', () => {

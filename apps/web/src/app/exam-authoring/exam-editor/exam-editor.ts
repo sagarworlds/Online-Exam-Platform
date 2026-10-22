@@ -428,7 +428,7 @@ export class ExamEditor {
   protected moveSection(move: { sectionId: string; direction: MoveDirection }): void {
     const order = movedBy(this.exam()?.sections?.map((section) => section.id) ?? [], move.sectionId, move.direction);
     if (order !== null && !this.busy() && !this.refreshing()) {
-      this.run(this.examApi.reorderSections(this.examId, order), undefined, 'exams.editor.moved');
+      this.run(this.examApi.reorderSections(this.examId, order), undefined, 'exams.editor.moved', true);
     }
   }
 
@@ -437,7 +437,7 @@ export class ExamEditor {
     const section = this.exam()?.sections?.find((candidate) => candidate.id === move.sectionId);
     const order = movedBy(section?.questions.map((question) => question.questionId) ?? [], move.questionId, move.direction);
     if (order !== null && !this.busy() && !this.refreshing()) {
-      this.run(this.examApi.reorderQuestions(this.examId, move.sectionId, order), undefined, 'exams.editor.moved');
+      this.run(this.examApi.reorderQuestions(this.examId, move.sectionId, order), undefined, 'exams.editor.moved', true);
     }
   }
 
@@ -512,7 +512,7 @@ export class ExamEditor {
   }
 
   // Runs one change, then reloads the exam so the page always shows what the server stored, and says that it was stored.
-  private run(call: Observable<unknown>, afterSuccess?: () => void, saved: MessageKey = 'exams.editor.saved'): void {
+  private run(call: Observable<unknown>, afterSuccess?: () => void, saved: MessageKey = 'exams.editor.saved', readAgainOnRefusal = false): void {
     this.busy.set(true);
     this.errorMessage.set(null);
     call.subscribe({
@@ -525,6 +525,9 @@ export class ExamEditor {
       error: (error: unknown) => {
         this.busy.set(false);
         this.errorMessage.set(extractErrorMessage(error));
+        if (readAgainOnRefusal) {
+          this.reload();
+        }
       },
     });
   }

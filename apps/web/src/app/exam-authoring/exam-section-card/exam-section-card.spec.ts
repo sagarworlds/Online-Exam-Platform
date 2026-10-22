@@ -230,7 +230,7 @@ describe('ExamSectionCard', () => {
 
       expect(moveSectionButton('up').textContent?.trim()).toBe('Move up');
       expect(moveSectionButton('down').textContent?.trim()).toBe('Move down');
-      expect(moveSectionButton('up').getAttribute('aria-label')).toBe('Move Algebra up');
+      expect(moveSectionButton('up').getAttribute('aria-label')).toBe('Move up: Algebra');
     });
 
     it('asks to move the section the way the button says', () => {
