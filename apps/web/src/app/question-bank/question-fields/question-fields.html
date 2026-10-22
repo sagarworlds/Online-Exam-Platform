@@ -48,7 +48,13 @@
           [attr.aria-label]="'qb.field.optionIsCorrect' | t: { number: i + 1 }"
         />
       }
-      <input type="text" formControlName="text" [placeholder]="'qb.field.optionPlaceholder' | t: { number: i + 1 }" [attr.aria-label]="'qb.field.optionText' | t: { number: i + 1 }" />
+      <textarea
+        rows="3"
+        formControlName="text"
+        [attr.maxlength]="limits.maxOptionTextLength"
+        [placeholder]="'qb.field.optionPlaceholder' | t: { number: i + 1 }"
+        [attr.aria-label]="'qb.field.optionText' | t: { number: i + 1 }"
+      ></textarea>
       <button
         type="button"
         class="icon-btn option-pin"
@@ -103,7 +109,13 @@
     }
     @for (answer of acceptedAnswers.controls; track $index; let i = $index) {
       <div class="option-row">
-        <input type="text" [formControlName]="i" [attr.disabled]="wordingOnly() ? '' : null" [attr.aria-label]="'qb.field.acceptedAnswer' | t: { number: i + 1 }" />
+        <textarea
+          rows="3"
+          [formControlName]="i"
+          [attr.maxlength]="limits.maxAcceptedAnswerLength"
+          [attr.disabled]="wordingOnly() ? '' : null"
+          [attr.aria-label]="'qb.field.acceptedAnswer' | t: { number: i + 1 }"
+        ></textarea>
         <button
           type="button"
           class="icon-btn icon-btn--danger"

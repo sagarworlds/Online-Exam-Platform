@@ -287,7 +287,7 @@ describe('ExamAttempt', () => {
       });
 
     const answerBox = (fixture: ComponentFixture<ExamAttempt>) =>
-      root(fixture).querySelector<HTMLInputElement>('input.question__answer-input') as HTMLInputElement;
+      root(fixture).querySelector<HTMLTextAreaElement>('textarea.question__answer-input') as HTMLTextAreaElement;
 
     /** Types into the box and leaves it, which is how the candidate saves what they typed. */
     const typeAndLeave = (fixture: ComponentFixture<ExamAttempt>, text: string) => {

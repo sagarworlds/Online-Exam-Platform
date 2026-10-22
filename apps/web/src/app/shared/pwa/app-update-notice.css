@@ -1,0 +1,28 @@
+:host {
+  display: contents;
+}
+
+/* Along the foot of the screen, over the page, so that it is seen wherever the person has scrolled to. */
+.update-notice {
+  position: fixed;
+  inset: auto 0 1rem 0;
+  z-index: 1000;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 1rem;
+  margin: 0 auto;
+  width: fit-content;
+  max-width: min(36rem, calc(100vw - 2rem));
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.update-notice__text {
+  margin: 0;
+}

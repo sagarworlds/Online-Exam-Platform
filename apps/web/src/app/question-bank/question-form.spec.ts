@@ -47,6 +47,24 @@ function textForm(answers: string[]) {
   return form;
 }
 
+describe('question form: the length of an option', () => {
+  /** The first option's text control, holding that many characters. */
+  const optionOfLength = (length: number) => {
+    const form = createQuestionForm(new FormBuilder());
+    const text = form.controls.options.controls[0].controls.text;
+    text.setValue('x'.repeat(length));
+    return text;
+  };
+
+  it('takes an option of exactly the longest the API keeps', () => {
+    expect(optionOfLength(QUESTION_LIMITS.maxOptionTextLength).valid).toBe(true);
+  });
+
+  it('refuses an option longer than the API keeps', () => {
+    expect(optionOfLength(QUESTION_LIMITS.maxOptionTextLength + 1).hasError('maxlength')).toBe(true);
+  });
+});
+
 describe('question form: the kind of question', () => {
   it('starts as a multiple-choice question, with its options and no accepted answers', () => {
     const form = createQuestionForm(new FormBuilder());
@@ -110,6 +128,13 @@ describe('question form: accepted answers', () => {
 
     expect(form.controls.acceptedAnswers.controls[0].hasError('maxlength')).toBe(true);
     expect(form.valid).toBe(false);
+  });
+
+  it('takes an accepted answer of exactly the longest the API keeps', () => {
+    const form = textForm(['x'.repeat(QUESTION_LIMITS.maxAcceptedAnswerLength)]);
+
+    expect(form.controls.acceptedAnswers.controls[0].valid).toBe(true);
+    expect(form.valid).toBe(true);
   });
 
   it('sends the accepted answers trimmed, with the blank ones left out', () => {

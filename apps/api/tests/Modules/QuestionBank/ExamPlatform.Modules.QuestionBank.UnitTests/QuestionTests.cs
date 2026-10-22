@@ -84,6 +84,16 @@ public class QuestionTests
         Assert.Throws<InvalidQuestionError>(() => Question.Create("Q?", Options(("A", true), (optionText, false)), Author, Now));
 
     [Fact]
+    public void Create_WithOptionTextOfExactlyTheMaximum_KeepsIt()
+    {
+        var longest = new string('x', Question.MaxOptionTextLength);
+
+        var question = Question.Create("Q?", Options(("A", true), (longest, false)), Author, Now);
+
+        Assert.Equal(longest, question.Options[1].Text);
+    }
+
+    [Fact]
     public void Create_WithTooLongOptionText_Throws() =>
         Assert.Throws<InvalidQuestionError>(() => Question.Create(
             "Q?", Options(("A", true), (new string('x', Question.MaxOptionTextLength + 1), false)), Author, Now));
