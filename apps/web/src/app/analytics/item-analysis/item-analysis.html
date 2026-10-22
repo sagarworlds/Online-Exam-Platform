@@ -65,7 +65,7 @@
               </div>
             </dl>
 
-            <div class="table-wrap">
+            <div class="table-wrap" role="region" tabindex="0" [attr.aria-label]="'admin.items.scores.tableLabel' | t">
               <table class="table item-distribution" [attr.aria-label]="'admin.items.scores.tableLabel' | t">
                 <thead>
                   <tr>
@@ -124,7 +124,7 @@
           }
         </div>
 
-        <div class="table-wrap">
+        <div class="table-wrap" role="region" tabindex="0" [attr.aria-label]="'admin.items.tableLabel' | t: { name: a.examName }">
           <table class="table item-table" [attr.aria-label]="'admin.items.tableLabel' | t: { name: a.examName }">
             <thead>
               <tr>

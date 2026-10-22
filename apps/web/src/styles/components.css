@@ -88,8 +88,10 @@
 .field textarea:focus,
 .option-row input:focus,
 .option-row select:focus {
-  outline: none;
-  border-color: var(--primary);
+  /* Transparent, not none: the ring below is a shadow, which a forced-colour mode (Windows High Contrast) removes, and an outline that is
+     transparent is the one cue it keeps, drawn in a system colour. */
+  outline: 2px solid transparent;
+  border-color: var(--primary-ink);
   box-shadow: var(--focus-ring);
 }
 
@@ -99,18 +101,18 @@
  * the primary colour on focus.
  */
 .field input:not([type='radio']):not([type='checkbox']):focus {
-  border-color: var(--primary);
+  border-color: var(--primary-ink);
 }
 
 .field-hint {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
 }
 
 .field-error {
   color: var(--danger);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
 }
 
 /* A one-time code: six boxes drawn over one real input, so typing, pasting and phone autofill all reach a single field.
@@ -139,7 +141,8 @@
 }
 
 .code-entry:focus-within .code-entry__box--next {
-  border-color: var(--primary);
+  outline: 2px solid transparent;
+  border-color: var(--primary-ink);
   box-shadow: var(--focus-ring);
 }
 
@@ -253,12 +256,14 @@
   padding: 0 0.6rem;
   border: 0;
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-ink);
   font-size: 0.85rem;
   font-weight: 600;
 }
 
-.field input[aria-invalid='true'] {
+.field input[aria-invalid='true'],
+.field select[aria-invalid='true'],
+.field textarea[aria-invalid='true'] {
   border-color: var(--danger);
 }
 
@@ -357,7 +362,7 @@ button.btn--primary:hover:not(:disabled),
 }
 
 .info-message {
-  color: var(--primary);
+  color: var(--primary-ink);
   background: var(--primary-soft);
   border: 1px solid var(--primary);
   border-radius: var(--radius-sm);
@@ -380,7 +385,7 @@ button.btn--primary:hover:not(:disabled),
   background: var(--surface-muted);
   border: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -423,8 +428,8 @@ button.btn--primary:hover:not(:disabled),
 
 .status-Registered {
   background: var(--primary-soft);
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--primary-ink);
+  color: var(--primary-ink);
 }
 
 /* ---------- Table ---------- */
@@ -484,7 +489,7 @@ button.btn--primary:hover:not(:disabled),
 .stat-value {
   font-size: 2rem;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 .stat-label {
@@ -668,7 +673,7 @@ button.btn--primary:hover:not(:disabled),
   position: sticky;
   top: 0.5rem;
   z-index: 1;
-  border-color: var(--primary);
+  border-color: var(--primary-ink);
 }
 
 .bulk-bar__count {
@@ -1096,7 +1101,7 @@ button.btn--primary:hover:not(:disabled),
 }
 
 .whatsapp-steps__step--current {
-  border-color: var(--primary);
+  border-color: var(--primary-ink);
   background: var(--primary-soft);
   color: var(--text);
   font-weight: 700;
@@ -1375,4 +1380,27 @@ label:has(> input[type='radio']) {
 .question-row__text--clamped img {
   max-height: 2.5rem;
   width: auto;
+}
+
+/*
+ * A forced-colour mode (Windows High Contrast) drops backgrounds and box-shadows, so a state that was only a fill (pressed, selected,
+ * chosen) is given an outline in a system colour, and a field's focus keeps its transparent outline as a visible one.
+ */
+@media (forced-colors: active) {
+  /* A thicker border says "pressed" or "selected". The outline stays free for the focus ring, so a toggle that has just been pressed, and so
+     has the focus, shows both. */
+  button[aria-pressed='true'],
+  [role='tab'][aria-selected='true'],
+  [role='radio'][aria-checked='true'] {
+    border: 3px solid Highlight;
+  }
+
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus,
+  .option-row input:focus,
+  .option-row select:focus,
+  .code-entry:focus-within .code-entry__box--next {
+    outline-color: Highlight;
+  }
 }

@@ -7,6 +7,7 @@ export const MR: Messages = {
   'common.somethingWrong': 'काहीतरी चुकले. कृपया पुन्हा प्रयत्न करा.',
   'common.backToMyExams': 'माझ्या परीक्षांकडे परत जा',
   'common.cancel': 'रद्द करा',
+  'common.close': 'बंद करा',
   'common.ok': 'ठीक आहे',
   'common.skipToContent': 'मुख्य मजकुरावर जा',
   'common.email': 'ईमेल',
@@ -16,6 +17,7 @@ export const MR: Messages = {
   'language.label': 'भाषा',
 
   // ---- navigation ----
+  'nav.main': 'मुख्य',
   'nav.myExams': 'माझ्या परीक्षा',
   'nav.redeemInvite': 'आमंत्रण वापरा',
   'nav.profile': 'प्रोफाइल',
@@ -1220,6 +1222,16 @@ export const MR: Messages = {
   'pageTitle.examNew': 'नवीन परीक्षा',
   'pageTitle.examEdit': 'परीक्षा संपादित करा',
   'pageTitle.questionEdit': 'प्रश्न संपादित करा',
+  'pageTitle.bookDetail': 'पुस्तक',
+  'pageTitle.batchNew': 'नवीन बॅच',
+  'pageTitle.batchRoster': 'बॅच यादी',
+  'pageTitle.invites': 'आमंत्रणे',
+  'pageTitle.inviteNew': 'उमेदवाराला आमंत्रित करा',
+  'pageTitle.schedule': 'परीक्षेचे वेळापत्रक ठरवा',
+  'pageTitle.guardian': 'पालक पोर्टल',
+  'pageTitle.guardianRegister': 'पालक म्हणून नोंदणी',
+  'pageTitle.guardianConfirm': 'पालक दुव्याची पुष्टी करा',
+  'pageTitle.guardianLink': 'उमेदवार जोडा',
 
   // ---- proctoring: the risk review of flagged attempts (FR-27) ----
   'proctoring.title': 'जोखीम पुनरावलोकन',

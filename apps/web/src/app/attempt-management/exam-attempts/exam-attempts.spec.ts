@@ -635,7 +635,7 @@ describe('ExamAttempts', () => {
 
       expect(textOf(fixture)).toContain('Nothing was recorded for this attempt');
       expect(textOf(fixture)).not.toContain('evidence to weigh, not proof');
-      expect((fixture.nativeElement as HTMLElement).querySelector('table.data-table')).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('table')).toBeNull();
     });
 
     it('shows each place the attempt was seen, with a short device signature, and hides it again', () => {

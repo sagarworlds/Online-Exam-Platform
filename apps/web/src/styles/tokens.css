@@ -21,7 +21,10 @@
 
   /* The institute's colour (FR-41) is written to --brand-* by the branding service; with none set, the platform's own colours below apply. */
   --primary: var(--brand-primary, #1a56db);
-  --primary-hover: #1546b3;
+  --primary-hover: var(--brand-primary-hover, #1546b3);
+  /* The colour for text, links and outlines drawn in the primary colour. The institute's colour is made to read at 4.5:1 for each scheme
+     (branding-theme.ts); with none set it is the primary colour itself. A rule that paints a fill or a border keeps --primary. */
+  --primary-ink: var(--brand-ink-light, var(--primary));
   --primary-soft: var(--brand-primary-soft, #e6eeff);
   --on-primary: var(--brand-on-primary, #ffffff);
 
@@ -51,7 +54,8 @@
     --text-muted: #9aa6c4;
 
     --primary: var(--brand-primary, #6d9bff);
-    --primary-hover: #8bb0ff;
+    --primary-hover: var(--brand-primary-hover, #8bb0ff);
+    --primary-ink: var(--brand-ink-dark, var(--primary));
     --primary-soft: var(--brand-primary-soft, #1f2c52);
     --on-primary: var(--brand-on-primary, #0b1226);
 

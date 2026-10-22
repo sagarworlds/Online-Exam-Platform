@@ -106,7 +106,7 @@
 .rich-editor__toolbar button[aria-pressed='true'] {
   background: var(--primary-soft);
   border-color: var(--primary);
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 .rich-editor__content {

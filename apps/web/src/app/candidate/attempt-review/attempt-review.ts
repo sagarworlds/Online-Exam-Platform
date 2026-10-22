@@ -149,8 +149,19 @@ export class AttemptReview {
     }
   }
 
+  /**
+   * Brings a question to the top and moves the focus to it, so a keyboard or screen-reader user carries on from there instead of from the strip.
+   * It does not glide when the visitor has asked the system for less motion.
+   */
   protected scrollTo(number: number): void {
-    this.document.getElementById(`review-question-${number}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const question = this.document.getElementById(`review-question-${number}`);
+    if (question === null) {
+      return;
+    }
+    const reduceMotion = this.document.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+    question.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+    question.focus({ preventScroll: true });
   }
 
   /** The candidate's dispute of this question's answer key, if they raised one. */

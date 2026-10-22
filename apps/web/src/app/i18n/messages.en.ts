@@ -12,6 +12,7 @@ export const EN = {
   'common.somethingWrong': 'Something went wrong. Please try again.',
   'common.backToMyExams': 'Back to my exams',
   'common.cancel': 'Cancel',
+  'common.close': 'Close',
   'common.ok': 'OK',
   'common.skipToContent': 'Skip to main content',
   'common.email': 'Email',
@@ -21,6 +22,7 @@ export const EN = {
   'language.label': 'Language',
 
   // ---- navigation ----
+  'nav.main': 'Main',
   'nav.myExams': 'My exams',
   'nav.redeemInvite': 'Redeem invite',
   'nav.profile': 'Profile',
@@ -1226,6 +1228,16 @@ export const EN = {
   'pageTitle.examNew': 'New exam',
   'pageTitle.examEdit': 'Edit exam',
   'pageTitle.questionEdit': 'Edit question',
+  'pageTitle.bookDetail': 'Book',
+  'pageTitle.batchNew': 'New batch',
+  'pageTitle.batchRoster': 'Batch roster',
+  'pageTitle.invites': 'Invitations',
+  'pageTitle.inviteNew': 'Invite a candidate',
+  'pageTitle.schedule': 'Schedule exam',
+  'pageTitle.guardian': 'Guardian portal',
+  'pageTitle.guardianRegister': 'Register as a guardian',
+  'pageTitle.guardianConfirm': 'Confirm guardian link',
+  'pageTitle.guardianLink': 'Link a candidate',
 
   // ---- proctoring: the risk review of flagged attempts (FR-27) ----
   'proctoring.title': 'Risk review',

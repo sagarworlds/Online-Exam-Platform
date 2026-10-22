@@ -7,6 +7,7 @@ export const HI: Messages = {
   'common.somethingWrong': 'कुछ गड़बड़ हो गई। कृपया फिर से कोशिश करें।',
   'common.backToMyExams': 'मेरी परीक्षाओं पर वापस जाएँ',
   'common.cancel': 'रद्द करें',
+  'common.close': 'बंद करें',
   'common.ok': 'ठीक है',
   'common.skipToContent': 'मुख्य सामग्री पर जाएँ',
   'common.email': 'ईमेल',
@@ -16,6 +17,7 @@ export const HI: Messages = {
   'language.label': 'भाषा',
 
   // ---- navigation ----
+  'nav.main': 'मुख्य',
   'nav.myExams': 'मेरी परीक्षाएँ',
   'nav.redeemInvite': 'निमंत्रण भुनाएँ',
   'nav.profile': 'प्रोफ़ाइल',
@@ -1220,6 +1222,16 @@ export const HI: Messages = {
   'pageTitle.examNew': 'नई परीक्षा',
   'pageTitle.examEdit': 'परीक्षा संपादित करें',
   'pageTitle.questionEdit': 'प्रश्न संपादित करें',
+  'pageTitle.bookDetail': 'पुस्तक',
+  'pageTitle.batchNew': 'नया बैच',
+  'pageTitle.batchRoster': 'बैच सूची',
+  'pageTitle.invites': 'आमंत्रण',
+  'pageTitle.inviteNew': 'उम्मीदवार को आमंत्रित करें',
+  'pageTitle.schedule': 'परीक्षा का समय तय करें',
+  'pageTitle.guardian': 'अभिभावक पोर्टल',
+  'pageTitle.guardianRegister': 'अभिभावक के रूप में पंजीकरण',
+  'pageTitle.guardianConfirm': 'अभिभावक लिंक की पुष्टि करें',
+  'pageTitle.guardianLink': 'उम्मीदवार को जोड़ें',
 
   // ---- proctoring: the risk review of flagged attempts (FR-27) ----
   'proctoring.title': 'जोखिम समीक्षा',

@@ -48,7 +48,10 @@
 
         <!-- Shown only when the exam has a pass mark; without one the result says nothing about passing (FR-34). -->
         @if (r.passed === true || r.passed === false) {
-          <p class="result-pass" role="status">{{ (r.passed ? 'result.passed' : 'result.notPassed') | t }}</p>
+          <p class="result-pass" [class.result-pass--yes]="r.passed" [class.result-pass--no]="!r.passed" role="status">
+            <span class="result-pass__icon" aria-hidden="true">{{ r.passed ? '✓' : '✕' }}</span>
+            {{ (r.passed ? 'result.passed' : 'result.notPassed') | t }}
+          </p>
         }
 
         <!-- The three headline figures, the same tiles the admin pages use for their totals. -->

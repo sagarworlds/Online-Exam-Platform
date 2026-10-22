@@ -12,6 +12,7 @@ import { AdminSidebar } from './shared/admin-sidebar/admin-sidebar';
 import { LanguageSwitcher } from './i18n/language-switcher';
 import { TranslatePipe } from './i18n/translate.pipe';
 import { ApiActivity } from './shared/api-activity/api-activity';
+import { RouteFocus } from './shared/route-focus/route-focus';
 
 @Component({
   selector: 'app-root',
@@ -32,6 +33,9 @@ export class App {
   protected readonly notifications = inject(NotificationsStateService);
 
   constructor() {
+    // A new page takes the focus (WCAG 2.4.3), so a keyboard or screen-reader user is not left on the link they used.
+    inject(RouteFocus).start();
+
     // The count is read when someone signs in or out, and again on each page change, so a notice read or sent elsewhere shows up without a timer.
     effect(() => {
       if (this.authSession.isAuthenticated()) {

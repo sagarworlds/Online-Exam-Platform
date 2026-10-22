@@ -16,13 +16,13 @@
     }
     {{ branding.instituteName() ?? 'Online Exam Platform' }}
   </a>
-  <nav>
+  <nav [attr.aria-label]="'nav.main' | t">
     @if (authSession.isAuthenticated()) {
-      <a routerLink="/my-exams" routerLinkActive="active">{{ 'nav.myExams' | t }}</a>
-      <a routerLink="/invite" routerLinkActive="active">{{ 'nav.redeemInvite' | t }}</a>
-      <a routerLink="/profile" routerLinkActive="active">{{ 'nav.profile' | t }}</a>
-      <a routerLink="/consent" routerLinkActive="active">{{ 'nav.consent' | t }}</a>
-      <a routerLink="/notifications" routerLinkActive="active" class="nav-notifications">
+      <a routerLink="/my-exams" routerLinkActive="active" ariaCurrentWhenActive="page">{{ 'nav.myExams' | t }}</a>
+      <a routerLink="/invite" routerLinkActive="active" ariaCurrentWhenActive="page">{{ 'nav.redeemInvite' | t }}</a>
+      <a routerLink="/profile" routerLinkActive="active" ariaCurrentWhenActive="page">{{ 'nav.profile' | t }}</a>
+      <a routerLink="/consent" routerLinkActive="active" ariaCurrentWhenActive="page">{{ 'nav.consent' | t }}</a>
+      <a routerLink="/notifications" routerLinkActive="active" ariaCurrentWhenActive="page" class="nav-notifications">
         {{ 'nav.notifications' | t }}
         @if (notifications.unreadCount() > 0) {
           <span class="nav-badge" aria-hidden="true">{{ notifications.unreadCount() }}</span>
@@ -31,8 +31,8 @@
       </a>
       <button type="button" (click)="logout()">{{ 'nav.logout' | t }}</button>
     } @else {
-      <a routerLink="/login" routerLinkActive="active">{{ 'nav.login' | t }}</a>
-      <a routerLink="/register" routerLinkActive="active">{{ 'nav.register' | t }}</a>
+      <a routerLink="/login" routerLinkActive="active" ariaCurrentWhenActive="page">{{ 'nav.login' | t }}</a>
+      <a routerLink="/register" routerLinkActive="active" ariaCurrentWhenActive="page">{{ 'nav.register' | t }}</a>
     }
     <app-language-switcher />
   </nav>

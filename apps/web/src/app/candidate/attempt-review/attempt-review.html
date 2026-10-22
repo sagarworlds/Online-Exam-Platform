@@ -95,7 +95,7 @@
     @for (section of sections(r); track section.id) {
       <h2 class="palette__section">{{ section.name }}</h2>
       @for (question of section.questions; track question.id) {
-        <div class="card review-question" [id]="'review-question-' + question.number">
+        <div class="card review-question" [id]="'review-question-' + question.number" tabindex="-1">
           <div class="review-question__head">
             <p class="review-question__meta">{{ 'review.question' | t: { number: question.number } }}</p>
             <span>

@@ -106,9 +106,10 @@
                       Where this attempt was sat from, as the server saw it. A change is evidence to weigh, not proof: a phone moving between
                       wifi and mobile data changes its address, and a browser update changes its signature.
                     </p>
-                    <table class="data-table">
+                    <div class="table-wrap" role="region" tabindex="0" aria-label="Address and device history">
+                    <table class="table">
                       <thead>
-                        <tr><th scope="col">When</th><th scope="col">IP address</th><th scope="col">Device</th><th scope="col"></th></tr>
+                        <tr><th scope="col">When</th><th scope="col">IP address</th><th scope="col">Device</th><th scope="col"><span class="visually-hidden">Event</span></th></tr>
                       </thead>
                       <tbody>
                         @for (row of rows; track row.seenAtUtc) {
@@ -121,6 +122,7 @@
                         }
                       </tbody>
                     </table>
+                    </div>
                     }
                   } @else {
                     <p>Loading…</p>

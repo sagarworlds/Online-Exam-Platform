@@ -44,14 +44,14 @@ import { AuthSessionService } from '../../auth/auth-session.service';
       @if (!loading && links.length > 0) {
         <div>
           <h3>Linked Candidates</h3>
-          <div class="table-wrap">
+          <div class="table-wrap" role="region" tabindex="0" aria-label="Linked candidates">
             <table class="table">
               <thead>
                 <tr>
-                  <th>Candidate Email</th>
-                  <th>Status</th>
-                  <th>Verified</th>
-                  <th>Actions</th>
+                  <th scope="col">Candidate Email</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Verified</th>
+                  <th scope="col">Actions</th>
                 </tr>
               </thead>
               <tbody>
