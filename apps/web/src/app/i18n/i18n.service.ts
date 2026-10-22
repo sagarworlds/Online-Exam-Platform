@@ -114,6 +114,11 @@ export class I18nService implements Words {
    */
   readonly t: Translate = (key, params) => fill((this.tables()[this.language()] ?? EN)[key] ?? EN[key], params);
 
+  /** Whether there is a message under this key, for a key built from data the API sends (a status), which may be one this page has no words for. */
+  has(key: string): key is MessageKey {
+    return key in EN;
+  }
+
   /**
    * A message whose wording depends on a count: `base.one` for exactly one, `base.other` for anything else. The count is also passed
    * as `{count}`.

@@ -1,4 +1,6 @@
 import { FormControl } from '@angular/forms';
+import { englishTranslate } from '../i18n/i18n.service';
+import { HI } from '../i18n/messages.hi';
 import {
   MAX_DISPLAY_NAME_LENGTH,
   dateOfBirthErrorMessage,
@@ -99,6 +101,24 @@ describe('displayNameErrorMessage', () => {
     const control = new FormControl('x'.repeat(MAX_DISPLAY_NAME_LENGTH + 1), maxTrimmedLengthValidator(MAX_DISPLAY_NAME_LENGTH));
 
     expect(displayNameErrorMessage(control.errors)).toContain(`${MAX_DISPLAY_NAME_LENGTH} characters`);
+  });
+});
+
+describe('the messages in another language', () => {
+  const hindi = (key: Parameters<typeof englishTranslate>[0], params?: Parameters<typeof englishTranslate>[1]) => HI[key].replace(/\{(\w+)\}/g, (whole, name: string) => String(params?.[name] ?? whole));
+
+  it('says what is wrong with a display name in the language given', () => {
+    expect(displayNameErrorMessage({ blank: true }, hindi)).toBe('प्रदर्शित नाम दर्ज करें।');
+    expect(displayNameErrorMessage({ maxlength: { requiredLength: 1, actualLength: 2 } }, hindi)).toContain(String(MAX_DISPLAY_NAME_LENGTH));
+  });
+
+  it('says what is wrong with a date of birth in the language given, with the number of years in it', () => {
+    expect(dateOfBirthErrorMessage({ required: true }, hindi)).toBe('अपनी जन्म तिथि दर्ज करें।');
+    expect(dateOfBirthErrorMessage({ implausibleAge: true }, hindi)).toMatch(/\d+ साल/);
+  });
+
+  it('stays in English when no language is given, as the registration page and its tests expect', () => {
+    expect(dateOfBirthErrorMessage({ futureDate: true })).toBe('Date of birth cannot be in the future.');
   });
 });
 

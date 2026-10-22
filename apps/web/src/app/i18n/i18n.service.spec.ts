@@ -127,6 +127,13 @@ describe('I18nService', () => {
     expect(i18n.plural('time.minutes', 30)).toBe('30 मिनट');
   });
 
+  it('says whether a key is a message, for a key made from what the API sends', () => {
+    const i18n = service();
+
+    expect(i18n.has('students.status.Deactivated')).toBe(true);
+    expect(i18n.has('students.status.Somethingnew')).toBe(false);
+  });
+
   it('has an English translator that needs no service', () => {
     expect(englishTranslate('nav.logout')).toBe('Log out');
     expect(englishWords.plural('marks', 4)).toBe('4 marks');

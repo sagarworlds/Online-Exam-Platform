@@ -3,6 +3,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { EMPTY, Observable, Subject, catchError, debounceTime, distinctUntilChanged, forkJoin, map, merge, of, startWith, switchMap, tap } from 'rxjs';
 import { Permission } from '../../auth/admin-sections';
+import { I18nService } from '../../i18n/i18n.service';
+import { MessageKey } from '../../i18n/messages.en';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { AuthSessionService } from '../../auth/auth-session.service';
 import { InviteApiService } from '../../invite-management/invite-api.service';
 import { InviteDto, InviteStatus } from '../../invite-management/invite.models';
@@ -38,13 +41,14 @@ const LISTING_LIMIT = 200;
  */
 @Component({
   selector: 'app-student-list',
-  imports: [RouterLink, StudentProfile, StudentInvitations, InvitedAddress, ModalDialog, RefreshButton, RowActions, StatusBadge],
+  imports: [RouterLink, StudentProfile, StudentInvitations, InvitedAddress, ModalDialog, RefreshButton, RowActions, StatusBadge, TranslatePipe],
   templateUrl: './student-list.html',
   styleUrl: './student-list.css',
 })
 export class StudentList {
   private readonly studentApi = inject(StudentApiService);
   private readonly inviteApi = inject(InviteApiService);
+  private readonly i18n = inject(I18nService);
   private readonly authSession = inject(AuthSessionService);
   private readonly injector = inject(Injector);
 
@@ -101,10 +105,16 @@ export class StudentList {
         continue;
       }
       byRow.set(row.key, [
-        { id: 'edit', label: 'Edit', icon: 'edit' },
+        { id: 'edit', label: this.i18n.t('students.action.edit'), icon: 'edit' },
         row.account.status === 'Deactivated'
-          ? { id: 'reactivate', label: 'Reactivate', icon: 'restore', disabled: reactivating === row.account.id, disabledReason: 'Turning the account back on…' }
-          : { id: 'deactivate', label: 'Deactivate', icon: 'user-off', danger: true },
+          ? {
+              id: 'reactivate',
+              label: this.i18n.t('students.action.reactivate'),
+              icon: 'restore',
+              disabled: reactivating === row.account.id,
+              disabledReason: this.i18n.t('students.action.reactivating'),
+            }
+          : { id: 'deactivate', label: this.i18n.t('students.action.deactivate'), icon: 'user-off', danger: true },
       ]);
     }
     return byRow;
@@ -120,7 +130,7 @@ export class StudentList {
   protected readonly summary = computed(() => {
     const rows = this.rows();
     const pending = rows.reduce((count, row) => count + (row.invitations?.invites.filter((invite) => invite.status === 'Pending').length ?? 0), 0);
-    return `${rows.length} ${rows.length === 1 ? 'student' : 'students'} · ${pending} ${pending === 1 ? 'invitation' : 'invitations'} pending`;
+    return `${this.i18n.plural('students.studentCount', rows.length)} · ${this.i18n.plural('students.pendingCount', pending)}`;
   });
 
   /** Whether the API stopped at its limit, so there may be students the page does not show. */
@@ -183,7 +193,17 @@ export class StudentList {
   /** The words for a count of invitations, so the header does not say "1 invitations". */
   protected invitationCount(row: StudentRow): string {
     const count = row.invitations?.invites.length ?? 0;
-    return count === 0 ? 'No invitations' : count === 1 ? '1 invitation' : `${count} invitations`;
+    return count === 0 ? this.i18n.t('students.noInvitations') : this.i18n.plural('students.invitationCount', count);
+  }
+
+  /** An account's status in the staff member's language; one this page has no words for is shown as the API names it. */
+  protected accountStatus(status: string): string {
+    const key = `students.status.${status}` as MessageKey;
+    return this.i18n.has(key) ? this.i18n.t(key) : status;
+  }
+
+  protected inviteStatus(status: InviteStatus): string {
+    return this.i18n.t(`invites.status.${status}` as MessageKey);
   }
 
   protected inviteTone(status: InviteStatus): StatusTone {
@@ -252,7 +272,7 @@ export class StudentList {
     this.studentApi.reactivateStudent(account.id).subscribe({
       next: () => {
         this.reactivatingId.set(null);
-        this.notice.set(`Reactivated ${row.title}. They can sign in again with a code sent to their email address or mobile number.`);
+        this.notice.set(this.i18n.t('students.reactivated', { name: row.title }));
         afterNextRender(() => this.noticeElement()?.nativeElement.focus(), { injector: this.injector });
         this.reload.next();
       },
@@ -282,7 +302,7 @@ export class StudentList {
         this.deactivateBusy.set(false);
         this.deactivating.set(null);
         // The popup is gone, so the page says what happened, above the list where the eye is.
-        this.notice.set(`Deactivated ${target.name}. They are signed out and can no longer sign in; their results and records are kept.`);
+        this.notice.set(this.i18n.t('students.deactivated', { name: target.name }));
         afterNextRender(() => this.noticeElement()?.nativeElement.focus(), { injector: this.injector });
         this.reload.next();
       },
@@ -300,8 +320,8 @@ export class StudentList {
       next.delete(row.key);
       return next;
     });
-    const moved = change.invitationsMoved === 1 ? '1 invitation' : `${change.invitationsMoved} invitations`;
-    this.notice.set(`Moved ${moved} from ${change.from} to ${change.to}.`);
+    const moved = this.i18n.plural('students.invitationCount', change.invitationsMoved);
+    this.notice.set(this.i18n.t('students.moved', { moved, from: change.from, to: change.to }));
     afterNextRender(() => this.noticeElement()?.nativeElement.focus(), { injector: this.injector });
     this.reload.next();
   }

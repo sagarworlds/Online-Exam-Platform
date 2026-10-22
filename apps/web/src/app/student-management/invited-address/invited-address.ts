@@ -1,5 +1,6 @@
 import { Component, ElementRef, Injector, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { InviteApiService } from '../../invite-management/invite-api.service';
 import { extractErrorMessage } from '../../shared/problem-details';
 
@@ -17,7 +18,7 @@ export interface InvitedAddressChange {
  */
 @Component({
   selector: 'app-invited-address',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, TranslatePipe],
   templateUrl: './invited-address.html',
   styleUrl: './invited-address.css',
 })

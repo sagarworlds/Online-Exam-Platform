@@ -1,4 +1,5 @@
 import { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
+import { Translate, englishTranslate } from '../i18n/i18n.service';
 
 /**
  * Longest display name the API accepts, after trimming. Must match
@@ -105,21 +106,21 @@ export function maxTrimmedLengthValidator(max: number): ValidatorFn {
  * @param errors The control's current errors.
  * @returns A sentence to show under the field, or null when there is nothing to report.
  */
-export function dateOfBirthErrorMessage(errors: ValidationErrors | null): string | null {
+export function dateOfBirthErrorMessage(errors: ValidationErrors | null, t: Translate = englishTranslate): string | null {
   if (errors === null) {
     return null;
   }
   if (errors['required']) {
-    return 'Enter your date of birth.';
+    return t('validation.dob.required');
   }
   if (errors['invalidDate']) {
-    return 'Enter a real date of birth.';
+    return t('validation.dob.invalid');
   }
   if (errors['futureDate']) {
-    return 'Date of birth cannot be in the future.';
+    return t('validation.dob.future');
   }
   if (errors['implausibleAge']) {
-    return `Date of birth cannot be more than ${MAX_PLAUSIBLE_AGE_YEARS} years ago.`;
+    return t('validation.dob.implausible', { years: MAX_PLAUSIBLE_AGE_YEARS });
   }
   return null;
 }
@@ -132,15 +133,15 @@ export function dateOfBirthErrorMessage(errors: ValidationErrors | null): string
  * @param errors The control's current errors.
  * @returns A sentence to show under the field, or null when there is nothing to report.
  */
-export function displayNameErrorMessage(errors: ValidationErrors | null): string | null {
+export function displayNameErrorMessage(errors: ValidationErrors | null, t: Translate = englishTranslate): string | null {
   if (errors === null) {
     return null;
   }
   if (errors['required'] || errors['blank']) {
-    return 'Enter a display name.';
+    return t('validation.name.required');
   }
   if (errors['maxlength']) {
-    return `Display name must be ${MAX_DISPLAY_NAME_LENGTH} characters or fewer.`;
+    return t('validation.name.tooLong', { max: MAX_DISPLAY_NAME_LENGTH });
   }
   return null;
 }

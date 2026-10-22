@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
+import { I18nService } from '../../i18n/i18n.service';
 import { AuthSessionService } from '../../auth/auth-session.service';
 import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 import { StudentList } from './student-list';
@@ -692,6 +693,32 @@ describe('StudentList', () => {
     expect(root.textContent).toContain('Showing the first 200 students by name.');
     // Drawing 200 rows takes a few seconds when the whole suite is running at once; the default five is not enough on a busy machine.
   }, 30_000);
+
+  describe('in another language', () => {
+    afterEach(() => localStorage.clear());
+
+    it('shows the page, its summary, a row’s statuses and its actions in the language the staff member chose', async () => {
+      const { fixture, root } = open({ students: [{ ...asha, status: 'Deactivated' }], invites: [invite('1', 'asha@example.com', 'Maths')] });
+
+      await TestBed.inject(I18nService).setLanguage('hi');
+      fixture.detectChanges();
+
+      expect(root.querySelector('label[for="student-search"]')?.textContent?.trim()).toBe('छात्र खोजें');
+      expect(root.querySelector('.student-summary')?.textContent?.trim()).toBe('1 छात्र · 1 निमंत्रण लंबित');
+      const statuses = Array.from(rowFor(root, 'Asha Rao').querySelectorAll('.student-row__statuses .status-badge')).map((b) => b.textContent?.replace(/\s+/g, ' ').trim());
+      expect(statuses).toEqual(['✕ निष्क्रिय किया गया', '! 1 लंबित']);
+      expect(rowFor(root, 'Asha Rao').querySelector('.row-actions--icons button')?.getAttribute('aria-label')).toBe('संपादित करें Asha Rao');
+    });
+
+    it('says the status of an account it has no words for as the API names it, rather than showing a key', async () => {
+      const { fixture, root } = open({ students: [{ ...ben, status: 'Quarantined' }] });
+
+      await TestBed.inject(I18nService).setLanguage('hi');
+      fixture.detectChanges();
+
+      expect(toggleOf(root, 'Ben Das').textContent).toContain('Quarantined');
+    });
+  });
 
   describe('the refresh icon', () => {
     const icon = (root: HTMLElement) => root.querySelector<HTMLButtonElement>('app-refresh-button button')!;

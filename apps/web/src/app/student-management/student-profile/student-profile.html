@@ -1,19 +1,19 @@
 @if (loading()) {
-  <p role="status">Loading…</p>
+  <p role="status">{{ 'common.loading' | t }}</p>
 } @else if (loadError()) {
   <p class="error-message" role="alert">{{ loadError() }}</p>
 } @else if (student(); as current) {
   @if (!canEdit()) {
     <dl class="profile-facts">
-      <div><dt>Name</dt><dd>{{ current.displayName }}</dd></div>
-      <div><dt>Email address</dt><dd>{{ current.email ?? '—' }}</dd></div>
-      <div><dt>Mobile number</dt><dd>{{ current.phoneNumber ?? '—' }}</dd></div>
-      <div><dt>Date of birth</dt><dd>{{ current.dateOfBirth }} ({{ current.ageBand }})</dd></div>
+      <div><dt>{{ 'students.label.name' | t }}</dt><dd>{{ current.displayName }}</dd></div>
+      <div><dt>{{ 'students.label.email' | t }}</dt><dd>{{ current.email ?? '—' }}</dd></div>
+      <div><dt>{{ 'students.label.phone' | t }}</dt><dd>{{ current.phoneNumber ?? '—' }}</dd></div>
+      <div><dt>{{ 'students.label.dob' | t }}</dt><dd>{{ current.dateOfBirth }} ({{ ageBandLabel(current.ageBand) }})</dd></div>
     </dl>
   } @else {
-    <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-label]="'Profile of ' + current.displayName" [attr.aria-busy]="saving()">
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-label]="'students.profileOf' | t: { name: current.displayName }" [attr.aria-busy]="saving()">
       <div class="field">
-        <label [for]="'student-name-' + current.id">Name</label>
+        <label [for]="'student-name-' + current.id">{{ 'students.label.name' | t }}</label>
         <input
           [id]="'student-name-' + current.id"
           type="text"
@@ -28,7 +28,7 @@
       </div>
 
       <div class="field">
-        <label [for]="'student-email-' + current.id">Email address</label>
+        <label [for]="'student-email-' + current.id">{{ 'students.label.email' | t }}</label>
         <input
           [id]="'student-email-' + current.id"
           type="email"
@@ -37,12 +37,12 @@
           [attr.aria-describedby]="'student-email-hint-' + current.id"
         />
         <p class="field-hint" [id]="'student-email-hint-' + current.id">
-          The student signs in with a code sent here. Their invitations move to the new address.
+          {{ 'students.emailHint' | t }}
         </p>
       </div>
 
       <div class="field">
-        <label [for]="'student-phone-' + current.id">Mobile number</label>
+        <label [for]="'student-phone-' + current.id">{{ 'students.label.phone' | t }}</label>
         <input
           [id]="'student-phone-' + current.id"
           type="tel"
@@ -51,16 +51,16 @@
           [attr.aria-describedby]="'student-phone-hint-' + current.id"
         />
         <p class="field-hint" [id]="'student-phone-hint-' + current.id">
-          Sign-in finds the number exactly as it is saved, so write it the way the student types it, for example +91 98000 00000.
+          {{ 'students.phoneHint' | t }}
         </p>
       </div>
 
       @if (noContact()) {
-        <p class="field-error" role="alert">Keep an email address or a mobile number: without one the student cannot get a sign-in code.</p>
+        <p class="field-error" role="alert">{{ 'students.noContact' | t }}</p>
       }
 
       <div class="field">
-        <label [for]="'student-dob-' + current.id">Date of birth</label>
+        <label [for]="'student-dob-' + current.id">{{ 'students.label.dob' | t }}</label>
         <input
           [id]="'student-dob-' + current.id"
           type="date"
@@ -72,7 +72,7 @@
         @if (dateOfBirthError(); as message) {
           <p class="field-error" [id]="'student-dob-error-' + current.id">{{ message }}</p>
         }
-        <p class="field-hint">{{ current.ageBand === 'Minor' ? 'Now a minor: guardian consent applies.' : 'Now an adult.' }}</p>
+        <p class="field-hint">{{ (current.ageBand === 'Minor' ? 'students.nowMinor' : 'students.nowAdult') | t }}</p>
       </div>
 
       @if (saveError()) {
@@ -81,20 +81,20 @@
 
       @if (confirming()) {
         <div class="profile-confirm" role="group" [attr.aria-labelledby]="'student-confirm-heading-' + current.id">
-          <p class="profile-confirm__heading" [id]="'student-confirm-heading-' + current.id">Before you save</p>
+          <p class="profile-confirm__heading" [id]="'student-confirm-heading-' + current.id">{{ 'students.beforeSave' | t }}</p>
           <ul>
             @for (consequence of consequences(); track consequence) {
               <li>{{ consequence }}</li>
             }
           </ul>
           <div class="actions">
-            <button #confirmButton type="button" class="primary" (click)="save()" [disabled]="saving()">Confirm and save</button>
-            <button type="button" (click)="cancelConfirmation()">Keep editing</button>
+            <button #confirmButton type="button" class="primary" (click)="save()" [disabled]="saving()">{{ 'students.confirmSave' | t }}</button>
+            <button type="button" (click)="cancelConfirmation()">{{ 'students.keepEditing' | t }}</button>
           </div>
         </div>
       } @else {
         <button type="submit" class="primary" [disabled]="saving() || changes().length === 0">
-          {{ saving() ? 'Saving…' : 'Save changes' }}
+          {{ (saving() ? 'students.saving' : 'students.saveChanges') | t }}
         </button>
       }
     </form>
