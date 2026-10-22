@@ -3,6 +3,7 @@ import { ApplicationConfig, inject, isDevMode, provideAppInitializer, provideBro
 import { TitleStrategy, provideRouter } from '@angular/router';
 import { provideServiceWorker } from '@angular/service-worker';
 import { PageTitleStrategy } from './shared/page-title/page-title.strategy';
+import { AppUpdateService } from './shared/pwa/app-update.service';
 import { authInterceptor } from './auth/auth.interceptor';
 import { I18nService } from './i18n/i18n.service';
 import { languageInterceptor } from './i18n/language.interceptor';
@@ -28,6 +29,13 @@ export const appConfig: ApplicationConfig = {
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',
+    }),
+    // The worker keeps the shell, so a new build reaches an open tab late or not at all. This asks the server itself, and the notice offers
+    // the update (AppUpdateService). The development server has no hashed build to compare, so it does not ask.
+    provideAppInitializer(() => {
+      if (!isDevMode()) {
+        inject(AppUpdateService).start();
+      }
     }),
   ],
 };

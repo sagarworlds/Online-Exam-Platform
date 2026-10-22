@@ -1,0 +1,11 @@
+<!-- Always in the page, so that a screen reader announces the notice politely when it is filled in. -->
+<div class="update-notice-live" role="status" aria-live="polite">
+  @if (visible()) {
+    <div class="update-notice">
+      <p class="update-notice__text">{{ 'update.message' | t }}</p>
+      <button type="button" class="primary" (click)="update()" [disabled]="updates.applying()">
+        {{ (updates.applying() ? 'update.working' : 'update.action') | t }}
+      </button>
+    </div>
+  }
+</div>

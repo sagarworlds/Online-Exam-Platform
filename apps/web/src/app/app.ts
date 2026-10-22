@@ -13,6 +13,7 @@ import { AdminSidebar } from './shared/admin-sidebar/admin-sidebar';
 import { LanguageSwitcher } from './i18n/language-switcher';
 import { TranslatePipe } from './i18n/translate.pipe';
 import { ApiActivity } from './shared/api-activity/api-activity';
+import { AppUpdateNotice } from './shared/pwa/app-update-notice';
 import { ConfirmHost } from './shared/confirm-dialog/confirm-host';
 import { ToastHost } from './shared/toast/toast-host';
 import { ExamMode } from './shared/exam-mode/exam-mode';
@@ -20,7 +21,7 @@ import { RouteFocus } from './shared/route-focus/route-focus';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, AdminSidebar, ApiActivity, ConfirmHost, LanguageSwitcher, ToastHost, TranslatePipe],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, AdminSidebar, ApiActivity, AppUpdateNotice, ConfirmHost, LanguageSwitcher, ToastHost, TranslatePipe],
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
