@@ -105,16 +105,7 @@
                   }
                 </td>
                 <td>
-                  <div class="actions">
-                    @if (renamingId() !== chapter.id) {
-                      <button type="button" class="btn--small" (click)="startRename(chapter)" [disabled]="busy()">{{ 'books.rename' | t }}</button>
-                    }
-                    @if (chapter.isArchived) {
-                      <button type="button" class="btn--small" (click)="setChapterArchived(chapter, false)" [disabled]="busy()">{{ 'books.restore' | t }}</button>
-                    } @else {
-                      <button type="button" class="btn--small" (click)="setChapterArchived(chapter, true)" [disabled]="busy()">{{ 'books.archive' | t }}</button>
-                    }
-                  </div>
+                  <app-row-actions [actions]="chapterActions(chapter)" [rowLabel]="chapter.title" (chosen)="onChapterAction(chapter, $event)" />
                 </td>
               </tr>
             }

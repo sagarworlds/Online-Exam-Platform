@@ -1,8 +1,9 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { I18nService } from '../i18n/i18n.service';
 import { TranslatePipe } from '../i18n/translate.pipe';
 import { extractErrorMessage } from '../shared/problem-details';
 import { RefreshButton } from '../shared/refresh-button/refresh-button';
+import { RowAction, RowActions } from '../shared/row-actions/row-actions';
 import { InstructionTemplateApiService } from './instruction-template-api.service';
 import { InstructionTemplateForm } from './instruction-template-form/instruction-template-form';
 import { InstructionTemplateDto, InstructionTemplateRequest } from './instruction-template.models';
@@ -18,7 +19,7 @@ function withSaved(list: readonly InstructionTemplateDto[], saved: InstructionTe
  */
 @Component({
   selector: 'app-instruction-templates',
-  imports: [TranslatePipe, InstructionTemplateForm, RefreshButton],
+  imports: [TranslatePipe, InstructionTemplateForm, RefreshButton, RowActions],
   templateUrl: './instruction-templates.html',
   styleUrl: './instruction-templates.css',
 })
@@ -44,8 +45,26 @@ export class InstructionTemplates {
   protected readonly deletingId = signal<string | null>(null);
   protected readonly rowError = signal<string | null>(null);
 
+  /** Edit and delete of a template; both wait while a form is open, and say why. */
+  protected readonly templateActions = computed<readonly RowAction[]>(() => {
+    const formOpen = this.editing() !== null;
+    const reason = this.i18n.t('templates.finishForm');
+    return [
+      { id: 'edit', label: this.i18n.t('templates.edit'), icon: 'edit', disabled: formOpen, disabledReason: reason },
+      { id: 'delete', label: this.i18n.t('templates.delete'), icon: 'trash', danger: true, disabled: formOpen, disabledReason: reason },
+    ];
+  });
+
   constructor() {
     this.load();
+  }
+
+  protected onTemplateAction(template: InstructionTemplateDto, id: string): void {
+    if (id === 'edit') {
+      this.openEdit(template);
+    } else if (id === 'delete') {
+      this.askDelete(template);
+    }
   }
 
   /** Reads the templates. Used on opening the page and by the retry after a failed read. */

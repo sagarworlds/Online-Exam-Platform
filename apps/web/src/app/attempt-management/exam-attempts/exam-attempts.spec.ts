@@ -822,4 +822,28 @@ describe('ExamAttempts', () => {
       expect(root(open(exam([]))).querySelector('app-list-toolbar')).toBeNull();
     });
   });
+
+  describe('the actions on an attempt', () => {
+    const icons = (fixture: ComponentFixture<ExamAttempts>) =>
+      Array.from(root(fixture).querySelectorAll<HTMLButtonElement>('.row-actions--icons button')).map((b) => b.getAttribute('aria-label'));
+
+    it('are icons named for the attempt, and the ones that end something are marked as such', () => {
+      const fixture = open(exam([candidate({ attempts: [attempt(1, 'InProgress')] })]));
+
+      expect(icons(fixture)).toEqual(['Warn amy@example.com, attempt 1', 'Pause amy@example.com, attempt 1', 'End attempt amy@example.com, attempt 1']);
+      const end = root(fixture).querySelectorAll<HTMLButtonElement>('.row-actions--icons button')[2];
+      expect(end.classList.contains('icon-btn--danger')).toBe(true);
+    });
+
+    it('stay on the page but wait while another action is on its way', () => {
+      const fixture = open(exam([candidate({ attempts: [attempt(1, 'InProgress')] })]));
+
+      buttonLabelled(fixture, 'Pause')[0].click();
+      fixture.detectChanges();
+
+      const states = Array.from(root(fixture).querySelectorAll<HTMLButtonElement>('.row-actions--icons button')).map((b) => b.getAttribute('aria-disabled'));
+      expect(states).toEqual(['true', 'true', 'true']);
+      httpMock.expectOne((r) => r.method === 'POST');
+    });
+  });
 });

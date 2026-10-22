@@ -56,10 +56,7 @@
             </button>
           </div>
         } @else {
-          <div class="actions">
-            <button type="button" [disabled]="editing() !== null" (click)="openEdit(template)">{{ 'templates.edit' | t }}</button>
-            <button type="button" [disabled]="editing() !== null" (click)="askDelete(template)">{{ 'templates.delete' | t }}</button>
-          </div>
+          <app-row-actions [actions]="templateActions()" [rowLabel]="template.title" (chosen)="onTemplateAction(template, $event)" />
         }
       </article>
     }

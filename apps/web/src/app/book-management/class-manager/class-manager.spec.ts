@@ -227,10 +227,10 @@ describe('ClassManager', () => {
     button('Archive', rowOf('2nd')).click();
     fixture.detectChanges();
 
-    expect(button('Archive', rowOf('10th')).disabled).toBe(true);
-    expect(button('Rename', rowOf('10th')).disabled).toBe(true);
+    expect(button('Archive', rowOf('10th')).getAttribute('aria-disabled')).toBe('true');
+    expect(button('Rename', rowOf('10th')).getAttribute('aria-disabled')).toBe('true');
     httpMock.expectOne((r) => r.method === 'POST').flush(schoolClass('k2', '2nd', { isArchived: true }));
     fixture.detectChanges();
-    expect(button('Archive', rowOf('10th')).disabled).toBe(false);
+    expect(button('Archive', rowOf('10th')).getAttribute('aria-disabled')).toBeNull();
   });
 });

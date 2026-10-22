@@ -29,16 +29,7 @@
             }
           </div>
           <span class="card__meta">{{ i18n.plural('books.bookCount', item.bookCount) }}</span>
-          <div class="actions">
-            @if (renamingId() !== item.id) {
-              <button type="button" class="btn--small" (click)="startRename(item)" [disabled]="busy()">{{ 'books.rename' | t }}</button>
-            }
-            @if (item.isArchived) {
-              <button type="button" class="btn--small" (click)="setArchived(item, false)" [disabled]="busy()">{{ 'books.restore' | t }}</button>
-            } @else {
-              <button type="button" class="btn--small" (click)="setArchived(item, true)" [disabled]="busy()">{{ 'books.archive' | t }}</button>
-            }
-          </div>
+          <app-row-actions [actions]="actionsFor(item)" [rowLabel]="item.name" (chosen)="onAction(item, $event)" />
         </li>
       }
     </ul>

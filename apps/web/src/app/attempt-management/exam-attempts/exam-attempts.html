@@ -95,20 +95,11 @@
                   }
                 </span>
                 <span class="attempt-row__actions">
-                  @if (attempt.status === 'InProgress') {
-                    <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'warn')" [disabled]="busy()">Warn</button>
-                    @if (attempt.paused) {
-                      <button type="button" class="btn--small" (click)="resume(candidate, attempt)" [disabled]="busy()">Resume</button>
-                    } @else {
-                      <button type="button" class="btn--small" (click)="pause(candidate, attempt)" [disabled]="busy()">Pause</button>
-                    }
-                    <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'terminate')" [disabled]="busy()">End attempt</button>
-                  } @else if (!attempt.invalidated) {
-                    <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'invalidate')" [disabled]="busy()">Invalidate result</button>
-                  }
-                  @if (attempt.status === 'Submitted') {
-                    <button type="button" class="btn--small" (click)="beginAction(attempt.id, 'rescore')" [disabled]="busy()">Rescore</button>
-                  }
+                  <app-row-actions
+                    [actions]="attemptActions(attempt)"
+                    [rowLabel]="candidate.email + ', attempt ' + attempt.number"
+                    (chosen)="onAttemptAction(candidate, attempt, $event)"
+                  />
                   <button type="button" class="btn--small" (click)="toggleClients(attempt.id)" [attr.aria-expanded]="clientsFor() === attempt.id">
                     {{ clientsFor() === attempt.id ? 'Hide sign-in details' : 'Sign-in details' }}
                   </button>

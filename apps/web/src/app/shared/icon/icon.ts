@@ -24,7 +24,14 @@ export type IconName =
   | 'mail'
   | 'key'
   | 'user-off'
-  | 'more';
+  | 'more'
+  | 'archive'
+  | 'warning'
+  | 'pause'
+  | 'play'
+  | 'stop'
+  | 'ban'
+  | 'users';
 
 /**
  * An action icon, drawn as a small inline outline in the same stroke style as the admin sidebar's ({@link AdminIcon}), which keeps its own
@@ -136,6 +143,36 @@ export type IconName =
           <circle cx="12" cy="8" r="3.5" />
           <path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" />
           <path d="m4 4 16 16" />
+        }
+        @case ('archive') {
+          <rect x="3" y="4" width="18" height="4" rx="1" />
+          <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" />
+          <path d="M10 12h4" />
+        }
+        @case ('warning') {
+          <path d="M12 4 3 19h18L12 4Z" />
+          <path d="M12 10v4" />
+          <path d="M12 17h.01" />
+        }
+        @case ('pause') {
+          <path d="M9 5v14" />
+          <path d="M15 5v14" />
+        }
+        @case ('play') {
+          <path d="M8 5v14l11-7L8 5Z" />
+        }
+        @case ('stop') {
+          <rect x="6" y="6" width="12" height="12" rx="1.5" />
+        }
+        @case ('ban') {
+          <circle cx="12" cy="12" r="8" />
+          <path d="m6.5 6.5 11 11" />
+        }
+        @case ('users') {
+          <circle cx="9" cy="8" r="3" />
+          <path d="M3 19c0-3 2.7-5 6-5s6 2 6 5" />
+          <path d="M16 5.2a3 3 0 0 1 0 5.6" />
+          <path d="M18 14.3c1.8.6 3 2.1 3 4.7" />
         }
         @case ('more') {
           <circle cx="5" cy="12" r="1.2" />
