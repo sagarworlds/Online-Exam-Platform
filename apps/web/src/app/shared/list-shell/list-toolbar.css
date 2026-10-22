@@ -1,0 +1,104 @@
+:host {
+  display: block;
+}
+
+.list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.list-toolbar__search {
+  flex: 1 1 14rem;
+  min-width: 0;
+  max-width: 28rem;
+}
+
+.list-toolbar__search input {
+  width: 100%;
+}
+
+.list-toolbar__spacer {
+  flex: 1;
+}
+
+.list-toolbar__filters {
+  position: relative;
+}
+
+/* The filter button shows how many filters are on. */
+.icon-btn__count {
+  position: absolute;
+  top: -0.2rem;
+  inset-inline-end: -0.2rem;
+  min-width: 1.1rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.1rem;
+  text-align: center;
+}
+
+/* Every filter, in a grid that fills the width and stacks on a phone. Its display must be named for [hidden] too: a class that sets display
+   outranks the browser's own rule for the attribute. */
+.list-toolbar__panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.list-toolbar__panel[hidden] {
+  display: none;
+}
+
+.list-toolbar__panel ::ng-deep select {
+  width: 100%;
+}
+
+.list-toolbar__count {
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.list-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+}
+
+.list-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.1rem 0.15rem 0.1rem 0.65rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--primary-soft);
+  font-size: 0.85rem;
+}
+
+/* The chip's own remove button is small with a mouse; on a phone it is a full tap target. */
+.list-chip .icon-btn {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+@media (pointer: coarse), (max-width: 40rem) {
+  .list-chip .icon-btn {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}

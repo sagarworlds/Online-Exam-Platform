@@ -17,6 +17,8 @@ import { StatusBadge, StatusTone } from '../../shared/status-badge/status-badge'
 import { InvitedAddress, InvitedAddressChange } from '../invited-address/invited-address';
 import { inviteStatusTone } from '../invite-status';
 import { StudentApiService } from '../student-api.service';
+import { ListToolbar } from '../../shared/list-shell/list-toolbar';
+import { syncQueryParam } from '../../shared/list-shell/query-state';
 import { StudentInvitations } from '../student-invitations/student-invitations';
 import { StudentProfile } from '../student-profile/student-profile';
 import { StudentSummaryDto, UpdateStudentResult } from '../student.models';
@@ -41,7 +43,7 @@ const LISTING_LIMIT = 200;
  */
 @Component({
   selector: 'app-student-list',
-  imports: [RouterLink, StudentProfile, StudentInvitations, InvitedAddress, ModalDialog, RefreshButton, RowActions, StatusBadge, TranslatePipe],
+  imports: [RouterLink, ListToolbar, StudentProfile, StudentInvitations, InvitedAddress, ModalDialog, RefreshButton, RowActions, StatusBadge, TranslatePipe],
   templateUrl: './student-list.html',
   styleUrl: './student-list.css',
 })
@@ -141,6 +143,8 @@ export class StudentList {
   private readonly reload = new Subject<void>();
 
   constructor() {
+    // The search lives in the address (`?q=`), and is taken from it before the first read below.
+    syncQueryParam('q', this.search);
     // One stream for every reason to read the list: the first time, a pause in typing, and a change that makes it stale. A newer read
     // replaces one still on its way, so a slow answer to an old search can never overwrite the answer to the current one.
     merge(

@@ -13,133 +13,94 @@
     <p class="error-message">{{ errorMessage() }}</p>
   }
 
-  <div class="qb-toolbar">
-    <div class="qb-toolbar__search" role="search">
-      <label class="visually-hidden" for="filter-search">{{ 'qb.search' | t }}</label>
-      <input
-        id="filter-search"
-        type="search"
-        [placeholder]="'qb.search' | t"
-        [value]="filterSearch()"
-        (keydown.enter)="onSearch($any($event.target).value)"
-        (change)="onSearch($any($event.target).value)"
-      />
-    </div>
-    <button
-      type="button"
-      class="icon-btn"
-      [appTooltip]="'qb.filters' | t"
-      [attr.aria-label]="'qb.filters' | t"
-      aria-controls="filters-panel"
-      [attr.aria-expanded]="filtersOpen()"
-      (click)="filtersOpen.set(!filtersOpen())"
-    >
-      <app-icon name="filter" />
-      @if (activeFilters().length > 0) {
-        <span class="icon-btn__count" aria-hidden="true">{{ activeFilters().length }}</span>
+  <app-list-toolbar
+    [search]="filterSearch()"
+    inputId="filter-search"
+    [searchLabel]="'qb.search' | t"
+    [filterable]="true"
+    [(filtersOpen)]="filtersOpen"
+    [chips]="activeFilters()"
+    (searchChange)="onSearch($event)"
+    (chipRemoved)="clearFilter($any($event))"
+    (cleared)="clearAllFilters()"
+  >
+    <ng-container ngProjectAs="[listFilters]">
+      @if (filterClasses().length > 0) {
+        <div class="field">
+          <label for="filter-class">{{ 'qb.class' | t }}</label>
+          <select id="filter-class" [value]="filterClass()" (change)="onFilterClassChanged($any($event.target).value)">
+            <option value="">{{ 'qb.anyClass' | t }}</option>
+            @for (item of filterClasses(); track item.id) {
+              <option [value]="item.id">{{ item.name }}</option>
+            }
+          </select>
+        </div>
       }
-    </button>
-    <span class="qb-toolbar__spacer"></span>
-    <button type="button" class="icon-btn" [appTooltip]="'qb.importExport' | t" [attr.aria-label]="'qb.importExport' | t" (click)="transferOpen.set(true)">
+      <div class="field">
+        <label for="filter-book">{{ 'qb.showFrom' | t }}</label>
+        <select id="filter-book" [value]="filterBook()" (change)="onFilterBookChanged($any($event.target).value)">
+          <option value="">{{ (filterClass() ? 'qb.allBooksOfClass' : 'qb.allQuestions') | t }}</option>
+          @if (!filterClass()) {
+            <option [value]="unfiled">{{ 'qb.unfiled' | t }}</option>
+          }
+          @for (book of filterBooks(); track book.id) {
+            <option [value]="book.id">{{ bookOption(book) }}</option>
+          }
+        </select>
+      </div>
+      @if (filterBook() && filterBook() !== unfiled) {
+        <div class="field">
+          <label for="filter-chapter">{{ 'qb.chapter' | t }}</label>
+          <select id="filter-chapter" [value]="filterChapter()" (change)="onFilterChapterChanged($any($event.target).value)">
+            <option value="">{{ 'qb.allChapters' | t }}</option>
+            @for (chapter of filterChapters(); track chapter.id) {
+              <option [value]="chapter.id">{{ chapterOption(chapter) }}</option>
+            }
+          </select>
+        </div>
+      }
+      <div class="field">
+        <label for="filter-difficulty">{{ 'qb.difficulty' | t }}</label>
+        <select id="filter-difficulty" [value]="filterDifficulty()" (change)="onFilterDifficultyChanged($any($event.target).value)">
+          <option value="">{{ 'qb.anyDifficulty' | t }}</option>
+          @for (level of difficulties; track level.value) {
+            <option [value]="level.value">{{ level.key | t }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="filter-status">{{ 'qb.reviewStatus' | t }}</label>
+        <select id="filter-status" [value]="filterStatus()" (change)="onFilterStatusChanged($any($event.target).value)">
+          <option value="">{{ 'qb.anyStatus' | t }}</option>
+          @for (status of statuses; track status.value) {
+            <option [value]="status.value">{{ status.key | t }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="filter-language">{{ 'qb.language' | t }}</label>
+        <select id="filter-language" [value]="filterLanguage()" (change)="onFilterLanguageChanged($any($event.target).value)">
+          <option value="">{{ 'qb.anyLanguage' | t }}</option>
+          @for (language of languages; track language.code) {
+            <option [value]="language.code">{{ language.key | t }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="filter-topic">{{ 'qb.topic' | t }}</label>
+        <select id="filter-topic" [value]="filterTopic()" (change)="onFilterTopicChanged($any($event.target).value)">
+          <option value="">{{ 'qb.anyTopic' | t }}</option>
+          @for (topic of topics(); track topic) {
+            <option [value]="topic">{{ topic }}</option>
+          }
+        </select>
+      </div>
+      </ng-container>
+    <button listActions type="button" class="icon-btn" [appTooltip]="'qb.importExport' | t" [attr.aria-label]="'qb.importExport' | t" (click)="transferOpen.set(true)">
       <app-icon name="transfer" />
     </button>
-    <button type="button" class="primary" aria-haspopup="dialog" (click)="openNewQuestion()">{{ 'qb.new' | t }}</button>
-  </div>
-
-  <div id="filters-panel" class="filters-panel list-filter" [hidden]="!filtersOpen()">
-    @if (filterClasses().length > 0) {
-      <div class="field">
-        <label for="filter-class">{{ 'qb.class' | t }}</label>
-        <select id="filter-class" [value]="filterClass()" (change)="onFilterClassChanged($any($event.target).value)">
-          <option value="">{{ 'qb.anyClass' | t }}</option>
-          @for (item of filterClasses(); track item.id) {
-            <option [value]="item.id">{{ item.name }}</option>
-          }
-        </select>
-      </div>
-    }
-    <div class="field">
-      <label for="filter-book">{{ 'qb.showFrom' | t }}</label>
-      <select id="filter-book" [value]="filterBook()" (change)="onFilterBookChanged($any($event.target).value)">
-        <option value="">{{ (filterClass() ? 'qb.allBooksOfClass' : 'qb.allQuestions') | t }}</option>
-        @if (!filterClass()) {
-          <option [value]="unfiled">{{ 'qb.unfiled' | t }}</option>
-        }
-        @for (book of filterBooks(); track book.id) {
-          <option [value]="book.id">{{ bookOption(book) }}</option>
-        }
-      </select>
-    </div>
-    @if (filterBook() && filterBook() !== unfiled) {
-      <div class="field">
-        <label for="filter-chapter">{{ 'qb.chapter' | t }}</label>
-        <select id="filter-chapter" [value]="filterChapter()" (change)="onFilterChapterChanged($any($event.target).value)">
-          <option value="">{{ 'qb.allChapters' | t }}</option>
-          @for (chapter of filterChapters(); track chapter.id) {
-            <option [value]="chapter.id">{{ chapterOption(chapter) }}</option>
-          }
-        </select>
-      </div>
-    }
-    <div class="field">
-      <label for="filter-difficulty">{{ 'qb.difficulty' | t }}</label>
-      <select id="filter-difficulty" [value]="filterDifficulty()" (change)="onFilterDifficultyChanged($any($event.target).value)">
-        <option value="">{{ 'qb.anyDifficulty' | t }}</option>
-        @for (level of difficulties; track level.value) {
-          <option [value]="level.value">{{ level.key | t }}</option>
-        }
-      </select>
-    </div>
-    <div class="field">
-      <label for="filter-status">{{ 'qb.reviewStatus' | t }}</label>
-      <select id="filter-status" [value]="filterStatus()" (change)="onFilterStatusChanged($any($event.target).value)">
-        <option value="">{{ 'qb.anyStatus' | t }}</option>
-        @for (status of statuses; track status.value) {
-          <option [value]="status.value">{{ status.key | t }}</option>
-        }
-      </select>
-    </div>
-    <div class="field">
-      <label for="filter-language">{{ 'qb.language' | t }}</label>
-      <select id="filter-language" [value]="filterLanguage()" (change)="onFilterLanguageChanged($any($event.target).value)">
-        <option value="">{{ 'qb.anyLanguage' | t }}</option>
-        @for (language of languages; track language.code) {
-          <option [value]="language.code">{{ language.key | t }}</option>
-        }
-      </select>
-    </div>
-    <div class="field">
-      <label for="filter-topic">{{ 'qb.topic' | t }}</label>
-      <select id="filter-topic" [value]="filterTopic()" (change)="onFilterTopicChanged($any($event.target).value)">
-        <option value="">{{ 'qb.anyTopic' | t }}</option>
-        @for (topic of topics(); track topic) {
-          <option [value]="topic">{{ topic }}</option>
-        }
-      </select>
-    </div>
-  </div>
-
-  @if (activeFilters().length > 0) {
-    <div class="filter-chips" role="group" [attr.aria-label]="'qb.activeFilters' | t">
-      @for (chip of activeFilters(); track chip.key) {
-        <span class="filter-chip">
-          {{ chip.label }}
-          <button
-            type="button"
-            class="icon-btn"
-            [appTooltip]="'qb.removeFilter' | t: { filter: chip.label }"
-            [attr.aria-label]="'qb.removeFilter' | t: { filter: chip.label }"
-            (click)="clearFilter(chip.key)"
-          >
-            <app-icon name="close" />
-          </button>
-        </span>
-      }
-      @if (activeFilters().length > 1) {
-        <button type="button" class="btn--small" (click)="clearAllFilters()">{{ 'qb.clearAll' | t }}</button>
-      }
-    </div>
-  }
+    <button listActions type="button" class="primary" aria-haspopup="dialog" (click)="openNewQuestion()">{{ 'qb.new' | t }}</button>
+  </app-list-toolbar>
 
   @if (panelOpen()) {
     <app-question-panel

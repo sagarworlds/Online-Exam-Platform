@@ -29,6 +29,7 @@ import {
   MAX_DISPUTE_REJECTION_NOTE,
 } from '../attempt-admin.models';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
+import { syncQueryParam } from '../../shared/list-shell/query-state';
 
 /** The status a dispute got from a decision made on this page: the two ways it can be settled. */
 type DecidedStatus = Exclude<DisputeStatus, 'Open'>;
@@ -135,6 +136,7 @@ export class Disputes {
   });
 
   constructor() {
+    syncQueryParam('status', this.status, { allowed: this.statuses.map((s) => s.value), default: 'open' });
     this.fetch();
   }
 

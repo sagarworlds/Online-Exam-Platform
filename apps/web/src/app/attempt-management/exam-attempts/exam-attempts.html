@@ -30,7 +30,31 @@
       <p class="hint">The exam can no longer be started, so another attempt cannot be given now.</p>
     }
 
-    @for (candidate of d.candidates; track candidate.candidateId) {
+    @if (d.candidates.length > 0) {
+      <app-list-toolbar
+        [search]="search()"
+        [searchLabel]="'attempts.search' | t"
+        [liveSearch]="true"
+        [filterable]="true"
+        [chips]="chips()"
+        [count]="count()"
+        (searchChange)="search.set($event); resetPage()"
+        (chipRemoved)="clearFilter()"
+        (cleared)="clearFilter()"
+      >
+        <div listFilters class="field">
+          <label for="filter-candidate-state">{{ 'attempts.state' | t }}</label>
+          <select id="filter-candidate-state" [value]="state()" (change)="state.set($any($event.target).value); resetPage()">
+            <option value="">{{ 'attempts.anyState' | t }}</option>
+            @for (option of states; track option) {
+              <option [value]="option">{{ stateText(option) }}</option>
+            }
+          </select>
+        </div>
+      </app-list-toolbar>
+    }
+
+    @for (candidate of shownCandidates(); track candidate.candidateId) {
       <div class="card">
         <h3 class="card__title">
           {{ candidate.email }}
@@ -285,7 +309,8 @@
         }
       </div>
     } @empty {
-      <div class="card empty-state">Nobody has accepted an invitation to this exam yet.</div>
+      <div class="card empty-state">{{ d.candidates.length === 0 ? 'Nobody has accepted an invitation to this exam yet.' : ('list.noMatch' | t) }}</div>
     }
+    <app-load-more [hasMore]="shownCandidates().length < matchingCandidates().length" (more)="showMore()" />
   }
 </div>

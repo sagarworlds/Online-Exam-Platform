@@ -148,4 +148,52 @@ describe('BatchList', () => {
       expect(root.textContent).toContain('Morning batch');
     });
   });
+
+  describe('finding a batch', () => {
+    const names = (root: HTMLElement) => Array.from(root.querySelectorAll('tbody th a')).map((a) => a.textContent?.trim());
+    const type = (fixture: { detectChanges(): void }, root: HTMLElement, text: string) => {
+      const box = root.querySelector<HTMLInputElement>('input[type="search"]')!;
+      box.value = text;
+      box.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    };
+
+    it('narrows the list by the name of the batch or of its exam', () => {
+      const { fixture, root } = open([batch('b1', 'Morning batch'), { ...batch('b2', 'Evening batch'), examId: 'e2' }], [
+        { id: 'e1', name: 'Maths Final' },
+        { id: 'e2', name: 'Physics Mock' },
+      ]);
+
+      type(fixture, root, 'morning');
+      expect(names(root)).toEqual(['Morning batch']);
+
+      type(fixture, root, 'physics');
+      expect(names(root)).toEqual(['Evening batch']);
+    });
+
+    it('narrows the list by status, shows a chip for it, and says so when nothing matches', () => {
+      const { fixture, root } = open([batch('b1', 'Morning batch'), { ...batch('b2', 'Old batch'), status: 'Closed' }]);
+
+      const select = root.querySelector<HTMLSelectElement>('#filter-batch-status')!;
+      select.value = 'Closed';
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      expect(names(root)).toEqual(['Old batch']);
+      expect(root.querySelector('.list-chip')?.textContent).toContain('Status: Closed');
+
+      type(fixture, root, 'zzz');
+      expect(names(root)).toEqual([]);
+      expect(root.textContent).toContain('Nothing matches');
+    });
+
+    it('draws twenty batches at a time', () => {
+      const { fixture, root } = open(Array.from({ length: 25 }, (_, i) => batch(`b${i}`, `Batch ${i}`)));
+      expect(names(root).length).toBe(20);
+
+      root.querySelector<HTMLButtonElement>('app-load-more button')!.click();
+      fixture.detectChanges();
+
+      expect(names(root).length).toBe(25);
+    });
+  });
 });
