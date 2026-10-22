@@ -157,6 +157,7 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             new { email = "member@example.com" }),
         new("POST", "/v1/batches/{batchId}/members/import", RbacCatalog.PermissionCodes.BatchManage,
             new { csv = "member@example.com" }),
+        new("DELETE", "/v1/batches/{batchId}/members/{memberId}", RbacCatalog.PermissionCodes.BatchManage, null),
         new("POST", "/v1/batches/{batchId}/activate", RbacCatalog.PermissionCodes.BatchManage, null),
         new("POST", "/v1/batches/{batchId}/close", RbacCatalog.PermissionCodes.BatchManage, null),
         new("GET", "/v1/batches", RbacCatalog.PermissionCodes.BatchRead, null),

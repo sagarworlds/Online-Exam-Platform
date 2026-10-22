@@ -42,6 +42,14 @@ public static class BatchEndpoints
             .WithName("ImportBatchRoster")
             .WithDescription("Add the candidates in a CSV roster to a batch; a bad row is reported and skipped, not the whole import");
 
+        batches.MapDelete("/{batchId}/members/{memberId}", RemoveBatchMember)
+            .RequireAuthorization(BatchPermissions.Manage)
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("RemoveBatchMember")
+            .WithDescription("Take a member out of a batch, freeing the seat; the member is marked removed, not erased");
+
         batches.MapPost("/{batchId}/activate", ActivateBatch)
             .RequireAuthorization(BatchPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -107,6 +115,16 @@ public static class BatchEndpoints
             request.Phone);
 
         await handler.HandleAsync(command, ct);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> RemoveBatchMember(
+        Guid batchId,
+        Guid memberId,
+        RemoveBatchMemberHandler handler,
+        CancellationToken ct)
+    {
+        await handler.HandleAsync(new RemoveBatchMemberCommand(batchId, memberId), ct);
         return Results.NoContent();
     }
 
