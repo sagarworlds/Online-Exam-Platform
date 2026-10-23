@@ -78,8 +78,10 @@
   --target-fine: 2.25rem;
 }
 
+/* The dark values. They apply when the system is dark, unless the person chose Light in the page's theme picker (data-theme="light"), and always when
+   they chose Dark: the same declarations twice, since a media query and an attribute cannot share one rule. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #0e1320;
     --surface: #161c2d;
     --surface-muted: #1b2236;
@@ -107,3 +109,41 @@
     --focus-ring: 0 0 0 3px rgb(109 155 255 / 35%);
   }
 }
+
+:root[data-theme='dark'] {
+  --bg: #0e1320;
+  --surface: #161c2d;
+  --surface-muted: #1b2236;
+  --border: #2b3550;
+  --border-strong: #41507a;
+  --control-border: #7d88a6;
+
+  --text: #e6eaf5;
+  --text-muted: #9aa6c4;
+
+  --primary: var(--brand-primary, #6d9bff);
+  --primary-hover: var(--brand-primary-hover, #8bb0ff);
+  --primary-ink: var(--brand-ink-dark, var(--primary));
+  --primary-soft: var(--brand-primary-soft, #1f2c52);
+  --on-primary: var(--brand-on-primary, #0b1226);
+
+  --success: #5fd38a;
+  --success-soft: #14301f;
+  --danger: #ff8a80;
+  --danger-soft: #3a1a1a;
+  --warning: #f5c25a;
+  --warning-soft: #3a2e12;
+
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%);
+  --focus-ring: 0 0 0 3px rgb(109 155 255 / 35%);
+}
+
+/* The page's own scheme follows the choice, so the browser draws its controls and scrollbars to match. */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+

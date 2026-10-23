@@ -41,6 +41,10 @@ export const MR: Messages = {
   'common.attempt': 'प्रयत्न {number}',
   'common.autoSubmitted': 'वेळ संपली, म्हणून परीक्षा तुम्ही जतन केलेल्या उत्तरांसह आपोआप सादर करण्यात आली.',
   'language.label': 'भाषा',
+  'theme.label': 'थीम',
+  'theme.system': 'सिस्टम थीम',
+  'theme.light': 'फिकट',
+  'theme.dark': 'गडद',
 
   // ---- navigation ----
   'nav.main': 'मुख्य',

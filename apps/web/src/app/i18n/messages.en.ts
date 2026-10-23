@@ -46,6 +46,10 @@ export const EN = {
   'common.attempt': 'Attempt {number}',
   'common.autoSubmitted': 'Time ran out, so the exam was submitted automatically with the answers you had saved.',
   'language.label': 'Language',
+  'theme.label': 'Theme',
+  'theme.system': 'System theme',
+  'theme.light': 'Light',
+  'theme.dark': 'Dark',
 
   // ---- navigation ----
   'nav.main': 'Main',
