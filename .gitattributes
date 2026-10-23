@@ -1,0 +1,4 @@
+# Shell scripts run on Linux (CI, the image scripts/verify.sh builds) and in Git Bash. A Windows checkout with core.autocrlf=true would
+# otherwise give them CRLF line endings, and bash stops at the first line ("set: pipefail\r: invalid option").
+*.sh text eol=lf
+scripts/verify/Dockerfile text eol=lf
