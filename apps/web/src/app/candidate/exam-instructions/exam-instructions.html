@@ -128,6 +128,30 @@
         }
       </section>
 
+      <!-- Asked of a candidate who has not yet agreed to the current notice; one who has, or where no notice is published, is not asked. -->
+      @switch (consent().state) {
+        @case ('needed') {
+          <section class="card" aria-labelledby="consent-heading">
+            <h2 id="consent-heading" class="card__title">{{ 'instructions.consent.title' | t }}</h2>
+            <p>{{ 'consent.explain.ProctoringDataProcessing' | t }}</p>
+            <label class="acknowledge">
+              <input type="checkbox" [checked]="consentTicked()" (change)="setConsentTicked($event)" />
+              <span>{{ 'instructions.consent.agree' | t }} <a href="/privacy.html" target="_blank" rel="noopener">{{ 'consent.privacyLink' | t }}</a></span>
+            </label>
+            <p class="hint">{{ 'instructions.consent.change' | t }}</p>
+          </section>
+        }
+        @case ('failed') {
+          <section class="card" aria-labelledby="consent-heading">
+            <h2 id="consent-heading" class="card__title">{{ 'instructions.consent.title' | t }}</h2>
+            <p class="error-message" role="alert">{{ 'instructions.consent.failed' | t }}</p>
+            <div class="actions">
+              <button type="button" (click)="readConsent()">{{ 'common.retry' | t }}</button>
+            </div>
+          </section>
+        }
+      }
+
       <div class="start-bar">
         <p id="start-reason" class="start-bar__reason" role="status">{{ startReason() }}</p>
         <button type="button" class="primary start-bar__start" [disabled]="!canStart()" aria-describedby="start-reason" (click)="start()">

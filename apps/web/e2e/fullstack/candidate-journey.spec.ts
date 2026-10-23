@@ -55,6 +55,8 @@ async function startExam(page: Page): Promise<void> {
     await expect(page.getByRole('listitem').filter({ has: page.locator('strong', { hasText: check }) })).toContainText('Passed');
   }
   await page.getByLabel(text('instructions.acknowledge')).check();
+  // A new candidate has not agreed to the proctoring notice yet: it is asked here, and recorded when the exam starts.
+  await page.getByLabel(text('instructions.consent.agree')).check();
   await page.getByRole('button', { name: text('instructions.start'), exact: true }).click();
   await expect(page).toHaveURL(/\/attempt\/[0-9a-f-]+$/);
 }

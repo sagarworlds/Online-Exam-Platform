@@ -2,12 +2,21 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
+import { AuthSessionService } from '../../auth/auth-session.service';
+import { ConsentApiService } from '../../consent/consent-api.service';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
 import { MyExamDto } from '../candidate.models';
 import { CheckResult, CheckStatus, SystemCheckService } from '../system-check/system-check';
 import { instructionLines, timeAllowed } from './exam-rules-text';
+import { switchMap } from 'rxjs';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
+
+/**
+ * Where the candidate stands on the consent an exam needs before it starts: being checked, not readable, given already (or no notice to give
+ * it to), or still to be given on this page against the notice's current version.
+ */
+type ConsentState = { state: 'checking' } | { state: 'failed' } | { state: 'done' } | { state: 'needed'; noticeVersionId: string };
 
 /**
  * The page between "Start exam" and the exam itself (FR-17): the exam's instructions, a check that this browser and connection can
@@ -25,6 +34,8 @@ export class ExamInstructions {
   private readonly i18n = inject(I18nService);
   private readonly router = inject(Router);
   private readonly systemCheck = inject(SystemCheckService);
+  private readonly consentApi = inject(ConsentApiService);
+  private readonly userId = inject(AuthSessionService).session()?.userId ?? null;
   private readonly examId = inject(ActivatedRoute).snapshot.paramMap.get('examId') ?? '';
 
   protected readonly loading = signal(true);
@@ -34,6 +45,10 @@ export class ExamInstructions {
   /** The check results, or null while the check is running. */
   protected readonly checks = signal<CheckResult[] | null>(null);
   protected readonly acknowledged = signal(false);
+
+  /** The proctoring consent: an exam records focus and device signals, so the candidate agrees to that before the clock starts. */
+  protected readonly consent = signal<ConsentState>({ state: 'checking' });
+  protected readonly consentTicked = signal(false);
   protected readonly starting = signal(false);
   protected readonly startError = signal<string | null>(null);
 
@@ -63,8 +78,20 @@ export class ExamInstructions {
   /** Whether any check came out as a warning, so the page can say it is safe to go on anyway. */
   protected readonly hasWarning = computed(() => this.checks()?.some((c) => c.status === 'warn') ?? false);
 
+  /** Whether the consent is settled: already given, nothing to give it to, or ticked here and given when Start is pressed. */
+  protected readonly consentSettled = computed(() => {
+    const consent = this.consent();
+    return consent.state === 'done' || (consent.state === 'needed' && this.consentTicked());
+  });
+
   protected readonly canStart = computed(
-    () => this.exam()?.canStartAttempt === true && this.checks() !== null && !this.hasProblem() && this.acknowledged() && !this.starting(),
+    () =>
+      this.exam()?.canStartAttempt === true &&
+      this.checks() !== null &&
+      !this.hasProblem() &&
+      this.acknowledged() &&
+      this.consentSettled() &&
+      !this.starting(),
   );
 
   /**
@@ -84,7 +111,15 @@ export class ExamInstructions {
       return this.i18n.t('instructions.bar.problem');
     }
 
-    return this.acknowledged() ? this.i18n.t('instructions.bar.ready') : this.i18n.t('instructions.bar.tick');
+    if (!this.acknowledged()) {
+      return this.i18n.t('instructions.bar.tick');
+    }
+
+    if (this.consent().state === 'failed') {
+      return this.i18n.t('instructions.consent.failed');
+    }
+
+    return this.consentSettled() ? this.i18n.t('instructions.bar.ready') : this.i18n.t('instructions.bar.consent');
   });
 
   /**
@@ -126,6 +161,28 @@ export class ExamInstructions {
       },
     });
     void this.runChecks();
+    this.readConsent();
+  }
+
+  /** Asks whether the candidate has already agreed to the current notice. Without a session (it cannot be recorded) or without a notice, nothing is asked of them. */
+  protected readConsent(): void {
+    if (this.userId === null) {
+      this.consent.set({ state: 'done' });
+      return;
+    }
+
+    this.consent.set({ state: 'checking' });
+    this.consentApi.getStatus(this.userId, 'ProctoringDataProcessing').subscribe({
+      next: (status) => {
+        const needed = !status.isActive && status.currentNoticeVersionId !== null;
+        this.consent.set(needed ? { state: 'needed', noticeVersionId: status.currentNoticeVersionId! } : { state: 'done' });
+      },
+      error: () => this.consent.set({ state: 'failed' }),
+    });
+  }
+
+  protected setConsentTicked(event: Event): void {
+    this.consentTicked.set((event.target as HTMLInputElement).checked);
   }
 
   /** Runs the system check, showing each line as "checking" until it is done. Also bound to "Run the check again". */
@@ -146,7 +203,14 @@ export class ExamInstructions {
 
     this.starting.set(true);
     this.startError.set(null);
-    this.api.startAttempt(this.examId, true).subscribe({
+    // The consent is recorded first, so an attempt is never begun on a consent that could not be kept.
+    const consent = this.consent();
+    const begin = this.api.startAttempt(this.examId, true);
+    const call =
+      consent.state === 'needed' && this.userId !== null
+        ? this.consentApi.grant({ subjectId: this.userId, purpose: 'ProctoringDataProcessing', noticeVersionId: consent.noticeVersionId }).pipe(switchMap(() => begin))
+        : begin;
+    call.subscribe({
       next: (attempt) => void this.router.navigate(['/attempt', attempt.id]),
       error: (error: unknown) => {
         this.starting.set(false);
