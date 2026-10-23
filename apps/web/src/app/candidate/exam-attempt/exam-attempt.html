@@ -335,7 +335,10 @@
       <div class="card result">
         <p class="exam-bar__label">{{ 'result.title' | t }}@if (current.number && current.number > 1) { · {{ 'common.attempt' | t: { number: current.number } }} }</p>
         <h1 #resultTitle tabindex="-1">{{ current.examName }}</h1>
-        @if (current.invalidated) {
+        @if (current.status === 'Grading') {
+          <!-- Over, but not yet scored: the typed answers are being checked, and the page asks again until the score is there. -->
+          <p class="hint" role="status">{{ 'result.grading' | t }}</p>
+        } @else if (current.invalidated) {
           <p class="error-message" role="alert">
             {{ 'result.invalidated' | t: { reason: current.invalidationReason ?? '' } }}
           </p>

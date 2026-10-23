@@ -130,6 +130,8 @@
                       }
                       @if (attempt.status === 'Submitted') {
                         <span class="nowrap">{{ 'myExams.yourScore' | t }} <strong>{{ attempt.score }} / {{ attempt.maxScore }}</strong></span>
+                      } @else if (attempt.status === 'Grading') {
+                        {{ 'myExams.grading' | t }}
                       } @else {
                         {{ 'myExams.inProgress' | t }}
                       }
@@ -137,7 +139,7 @@
                         <span class="badge badge--active">{{ 'myExams.best' | t }}</span>
                       }
                     </span>
-                    @if (attempt.status === 'Submitted') {
+                    @if (attempt.status === 'Submitted' || attempt.status === 'Grading') {
                       <a [routerLink]="['/attempt', attempt.id]" class="btn">{{ 'myExams.viewResult' | t }}</a>
                     }
                   </li>

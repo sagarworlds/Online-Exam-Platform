@@ -833,6 +833,14 @@ public sealed class Attempt : AggregateRoot
     public void RecordEvaluationFailure(Guid questionId, string error, DateTime nextAttemptAtUtc) =>
         AnswerAwaitingEvaluation(questionId).RecordEvaluationFailure(error, nextAttemptAtUtc);
 
+    /// <summary>
+    /// Lets go of the typed answer to a question that a worker was holding, without counting a failure, so another worker can take it at once.
+    /// Does nothing when the answer is not waiting for a verdict.
+    /// </summary>
+    /// <param name="questionId">The question.</param>
+    public void ReleaseEvaluation(Guid questionId) =>
+        _answers.FirstOrDefault(a => a.QuestionId == questionId && a.IsAwaitingEvaluation)?.ReleaseEvaluation();
+
     private AttemptAnswer AnswerAwaitingEvaluation(Guid questionId) =>
         _answers.FirstOrDefault(a => a.QuestionId == questionId && a.IsAwaitingEvaluation)
         ?? throw new InvalidAttemptError("That answer is not waiting for a verdict.");

@@ -120,6 +120,38 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<GradingClaim>> ClaimAnswersAwaitingEvaluationAsync(
+        DateTime nowUtc, DateTime leaseUntilUtc, int limit, CancellationToken cancellationToken)
+    {
+        // A window wider than the limit, so a row another worker takes between this read and the claim below does not leave this one empty-handed.
+        var due = await context.Set<AttemptAnswer>().AsNoTracking()
+            .Where(a => a.EvaluationRequestedAtUtc != null
+                && (a.EvaluationNextAttemptAtUtc == null || a.EvaluationNextAttemptAtUtc <= nowUtc)
+                && (a.EvaluationLeaseUntilUtc == null || a.EvaluationLeaseUntilUtc <= nowUtc))
+            .OrderBy(a => a.EvaluationRequestedAtUtc)
+            .Select(a => new { a.Id, a.AttemptId, a.QuestionId, RequestedAtUtc = a.EvaluationRequestedAtUtc!.Value })
+            .Take(limit * 5)
+            .ToListAsync(cancellationToken);
+
+        var claimed = new List<GradingClaim>(limit);
+        foreach (var row in due)
+        {
+            if (claimed.Count == limit)
+                break;
+
+            // One statement that takes the row only if nobody holds it: when two workers go for the same row, the database lets the second
+            // see the first's lease and update nothing, so exactly one of them wins.
+            var taken = await context.Set<AttemptAnswer>()
+                .Where(a => a.Id == row.Id && a.EvaluationRequestedAtUtc == row.RequestedAtUtc && (a.EvaluationLeaseUntilUtc == null || a.EvaluationLeaseUntilUtc <= nowUtc))
+                .ExecuteUpdateAsync(set => set.SetProperty(a => a.EvaluationLeaseUntilUtc, (DateTime?)leaseUntilUtc), cancellationToken);
+            if (taken > 0)
+                claimed.Add(new GradingClaim(row.AttemptId, row.QuestionId, row.RequestedAtUtc));
+        }
+
+        return claimed;
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListSubmittedByQuestionIdAsync(Guid questionId, CancellationToken cancellationToken)
     {
         // Attempts that answered the question, union attempts that only drew it onto their paper (unanswered but
@@ -136,7 +168,7 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
 
         return await context.Attempts.AsSplitQuery()
             .Include(a => a.Answers).Include(a => a.Marks).Include(a => a.Paper).Include(a => a.Revisions)
-            .Where(a => attemptIds.Contains(a.Id) && a.Status == AttemptStatus.Submitted)
+            .Where(a => attemptIds.Contains(a.Id) && (a.Status == AttemptStatus.Submitted || a.Status == AttemptStatus.Grading))
             .ToListAsync(cancellationToken);
     }
 

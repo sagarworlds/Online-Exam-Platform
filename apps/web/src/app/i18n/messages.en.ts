@@ -143,6 +143,7 @@ export const EN = {
   'myExams.attemptsUsed': 'Attempts used: {used} of {allowed}',
   'myExams.yourScore': 'Your score:',
   'myExams.inProgress': 'In progress',
+  'myExams.grading': 'Your typed answers are being checked',
   'myExams.best': 'Best',
   'myExams.viewResult': 'View result',
   'myExams.resume': 'Resume exam',
@@ -357,6 +358,7 @@ export const EN = {
 
   // ---- the result ----
   'result.title': 'Result',
+  'result.grading': 'The exam was submitted. Your typed answers are being checked, and your score will appear here in a moment. You do not need to do anything.',
   'result.invalidated': 'This result was invalidated by an organiser, so it has no score. Reason: {reason}',
   'result.terminated': 'An organiser ended this exam. It was submitted with the answers you had saved. Reason: {reason}',
   'result.endedByViolations': 'You left the exam page too many times, so the exam was submitted automatically with the answers you had saved.',

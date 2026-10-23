@@ -138,6 +138,7 @@ export const HI: Messages = {
   'myExams.attemptsUsed': 'उपयोग किए गए प्रयास: {used} में से {allowed}',
   'myExams.yourScore': 'आपका स्कोर:',
   'myExams.inProgress': 'जारी है',
+  'myExams.grading': 'आपके टाइप किए गए उत्तरों की जाँच हो रही है',
   'myExams.best': 'सर्वश्रेष्ठ',
   'myExams.viewResult': 'परिणाम देखें',
   'myExams.resume': 'परीक्षा फिर से शुरू करें',
@@ -351,6 +352,7 @@ export const HI: Messages = {
 
   // ---- the result ----
   'result.title': 'परिणाम',
+  'result.grading': 'परीक्षा जमा हो गई। आपके टाइप किए गए उत्तरों की जाँच हो रही है, और आपका स्कोर कुछ ही देर में यहाँ दिखेगा। आपको कुछ करने की आवश्यकता नहीं है।',
   'result.invalidated': 'यह परिणाम एक आयोजक द्वारा अमान्य कर दिया गया है, इसलिए इसका कोई स्कोर नहीं है। कारण: {reason}',
   'result.terminated': 'एक आयोजक ने यह परीक्षा समाप्त कर दी। यह आपके सहेजे हुए उत्तरों के साथ जमा की गई। कारण: {reason}',
   'result.endedByViolations': 'आपने परीक्षा का पेज बहुत बार छोड़ा, इसलिए परीक्षा आपके सहेजे हुए उत्तरों के साथ अपने आप जमा कर दी गई।',

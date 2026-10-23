@@ -25,12 +25,12 @@ describe('MyExams', () => {
     localStorage.clear();
   });
 
-  const attempt = (number: number, status: 'InProgress' | 'Submitted', score: number | null = null): AttemptSummaryDto => ({
+  const attempt = (number: number, status: 'InProgress' | 'Submitted' | 'Grading', score: number | null = null): AttemptSummaryDto => ({
     id: `a${number}`,
     number,
     status,
     startedAtUtc: '2026-10-05T04:30:00Z',
-    submittedAtUtc: status === 'Submitted' ? '2026-10-05T04:50:00Z' : null,
+    submittedAtUtc: status === 'InProgress' ? null : '2026-10-05T04:50:00Z',
     autoSubmitted: false,
     score,
     maxScore: score === null ? null : 20,
@@ -425,6 +425,20 @@ describe('MyExams', () => {
       const resume = root.querySelector('.actions a.btn--primary');
       expect(resume?.textContent).toContain('Resume exam');
       expect(resume?.getAttribute('href')).toBe('/attempt/a2');
+    });
+
+    it('says a finished attempt is being checked while it has no score, and links to it so the score shows when it is there', () => {
+      const { root } = open([
+        twoAttempts({ attemptStatus: 'Grading', score: null, attemptsUsed: 2, canStartAttempt: false, attempts: [attempt(1, 'Submitted', 11), attempt(2, 'Grading')] }),
+      ]);
+
+      const row = rows(root)[1];
+      expect(row.textContent).toContain('being checked');
+      expect(row.textContent).not.toContain('In progress');
+      expect(row.textContent).not.toContain('Your score');
+      expect(row.querySelector('a')?.getAttribute('href')).toBe('/attempt/a2');
+      // Not open, so nothing offers to resume it.
+      expect(root.querySelector('.actions a.btn--primary')).toBeNull();
     });
 
     it('sends the candidate through the instructions page to start the next attempt', () => {

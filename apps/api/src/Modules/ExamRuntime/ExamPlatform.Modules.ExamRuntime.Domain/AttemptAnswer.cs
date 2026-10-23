@@ -132,6 +132,9 @@ public sealed class AttemptAnswer : Entity
         EvaluationLastError = null;
     }
 
+    /// <summary>Lets go of the answer without counting a failure, so another worker can take it at once. For a worker that is stopping with the answer in hand.</summary>
+    internal void ReleaseEvaluation() => EvaluationLeaseUntilUtc = null;
+
     /// <summary>Records that asking failed, and when to try again. The answer stays in the queue: a result waits for its verdict.</summary>
     /// <param name="error">What went wrong, in a few words; never the answer's content.</param>
     /// <param name="nextAttemptAtUtc">The earliest instant to try again.</param>
