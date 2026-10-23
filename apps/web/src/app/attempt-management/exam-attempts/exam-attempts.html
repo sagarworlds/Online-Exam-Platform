@@ -73,6 +73,8 @@
                   <strong>Attempt {{ attempt.number }}</strong> ·
                   @if (attempt.status === 'Submitted') {
                     {{ attempt.score }} / {{ attempt.maxScore }}{{ attempt.terminatedByAdmin ? ' (ended by an administrator)' : attempt.autoSubmitted ? ' (ended automatically)' : '' }}
+                  } @else if (attempt.status === 'Grading') {
+                    Typed answers are being checked
                   } @else if (attempt.paused) {
                     Paused
                   } @else {
@@ -196,6 +198,8 @@
                       }
                     } @else if (p.status === 'InProgress') {
                       <p class="hint">Still in progress: what the candidate has chosen so far is marked, and nothing is scored until it is submitted.</p>
+                    } @else if (p.status === 'Grading') {
+                      <p class="hint">Submitted, and not yet scored: the answers the candidate typed are being checked, and the score appears when they have been.</p>
                     }
                     @if (p.hasDrawnQuestions) {
                       <p class="hint">Some questions were drawn for this candidate, so other candidates' papers may differ.</p>

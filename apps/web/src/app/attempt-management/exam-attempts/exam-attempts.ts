@@ -115,7 +115,8 @@ export class ExamAttempts {
           : { id: 'pause', label: 'Pause', icon: 'pause', disabled: busy, disabledReason: reason },
       );
       actions.push({ id: 'terminate', label: 'End attempt', icon: 'stop', danger: true, disabled: busy, disabledReason: reason });
-    } else if (!attempt.invalidated) {
+    } else if (!attempt.invalidated && attempt.status !== 'Grading') {
+      // An attempt still being graded has no result yet to invalidate; the server refuses it until the score is there.
       actions.push({ id: 'invalidate', label: 'Invalidate result', icon: 'ban', danger: true, disabled: busy, disabledReason: reason });
     }
     if (attempt.status === 'Submitted') {

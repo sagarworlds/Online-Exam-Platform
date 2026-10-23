@@ -10,12 +10,12 @@ import { ExamAttempts } from './exam-attempts';
 describe('ExamAttempts', () => {
   let httpMock: HttpTestingController;
 
-  const attempt = (number: number, status: 'InProgress' | 'Submitted', score: number | null = null, autoSubmitted = false): AttemptSummaryDto => ({
+  const attempt = (number: number, status: 'InProgress' | 'Submitted' | 'Grading', score: number | null = null, autoSubmitted = false): AttemptSummaryDto => ({
     id: `a${number}`,
     number,
     status,
     startedAtUtc: '2026-10-05T04:30:00Z',
-    submittedAtUtc: status === 'Submitted' ? '2026-10-05T04:50:00Z' : null,
+    submittedAtUtc: status === 'InProgress' ? null : '2026-10-05T04:50:00Z',
     autoSubmitted,
     score,
     maxScore: score === null ? null : 10,
@@ -479,6 +479,16 @@ describe('ExamAttempts', () => {
       field(fixture).dispatchEvent(new Event('input'));
       fixture.detectChanges();
     };
+
+    it('says an attempt being graded is waiting for its typed answers to be checked, and offers nothing to do to a result that is not there yet', () => {
+      const fixture = open(exam([candidate({ attempts: [attempt(1, 'Grading')] })]));
+
+      expect(textOf(fixture)).toContain('Attempt 1 · Typed answers are being checked');
+      expect(textOf(fixture)).not.toContain('Attempt 1 · In progress');
+      expect(buttonLabelled(fixture, 'Invalidate result')).toHaveLength(0);
+      expect(buttonLabelled(fixture, 'Rescore')).toHaveLength(0);
+      expect(buttonLabelled(fixture, 'Warn')).toHaveLength(0);
+    });
 
     it('offers warn, pause and end for an attempt in progress, and invalidate only once it is finished', () => {
       const open1 = open(exam([withAttempt(staff())]));
