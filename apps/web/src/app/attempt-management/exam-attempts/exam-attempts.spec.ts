@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { vi } from 'vitest';
 import { AttemptSummaryDto } from '../../candidate/candidate.models';
 import { ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
 import { ExamAttempts } from './exam-attempts';
@@ -244,6 +245,157 @@ describe('ExamAttempts', () => {
     expect(textOf(fixture)).toContain('(question no longer in the bank)');
     expect(textOf(fixture)).toContain('Plain');
     expect((fixture.nativeElement as HTMLElement).querySelector('.review-options')).toBeNull();
+  });
+
+  describe('the AI check of a typed answer', () => {
+    const aiCheck = (state: string, overrides: object = {}) => ({
+      state,
+      verdict: null,
+      reason: null,
+      model: null,
+      atUtc: null,
+      failures: 0,
+      lastError: null,
+      ...overrides,
+    });
+    const typedPaper = (check: object | null, overrides: object = {}) => ({
+      attemptId: 'a1',
+      number: 1,
+      hasDrawnQuestions: false,
+      status: 'Submitted',
+      score: 4,
+      maxScore: 10,
+      isInvalidated: false,
+      aiCheckAvailable: true,
+      sections: [
+        {
+          id: 's1',
+          name: 'Geography',
+          questions: [
+            {
+              id: 'q1',
+              text: '<p>Capital of France?</p>',
+              drawn: false,
+              verdict: 'Wrong',
+              marks: 0,
+              isTextAnswer: true,
+              answerText: 'The French capital',
+              acceptedAnswers: ['Paris'],
+              aiCheck: check,
+            },
+          ],
+        },
+      ],
+      ...overrides,
+    });
+    const paperRequest = () => httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts/a1/paper'));
+
+    it('shows what the evaluator decided, with its reason and model, and offers to check again', () => {
+      const fixture = showPaper(
+        typedPaper(aiCheck('Judged', { verdict: 'Correct', reason: 'Says the same as Paris.', model: 'gemini-test', atUtc: '2026-10-05T05:00:00Z' })),
+      );
+
+      expect(textOf(fixture)).toContain('Judged right');
+      expect(textOf(fixture)).toContain('Says the same as Paris.');
+      expect(textOf(fixture)).toContain('gemini-test');
+      expect(buttonLabelled(fixture, 'Check with AI again')).toHaveLength(1);
+    });
+
+    it('says an answer was marked by the accepted answers alone, and offers the check', () => {
+      const gaveUp = showPaper(typedPaper(aiCheck('GaveUp', { reason: 'The AI evaluator gave no verdict within 30 minutes, so this answer was marked by the accepted answers alone.' })));
+      expect(textOf(gaveUp)).toContain('Not judged by the AI');
+      expect(textOf(gaveUp)).toContain('within 30 minutes');
+      expect(buttonLabelled(gaveUp, 'Check with AI')).toHaveLength(1);
+      httpMock.verify();
+
+      const never = showPaper(typedPaper(aiCheck('NotChecked')));
+      expect(textOf(never)).toContain('Not checked');
+      expect(buttonLabelled(never, 'Check with AI')).toHaveLength(1);
+    });
+
+    it('shows an answer that is waiting, and why it has not been answered yet, with no button to ask twice', () => {
+      vi.useFakeTimers();
+      try {
+        const fixture = showPaper(typedPaper(aiCheck('Waiting', { failures: 2, lastError: 'The AI service answered 503.' })));
+
+        expect(textOf(fixture)).toContain('Waiting for the AI');
+        expect(textOf(fixture)).toContain('2 tries failed: The AI service answered 503.');
+        expect(buttonLabelled(fixture, 'Check with AI')).toHaveLength(0);
+        expect(buttonLabelled(fixture, 'Check with AI again')).toHaveLength(0);
+        // Still waiting, so the page asks again by itself.
+        vi.advanceTimersByTime(4000);
+        paperRequest().flush(typedPaper(aiCheck('Judged', { verdict: 'Wrong', model: 'gemini-test', atUtc: '2026-10-05T05:00:00Z' })));
+        // The score may have moved with the verdict, so the rows are read again, and the paper with them.
+        httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts')).flush(exam([candidate()]));
+        paperRequest().flush(typedPaper(aiCheck('Judged', { verdict: 'Wrong', model: 'gemini-test', atUtc: '2026-10-05T05:00:00Z' })));
+        fixture.detectChanges();
+        expect(textOf(fixture)).toContain('Judged wrong');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('offers no check when the evaluator is not set up, or the attempt is not over', () => {
+      const fixture = showPaper(typedPaper(aiCheck('NotChecked'), { aiCheckAvailable: false }));
+
+      expect(textOf(fixture)).toContain('Not checked');
+      expect(buttonLabelled(fixture, 'Check with AI')).toHaveLength(0);
+    });
+
+    it('shows nothing of the evaluator for an answer that needed none', () => {
+      const fixture = showPaper(typedPaper(null));
+
+      expect(textOf(fixture)).toContain('Typed answer:');
+      expect(textOf(fixture)).not.toContain('AI check');
+    });
+
+    it('queues the check, says so, and shows the verdict when it is in, with the new score', () => {
+      vi.useFakeTimers();
+      try {
+        const fixture = showPaper(typedPaper(aiCheck('NotChecked')));
+
+        buttonLabelled(fixture, 'Check with AI')[0].click();
+        const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/exams/exam-1/attempts/a1/questions/q1/ai-check'));
+        post.flush(attempt(1, 'Submitted', 4));
+        paperRequest().flush(typedPaper(aiCheck('Waiting')));
+        fixture.detectChanges();
+
+        expect(textOf(fixture)).toContain('was sent to the AI check');
+        expect(textOf(fixture)).toContain('Waiting for the AI');
+        expect(buttonLabelled(fixture, 'Check with AI')).toHaveLength(0);
+
+        // Still waiting at the first look; the page looks again.
+        vi.advanceTimersByTime(4000);
+        paperRequest().flush(typedPaper(aiCheck('Waiting')));
+        vi.advanceTimersByTime(4000);
+        const judged = typedPaper(aiCheck('Judged', { verdict: 'Correct', reason: 'Says the same.', model: 'gemini-test', atUtc: '2026-10-05T05:00:00Z' }), { score: 6 });
+        paperRequest().flush(judged);
+        httpMock
+          .expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts'))
+          .flush(exam([candidate({ attempts: [attempt(1, 'Submitted', 6)] })]));
+        paperRequest().flush(judged);
+        fixture.detectChanges();
+
+        expect(textOf(fixture)).toContain('Judged right');
+        expect(textOf(fixture)).toContain('Attempt 1 · 6 / 10');
+        expect(buttonLabelled(fixture, 'Check with AI again')).toHaveLength(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('says why when the check cannot be queued, and leaves the button to try again', () => {
+      const fixture = showPaper(typedPaper(aiCheck('NotChecked')));
+
+      buttonLabelled(fixture, 'Check with AI')[0].click();
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.endsWith('/ai-check'))
+        .flush({ title: 'ai_evaluator_not_set_up', detail: 'The AI evaluator is not set up on this server, so an answer cannot be checked by it.' }, { status: 409, statusText: 'Conflict' });
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('The AI evaluator is not set up on this server');
+      expect(buttonLabelled(fixture, 'Check with AI')[0].disabled).toBe(false);
+    });
   });
 
   it('warns when the stored score is not what the paper adds up to, and rescores with a reason', () => {

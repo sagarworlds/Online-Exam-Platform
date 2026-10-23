@@ -100,6 +100,14 @@ export class AttemptAdminApiService {
     return this.http.post<AttemptSummaryDto>(`${this.examsUrl}/${examId}/attempts/${attemptId}/rescore`, { reason });
   }
 
+  /**
+   * Has a candidate's typed answer checked by the AI evaluator. The check is queued and made in the background: the attempt keeps its score until
+   * the verdict is in, and the paper shows the verdict then.
+   */
+  requestAiCheck(examId: string, attemptId: string, questionId: string): Observable<AttemptSummaryDto> {
+    return this.http.post<AttemptSummaryDto>(`${this.examsUrl}/${examId}/attempts/${attemptId}/questions/${questionId}/ai-check`, {});
+  }
+
   /** Invalidates a finished attempt's result so it no longer counts; the candidate is shown the reason instead of a score (FR-29). */
   invalidateAttempt(examId: string, attemptId: string, reason: string): Observable<AttemptSummaryDto> {
     return this.http.post<AttemptSummaryDto>(`${this.examsUrl}/${examId}/attempts/${attemptId}/invalidate`, { reason });
