@@ -69,23 +69,22 @@
   </main>
 </div>
 
-<!-- A dot, not a sentence: green or red at a glance, with the words in the hover tooltip and as the accessible name. -->
-@if (!examMode.active()) {
-<footer class="health-widget">
+<!-- For staff only: whether the API answers is something they act on, and nothing a candidate can use. A dot for the eye, and the same words
+     beside it, so the state is never colour alone and is read by anyone, not only on hover. -->
+@if (!examMode.active() && adminGroups().length > 0) {
+<footer class="health-widget" role="status">
   @switch (health().state) {
     @case ('checking') {
-      <span class="health-dot health-dot--checking" role="img" title="Checking API…" aria-label="Checking API…"></span>
+      <span class="health-dot health-dot--checking" aria-hidden="true"></span>
+      <span class="health-text">{{ 'health.checking' | t }}</span>
     }
     @case ('healthy') {
-      <span class="health-dot health-dot--healthy" role="img" title="API is healthy." aria-label="API is healthy."></span>
+      <span class="health-dot health-dot--healthy" aria-hidden="true"></span>
+      <span class="health-text">{{ 'health.healthy' | t }}</span>
     }
     @case ('unhealthy') {
-      <span
-        class="health-dot health-dot--unhealthy"
-        role="img"
-        [title]="'API is unreachable: ' + health().reason"
-        [attr.aria-label]="'API is unreachable: ' + health().reason"
-      ></span>
+      <span class="health-dot health-dot--unhealthy" aria-hidden="true"></span>
+      <span class="health-text" [title]="health().reason ?? ''">{{ 'health.unreachable' | t }}</span>
     }
   }
 </footer>
