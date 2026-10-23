@@ -1105,6 +1105,28 @@ dotnet ef migrations list \
 
 ## Testing
 
+### The whole CI gate on your machine
+
+`scripts/verify.sh` runs the commands of the CI workflows here, so a change is checked before it is pushed and GitHub's run is the second look. A pull request itself runs only the API, the web app and Chromium (`.github/workflows/ci.yml`). Firefox, WebKit and the run against the real API are in `.github/workflows/ci-extended.yml`, which runs on every push to `main`, every night (03:00 India time) and on demand (Actions, "CI (all browsers)", Run workflow). A change to the web pages, or to what the API returns, should pass `scripts/verify.sh browsers fullstack` before it is pushed.
+
+```bash
+scripts/verify.sh                                   # everything, in order: web, api, browsers, fullstack (stops at the first failure)
+scripts/verify.sh web                               # npm audit, lint, build and unit tests of apps/web
+scripts/verify.sh api                               # NuGet scan, build and every test of apps/api
+scripts/verify.sh browsers --engines firefox        # the stubbed browser tests on one engine
+scripts/verify.sh fullstack -- e2e/fullstack/students.spec.ts   # the real-API run, one spec (arguments after -- go to Playwright)
+scripts/verify.sh --keep-going                      # run the later stages after one fails
+```
+
+It needs bash (on Windows, Git Bash: `& "C:\Program Files\Git\bin\bash.exe" scripts/verify.sh` from PowerShell), Docker, Node.js, the .NET 10 SDK and `jq` (Windows: `winget install jqlang.jq`; without it, `--skip-nuget-scan` skips that scan and the summary says so).
+
+- **The browsers run in Docker, not on your machine.** `scripts/verify/Dockerfile` is Playwright's own image for the Playwright version in `apps/web/package-lock.json` (Chromium, Firefox and WebKit as CI downloads them, on Ubuntu, as on GitHub) with the .NET runtime added. The first run builds it (about 2 GB) and installs the web dependencies into a Docker volume; later runs reuse both. Your own `node_modules` are not touched.
+- **The real-API run starts a Postgres of its own** (a throwaway container on a private network, gone when the run ends), so it never writes to your development database. The API it starts is the Release build made on your machine.
+- **The api stage needs Docker too**, because the integration tests start Postgres themselves (Testcontainers). Do not start a build in the same checkout while it runs: it would overwrite the DLLs the tests have loaded.
+- **Against CI:** the commands and the engines are the same, and the API coverage report CI uploads is not collected here. A full run is slower than CI's parallel jobs, because the stages run one after another. Measured once on a laptop with 8 cores and 8 GB for Docker: `web` 2 minutes, `api` 13, `browsers` 4 and `fullstack` 10, about half an hour in all. So run the stage that matches the change, and the whole of it before a larger pull request.
+- **The stubbed browser run goes one engine at a time, with two workers**, as on a GitHub runner of four cores. All three engines at once, or four workers, starve WebKit in a Docker VM, and its clicks time out on tests that pass alone. A `--workers` after `--` replaces the two.
+- A failed browser run leaves its report in `apps/web/playwright-report` and its traces in `apps/web/test-results` (the stubbed run in a folder per engine; `npx playwright show-trace <trace.zip>`); the full-stack run's API log is `apps/web/e2e/.run/api.log`.
+
 ### Backend Tests
 
 ```bash
@@ -1157,7 +1179,7 @@ npm run e2e -- --project=firefox    # one engine
 npm run e2e:typecheck               # checks the tests and the fake API against the app's own types
 ```
 
-A machine that already has a Chromium can use it instead of downloading one: `E2E_CHROMIUM_PATH=/path/to/chromium npm run e2e -- --project=chromium`. CI runs each engine as its own job (`Browser tests (chromium)`, `(firefox)`, `(webkit)`).
+A machine that already has a Chromium can use it instead of downloading one: `E2E_CHROMIUM_PATH=/path/to/chromium npm run e2e -- --project=chromium`. CI runs each engine as its own job (`Browser tests (chromium)`, `(firefox)`, `(webkit)`): Chromium on every pull request, and all three on every push to `main`, every night and on demand. `scripts/verify.sh browsers` runs all three here, in Docker (see "The whole CI gate on your machine").
 
 **Against the real API.** The stub cannot show that the page and the API agree, so a second run drives the same candidate journey with nothing stubbed (`apps/web/e2e/fullstack`). It starts the API as a developer runs it (the Development environment, which migrates its own database and writes each sign-in code to its log), serves the built app with `/api` sent to it, and sets up through the real administrator API: it signs in as a new administrator, writes questions, builds and publishes an exam, then registers a candidate and enrols them with an invitation. The browser then signs the candidate in with the one-time code it reads from the API's log, sits the exam, and the test checks what the API holds (the score, the sequence number of each answer). A second spec drives an administrator screen the same way: it is handed the administrator's session, adds a question to the question bank twice, and checks that the warning that the bank already has it, the "saved" message, and the reason for a refusal the API really gives (a question text that is too long) are in view beside the Save button, the warning and the refusal with focus (`question-bank.spec.ts`). It needs Postgres, and runs one test at a time, so that the next code in the log is the one just asked for.
 
@@ -1169,7 +1191,7 @@ E2E_POSTGRES="Host=localhost;Port=5432;Database=mydb;Username=me;Password=secret
 npm run e2e:fullstack -- --project=fullstack-firefox   # one engine
 ```
 
-CI runs it as one job, `Browser tests against the real API`, with a Postgres service, on all three engines.
+CI runs it as one job, `Browser tests against the real API`, with a Postgres service, on all three engines, on every push to `main`, every night and on demand (not on pull requests). `scripts/verify.sh fullstack` runs it here, with a Postgres of its own.
 
 Not covered: the administrator screens other than what the question bank says after Save (the warning for a repeated question, the "saved" message and a refusal), and Hindi and Marathi.
 
@@ -1278,6 +1300,7 @@ Add exam authoring endpoints (FR-11, FR-12, FR-13)
 - [ ] All tests pass (`dotnet test` / `npm test`)
 - [ ] No linting errors (`dotnet format` / `npm run lint`)
 - [ ] Builds successfully (`dotnet build` / `npm run build`)
+- [ ] A change to the web pages or to what the API returns: `scripts/verify.sh browsers fullstack` passed (a pull request runs Chromium only; Firefox, WebKit and the real-API run come after the merge)
 - [ ] Commit messages reference requirements (`FR-#`, `NFR-#`)
 - [ ] Architecture decisions documented (if applicable)
 - [ ] README updated (if user-facing changes)
