@@ -4,7 +4,9 @@ import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
+import { ClipboardService } from '../../shared/clipboard/clipboard.service';
 import { extractErrorMessage, extractProblemCode } from '../../shared/problem-details';
+import { ToastService } from '../../shared/toast/toast.service';
 import { CandidateApiService } from '../candidate-api.service';
 import { AttemptResultDto } from '../candidate.models';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
@@ -31,6 +33,8 @@ export class AttemptResult {
   private readonly api = inject(CandidateApiService);
   private readonly i18n = inject(I18nService);
   private readonly document = inject(DOCUMENT);
+  private readonly clipboard = inject(ClipboardService);
+  private readonly toast = inject(ToastService);
   protected readonly attemptId = inject(ActivatedRoute).snapshot.paramMap.get('attemptId');
 
   protected readonly view = signal<ResultView>('loading');
@@ -50,6 +54,32 @@ export class AttemptResult {
       return;
     }
     this.load();
+  }
+
+  /**
+   * Offers the score as a sentence to share: the device's own share sheet where it has one, so the person picks where it goes, else it is put on
+   * the clipboard. Only the exam's name and the score are in it, not the rank or the name, and nothing is sent anywhere but by the person.
+   */
+  protected async share(result: AttemptResultDto): Promise<void> {
+    const text = this.i18n.t('result.shareText', { score: result.score, max: result.maxScore, exam: result.examName });
+    const nav = this.document.defaultView?.navigator;
+    if (nav !== undefined && typeof nav.share === 'function') {
+      try {
+        await nav.share({ text });
+        return;
+      } catch (error) {
+        // Closing the share sheet is not a failure; any other refusal falls through to copying.
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+      }
+    }
+
+    if (await this.clipboard.copy(text)) {
+      this.toast.success(this.i18n.t('result.shareCopied'));
+    } else {
+      this.toast.error(this.i18n.t('result.shareFailed'));
+    }
   }
 
   /** Reads the result again, e.g. after a failed read. */

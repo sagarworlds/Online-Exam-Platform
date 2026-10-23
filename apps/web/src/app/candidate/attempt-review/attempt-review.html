@@ -73,6 +73,18 @@
       </div>
     }
 
+    <!-- Offered only when something was missed: with every answer right there is nothing to narrow to. -->
+    @if (missedCount(r) > 0) {
+      <div class="review-filter" role="group" [attr.aria-label]="'review.filter.label' | t">
+        <button type="button" class="btn" [attr.aria-pressed]="!onlyMissed()" (click)="onlyMissed.set(false)">
+          {{ 'review.filter.all' | t: { count: totalCount(r) } }}
+        </button>
+        <button type="button" class="btn" [attr.aria-pressed]="onlyMissed()" (click)="onlyMissed.set(true)">
+          {{ 'review.filter.missed' | t: { count: missedCount(r) } }}
+        </button>
+      </div>
+    }
+
     <!-- Stays at the top of the screen while the answers are read, so any question is one tap away. -->
     <div class="review-strip" role="group" [attr.aria-label]="'review.jump' | t">
       @for (section of sections(r); track section.id) {

@@ -202,4 +202,60 @@ describe('Leaderboard', () => {
     expect(textOf(fixture)).toContain('आपकी रैंक');
     expect(root(fixture).querySelectorAll('.board-row').length).toBe(3);
   });
+
+  describe('the tabs, by keyboard', () => {
+    const tabs = (fixture: ComponentFixture<Leaderboard>) => [...root(fixture).querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    const press = (fixture: ComponentFixture<Leaderboard>, key: string, from: number) => {
+      tabs(fixture)[from].dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    };
+    const answerBoard = (kind: 'overall' | 'batch' | 'subject') =>
+      httpMock.expectOne((r: HttpRequest<unknown>) => r.url.endsWith('/v1/me/exams/e1/leaderboard') && r.params.get('board') === kind).flush(board({ board: kind }));
+
+    it('puts only the open tab in the tab order, and ties each tab to the panel it controls', async () => {
+      const fixture = await open(board());
+
+      expect(tabs(fixture).map((t) => t.getAttribute('tabindex'))).toEqual(['0', '-1', '-1']);
+      const panel = root(fixture).querySelector('[role="tabpanel"]')!;
+      expect(tabs(fixture).every((t) => t.getAttribute('aria-controls') === panel.id)).toBe(true);
+      expect(panel.getAttribute('aria-labelledby')).toBe(tabs(fixture)[0].id);
+    });
+
+    it('moves to the next board on the right arrow, opens it and focuses its tab, and wraps round at the end', async () => {
+      const fixture = await open(board());
+      document.body.appendChild(root(fixture));
+
+      press(fixture, 'ArrowRight', 0);
+      answerBoard('batch');
+      fixture.detectChanges();
+      expect(tabs(fixture)[1].getAttribute('aria-selected')).toBe('true');
+      expect(document.activeElement).toBe(tabs(fixture)[1]);
+      expect(tabs(fixture).map((t) => t.getAttribute('tabindex'))).toEqual(['-1', '0', '-1']);
+
+      press(fixture, 'End', 1);
+      answerBoard('subject');
+      fixture.detectChanges();
+      press(fixture, 'ArrowRight', 2);
+      answerBoard('overall');
+      fixture.detectChanges();
+      expect(tabs(fixture)[0].getAttribute('aria-selected')).toBe('true');
+      root(fixture).remove();
+    });
+
+    it('goes back with the left arrow, to the first with Home, and ignores other keys', async () => {
+      const fixture = await open(board());
+
+      press(fixture, 'ArrowLeft', 0);
+      answerBoard('subject');
+      fixture.detectChanges();
+      expect(tabs(fixture)[2].getAttribute('aria-selected')).toBe('true');
+
+      press(fixture, 'Home', 2);
+      answerBoard('overall');
+      fixture.detectChanges();
+      expect(tabs(fixture)[0].getAttribute('aria-selected')).toBe('true');
+
+      press(fixture, 'a', 0);
+      httpMock.expectNone((r: HttpRequest<unknown>) => r.url.endsWith('/v1/me/exams/e1/leaderboard'));
+    });
+  });
 });

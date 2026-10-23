@@ -1,6 +1,8 @@
+import { DOCUMENT } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
+import { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage, extractProblemCode } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
@@ -22,6 +24,7 @@ export type LeaderboardView = 'loading' | 'ready' | 'held' | 'error';
 export class Leaderboard {
   private readonly api = inject(CandidateApiService);
   private readonly i18n = inject(I18nService);
+  private readonly document = inject(DOCUMENT);
   protected readonly examId = inject(ActivatedRoute).snapshot.paramMap.get('examId');
 
   protected readonly view = signal<LeaderboardView>('loading');
@@ -40,6 +43,42 @@ export class Leaderboard {
       return;
     }
     this.load();
+  }
+
+  /** The boards, in the order of their tabs. */
+  protected readonly tabs: readonly { key: LeaderboardBoardKey; label: MessageKey }[] = [
+    { key: 'overall', label: 'leaderboard.tab.overall' },
+    { key: 'batch', label: 'leaderboard.tab.batch' },
+    { key: 'subject', label: 'leaderboard.tab.subject' },
+  ];
+
+  /** Arrow keys, Home and End walk the tabs (wrapping at the ends) and open the one reached, with the focus on it. */
+  protected onTabKeydown(event: KeyboardEvent): void {
+    const at = this.tabs.findIndex((tab) => tab.key === this.board());
+    const last = this.tabs.length - 1;
+    let next: number;
+    switch (event.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+        next = at === last ? 0 : at + 1;
+        break;
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        next = at === 0 ? last : at - 1;
+        break;
+      case 'Home':
+        next = 0;
+        break;
+      case 'End':
+        next = last;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    this.chooseBoard(this.tabs[next].key);
+    this.document.getElementById(`board-tab-${this.tabs[next].key}`)?.focus();
   }
 
   /** Shows one of the three boards. */
