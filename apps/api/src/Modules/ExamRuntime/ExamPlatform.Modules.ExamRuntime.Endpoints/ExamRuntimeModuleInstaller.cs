@@ -1,11 +1,14 @@
 using ExamPlatform.Modules.ExamRuntime.Application;
 using ExamPlatform.Modules.ExamRuntime.Application.Commands;
+using ExamPlatform.Modules.ExamRuntime.Application.Grading;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
 using ExamPlatform.Modules.ExamRuntime.Contracts;
 using ExamPlatform.Modules.ExamRuntime.Domain;
+using ExamPlatform.Modules.ExamRuntime.Endpoints.Grading;
 using ExamPlatform.Modules.ExamRuntime.Endpoints.Notifications;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure;
+using ExamPlatform.Modules.ExamRuntime.Infrastructure.AiEvaluation;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure.Email;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure.Repositories;
 using ExamPlatform.Modules.ExamRuntime.Contracts;
@@ -17,6 +20,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ExamPlatform.Modules.ExamRuntime.Application.Retention;
 using ExamPlatform.Modules.ExamRuntime.Endpoints.Retention;
@@ -156,6 +160,29 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<NotificationRun>();
         services.AddSingleton<NotificationRunner>();
         services.AddHostedService<NotificationBackgroundService>();
+
+        // Typed answers that match no accepted answer word for word are judged by Google's Gemini service (FR-5), but only when Gemini:ApiKey is
+        // set: with no key the evaluator reports itself off, nothing waits, and typed answers are marked by the accepted answers alone. Bound as
+        // options and validated when the host starts, so a mistyped model or address stops it starting instead of failing the first answer.
+        services.AddOptions<GeminiOptions>()
+            .Bind(configuration.GetSection(GeminiOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<GeminiOptions>, GeminiOptionsValidator>();
+        // Its own time limit per request is the evaluator's; the client's default of 100 seconds would cut a longer one short.
+        services.AddHttpClient(nameof(GeminiTextAnswerEvaluator), client => client.Timeout = Timeout.InfiniteTimeSpan);
+        services.AddTransient<ITextAnswerEvaluator>(sp => new GeminiTextAnswerEvaluator(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(GeminiTextAnswerEvaluator)),
+            sp.GetRequiredService<IOptions<GeminiOptions>>(),
+            sp.GetRequiredService<ILogger<GeminiTextAnswerEvaluator>>()));
+
+        // An attempt with such an answer waits in grading, with no score, until a worker has the verdicts; the host's timer runs the worker.
+        services.AddOptions<AiGradingOptions>()
+            .Bind(configuration.GetSection(AiGradingOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddScoped<TypedAnswerGrading>();
+        services.AddSingleton<TypedAnswerGradingRunner>();
+        services.AddHostedService<TypedAnswerGradingBackgroundService>();
 
         services.AddScoped<ReportIssueHandler>();
         services.AddScoped<ListIssueReportsHandler>();

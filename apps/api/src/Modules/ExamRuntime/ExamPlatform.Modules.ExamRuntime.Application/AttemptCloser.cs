@@ -1,4 +1,6 @@
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
+using ExamPlatform.Modules.ExamRuntime.Application.Grading;
+using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
 using ExamPlatform.Modules.QuestionBank.Contracts;
@@ -11,7 +13,13 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 /// whose deadline has passed: with no background worker in this first cut, an abandoned attempt is closed the
 /// next time anyone looks at it, at its deadline, with whatever answers were saved.
 /// </summary>
-public sealed class AttemptCloser(IQuestionBank questionBank, IExamRuntimeUnitOfWork unitOfWork, Clock clock)
+/// <remarks>
+/// When the AI evaluator is set up and the attempt holds a typed answer that matches none of the accepted answers word for word, the attempt
+/// is closed without a score and waits in <see cref="AttemptStatus.Grading"/> until the evaluator has judged those answers; a background
+/// worker (<see cref="TypedAnswerGrading"/>) gives the score then. With no evaluator, or nothing for it to judge, the attempt is scored here
+/// at once, exactly as it always was.
+/// </remarks>
+public sealed class AttemptCloser(IQuestionBank questionBank, IExamRuntimeUnitOfWork unitOfWork, Clock clock, ITextAnswerEvaluator? evaluator = null)
 {
     /// <summary>Marks the attempt, ends it and saves it.</summary>
     /// <param name="attempt">The open attempt to close.</param>
@@ -45,8 +53,13 @@ public sealed class AttemptCloser(IQuestionBank questionBank, IExamRuntimeUnitOf
         var questionIds = exam.Sections.SelectMany(s => s.QuestionIds).ToList();
         var questions = await questionBank.ReadAsync(attempt, questionIds, cancellationToken);
 
+        // Worked out even when the attempt is to wait for the evaluator, so an exam whose questions cannot be read still fails here, as before.
         var result = AttemptScorer.Score(exam, questions, attempt.Answers.ToList());
-        attempt.Terminate(clock.UtcNow, result.Score, result.MaxScore, byUserId, reason);
+        var toCheck = ToCheck(attempt, questions);
+        if (toCheck.Count > 0)
+            attempt.TerminateForGrading(clock.UtcNow, byUserId, reason, toCheck);
+        else
+            attempt.Terminate(clock.UtcNow, result.Score, result.MaxScore, byUserId, reason);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
@@ -57,8 +70,16 @@ public sealed class AttemptCloser(IQuestionBank questionBank, IExamRuntimeUnitOf
         var questions = await questionBank.ReadAsync(attempt, questionIds, cancellationToken);
 
         var result = AttemptScorer.Score(exam, questions, attempt.Answers.ToList());
-        attempt.Submit(clock.UtcNow, result.Score, result.MaxScore, endedByViolations);
+        var toCheck = ToCheck(attempt, questions);
+        if (toCheck.Count > 0)
+            attempt.SubmitForGrading(clock.UtcNow, toCheck, endedByViolations);
+        else
+            attempt.Submit(clock.UtcNow, result.Score, result.MaxScore, endedByViolations);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
+
+    // The typed answers the evaluator is to judge before the attempt can be scored; none when no evaluator is set up.
+    private IReadOnlyList<Guid> ToCheck(Attempt attempt, IReadOnlyDictionary<Guid, QuestionSnapshot> questions) =>
+        evaluator is { IsEnabled: true } ? TypedAnswerChecks.QuestionsToCheck(attempt, questions) : [];
 }

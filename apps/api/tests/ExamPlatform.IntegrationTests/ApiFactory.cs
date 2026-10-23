@@ -60,6 +60,9 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             // notifications run a pass themselves, at a time they choose.
             ["Notifications:Enabled"] = "false",
 
+            // Likewise the timer that judges typed answers with the AI evaluator: the suites that look at it run the worker themselves.
+            ["ExamRuntime:AiGrading:Enabled"] = "false",
+
             // The Development host reads the developer's user-secrets, which may name a
             // bootstrap administrator for their own database. Tests must not depend on that,
             // so it is switched off here; BootstrapAdminApiFactory turns it on deliberately.
