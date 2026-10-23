@@ -1305,6 +1305,7 @@ export const HI: Messages = {
   'exams.editor.settingsHint': 'कोई सेटिंग देखने या बदलने के लिए उसे खोलें।',
   'exams.editor.saved': 'सहेजा गया।',
   'exams.editor.moved': 'नया क्रम सहेज लिया गया है।',
+  'exams.editor.tooFast': 'थोड़े समय में बहुत अधिक बदलाव हुए। एक मिनट रुककर आगे बढ़ें: अब तक किए गए बदलाव सहेजे जा चुके हैं।',
   'exams.editor.published': 'परीक्षा प्रकाशित हो गई है।',
   'exams.editor.released': 'उत्तर जारी कर दिए गए हैं।',
   'exams.editor.publishTitle': 'यह परीक्षा प्रकाशित करें?',

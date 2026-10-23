@@ -1305,6 +1305,7 @@ export const MR: Messages = {
   'exams.editor.settingsHint': 'एखादी सेटिंग पाहण्यासाठी किंवा बदलण्यासाठी ती उघडा.',
   'exams.editor.saved': 'जतन केले.',
   'exams.editor.moved': 'नवीन क्रम जतन झाला आहे.',
+  'exams.editor.tooFast': 'थोड्या वेळात खूप बदल झाले. एक मिनिट थांबून पुढे चला: आतापर्यंत केलेले बदल जतन झाले आहेत.',
   'exams.editor.published': 'परीक्षा प्रकाशित झाली आहे.',
   'exams.editor.released': 'उत्तरे जाहीर केली आहेत.',
   'exams.editor.publishTitle': 'ही परीक्षा प्रकाशित करायची?',

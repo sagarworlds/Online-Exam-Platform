@@ -1311,6 +1311,7 @@ export const EN = {
   'exams.editor.settingsHint': 'Open a setting to see or change it.',
   'exams.editor.saved': 'Saved.',
   'exams.editor.moved': 'The new order is saved.',
+  'exams.editor.tooFast': 'Too many changes in a short time. Wait a minute, then carry on: the changes already made are saved.',
   'exams.editor.published': 'The exam is published.',
   'exams.editor.released': 'The answers have been released.',
   'exams.editor.publishTitle': 'Publish this exam?',

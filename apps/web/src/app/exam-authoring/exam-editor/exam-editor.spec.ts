@@ -432,6 +432,18 @@ describe('ExamEditor', () => {
       expect(httpMock.expectOne(isReorder('/sections/order')).request.body).toEqual({ sectionIds: ['s2', 's1', 's3', 's4'] });
     });
 
+    it('says the moves came too fast, and that the ones made are kept, when the server limits them, and reads the exam again', () => {
+      const { fixture, root } = open(withThreeSections());
+
+      moveSection(root, 'Algebra', 'down').click();
+      httpMock.expectOne(isReorder('/sections/order')).flush(null, { status: 429, statusText: 'Too Many Requests' });
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Too many changes in a short time');
+      expect(root.textContent).toContain('already made are saved');
+      httpMock.expectOne(isExam).flush(withThreeSections());
+    });
+
     it('does not read the exam again after a move that was saved, beyond the one read it always makes', () => {
       const { fixture, root } = open(withThreeSections());
 
