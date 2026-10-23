@@ -3,6 +3,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { vi } from 'vitest';
+import { AUTH_TOKEN_STORAGE_KEY } from '../../auth/auth-session.service';
+import { buildFakeJwt } from '../../auth/testing/fake-jwt';
 import { MyExamDto } from '../candidate.models';
 import { CheckResult, SystemCheckService } from '../system-check/system-check';
 import { ExamInstructions } from './exam-instructions';
@@ -319,6 +321,145 @@ describe('ExamInstructions', () => {
       expect(follows(el('#rules-heading'), el('#ack-heading'))).toBe(true);
       expect(follows(el('#ack-heading'), el('.start-bar'))).toBe(true);
       expect(el('.start-bar').contains(startButton(fixture))).toBe(true);
+    });
+  });
+
+  describe('the consent before the exam starts', () => {
+    const isStatus = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/consent/status');
+    const isGrant = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/consent/');
+    const isStart = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/me/exams/e1/attempts');
+    const consentBox = (fixture: ComponentFixture<ExamInstructions>) => root(fixture).querySelectorAll('input[type="checkbox"]')[1] as HTMLInputElement | undefined;
+    const startBtn = (fixture: ComponentFixture<ExamInstructions>) =>
+      Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes('Start')) as HTMLButtonElement;
+
+    afterEach(() => localStorage.clear());
+
+    /** A signed-in candidate, and the answer the Consent module gives about their agreement to the proctoring notice. */
+    async function openAs(status: { isActive: boolean; currentNoticeVersionId: string | null } | 'error') {
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, buildFakeJwt({ sub: 'u1', exp: Math.floor(Date.now() / 1000) + 3600, perm: [] }));
+      const fixture = TestBed.createComponent(ExamInstructions);
+      fixture.detectChanges();
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/exams')).flush([exam()]);
+      const request = httpMock.expectOne(isStatus);
+      expect(request.request.params.get('subjectId')).toBe('u1');
+      expect(request.request.params.get('purpose')).toBe('ProctoringDataProcessing');
+      if (status === 'error') {
+        request.flush({}, { status: 500, statusText: 'Server Error' });
+      } else {
+        request.flush({ subjectId: 'u1', purpose: 'ProctoringDataProcessing', consentRecordId: null, ...status });
+      }
+      await fixture.whenStable();
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    async function acknowledge(fixture: ComponentFixture<ExamInstructions>): Promise<void> {
+      await tick(fixture, () => {
+        const box = checkbox(fixture);
+        box.checked = true;
+        box.dispatchEvent(new Event('change'));
+      });
+    }
+
+    it('asks for it, and keeps Start disabled, until the box is ticked, once the instructions are acknowledged', async () => {
+      const fixture = await openAs({ isActive: false, currentNoticeVersionId: 'n1' });
+
+      expect(root(fixture).textContent).toContain('Your consent');
+      await acknowledge(fixture);
+      expect(startBtn(fixture).disabled).toBe(true);
+      expect(root(fixture).querySelector('#start-reason')?.textContent).toContain('Tick the consent box');
+
+      await tick(fixture, () => {
+        consentBox(fixture)!.checked = true;
+        consentBox(fixture)!.dispatchEvent(new Event('change'));
+      });
+      expect(startBtn(fixture).disabled).toBe(false);
+    });
+
+    it('records the agreement against the notice’s current version first, and begins the attempt only after it is kept', async () => {
+      const fixture = await openAs({ isActive: false, currentNoticeVersionId: 'n7' });
+      await acknowledge(fixture);
+      await tick(fixture, () => {
+        consentBox(fixture)!.checked = true;
+        consentBox(fixture)!.dispatchEvent(new Event('change'));
+      });
+
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      startBtn(fixture).click();
+      const grant = httpMock.expectOne(isGrant);
+      expect(grant.request.body).toEqual({ subjectId: 'u1', purpose: 'ProctoringDataProcessing', noticeVersionId: 'n7' });
+      httpMock.expectNone(isStart);
+
+      grant.flush({ consentRecordId: 'c1' });
+      httpMock.expectOne(isStart).flush({ id: 'attempt-1' });
+      expect(navigate).toHaveBeenCalledWith(['/attempt', 'attempt-1']);
+    });
+
+    it('does not begin the attempt when the agreement could not be recorded, and says why', async () => {
+      const fixture = await openAs({ isActive: false, currentNoticeVersionId: 'n1' });
+      await acknowledge(fixture);
+      await tick(fixture, () => {
+        consentBox(fixture)!.checked = true;
+        consentBox(fixture)!.dispatchEvent(new Event('change'));
+      });
+
+      startBtn(fixture).click();
+      httpMock.expectOne(isGrant).flush({ title: 'consent_failed', detail: 'The agreement could not be saved.' }, { status: 400, statusText: 'Bad Request' });
+      fixture.detectChanges();
+
+      httpMock.expectNone(isStart);
+      expect(root(fixture).textContent).toContain('The agreement could not be saved.');
+    });
+
+    it('records the agreement once: a start that fails after it, and is tried again, does not record it a second time', async () => {
+      const fixture = await openAs({ isActive: false, currentNoticeVersionId: 'n1' });
+      await acknowledge(fixture);
+      await tick(fixture, () => {
+        consentBox(fixture)!.checked = true;
+        consentBox(fixture)!.dispatchEvent(new Event('change'));
+      });
+
+      vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      startBtn(fixture).click();
+      httpMock.expectOne(isGrant).flush({ consentRecordId: 'c1' });
+      httpMock.expectOne(isStart).flush({ title: 'exam_closed', detail: 'The exam has closed.' }, { status: 409, statusText: 'Conflict' });
+      fixture.detectChanges();
+      expect(root(fixture).textContent).toContain('The exam has closed.');
+
+      startBtn(fixture).click();
+      httpMock.expectNone(isGrant);
+      httpMock.expectOne(isStart).flush({ id: 'attempt-1' });
+    });
+
+    it('asks nothing of a candidate who has already agreed', async () => {
+      const fixture = await openAs({ isActive: true, currentNoticeVersionId: 'n1' });
+
+      expect(root(fixture).textContent).not.toContain('Your consent');
+      await acknowledge(fixture);
+      expect(startBtn(fixture).disabled).toBe(false);
+    });
+
+    it('asks nothing while no notice is published, since there is nothing to agree to', async () => {
+      const fixture = await openAs({ isActive: false, currentNoticeVersionId: null });
+
+      await acknowledge(fixture);
+      expect(root(fixture).textContent).not.toContain('Your consent');
+      expect(startBtn(fixture).disabled).toBe(false);
+    });
+
+    it('holds the start, and offers to try again, when the consent cannot be read', async () => {
+      const fixture = await openAs('error');
+      await acknowledge(fixture);
+
+      expect(startBtn(fixture).disabled).toBe(true);
+      expect(root(fixture).textContent).toContain('Your consent could not be checked');
+
+      const retry = Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Try again')!;
+      retry.click();
+      httpMock.expectOne(isStatus).flush({ subjectId: 'u1', purpose: 'ProctoringDataProcessing', isActive: true, consentRecordId: 'c', currentNoticeVersionId: 'n1' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(startBtn(fixture).disabled).toBe(false);
     });
   });
 });
