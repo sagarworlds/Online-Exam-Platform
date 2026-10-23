@@ -97,6 +97,8 @@ On `exam-platform-api` > **Environment**, fill in every value marked `sync: fals
 | `Brevo__SenderEmail` | The verified sender address from step 3. |
 | `Invite__LinkBaseUrl` | The website's real address again, so invitation links open the site. |
 
+`Gemini__ApiKey` is optional and is left unset until you decide to use it: it lets Google's Gemini judge a typed answer that is worded differently from the accepted answers (README, "Typed answers judged by Google Gemini"). With it unset, nothing is sent to Google and typed answers are marked by the accepted answers alone. It is a secret: create it in Google AI Studio, paste it here, and never commit it. Read OP13 in `docs/compliance/dpdp-data-map.md` first, because Google then receives candidates' typed answers. With it set, an attempt that holds such an answer shows "being checked" for a few seconds before its score appears; if the key is refused or the model is retired, those attempts wait in Grading until it is fixed, and the log says which setting.
+
 `Jwt__SigningKey` is generated for you. Everyone has to sign in again after it changes.
 
 `DataProtection__KeyEncryptionKey` is generated for you too, and it is the one setting you must keep a copy of. Question content is encrypted with keys that are stored in the database, and this key protects those keys, so a copy of the database alone opens nothing (NFR-5, `docs/adr/0003-key-ring-protection.md`).
