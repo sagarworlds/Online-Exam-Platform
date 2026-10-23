@@ -1,6 +1,8 @@
+import { DOCUMENT } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
+import { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage, extractProblemCode } from '../../shared/problem-details';
 import { CandidateApiService } from '../candidate-api.service';
@@ -22,6 +24,7 @@ export type LeaderboardView = 'loading' | 'ready' | 'held' | 'error';
 export class Leaderboard {
   private readonly api = inject(CandidateApiService);
   private readonly i18n = inject(I18nService);
+  private readonly document = inject(DOCUMENT);
   protected readonly examId = inject(ActivatedRoute).snapshot.paramMap.get('examId');
 
   protected readonly view = signal<LeaderboardView>('loading');
@@ -33,6 +36,9 @@ export class Leaderboard {
   protected readonly subject = signal<string | null>(null);
   protected readonly errorMessage = signal<string | null>(null);
 
+  /** Counts the reads, so the answer to an older one (a tab passed through on the way, a slow reply) cannot overwrite the board now chosen. */
+  private reads = 0;
+
   constructor() {
     if (this.examId === null) {
       this.errorMessage.set(this.i18n.t('leaderboard.noExam'));
@@ -40,6 +46,46 @@ export class Leaderboard {
       return;
     }
     this.load();
+  }
+
+  /** The boards, in the order of their tabs. */
+  protected readonly tabs: readonly { key: LeaderboardBoardKey; label: MessageKey }[] = [
+    { key: 'overall', label: 'leaderboard.tab.overall' },
+    { key: 'batch', label: 'leaderboard.tab.batch' },
+    { key: 'subject', label: 'leaderboard.tab.subject' },
+  ];
+
+  /** Arrow keys, Home and End walk the tabs (wrapping at the ends) and open the one reached, with the focus on it. */
+  protected onTabKeydown(event: KeyboardEvent): void {
+    // Alt+Left is the browser's Back, Ctrl+Home scrolls the page: a key with a modifier is not for the tabs.
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return;
+    }
+    const at = this.tabs.findIndex((tab) => tab.key === this.board());
+    const last = this.tabs.length - 1;
+    let next: number;
+    switch (event.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+        next = at === last ? 0 : at + 1;
+        break;
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        next = at === 0 ? last : at - 1;
+        break;
+      case 'Home':
+        next = 0;
+        break;
+      case 'End':
+        next = last;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    this.chooseBoard(this.tabs[next].key);
+    this.document.getElementById(`board-tab-${this.tabs[next].key}`)?.focus();
   }
 
   /** Shows one of the three boards. */
@@ -86,6 +132,7 @@ export class Leaderboard {
     this.view.set('loading');
     this.errorMessage.set(null);
     const board = this.board();
+    const read = ++this.reads;
     this.api
       .getLeaderboard(
         examId,
@@ -95,12 +142,18 @@ export class Leaderboard {
       )
       .subscribe({
         next: (result) => {
+          if (read !== this.reads) {
+            return;
+          }
           this.data.set(result);
           this.batchId.set(result.batchId);
           this.subject.set(result.subject);
           this.view.set('ready');
         },
         error: (error: unknown) => {
+          if (read !== this.reads) {
+            return;
+          }
           // Held results are an expected state, shown as such rather than as a failure.
           if (extractProblemCode(error) === 'results_not_released') {
             this.view.set('held');

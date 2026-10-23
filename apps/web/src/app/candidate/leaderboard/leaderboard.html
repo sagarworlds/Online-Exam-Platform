@@ -5,18 +5,26 @@
     <h1>{{ 'leaderboard.title' | t }}</h1>
   </div>
 
+  <!-- Arrow keys, Home and End move between the boards and show the one reached; Tab leaves the list, so only the open board is a stop in it. -->
   <div class="board-tabs" role="tablist" [attr.aria-label]="'leaderboard.tabsAria' | t">
-    <button type="button" role="tab" class="board-tab" [attr.aria-selected]="board() === 'overall'" (click)="chooseBoard('overall')">
-      {{ 'leaderboard.tab.overall' | t }}
-    </button>
-    <button type="button" role="tab" class="board-tab" [attr.aria-selected]="board() === 'batch'" (click)="chooseBoard('batch')">
-      {{ 'leaderboard.tab.batch' | t }}
-    </button>
-    <button type="button" role="tab" class="board-tab" [attr.aria-selected]="board() === 'subject'" (click)="chooseBoard('subject')">
-      {{ 'leaderboard.tab.subject' | t }}
-    </button>
+    @for (tab of tabs; track tab.key) {
+      <button
+        type="button"
+        role="tab"
+        class="board-tab"
+        [id]="'board-tab-' + tab.key"
+        [attr.aria-selected]="board() === tab.key"
+        [attr.aria-controls]="'board-panel'"
+        [attr.tabindex]="board() === tab.key ? 0 : -1"
+        (click)="chooseBoard(tab.key)"
+        (keydown)="onTabKeydown($event)"
+      >
+        {{ tab.label | t }}
+      </button>
+    }
   </div>
 
+  <div id="board-panel" role="tabpanel" [attr.aria-labelledby]="'board-tab-' + board()">
   @switch (view()) {
     @case ('loading') {
       <p role="status" aria-live="polite">{{ 'common.loading' | t }}</p>
@@ -113,4 +121,5 @@
       }
     }
   }
+  </div>
 </div>
