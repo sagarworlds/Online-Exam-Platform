@@ -36,6 +36,9 @@ export class Leaderboard {
   protected readonly subject = signal<string | null>(null);
   protected readonly errorMessage = signal<string | null>(null);
 
+  /** Counts the reads, so the answer to an older one (a tab passed through on the way, a slow reply) cannot overwrite the board now chosen. */
+  private reads = 0;
+
   constructor() {
     if (this.examId === null) {
       this.errorMessage.set(this.i18n.t('leaderboard.noExam'));
@@ -54,6 +57,10 @@ export class Leaderboard {
 
   /** Arrow keys, Home and End walk the tabs (wrapping at the ends) and open the one reached, with the focus on it. */
   protected onTabKeydown(event: KeyboardEvent): void {
+    // Alt+Left is the browser's Back, Ctrl+Home scrolls the page: a key with a modifier is not for the tabs.
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return;
+    }
     const at = this.tabs.findIndex((tab) => tab.key === this.board());
     const last = this.tabs.length - 1;
     let next: number;
@@ -125,6 +132,7 @@ export class Leaderboard {
     this.view.set('loading');
     this.errorMessage.set(null);
     const board = this.board();
+    const read = ++this.reads;
     this.api
       .getLeaderboard(
         examId,
@@ -134,12 +142,18 @@ export class Leaderboard {
       )
       .subscribe({
         next: (result) => {
+          if (read !== this.reads) {
+            return;
+          }
           this.data.set(result);
           this.batchId.set(result.batchId);
           this.subject.set(result.subject);
           this.view.set('ready');
         },
         error: (error: unknown) => {
+          if (read !== this.reads) {
+            return;
+          }
           // Held results are an expected state, shown as such rather than as a failure.
           if (extractProblemCode(error) === 'results_not_released') {
             this.view.set('held');

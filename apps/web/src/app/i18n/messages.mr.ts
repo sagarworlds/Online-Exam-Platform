@@ -441,6 +441,7 @@ export const MR: Messages = {
   'review.filter.label': 'कोणते प्रश्न दाखवायचे',
   'review.filter.all': 'सर्व प्रश्न ({count})',
   'review.filter.missed': 'फक्त जे चुकले ({count})',
+  'review.filter.shown': 'दाखवलेले प्रश्न: {count}',
   'review.questionAria': 'प्रश्न {number}, {verdict}',
   'review.question': 'प्रश्न {number}',
   'review.marks': 'गुण',

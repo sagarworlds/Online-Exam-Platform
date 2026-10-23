@@ -126,6 +126,11 @@ export class AttemptReview {
     return review.sections.reduce((sum, section) => sum + section.questions.length, 0);
   }
 
+  /** How many questions the list shows now, for the live region that tells a screen reader what the filter did. */
+  protected shownCount(review: AttemptReviewDto): number {
+    return this.sections(review).reduce((sum, section) => sum + section.questions.length, 0);
+  }
+
   protected missedCount(review: AttemptReviewDto): number {
     return review.sections.reduce((sum, section) => sum + section.questions.filter((question) => question.verdict !== 'Correct').length, 0);
   }

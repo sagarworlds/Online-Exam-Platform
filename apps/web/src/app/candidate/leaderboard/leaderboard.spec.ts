@@ -241,6 +241,33 @@ describe('Leaderboard', () => {
       root(fixture).remove();
     });
 
+    it('leaves a key with a modifier to the browser: Alt+Left is Back, not a tab', async () => {
+      const fixture = await open(board());
+      const event = new KeyboardEvent('keydown', { key: 'ArrowLeft', altKey: true, bubbles: true, cancelable: true });
+
+      tabs(fixture)[0].dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
+      httpMock.expectNone((r: HttpRequest<unknown>) => r.url.endsWith('/v1/me/exams/e1/leaderboard'));
+    });
+
+    it('shows the board last chosen, not a slower answer for one passed on the way', async () => {
+      const fixture = await open(board());
+
+      press(fixture, 'ArrowRight', 0);
+      const toBatch = httpMock.expectOne((r: HttpRequest<unknown>) => r.params.get('board') === 'batch');
+      press(fixture, 'ArrowRight', 1);
+      const toSubject = httpMock.expectOne((r: HttpRequest<unknown>) => r.params.get('board') === 'subject');
+
+      toSubject.flush(board({ board: 'subject', subject: 'Algebra', subjects: ['Algebra'] }));
+      toBatch.flush(board({ board: 'batch', batchId: 'b1', batches: [{ id: 'b1', name: 'Morning' }] }));
+      fixture.detectChanges();
+
+      expect(tabs(fixture)[2].getAttribute('aria-selected')).toBe('true');
+      expect(root(fixture).querySelector('#leaderboard-subject')).not.toBeNull();
+      expect(root(fixture).querySelector('#leaderboard-batch')).toBeNull();
+    });
+
     it('goes back with the left arrow, to the first with Home, and ignores other keys', async () => {
       const fixture = await open(board());
 

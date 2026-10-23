@@ -796,6 +796,17 @@ describe('AttemptReview', () => {
       expect(headings(fixture)).toEqual(['Section A', 'Section B']);
     });
 
+    it('says how many questions are shown, politely, so a screen reader hears what the choice did', async () => {
+      const fixture = await open(review());
+      const status = () => root(fixture).querySelector('.review-filter ~ [role="status"], p.visually-hidden[role="status"]')?.textContent?.trim();
+      expect(status()).toBe('Questions shown: 3');
+
+      button(fixture, 'missed').click();
+      fixture.detectChanges();
+
+      expect(status()).toBe('Questions shown: 2');
+    });
+
     it('is not offered when every answer was right', async () => {
       const all = review().sections[0].questions.slice(0, 1);
       const fixture = await open(review({ sections: [{ id: 's1', name: 'Section A', questions: all }] }));

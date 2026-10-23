@@ -85,6 +85,10 @@
       </div>
     }
 
+    @if (missedCount(r) > 0) {
+      <p class="visually-hidden" role="status">{{ 'review.filter.shown' | t: { count: shownCount(r) } }}</p>
+    }
+
     <!-- Stays at the top of the screen while the answers are read, so any question is one tap away. -->
     <div class="review-strip" role="group" [attr.aria-label]="'review.jump' | t">
       @for (section of sections(r); track section.id) {

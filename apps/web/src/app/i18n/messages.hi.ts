@@ -441,6 +441,7 @@ export const HI: Messages = {
   'review.filter.label': 'कौन-से प्रश्न दिखाएँ',
   'review.filter.all': 'सभी प्रश्न ({count})',
   'review.filter.missed': 'केवल जो छूट गए ({count})',
+  'review.filter.shown': 'दिखाए गए प्रश्न: {count}',
   'review.questionAria': 'प्रश्न {number}, {verdict}',
   'review.question': 'प्रश्न {number}',
   'review.marks': 'अंक',

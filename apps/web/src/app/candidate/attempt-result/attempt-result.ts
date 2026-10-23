@@ -61,6 +61,21 @@ export class AttemptResult {
    * the clipboard. Only the exam's name and the score are in it, not the rank or the name, and nothing is sent anywhere but by the person.
    */
   protected async share(result: AttemptResultDto): Promise<void> {
+    if (this.sharing()) {
+      return;
+    }
+    this.sharing.set(true);
+    try {
+      await this.shareText(result);
+    } finally {
+      this.sharing.set(false);
+    }
+  }
+
+  /** Whether the share sheet is open, so a second tap does not start a second share or copy the text under it. */
+  protected readonly sharing = signal(false);
+
+  private async shareText(result: AttemptResultDto): Promise<void> {
     const text = this.i18n.t('result.shareText', { score: result.score, max: result.maxScore, exam: result.examName });
     const nav = this.document.defaultView?.navigator;
     if (nav !== undefined && typeof nav.share === 'function') {

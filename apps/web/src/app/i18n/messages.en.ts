@@ -447,6 +447,7 @@ export const EN = {
   'review.filter.label': 'Which questions to list',
   'review.filter.all': 'All questions ({count})',
   'review.filter.missed': 'Only the ones I missed ({count})',
+  'review.filter.shown': 'Questions shown: {count}',
   'review.questionAria': 'Question {number}, {verdict}',
   'review.question': 'Question {number}',
   'review.marks': 'Marks',
