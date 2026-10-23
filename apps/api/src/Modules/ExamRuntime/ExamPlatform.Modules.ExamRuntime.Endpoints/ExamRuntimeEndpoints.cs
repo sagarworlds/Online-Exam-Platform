@@ -336,6 +336,17 @@ public static class ExamRuntimeEndpoints
             .WithName("RescoreAttempt")
             .WithDescription("Score a submitted attempt again from the answers stored; a change in the score is kept as a revision with the reason");
 
+        exams.MapPost("/{examId:guid}/attempts/{attemptId:guid}/questions/{questionId:guid}/ai-check", RequestAiCheck)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AttemptSummaryDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("RequestAiCheck")
+            .WithDescription("Have a candidate's typed answer checked by the AI evaluator; the check is queued, and the score is revised when the verdict is in");
+
         exams.MapPost("/{examId:guid}/attempts/{attemptId:guid}/warn", WarnAttempt)
             .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
             .Produces<AttemptSummaryDto>()
@@ -613,6 +624,10 @@ public static class ExamRuntimeEndpoints
     private static async Task<IResult> RescoreAttempt(
         Guid examId, Guid attemptId, RescoreAttemptRequest? request, RescoreAttemptHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(examId, attemptId, request?.Reason, ct));
+
+    private static async Task<IResult> RequestAiCheck(
+        Guid examId, Guid attemptId, Guid questionId, RequestAiCheckHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, attemptId, questionId, ct));
 
     private static async Task<IResult> WarnAttempt(
         Guid examId, Guid attemptId, WarnAttemptRequest? request, ClaimsPrincipal user, WarnAttemptHandler handler, CancellationToken ct) =>

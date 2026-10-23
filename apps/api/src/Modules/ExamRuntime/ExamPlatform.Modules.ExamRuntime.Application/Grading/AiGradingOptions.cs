@@ -33,4 +33,12 @@ public sealed class AiGradingOptions
     /// <summary>The longest wait between two tries of one answer, in minutes. A failure that waiting cannot cure (a key the service refuses) always waits this long.</summary>
     [Range(1, 1440)]
     public int RetryMaxMinutes { get; set; } = 10;
+
+    /// <summary>
+    /// The longest an attempt waits in grading for the evaluator, in minutes, counted from when its typed answers were queued. After that each
+    /// answer still without a verdict is marked by the accepted answers alone, says so on the answer, and the attempt is scored; staff can have
+    /// such an answer checked again later. 0 never gives up: the attempt waits for as long as it takes, however long the evaluator is down.
+    /// </summary>
+    [Range(0, 10080)]
+    public int MaxWaitMinutes { get; set; } = 30;
 }

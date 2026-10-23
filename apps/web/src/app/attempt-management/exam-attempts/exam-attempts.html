@@ -240,6 +240,46 @@
                                   }
                                 </p>
                                 <p><span class="hint">Accepted answers:</span> {{ (question.acceptedAnswers ?? []).join(', ') }}</p>
+                                @if (question.aiCheck; as ai) {
+                                  <!-- Only for a typed answer that matches no accepted answer word for word, which the AI evaluator judges. -->
+                                  <p class="ai-check" role="group" aria-label="AI check">
+                                    <span class="hint">AI check:</span>
+                                    @switch (ai.state) {
+                                      @case ('Waiting') {
+                                        <span class="badge badge--warning">Waiting for the AI</span>
+                                        @if (ai.verdict) {
+                                          <span class="hint">Earlier verdict: {{ ai.verdict === 'Correct' ? 'right' : 'wrong' }}.</span>
+                                        }
+                                        @if (ai.failures > 0) {
+                                          <span class="hint">It has not answered yet ({{ ai.failures }} {{ ai.failures === 1 ? 'try' : 'tries' }} failed: {{ ai.lastError }}). It is tried again.</span>
+                                        }
+                                      }
+                                      @case ('Judged') {
+                                        <span class="badge" [class.badge--active]="ai.verdict === 'Correct'" [class.badge--danger]="ai.verdict === 'Wrong'">{{ ai.verdict === 'Correct' ? 'Judged right' : 'Judged wrong' }}</span>
+                                        @if (ai.reason) {
+                                          <span>{{ ai.reason }}</span>
+                                        }
+                                        <span class="hint">({{ ai.model }}, {{ ai.atUtc | date: 'medium' }})</span>
+                                      }
+                                      @case ('GaveUp') {
+                                        <span class="badge badge--inactive">Not judged by the AI</span>
+                                        <span>{{ ai.reason }}</span>
+                                      }
+                                      @default {
+                                        <span class="badge badge--inactive">Not checked</span>
+                                        <span class="hint">Marked by the accepted answers alone.</span>
+                                      }
+                                    }
+                                    @if (p.aiCheckAvailable && ai.state !== 'Waiting') {
+                                      <button
+                                        type="button"
+                                        class="btn--small"
+                                        (click)="requestAiCheck(candidate, attempt, question)"
+                                        [disabled]="aiChecking() !== null || busy()"
+                                      >{{ ai.state === 'Judged' ? 'Check with AI again' : 'Check with AI' }}</button>
+                                    }
+                                  </p>
+                                }
                               </div>
                             }
                             @if (question.options && !question.isTextAnswer) {

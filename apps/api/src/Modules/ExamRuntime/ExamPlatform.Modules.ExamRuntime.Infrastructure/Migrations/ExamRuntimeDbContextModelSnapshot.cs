@@ -191,6 +191,9 @@ namespace ExamPlatform.Modules.ExamRuntime.Infrastructure.Migrations
                     b.Property<int>("EvaluationFailures")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("EvaluationGaveUpAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("EvaluationLastError")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");

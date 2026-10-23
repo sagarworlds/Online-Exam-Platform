@@ -35,3 +35,10 @@ public sealed record AttemptTerminatedEvent(Guid AttemptId, Guid ExamId, Guid Ca
 /// <param name="CandidateId">The candidate.</param>
 /// <param name="Reason">Why, as the administrator wrote it; the candidate sees it too.</param>
 public sealed record AttemptInvalidatedEvent(Guid AttemptId, Guid ExamId, Guid CandidateId, string Reason) : DomainEvent;
+
+/// <summary>An administrator had a candidate's typed answer checked by the AI evaluator again, so the attempt's score may change.</summary>
+/// <param name="AttemptId">The attempt.</param>
+/// <param name="ExamId">The exam.</param>
+/// <param name="CandidateId">The candidate.</param>
+/// <param name="QuestionId">The question whose typed answer is to be checked.</param>
+public sealed record AttemptAiCheckRequestedEvent(Guid AttemptId, Guid ExamId, Guid CandidateId, Guid QuestionId) : DomainEvent;

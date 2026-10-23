@@ -19,7 +19,9 @@ namespace ExamPlatform.Modules.ExamRuntime.Endpoints.Grading;
 /// </para>
 /// <para>
 /// A failure never loses an answer or marks it wrong. It is recorded with a wait, longer each time, and the attempt stays in grading until
-/// a verdict comes. Only counts and the failure's kind are logged: never the question, the key's answers, or what the candidate typed.
+/// a verdict comes, or until <see cref="AiGradingOptions.MaxWaitMinutes"/> have passed: then the answers still without a verdict are marked
+/// by the accepted answers alone, with a note on each, and the attempt is scored. Only counts and the failure's kind are logged: never the
+/// question, the key's answers, or what the candidate typed.
 /// </para>
 /// </remarks>
 public sealed class TypedAnswerGradingRunner(IServiceScopeFactory scopes, IOptions<AiGradingOptions> options, ILogger<TypedAnswerGradingRunner> logger)
@@ -35,12 +37,21 @@ public sealed class TypedAnswerGradingRunner(IServiceScopeFactory scopes, IOptio
         return scope.ServiceProvider.GetRequiredService<ITextAnswerEvaluator>().IsEnabled;
     }
 
-    /// <summary>Takes answers off the queue until none is due.</summary>
+    /// <summary>
+    /// Gives up on attempts that have waited in grading too long, then takes answers off the queue until none is due. The giving up comes first
+    /// and does not need the evaluator: a candidate must not wait for ever on one that is down, or was switched off after they submitted.
+    /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>How many answers were handled, whether they got a verdict or a failure to try again.</returns>
     public async Task<int> RunOnceAsync(CancellationToken cancellationToken)
     {
-        if (!await IsEvaluatorOnAsync(cancellationToken))
+        var evaluatorOn = await IsEvaluatorOnAsync(cancellationToken);
+        // With no evaluator nothing new is queued, so only attempts left over from before need this, and a look every few minutes is enough.
+        // That also keeps a host with no key from touching the database on every tick.
+        if (evaluatorOn || OffSweepIsDue())
+            await GiveUpOverdueAsync(cancellationToken);
+
+        if (!evaluatorOn)
             return 0;
 
         var workers = Enumerable.Range(0, options.Value.Concurrency).Select(_ => WorkAsync(cancellationToken)).ToArray();
@@ -49,6 +60,60 @@ public sealed class TypedAnswerGradingRunner(IServiceScopeFactory scopes, IOptio
             logger.LogInformation("AI grading handled {Count} typed answers.", handled);
 
         return handled;
+    }
+
+    // How often a host with no evaluator looks for attempts that have waited too long.
+    private static readonly long OffSweepEveryMilliseconds = (long)TimeSpan.FromMinutes(5).TotalMilliseconds;
+
+    // The tick count at which a host with no evaluator next looks. Only the one timer calls RunOnceAsync, so it needs no lock.
+    private long _nextOffSweepAt;
+
+    private bool OffSweepIsDue()
+    {
+        if (options.Value.MaxWaitMinutes == 0)
+            return false;
+
+        var now = Environment.TickCount64;
+        if (now < _nextOffSweepAt)
+            return false;
+
+        _nextOffSweepAt = now + OffSweepEveryMilliseconds;
+        return true;
+    }
+
+    private async Task GiveUpOverdueAsync(CancellationToken cancellationToken)
+    {
+        if (options.Value.MaxWaitMinutes == 0)
+            return;
+
+        IReadOnlyList<Guid> overdue;
+        await using (var scope = scopes.CreateAsyncScope())
+            overdue = await scope.ServiceProvider.GetRequiredService<TypedAnswerGrading>().FindOverdueAsync(50, cancellationToken);
+
+        var gaveUp = 0;
+        foreach (var attemptId in overdue)
+        {
+            try
+            {
+                await using var scope = scopes.CreateAsyncScope();
+                gaveUp += await scope.ServiceProvider.GetRequiredService<TypedAnswerGrading>().GiveUpAsync(attemptId, cancellationToken);
+            }
+            catch (ConcurrencyConflictError)
+            {
+                // Another request changed the attempt at the same moment; it is looked at again at the next pass.
+            }
+            catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogError(exception, "An attempt that has waited too long for the AI evaluator could not be scored; it is tried again at the next pass.");
+            }
+        }
+
+        if (gaveUp > 0)
+        {
+            logger.LogWarning(
+                "AI grading gave up waiting for {Count} typed answers after {Minutes} minutes and marked them by the accepted answers alone.",
+                gaveUp, options.Value.MaxWaitMinutes);
+        }
     }
 
     private async Task<int> WorkAsync(CancellationToken cancellationToken)

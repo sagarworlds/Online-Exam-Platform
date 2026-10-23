@@ -93,6 +93,28 @@ export interface ExamAttemptsDto {
   candidates: ExamCandidateDto[];
 }
 
+/**
+ * Where the AI evaluator stands on one typed answer: not asked, queued or being asked now, judged (right or wrong), or given up on, so the
+ * answer was marked by the accepted answers alone.
+ */
+export type AiCheckState = 'NotChecked' | 'Waiting' | 'Judged' | 'GaveUp';
+
+/** The AI evaluator's part in a typed answer that matches no accepted answer word for word. Staff only; the candidate never sees the reason. */
+export interface AttemptPaperAiCheckDto {
+  state: AiCheckState;
+  /** Right or wrong; null before it has given one. While the answer waits to be checked again, the earlier verdict. */
+  verdict: 'Correct' | 'Wrong' | null;
+  /** The evaluator's one-sentence reason, or, once given up on, why there is none. */
+  reason: string | null;
+  model: string | null;
+  /** When the verdict was given, or when the platform stopped waiting for one. */
+  atUtc: string | null;
+  /** How many times asking failed since the answer was queued; more than 0 while it waits means the evaluator is having trouble. */
+  failures: number;
+  /** What went wrong the last time, in a few words. */
+  lastError: string | null;
+}
+
 /** One question on a candidate's paper; `drawn` means a draw rule picked it for this candidate. `text` is sanitized HTML. */
 export interface AttemptPaperQuestionDto {
   id: string;
@@ -111,6 +133,8 @@ export interface AttemptPaperQuestionDto {
   answerText?: string | null;
   /** The answers accepted for a text question, so staff can read the typed answer against them. */
   acceptedAnswers?: string[];
+  /** The AI evaluator's part in a typed answer, once the attempt is over; absent for any other question, and for an answer that matches exactly. */
+  aiCheck?: AttemptPaperAiCheckDto | null;
 }
 
 export interface AttemptPaperSectionDto {
@@ -143,6 +167,8 @@ export interface AttemptPaperDto {
   maxScore?: number | null;
   /** Staff invalidated the attempt (FR-29): the candidate is not shown the score, staff still see what it was. */
   isInvalidated?: boolean;
+  /** Whether a typed answer can be sent to the AI evaluator now: it is set up, and the attempt is over and its result still counts. */
+  aiCheckAvailable?: boolean;
 }
 
 /** The statuses the request queue can be filtered to, as the API spells them in the query. */
