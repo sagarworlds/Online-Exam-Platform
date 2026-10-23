@@ -6,7 +6,7 @@
   </div>
 
   <!-- Arrow keys, Home and End move between the boards and show the one reached; Tab leaves the list, so only the open board is a stop in it. -->
-  <div class="board-tabs" role="tablist" [attr.aria-label]="'leaderboard.tabsAria' | t" (keydown)="onTabKeydown($event)">
+  <div class="board-tabs" role="tablist" [attr.aria-label]="'leaderboard.tabsAria' | t">
     @for (tab of tabs; track tab.key) {
       <button
         type="button"
@@ -17,6 +17,7 @@
         [attr.aria-controls]="'board-panel'"
         [attr.tabindex]="board() === tab.key ? 0 : -1"
         (click)="chooseBoard(tab.key)"
+        (keydown)="onTabKeydown($event)"
       >
         {{ tab.label | t }}
       </button>
