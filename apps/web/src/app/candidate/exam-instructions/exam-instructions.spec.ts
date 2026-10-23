@@ -411,6 +411,26 @@ describe('ExamInstructions', () => {
       expect(root(fixture).textContent).toContain('The agreement could not be saved.');
     });
 
+    it('records the agreement once: a start that fails after it, and is tried again, does not record it a second time', async () => {
+      const fixture = await openAs({ isActive: false, currentNoticeVersionId: 'n1' });
+      await acknowledge(fixture);
+      await tick(fixture, () => {
+        consentBox(fixture)!.checked = true;
+        consentBox(fixture)!.dispatchEvent(new Event('change'));
+      });
+
+      vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      startBtn(fixture).click();
+      httpMock.expectOne(isGrant).flush({ consentRecordId: 'c1' });
+      httpMock.expectOne(isStart).flush({ title: 'exam_closed', detail: 'The exam has closed.' }, { status: 409, statusText: 'Conflict' });
+      fixture.detectChanges();
+      expect(root(fixture).textContent).toContain('The exam has closed.');
+
+      startBtn(fixture).click();
+      httpMock.expectNone(isGrant);
+      httpMock.expectOne(isStart).flush({ id: 'attempt-1' });
+    });
+
     it('asks nothing of a candidate who has already agreed', async () => {
       const fixture = await openAs({ isActive: true, currentNoticeVersionId: 'n1' });
 

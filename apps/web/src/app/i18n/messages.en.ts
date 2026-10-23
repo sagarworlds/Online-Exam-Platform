@@ -189,7 +189,7 @@ export const EN = {
   'instructions.bar.tick': 'Tick the box above to start.',
   'instructions.bar.consent': 'Tick the consent box above to start.',
   'instructions.consent.title': 'Your consent',
-  'instructions.consent.agree': 'I agree that my proctoring data is recorded and used for this exam, as set out in the',
+  'instructions.consent.agree': 'I agree that my proctoring data is recorded and used for this exam, as set out here:',
   'instructions.consent.change': 'You can withdraw this at any time on the Consent page.',
   'instructions.consent.failed': 'Your consent could not be checked, so the exam cannot start yet. Try again.',
   'instructions.cannot.notOpen': 'This exam has not opened yet.',

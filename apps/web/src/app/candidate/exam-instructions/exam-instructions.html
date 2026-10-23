@@ -128,23 +128,23 @@
         }
       </section>
 
-      <!-- Asked of a candidate who has not yet agreed to the current notice; one who has, or where no notice is published, is not asked. -->
+      <!-- Asked of a candidate who has no agreement on record; one who has, or where no notice is published, is not asked. -->
       @switch (consent().state) {
         @case ('needed') {
           <section class="card" aria-labelledby="consent-heading">
             <h2 id="consent-heading" class="card__title">{{ 'instructions.consent.title' | t }}</h2>
             <p>{{ 'consent.explain.ProctoringDataProcessing' | t }}</p>
             <label class="acknowledge">
-              <input type="checkbox" [checked]="consentTicked()" (change)="setConsentTicked($event)" />
+              <input type="checkbox" [checked]="consentTicked()" (change)="setConsentTicked($event)" aria-describedby="consent-change-hint" />
               <span>{{ 'instructions.consent.agree' | t }} <a href="/privacy.html" target="_blank" rel="noopener">{{ 'consent.privacyLink' | t }}</a></span>
             </label>
-            <p class="hint">{{ 'instructions.consent.change' | t }}</p>
+            <p class="hint" id="consent-change-hint">{{ 'instructions.consent.change' | t }}</p>
           </section>
         }
         @case ('failed') {
           <section class="card" aria-labelledby="consent-heading">
             <h2 id="consent-heading" class="card__title">{{ 'instructions.consent.title' | t }}</h2>
-            <p class="error-message" role="alert">{{ 'instructions.consent.failed' | t }}</p>
+            <p class="error-message">{{ 'instructions.consent.failed' | t }}</p>
             <div class="actions">
               <button type="button" (click)="readConsent()">{{ 'common.retry' | t }}</button>
             </div>

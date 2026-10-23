@@ -9,12 +9,14 @@ import { CandidateApiService } from '../candidate-api.service';
 import { MyExamDto } from '../candidate.models';
 import { CheckResult, CheckStatus, SystemCheckService } from '../system-check/system-check';
 import { instructionLines, timeAllowed } from './exam-rules-text';
-import { switchMap } from 'rxjs';
+import { switchMap, tap } from 'rxjs';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /**
  * Where the candidate stands on the consent an exam needs before it starts: being checked, not readable, given already (or no notice to give
- * it to), or still to be given on this page against the notice's current version.
+ * it to), or still to be given on this page against the notice's current version. "Given already" is the Consent module's own answer: a
+ * record that has not been withdrawn, whichever version of the notice it was given against. The gate is this page's; the API does not refuse
+ * an attempt without it.
  */
 type ConsentState = { state: 'checking' } | { state: 'failed' } | { state: 'done' } | { state: 'needed'; noticeVersionId: string };
 
@@ -115,6 +117,10 @@ export class ExamInstructions {
       return this.i18n.t('instructions.bar.tick');
     }
 
+    if (this.consent().state === 'checking') {
+      return this.i18n.t('common.loading');
+    }
+
     if (this.consent().state === 'failed') {
       return this.i18n.t('instructions.consent.failed');
     }
@@ -203,12 +209,16 @@ export class ExamInstructions {
 
     this.starting.set(true);
     this.startError.set(null);
-    // The consent is recorded first, so an attempt is never begun on a consent that could not be kept.
+    // The consent is recorded first, so this page never begins an attempt on a consent it could not record. Once recorded it is done: a start
+    // that then fails (the exam closed meanwhile, say) and is tried again must not record it a second time.
     const consent = this.consent();
     const begin = this.api.startAttempt(this.examId, true);
     const call =
       consent.state === 'needed' && this.userId !== null
-        ? this.consentApi.grant({ subjectId: this.userId, purpose: 'ProctoringDataProcessing', noticeVersionId: consent.noticeVersionId }).pipe(switchMap(() => begin))
+        ? this.consentApi.grant({ subjectId: this.userId, purpose: 'ProctoringDataProcessing', noticeVersionId: consent.noticeVersionId }).pipe(
+            tap(() => this.consent.set({ state: 'done' })),
+            switchMap(() => begin),
+          )
         : begin;
     call.subscribe({
       next: (attempt) => void this.router.navigate(['/attempt', attempt.id]),
