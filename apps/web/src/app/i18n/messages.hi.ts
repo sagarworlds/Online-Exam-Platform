@@ -41,6 +41,10 @@ export const HI: Messages = {
   'common.attempt': 'प्रयास {number}',
   'common.autoSubmitted': 'समय समाप्त हो गया, इसलिए परीक्षा आपके सहेजे हुए उत्तरों के साथ अपने आप जमा कर दी गई।',
   'language.label': 'भाषा',
+  'theme.label': 'थीम',
+  'theme.system': 'सिस्टम थीम',
+  'theme.light': 'हल्की',
+  'theme.dark': 'गहरी',
 
   // ---- navigation ----
   'nav.main': 'मुख्य',

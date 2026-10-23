@@ -11,6 +11,8 @@ import { HealthService } from './health/health.service';
 import { NotificationsStateService } from './notifications/notifications-state.service';
 import { AdminSidebar } from './shared/admin-sidebar/admin-sidebar';
 import { LanguageSwitcher } from './i18n/language-switcher';
+import { ThemeService } from './theme/theme.service';
+import { ThemeSwitcher } from './theme/theme-switcher';
 import { TranslatePipe } from './i18n/translate.pipe';
 import { ApiActivity } from './shared/api-activity/api-activity';
 import { AppUpdateNotice } from './shared/pwa/app-update-notice';
@@ -21,12 +23,14 @@ import { RouteFocus } from './shared/route-focus/route-focus';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, AdminSidebar, ApiActivity, AppUpdateNotice, ConfirmHost, LanguageSwitcher, ToastHost, TranslatePipe],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, AdminSidebar, ApiActivity, AppUpdateNotice, ConfirmHost, LanguageSwitcher, ThemeSwitcher, ToastHost, TranslatePipe],
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
 export class App {
   private readonly healthService = inject(HealthService);
+  /** Created here so a theme chosen earlier is on the page from the start. */
+  protected readonly theme = inject(ThemeService);
   private readonly signOutService = inject(SignOutService);
   private readonly router = inject(Router);
   protected readonly authSession = inject(AuthSessionService);

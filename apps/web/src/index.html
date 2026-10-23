@@ -6,8 +6,12 @@
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="description" content="Sit online exams, read your results, and manage exams and candidates." />
-    <!-- The browser's toolbar and the installed app's title bar take this colour (the brand blue, as in manifest.webmanifest). -->
-    <meta name="theme-color" content="#1a56db" />
+    <!-- The browser's toolbar and the installed app's title bar take this colour: the brand blue (as in manifest.webmanifest) on a light system, the
+         dark page's own colour on a dark one. The theme picker rewrites both when a theme is chosen by hand. -->
+    <meta name="theme-color" content="#1a56db" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0e1320" media="(prefers-color-scheme: dark)" />
+    <!-- Puts the chosen theme on the page before it is drawn, so a person who picked Light on a dark system is not shown a dark flash. -->
+    <script src="theme-init.js"></script>
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
     <!-- iOS Safari ignores the manifest's icons and uses this one on the home screen. It is opaque, so iOS adds no black corners. -->
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
