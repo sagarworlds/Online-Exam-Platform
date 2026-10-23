@@ -841,6 +841,61 @@ public sealed class Attempt : AggregateRoot
     public void ReleaseEvaluation(Guid questionId) =>
         _answers.FirstOrDefault(a => a.QuestionId == questionId && a.IsAwaitingEvaluation)?.ReleaseEvaluation();
 
+    /// <summary>
+    /// Stops waiting for the evaluator on every typed answer that has waited since <paramref name="requestedBeforeUtc"/> or earlier and that no
+    /// worker is holding: each is marked by the accepted answers alone, and says so. For an attempt that cannot be left in
+    /// <see cref="AttemptStatus.Grading"/> for ever because the evaluator never answers. The caller scores the attempt after, with
+    /// <see cref="ApplyEvaluatedScore"/>, once none is left waiting.
+    /// </summary>
+    /// <param name="requestedBeforeUtc">The cut-off: an answer queued at this instant or earlier has waited long enough.</param>
+    /// <param name="reason">What to tell staff, on each answer.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns>How many answers were given up on.</returns>
+    /// <exception cref="AttemptNotGradingError">The attempt is not waiting for its typed answers to be checked.</exception>
+    public int GiveUpEvaluations(DateTime requestedBeforeUtc, string reason, DateTime nowUtc)
+    {
+        if (Status != AttemptStatus.Grading)
+            throw new AttemptNotGradingError();
+
+        var overdue = _answers
+            .Where(a => a.IsAwaitingEvaluation
+                && a.EvaluationRequestedAtUtc <= requestedBeforeUtc
+                && (a.EvaluationLeaseUntilUtc is null || a.EvaluationLeaseUntilUtc <= nowUtc))
+            .ToList();
+        foreach (var answer in overdue)
+            answer.GiveUpEvaluation(reason, nowUtc);
+
+        return overdue.Count;
+    }
+
+    /// <summary>
+    /// Has a typed answer checked by the AI evaluator now, on staff's request: the answer is queued as when a key is corrected (the score is
+    /// kept until the verdict is in, and revised with <paramref name="reason"/> if it moves). Asking about an answer that is already waiting
+    /// changes nothing, so a double click does not throw away a check in progress.
+    /// </summary>
+    /// <param name="questionId">The question.</param>
+    /// <param name="reason">Why the score may change, shown to the candidate if it does.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="AttemptNotSubmittedError">The attempt is still open.</exception>
+    /// <exception cref="InvalidAttemptError">The result was invalidated, or the candidate typed no answer to the question.</exception>
+    public void RequestAiCheck(Guid questionId, string reason, DateTime nowUtc)
+    {
+        if (Status == AttemptStatus.InProgress)
+            throw new AttemptNotSubmittedError();
+        if (IsInvalidated)
+            throw new InvalidAttemptError("This result was invalidated, so there is no score for a check to change.");
+
+        if (_answers.Any(a => a.QuestionId == questionId && a.IsAwaitingEvaluation))
+            return;
+
+        if (Status == AttemptStatus.Grading)
+            RestartEvaluation(questionId, nowUtc);
+        else
+            RequestReevaluation([questionId], reason, nowUtc);
+
+        AddDomainEvent(new AttemptAiCheckRequestedEvent(Id, ExamId, CandidateId, questionId));
+    }
+
     private AttemptAnswer AnswerAwaitingEvaluation(Guid questionId) =>
         _answers.FirstOrDefault(a => a.QuestionId == questionId && a.IsAwaitingEvaluation)
         ?? throw new InvalidAttemptError("That answer is not waiting for a verdict.");

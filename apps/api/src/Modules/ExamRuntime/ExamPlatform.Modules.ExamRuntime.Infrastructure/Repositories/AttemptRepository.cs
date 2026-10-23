@@ -152,6 +152,20 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> ListGradingOverdueAsync(DateTime queuedBeforeUtc, DateTime nowUtc, int limit, CancellationToken cancellationToken) =>
+        // Only attempts still in grading: an answer queued again for a submitted attempt (a key correction, a check staff asked for) keeps its
+        // score meanwhile, so it can wait as long as it takes. The index on the answers that are waiting keeps this cheap.
+        await context.Attempts.AsNoTracking()
+            .Where(a => a.Status == AttemptStatus.Grading
+                && a.Answers.Any(x => x.EvaluationRequestedAtUtc != null
+                    && x.EvaluationRequestedAtUtc <= queuedBeforeUtc
+                    && (x.EvaluationLeaseUntilUtc == null || x.EvaluationLeaseUntilUtc <= nowUtc)))
+            .OrderBy(a => a.SubmittedAtUtc)
+            .Select(a => a.Id)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListSubmittedByQuestionIdAsync(Guid questionId, CancellationToken cancellationToken)
     {
         // Attempts that answered the question, union attempts that only drew it onto their paper (unanswered but

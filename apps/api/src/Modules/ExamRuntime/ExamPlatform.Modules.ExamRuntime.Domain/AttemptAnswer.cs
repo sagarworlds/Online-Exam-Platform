@@ -73,6 +73,13 @@ public sealed class AttemptAnswer : Entity
     /// <summary>What went wrong the last time, in a few words and never with the answer's content in it; null when nothing has.</summary>
     public string? EvaluationLastError { get; private set; }
 
+    /// <summary>
+    /// When the platform stopped waiting for the evaluator and marked the answer by the accepted answers alone, or null when it never did
+    /// (it got a verdict, is still waiting, or was never queued). <see cref="EvaluationReason"/> then says so. A check asked for by staff later
+    /// takes the answer back into the queue and clears this.
+    /// </summary>
+    public DateTime? EvaluationGaveUpAtUtc { get; private set; }
+
     /// <summary>Whether the answer is queued for evaluation and has not had its verdict yet.</summary>
     public bool IsAwaitingEvaluation => EvaluationRequestedAtUtc is not null;
 
@@ -108,6 +115,7 @@ public sealed class AttemptAnswer : Entity
     internal void RequestEvaluation(DateTime nowUtc)
     {
         EvaluationRequestedAtUtc = nowUtc;
+        EvaluationGaveUpAtUtc = null;
         EvaluationNextAttemptAtUtc = null;
         EvaluationLeaseUntilUtc = null;
         EvaluationFailures = 0;
@@ -125,11 +133,31 @@ public sealed class AttemptAnswer : Entity
         EvaluationReason = Shorten(reason, MaxEvaluationReasonLength);
         EvaluationModel = Shorten(model, 100);
         EvaluatedAtUtc = nowUtc;
+        EvaluationGaveUpAtUtc = null;
         EvaluationRequestedAtUtc = null;
         EvaluationNextAttemptAtUtc = null;
         EvaluationLeaseUntilUtc = null;
         EvaluationFailures = 0;
         EvaluationLastError = null;
+    }
+
+    /// <summary>
+    /// Stops waiting for a verdict: the answer leaves the queue with none, so it is marked by the accepted answers alone, and says so. The
+    /// failures and the last error stay, so staff can see why the evaluator never answered.
+    /// </summary>
+    /// <param name="reason">What to tell staff; kept to <see cref="MaxEvaluationReasonLength"/> characters.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    internal void GiveUpEvaluation(string reason, DateTime nowUtc)
+    {
+        // An earlier verdict was given against a key that may since have changed, and "marked by the accepted answers alone" has to be true.
+        TextVerdict = null;
+        EvaluationReason = Shorten(reason, MaxEvaluationReasonLength);
+        EvaluationModel = null;
+        EvaluatedAtUtc = null;
+        EvaluationGaveUpAtUtc = nowUtc;
+        EvaluationRequestedAtUtc = null;
+        EvaluationNextAttemptAtUtc = null;
+        EvaluationLeaseUntilUtc = null;
     }
 
     /// <summary>Lets go of the answer without counting a failure, so another worker can take it at once. For a worker that is stopping with the answer in hand.</summary>
@@ -152,6 +180,7 @@ public sealed class AttemptAnswer : Entity
         EvaluationReason = null;
         EvaluationModel = null;
         EvaluatedAtUtc = null;
+        EvaluationGaveUpAtUtc = null;
         EvaluationRequestedAtUtc = null;
         EvaluationNextAttemptAtUtc = null;
         EvaluationLeaseUntilUtc = null;

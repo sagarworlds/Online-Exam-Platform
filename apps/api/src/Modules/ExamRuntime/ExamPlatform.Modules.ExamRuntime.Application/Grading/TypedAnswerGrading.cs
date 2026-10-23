@@ -117,6 +117,59 @@ public sealed class TypedAnswerGrading(
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Finds attempts that have waited in grading for the evaluator longer than <see cref="AiGradingOptions.MaxWaitMinutes"/>, whether it keeps
+    /// failing or is not set up at all, so each can be given up on with <see cref="GiveUpAsync"/>.
+    /// </summary>
+    /// <param name="limit">The most to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The attempts' ids; none when nothing has waited that long, or when the setting is 0 (never give up).</returns>
+    public Task<IReadOnlyList<Guid>> FindOverdueAsync(int limit, CancellationToken cancellationToken)
+    {
+        var settings = options.Value;
+        if (settings.MaxWaitMinutes == 0)
+            return Task.FromResult<IReadOnlyList<Guid>>([]);
+
+        var now = clock.UtcNow;
+        return attempts.ListGradingOverdueAsync(now.AddMinutes(-settings.MaxWaitMinutes), now, limit, cancellationToken);
+    }
+
+    /// <summary>
+    /// Stops waiting for the evaluator on an attempt's typed answers that have waited too long: each is marked by the accepted answers alone, with a
+    /// note on the answer saying so, and the attempt is scored. Answers queued more recently, or held by a worker right now, are left to it.
+    /// </summary>
+    /// <param name="attemptId">The attempt.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>How many answers were given up on; 0 when another host got there first.</returns>
+    /// <exception cref="ConcurrencyConflictError">Another request changed the attempt at the same moment; the caller tries again later.</exception>
+    /// <exception cref="ExamContentUnavailableError">The attempt's exam or questions can no longer be read, so it cannot be scored.</exception>
+    public async Task<int> GiveUpAsync(Guid attemptId, CancellationToken cancellationToken)
+    {
+        var settings = options.Value;
+        if (settings.MaxWaitMinutes == 0)
+            return 0;
+
+        await using var hold = await unitOfWork.LockAttemptAsync(attemptId, exclusive: true, cancellationToken);
+        var attempt = await attempts.GetByIdAsync(attemptId, cancellationToken);
+        if (attempt is not { Status: AttemptStatus.Grading })
+            return 0;
+
+        var now = clock.UtcNow;
+        var gaveUp = attempt.GiveUpEvaluations(
+            now.AddMinutes(-settings.MaxWaitMinutes),
+            $"The AI evaluator gave no verdict within {settings.MaxWaitMinutes} minutes, so this answer was marked by the accepted answers alone.",
+            now);
+        if (gaveUp == 0)
+            return 0;
+
+        if (!attempt.IsAwaitingEvaluation)
+            await ScoreAsync(attempt, now, cancellationToken);
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await hold.CompleteAsync(cancellationToken);
+        return gaveUp;
+    }
+
     // The answer, if it is still waiting for a verdict from the very queueing the claim was taken for.
     private static AttemptAnswer? StillWaiting(Attempt attempt, GradingClaim claim) =>
         attempt.AnswersAwaitingEvaluation.FirstOrDefault(a => a.QuestionId == claim.QuestionId && a.EvaluationRequestedAtUtc == claim.RequestedAtUtc);
