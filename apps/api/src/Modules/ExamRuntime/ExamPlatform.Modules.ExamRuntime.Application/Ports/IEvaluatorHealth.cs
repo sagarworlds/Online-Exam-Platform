@@ -28,7 +28,7 @@ public enum ProviderState
 /// <param name="LastErrorAtUtc">When that failure happened.</param>
 /// <param name="LastSuccessAtUtc">When it last gave a verdict, or null if it has not since the host started.</param>
 /// <param name="Succeeded">Verdicts it has given since the host started.</param>
-/// <param name="RateLimited">Times it said it was being asked too fast.</param>
+/// <param name="RateLimited">Times it said it was being asked too fast, or that a quota is used up.</param>
 /// <param name="Unavailable">Times it was overloaded, unreachable or gave nothing usable.</param>
 /// <param name="Refused">Times it refused a request or the key.</param>
 public sealed record ProviderStatus(

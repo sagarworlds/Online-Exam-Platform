@@ -241,7 +241,6 @@ public class GeminiTextAnswerEvaluatorTests
     [InlineData(HttpStatusCode.InternalServerError)]
     [InlineData(HttpStatusCode.BadGateway)]
     [InlineData(HttpStatusCode.GatewayTimeout)]
-    [InlineData(HttpStatusCode.TooManyRequests)]
     [InlineData(HttpStatusCode.RequestTimeout)]
     public async Task ABusyOrFailingService_IsTriedAgain_AfterTheBaseDelay_UntilItAnswers(HttpStatusCode busy)
     {
@@ -271,15 +270,15 @@ public class GeminiTextAnswerEvaluatorTests
     }
 
     [Fact]
-    public async Task ARetryAfterHeader_SaysHowLongToWait_UpToTheCeiling()
+    public async Task ARetryAfterHeader_OnABusyService_SaysHowLongToWait_UpToTheCeiling()
     {
-        var limited = new Func<HttpRequestMessage, HttpResponseMessage>(_ =>
+        var busy = new Func<HttpRequestMessage, HttpResponseMessage>(_ =>
         {
-            var response = Json(HttpStatusCode.TooManyRequests, """{"error":{"code":429,"message":"slow down","status":"RESOURCE_EXHAUSTED"}}""");
+            var response = Json(HttpStatusCode.ServiceUnavailable, """{"error":{"code":503,"message":"overloaded","status":"UNAVAILABLE"}}""");
             response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromSeconds(7));
             return response;
         });
-        var rig = Build(new ScriptedHandler(limited, Ok("""{"verdict":"correct"}""")));
+        var rig = Build(new ScriptedHandler(busy, Ok("""{"verdict":"correct"}""")));
 
         await rig.Evaluator.EvaluateAsync(Request, CancellationToken.None);
 
@@ -287,31 +286,19 @@ public class GeminiTextAnswerEvaluatorTests
     }
 
     [Fact]
-    public async Task ARetryAfterLongerThanTheCeiling_WaitsOnlyTheCeiling()
+    public async Task ARetryAfterLongerThanTheCeiling_OnABusyService_WaitsOnlyTheCeiling()
     {
-        var limited = new Func<HttpRequestMessage, HttpResponseMessage>(_ =>
+        var busy = new Func<HttpRequestMessage, HttpResponseMessage>(_ =>
         {
-            var response = Json(HttpStatusCode.TooManyRequests, "{}");
+            var response = Json(HttpStatusCode.ServiceUnavailable, "{}");
             response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromMinutes(10));
             return response;
         });
-        var rig = Build(new ScriptedHandler(limited, Ok("""{"verdict":"correct"}""")));
+        var rig = Build(new ScriptedHandler(busy, Ok("""{"verdict":"correct"}""")));
 
         await rig.Evaluator.EvaluateAsync(Request, CancellationToken.None);
 
         Assert.Equal([TimeSpan.FromSeconds(20)], rig.Waits);
-    }
-
-    [Fact]
-    public async Task ARateLimitsOwnRetryDelay_InItsDetails_IsHonoured()
-    {
-        var limited = Json(HttpStatusCode.TooManyRequests,
-            """{"error":{"code":429,"message":"quota","status":"RESOURCE_EXHAUSTED","details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"4s"}]}}""");
-        var rig = Build(new ScriptedHandler(_ => limited, Ok("""{"verdict":"correct"}""")));
-
-        await rig.Evaluator.EvaluateAsync(Request, CancellationToken.None);
-
-        Assert.Equal([TimeSpan.FromSeconds(4)], rig.Waits);
     }
 
     [Fact]
@@ -516,5 +503,270 @@ public class GeminiTextAnswerEvaluatorTests
 
         Assert.DoesNotContain(Key, failure.ToString());
         Assert.DoesNotContain("SECRET-ANSWER-TEXT", failure.ToString());
+    }
+
+    // ---- the pause every worker shares ----
+
+    private sealed record GatedRig(
+        GeminiTextAnswerEvaluator Evaluator, ScriptedHandler Handler, RecordingLogger Log, List<TimeSpan> Waits, EvaluatorGate Gate, FakeClock Clock);
+
+    /// <summary>An evaluator whose gate runs on a clock the test moves, with no random spread in a pause.</summary>
+    private static GatedRig BuildGated(ScriptedHandler handler, Action<GeminiOptions>? configure = null)
+    {
+        var settings = new GeminiOptions { ApiKey = Key, RetryBaseDelaySeconds = 1, RetryMaxDelaySeconds = 20, MaxTries = 4 };
+        configure?.Invoke(settings);
+        var logger = new RecordingLogger();
+        var clock = new FakeClock(new DateTime(2026, 10, 25, 12, 0, 0, DateTimeKind.Utc));
+        var gate = new EvaluatorGate("Gemini", settings.ModelId, 0, clock, logger, jitter: () => 0);
+        var waits = new List<TimeSpan>();
+        var evaluator = new GeminiTextAnswerEvaluator(
+            new HttpClient(handler), Options.Create(settings), logger, (delay, _) =>
+            {
+                waits.Add(delay);
+                return Task.CompletedTask;
+            }, gate);
+        return new GatedRig(evaluator, handler, logger, waits, gate, clock);
+    }
+
+    /// <summary>A 429 as Google sends it, with its own reason, optional details (a JSON array) and an optional Retry-After.</summary>
+    private static Func<HttpRequestMessage, HttpResponseMessage> Limited(string message, string? details = null, TimeSpan? retryAfter = null) =>
+        _ =>
+        {
+            var body = "{\"error\":{\"code\":429,\"message\":" + JsonSerializer.Serialize(message) + ",\"status\":\"RESOURCE_EXHAUSTED\""
+                + (details is null ? string.Empty : ",\"details\":" + details) + "}}";
+            var response = Json(HttpStatusCode.TooManyRequests, body);
+            if (retryAfter is { } wait)
+                response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(wait);
+            return response;
+        };
+
+    private const string PerMinuteViolation =
+        """[{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaMetric":"generativelanguage.googleapis.com/generate_content_free_tier_requests","quotaId":"GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]},{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"55s"}]""";
+
+    private const string PerDayViolation =
+        """[{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaMetric":"generativelanguage.googleapis.com/generate_content_free_tier_requests","quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}]""";
+
+    [Fact]
+    public async Task ATooFastRefusal_StopsTheCallAtOnce_AndPausesTheServiceForTheWaitItNamed()
+    {
+        var rig = BuildGated(new ScriptedHandler(Limited("slow down", retryAfter: TimeSpan.FromSeconds(7))));
+
+        var failure = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        Assert.False(failure.IsPermanent);
+        Assert.Equal(TimeSpan.FromSeconds(7), failure.RetryAfter);
+        Assert.Single(rig.Handler.Requests);
+        Assert.Empty(rig.Waits);
+        Assert.Equal(ProviderState.RateLimited, rig.Gate.State);
+        Assert.Equal(TimeSpan.FromSeconds(7), rig.Gate.PausedFor);
+        Assert.Contains("429", failure.Message);
+        Assert.Contains("paused for 7 seconds", failure.Message);
+    }
+
+    [Fact]
+    public async Task ARefusalNamingItsOwnDelayInItsDetails_PausesForThatLong()
+    {
+        var details = """[{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"4s"}]""";
+        var rig = BuildGated(new ScriptedHandler(Limited("quota", details)));
+
+        var failure = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        Assert.Equal(TimeSpan.FromSeconds(4), failure.RetryAfter);
+        Assert.Single(rig.Handler.Requests);
+    }
+
+    [Fact]
+    public async Task ARefusalThatNamesNoWait_PausesForAWaitThatDoublesWhileItKeepsComing()
+    {
+        var rig = BuildGated(new ScriptedHandler(Limited("slow down")));
+
+        var first = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+        rig.Clock.UtcNow = rig.Clock.UtcNow.AddSeconds(31);
+        var second = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        Assert.Equal(TimeSpan.FromSeconds(30), first.RetryAfter);
+        Assert.Equal(TimeSpan.FromSeconds(60), second.RetryAfter);
+        Assert.Equal(2, rig.Handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task WhileTheServiceIsPaused_ACallSendsNothing_AndSaysHowLongIsLeft()
+    {
+        var rig = BuildGated(new ScriptedHandler(Limited("slow down", retryAfter: TimeSpan.FromSeconds(60))));
+        await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+        rig.Clock.UtcNow = rig.Clock.UtcNow.AddSeconds(20);
+
+        var waiting = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        Assert.Single(rig.Handler.Requests);
+        Assert.Equal(TimeSpan.FromSeconds(40), waiting.RetryAfter);
+        Assert.False(waiting.IsPermanent);
+        Assert.Contains("paused for 40 seconds", waiting.Message);
+    }
+
+    [Fact]
+    public async Task AfterThePause_TheNextCallAsksAgain_AndAVerdictClearsTheState()
+    {
+        var rig = BuildGated(new ScriptedHandler(Limited("slow down", retryAfter: TimeSpan.FromSeconds(10)), Ok("""{"verdict":"correct"}""")));
+        await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+        rig.Clock.UtcNow = rig.Clock.UtcNow.AddSeconds(11);
+
+        var evaluation = await rig.Evaluator.EvaluateAsync(Request, CancellationToken.None);
+
+        Assert.Equal(TypedAnswerVerdict.Correct, evaluation.Verdict);
+        Assert.Equal(ProviderState.Ready, rig.Gate.State);
+        var status = rig.Gate.Status;
+        Assert.Equal((1L, 1L), (status.Succeeded, status.RateLimited));
+    }
+
+    [Fact]
+    public async Task ADailyQuotaNamedInTheDetails_PausesForThirtyMinutes_NotForTheSecondsItsRetryDelaySays()
+    {
+        var details = """[{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]},{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"20s"}]""";
+        var rig = BuildGated(new ScriptedHandler(Limited("Quota exceeded", details)));
+
+        var failure = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        Assert.Equal(ProviderState.QuotaExhausted, rig.Gate.State);
+        Assert.Equal(TimeSpan.FromMinutes(30), failure.RetryAfter);
+        Assert.Contains("quota is used up", failure.Message);
+        Assert.Single(rig.Handler.Requests);
+    }
+
+    [Fact]
+    public async Task AQuotaOfZero_SaidInTheMessage_IsAQuotaToo()
+    {
+        var rig = BuildGated(new ScriptedHandler(Limited(
+            "Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-flash-latest")));
+
+        var failure = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        Assert.Equal(ProviderState.QuotaExhausted, rig.Gate.State);
+        Assert.Equal(TimeSpan.FromMinutes(30), failure.RetryAfter);
+    }
+
+    [Fact]
+    public async Task APerMinuteQuota_IsAPauseOfTheLengthItNames_NotTheDay()
+    {
+        var rig = BuildGated(new ScriptedHandler(Limited("Quota exceeded", PerMinuteViolation)));
+
+        var failure = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        Assert.Equal(ProviderState.RateLimited, rig.Gate.State);
+        Assert.Equal(TimeSpan.FromSeconds(55), failure.RetryAfter);
+    }
+
+    [Fact]
+    public async Task WhenAPerMinuteAndAPerDayQuotaAreBothPassed_TheDayDecides()
+    {
+        var details = PerMinuteViolation.TrimEnd(']') + "," + PerDayViolation.TrimStart('[');
+        var rig = BuildGated(new ScriptedHandler(Limited("Quota exceeded", details)));
+
+        await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        Assert.Equal(ProviderState.QuotaExhausted, rig.Gate.State);
+    }
+
+    [Fact]
+    public async Task TheServicesOwnReason_IsKeptForStaffAndLoggedOnce_ButNeverTheKeyOrTheAnswer()
+    {
+        var rig = BuildGated(new ScriptedHandler(Limited("Quota exceeded for metric: free_tier_requests, limit: 20, model: gemini-flash-latest")));
+        await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+        await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        var status = rig.Gate.Status;
+
+        Assert.Contains("limit: 20, model: gemini-flash-latest", status.LastError);
+        Assert.StartsWith("429 RESOURCE_EXHAUSTED", status.LastError, StringComparison.Ordinal);
+        // Two calls met one pause, and it was reported once.
+        Assert.Single(rig.Log.Messages, line => line.Contains("is paused for", StringComparison.Ordinal));
+        var logged = string.Join('\n', rig.Log.Messages);
+        Assert.DoesNotContain(Key, logged);
+        Assert.DoesNotContain("SECRET-ANSWER-TEXT", logged);
+    }
+
+    [Fact]
+    public async Task AnOverloadedService_AfterAllTheTries_IsLeftAloneBrieflyAndTheCallerIsTold()
+    {
+        var rig = BuildGated(new ScriptedHandler(Status(HttpStatusCode.ServiceUnavailable, "UNAVAILABLE", "The model is overloaded.")));
+
+        var failure = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        Assert.Equal(4, rig.Handler.Requests.Count);
+        Assert.Equal(ProviderState.Overloaded, rig.Gate.State);
+        Assert.Equal(TimeSpan.FromSeconds(15), failure.RetryAfter);
+        Assert.Contains("503", rig.Gate.Status.LastError);
+    }
+
+    [Fact]
+    public async Task AKeyTheServiceRefuses_PausesItForTenMinutes_AndEveryCallAfterIsPermanentWithoutAsking()
+    {
+        var rig = BuildGated(new ScriptedHandler(Status(HttpStatusCode.Forbidden, "PERMISSION_DENIED", "Method doesn't allow unregistered callers.")));
+
+        var first = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+        var second = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        Assert.True(first.IsPermanent);
+        Assert.Equal(TimeSpan.FromMinutes(10), first.RetryAfter);
+        Assert.True(second.IsPermanent);
+        Assert.Single(rig.Handler.Requests);
+        Assert.Equal(ProviderState.Unusable, rig.Gate.State);
+    }
+
+    [Fact]
+    public async Task ABadRequestAboutOneAnswer_IsRefusedForThatAnswerOnly_AndTheServiceStaysOpen()
+    {
+        var rig = BuildGated(new ScriptedHandler(
+            Status(HttpStatusCode.BadRequest, "INVALID_ARGUMENT", "Request contains an invalid argument."), Ok("""{"verdict":"correct"}""")));
+
+        var first = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+        var second = await rig.Evaluator.EvaluateAsync(Request, CancellationToken.None);
+
+        Assert.True(first.IsPermanent);
+        Assert.Equal(TypedAnswerVerdict.Correct, second.Verdict);
+        Assert.Equal(2, rig.Handler.Requests.Count);
+    }
+
+    [Theory]
+    [InlineData("INVALID_ARGUMENT", "API key not valid. Please pass a valid API key.")]
+    [InlineData("FAILED_PRECONDITION", "User location is not supported for the API use.")]
+    public async Task ABadRequestThatSaysTheKeyOrThePlaceIsTheProblem_PausesTheWholeService(string status, string message)
+    {
+        var rig = BuildGated(new ScriptedHandler(Status(HttpStatusCode.BadRequest, status, message)));
+
+        await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        Assert.Equal(ProviderState.Unusable, rig.Gate.State);
+    }
+
+    [Fact]
+    public async Task WhenAnotherWorkerPausedTheService_ThisCallStopsTryingAndSaysHowLong()
+    {
+        GatedRig? rig = null;
+        var other = new Func<HttpRequestMessage, HttpResponseMessage>(request =>
+        {
+            // While this request was away, another worker was told to slow down.
+            rig!.Gate.RecordRateLimited(TimeSpan.FromSeconds(20), "429 from another worker");
+            return Status(HttpStatusCode.ServiceUnavailable, "UNAVAILABLE")(request);
+        });
+        rig = BuildGated(new ScriptedHandler(other, Ok("""{"verdict":"correct"}""")));
+
+        var failure = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        Assert.Single(rig.Handler.Requests);
+        Assert.Empty(rig.Waits);
+        Assert.Equal(TimeSpan.FromSeconds(20), failure.RetryAfter);
+    }
+
+    [Fact]
+    public async Task AReplyWithNoVerdict_OnEveryTry_IsCounted_ButDoesNotPauseTheService()
+    {
+        var rig = BuildGated(new ScriptedHandler(Ok("not json at all")));
+
+        var failure = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        Assert.Null(failure.RetryAfter);
+        Assert.Equal(ProviderState.Ready, rig.Gate.State);
+        Assert.Equal(1L, rig.Gate.Status.Unavailable);
     }
 }

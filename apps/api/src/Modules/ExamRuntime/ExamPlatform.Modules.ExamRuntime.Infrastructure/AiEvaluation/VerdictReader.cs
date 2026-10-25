@@ -61,10 +61,21 @@ internal static class VerdictReader
     {
         var trimmed = text.Trim();
         if (!trimmed.StartsWith("```", StringComparison.Ordinal))
-            return trimmed;
+            return OnlyTheObject(trimmed);
 
         var firstLineEnd = trimmed.IndexOf('\n', StringComparison.Ordinal);
         var lastFence = trimmed.LastIndexOf("```", StringComparison.Ordinal);
-        return firstLineEnd >= 0 && lastFence > firstLineEnd ? trimmed[(firstLineEnd + 1)..lastFence].Trim() : trimmed;
+        return firstLineEnd >= 0 && lastFence > firstLineEnd ? OnlyTheObject(trimmed[(firstLineEnd + 1)..lastFence].Trim()) : trimmed;
+    }
+
+    // A model that was not made to reply in JSON may say a word before or after it; the object between the first "{" and the last "}" is the reply.
+    private static string OnlyTheObject(string text)
+    {
+        if (text.StartsWith('{'))
+            return text;
+
+        var first = text.IndexOf('{', StringComparison.Ordinal);
+        var last = text.LastIndexOf('}');
+        return first >= 0 && last > first ? text[first..(last + 1)] : text;
     }
 }

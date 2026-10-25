@@ -24,7 +24,8 @@ namespace ExamPlatform.Modules.ExamRuntime.Endpoints.Grading;
 /// question, the key's answers, or what the candidate typed.
 /// </para>
 /// </remarks>
-public sealed class TypedAnswerGradingRunner(IServiceScopeFactory scopes, IOptions<AiGradingOptions> options, ILogger<TypedAnswerGradingRunner> logger)
+public sealed class TypedAnswerGradingRunner(
+    IServiceScopeFactory scopes, IOptions<AiGradingOptions> options, IEvaluatorHealth health, ILogger<TypedAnswerGradingRunner> logger)
 {
     // A verdict that clashes with another request for the same attempt is saved again from a fresh read; the verdict is in hand, so no new ask is made.
     private const int SaveTries = 3;
@@ -53,6 +54,14 @@ public sealed class TypedAnswerGradingRunner(IServiceScopeFactory scopes, IOptio
 
         if (!evaluatorOn)
             return 0;
+
+        // Every provider has said "not now": taking answers off the queue only to fail them would count against each and ask the provider again
+        // while it is refusing. They wait in the queue, none the worse, and the pause ends by itself.
+        if (health.PausedFor is { } paused)
+        {
+            logger.LogDebug("The AI providers are paused for another {Seconds:0} seconds; the queue is left alone.", paused.TotalSeconds);
+            return 0;
+        }
 
         var workers = Enumerable.Range(0, options.Value.Concurrency).Select(_ => WorkAsync(cancellationToken)).ToArray();
         var handled = (await Task.WhenAll(workers)).Sum();
@@ -119,7 +128,8 @@ public sealed class TypedAnswerGradingRunner(IServiceScopeFactory scopes, IOptio
     private async Task<int> WorkAsync(CancellationToken cancellationToken)
     {
         var handled = 0;
-        while (!cancellationToken.IsCancellationRequested)
+        // A pause that starts while this worker is at it stops it taking the next answer, as well as the next pass.
+        while (!cancellationToken.IsCancellationRequested && health.PausedFor is null)
         {
             GradingClaim? claim;
             await using (var scope = scopes.CreateAsyncScope())
@@ -179,13 +189,13 @@ public sealed class TypedAnswerGradingRunner(IServiceScopeFactory scopes, IOptio
         }
         catch (TextEvaluationException failure)
         {
-            await FailAsync(claim, failure.Message, failure.IsPermanent, cancellationToken);
+            await FailAsync(claim, failure.Message, failure.IsPermanent, failure.RetryAfter, cancellationToken);
             return;
         }
         catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
         {
             logger.LogWarning(exception, "A typed answer could not be prepared for the AI evaluator; it will be tried again.");
-            await FailAsync(claim, "The answer could not be prepared for the evaluator.", permanent: false, cancellationToken);
+            await FailAsync(claim, "The answer could not be prepared for the evaluator.", permanent: false, retryAfter: null, cancellationToken);
             return;
         }
 
@@ -211,18 +221,18 @@ public sealed class TypedAnswerGradingRunner(IServiceScopeFactory scopes, IOptio
                 // The verdict itself is lost with the failed save, so the answer is asked about again after a wait. The attempt's score may be
                 // what could not be worked out (an exam or question that is gone), which no ask will cure; the wait grows each time.
                 logger.LogError(exception, "The AI evaluator's verdict could not be saved or the attempt could not be scored; the answer will be asked about again.");
-                await FailAsync(claim, "The verdict could not be saved.", permanent: false, cancellationToken);
+                await FailAsync(claim, "The verdict could not be saved.", permanent: false, retryAfter: null, cancellationToken);
                 return;
             }
         }
     }
 
-    private async Task FailAsync(GradingClaim claim, string error, bool permanent, CancellationToken cancellationToken)
+    private async Task FailAsync(GradingClaim claim, string error, bool permanent, TimeSpan? retryAfter, CancellationToken cancellationToken)
     {
         try
         {
             await using var scope = scopes.CreateAsyncScope();
-            await scope.ServiceProvider.GetRequiredService<TypedAnswerGrading>().FailAsync(claim, error, permanent, cancellationToken);
+            await scope.ServiceProvider.GetRequiredService<TypedAnswerGrading>().FailAsync(claim, error, permanent, retryAfter, cancellationToken);
             logger.LogWarning("Asking the AI evaluator about a typed answer failed ({Reason}); it will be tried again later.", error);
         }
         catch (Exception exception) when (!cancellationToken.IsCancellationRequested)

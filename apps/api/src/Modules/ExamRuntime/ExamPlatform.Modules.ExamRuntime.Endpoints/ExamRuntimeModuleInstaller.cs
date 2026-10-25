@@ -123,6 +123,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<WarnAttemptHandler>();
         services.AddScoped<RescoreAttemptHandler>();
         services.AddScoped<RequestAiCheckHandler>();
+        services.AddScoped<GetAiGradingStatusHandler>();
         services.AddScoped<PauseAttemptHandler>();
         services.AddScoped<ResumeAttemptHandler>();
         services.AddScoped<TerminateAttemptHandler>();
@@ -169,12 +170,48 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
             .Bind(configuration.GetSection(GeminiOptions.SectionName))
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<GeminiOptions>, GeminiOptionsValidator>();
-        // Its own time limit per request is the evaluator's; the client's default of 100 seconds would cut a longer one short.
-        services.AddHttpClient(nameof(GeminiTextAnswerEvaluator), client => client.Timeout = Timeout.InfiniteTimeSpan);
-        services.AddTransient<ITextAnswerEvaluator>(sp => new GeminiTextAnswerEvaluator(
-            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(GeminiTextAnswerEvaluator)),
-            sp.GetRequiredService<IOptions<GeminiOptions>>(),
-            sp.GetRequiredService<ILogger<GeminiTextAnswerEvaluator>>()));
+        // The same for any service that speaks the OpenAI chat-completions protocol (Groq by default), judged the same way; with no key it is off.
+        services.AddOptions<OpenAiCompatibleOptions>()
+            .Bind(configuration.GetSection(OpenAiCompatibleOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<OpenAiCompatibleOptions>, OpenAiCompatibleOptionsValidator>();
+
+        // Each provider's own time limit per request is the evaluator's; the client's default of 100 seconds would cut a longer one short. The
+        // clients live as long as the host, so their connections are renewed now and then to follow a change of address.
+        foreach (var client in new[] { nameof(GeminiTextAnswerEvaluator), nameof(OpenAiCompatibleTextAnswerEvaluator) })
+        {
+            services.AddHttpClient(client, http => http.Timeout = Timeout.InfiniteTimeSpan)
+                .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5) });
+        }
+
+        // One chain for the whole host, so that the pacing and the pause of each provider are shared by every worker: the OpenAI-compatible models
+        // first (each model has its own allowance, so each has its own gate), then Gemini. A provider with no key is skipped.
+        services.AddSingleton(sp =>
+        {
+            var clients = sp.GetRequiredService<IHttpClientFactory>();
+            var loggers = sp.GetRequiredService<ILoggerFactory>();
+            var clock = sp.GetRequiredService<Clock>();
+            var providers = new List<IGatedTextAnswerEvaluator>();
+
+            var openAi = sp.GetRequiredService<IOptions<OpenAiCompatibleOptions>>();
+            var openAiLogger = loggers.CreateLogger<OpenAiCompatibleTextAnswerEvaluator>();
+            foreach (var model in openAi.Value.Models)
+            {
+                providers.Add(new OpenAiCompatibleTextAnswerEvaluator(
+                    clients.CreateClient(nameof(OpenAiCompatibleTextAnswerEvaluator)), openAi, model, openAiLogger,
+                    gate: new EvaluatorGate(openAi.Value.ProviderName, model, openAi.Value.RequestsPerMinute, clock, openAiLogger)));
+            }
+
+            var gemini = sp.GetRequiredService<IOptions<GeminiOptions>>();
+            var geminiLogger = loggers.CreateLogger<GeminiTextAnswerEvaluator>();
+            providers.Add(new GeminiTextAnswerEvaluator(
+                clients.CreateClient(nameof(GeminiTextAnswerEvaluator)), gemini, geminiLogger,
+                gate: new EvaluatorGate("Gemini", gemini.Value.ModelId, gemini.Value.RequestsPerMinute, clock, geminiLogger)));
+
+            return new FallbackTextAnswerEvaluator(providers, loggers.CreateLogger<FallbackTextAnswerEvaluator>());
+        });
+        services.AddSingleton<ITextAnswerEvaluator>(sp => sp.GetRequiredService<FallbackTextAnswerEvaluator>());
+        services.AddSingleton<IEvaluatorHealth>(sp => sp.GetRequiredService<FallbackTextAnswerEvaluator>());
 
         // An attempt with such an answer waits in grading, with no score, until a worker has the verdicts; the host's timer runs the worker.
         services.AddOptions<AiGradingOptions>()
