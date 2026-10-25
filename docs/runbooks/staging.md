@@ -38,6 +38,7 @@ Copy the production list in `docs/deploy-render.md`, step 5, with these differen
 | `Brevo__ApiKey`, `Brevo__SenderEmail` | The staging Brevo key and a verified staging sender |
 | `Identity__OtpDelivery__Provider`, `Mail__Provider`, `ForwardedHeaders__KnownNetworks__0` and `__1` | As in `render.yaml` |
 | `Database__MigrateAndSeedOnStartup` | `true` for a single instance. With more than one instance, run `--migrate-and-seed` once as a job instead (`docs/adr/0002-migrations-and-reference-data-seeding.md`) |
+| `OpenAiCompatible__ApiKey` | Leave unset, for the same reason as `Gemini__ApiKey` below: staging marks typed answers by the accepted answers alone and a test sitting spends none of the production allowance. Set a separate key only to test AI marking |
 | `Gemini__ApiKey` | Leave unset, so staging marks typed answers by the accepted answers alone and a test sitting spends none of the production key's quota. Set a separate key only to test AI marking, and expect attempts with a differently worded typed answer to wait in Grading until the key works |
 | `Notifications__RunKey`, the `WhatsApp__*` and `Sms__*` settings | Leave unset. The scheduled-notifications workflow points at production; do not point it at staging |
 | `RateLimiting__Global__PermitLimit`, `Identity__RateLimits__PasswordLogin__PermitLimit` | Raised for the load-test window only (action A9 in the owner pack), and put back after. See `tests/load/README.md`, "Staging prerequisites" |
