@@ -11,7 +11,7 @@ public enum AiCheckState
     /// <summary>It is queued, or being asked about, now.</summary>
     Waiting,
 
-    /// <summary>The evaluator gave a verdict, which counts when the typed answer matches no accepted answer word for word.</summary>
+    /// <summary>The evaluator gave a verdict, which counts when the typed answer matches no accepted answer under the question's matching rule.</summary>
     Judged,
 
     /// <summary>The platform stopped waiting for the evaluator and marked the answer by the accepted answers alone.</summary>
@@ -40,7 +40,7 @@ public sealed record AttemptPaperAiCheckDto(
 /// <param name="IsTextAnswer">Whether the candidate typed the answer, rather than choosing options.</param>
 /// <param name="AnswerText">What the candidate typed, for a text question.</param>
 /// <param name="AcceptedAnswers">The answers accepted for a text question, which staff see beside the paper.</param>
-/// <param name="AiCheck">The AI evaluator's part in a typed answer that matches no accepted answer word for word, once the attempt is over; null for any other question.</param>
+/// <param name="AiCheck">The AI evaluator's part in a typed answer that matches no accepted answer under the question's matching rule, once the attempt is over; null for any other question.</param>
 public sealed record AttemptPaperQuestionDto(
     Guid Id, string? Text, bool Drawn, IReadOnlyList<ReviewOptionDto>? Options = null, AnswerVerdict? Verdict = null, decimal? Marks = null,
     bool AllowsMultiple = false, bool IsTextAnswer = false, string? AnswerText = null, IReadOnlyList<string>? AcceptedAnswers = null,

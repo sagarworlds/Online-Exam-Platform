@@ -3,6 +3,7 @@ using ExamPlatform.Modules.QuestionBank.Application.Ports;
 using ExamPlatform.Modules.QuestionBank.Contracts;
 using ExamPlatform.Modules.QuestionBank.Domain.Exceptions;
 using ExamPlatform.SharedKernel.Application;
+using ExamPlatform.SharedKernel.Domain;
 
 namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 
@@ -13,9 +14,10 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 /// <param name="ActorUserId">The staff member making the correction, for the audit trail.</param>
 /// <param name="ActorRole">Their role name, for the audit trail.</param>
 /// <param name="AcceptedAnswers">For a text question, the accepted answers replacing the current list; null for a multiple-choice question, whose key is <paramref name="CorrectOptionIds"/>.</param>
+/// <param name="MatchRule">For a text question, how strictly a typed answer should be compared from now on; null keeps the question's rule. Making it lenient accepts answers that differ only in punctuation or accents, and rescores everyone.</param>
 public sealed record CorrectAnswerKeyCommand(
     Guid QuestionId, IReadOnlyCollection<Guid> CorrectOptionIds, string Reason, Guid ActorUserId, string ActorRole,
-    IReadOnlyList<string?>? AcceptedAnswers = null);
+    IReadOnlyList<string?>? AcceptedAnswers = null, TextMatchRule? MatchRule = null);
 
 /// <summary>What a correction changed.</summary>
 /// <param name="KeyChanged">Whether the answer key actually differed from what was asked for; false means nothing happened.</param>
@@ -45,7 +47,7 @@ public sealed class CorrectAnswerKeyHandler(
         var question = await repository.GetByIdAsync(command.QuestionId, cancellationToken) ?? throw new QuestionNotFoundError();
 
         var changed = command.AcceptedAnswers is not null
-            ? question.CorrectAcceptedAnswers(command.AcceptedAnswers, clock.UtcNow)
+            ? question.CorrectAcceptedAnswers(command.AcceptedAnswers, clock.UtcNow, command.MatchRule)
             : question.CorrectAnswerKey(command.CorrectOptionIds, clock.UtcNow);
         if (!changed)
             return new AnswerKeyCorrectionResult(false, 0);

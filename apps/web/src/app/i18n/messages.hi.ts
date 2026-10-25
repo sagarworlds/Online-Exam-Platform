@@ -1192,6 +1192,10 @@ export const HI: Messages = {
   'qb.field.accepted': 'स्वीकार्य उत्तर',
   'qb.field.acceptedHint': 'टाइप किया गया उत्तर तब सही होता है जब वह इनमें से किसी से मेल खाए। बड़े अक्षर और अतिरिक्त खाली जगह मायने नहीं रखते, इसलिए "Paris" के साथ "paris" भी स्वीकार होता है। उम्मीदवार जो-जो वर्तनी टाइप कर सकता है, उसे अलग पंक्ति में लिखें।',
   'qb.field.acceptedLock': 'उम्मीदवारों ने इस प्रश्न का उत्तर दिया है, इसलिए इसके स्वीकार्य उत्तर बंद हैं, क्योंकि उनके परिणाम इन्हीं के आधार पर निकाले गए हैं। इन्हें बदलने के लिए इसके बजाय नया प्रश्न बनाएँ।',
+  // Hindi: still English, pending translation (pending-translations.ts).
+  'qb.field.lenient': 'Ignore punctuation and accents',
+  'qb.field.lenientHint': 'When on, "Paris." and "paris" count as "Paris", and "cafe" as "café". Signs that can change an answer, such as + - = / % and a decimal point, still have to match. Turn it off for answers where punctuation matters.',
+  'qb.field.lenientLock': 'Candidates have answered this question, so this setting is locked, because their results were worked out with it. To change it, correct the answer key.',
   'qb.field.acceptedAnswer': 'स्वीकार्य उत्तर {number}',
   'qb.field.removeAccepted': 'स्वीकार्य उत्तर {number} हटाएँ',
   'qb.field.addAccepted': 'स्वीकार्य उत्तर जोड़ें',
@@ -1208,6 +1212,9 @@ export const HI: Messages = {
   'qb.key.region': 'उत्तर कुंजी सुधारें',
   'qb.key.warning': 'इससे इस प्रश्न का उत्तर देने वाले हर उम्मीदवार का परिणाम बदल जाता है: उनके अंक फिर से निकाले जाते हैं, और हर किसी को आपका कारण दिखाया जाता है। इस प्रश्न पर की गई आपत्तियाँ स्वीकार कर ली जाती हैं।',
   'qb.key.acceptedHint': 'टाइप किया गया उत्तर तब सही होता है जब वह इनमें से किसी से मेल खाए, बड़े अक्षर और अतिरिक्त खाली जगह को छोड़कर।',
+  // Hindi: still English, pending translation (pending-translations.ts).
+  'qb.key.lenient': 'Ignore punctuation and accents',
+  'qb.key.lenientHint': 'Changing this changes who is right: everyone who answered is scored again, and each person whose score moves is shown your reason.',
   'qb.key.remove': 'हटाएँ',
   'qb.key.optionsMultiple': 'सही विकल्प (हर एक पर निशान लगाएँ)',
   'qb.key.optionSingle': 'सही विकल्प',

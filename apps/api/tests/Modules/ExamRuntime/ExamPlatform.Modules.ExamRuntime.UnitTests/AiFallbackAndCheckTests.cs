@@ -423,7 +423,7 @@ public class RequestAiCheckHandlerTests
 
         var error = await Assert.ThrowsAsync<InvalidAttemptError>(() => Handler.HandleAsync(_exam.Id, attempt.Id, _capital.Id, CancellationToken.None));
 
-        Assert.Contains("word for word", error.Message);
+        Assert.Contains("matches an accepted answer", error.Message);
         Assert.False(attempt.IsAwaitingEvaluation);
     }
 

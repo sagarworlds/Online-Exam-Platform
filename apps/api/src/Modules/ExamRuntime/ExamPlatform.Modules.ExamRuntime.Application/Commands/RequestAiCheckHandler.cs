@@ -33,7 +33,7 @@ public sealed class RequestAiCheckHandler(
     /// <exception cref="AttemptNotFoundError">No such attempt at the exam.</exception>
     /// <exception cref="AttemptNotSubmittedError">The attempt is still open.</exception>
     /// <exception cref="QuestionNotInAttemptError">The question is not on this attempt's paper.</exception>
-    /// <exception cref="InvalidAttemptError">The question is not a text question, the candidate typed no answer, what they typed matches an accepted answer word for word, or the result was invalidated.</exception>
+    /// <exception cref="InvalidAttemptError">The question is not a text question, the candidate typed no answer, what they typed matches an accepted answer under the question's matching rule, or the result was invalidated.</exception>
     /// <exception cref="ExamContentUnavailableError">The exam's questions cannot be read.</exception>
     public async Task<AttemptSummaryDto> HandleAsync(Guid examId, Guid attemptId, Guid questionId, CancellationToken cancellationToken)
     {
@@ -56,8 +56,8 @@ public sealed class RequestAiCheckHandler(
         var answer = attempt.Answers.FirstOrDefault(a => a.QuestionId == questionId);
         if (answer is null || string.IsNullOrWhiteSpace(answer.AnswerText))
             throw new InvalidAttemptError("The candidate typed no answer to this question.");
-        if (TypedAnswer.Matches(answer.AnswerText, question.AcceptedAnswers ?? []))
-            throw new InvalidAttemptError("What the candidate typed matches an accepted answer word for word, so it needs no check.");
+        if (TypedAnswer.Matches(answer.AnswerText, question.AcceptedAnswers ?? [], question.MatchRule))
+            throw new InvalidAttemptError("What the candidate typed matches an accepted answer, so it needs no check.");
 
         attempt.RequestAiCheck(questionId, Reason, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);

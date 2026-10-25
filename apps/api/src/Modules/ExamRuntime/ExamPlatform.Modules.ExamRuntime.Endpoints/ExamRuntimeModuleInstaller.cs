@@ -162,7 +162,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddSingleton<NotificationRunner>();
         services.AddHostedService<NotificationBackgroundService>();
 
-        // Typed answers that match no accepted answer word for word are judged by Google's Gemini service (FR-5), but only when Gemini:ApiKey is
+        // Typed answers that match no accepted answer under the question's matching rule are judged by Google's Gemini service (FR-5), but only when Gemini:ApiKey is
         // set: with no key the evaluator reports itself off, nothing waits, and typed answers are marked by the accepted answers alone. Bound as
         // options and validated when the host starts, so a mistyped model or address stops it starting instead of failing the first answer.
         services.AddOptions<GeminiOptions>()

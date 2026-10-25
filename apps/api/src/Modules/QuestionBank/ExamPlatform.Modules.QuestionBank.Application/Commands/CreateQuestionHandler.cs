@@ -3,6 +3,7 @@ using ExamPlatform.Modules.QuestionBank.Application.Ports;
 using ExamPlatform.Modules.QuestionBank.Domain;
 using ExamPlatform.Modules.QuestionBank.Domain.Exceptions;
 using ExamPlatform.SharedKernel.Application;
+using ExamPlatform.SharedKernel.Domain;
 
 namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 
@@ -18,10 +19,12 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 /// <param name="Language">The language it is written in (FR-10): "en", "hi" or "mr"; null means English. To write the same question in another language, add a translation instead.</param>
 /// <param name="IsTextAnswer">True for a text question: the candidate types the answer, and it is marked against <paramref name="AcceptedAnswers"/>. Then there are no options.</param>
 /// <param name="AcceptedAnswers">The answers a typed answer may be, for a text question; null or empty for a multiple-choice one.</param>
+/// <param name="MatchRule">How strictly a typed answer is compared with the accepted answers; exact (as before the rule existed) when left out.</param>
 public sealed record CreateQuestionCommand(
     string? Text, IReadOnlyList<NewQuestionOption>? Options, Guid CreatedBy, Guid? ChapterId = null,
     string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false, bool AllowDuplicate = false,
-    string? Language = null, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null, string? Explanation = null);
+    string? Language = null, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null, string? Explanation = null,
+    TextMatchRule MatchRule = TextMatchRule.Exact);
 
 /// <summary>Handles <see cref="CreateQuestionCommand"/>.</summary>
 public sealed class CreateQuestionHandler(
@@ -57,7 +60,8 @@ public sealed class CreateQuestionHandler(
         var question = Question.Create(
             cleaned.Html, command.Options, command.CreatedBy, clock.UtcNow, filedUnder?.ChapterId,
             QuestionDifficultyText.Parse(command.Difficulty), command.Topics, command.AllowsMultiple, command.Language,
-            translationGroupId: null, isTextAnswer: command.IsTextAnswer, acceptedAnswers: command.AcceptedAnswers, explanation: command.Explanation);
+            translationGroupId: null, isTextAnswer: command.IsTextAnswer, acceptedAnswers: command.AcceptedAnswers, explanation: command.Explanation,
+            matchRule: command.MatchRule);
         question.IndexText(cleaned.PlainText);
 
         repository.Add(question);

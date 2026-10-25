@@ -33,7 +33,8 @@ internal static class QuestionMapping
             filedUnder?.ClassName,
             question.IsTextAnswer,
             question.AcceptedAnswers,
-            question.Explanation);
+            question.Explanation,
+            question.MatchRule);
 
     /// <summary>Maps a line of a question's review thread.</summary>
     public static QuestionReviewEntryDto ToDto(this QuestionReviewEntry entry) =>
@@ -55,5 +56,6 @@ internal static class QuestionMapping
             version.AllowsMultiple,
             version.CreatedAtUtc,
             version.IsTextAnswer,
-            version.AcceptedAnswers);
+            version.AcceptedAnswers,
+            version.MatchRule);
 }

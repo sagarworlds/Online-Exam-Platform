@@ -68,7 +68,8 @@ public sealed class AddTranslationHandler(
             : null;
         var translation = Question.Create(
             cleaned.Html, options, command.CreatedBy, clock.UtcNow, source.ChapterId, source.Difficulty, source.Topics,
-            source.AllowsMultiple, language, source.TranslationGroupId, isTextAnswer: source.IsTextAnswer, acceptedAnswers: acceptedAnswers);
+            source.AllowsMultiple, language, source.TranslationGroupId, isTextAnswer: source.IsTextAnswer, acceptedAnswers: acceptedAnswers,
+            matchRule: source.MatchRule);
         translation.IndexText(cleaned.PlainText);
 
         repository.Add(translation);

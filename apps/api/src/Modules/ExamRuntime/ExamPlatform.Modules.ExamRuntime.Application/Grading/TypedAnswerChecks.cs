@@ -9,7 +9,7 @@ public static class TypedAnswerChecks
 {
     /// <summary>
     /// The questions whose typed answers need a verdict: the candidate typed something, and it does not match one of the accepted answers
-    /// word for word. An answer that does is right without being asked, and a blank one is unanswered, so neither costs a call.
+    /// under the question's matching rule. An answer that does is right without being asked, and a blank one is unanswered, so neither costs a call.
     /// </summary>
     /// <param name="attempt">The attempt, with its answers.</param>
     /// <param name="questions">The questions of the attempt, answer key included, as the attempt sat them.</param>
@@ -27,7 +27,7 @@ public static class TypedAnswerChecks
                 continue;
 
             var accepted = question.AcceptedAnswers ?? [];
-            if (accepted.Count == 0 || TypedAnswer.Matches(answer.AnswerText, accepted))
+            if (accepted.Count == 0 || TypedAnswer.Matches(answer.AnswerText, accepted, question.MatchRule))
                 continue;
 
             found.Add(answer.QuestionId);

@@ -41,7 +41,7 @@ public sealed class AttemptAnswer : Entity
 
     /// <summary>
     /// What the AI evaluator decided about the typed answer, or null while it has decided nothing: it was never asked, or is still being
-    /// asked. An answer that matches an accepted answer word for word is right without being asked, so it never gets one. A verdict stays
+    /// asked. An answer that matches an accepted answer under the question's matching rule is right without being asked, so it never gets one. A verdict stays
     /// until a new one replaces it, so a result being checked again keeps showing the verdict it had.
     /// </summary>
     public TypedAnswerVerdict? TextVerdict { get; private set; }
