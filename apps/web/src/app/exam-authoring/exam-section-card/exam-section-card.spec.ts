@@ -360,6 +360,18 @@ describe('ExamSectionCard', () => {
       expect(added).toEqual([{ sectionId: 's1', questionId: 'q9' }]);
     });
 
+    it('sends the questions the picker hands it together, with the section they are for', () => {
+      show();
+      openPicker();
+      const sent: { sectionId: string; questionIds: readonly string[] }[] = [];
+      fixture.componentInstance.addManyRequested.subscribe((r) => sent.push(r));
+
+      fixture.debugElement.query((e) => e.name === 'app-question-picker').componentInstance.pickedMany.emit(['q7', 'q9']);
+
+      expect(sent).toEqual([{ sectionId: 's1', questionIds: ['q7', 'q9'] }]);
+      expect(added).toEqual([]);
+    });
+
     it('has no picker on a section that cannot be changed', () => {
       show(section(), { editable: false });
 

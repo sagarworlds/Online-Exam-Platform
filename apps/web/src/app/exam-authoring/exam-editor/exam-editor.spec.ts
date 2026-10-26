@@ -296,6 +296,58 @@ describe('ExamEditor', () => {
     httpMock.expectOne(isExam).flush(examBody());
   });
 
+  it('adds the questions ticked in the picker in one request, in the order listed, and reads the exam again', () => {
+    const { fixture, root } = open();
+    openPicker(fixture, root);
+
+    button(root, 'Select all').click();
+    fixture.detectChanges();
+    button(root, 'Add selected (2)').click();
+
+    const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/exams/exam-1/sections/s1/questions/batch'));
+    expect(post.request.body).toEqual({ questionIds: ['q1', 'q2'] });
+    httpMock.expectNone((r) => r.method === 'POST' && r.url.endsWith('/sections/s1/questions'));
+    post.flush(
+      [
+        { id: 'e1', questionId: 'q1', order: 1, text: 'What is 2 + 2?' },
+        { id: 'e2', questionId: 'q2', order: 2, text: 'Capital of France?' },
+      ],
+      { status: 200, statusText: 'OK' },
+    );
+    httpMock.expectOne(isExam).flush(examBody());
+  });
+
+  it('keeps every Add and the Add selected off until the exam has been read again, so the same questions cannot be sent twice', () => {
+    const { fixture, root } = open();
+    openPicker(fixture, root);
+    button(root, 'Select all').click();
+    fixture.detectChanges();
+
+    button(root, 'Add selected (2)').click();
+    fixture.detectChanges();
+
+    expect(button(root, 'Add selected (2)').disabled).toBe(true);
+    expect(Array.from(root.querySelectorAll<HTMLButtonElement>('.picker__row button')).every((b) => b.disabled)).toBe(true);
+    httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/questions/batch')).flush([], { status: 200, statusText: 'OK' });
+    httpMock.expectOne(isExam).flush(examBody());
+  });
+
+  it('shows the API’s reason and reads the exam again when the lot is refused, since nothing was added', () => {
+    const { fixture, root } = open();
+    openPicker(fixture, root);
+    button(root, 'Select all').click();
+    fixture.detectChanges();
+
+    button(root, 'Add selected (2)').click();
+    httpMock
+      .expectOne((r) => r.method === 'POST' && r.url.endsWith('/questions/batch'))
+      .flush({ title: 'duplicate_question', detail: 'Question q2 is already in this exam.' }, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+
+    expect(root.textContent).toContain('already in this exam');
+    httpMock.expectOne(isExam).flush(examBody());
+  });
+
   it('draws random questions into a section and reads the exam again', () => {
     const { fixture, root } = open();
     button(root, 'Add random questions…').click();

@@ -125,6 +125,14 @@ export class ExamApiService {
     return this.http.post<ExamQuestionDto>(`${this.apiUrl}/${examId}/sections/${sectionId}/questions`, { questionId });
   }
 
+  /**
+   * Adds several bank questions to a section of a draft exam, in the order given: all or none, in one request, so choosing many questions is
+   * one change as far as the server's rate limit goes. Returns the questions as they now sit in the section.
+   */
+  addQuestions(examId: string, sectionId: string, questionIds: readonly string[]): Observable<ExamQuestionDto[]> {
+    return this.http.post<ExamQuestionDto[]>(`${this.apiUrl}/${examId}/sections/${sectionId}/questions/batch`, { questionIds });
+  }
+
   /** Adds random bank questions that match the request to a section of a draft exam; all or none. Returns the ones added. */
   /** Adds a rule that draws {@link DrawQuestionsRequest.count} random questions for each candidate when they start. */
   addDrawRule(examId: string, sectionId: string, request: DrawQuestionsRequest): Observable<DrawRuleDto> {

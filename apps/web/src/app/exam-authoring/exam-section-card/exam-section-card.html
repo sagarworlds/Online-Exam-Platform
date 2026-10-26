@@ -82,6 +82,7 @@
           [sectionName]="section().name"
           [busy]="busy()"
           (picked)="addRequested.emit({ sectionId: section().id, questionId: $event })"
+          (pickedMany)="addManyRequested.emit({ sectionId: section().id, questionIds: $event })"
         />
       }
     </app-disclosure>

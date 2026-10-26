@@ -58,6 +58,8 @@ export class ExamSectionCard {
   readonly removeConfirmed = output<string>();
   /** The author chose a question from the bank to add; `questionId` is its id there. */
   readonly addRequested = output<{ sectionId: string; questionId: string }>();
+  /** The author chose several questions from the bank to add at once; `questionIds` are their ids there, in the order they are listed. */
+  readonly addManyRequested = output<{ sectionId: string; questionIds: readonly string[] }>();
   /** The author asked to move this section a place up or down among the exam's sections. */
   readonly moveSectionRequested = output<{ sectionId: string; direction: MoveDirection }>();
   /** The author asked to move a question a place up or down in this section; `questionId` is its id in the question bank. */
