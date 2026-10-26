@@ -34,11 +34,13 @@ public sealed class EFInviteRepository(InviteDbContext context) : IInviteReposit
         await context.Invites.AsNoTracking().Include(i => i.Codes).OrderByDescending(i => i.CreatedAt).Take(take).ToListAsync(cancellationToken);
 
     // lower() on both sides, not ILIKE: an address may hold "_", which ILIKE reads as a wildcard. Tracked, because the caller changes them.
+    // Codes are loaded too: changing an address revokes the direct sign-in links sent to the old one, and the aggregate does that by
+    // walking its codes, so an invite loaded without them would keep a live link to the wrong inbox.
     /// <inheritdoc />
     public async Task<IReadOnlyList<InviteAggregate>> ListByEmailAsync(string email, CancellationToken cancellationToken = default)
     {
         var wanted = email.ToLowerInvariant();
-        return await context.Invites.Where(i => i.Email.ToLower() == wanted).ToListAsync(cancellationToken);
+        return await context.Invites.Include(i => i.Codes).Where(i => i.Email.ToLower() == wanted).ToListAsync(cancellationToken);
     }
 
     /// <inheritdoc />
