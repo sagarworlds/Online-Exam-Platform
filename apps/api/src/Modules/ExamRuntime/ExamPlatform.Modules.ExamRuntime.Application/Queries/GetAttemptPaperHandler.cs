@@ -1,5 +1,6 @@
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.ExamRuntime.Application.Dtos;
+using ExamPlatform.Modules.ExamRuntime.Application.Grading;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.ExamRuntime.Domain.Exceptions;
@@ -64,12 +65,9 @@ public sealed class GetAttemptPaperHandler(
         if (TypedAnswer.Matches(answer.AnswerText, question.AcceptedAnswers ?? [], question.MatchRule))
             return null;
 
-        var state = answer.IsAwaitingEvaluation ? AiCheckState.Waiting
-            : answer.EvaluationGaveUpAtUtc is not null ? AiCheckState.GaveUp
-            : answer.TextVerdict is not null ? AiCheckState.Judged
-            : AiCheckState.NotChecked;
+        // The state comes from the one place the bulk recheck also reads it, so the label on the paper is what the recheck acts on.
         return new AttemptPaperAiCheckDto(
-            state, answer.TextVerdict, answer.EvaluationReason, answer.EvaluationModel,
+            TypedAnswerChecks.StateOf(answer), answer.TextVerdict, answer.EvaluationReason, answer.EvaluationModel,
             answer.EvaluatedAtUtc ?? answer.EvaluationGaveUpAtUtc, answer.EvaluationFailures, answer.EvaluationLastError);
     }
 

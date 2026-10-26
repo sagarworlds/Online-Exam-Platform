@@ -200,6 +200,15 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> ListOverIdsForExamAsync(Guid examId, CancellationToken cancellationToken) =>
+        // Only the id column: the recheck loads each attempt itself, under its own lock, so nothing more is read here.
+        await context.Attempts.AsNoTracking()
+            .Where(a => a.ExamId == examId && a.Status != AttemptStatus.InProgress && a.InvalidatedAtUtc == null)
+            .OrderBy(a => a.SubmittedAtUtc).ThenBy(a => a.Id)
+            .Select(a => a.Id)
+            .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListFinishedWithAnswersAsync(Guid examId, IReadOnlyCollection<Guid> attemptIds, CancellationToken cancellationToken)
     {
         // Nothing to read is not a query: an empty list of ids would otherwise still cost a round trip for no rows.

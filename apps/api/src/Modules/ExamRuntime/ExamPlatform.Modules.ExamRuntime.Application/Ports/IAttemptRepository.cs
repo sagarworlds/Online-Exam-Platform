@@ -125,6 +125,16 @@ public interface IAttemptRepository
     Task<IReadOnlyList<Attempt>> ListFinishedForExamAsync(Guid examId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Lists the ids of the attempts at an exam that are over and still count, whether scored or still being graded, for a bulk recheck by the
+    /// AI evaluator. Ids only: each attempt is then loaded, locked and saved on its own.
+    /// </summary>
+    /// <remarks>An attempt still open has no typed answers to judge yet, and an invalidated one has no score for a verdict to change, so both are left out.</remarks>
+    /// <param name="examId">The exam.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The attempt ids, oldest submission first; empty when none qualifies.</returns>
+    Task<IReadOnlyList<Guid>> ListOverIdsForExamAsync(Guid examId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Lists the named submitted attempts at an exam with their answers, focus departures and client sightings, for the risk review (FR-27).
     /// </summary>
     /// <remarks>

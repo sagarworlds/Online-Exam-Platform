@@ -424,6 +424,72 @@ public sealed class AiGradingFlowTests(AiGradingApiFactory factory) : IClassFixt
         Assert.Equal("Judged", TypedQuestion(await PaperAsync(s)).GetProperty("aiCheck").GetProperty("state").GetString());
     }
 
+    // An attempt whose only typed answer was given up on because the evaluator kept failing, and which was scored by the accepted answers alone.
+    private async Task<Sitting> GivenUpOnAsync()
+    {
+        var s = await TypedAsync("The French capital is Paris.", "Paris");
+        await SubmitAsync(s);
+        factory.Evaluator.Respond = _ => throw new TextEvaluationException("The AI service answered 503.", isPermanent: false);
+        await RunWorkerAsync();
+        await BackdateQueueAsync(s.AttemptId, TimeSpan.FromMinutes(31));
+        await ClearWaitAsync(s.AttemptId);
+        await RunWorkerAsync();
+        Assert.Equal("GaveUp", TypedQuestion(await PaperAsync(s)).GetProperty("aiCheck").GetProperty("state").GetString());
+        return s;
+    }
+
+    [Fact]
+    public async Task TheRecheckOfAnExam_SendsBackWhatWasGivenUpOn_ScoresItOnceTheEvaluatorAnswers_AndSendsNothingTwice()
+    {
+        var s = await GivenUpOnAsync();
+        using var _a = s.Admin;
+        using var _c = s.Candidate;
+
+        // The service is back: one press for the whole exam.
+        factory.Evaluator.Respond = _ => new TextEvaluation(TypedAnswerVerdict.Correct, "Says the same.", "scripted-model");
+        var sent = await s.Admin.PostAsync($"/v1/exams/{s.ExamId}/ai-recheck", content: null);
+        sent.EnsureSuccessStatusCode();
+        var result = await JsonAsync(sent);
+        Assert.Equal(1, result.GetProperty("attemptsQueued").GetInt32());
+        Assert.Equal(1, result.GetProperty("answersQueued").GetInt32());
+
+        // Waiting for the worker, with the score the candidate saw unchanged until the verdict is in.
+        Assert.Equal("Waiting", TypedQuestion(await PaperAsync(s)).GetProperty("aiCheck").GetProperty("state").GetString());
+        Assert.Equal(0m, (await AttemptAsync(s)).GetProperty("score").GetDecimal());
+
+        Assert.Equal(1, await RunWorkerAsync());
+        Assert.Equal(1m, (await AttemptAsync(s)).GetProperty("score").GetDecimal());
+        Assert.Equal("Judged", TypedQuestion(await PaperAsync(s)).GetProperty("aiCheck").GetProperty("state").GetString());
+
+        // It has its verdict now, so pressing again sends nothing.
+        var again = await JsonAsync((await s.Admin.PostAsync($"/v1/exams/{s.ExamId}/ai-recheck", content: null)).EnsureSuccessStatusCode());
+        Assert.Equal(0, again.GetProperty("attemptsQueued").GetInt32());
+        Assert.Equal(0, again.GetProperty("answersQueued").GetInt32());
+    }
+
+    [Fact]
+    public async Task TheRecheckOfOnePaper_SendsBackWhatWasGivenUpOn_ButNeverForSomeoneWhoIsNotStaff()
+    {
+        var s = await GivenUpOnAsync();
+        using var _a = s.Admin;
+        using var _c = s.Candidate;
+
+        // The candidate whose answer it is cannot ask, for the paper or for the exam.
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden,
+            (await s.Candidate.PostAsync($"/v1/exams/{s.ExamId}/attempts/{s.AttemptId}/ai-recheck", content: null)).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden,
+            (await s.Candidate.PostAsync($"/v1/exams/{s.ExamId}/ai-recheck", content: null)).StatusCode);
+        Assert.Equal("GaveUp", TypedQuestion(await PaperAsync(s)).GetProperty("aiCheck").GetProperty("state").GetString());
+
+        factory.Evaluator.Respond = _ => new TextEvaluation(TypedAnswerVerdict.Correct, "Says the same.", "scripted-model");
+        var sent = await JsonAsync((await s.Admin.PostAsync($"/v1/exams/{s.ExamId}/attempts/{s.AttemptId}/ai-recheck", content: null)).EnsureSuccessStatusCode());
+        Assert.Equal(1, sent.GetProperty("attemptsQueued").GetInt32());
+        Assert.Equal(1, sent.GetProperty("answersQueued").GetInt32());
+
+        Assert.Equal(1, await RunWorkerAsync());
+        Assert.Equal(1m, (await AttemptAsync(s)).GetProperty("score").GetDecimal());
+    }
+
     [Fact]
     public async Task ACheckIsRefused_ForAnAnswerThatMatchesExactly_AndForSomeoneWhoIsNotStaff()
     {
