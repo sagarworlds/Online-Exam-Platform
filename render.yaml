@@ -81,6 +81,14 @@ services:
       # alone. Do not set it before docs/compliance/dpdp-data-map.md, OP13, is settled.
       - key: Gemini__ApiKey
         sync: false
+      # Any service that speaks the OpenAI chat-completions protocol, Groq's free tier by default (README, "Which AI model judges typed answers").
+      # It is asked before Gemini. A secret from the provider's console. Unset, it is off. Do not set it before docs/compliance/dpdp-data-map.md,
+      # OP13, is settled: the provider then receives candidates' typed answers.
+      - key: OpenAiCompatible__ApiKey
+        sync: false
+      # A smaller model to fall back on when the larger one has reached its day (each model has its own allowance on Groq).
+      - key: OpenAiCompatible__FallbackModels
+        value: llama-3.1-8b-instant
       # Free web services have no pre-deploy command, so the single instance migrates and seeds itself on start.
       - key: Database__MigrateAndSeedOnStartup
         value: "true"

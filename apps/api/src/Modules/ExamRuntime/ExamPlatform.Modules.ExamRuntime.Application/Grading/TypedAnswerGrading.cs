@@ -92,15 +92,23 @@ public sealed class TypedAnswerGrading(
     /// <param name="claim">The answer taken off the queue.</param>
     /// <param name="error">What went wrong, in a few words, without the question, the key or the answer in it.</param>
     /// <param name="permanent">Whether asking again will not help until something is changed (a key the service refuses): then the wait is the longest.</param>
+    /// <param name="retryAfter">
+    /// How long the evaluator says to leave it (a provider paused for a rate limit or a quota), or null. The next try is no sooner than this, even
+    /// when it is longer than the backoff, so an answer is not asked about again while the provider is still saying no.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task FailAsync(GradingClaim claim, string error, bool permanent, CancellationToken cancellationToken)
+    public async Task FailAsync(GradingClaim claim, string error, bool permanent, TimeSpan? retryAfter, CancellationToken cancellationToken)
     {
         var attempt = await attempts.GetByIdAsync(claim.AttemptId, cancellationToken);
         var answer = attempt is null ? null : StillWaiting(attempt, claim);
         if (attempt is null || answer is null)
             return;
 
-        attempt.RecordEvaluationFailure(claim.QuestionId, error, clock.UtcNow + WaitAfter(answer.EvaluationFailures + 1, permanent));
+        var wait = WaitAfter(answer.EvaluationFailures + 1, permanent);
+        if (retryAfter is { } named && named > wait)
+            wait = named;
+
+        attempt.RecordEvaluationFailure(claim.QuestionId, error, clock.UtcNow + wait);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 

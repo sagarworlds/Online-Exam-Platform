@@ -168,6 +168,10 @@ public interface IAttemptRepository
     /// <returns>The answers taken; fewer than <paramref name="limit"/>, or none, when fewer are due.</returns>
     Task<IReadOnlyList<GradingClaim>> ClaimAnswersAwaitingEvaluationAsync(DateTime nowUtc, DateTime leaseUntilUtc, int limit, CancellationToken cancellationToken);
 
+    /// <summary>How many typed answers are queued for a verdict, whether a worker holds one now or it waits for its next try.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<int> CountAnswersAwaitingEvaluationAsync(CancellationToken cancellationToken);
+
     /// <summary>
     /// Lists the ids of attempts still in <see cref="AttemptStatus.Grading"/> with a typed answer that was queued at or before
     /// <paramref name="queuedBeforeUtc"/> and is still without a verdict and not held by a worker: the attempts that have waited too long.

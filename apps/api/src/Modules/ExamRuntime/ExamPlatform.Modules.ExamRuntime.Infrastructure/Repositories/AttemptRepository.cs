@@ -152,6 +152,11 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
     }
 
     /// <inheritdoc />
+    public Task<int> CountAnswersAwaitingEvaluationAsync(CancellationToken cancellationToken) =>
+        // The partial index on the answers that are waiting is what makes this cheap.
+        context.Set<AttemptAnswer>().AsNoTracking().CountAsync(a => a.EvaluationRequestedAtUtc != null, cancellationToken);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Guid>> ListGradingOverdueAsync(DateTime queuedBeforeUtc, DateTime nowUtc, int limit, CancellationToken cancellationToken) =>
         // Only attempts still in grading: an answer queued again for a submitted attempt (a key correction, a check staff asked for) keeps its
         // score meanwhile, so it can wait as long as it takes. The index on the answers that are waiting keeps this cheap.
