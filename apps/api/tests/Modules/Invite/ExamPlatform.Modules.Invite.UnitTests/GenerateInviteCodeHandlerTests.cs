@@ -3,6 +3,7 @@ using ExamPlatform.Modules.Invite.Application.Commands;
 using ExamPlatform.Modules.Invite.Application.Ports;
 using ExamPlatform.Modules.Invite.Domain;
 using ExamPlatform.Modules.Invite.Domain.Exceptions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using InviteAggregate = ExamPlatform.Modules.Invite.Domain.Invite;
@@ -19,6 +20,7 @@ public class GenerateInviteCodeHandlerTests
     private readonly IInviteUnitOfWork _unitOfWork = Substitute.For<IInviteUnitOfWork>();
     private readonly IInviteLinkBuilder _links = Substitute.For<IInviteLinkBuilder>();
     private readonly InviteAggregate _invite = new(Guid.NewGuid(), null, Email, Guid.NewGuid(), Now);
+    private readonly DirectSignInOptions _directSignIn = new();
     private readonly GenerateInviteCodeHandler _handler;
 
     public GenerateInviteCodeHandlerTests()
@@ -26,7 +28,8 @@ public class GenerateInviteCodeHandlerTests
         _invite.GenerateCode(72, Now); // the code the invitation itself went out with
         _repository.GetByIdOrThrowAsync(_invite.Id, Arg.Any<CancellationToken>()).Returns(_invite);
         _links.Build(Arg.Any<string>()).Returns(call => "https://app.example/invite?code=" + call.Arg<string>());
-        _handler = new GenerateInviteCodeHandler(_repository, _unitOfWork, _links, new FakeClock(Now));
+        _links.BuildDirect(Arg.Any<string>()).Returns(call => "https://app.example/invite/direct#code=" + call.Arg<string>());
+        _handler = new GenerateInviteCodeHandler(_repository, _unitOfWork, _links, Options.Create(_directSignIn), new FakeClock(Now));
     }
 
     [Fact]
@@ -115,5 +118,47 @@ public class GenerateInviteCodeHandlerTests
 
         Assert.Equal(400, error.HttpStatusCode);
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    // ---- direct sign-in links --------------------------------------------------------------------
+
+    [Fact]
+    public async Task DirectSignIn_ReturnsADirectCodeAndTheDirectLink_AfterSavingIt()
+    {
+        var result = await _handler.HandleAsync(new GenerateInviteCodeCommand(_invite.Id, 24, DirectSignIn: true), CancellationToken.None);
+
+        Assert.True(result.DirectSignIn);
+        Assert.Matches("^[A-Z0-9]{16}$", result.Code);
+        Assert.Equal("https://app.example/invite/direct#code=" + result.Code, result.Link);
+        Assert.True(_invite.Codes.Single(c => c.Id == result.Id).AllowsDirectSignIn);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Ordinary_IsNotADirectCode()
+    {
+        var result = await _handler.HandleAsync(new GenerateInviteCodeCommand(_invite.Id, 24), CancellationToken.None);
+
+        Assert.False(result.DirectSignIn);
+        Assert.StartsWith("https://app.example/invite?code=", result.Link);
+    }
+
+    [Fact]
+    public async Task DirectSignIn_WhenSwitchedOff_IsRefused_AndNoCodeIsMade()
+    {
+        _directSignIn.Enabled = false;
+
+        await Assert.ThrowsAsync<DirectSignInDisabledError>(
+            () => _handler.HandleAsync(new GenerateInviteCodeCommand(_invite.Id, 24, DirectSignIn: true), CancellationToken.None));
+
+        Assert.Single(_invite.Codes);
+        await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+    }
+
+    [Fact]
+    public async Task DirectSignIn_RefusesALifetimeLongerThanADirectCodeMayHave()
+    {
+        await Assert.ThrowsAsync<InvalidInviteExpiryError>(() => _handler.HandleAsync(
+            new GenerateInviteCodeCommand(_invite.Id, InviteAggregate.MaxDirectCodeExpiryHours + 1, DirectSignIn: true), CancellationToken.None));
     }
 }

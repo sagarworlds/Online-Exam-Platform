@@ -31,7 +31,7 @@ public sealed class EFInviteRepository(InviteDbContext context) : IInviteReposit
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<InviteAggregate>> ListNewestAsync(int take, CancellationToken cancellationToken = default) =>
-        await context.Invites.AsNoTracking().OrderByDescending(i => i.CreatedAt).Take(take).ToListAsync(cancellationToken);
+        await context.Invites.AsNoTracking().Include(i => i.Codes).OrderByDescending(i => i.CreatedAt).Take(take).ToListAsync(cancellationToken);
 
     // lower() on both sides, not ILIKE: an address may hold "_", which ILIKE reads as a wildcard. Tracked, because the caller changes them.
     /// <inheritdoc />
