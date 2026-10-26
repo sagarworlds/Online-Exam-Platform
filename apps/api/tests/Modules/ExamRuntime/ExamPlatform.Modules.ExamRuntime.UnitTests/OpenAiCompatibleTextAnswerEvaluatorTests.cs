@@ -92,6 +92,19 @@ public class OpenAiCompatibleTextAnswerEvaluatorTests
             return response;
         };
 
+    // What Groq answers in JSON mode when the model did not write strict JSON: a 400 that hands back what the model wrote.
+    private static Func<HttpRequestMessage, HttpResponseMessage> JsonRejected(string? failedGeneration = null) =>
+        _ => Json(HttpStatusCode.BadRequest, JsonSerializer.Serialize(new
+        {
+            error = new
+            {
+                message = "Failed to validate JSON. Please adjust your prompt. See 'failed_generation' for more details.",
+                type = "invalid_request_error",
+                code = "json_validate_failed",
+                failed_generation = failedGeneration,
+            },
+        }));
+
     // ---- what is asked ----
 
     [Fact]
@@ -366,6 +379,65 @@ public class OpenAiCompatibleTextAnswerEvaluatorTests
 
         Assert.True(first.IsPermanent);
         Assert.Equal(TypedAnswerVerdict.Correct, second.Verdict);
+    }
+
+    [Fact]
+    public async Task AModelThatIsNotThere_IsToldInTheLogHowToFindTheOnesTheKeyCanUse()
+    {
+        var rig = Build(new ScriptedHandler(Fails(HttpStatusCode.NotFound, "The model `llama-3.3-70b-versatile` does not exist or you do not have access to it.", "model_not_found")));
+
+        await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        Assert.Contains(rig.Log.Messages, line => line.Contains("https://api.groq.com/openai/v1/models", StringComparison.Ordinal));
+        Assert.Contains(rig.Log.Messages, line => line.Contains("OpenAiCompatible:Model", StringComparison.Ordinal));
+    }
+
+    // ---- JSON mode rejecting what the model wrote ----
+
+    [Fact]
+    public async Task WhenJsonModeRejectsAReplyThatHoldsAVerdict_TheVerdictIsUsed_WithoutAskingAgain()
+    {
+        // A chatty model wrapped its JSON in words, which strict JSON mode refuses and the verdict reader does not.
+        var rig = Build(new ScriptedHandler(JsonRejected("""Sure! Here is my verdict: {"verdict":"correct","reason":"Same city."} Hope that helps.""")));
+
+        var evaluation = await rig.Evaluator.EvaluateAsync(Request, CancellationToken.None);
+
+        Assert.Equal(TypedAnswerVerdict.Correct, evaluation.Verdict);
+        Assert.Equal("Same city.", evaluation.Reason);
+        Assert.Single(rig.Handler.Requests);
+        Assert.Empty(rig.Waits);
+        Assert.Equal(ProviderState.Ready, rig.Gate.State);
+        // What the model wrote can echo the candidate's answer, so it is read and never logged.
+        Assert.DoesNotContain(rig.Log.Messages, line => line.Contains("Here is my verdict", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task WhenJsonModeRejectsAReplyWithNoVerdictInIt_TheNextTryIsAskedInPlainWords()
+    {
+        var rig = Build(new ScriptedHandler(JsonRejected("{\"verdict\": \"correct\", \"reason\": \"unfinished"), Reply("""{"verdict":"wrong","reason":"A different river."}""")));
+
+        var evaluation = await rig.Evaluator.EvaluateAsync(Request, CancellationToken.None);
+
+        Assert.Equal(TypedAnswerVerdict.Wrong, evaluation.Verdict);
+        Assert.Equal(2, rig.Handler.Requests.Count);
+        // Strict JSON mode is asked for the first time and not the second, which is what lets a model that cannot keep to it answer.
+        Assert.Contains("response_format", rig.Handler.Bodies[0], StringComparison.Ordinal);
+        Assert.DoesNotContain("response_format", rig.Handler.Bodies[1], StringComparison.Ordinal);
+        Assert.Single(rig.Waits);
+        Assert.Equal(ProviderState.Ready, rig.Gate.State);
+    }
+
+    [Fact]
+    public async Task AModelThatKeepsBreakingItsJson_IsNotRefusedForGood_ItJustHasNoVerdictYet()
+    {
+        var rig = Build(new ScriptedHandler(JsonRejected()));
+
+        var failure = await Assert.ThrowsAsync<TextEvaluationException>(() => rig.Evaluator.EvaluateAsync(Request, CancellationToken.None));
+
+        // Tried again later, not given up on, and the model is not left alone as one the key cannot use.
+        Assert.False(failure.IsPermanent);
+        Assert.Equal(4, rig.Handler.Requests.Count);
+        Assert.NotEqual(ProviderState.Unusable, rig.Gate.State);
     }
 
     [Fact]

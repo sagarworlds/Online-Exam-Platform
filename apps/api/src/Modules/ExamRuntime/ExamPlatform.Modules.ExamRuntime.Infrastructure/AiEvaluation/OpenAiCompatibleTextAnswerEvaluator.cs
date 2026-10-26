@@ -73,6 +73,9 @@ public sealed class OpenAiCompatibleTextAnswerEvaluator : IGatedTextAnswerEvalua
     /// <inheritdoc />
     public bool IsEnabled => _options.Value.IsEnabled;
 
+    // Where the service lists the models a key can use, named in the log when one is refused as not there.
+    private string ModelsAddress => $"{_options.Value.BaseUrl.TrimEnd('/')}/models";
+
     /// <inheritdoc />
     public async Task<TextEvaluation> EvaluateAsync(TextEvaluationRequest request, CancellationToken cancellationToken)
     {
@@ -81,14 +84,24 @@ public sealed class OpenAiCompatibleTextAnswerEvaluator : IGatedTextAnswerEvalua
             throw new InvalidOperationException($"The AI evaluator is not set up: {OpenAiCompatibleOptions.SectionName}:ApiKey is empty or {OpenAiCompatibleOptions.SectionName}:Enabled is false.");
 
         var address = new Uri($"{settings.BaseUrl.TrimEnd('/')}/chat/completions");
-        var body = BuildBody(request, settings);
+        var format = new ReplyFormat(settings.JsonMode);
 
         var plan = new CallPlan(Gate, settings.MaxTries, settings.RetryBaseDelaySeconds, settings.RetryMaxDelaySeconds, _wait, _logger);
-        return await CallLoop.RunAsync(plan, token => TryOnceAsync(address, body, settings, token), cancellationToken);
+        return await CallLoop.RunAsync(plan, token => TryOnceAsync(address, request, format, settings, token), cancellationToken);
     }
 
-    private async Task<Outcome> TryOnceAsync(Uri address, string body, OpenAiCompatibleOptions settings, CancellationToken cancellationToken)
+    /// <summary>
+    /// Whether the rest of one call still asks the service for JSON mode. It starts as the setting says, and is switched off for the call's
+    /// remaining tries when the service rejects a reply as not valid JSON, so a model that cannot keep to JSON mode is asked again in plain words.
+    /// </summary>
+    private sealed class ReplyFormat(bool jsonMode)
     {
+        public bool JsonMode { get; set; } = jsonMode;
+    }
+
+    private async Task<Outcome> TryOnceAsync(Uri address, TextEvaluationRequest request, ReplyFormat format, OpenAiCompatibleOptions settings, CancellationToken cancellationToken)
+    {
+        var body = BuildBody(request, format.JsonMode);
         using var message = new HttpRequestMessage(HttpMethod.Post, address) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
         // In a header, never in the address: nothing that names the address, such as a log line or an exception message, can then carry the key.
         message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey);
@@ -101,7 +114,7 @@ public sealed class OpenAiCompatibleTextAnswerEvaluator : IGatedTextAnswerEvalua
         {
             using var response = await _httpClient.SendAsync(message, timeout.Token);
             var content = await response.Content.ReadAsStringAsync(timeout.Token);
-            return response.IsSuccessStatusCode ? ReadReply(content) : ReadFailure(response, content);
+            return response.IsSuccessStatusCode ? ReadReply(content) : ReadFailure(response, content, format);
         }
         catch (HttpRequestException)
         {
@@ -114,7 +127,7 @@ public sealed class OpenAiCompatibleTextAnswerEvaluator : IGatedTextAnswerEvalua
         }
     }
 
-    private string BuildBody(TextEvaluationRequest request, OpenAiCompatibleOptions settings)
+    private string BuildBody(TextEvaluationRequest request, bool jsonMode)
     {
         var payload = new Dictionary<string, object?>
         {
@@ -128,13 +141,13 @@ public sealed class OpenAiCompatibleTextAnswerEvaluator : IGatedTextAnswerEvalua
             },
         };
 
-        if (settings.JsonMode)
+        if (jsonMode)
             payload["response_format"] = new { type = "json_object" };
 
         return JsonSerializer.Serialize(payload);
     }
 
-    private Outcome ReadFailure(HttpResponseMessage response, string content)
+    private Outcome ReadFailure(HttpResponseMessage response, string content, ReplyFormat format)
     {
         var code = (int)response.StatusCode;
         var error = ReadError(content);
@@ -154,14 +167,39 @@ public sealed class OpenAiCompatibleTextAnswerEvaluator : IGatedTextAnswerEvalua
         if (code is 408 or 409 or 498 or >= 500)
             return Outcome.Failed(FailureKind.Overloaded, summary, NamedWait(response, error.Message), detail);
 
+        if (code == 400 && string.Equals(error.Code, "json_validate_failed", StringComparison.OrdinalIgnoreCase))
+            return ReadRejectedJson(error, summary, detail, format);
+
         // Every other refusal will be refused again until something is changed. A key it rejects, a model it does not have, one that has been
         // retired, or one that does not take the reply format asked for are about the setup, so the whole model is left alone; anything else
         // is about this one request.
         var aboutTheSetup = code is 401 or 403 or 404 || (code == 400 && IsAboutTheSetup(error));
         _logger.LogError(
-            "The AI evaluator was refused (status {StatusCode} {ErrorCode}): {Reason}. Asking again will not help until this is changed.",
-            code, error.Code ?? error.Type ?? "unknown", Shorten(error.Message) ?? "no reason given");
+            "The AI evaluator was refused (status {StatusCode} {ErrorCode}): {Reason}. Asking again will not help until this is changed. If it is the model, "
+            + "the models this key can use are listed by GET {ModelsAddress}; set the one to use as OpenAiCompatible:Model.",
+            code, error.Code ?? error.Type ?? "unknown", Shorten(error.Message) ?? "no reason given", ModelsAddress);
         return Outcome.Failed(aboutTheSetup ? FailureKind.Refused : FailureKind.RefusedRequest, summary, null, detail);
+    }
+
+    // In JSON mode the service answers 400 "json_validate_failed" when the model did not write strict JSON, and hands back what it did write.
+    // That is the model having an off moment (a chatty one wraps its JSON in words, a small one drops a quote), not a refusal of the request or a
+    // setting to change, so it is not treated as one. What the model wrote is read as a verdict if it holds one, which the tolerant reader finds
+    // even in words around it; otherwise the next try asks in plain words, with no JSON mode, which the reader accepts just as well. What the
+    // model wrote can echo the candidate's answer, so it is read and never logged.
+    private Outcome ReadRejectedJson(OpenAiError error, string summary, string detail, ReplyFormat format)
+    {
+        if (error.FailedGeneration is { } written)
+        {
+            var read = VerdictReader.Read(Thinking.Replace(written, string.Empty), _model);
+            if (read.Evaluation is { } evaluation)
+            {
+                _logger.LogDebug("JSON mode rejected the AI evaluator's reply but it held a verdict ({Verdict}, {Model}).", evaluation.Verdict, _model);
+                return Outcome.Done(evaluation);
+            }
+        }
+
+        format.JsonMode = false;
+        return Outcome.Failed(FailureKind.BadReply, summary, null, detail);
     }
 
     private static bool IsAboutTheSetup(OpenAiError error) =>
@@ -218,7 +256,7 @@ public sealed class OpenAiCompatibleTextAnswerEvaluator : IGatedTextAnswerEvalua
         }
     }
 
-    private readonly record struct OpenAiError(string? Message, string? Type, string? Code, bool QuotaExhausted);
+    private readonly record struct OpenAiError(string? Message, string? Type, string? Code, bool QuotaExhausted, string? FailedGeneration = null);
 
     private static OpenAiError ReadError(string content)
     {
@@ -240,7 +278,7 @@ public sealed class OpenAiCompatibleTextAnswerEvaluator : IGatedTextAnswerEvalua
                 || (message?.Contains("(TPD)", StringComparison.Ordinal) ?? false)
                 || (code?.Contains("insufficient_quota", StringComparison.OrdinalIgnoreCase) ?? false)
                 || (type?.Contains("insufficient_quota", StringComparison.OrdinalIgnoreCase) ?? false);
-            return new OpenAiError(message, type, code, daily);
+            return new OpenAiError(message, type, code, daily, Text("failed_generation"));
         }
         catch (JsonException)
         {
