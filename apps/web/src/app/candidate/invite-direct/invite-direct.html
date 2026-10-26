@@ -1,0 +1,18 @@
+<div class="page">
+  <h1>{{ 'inviteDirect.title' | t }}</h1>
+
+  <section class="card" [attr.aria-busy]="failure() === null">
+    @if (failure(); as kind) {
+      <p class="error-message" role="alert">{{ messageKey(kind) | t }}</p>
+      @if (canRetry(kind)) {
+        <button type="button" class="primary auth-submit" (click)="retry()">{{ 'inviteDirect.retry' | t }}</button>
+      } @else {
+        <a class="btn btn--primary auth-submit" routerLink="/login" [queryParams]="{ returnUrl: '/my-exams' }">
+          {{ 'inviteDirect.signIn' | t }}
+        </a>
+      }
+    } @else {
+      <p role="status">{{ 'inviteDirect.signing' | t }}</p>
+    }
+  </section>
+</div>

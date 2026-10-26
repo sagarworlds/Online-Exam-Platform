@@ -8,7 +8,9 @@ namespace ExamPlatform.Modules.Invite.Application.Dtos;
 /// created. <c>WhatsAppSent</c> says whether the code was also handed to WhatsApp for the invited person's registered phone
 /// number, and is set the same way. <c>InviteLink</c> and <c>InviteCode</c> (the code the link carries) are what to pass on by
 /// hand and are only present when neither could be sent, so the credential is not handed back to the inviter when it has already
-/// been delivered. An inviter who wants to hand a code over anyway asks for another one (<see cref="InviteCodeDto"/>).
+/// been delivered. An inviter who wants to hand a code over anyway asks for another one (<see cref="InviteCodeDto"/>). The one exception is
+/// a direct sign-in link: when the inviter asked for one, <c>InviteLink</c> is that link even when it was delivered, so they can pass it on
+/// by hand. <c>HasDirectLink</c> says whether any direct sign-in link was made for the invite, whatever has become of it since.
 /// </remarks>
 public record InviteDto(
     Guid Id,
@@ -25,7 +27,8 @@ public record InviteDto(
     bool EmailSent = false,
     string? InviteLink = null,
     bool WhatsAppSent = false,
-    string? InviteCode = null
+    string? InviteCode = null,
+    bool HasDirectLink = false
 );
 
 /// <summary>An invite code, as staff who ask for one to hand over see it.</summary>
@@ -35,11 +38,13 @@ public record InviteDto(
 /// <param name="UsedAt">When it was redeemed, if it has been.</param>
 /// <param name="RevokedAt">When it was revoked, if it has been.</param>
 /// <param name="Link">The same code as the link the invitation e-mail carries; set when a code is generated.</param>
+/// <param name="DirectSignIn">Whether <paramref name="Link"/> signs the invited person in when it is opened.</param>
 public record InviteCodeDto(
     Guid Id,
     string Code,
     DateTime ExpiresAt,
     DateTime? UsedAt,
     DateTime? RevokedAt,
-    string? Link = null
+    string? Link = null,
+    bool DirectSignIn = false
 );

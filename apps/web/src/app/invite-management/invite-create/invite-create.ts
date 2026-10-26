@@ -1,13 +1,15 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { AuthSessionService } from '../../auth/auth-session.service';
+import { Permission } from '../../auth/admin-sections';
 import { ExamApiService } from '../../exam-authoring/exam-api.service';
 import { ExamDto } from '../../exam-authoring/exam.models';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { InviteApiService } from '../invite-api.service';
 import { InviteHandover } from '../invite-handover/invite-handover';
-import { InviteCodeDto, InviteDto } from '../invite.models';
+import { CreateInviteRequest, InviteCodeDto, InviteDto } from '../invite.models';
 import { I18nService } from '../../i18n/i18n.service';
 
 /**
@@ -25,6 +27,13 @@ export class InviteCreate {
   private readonly i18n = inject(I18nService);
   private readonly inviteApi = inject(InviteApiService);
   private readonly examApi = inject(ExamApiService);
+  private readonly authSession = inject(AuthSessionService);
+
+  /**
+   * Whether the signed-in staff member may send a link that signs the student in. Decides only whether the box is offered; the API
+   * checks the permission again on every request.
+   */
+  protected readonly canDirectLink = computed(() => this.authSession.hasPermission(Permission.InviteDirectLink));
 
   protected readonly exams = signal<ExamDto[]>([]);
   protected readonly loading = signal(true);
@@ -39,6 +48,7 @@ export class InviteCreate {
   protected readonly form = this.formBuilder.nonNullable.group({
     examId: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
+    directSignIn: [false],
   });
 
   constructor() {
@@ -53,6 +63,11 @@ export class InviteCreate {
         this.errorMessage.set(extractErrorMessage(error, this.i18n.t('common.somethingWrong')));
       },
     });
+  }
+
+  /** The code a direct link carries, to show beside it; the link has it in its fragment. */
+  protected codeOf(link: string): string {
+    return new URLSearchParams(link.split('#')[1] ?? '').get('code') ?? '';
   }
 
   protected copyCode(invite: InviteDto): void {
@@ -85,7 +100,10 @@ export class InviteCreate {
     this.created.set(null);
     this.handover.set(null);
 
-    this.inviteApi.createInvite(this.form.getRawValue()).subscribe({
+    const { examId, email, directSignIn } = this.form.getRawValue();
+    // Only a request that ticks the box says anything about it, so an ordinary invitation is exactly what it was.
+    const request: CreateInviteRequest = this.canDirectLink() && directSignIn ? { examId, email, directSignIn: true } : { examId, email };
+    this.inviteApi.createInvite(request).subscribe({
       next: (invite) => {
         this.saving.set(false);
         this.created.set(invite);

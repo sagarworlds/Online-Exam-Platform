@@ -246,7 +246,8 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
 
     // Routes that need no sign-in at all: a guardian has no account, so the one-time code e-mailed to them is the only proof.
     // They are listed here so that adding one is a decision, and the test checks that they really are open.
-    private static readonly string[] PublicRoutes = ["POST /v1/guardian-links/verify", "GET /v1/branding", "GET /v1/branding/logo"];
+    private static readonly string[] PublicRoutes =
+        ["POST /v1/guardian-links/verify", "POST /v1/invites/direct-sign-in", "GET /v1/branding", "GET /v1/branding/logo"];
 
     private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/proctoring", "/v1/me/notifications", "/v1/me/analytics", "/v1/me/data-requests", "/v1/data-requests", "/v1/branding", "/v1/instruction-templates", "/v1/incidents", "/v1/admin/students"];
 

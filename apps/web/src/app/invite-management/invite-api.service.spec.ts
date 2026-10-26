@@ -24,6 +24,23 @@ describe('InviteApiService', () => {
     expect(req.request.body).toEqual({ examId: 'exam-123', email: 'test@example.com' });
   });
 
+  it('asks for a direct sign-in code only when told to, so an ordinary request is unchanged', () => {
+    service.generateCode('invite-123', 24).subscribe();
+    service.generateCode('invite-123', 24, true).subscribe();
+
+    const [ordinary, direct] = httpMock.match(`${environment.apiBaseUrl}/v1/invites/invite-123/codes`);
+    expect(ordinary.request.body).toEqual({ expiryHours: 24 });
+    expect(direct.request.body).toEqual({ expiryHours: 24, directSignIn: true });
+  });
+
+  it('opens a direct sign-in link on the anonymous route, with only the code', () => {
+    service.directSignIn('ABCD1234EFGH5678').subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/invites/direct-sign-in`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ code: 'ABCD1234EFGH5678' });
+  });
+
   it('lists the invites', () => {
     service.getInvites().subscribe();
 

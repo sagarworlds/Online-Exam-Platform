@@ -24,6 +24,13 @@ public sealed class User : AggregateRoot
     /// <summary>The longest display name an account can hold, after trimming.</summary>
     public const int MaxDisplayNameLength = 200;
 
+    /// <summary>
+    /// The date of birth stored for an account made without anyone giving one: the first administrator, and a student whose account an
+    /// invitation link creates. The account model requires one (it drives the age band used for guardian consent), so this is a fixed
+    /// adult placeholder. A student with this value is never treated as a minor, so staff correct it where a real one matters.
+    /// </summary>
+    public static readonly DateOnly PlaceholderAdultDateOfBirth = new(1980, 1, 1);
+
     private readonly List<Role> _roles = [];
     private readonly List<UserSession> _sessions = [];
 

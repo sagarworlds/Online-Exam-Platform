@@ -8,6 +8,7 @@ using ExamPlatform.Modules.Invite.Domain;
 using ExamPlatform.Modules.Invite.Domain.Exceptions;
 using ExamPlatform.SharedKernel.Application;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using InviteAggregate = ExamPlatform.Modules.Invite.Domain.Invite;
 
 namespace ExamPlatform.Modules.Invite.Application.Commands;
@@ -26,6 +27,7 @@ public sealed class CreateInviteHandler(
     IContactDirectory contacts,
     IInAppNotifier inAppNotifier,
     IInviteLinkBuilder linkBuilder,
+    IOptions<DirectSignInOptions> directSignIn,
     Clock clock,
     ILogger<CreateInviteHandler> logger)
 {
@@ -35,11 +37,19 @@ public sealed class CreateInviteHandler(
     /// <summary>Creates the invite with its first code, stores it, then tries to e-mail the link and to send the code on WhatsApp.</summary>
     /// <param name="command">The invite to create.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The invite; its link and code are included only when neither the e-mail nor the WhatsApp message could be sent.</returns>
+    /// <returns>
+    /// The invite; its link and code are included only when neither the e-mail nor the WhatsApp message could be sent, except that a
+    /// direct sign-in link is always included, because the inviter asked for it to pass on by hand.
+    /// </returns>
     /// <exception cref="InvalidInviteEmailError"><see cref="CreateInviteCommand.Email"/> is not a valid e-mail address.</exception>
     /// <exception cref="InviteExamNotFoundError">The exam does not exist.</exception>
+    /// <exception cref="DirectSignInDisabledError">A direct sign-in link was asked for and the host has switched them off.</exception>
     public async Task<InviteDto> HandleAsync(CreateInviteCommand command, CancellationToken cancellationToken)
     {
+        // Before anything is parsed or stored, so a refused request leaves nothing behind.
+        if (command.DirectSignIn && !directSignIn.Value.Enabled)
+            throw new DirectSignInDisabledError();
+
         var email = InviteEmailAddress.Parse(command.Email);
 
         var exam = await examCatalog.FindAsync(command.ExamId, cancellationToken)
@@ -47,14 +57,15 @@ public sealed class CreateInviteHandler(
 
         var nowUtc = clock.UtcNow;
         var invite = new InviteAggregate(command.ExamId, command.BatchMemberId, email, command.CreatedByUserId, nowUtc);
-        var code = invite.GenerateCode(DefaultCodeExpiryHours, nowUtc);
+        var code = invite.GenerateCode(DefaultCodeExpiryHours, nowUtc, command.DirectSignIn);
 
         repository.Add(invite);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         // After the save, so a mail failure can never lose the invite; the inviter gets the link to pass on instead.
-        var link = linkBuilder.Build(code.Code);
-        var sent = await notifier.SendAsync(new InviteEmail(invite.Email, exam.Name, link, code.ExpiresAt), cancellationToken);
+        var link = command.DirectSignIn ? linkBuilder.BuildDirect(code.Code) : linkBuilder.Build(code.Code);
+        var sent = await notifier.SendAsync(
+            new InviteEmail(invite.Email, exam.Name, link, code.ExpiresAt, command.DirectSignIn), cancellationToken);
         var whatsAppSent = await TrySendOnWhatsAppAsync(invite, exam.Name, code, link, cancellationToken);
         await TellAccountHolderAsync(invite, exam.Name, cancellationToken);
 
@@ -68,7 +79,10 @@ public sealed class CreateInviteHandler(
         {
             EmailSent = sent,
             WhatsAppSent = whatsAppSent,
-            InviteLink = delivered ? null : link,
+
+            // A direct link is the one credential the inviter is given even when it was delivered: asking for it is how they get to pass
+            // it on themselves, and it is only made by someone allowed to.
+            InviteLink = delivered && !command.DirectSignIn ? null : link,
             InviteCode = delivered ? null : code.Code,
         };
     }
@@ -116,7 +130,11 @@ public sealed class CreateInviteHandler(
 /// makes a new single-use code (the ones already sent are never read back), and the audit trail records who asked.
 /// </summary>
 public sealed class GenerateInviteCodeHandler(
-    IInviteRepository repository, IInviteUnitOfWork unitOfWork, IInviteLinkBuilder linkBuilder, Clock clock)
+    IInviteRepository repository,
+    IInviteUnitOfWork unitOfWork,
+    IInviteLinkBuilder linkBuilder,
+    IOptions<DirectSignInOptions> directSignIn,
+    Clock clock)
 {
     /// <summary>Generates the code and stores it.</summary>
     /// <param name="command">The invite and the code lifetime.</param>
@@ -125,13 +143,18 @@ public sealed class GenerateInviteCodeHandler(
     /// <exception cref="InviteNotFoundError">No invite has that id.</exception>
     /// <exception cref="InvalidInviteExpiryError">The lifetime is outside the allowed range.</exception>
     /// <exception cref="InviteStateError">The invite is no longer pending, so a new code could never be redeemed.</exception>
+    /// <exception cref="DirectSignInDisabledError">A direct sign-in code was asked for and the host has switched them off.</exception>
     public async Task<InviteCodeDto> HandleAsync(GenerateInviteCodeCommand command, CancellationToken cancellationToken)
     {
+        if (command.DirectSignIn && !directSignIn.Value.Enabled)
+            throw new DirectSignInDisabledError();
+
         var invite = await repository.GetByIdOrThrowAsync(command.InviteId, cancellationToken);
-        var code = invite.AddCode(command.ExpiryHours, clock.UtcNow);
+        var code = invite.AddCode(command.ExpiryHours, clock.UtcNow, command.DirectSignIn);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return new InviteCodeDto(code.Id, code.Code, code.ExpiresAt, code.UsedAt, code.RevokedAt, linkBuilder.Build(code.Code));
+        var link = command.DirectSignIn ? linkBuilder.BuildDirect(code.Code) : linkBuilder.Build(code.Code);
+        return new InviteCodeDto(code.Id, code.Code, code.ExpiresAt, code.UsedAt, code.RevokedAt, link, command.DirectSignIn);
     }
 }
 
@@ -158,6 +181,59 @@ public sealed class AcceptInviteHandler(IInviteRepository repository, IInviteUni
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return invite.ToDto(examName: null);
+    }
+}
+
+/// <summary>
+/// Handles <see cref="DirectSignInCommand"/>: the person who opened a direct sign-in link is signed in as the owner of the invited
+/// address, and the invitation is accepted for them, so the next thing they see is their exam. Nobody is signed in yet, so the link
+/// is the only proof, and everything that can refuse is checked before the code is spent.
+/// </summary>
+public sealed class DirectSignInHandler(
+    IInviteRepository repository,
+    IInviteUnitOfWork unitOfWork,
+    IDirectSignIn directSignIn,
+    IOptions<DirectSignInOptions> options,
+    Clock clock)
+{
+    /// <summary>Checks the code, settles the account, spends the code, then starts the session.</summary>
+    /// <param name="command">The code from the link and where it was opened from.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The access token, its session and the exam to open.</returns>
+    /// <exception cref="DirectSignInDisabledError">The host has switched direct sign-in links off.</exception>
+    /// <exception cref="InvalidInviteCodeError">
+    /// No invite has the code, or it is used, revoked, expired, or not a direct sign-in code. A caller who guesses cannot tell these apart.
+    /// </exception>
+    /// <exception cref="InviteStateError">The invite was already accepted, declined or revoked another way.</exception>
+    /// <exception cref="ExamPlatform.SharedKernel.Domain.DomainException">
+    /// The account behind the address is locked, or is not a student's, or is ambiguous; the code is left unspent in each case.
+    /// </exception>
+    public async Task<DirectSignInResultDto> HandleAsync(DirectSignInCommand command, CancellationToken cancellationToken)
+    {
+        if (!options.Value.Enabled)
+            throw new DirectSignInDisabledError();
+
+        var code = command.Code?.Trim().ToUpperInvariant();
+
+        // An unknown code, a spent one and an ordinary one all answer the same way.
+        var invite = string.IsNullOrEmpty(code) ? null : await repository.GetByCodeAsync(code, cancellationToken);
+        if (invite is null)
+            throw new InvalidInviteCodeError("the code is not valid");
+
+        var nowUtc = clock.UtcNow;
+        invite.EnsureDirectSignInPossible(code, nowUtc);
+
+        // Before the code is spent: a locked or staff account is refused here, and the code stays usable for whoever it was meant for.
+        var account = await directSignIn.FindOrCreateStudentAsync(invite.Email, cancellationToken);
+
+        // The single-use guard. Two clicks at once cannot both win: the loser's save fails on the invite's row version.
+        invite.AcceptByDirectLink(code, account.UserId, account.Created, nowUtc);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // If this fails the invitation is accepted and the student is enrolled; they sign in the ordinary way and find the exam waiting.
+        var session = await directSignIn.StartSessionAsync(account.UserId, command.DeviceFingerprint, command.IpAddress, cancellationToken);
+
+        return new DirectSignInResultDto(session.AccessToken, session.SessionId, invite.ExamId);
     }
 }
 

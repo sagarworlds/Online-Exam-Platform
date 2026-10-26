@@ -6,6 +6,14 @@
   }
 
   @if (created(); as invite) {
+    <!-- A direct link is shown even when it was delivered: the staff member asked for it, to pass on by hand. -->
+    @if ((invite.emailSent || invite.whatsAppSent) && invite.hasDirectLink && invite.inviteLink; as directLink) {
+      <div class="card">
+        <p>{{ 'invites.create.directLinkReady' | t: { email: invite.email } }}</p>
+        <app-invite-handover [code]="codeOf(directLink)" [link]="directLink" [email]="invite.email" [directSignIn]="true" />
+      </div>
+    }
+
     @if (invite.emailSent || invite.whatsAppSent) {
       @if (invite.emailSent) {
         <p class="success-message">
@@ -39,7 +47,7 @@
         <p class="success-message">{{ 'invites.create.noEmail' | t: { email: invite.email } }}</p>
         <p>{{ 'invites.create.sendYourself' | t }}</p>
         @if (invite.inviteCode; as inviteCode) {
-          <app-invite-handover [code]="inviteCode" [link]="invite.inviteLink" [email]="invite.email" />
+          <app-invite-handover [code]="inviteCode" [link]="invite.inviteLink" [email]="invite.email" [directSignIn]="invite.hasDirectLink === true" />
         }
       </div>
     }
@@ -65,6 +73,16 @@
         <label for="invite-email">{{ 'invites.create.email' | t }}</label>
         <input id="invite-email" type="email" formControlName="email" autocomplete="off" />
       </div>
+
+      @if (canDirectLink()) {
+        <div class="field field--check">
+          <label for="invite-direct">
+            <input id="invite-direct" type="checkbox" formControlName="directSignIn" aria-describedby="invite-direct-hint" />
+            {{ 'invites.create.direct' | t }}
+          </label>
+          <p id="invite-direct-hint" class="field-hint">{{ 'invites.create.directHint' | t }}</p>
+        </div>
+      }
 
       <button type="submit" class="primary" [disabled]="form.invalid || saving()">{{ 'invites.create.send' | t }}</button>
     </form>

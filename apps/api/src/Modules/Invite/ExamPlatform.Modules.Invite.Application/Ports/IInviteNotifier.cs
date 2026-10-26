@@ -5,7 +5,8 @@ namespace ExamPlatform.Modules.Invite.Application.Ports;
 /// <param name="ExamName">The exam's name, for the subject and body.</param>
 /// <param name="Link">The link that carries the invite code.</param>
 /// <param name="ExpiresAtUtc">When the link stops working.</param>
-public sealed record InviteEmail(string To, string ExamName, string Link, DateTime ExpiresAtUtc);
+/// <param name="DirectSignIn">Whether the link signs the invited person in when it is opened, which the message says.</param>
+public sealed record InviteEmail(string To, string ExamName, string Link, DateTime ExpiresAtUtc, bool DirectSignIn = false);
 
 /// <summary>Delivers invitation e-mails (FR-14, FR-39). Real delivery is optional: with no SMTP configured nothing is sent.</summary>
 public interface IInviteNotifier
@@ -24,7 +25,15 @@ public interface IInviteNotifier
 /// <summary>Builds the link a candidate opens to accept an invitation.</summary>
 public interface IInviteLinkBuilder
 {
-    /// <summary>The web link for a code.</summary>
+    /// <summary>The web link for a code: it opens the invitation page, where the person signs in and accepts.</summary>
     /// <param name="code">The invite code.</param>
     string Build(string code);
+
+    /// <summary>
+    /// The web link for a direct sign-in code: opening it signs the invited person in, accepts the invitation and goes to the exam. The
+    /// code is a credential, so it travels in the link's fragment, which a browser never sends to a server: it stays out of access logs
+    /// and out of the <c>Referer</c> header.
+    /// </summary>
+    /// <param name="code">The direct sign-in code.</param>
+    string BuildDirect(string code);
 }

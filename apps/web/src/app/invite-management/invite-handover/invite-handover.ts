@@ -33,6 +33,9 @@ export class InviteHandover {
   /** When the code stops working, if known. */
   readonly expiresAt = input<string | null>(null);
 
+  /** Whether the link signs the invited person in when it is opened, which the hint then says instead of "works for the account that holds…". */
+  readonly directSignIn = input(false);
+
   /** Copy each code as it arrives, for a panel that shows up because someone clicked "copy the code". */
   readonly autoCopy = input(false);
 

@@ -13,7 +13,14 @@ internal sealed class ConfigurationInviteLinkBuilder(IConfiguration configuratio
     private const string DefaultBaseUrl = "http://localhost:4200";
 
     /// <inheritdoc />
-    public string Build(string code)
+    public string Build(string code) => $"{BaseUrl()}/invite?code={Uri.EscapeDataString(code)}";
+
+    // In the fragment, not the query: this code signs someone in, and a browser never sends a fragment to a server, so it stays out of
+    // access logs and Referer headers. The web page reads it and takes it off the address.
+    /// <inheritdoc />
+    public string BuildDirect(string code) => $"{BaseUrl()}/invite/direct#code={Uri.EscapeDataString(code)}";
+
+    private string BaseUrl()
     {
         var baseUrl = configuration["Invite:LinkBaseUrl"];
         if (string.IsNullOrWhiteSpace(baseUrl))
@@ -21,6 +28,6 @@ internal sealed class ConfigurationInviteLinkBuilder(IConfiguration configuratio
         if (string.IsNullOrWhiteSpace(baseUrl))
             baseUrl = DefaultBaseUrl;
 
-        return $"{baseUrl.TrimEnd('/')}/invite?code={Uri.EscapeDataString(code)}";
+        return baseUrl.TrimEnd('/');
     }
 }

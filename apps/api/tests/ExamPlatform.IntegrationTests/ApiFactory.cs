@@ -60,6 +60,9 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             ["Identity:RateLimits:PasswordLogin:PermitLimit"] = "100000",
             ["Identity:RateLimits:PasswordReset:PermitLimit"] = "100000",
 
+            // The Invite module's direct sign-in route, for the same reason; DirectSignInRateLimitTests brings it back down.
+            ["Invite:RateLimits:DirectSignIn:PermitLimit"] = "100000",
+
             // The host's own notification timer (FR-39) would send e-mails in the background of every suite; the tests that look at
             // notifications run a pass themselves, at a time they choose.
             ["Notifications:Enabled"] = "false",
