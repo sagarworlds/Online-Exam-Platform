@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using ExamPlatform.Modules.Identity.Application;
 using ExamPlatform.Modules.Identity.Application.Commands;
 using ExamPlatform.Modules.Identity.Application.Ports;
@@ -15,7 +17,7 @@ public class RequestPasswordResetHandlerTests
     private readonly User _user = User.Register(Email, null, new DateOnly(1990, 1, 1), "Staff", Now.AddDays(-30));
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IPasswordResetTokenRepository _tokenRepository = Substitute.For<IPasswordResetTokenRepository>();
-    private readonly IOtpSender _sender = Substitute.For<IOtpSender>();
+    private readonly IPasswordResetSender _sender = Substitute.For<IPasswordResetSender>();
     private readonly IIdentityUnitOfWork _unitOfWork = Substitute.For<IIdentityUnitOfWork>();
     private readonly RequestPasswordResetHandler _handler;
 
@@ -56,8 +58,33 @@ public class RequestPasswordResetHandlerTests
                 Arg.Is<PasswordResetToken>(t => t.UserId == _user.Id && t.IsUsable(Now)), Arg.Any<CancellationToken>());
         });
         await _tokenRepository.DidNotReceiveWithAnyArgs().GetOutstandingForUserAsync(default, default, default);
-        await _sender.Received(1).SendAsync(OtpChannel.Email, Email, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _sender.Received(1).SendAsync(Email, Arg.Any<string>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_SendsTheCodeOfTheIssuedToken_AndTheLifetimeItReallyHas()
+    {
+        _user.SetPasswordHash("hashed-password");
+        PasswordResetToken? issued = null;
+        await _tokenRepository.AddAsync(Arg.Do<PasswordResetToken>(token => issued = token), Arg.Any<CancellationToken>());
+        string? code = null;
+        TimeSpan? validity = null;
+        await _sender.SendAsync(
+            Email, Arg.Do<string>(sent => code = sent), Arg.Do<TimeSpan>(sent => validity = sent), Arg.Any<CancellationToken>());
+
+        await _handler.HandleAsync(new RequestPasswordResetCommand(Email), CancellationToken.None);
+
+        // "{tokenId}:{secret}": the id finds the stored token, and the secret is what the stored hash was made from.
+        Assert.NotNull(issued);
+        Assert.NotNull(code);
+        var parts = code.Split(':');
+        Assert.Equal(2, parts.Length);
+        Assert.Equal(issued.Id, Guid.Parse(parts[0]));
+        Assert.Equal(issued.TokenHash, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(parts[1]))));
+
+        // The message states this lifetime, so it has to be the one the token has: the e-mail once said 10 minutes for a 30-minute code.
+        Assert.Equal(issued.ExpiresAtUtc - Now, validity);
     }
 
     private void AssertNothingIssued()

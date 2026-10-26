@@ -116,6 +116,9 @@ export const MR: Messages = {
   'reset.codeHint': 'ईमेलमधील संपूर्ण कोड पेस्ट करा. त्यात कोलनने (:) जोडलेले दोन भाग असतात.',
   'reset.codeRequired': 'ईमेलमधील रीसेट कोड पेस्ट करा.',
   'reset.codeMalformed': 'हा पूर्ण रीसेट कोड नाही. ईमेलमधील संपूर्ण कोड पेस्ट करा.',
+  // Marathi: still English, pending translation (pending-translations.ts).
+  'reset.codeFromLink': 'Your reset code was filled in from the link in your email. Choose your new password below.',
+  'reset.codeByHand': 'Enter the code by hand instead',
   'reset.newPassword': 'नवीन पासवर्ड',
   'reset.passwordHint': '{min} ते {max} अक्षरे वापरा, आणि ईमेलमधील @ च्या आधीचा भाग वापरू नका. काही असंबंधित शब्द एकत्र केल्यास मजबूत आणि लक्षात राहणारा पासफ्रेज होतो.',
   'reset.passwordRequired': 'नवीन पासवर्ड टाका.',

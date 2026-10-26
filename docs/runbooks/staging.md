@@ -49,7 +49,7 @@ A fresh deployed database has no staff account, and the development bootstrap ad
 
 1. Check that the API has started once and logged `Migrated and seeded <Module>` for every module (the check list below), and that the staging mail settings are set (`Brevo__ApiKey`, `Brevo__SenderEmail`). The job refuses to run without a mail server, because the e-mail it sends is the only way in.
 2. In the staging API's shell (or as a one-off job, on the paid plan), run: `cd /app && dotnet ExamPlatform.Api.dll --create-first-administrator <the address>`. Use an address you can read, in the case you will sign in with.
-3. The log says `Created the first administrator` with the address masked. Open the e-mail, copy its code, open the staging site's `/password-reset/confirm` page, paste the code and choose a password. Then sign in at `/login`: a second code is e-mailed to the same address.
+3. The log says `Created the first administrator` with the address masked. Open the e-mail and follow its link: it opens the staging site's `/password-reset/confirm` page with the code filled in, so choose a password there. If the link does not open, copy the code printed under it and paste it into that page. Then sign in at `/login`: a second code is e-mailed to the same address.
 
 No password is typed, stored or logged at any step. The job works once: it refuses when a Super Admin exists. It is described in the README ("Create the First Administrator of a Deployed Environment").
 

@@ -11,4 +11,6 @@ export const PENDING_TRANSLATION: readonly MessageKey[] = [
   'qb.field.lenientLock',
   'qb.key.lenient',
   'qb.key.lenientHint',
+  'reset.codeFromLink',
+  'reset.codeByHand',
 ];

@@ -740,7 +740,7 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         Assert.Equal(unknownResponse.StatusCode, candidateResponse.StatusCode);
         Assert.Equal(
             await unknownResponse.Content.ReadAsStringAsync(), await candidateResponse.Content.ReadAsStringAsync());
-        Assert.False(factory.OtpSender.HasSentTo(candidate.Email));
+        Assert.False(factory.PasswordResetSender.HasSentTo(candidate.Email));
 
         using var scope = factory.Services.CreateScope();
         var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
@@ -851,7 +851,7 @@ public sealed class IdentitySecurityFlowTests(ApiFactory factory) : IClassFixtur
         var response = await client.PostAsJsonAsync("/v1/auth/password-reset/request", new { email });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var parts = factory.OtpSender.GetLastCode(email).Split(':');
+        var parts = factory.PasswordResetSender.GetLastCode(email).Split(':');
         return (Guid.Parse(parts[0]), parts[1]);
     }
 

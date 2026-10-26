@@ -40,7 +40,7 @@ public sealed class FirstAdministratorFlowTests(ApiFactory factory) : IClassFixt
         Assert.Equal(HttpStatusCode.Unauthorized, guess.StatusCode);
 
         // What the address received is the ordinary password-reset code, "link id:secret".
-        var parts = factory.OtpSender.GetLastCode(AdminEmail).Split(':');
+        var parts = factory.PasswordResetSender.GetLastCode(AdminEmail).Split(':');
         var reset = await client.PostAsJsonAsync("/v1/auth/password-reset/reset", new
         {
             passwordResetTokenId = Guid.Parse(parts[0]),

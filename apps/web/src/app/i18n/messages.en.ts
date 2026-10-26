@@ -121,6 +121,8 @@ export const EN = {
   'reset.codeHint': 'Paste the whole code from the email. It has two parts joined by a colon.',
   'reset.codeRequired': 'Paste the reset code from your email.',
   'reset.codeMalformed': 'That is not a complete reset code. Paste the whole code from the email.',
+  'reset.codeFromLink': 'Your reset code was filled in from the link in your email. Choose your new password below.',
+  'reset.codeByHand': 'Enter the code by hand instead',
   'reset.newPassword': 'New password',
   'reset.passwordHint': 'Use {min} to {max} characters, without the part of your email before the @. A few unrelated words make a strong, memorable passphrase.',
   'reset.passwordRequired': 'Enter a new password.',

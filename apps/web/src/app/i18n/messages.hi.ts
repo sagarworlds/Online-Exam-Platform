@@ -116,6 +116,9 @@ export const HI: Messages = {
   'reset.codeHint': 'ईमेल से पूरा कोड चिपकाएँ। इसमें दो हिस्से होते हैं जो एक कोलन (:) से जुड़े होते हैं।',
   'reset.codeRequired': 'ईमेल से रीसेट कोड चिपकाएँ।',
   'reset.codeMalformed': 'यह पूरा रीसेट कोड नहीं है। ईमेल से पूरा कोड चिपकाएँ।',
+  // Hindi: still English, pending translation (pending-translations.ts).
+  'reset.codeFromLink': 'Your reset code was filled in from the link in your email. Choose your new password below.',
+  'reset.codeByHand': 'Enter the code by hand instead',
   'reset.newPassword': 'नया पासवर्ड',
   'reset.passwordHint': '{min} से {max} अक्षर उपयोग करें, और अपने ईमेल का @ से पहले वाला हिस्सा न रखें। कुछ असंबंधित शब्द मिलाकर मज़बूत और याद रहने वाला पासफ़्रेज़ बनता है।',
   'reset.passwordRequired': 'नया पासवर्ड दर्ज करें।',

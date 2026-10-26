@@ -13,7 +13,8 @@ namespace ExamPlatform.IntegrationTests;
 /// Boots the real Host (<c>Program</c>) against a disposable Postgres container,
 /// so integration tests exercise actual module wiring, EF Core migrations, and
 /// HTTP routing rather than a hand-assembled subset of it. OTP delivery is
-/// swapped for <see cref="CapturingOtpSender"/> so tests can read codes directly
+/// swapped for <see cref="CapturingOtpSender"/>, and password-reset delivery for
+/// <see cref="CapturingPasswordResetSender"/>, so tests can read codes directly
 /// instead of scraping log output. Not sealed: a suite that needs different
 /// settings (e.g. a low rate limit to provoke a 429) subclasses it and overrides
 /// <see cref="AdditionalConfiguration"/>.
@@ -28,6 +29,9 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     /// <summary>The OTP sender test double, for reading codes issued during a test.</summary>
     public CapturingOtpSender OtpSender { get; } = new();
+
+    /// <summary>The password-reset sender test double, for reading the reset codes issued during a test.</summary>
+    public CapturingPasswordResetSender PasswordResetSender { get; } = new();
 
     /// <summary>Starts the Postgres container before any test in the class runs.</summary>
     public Task InitializeAsync() => _postgres.StartAsync();
@@ -101,6 +105,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<IOtpSender>(OtpSender);
+            services.AddSingleton<IPasswordResetSender>(PasswordResetSender);
             TestRemoteIpStartupFilter.Register(services);
             SharedKeyRing.Apply(services);
         });
