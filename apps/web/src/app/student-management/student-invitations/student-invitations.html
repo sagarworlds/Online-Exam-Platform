@@ -8,6 +8,9 @@
       <h4 class="card__title">
         {{ examLabel(invite) }}
         <app-status-badge [tone]="statusTone(invite.status)" [label]="statusLabel(invite.status)" />
+        @if (invite.hasDirectLink) {
+          <app-status-badge tone="info" [label]="'students.invite.directBadge' | t" />
+        }
       </h4>
       <p class="card__meta">{{ 'students.invite.invited' | t: { date: (invite.sentAt | date: 'medium') ?? '' } }}</p>
       @if (invite.status === 'Pending') {
@@ -21,6 +24,16 @@
           >
             {{ (handovers()[invite.id] ? 'students.invite.another' : 'students.invite.copy') | t }}
           </button>
+          @if (canDirectLink()) {
+            <button
+              type="button"
+              (click)="copyDirectLink(invite)"
+              [disabled]="generatingFor() !== null"
+              [attr.aria-label]="'students.invite.copyDirectFor' | t: { exam: examLabel(invite) }"
+            >
+              {{ 'students.invite.copyDirect' | t }}
+            </button>
+          }
           <button type="button" (click)="revoke(invite)" [attr.aria-label]="'students.invite.revokeFor' | t: { exam: examLabel(invite) }">{{ 'students.invite.revoke' | t }}</button>
         </div>
         @if (handovers()[invite.id]; as handover) {
@@ -29,6 +42,7 @@
             [link]="handover.link"
             [email]="invite.email"
             [expiresAt]="handover.expiresAt"
+            [directSignIn]="handover.directSignIn === true"
             [autoCopy]="true"
             [dismissible]="true"
             (dismissed)="hide(invite.id)"

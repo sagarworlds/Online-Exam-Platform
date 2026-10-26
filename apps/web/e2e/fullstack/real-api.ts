@@ -182,6 +182,19 @@ export class RealApi {
     return candidate;
   }
 
+  /**
+   * Invites an address to the exam with a direct sign-in link, as an administrator ticking the box would, and returns the link. Nobody
+   * registers first: the link is what makes the account, and what signs it in.
+   */
+  async createDirectInvite(exam: PublishedExam, email: string): Promise<string> {
+    const invite = await this.send<{ inviteLink: string }>('POST', '/v1/invites', await this.administrator(), {
+      examId: exam.id,
+      email,
+      directSignIn: true,
+    });
+    return invite.inviteLink;
+  }
+
   /** Registers a new candidate with the code the API logs, and signs them in. They have no invitation and sit no exam. */
   async registerCandidate(): Promise<EnrolledCandidate> {
     const email = `candidate-${randomUUID().replaceAll('-', '')}@e2e.test`;

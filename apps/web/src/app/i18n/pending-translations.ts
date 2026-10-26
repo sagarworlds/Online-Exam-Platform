@@ -24,4 +24,11 @@ export const PENDING_TRANSLATION: readonly MessageKey[] = [
   'inviteDirect.network',
   'inviteDirect.retry',
   'inviteDirect.signIn',
+  'invites.create.direct',
+  'invites.create.directHint',
+  'invites.create.directLinkReady',
+  'invites.handover.directOnce',
+  'students.invite.directBadge',
+  'students.invite.copyDirect',
+  'students.invite.copyDirectFor',
 ];
