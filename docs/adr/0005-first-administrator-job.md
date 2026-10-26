@@ -55,7 +55,7 @@ The development bootstrap of ADR 0002 is unchanged and still Development-only.
 - **The address is the proof of identity.** An address mistyped as a real mailbox owned by someone else would give that person the administrator account, and the job would then refuse to run again. The job prints the masked address so the operator can check it, and the runbook says to check it before waiting for the e-mail. Recovery is a manual fix in the database.
 - **It depends on mail.** If the e-mail does not arrive, the account exists. Once mail is fixed, "Forgot password" on the sign-in page sends a new link.
 - **One process at a time**, as for `--migrate-and-seed`: two concurrent runs for different addresses could both pass the "no Super Admin" check.
-- The reset e-mail says its code expires in 10 minutes (the wording is shared with sign-in codes), while a reset link is valid for 30. That is existing wording and is not changed here.
+- The reset e-mail used to say its code expires in 10 minutes (the wording was shared with sign-in codes), while a reset link is valid for 30. That was fixed afterwards: the reset has its own message, which states the real lifetime and carries a link that opens the reset page with the code filled in.
 
 ## Follow-ups
 

@@ -846,8 +846,8 @@ Staff cannot sign in with a one-time code alone. A staff address that asks for a
 ### Passwords (FR-3)
 
 - 12 to 128 characters, with no composition rules (NIST SP 800-63B), and the password must not contain the part of the account's email before the `@` (case-insensitive, checked when that part is at least 3 characters): `400 weak_password`.
-- `POST /v1/auth/password-reset/request` sends a link that is valid for 30 minutes. Only the newest link works. An account with no password (an OTP-only candidate) gets no link, and the answer is the same as for an unknown email.
-- `POST /v1/auth/password-reset/reset` takes `passwordResetTokenId`, `token` and `newPassword` (the link carries the first two as `<id>:<token>`). A link works once. A successful reset ends every session the account has, so its old access tokens get `401 session_revoked`.
+- `POST /v1/auth/password-reset/request` e-mails a link that is valid for 30 minutes, and the message says so (its lifetime comes from the same setting as the link's, not from the sign-in code's 10 minutes). The link opens the site's `/password-reset/confirm` page with the code already filled in, so the person only chooses a password; the same code is printed under the link, for a mail program that does not open links. The code is in the link's fragment (`#code=<id>:<token>`), not its query string, so it never reaches a server log or a `Referer` header, and the page takes it off the address once it has read it. Only the newest link works. An account with no password (an OTP-only candidate) gets no link, and the answer is the same as for an unknown email.
+- `POST /v1/auth/password-reset/reset` takes `passwordResetTokenId`, `token` and `newPassword` (the link carries the first two as `<id>:<token>`; the page splits them). A link works once. A successful reset ends every session the account has, so its old access tokens get `401 session_revoked`.
 
 ### Sessions and logout (FR-4)
 
@@ -876,6 +876,8 @@ Every authenticated request costs one indexed lookup of its session; if that eve
 ```
 
 The destination is masked (an email keeps its first character and domain, a phone number its last two digits); the code is printed because signing in during development depends on it.
+
+A password reset is a link, not a code, so it has its own message and its own log line: `[DEV ONLY - never enabled outside Development] password-reset link for j***@example.com, valid for 30 minutes: <link>`. The link opens the web app, so the API has to know where that is: `Identity:LinkBaseUrl` (`Identity__LinkBaseUrl`), the website's real address. Unset, it uses the first `Cors:AllowedOrigins` entry, which in a normal deployment is the same address, and then `http://localhost:4200`; that is why a deployment that already allows its website needs no new setting.
 
 `appsettings.json` deliberately leaves the provider unset, so **in any other environment the API refuses to start** (an options-validation error naming `Identity:OtpDelivery`) until one is named. Whoever owns deployments needs to know this. An integration test that boots the host outside Development must replace the sender; the recipe is on `OtpDeliveryOptionsValidator`.
 
@@ -1117,7 +1119,7 @@ dotnet ExamPlatform.Api.dll --create-first-administrator name@example.org
 
 Run it where the API's own settings are present (on Render, the service's shell or a one-off job, so the database and mail settings are the service's). Type the address exactly as the person will sign in with it: sign-in matches an address exactly.
 
-There is no password to supply. The job creates an active Super Admin with a random password that nobody sees, and e-mails the address the usual password-setup link. The person copies the code from it into the site's `/password-reset/confirm` page, chooses a password, signs in, and enters the second-factor code sent to the same address. The job logs the address only in masked form (`n***@example.org`); check that it is the one you meant before you wait for the e-mail.
+There is no password to supply. The job creates an active Super Admin with a random password that nobody sees, and e-mails the address the usual password-setup link. The person opens the link in it (which fills the code into the site's `/password-reset/confirm` page), chooses a password, signs in, and enters the second-factor code sent to the same address. The job logs the address only in masked form (`n***@example.org`); check that it is the one you meant before you wait for the e-mail.
 
 It refuses, changes nothing and exits with code 2 when: no address is given or it is not one plain address; no mail server is configured (the e-mail is the only way in); the database has no tables or roles yet (run `--migrate-and-seed` first); an account already uses the address; or a Super Admin already exists. The last rule is deliberate: the job gives an environment its first administrator and can never add another. If the e-mail does not arrive, fix the mail settings and use **Forgot password** on the sign-in page. Run it as one process at a time. The reasoning is in [ADR 0005](./docs/adr/0005-first-administrator-job.md).
 
