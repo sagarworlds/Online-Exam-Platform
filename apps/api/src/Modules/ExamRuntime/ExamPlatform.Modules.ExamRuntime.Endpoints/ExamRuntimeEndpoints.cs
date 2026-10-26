@@ -535,7 +535,20 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status409Conflict)
             .WithName("DeclineAttemptRequest")
             .WithDescription("Turn a request down, optionally saying why");
+
+        var aiGrading = endpoints.MapGroup("/v1/ai-grading").WithTags("ExamRuntime").RequireAuthorization();
+
+        aiGrading.MapGet("/status", GetAiGradingStatus)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AiGradingStatusDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("GetAiGradingStatus")
+            .WithDescription("Where judging typed answers with an AI provider stands: each provider's state, pause and last error, and how many answers wait");
     }
+
+    private static async Task<IResult> GetAiGradingStatus(GetAiGradingStatusHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(ct));
 
     private static async Task<IResult> RequestAttempt(
         Guid examId, RequestAttemptRequest? request, ClaimsPrincipal user, RequestAttemptHandler handler, CancellationToken ct)

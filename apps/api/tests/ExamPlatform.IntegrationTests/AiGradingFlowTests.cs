@@ -54,17 +54,39 @@ public sealed class ScriptedTextAnswerEvaluator : ITextAnswerEvaluator
     }
 }
 
+/// <summary>What the worker is told about the AI providers, as the test says: paused for a while, or free to be asked.</summary>
+public sealed class ScriptedEvaluatorHealth : IEvaluatorHealth
+{
+    /// <summary>How long the providers are paused for; null when they can be asked.</summary>
+    public TimeSpan? Paused { get; set; }
+
+    /// <inheritdoc />
+    public TimeSpan? PausedFor => Paused;
+
+    /// <inheritdoc />
+    public EvaluatorStatus Status => new(
+        true,
+        [new ProviderStatus("Scripted", "scripted-model", Paused is null ? ProviderState.Ready : ProviderState.RateLimited, null, "429: slow down", null, null, 4, 2, 0, 0)]);
+}
+
 /// <summary>The Host with an AI evaluator that is set up, and answers as a test scripts it. The host's own timer is off: a test runs the worker itself, when it chooses.</summary>
 public sealed class AiGradingApiFactory : ApiFactory
 {
     /// <summary>The evaluator the host hands every typed answer to.</summary>
     public ScriptedTextAnswerEvaluator Evaluator { get; } = new();
 
+    /// <summary>What the host's worker is told about whether the providers can be asked.</summary>
+    public ScriptedEvaluatorHealth Health { get; } = new();
+
     /// <inheritdoc />
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         base.ConfigureWebHost(builder);
-        builder.ConfigureTestServices(services => services.AddSingleton<ITextAnswerEvaluator>(Evaluator));
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<ITextAnswerEvaluator>(Evaluator);
+            services.AddSingleton<IEvaluatorHealth>(Health);
+        });
     }
 }
 
@@ -90,6 +112,7 @@ public sealed class AiGradingFlowTests(AiGradingApiFactory factory) : IClassFixt
     private async Task<Sitting> TypedAsync(string typed, params string[] accepted)
     {
         factory.Evaluator.Reset();
+        factory.Health.Paused = null;
         var admin = await factory.AdminClientAsync();
         var questionId = await TextQuestionAsync(admin, accepted);
         var examId = await CreateExamAsync(admin, $"Geography {Guid.NewGuid():N}", [questionId], TimeSpan.FromMinutes(-5));
@@ -418,5 +441,71 @@ public sealed class AiGradingFlowTests(AiGradingApiFactory factory) : IClassFixt
         var byCandidate = await AiCheckAsync(s.Candidate, s);
         Assert.Equal(System.Net.HttpStatusCode.Forbidden, byCandidate.StatusCode);
         Assert.Empty(factory.Evaluator.Requests);
+    }
+
+
+    // ---- a provider that has said "not now" ----------------------------------------------------------------------
+
+    [Fact]
+    public async Task WhileEveryProviderIsPaused_TheWorkerLeavesTheQueueAlone_AndScoresTheAttemptOnceThePauseEnds()
+    {
+        var s = await TypedAsync("The French capital is Paris.", "Paris");
+        using var _a = s.Admin;
+        using var _c = s.Candidate;
+        await SubmitAsync(s);
+        factory.Health.Paused = TimeSpan.FromSeconds(45);
+
+        var handled = await RunWorkerAsync();
+
+        Assert.Equal(0, handled);
+        Assert.Empty(factory.Evaluator.Requests);
+        Assert.Equal("Grading", (await AttemptAsync(s)).GetProperty("status").GetString());
+
+        factory.Health.Paused = null;
+        Assert.Equal(1, await RunWorkerAsync());
+        Assert.Equal("Submitted", (await AttemptAsync(s)).GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task AFailureThatNamesHowLongToWait_IsNotAskedAboutAgainBeforeThen()
+    {
+        var s = await TypedAsync("The French capital is Paris.", "Paris");
+        using var _a = s.Admin;
+        using var _c = s.Candidate;
+        await SubmitAsync(s);
+        factory.Evaluator.Respond = _ => throw new TextEvaluationException("Its quota is used up; paused for 45 minutes.", false, retryAfter: TimeSpan.FromMinutes(45));
+        var before = DateTime.UtcNow;
+
+        Assert.Equal(1, await RunWorkerAsync());
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ExamRuntimeDbContext>();
+        var next = await db.Set<AttemptAnswer>().Where(a => a.AttemptId == s.AttemptId).Select(a => a.EvaluationNextAttemptAtUtc).SingleAsync();
+        Assert.True(next >= before.AddMinutes(44), $"The next try was {next:O}, which is sooner than the 45 minutes the provider named.");
+        // Asked about once, and left alone after.
+        Assert.Equal(0, await RunWorkerAsync());
+        Assert.Single(factory.Evaluator.Requests);
+        Assert.Equal("Grading", (await AttemptAsync(s)).GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task StaffCanSeeWhereJudgingStands_AndACandidateCannot()
+    {
+        var s = await TypedAsync("The French capital is Paris.", "Paris");
+        using var _a = s.Admin;
+        using var _c = s.Candidate;
+        await SubmitAsync(s);
+
+        var status = await s.Admin.GetFromJsonAsync<JsonElement>("/v1/ai-grading/status");
+
+        Assert.True(status.GetProperty("enabled").GetBoolean());
+        Assert.True(status.GetProperty("waitingAnswers").GetInt32() >= 1);
+        var provider = Assert.Single(status.GetProperty("providers").EnumerateArray());
+        Assert.Equal("Scripted", provider.GetProperty("name").GetString());
+        Assert.Equal("Ready", provider.GetProperty("state").GetString());
+        Assert.Equal("429: slow down", provider.GetProperty("lastError").GetString());
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, (await s.Candidate.GetAsync("/v1/ai-grading/status")).StatusCode);
+        using var anonymous = factory.CreateClient();
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/v1/ai-grading/status")).StatusCode);
     }
 }

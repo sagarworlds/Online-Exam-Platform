@@ -508,7 +508,7 @@ public class TypedAnswerGradingTests
     {
         var attempt = Graded(_capital);
 
-        await Grading.FailAsync(ClaimOf(attempt, _capital), "The AI service answered 503.", permanent: false, CancellationToken.None);
+        await Grading.FailAsync(ClaimOf(attempt, _capital), "The AI service answered 503.", permanent: false, retryAfter: null, CancellationToken.None);
 
         var answer = attempt.Answers.Single(a => a.QuestionId == _capital.Id);
         Assert.True(answer.IsAwaitingEvaluation);
@@ -530,7 +530,7 @@ public class TypedAnswerGradingTests
 
         for (var i = 0; i < 12; i++)
         {
-            await Grading.FailAsync(claim, "Busy.", permanent: false, CancellationToken.None);
+            await Grading.FailAsync(claim, "Busy.", permanent: false, retryAfter: null, CancellationToken.None);
             waits.Add(answer.EvaluationNextAttemptAtUtc!.Value - _clock.UtcNow);
         }
 
@@ -540,11 +540,34 @@ public class TypedAnswerGradingTests
     }
 
     [Fact]
+    public async Task AProviderThatSaysHowLongToWait_IsNotAskedAboutTheAnswerAgainBeforeThen_EvenWhenThatPassesTheBackoff()
+    {
+        var attempt = Graded(_capital);
+
+        await Grading.FailAsync(ClaimOf(attempt, _capital), "Quota used up.", permanent: false, retryAfter: TimeSpan.FromMinutes(45), CancellationToken.None);
+
+        var answer = attempt.Answers.Single(a => a.QuestionId == _capital.Id);
+        Assert.Equal(_clock.UtcNow.AddMinutes(45), answer.EvaluationNextAttemptAtUtc);
+        Assert.Equal(1, answer.EvaluationFailures);
+    }
+
+    [Fact]
+    public async Task AWaitShorterThanTheBackoff_DoesNotShortenIt()
+    {
+        var attempt = Graded(_capital);
+
+        await Grading.FailAsync(ClaimOf(attempt, _capital), "Slow down.", permanent: false, retryAfter: TimeSpan.FromSeconds(5), CancellationToken.None);
+
+        var answer = attempt.Answers.Single(a => a.QuestionId == _capital.Id);
+        Assert.Equal(_clock.UtcNow.AddSeconds(30), answer.EvaluationNextAttemptAtUtc);
+    }
+
+    [Fact]
     public async Task AFailureWaitingCannotCure_WaitsTheLongestAtOnce()
     {
         var attempt = Graded(_capital);
 
-        await Grading.FailAsync(ClaimOf(attempt, _capital), "The AI service answered 403 (PERMISSION_DENIED).", permanent: true, CancellationToken.None);
+        await Grading.FailAsync(ClaimOf(attempt, _capital), "The AI service answered 403 (PERMISSION_DENIED).", permanent: true, retryAfter: null, CancellationToken.None);
 
         var answer = attempt.Answers.Single(a => a.QuestionId == _capital.Id);
         Assert.Equal(_clock.UtcNow.AddMinutes(10), answer.EvaluationNextAttemptAtUtc);
@@ -557,7 +580,7 @@ public class TypedAnswerGradingTests
         var attempt = Graded(_capital);
         var stale = ClaimOf(attempt, _capital) with { RequestedAtUtc = SubmittedAt.AddMinutes(-10) };
 
-        await Grading.FailAsync(stale, "Busy.", permanent: false, CancellationToken.None);
+        await Grading.FailAsync(stale, "Busy.", permanent: false, retryAfter: null, CancellationToken.None);
 
         Assert.Equal(0, attempt.Answers.Single(a => a.QuestionId == _capital.Id).EvaluationFailures);
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());

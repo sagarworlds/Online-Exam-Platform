@@ -54,6 +54,12 @@ public sealed class GeminiOptions
     /// <summary>How many times one evaluation tries before it gives up for now. The answer is queued to be tried again later, so none is lost.</summary>
     public int MaxTries { get; set; } = 4;
 
+    /// <summary>
+    /// The most requests to send to the service in any minute, across every worker; 0 sends no limit of our own. Set it to the allowance
+    /// Google shows for the key's project and model (AI Studio's usage page): staying under it is cheaper than being told to stop.
+    /// </summary>
+    public int RequestsPerMinute { get; set; }
+
     /// <summary>The wait before the second try, in seconds. Each later wait doubles, up to <see cref="RetryMaxDelaySeconds"/>.</summary>
     public double RetryBaseDelaySeconds { get; set; } = 1;
 
@@ -84,6 +90,8 @@ public sealed class GeminiOptions
                 return $"{SectionName}:RequestTimeoutSeconds must be between 1 and 300.";
             if (MaxTries is < 1 or > MaxTriesLimit)
                 return $"{SectionName}:MaxTries must be between 1 and {MaxTriesLimit}.";
+            if (RequestsPerMinute is < 0 or > 100_000)
+                return $"{SectionName}:RequestsPerMinute must be between 0 (no limit of our own) and 100000.";
             if (RetryBaseDelaySeconds is < 0 or > 60 || RetryMaxDelaySeconds is < 0 or > 300)
                 return $"{SectionName}:RetryBaseDelaySeconds must be between 0 and 60 and {SectionName}:RetryMaxDelaySeconds between 0 and 300.";
             return null;

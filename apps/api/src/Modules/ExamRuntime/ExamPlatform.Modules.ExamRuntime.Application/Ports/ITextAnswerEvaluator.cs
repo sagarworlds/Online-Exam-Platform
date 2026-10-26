@@ -42,8 +42,18 @@ public sealed class TextEvaluationException : Exception
     /// <param name="message">What went wrong, without the question, the key or the answer in it.</param>
     /// <param name="isPermanent">True when asking again will not help until something is changed, such as a key or a setting.</param>
     /// <param name="innerException">The failure behind it, if there is one.</param>
-    public TextEvaluationException(string message, bool isPermanent, Exception? innerException = null) : base(message, innerException) =>
+    /// <param name="retryAfter">
+    /// How long the evaluator says to leave it before asking again (a rate limit that names its wait, a provider that has been paused), or null
+    /// when it does not say. The caller schedules the next try no sooner than this.
+    /// </param>
+    public TextEvaluationException(string message, bool isPermanent, Exception? innerException = null, TimeSpan? retryAfter = null) : base(message, innerException)
+    {
         IsPermanent = isPermanent;
+        RetryAfter = retryAfter;
+    }
+
+    /// <summary>How long to wait before asking again, when the evaluator knows; null when it does not.</summary>
+    public TimeSpan? RetryAfter { get; }
 
     /// <summary>
     /// Whether asking again will not help until something is changed: a key the service refuses, a model it does not have, a request it
