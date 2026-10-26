@@ -31,4 +31,11 @@ export const PENDING_TRANSLATION: readonly MessageKey[] = [
   'students.invite.directBadge',
   'students.invite.copyDirect',
   'students.invite.copyDirectFor',
+  'exams.picker.toolbar',
+  'exams.picker.selectAll',
+  'exams.picker.clearSelection',
+  'exams.picker.selectedCount',
+  'exams.picker.addSelected',
+  'exams.picker.addSelectedNamed',
+  'exams.picker.selectNamed',
 ];

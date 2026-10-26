@@ -29,6 +29,12 @@ public sealed record AddSectionCommand(Guid ExamId, string? Name, int? TimeSecon
 /// <param name="QuestionId">The question's id in the question bank.</param>
 public sealed record AddExamQuestionCommand(Guid ExamId, Guid SectionId, Guid QuestionId);
 
+/// <summary>Appends several questions from the bank to a section, in the order given, all or none.</summary>
+/// <param name="ExamId">The exam.</param>
+/// <param name="SectionId">The section to add the questions to.</param>
+/// <param name="QuestionIds">The questions' ids in the question bank, from 1 to <see cref="AddExamQuestionsHandler.MaxCount"/> of them; one named twice counts once.</param>
+public sealed record AddExamQuestionsCommand(Guid ExamId, Guid SectionId, IReadOnlyList<Guid>? QuestionIds);
+
 /// <summary>Adds a random selection of bank questions that match some criteria to a section.</summary>
 /// <param name="ExamId">The exam.</param>
 /// <param name="SectionId">The section to add the questions to.</param>

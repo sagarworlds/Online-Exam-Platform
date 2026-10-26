@@ -401,6 +401,18 @@ export class ExamEditor {
     this.run(this.examApi.addQuestion(this.examId, sectionId, questionId));
   }
 
+  /**
+   * Adds the questions the author ticked, all in one request. The exam is read again after a refusal too: one question that could not go in
+   * (another tab added it, it was retired meanwhile) refuses the lot, and the list must then show what the exam really holds.
+   */
+  protected addQuestions(sectionId: string, questionIds: readonly string[]): void {
+    if (this.busy() || questionIds.length === 0) {
+      return;
+    }
+
+    this.run(this.examApi.addQuestions(this.examId, sectionId, questionIds), undefined, 'exams.editor.saved', true);
+  }
+
   protected addDrawRule(sectionId: string, request: DrawQuestionsRequest): void {
     if (!this.busy()) {
       this.run(this.examApi.addDrawRule(this.examId, sectionId, request));

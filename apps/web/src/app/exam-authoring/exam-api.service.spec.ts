@@ -78,6 +78,14 @@ describe('ExamApiService', () => {
     expect(question.request.body).toEqual({ questionId: 'q1' });
   });
 
+  it('adds several questions at once with one POST to the batch route, the ids in the order given', () => {
+    service.addQuestions('exam-1', 's1', ['q2', 'q1', 'q3']).subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/v1/exams/exam-1/sections/s1/questions/batch`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ questionIds: ['q2', 'q1', 'q3'] });
+  });
+
   it('draws random questions with a POST to the draw route', () => {
     service.drawQuestions('exam-1', 's1', { count: 3, difficulty: 'hard', topic: 'fractions' }).subscribe();
 

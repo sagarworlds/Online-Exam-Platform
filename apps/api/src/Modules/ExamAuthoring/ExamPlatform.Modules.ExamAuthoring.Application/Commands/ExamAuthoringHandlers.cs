@@ -175,6 +175,59 @@ public sealed class AddExamQuestionHandler(IExamRepository repository, IExamAuth
     }
 }
 
+/// <summary>Handles <see cref="AddExamQuestionsCommand"/>.</summary>
+public sealed class AddExamQuestionsHandler(IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, IQuestionBank questionBank, Clock clock)
+{
+    /// <summary>
+    /// The most questions one call may add, the same ceiling as a draw. It keeps one request small, and a slip cannot fill a section with a
+    /// whole bank.
+    /// </summary>
+    public const int MaxCount = 100;
+
+    /// <summary>
+    /// Adds the bank questions to the section, in the order given, and saves once. All or none: one refused question adds nothing. One call
+    /// instead of one per question, so choosing many questions at once is a single change as far as the server's rate limit is concerned.
+    /// </summary>
+    /// <param name="command">Which questions to add where.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The questions as they now sit in the section, in the order given.</returns>
+    /// <exception cref="InvalidExamConfigError">The list is missing, empty or longer than <see cref="MaxCount"/>.</exception>
+    /// <exception cref="ExamNotFoundError">No exam has that id.</exception>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="QuestionNotInBankError">The question bank has no such question.</exception>
+    /// <exception cref="QuestionNotUsableError">The bank will not let a question into an exam (it is retired, or not approved where approval is required).</exception>
+    /// <exception cref="QuestionOutsideExamScopeError">A question is not in the exam's book or chapters.</exception>
+    /// <exception cref="DuplicateQuestionError">A question is already in this exam.</exception>
+    public async Task<IReadOnlyList<ExamQuestionDto>> HandleAsync(AddExamQuestionsCommand command, CancellationToken cancellationToken)
+    {
+        // A question named twice counts once, in the place of its first mention, so a double-clicked button cannot make a duplicate error.
+        var ids = (command.QuestionIds ?? []).Distinct().ToList();
+        if (ids.Count is < 1 or > MaxCount)
+            throw new InvalidExamConfigError($"Add between 1 and {MaxCount} questions at a time.");
+
+        var exam = await repository.GetByIdOrThrowAsync(command.ExamId, cancellationToken);
+        // Checked up front, so a published exam is refused before the bank is asked anything.
+        exam.EnsureCanAddQuestions(command.SectionId);
+
+        var snapshots = (await questionBank.GetAsync(ids, cancellationToken)).ToDictionary(q => q.Id);
+        var chosen = new List<(Guid QuestionId, QuestionPlacement Placement)>(ids.Count);
+        foreach (var id in ids)
+        {
+            var snapshot = snapshots.GetValueOrDefault(id) ?? throw new QuestionNotInBankError(id);
+            if (snapshot.UnusableReason is { } reason)
+                throw new QuestionNotUsableError(id, reason);
+
+            chosen.Add((id, new QuestionPlacement(snapshot.BookId, snapshot.ChapterId)));
+        }
+
+        var added = exam.AddQuestions(command.SectionId, chosen, clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return added.Select(q => new ExamQuestionDto(q.Id, q.QuestionVersionId, q.Order, snapshots[q.QuestionVersionId].Text)).ToList();
+    }
+}
+
 /// <summary>Handles <see cref="DrawExamQuestionsCommand"/>.</summary>
 public sealed class DrawExamQuestionsHandler(
     IExamRepository repository, IExamAuthoringUnitOfWork unitOfWork, IQuestionBank questionBank, IQuestionPicker picker, Clock clock)

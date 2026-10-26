@@ -296,6 +296,47 @@ public class Exam : AggregateRoot
         return question;
     }
 
+    /// <summary>Appends several questions to a section, in the order given, all or none.</summary>
+    /// <remarks>
+    /// Every question is checked before any is added, so a refusal leaves the exam exactly as it was, in memory as well as in the store;
+    /// adding them one by one with <see cref="AddQuestion"/> would leave the ones before the refused question in the aggregate.
+    /// </remarks>
+    /// <param name="sectionId">The section to add them to.</param>
+    /// <param name="questions">Each question's id in the question bank, with where it is filed there.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns>The questions as they now sit in the exam, in the order given.</returns>
+    /// <exception cref="ExamNotDraftError">The exam is already published.</exception>
+    /// <exception cref="SectionNotFoundError">The exam has no such section.</exception>
+    /// <exception cref="QuestionOutsideExamScopeError">A question is not in the exam's book or chapters.</exception>
+    /// <exception cref="DuplicateQuestionError">A question is already somewhere in this exam, or is named twice.</exception>
+    public IReadOnlyList<ExamQuestion> AddQuestions(
+        Guid sectionId, IReadOnlyList<(Guid QuestionId, QuestionPlacement Placement)> questions, DateTime nowUtc)
+    {
+        EnsureDraft();
+
+        var section = GetSection(sectionId) ?? throw new SectionNotFoundError(sectionId);
+
+        var held = _sections.SelectMany(s => s.Questions).Select(q => q.QuestionVersionId).ToHashSet();
+        foreach (var (questionId, placement) in questions)
+        {
+            if (!Scope.Allows(placement))
+                throw new QuestionOutsideExamScopeError(questionId);
+
+            // Once per exam, as in AddQuestion; adding to the set also catches a question named twice in the same call.
+            if (!held.Add(questionId))
+                throw new DuplicateQuestionError(questionId, sectionId);
+        }
+
+        var added = new List<ExamQuestion>(questions.Count);
+        foreach (var (questionId, _) in questions)
+            added.Add(section.AddQuestion(questionId, section.Questions.Count + 1, nowUtc));
+
+        if (added.Count > 0)
+            UpdatedAt = nowUtc;
+
+        return added;
+    }
+
     /// <summary>Adds a rule to a section that draws questions at random for each candidate who starts an attempt.</summary>
     /// <param name="sectionId">The section.</param>
     /// <param name="nowUtc">The current instant.</param>

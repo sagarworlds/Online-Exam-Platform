@@ -36,6 +36,7 @@ describe('QuestionPicker', () => {
   let fixture: ComponentFixture<QuestionPicker>;
   let root: HTMLElement;
   let picked: string[];
+  let pickedMany: string[][];
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({ imports: [QuestionPicker], providers: [provideHttpClient(), provideHttpClientTesting()] }).compileComponents();
@@ -54,7 +55,9 @@ describe('QuestionPicker', () => {
     if (inputs.busy) fixture.componentRef.setInput('busy', inputs.busy);
     fixture.componentRef.setInput('sectionName', inputs.section ?? 'Algebra');
     picked = [];
+    pickedMany = [];
     fixture.componentInstance.picked.subscribe((id) => picked.push(id));
+    fixture.componentInstance.pickedMany.subscribe((ids) => pickedMany.push(ids));
     fixture.detectChanges();
     root = fixture.nativeElement as HTMLElement;
   }
@@ -410,6 +413,227 @@ describe('QuestionPicker', () => {
       await fixture.whenStable();
 
       expect(document.activeElement).toBe(search);
+      root.remove();
+    });
+  });
+
+  describe('choosing several at once', () => {
+    const boxes = () => Array.from(root.querySelectorAll<HTMLInputElement>('.picker__check'));
+    const tick = (index: number, checked = true) => {
+      const box = boxes()[index];
+      box.checked = checked;
+      box.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    };
+    const toolbarButtons = () => Array.from(root.querySelectorAll<HTMLButtonElement>('.picker__toolbar button'));
+    const selectAll = () => toolbarButtons()[0];
+    const addSelected = () => toolbarButtons()[1];
+    const ticked = () => boxes().map((box) => box.checked);
+    const page = (from: number, count = 20) => Array.from({ length: count }, (_, i) => question(`q${from + i}`, `Question ${from + i}`));
+
+    it('puts a checkbox before each question, named for it, with Select all on the left and Add selected on the right above the list', () => {
+      show();
+      answer([question('q1', 'What is 2 + 2?'), question('q2', 'Capital of France?')]);
+
+      expect(boxes()).toHaveLength(2);
+      expect(boxes()[0].getAttribute('aria-label')).toBe('Select “What is 2 + 2?”');
+      expect(ticked()).toEqual([false, false]);
+      expect(selectAll().textContent?.trim()).toBe('Select all');
+      expect(selectAll().classList.contains('btn--link')).toBe(true);
+      expect(addSelected().textContent?.trim()).toBe('Add selected (0)');
+      expect(addSelected().getAttribute('aria-label')).toBe('Add the selected questions (0) to Algebra');
+      const toolbar = root.querySelector('.picker__toolbar') as HTMLElement;
+      const list = root.querySelector('.picker__list') as HTMLElement;
+      expect(toolbar.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('counts what is ticked and names it for a screen reader', () => {
+      show();
+      answer([question('q1', 'First'), question('q2', 'Second')]);
+
+      tick(1);
+
+      expect(root.querySelector('.picker__selected')?.textContent?.trim()).toBe('1 selected');
+      expect(addSelected().textContent?.trim()).toBe('Add selected (1)');
+      expect(root.querySelector('.picker__selected')?.getAttribute('role')).toBe('status');
+    });
+
+    it('cannot add with nothing ticked, or while the page is making a request about the exam', () => {
+      show();
+      answer([question('q1', 'First')]);
+      expect(addSelected().disabled).toBe(true);
+
+      tick(0);
+      expect(addSelected().disabled).toBe(false);
+
+      fixture.componentRef.setInput('busy', true);
+      fixture.detectChanges();
+      expect(addSelected().disabled).toBe(true);
+    });
+
+    it('hands the page the ticked ids in the order they are listed, not the order they were ticked', () => {
+      show();
+      answer([question('q1', 'First'), question('q2', 'Second'), question('q3', 'Third')]);
+
+      tick(2);
+      tick(0);
+      addSelected().click();
+
+      expect(pickedMany).toEqual([['q1', 'q3']]);
+      expect(picked).toEqual([]);
+    });
+
+    it('leaves the single Add button working as before', () => {
+      show();
+      answer([question('q1', 'First'), question('q2', 'Second')]);
+
+      tick(0);
+      (root.querySelectorAll('.picker__row button')[1] as HTMLButtonElement).click();
+
+      expect(picked).toEqual(['q2']);
+      expect(pickedMany).toEqual([]);
+    });
+
+    it('ticks every listed question with Select all, which then reads Clear selection and unticks them', () => {
+      show();
+      answer([question('q1', 'First'), question('q2', 'Second')]);
+
+      selectAll().click();
+      fixture.detectChanges();
+      expect(ticked()).toEqual([true, true]);
+      expect(selectAll().textContent?.trim()).toBe('Clear selection');
+      expect(addSelected().textContent?.trim()).toBe('Add selected (2)');
+
+      selectAll().click();
+      fixture.detectChanges();
+      expect(ticked()).toEqual([false, false]);
+      expect(selectAll().textContent?.trim()).toBe('Select all');
+    });
+
+    it('reads Select all again once a ticked question is unticked by hand', () => {
+      show();
+      answer([question('q1', 'First'), question('q2', 'Second')]);
+      selectAll().click();
+      fixture.detectChanges();
+
+      tick(0, false);
+
+      expect(selectAll().textContent?.trim()).toBe('Select all');
+      expect(addSelected().textContent?.trim()).toBe('Add selected (1)');
+    });
+
+    it('no longer ticks a question that leaves the list, so it is never handed over once the exam holds it', () => {
+      show();
+      answer([question('q1', 'First'), question('q2', 'Second')]);
+      selectAll().click();
+      fixture.detectChanges();
+
+      fixture.componentRef.setInput('excluded', new Set(['q1']));
+      fixture.detectChanges();
+      addSelected().click();
+
+      expect(pickedMany).toEqual([['q2']]);
+    });
+
+    it('keeps the ticks when the page refuses, so the same questions can be tried again', () => {
+      show();
+      answer([question('q1', 'First'), question('q2', 'Second')]);
+      selectAll().click();
+      fixture.detectChanges();
+
+      addSelected().click();
+      fixture.detectChanges();
+
+      expect(ticked()).toEqual([true, true]);
+      expect(addSelected().disabled).toBe(false);
+    });
+
+    it('clears the ticks when the list starts afresh, so nothing ticked out of sight is added', () => {
+      vi.useFakeTimers();
+      show();
+      answer([question('q1', 'First'), question('q2', 'Second')]);
+      selectAll().click();
+      fixture.detectChanges();
+
+      search('sec');
+      vi.advanceTimersByTime(301);
+      answer([question('q2', 'Second')]);
+
+      expect(ticked()).toEqual([false]);
+      expect(addSelected().textContent?.trim()).toBe('Add selected (0)');
+    });
+
+    it('keeps the ticks when "Show more" adds a page', () => {
+      show();
+      answer(page(0));
+      tick(3);
+
+      (Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Show more') as HTMLButtonElement).click();
+      answer(page(20, 5));
+
+      expect(ticked()[3]).toBe(true);
+      expect(addSelected().textContent?.trim()).toBe('Add selected (1)');
+    });
+
+    it('ticks at most 100 with Select all, and offers no more boxes once 100 are ticked', () => {
+      show();
+      // More than 100 are listed after a few "Show more" presses; one big answer stands in for them, so the list is drawn once.
+      answer(page(0, 101));
+      expect(boxes()).toHaveLength(101);
+
+      selectAll().click();
+      fixture.detectChanges();
+      addSelected().click();
+
+      expect(addSelected().textContent?.trim()).toBe('Add selected (100)');
+      expect(selectAll().textContent?.trim()).toBe('Clear selection');
+      expect(boxes()[99].disabled).toBe(false);
+      expect(boxes()[100].disabled).toBe(true);
+      expect(pickedMany[0]).toHaveLength(100);
+      expect(pickedMany[0][99]).toBe('q99');
+    }, 30_000);
+
+    it('has no toolbar while there is nothing to list', () => {
+      show();
+      answer([]);
+
+      expect(root.querySelector('.picker__toolbar')).toBeNull();
+    });
+
+    it('puts focus on Select all once the ticked questions have gone, since Add selected has nothing left to add', async () => {
+      show();
+      answer([question('q1', 'First'), question('q2', 'Second'), question('q3', 'Third')]);
+      document.body.appendChild(root);
+      tick(0);
+      tick(1);
+      addSelected().focus();
+
+      addSelected().click();
+      fixture.componentRef.setInput('busy', true);
+      fixture.detectChanges();
+      fixture.componentRef.setInput('excluded', new Set(['q1', 'q2']));
+      fixture.componentRef.setInput('busy', false);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(pickedMany).toEqual([['q1', 'q2']]);
+      expect(document.activeElement).toBe(selectAll());
+      root.remove();
+    });
+
+    it('puts focus on the search box when every question listed was added', async () => {
+      show();
+      answer([question('q1', 'Only one')]);
+      document.body.appendChild(root);
+      tick(0);
+      addSelected().focus();
+
+      addSelected().click();
+      fixture.componentRef.setInput('excluded', new Set(['q1']));
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(root.querySelector('input[type="search"]'));
       root.remove();
     });
   });
