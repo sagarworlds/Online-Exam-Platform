@@ -87,6 +87,9 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddSingleton<IPasswordPolicy, PasswordPolicy>();
         services.AddScoped<OtpChallengeIssuer>();
         services.AddScoped<LoginSessionIssuer>();
+
+        // How the Invite module signs a student in from an e-mailed link; Identity keeps the accounts and sessions to itself.
+        services.AddScoped<IDirectSignIn, StudentDirectSignIn>();
         services.AddScoped<RequestOtpHandler>();
         services.AddScoped<VerifyOtpHandler>();
         services.AddScoped<RegisterCandidateHandler>();
