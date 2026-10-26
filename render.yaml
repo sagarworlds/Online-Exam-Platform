@@ -86,9 +86,10 @@ services:
       # OP13, is settled: the provider then receives candidates' typed answers.
       - key: OpenAiCompatible__ApiKey
         sync: false
-      # A smaller model to fall back on when the larger one has reached its day (each model has its own allowance on Groq).
+      # A smaller model to fall back on when the larger one has reached its day (each model has its own allowance on Groq). Groq retires models
+      # every few months: a name it no longer serves answers "model_not_found", and GET https://api.groq.com/openai/v1/models lists what the key can use.
       - key: OpenAiCompatible__FallbackModels
-        value: llama-3.1-8b-instant
+        value: openai/gpt-oss-20b
       # Free web services have no pre-deploy command, so the single instance migrates and seeds itself on start.
       - key: Database__MigrateAndSeedOnStartup
         value: "true"

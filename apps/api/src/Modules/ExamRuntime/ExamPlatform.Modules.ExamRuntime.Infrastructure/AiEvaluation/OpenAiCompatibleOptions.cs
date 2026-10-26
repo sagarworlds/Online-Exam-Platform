@@ -18,7 +18,7 @@ public sealed class OpenAiCompatibleOptions
     /// <summary>The most tries one evaluation makes before it gives up for now.</summary>
     public const int MaxTriesLimit = 10;
 
-    // Letters, digits and . _ - : / so that "llama-3.3-70b-versatile" and "meta-llama/llama-3.3-70b-instruct:free" are both names.
+    // Letters, digits and . _ - : / so that "openai/gpt-oss-120b" and "meta-llama/llama-3.3-70b-instruct:free" are both names.
     private static readonly Regex ModelName = new(@"^[A-Za-z0-9][A-Za-z0-9._:/-]*$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     /// <summary>
@@ -33,12 +33,16 @@ public sealed class OpenAiCompatibleOptions
     /// <summary>The address the protocol is served from, ending where <c>/chat/completions</c> begins. The default is Groq's.</summary>
     public string BaseUrl { get; set; } = "https://api.groq.com/openai/v1";
 
-    /// <summary>The model that judges, as the provider names it. The default is a larger Llama model on Groq, which judges wording better than a small one.</summary>
-    public string Model { get; set; } = "llama-3.3-70b-versatile";
+    /// <summary>
+    /// The model that judges, as the provider names it. The default is the larger open-weight model Groq offers, which judges wording better than a
+    /// small one. Groq retires models every few months (the earlier defaults, <c>llama-3.3-70b-versatile</c> and <c>llama-3.1-8b-instant</c>, are gone),
+    /// and a retired one answers "model_not_found"; the models a key can use are listed by <c>GET {BaseUrl}/models</c>.
+    /// </summary>
+    public string Model { get; set; } = "openai/gpt-oss-120b";
 
     /// <summary>
     /// Further models to ask, comma-separated, when the first is out of quota or gone. Each model has its own allowance at most providers, so a
-    /// smaller model with a bigger daily allowance (on Groq, <c>llama-3.1-8b-instant</c>) keeps judging when the larger one has reached its day.
+    /// smaller model with a bigger daily allowance (on Groq, <c>openai/gpt-oss-20b</c>) keeps judging when the larger one has reached its day.
     /// Empty asks the one model only.
     /// </summary>
     public string? FallbackModels { get; set; }
@@ -93,7 +97,7 @@ public sealed class OpenAiCompatibleOptions
             foreach (var model in Models)
             {
                 if (!ModelName.IsMatch(model) || model.Length > MaxModelLength)
-                    return $"{SectionName}:Model and {SectionName}:FallbackModels must be model names such as llama-3.3-70b-versatile: letters, digits and . _ - : /, at most {MaxModelLength} each.";
+                    return $"{SectionName}:Model and {SectionName}:FallbackModels must be model names such as openai/gpt-oss-120b: letters, digits and . _ - : /, at most {MaxModelLength} each.";
             }
 
             if (Models.Count == 0)

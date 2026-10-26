@@ -268,7 +268,7 @@ public class OpenAiCompatibleOptionsTests
         Assert.True(options.IsValid);
         Assert.False(options.IsEnabled);
         Assert.Equal("https://api.groq.com/openai/v1", options.BaseUrl);
-        Assert.Equal("llama-3.3-70b-versatile", options.Model);
+        Assert.Equal("openai/gpt-oss-120b", options.Model);
         Assert.Equal(25, options.RequestsPerMinute);
         Assert.Equal("OpenAI-compatible (api.groq.com)", options.ProviderName);
     }
@@ -291,10 +291,11 @@ public class OpenAiCompatibleOptionsTests
 
     [Fact]
     public void WithNoFallbacks_OnlyTheModelIsAsked() =>
-        Assert.Equal(["llama-3.3-70b-versatile"], new OpenAiCompatibleOptions().Models);
+        Assert.Equal(["openai/gpt-oss-120b"], new OpenAiCompatibleOptions().Models);
 
     [Theory]
     [InlineData("llama-3.1-8b-instant")]
+    [InlineData("openai/gpt-oss-120b")]
     [InlineData("meta-llama/llama-3.3-70b-instruct:free")]
     [InlineData("gpt-oss-120b")]
     [InlineData("qwen2.5:7b")]
