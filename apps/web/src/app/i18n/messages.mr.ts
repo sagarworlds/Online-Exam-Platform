@@ -503,6 +503,18 @@ export const MR: Messages = {
   'invite.codeRequired': 'आमंत्रण कोड टाका.',
   'invite.accept': 'आमंत्रण स्वीकारा',
   'invite.accepting': 'स्वीकारत आहे…',
+  // Marathi: still English, pending translation (pending-translations.ts).
+  'inviteDirect.title': 'Opening your exam',
+  'inviteDirect.signing': 'Signing you in and opening your exam…',
+  'inviteDirect.missing': 'This link is incomplete. Open the link in your invitation e-mail again, or sign in with a one-time code.',
+  'inviteDirect.invalid': 'This link has already been used or has expired. Sign in with a one-time code: your exam is under My exams.',
+  'inviteDirect.locked': 'This account cannot sign in right now. Please contact the exam administrator.',
+  'inviteDirect.normalSignIn': 'This link cannot sign you in. Sign in the usual way instead.',
+  'inviteDirect.disabled': 'Signing in from an invitation link is switched off. Sign in with a one-time code instead.',
+  'inviteDirect.busy': 'Too many attempts right now. Wait a moment and try again.',
+  'inviteDirect.network': 'We could not reach the server. Check your connection and try again.',
+  'inviteDirect.retry': 'Try again',
+  'inviteDirect.signIn': 'Sign in',
 
   // ---- profile ----
   'profile.title': 'प्रोफाइल',
