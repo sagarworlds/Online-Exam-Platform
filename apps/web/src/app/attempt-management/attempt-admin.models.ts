@@ -115,6 +115,20 @@ export interface AttemptPaperAiCheckDto {
   lastError: string | null;
 }
 
+/** What a bulk "recheck with AI" queued: typed answers with no AI verdict, sent to the AI evaluator. */
+export interface AiRecheckResultDto {
+  /** How many attempts had at least one typed answer sent. */
+  attemptsQueued: number;
+  /** How many typed answers were sent; 0 when every one already has a verdict or is waiting for one. */
+  answersQueued: number;
+}
+
+/** The part of the AI grading status this app reads: whether an AI evaluator is set up, and how many typed answers wait for it. */
+export interface AiGradingStatusDto {
+  enabled: boolean;
+  waitingAnswers: number;
+}
+
 /** One question on a candidate's paper; `drawn` means a draw rule picked it for this candidate. `text` is sanitized HTML. */
 export interface AttemptPaperQuestionDto {
   id: string;

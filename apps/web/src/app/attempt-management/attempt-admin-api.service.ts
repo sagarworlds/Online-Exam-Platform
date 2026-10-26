@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AttemptSummaryDto } from '../candidate/candidate.models';
 import {
+  AiGradingStatusDto,
+  AiRecheckResultDto,
   AttemptClientDto,
   AttemptPaperDto,
   AttemptRequestFilterStatus,
@@ -106,6 +108,20 @@ export class AttemptAdminApiService {
    */
   requestAiCheck(examId: string, attemptId: string, questionId: string): Observable<AttemptSummaryDto> {
     return this.http.post<AttemptSummaryDto>(`${this.examsUrl}/${examId}/attempts/${attemptId}/questions/${questionId}/ai-check`, {});
+  }
+
+  /**
+   * Sends every typed answer that has no AI verdict to the AI evaluator: those of one attempt when `attemptId` is given, otherwise those of
+   * every attempt at the exam. The checks are queued and made in the background; a score changes only if its verdict does.
+   */
+  requestAiRecheck(examId: string, attemptId: string | null): Observable<AiRecheckResultDto> {
+    const url = attemptId === null ? `${this.examsUrl}/${examId}/ai-recheck` : `${this.examsUrl}/${examId}/attempts/${attemptId}/ai-recheck`;
+    return this.http.post<AiRecheckResultDto>(url, {});
+  }
+
+  /** Whether an AI evaluator is set up on the server, and how many typed answers wait for it. */
+  getAiGradingStatus(): Observable<AiGradingStatusDto> {
+    return this.http.get<AiGradingStatusDto>(`${environment.apiBaseUrl}/v1/ai-grading/status`);
   }
 
   /** Invalidates a finished attempt's result so it no longer counts; the candidate is shown the reason instead of a score (FR-29). */

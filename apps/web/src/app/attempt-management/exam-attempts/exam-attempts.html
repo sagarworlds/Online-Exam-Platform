@@ -7,6 +7,9 @@
     <div class="page-header__actions">
       <a [routerLink]="['/exams', examId, 'risk-flags']" class="risk-link">{{ 'proctoring.exam.link' | t }}</a>
       <a [routerLink]="['/exams', examId, 'item-analysis']" class="btn">Item analysis</a>
+      @if (aiEnabled() && data()) {
+        <button type="button" class="btn" (click)="recheckExam()" [disabled]="rechecking() || busy()">Recheck with AI</button>
+      }
       <app-refresh-button [busy]="refreshing()" (refresh)="onRefresh()" />
     </div>
   </div>
@@ -201,6 +204,13 @@
                     } @else if (p.status === 'Grading') {
                       <p class="hint">Submitted, and not yet scored: the answers the candidate typed are being checked, and the score appears when they have been.</p>
                     }
+                    @if (p.aiCheckAvailable && withoutVerdict(p) > 0) {
+                      <p class="ai-check-all">
+                        <button type="button" class="btn--small" (click)="recheckPaper(attempt)" [disabled]="rechecking() || aiChecking() !== null || busy()">
+                          Check {{ withoutVerdict(p) === 1 ? '1 answer' : withoutVerdict(p) + ' answers' }} with no AI verdict with AI
+                        </button>
+                      </p>
+                    }
                     @if (p.hasDrawnQuestions) {
                       <p class="hint">Some questions were drawn for this candidate, so other candidates' papers may differ.</p>
                     }
@@ -275,7 +285,7 @@
                                         type="button"
                                         class="btn--small"
                                         (click)="requestAiCheck(candidate, attempt, question)"
-                                        [disabled]="aiChecking() !== null || busy()"
+                                        [disabled]="aiChecking() !== null || rechecking() || busy()"
                                       >{{ ai.state === 'Judged' ? 'Check with AI again' : 'Check with AI' }}</button>
                                     }
                                   </p>

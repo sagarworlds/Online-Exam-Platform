@@ -6,6 +6,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { vi } from 'vitest';
 import { AttemptSummaryDto } from '../../candidate/candidate.models';
 import { ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
+import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 import { ExamAttempts } from './exam-attempts';
 
 describe('ExamAttempts', () => {
@@ -46,7 +47,7 @@ describe('ExamAttempts', () => {
   const buttonLabelled = (fixture: ComponentFixture<ExamAttempts>, label: string) =>
     Array.from(root(fixture).querySelectorAll('button')).filter((b) => b.textContent?.trim() === label);
 
-  function open(body: ExamAttemptsDto | 'error') {
+  function open(body: ExamAttemptsDto | 'error', aiEnabled = false) {
     const fixture = TestBed.createComponent(ExamAttempts);
     fixture.detectChanges();
     const request = httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts'));
@@ -55,6 +56,8 @@ describe('ExamAttempts', () => {
     } else {
       request.flush(body);
     }
+    // The page also asks whether an AI evaluator is set up, which decides whether it offers the recheck.
+    httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/ai-grading/status')).flush({ enabled: aiEnabled, waitingAnswers: 0 });
     fixture.detectChanges();
     return fixture;
   }
@@ -152,8 +155,8 @@ describe('ExamAttempts', () => {
   const optionsOf = (right: string, chosen: string[] = []) =>
     ['a', 'b', 'c'].map((id) => ({ id, text: `Option ${id}`, isCorrect: id === right, wasChosen: chosen.includes(id) }));
 
-  function showPaper(paper: object) {
-    const fixture = open(exam([candidate()]));
+  function showPaper(paper: object, aiEnabled = false) {
+    const fixture = open(exam([candidate()]), aiEnabled);
     buttonLabelled(fixture, 'Show paper')[0].click();
     httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts/a1/paper')).flush(paper);
     fixture.detectChanges();
@@ -395,6 +398,148 @@ describe('ExamAttempts', () => {
 
       expect(textOf(fixture)).toContain('The AI evaluator is not set up on this server');
       expect(buttonLabelled(fixture, 'Check with AI')[0].disabled).toBe(false);
+    });
+  });
+
+  describe('the recheck with AI of answers that have no verdict', () => {
+    const aiCheck = (state: string) => ({ state, verdict: null, reason: null, model: null, atUtc: null, failures: 0, lastError: null });
+    const question = (id: string, state: string | null) => ({
+      id,
+      text: `<p>Question ${id}</p>`,
+      drawn: false,
+      verdict: 'Wrong',
+      marks: 0,
+      isTextAnswer: true,
+      answerText: 'A different wording',
+      acceptedAnswers: ['Paris'],
+      aiCheck: state === null ? null : aiCheck(state),
+    });
+    const paperOf = (states: (string | null)[], overrides: object = {}) => ({
+      attemptId: 'a1',
+      number: 1,
+      hasDrawnQuestions: false,
+      status: 'Submitted',
+      score: 4,
+      maxScore: 10,
+      isInvalidated: false,
+      aiCheckAvailable: true,
+      sections: [{ id: 's1', name: 'Geography', questions: states.map((state, i) => question(`q${i + 1}`, state)) }],
+      ...overrides,
+    });
+    const recheckButtons = (fixture: ComponentFixture<ExamAttempts>, label: string) =>
+      Array.from(root(fixture).querySelectorAll('button')).filter((b) => b.textContent?.trim().startsWith(label));
+    // The button on an open paper that sends every answer with no verdict; the one for a single answer says "Check with AI".
+    const paperRecheckButtons = (fixture: ComponentFixture<ExamAttempts>) =>
+      Array.from(root(fixture).querySelectorAll('button')).filter((b) => b.textContent?.includes('no AI verdict'));
+    const confirmService = () => TestBed.inject(ConfirmService);
+    const recheckRequest = (url: string) => httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith(url));
+
+    it('offers the recheck of the exam only when the server has an AI evaluator', () => {
+      expect(recheckButtons(open(exam([candidate()]), false), 'Recheck with AI')).toHaveLength(0);
+    });
+
+    it('asks first, then sends the unchecked answers of the whole exam, and says how many went', async () => {
+      const fixture = open(exam([candidate()]), true);
+      expect(recheckButtons(fixture, 'Recheck with AI')).toHaveLength(1);
+
+      recheckButtons(fixture, 'Recheck with AI')[0].click();
+      // Nothing is sent until the question is answered.
+      httpMock.expectNone((r) => r.method === 'POST');
+      expect(confirmService().current()?.options.title).toContain('Send the unchecked typed answers to the AI');
+      confirmService().answer(true);
+      await Promise.resolve();
+
+      recheckRequest('/v1/exams/exam-1/ai-recheck').flush({ attemptsQueued: 2, answersQueued: 3 });
+      httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts')).flush(exam([candidate()]));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('3 typed answers in 2 attempts were sent to the AI');
+      expect(textOf(fixture)).toContain('a score changes only if its verdict does');
+    });
+
+    it('sends nothing when the question is answered no', async () => {
+      const fixture = open(exam([candidate()]), true);
+
+      recheckButtons(fixture, 'Recheck with AI')[0].click();
+      confirmService().answer(false);
+      await Promise.resolve();
+
+      httpMock.expectNone((r) => r.method === 'POST');
+      expect(textOf(fixture)).not.toContain('sent to the AI');
+    });
+
+    it('says when there was nothing to send', async () => {
+      const fixture = open(exam([candidate()]), true);
+
+      recheckButtons(fixture, 'Recheck with AI')[0].click();
+      confirmService().answer(true);
+      await Promise.resolve();
+      recheckRequest('/v1/exams/exam-1/ai-recheck').flush({ attemptsQueued: 0, answersQueued: 0 });
+      httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts')).flush(exam([candidate()]));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Nothing to recheck');
+    });
+
+    it('says why when the exam cannot be rechecked, and leaves the button to try again', async () => {
+      const fixture = open(exam([candidate()]), true);
+
+      recheckButtons(fixture, 'Recheck with AI')[0].click();
+      confirmService().answer(true);
+      await Promise.resolve();
+      recheckRequest('/v1/exams/exam-1/ai-recheck').flush(
+        { title: 'ai_evaluator_not_set_up', detail: 'The AI evaluator is not set up on this server, so an answer cannot be checked by it.' },
+        { status: 409, statusText: 'Conflict' },
+      );
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('The AI evaluator is not set up on this server');
+      expect(recheckButtons(fixture, 'Recheck with AI')[0].disabled).toBe(false);
+    });
+
+    it('offers to check every answer on a paper that has no verdict, counting only those', () => {
+      const fixture = showPaper(paperOf(['NotChecked', 'GaveUp', 'Judged', 'Waiting', null]), true);
+
+      expect(paperRecheckButtons(fixture)).toHaveLength(1);
+      expect(paperRecheckButtons(fixture)[0].textContent?.trim()).toBe('Check 2 answers with no AI verdict with AI');
+    });
+
+    it('words the button for a single answer in the singular', () => {
+      const fixture = showPaper(paperOf(['GaveUp', 'Judged']));
+
+      expect(paperRecheckButtons(fixture)[0].textContent?.trim()).toBe('Check 1 answer with no AI verdict with AI');
+    });
+
+    it('offers nothing on a paper where every answer has a verdict or is waiting for one', () => {
+      const fixture = showPaper(paperOf(['Judged', 'Waiting', null]), true);
+
+      expect(paperRecheckButtons(fixture)).toHaveLength(0);
+    });
+
+    it('offers nothing on a paper when the AI cannot be used', () => {
+      const fixture = showPaper(paperOf(['NotChecked'], { aiCheckAvailable: false }), true);
+
+      expect(paperRecheckButtons(fixture)).toHaveLength(0);
+    });
+
+    it('sends the paper\'s answers, then reads the paper again to show them waiting', () => {
+      vi.useFakeTimers();
+      try {
+        const fixture = showPaper(paperOf(['NotChecked', 'GaveUp']));
+
+        paperRecheckButtons(fixture)[0].click();
+        recheckRequest('/v1/exams/exam-1/attempts/a1/ai-recheck').flush({ attemptsQueued: 1, answersQueued: 2 });
+        // The rows are read again, and the open paper with them.
+        httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts')).flush(exam([candidate()]));
+        httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts/a1/paper')).flush(paperOf(['Waiting', 'Waiting']));
+        fixture.detectChanges();
+
+        expect(textOf(fixture)).toContain('2 typed answers in 1 attempt were sent to the AI');
+        expect(textOf(fixture)).toContain('Waiting for the AI');
+        expect(paperRecheckButtons(fixture)).toHaveLength(0);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 
