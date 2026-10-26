@@ -1,6 +1,6 @@
 /**
  * Whether an attempt is still open, over and being graded, or already submitted and scored. An attempt is graded while the platform checks the
- * answers a candidate typed that match no accepted answer word for word: it is over, it has no score yet, and the status becomes
+ * answers a candidate typed that match no accepted answer under the question's matching rule: it is over, it has no score yet, and the status becomes
  * 'Submitted' with the score when the checking is done.
  */
 export type AttemptStatus = 'InProgress' | 'Submitted' | 'Grading';

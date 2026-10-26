@@ -99,7 +99,7 @@ export interface ExamAttemptsDto {
  */
 export type AiCheckState = 'NotChecked' | 'Waiting' | 'Judged' | 'GaveUp';
 
-/** The AI evaluator's part in a typed answer that matches no accepted answer word for word. Staff only; the candidate never sees the reason. */
+/** The AI evaluator's part in a typed answer that matches no accepted answer under the question's matching rule. Staff only; the candidate never sees the reason. */
 export interface AttemptPaperAiCheckDto {
   state: AiCheckState;
   /** Right or wrong; null before it has given one. While the answer waits to be checked again, the earlier verdict. */

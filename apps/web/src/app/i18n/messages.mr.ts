@@ -1192,6 +1192,10 @@ export const MR: Messages = {
   'qb.field.accepted': 'स्वीकारलेली उत्तरे',
   'qb.field.acceptedHint': 'टाइप केलेले उत्तर यापैकी एकाशी जुळले तर बरोबर ठरते. मोठी अक्षरे आणि जास्तीच्या जागा महत्त्वाच्या नाहीत, म्हणून "Paris" सोबत "paris" देखील स्वीकारले जाते. उमेदवार जी स्पेलिंग टाइप करू शकतो ती प्रत्येक वेगळ्या ओळीत लिहा.',
   'qb.field.acceptedLock': 'उमेदवारांनी या प्रश्नाचे उत्तर दिले आहे, म्हणून त्याची स्वीकारलेली उत्तरे बंद आहेत, कारण त्यांचे निकाल त्यांच्या आधारे काढले गेले आहेत. ती बदलण्यासाठी त्याऐवजी नवीन प्रश्न तयार करा.',
+  // Marathi: still English, pending translation (pending-translations.ts).
+  'qb.field.lenient': 'Ignore punctuation and accents',
+  'qb.field.lenientHint': 'When on, "Paris." and "paris" count as "Paris", and "cafe" as "café". Signs that can change an answer, such as + - = / % and a decimal point, still have to match. Turn it off for answers where punctuation matters.',
+  'qb.field.lenientLock': 'Candidates have answered this question, so this setting is locked, because their results were worked out with it. To change it, correct the answer key.',
   'qb.field.acceptedAnswer': 'स्वीकारलेले उत्तर {number}',
   'qb.field.removeAccepted': 'स्वीकारलेले उत्तर {number} काढा',
   'qb.field.addAccepted': 'स्वीकारलेले उत्तर जोडा',
@@ -1208,6 +1212,9 @@ export const MR: Messages = {
   'qb.key.region': 'उत्तरतालिका दुरुस्त करा',
   'qb.key.warning': 'यामुळे या प्रश्नाचे उत्तर दिलेल्या प्रत्येक उमेदवाराचा निकाल बदलतो: त्यांचे गुण पुन्हा काढले जातात आणि प्रत्येकाला तुमचे कारण दाखवले जाते. या प्रश्नावरील आक्षेप मान्य केले जातात.',
   'qb.key.acceptedHint': 'टाइप केलेले उत्तर यापैकी एकाशी जुळले तर बरोबर ठरते, मोठी अक्षरे आणि जास्तीच्या जागा दुर्लक्षित करून.',
+  // Marathi: still English, pending translation (pending-translations.ts).
+  'qb.key.lenient': 'Ignore punctuation and accents',
+  'qb.key.lenientHint': 'Changing this changes who is right: everyone who answered is scored again, and each person whose score moves is shown your reason.',
   'qb.key.remove': 'काढा',
   'qb.key.optionsMultiple': 'बरोबर पर्याय (प्रत्येकावर खूण करा)',
   'qb.key.optionSingle': 'बरोबर पर्याय',

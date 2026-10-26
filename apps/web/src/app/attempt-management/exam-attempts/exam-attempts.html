@@ -241,7 +241,7 @@
                                 </p>
                                 <p><span class="hint">Accepted answers:</span> {{ (question.acceptedAnswers ?? []).join(', ') }}</p>
                                 @if (question.aiCheck; as ai) {
-                                  <!-- Only for a typed answer that matches no accepted answer word for word, which the AI evaluator judges. -->
+                                  <!-- Only for a typed answer that matches no accepted answer under the question's matching rule, which the AI evaluator judges. -->
                                   <p class="ai-check" role="group" aria-label="AI check">
                                     <span class="hint">AI check:</span>
                                     @switch (ai.state) {

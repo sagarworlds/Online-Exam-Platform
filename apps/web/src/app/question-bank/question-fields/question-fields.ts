@@ -97,6 +97,12 @@ export class QuestionFields implements OnInit {
     }
   }
 
+  /** Sets whether a typed answer may differ from an accepted one in punctuation or accents. */
+  protected setLenient(lenient: boolean): void {
+    this.form.controls.lenient.setValue(lenient);
+    this.form.controls.lenient.markAsDirty();
+  }
+
   protected addAcceptedAnswer(): void {
     if (this.acceptedAnswers.length < QUESTION_LIMITS.maxAcceptedAnswers) {
       this.acceptedAnswers.push(newAcceptedAnswer(this.formBuilder));

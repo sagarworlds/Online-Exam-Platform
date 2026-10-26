@@ -28,6 +28,11 @@
         @if (answersProblem()) {
           <p class="field-error">{{ answersProblem() }}</p>
         }
+        <label class="inline-check">
+          <input type="checkbox" [checked]="lenient()" (change)="lenient.set($any($event.target).checked)" [disabled]="busy()" aria-describedby="key-lenient-hint" />
+          <span>{{ 'qb.key.lenient' | t }}</span>
+        </label>
+        <p class="hint" id="key-lenient-hint">{{ 'qb.key.lenientHint' | t }}</p>
       </fieldset>
     } @else {
     <fieldset class="field">

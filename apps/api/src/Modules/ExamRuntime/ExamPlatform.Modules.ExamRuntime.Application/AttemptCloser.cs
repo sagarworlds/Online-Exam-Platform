@@ -14,7 +14,7 @@ namespace ExamPlatform.Modules.ExamRuntime.Application;
 /// next time anyone looks at it, at its deadline, with whatever answers were saved.
 /// </summary>
 /// <remarks>
-/// When the AI evaluator is set up and the attempt holds a typed answer that matches none of the accepted answers word for word, the attempt
+/// When the AI evaluator is set up and the attempt holds a typed answer that matches none of the accepted answers under the question's matching rule, the attempt
 /// is closed without a score and waits in <see cref="AttemptStatus.Grading"/> until the evaluator has judged those answers; a background
 /// worker (<see cref="TypedAnswerGrading"/>) gives the score then. With no evaluator, or nothing for it to judge, the attempt is scored here
 /// at once, exactly as it always was.

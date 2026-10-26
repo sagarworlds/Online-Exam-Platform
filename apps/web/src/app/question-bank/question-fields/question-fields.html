@@ -143,6 +143,21 @@
       <p class="error-message" role="alert">{{ 'qb.field.duplicateAccepted' | t }}</p>
     }
   </fieldset>
+
+  <div class="field">
+    <label class="inline-check">
+      <input
+        id="question-lenient"
+        type="checkbox"
+        [checked]="form.controls.lenient.value"
+        [attr.disabled]="wordingOnly() ? '' : null"
+        aria-describedby="question-lenient-hint"
+        (change)="setLenient($any($event.target).checked)"
+      />
+      {{ 'qb.field.lenient' | t }}
+    </label>
+    <p class="hint" id="question-lenient-hint">{{ (wordingOnly() ? 'qb.field.lenientLock' : 'qb.field.lenientHint') | t }}</p>
+  </div>
 }
 
 <!-- Difficulty, topics and the explanation are optional, so they are folded away; what is already set is said beside the button. -->

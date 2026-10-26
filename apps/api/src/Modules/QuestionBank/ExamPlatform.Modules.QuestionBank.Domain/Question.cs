@@ -154,6 +154,13 @@ public sealed class Question : AggregateRoot
     /// </summary>
     public string[] AcceptedAnswers { get; private set; } = [];
 
+    /// <summary>
+    /// How strictly a typed answer is compared with <see cref="AcceptedAnswers"/> (see <see cref="TextMatchRule"/>). It is part of the answer key,
+    /// so it is kept in every version. <see cref="TextMatchRule.Exact"/> for a multiple-choice question and for every text question written
+    /// before the choice existed, which therefore mark exactly as they always did.
+    /// </summary>
+    public TextMatchRule MatchRule { get; private set; } = TextMatchRule.Exact;
+
     /// <summary>How hard the author judges the question to be, or null when they have not said.</summary>
     public QuestionDifficulty? Difficulty { get; private set; }
 
@@ -214,6 +221,7 @@ public sealed class Question : AggregateRoot
     /// <param name="isTextAnswer">Whether the candidate types the answer instead of choosing options; such a question has no options.</param>
     /// <param name="acceptedAnswers">For a text question, the answers a typed answer may be; must be empty for a multiple-choice one.</param>
     /// <param name="explanation">Why the correct answer is correct, as plain text, or null for none; see <see cref="Explanation"/>.</param>
+    /// <param name="matchRule">How strictly a typed answer is compared with the accepted answers; <see cref="TextMatchRule.Exact"/> for a multiple-choice question.</param>
     /// <exception cref="InvalidQuestionError">
     /// The text is blank or larger than <see cref="MaxHtmlLength"/>, the language is not supported, the number of options is outside <see cref="MinOptions"/> to
     /// <see cref="MaxOptions"/>, an option is blank or too long, the options do not have exactly one correct answer, the topics
@@ -223,16 +231,17 @@ public sealed class Question : AggregateRoot
         string? text, IReadOnlyList<NewQuestionOption>? options, Guid createdBy, DateTime nowUtc, Guid? chapterId = null,
         QuestionDifficulty? difficulty = null, IReadOnlyList<string?>? topics = null, bool allowsMultiple = false,
         string? language = null, Guid? translationGroupId = null, bool isTextAnswer = false, IReadOnlyList<string?>? acceptedAnswers = null,
-        string? explanation = null)
+        string? explanation = null, TextMatchRule matchRule = TextMatchRule.Exact)
     {
         var trimmedText = RequireText(text);
         var code = QuestionLanguage.Parse(language);
-        var answers = RequireAnswerShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0, allowsMultiple, isTextAnswer, acceptedAnswers);
+        var answers = RequireAnswerShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0, allowsMultiple, isTextAnswer, acceptedAnswers, matchRule);
         var trimmedExplanation = RequireExplanation(explanation);
 
         var question = new Question(Guid.NewGuid(), trimmedText, chapterId, createdBy, nowUtc)
         {
             AllowsMultiple = allowsMultiple, Language = code, IsTextAnswer = isTextAnswer, AcceptedAnswers = answers, Explanation = trimmedExplanation,
+            MatchRule = matchRule,
         };
         question.TranslationGroupId = translationGroupId ?? question.Id;
         question.Classify(difficulty, topics);
@@ -271,16 +280,22 @@ public sealed class Question : AggregateRoot
     /// The explanation after the edit, or null for none; the edit replaces the whole of it, as it replaces the text. Wording only, so it is
     /// allowed once the question has been answered.
     /// </param>
+    /// <param name="matchRule">
+    /// How strictly a typed answer is compared after the edit, or null to keep the question's current rule (a client that does not know the
+    /// rule must not reset it). Once answered, it may not change: a correction does that.
+    /// </param>
     /// <exception cref="InvalidQuestionError">The edit breaks a rule of <see cref="Create"/>, or names an option this question does not have.</exception>
     /// <exception cref="QuestionLockedError">
     /// The question has been answered and the edit changes which option is correct, or adds, removes or reorders options.
     /// </exception>
     public void Revise(
         string? text, IReadOnlyList<QuestionOptionEdit>? options, bool answered, bool allowsMultiple = false, DateTime? nowUtc = null,
-        bool isTextAnswer = false, IReadOnlyList<string?>? acceptedAnswers = null, string? explanation = null)
+        bool isTextAnswer = false, IReadOnlyList<string?>? acceptedAnswers = null, string? explanation = null, TextMatchRule? matchRule = null)
     {
         var trimmedText = RequireText(text);
-        var answers = RequireAnswerShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0, allowsMultiple, isTextAnswer, acceptedAnswers);
+        // Turning a text question into a multiple-choice one leaves it with no rule; a rule sent for a multiple-choice question is refused below.
+        var rule = matchRule ?? (isTextAnswer ? MatchRule : TextMatchRule.Exact);
+        var answers = RequireAnswerShape(options?.Count, options?.Count(o => o is { IsCorrect: true }) ?? 0, allowsMultiple, isTextAnswer, acceptedAnswers, rule);
         var trimmedExplanation = RequireExplanation(explanation);
 
         IReadOnlyList<QuestionOptionEdit> edits = options ?? [];
@@ -294,13 +309,14 @@ public sealed class Question : AggregateRoot
             throw new InvalidQuestionError("An option appears more than once.");
 
         if (answered)
-            EnsureOnlyWordingChanges(edits, allowsMultiple, isTextAnswer, answers);
+            EnsureOnlyWordingChanges(edits, allowsMultiple, isTextAnswer, answers, rule);
 
         var before = ContentFingerprint();
         Text = trimmedText;
         AllowsMultiple = allowsMultiple;
         IsTextAnswer = isTextAnswer;
         AcceptedAnswers = answers;
+        MatchRule = rule;
         Explanation = trimmedExplanation;
 
         var revised = new List<QuestionOption>(edits.Count);
@@ -330,7 +346,7 @@ public sealed class Question : AggregateRoot
 
     // The explanation is content a candidate reads, so changing it sends the question back for approval like any other change.
     private string ContentFingerprint() =>
-        Text + "|" + AllowsMultiple + "|" + IsTextAnswer + "|" + string.Join("\u001f", AcceptedAnswers) + "|" + Explanation + "|"
+        Text + "|" + AllowsMultiple + "|" + IsTextAnswer + "|" + string.Join("\u001f", AcceptedAnswers) + "|" + MatchRule + "|" + Explanation + "|"
         + string.Join(";", _options.OrderBy(o => o.Order).Select(o => $"{o.Id}:{o.Text}:{o.IsCorrect}:{o.IsPinned}:{o.Order}"));
 
     /// <summary>The explanation trimmed, or null when it is blank; it may not be longer than <see cref="MaxExplanationLength"/>.</summary>
@@ -500,18 +516,22 @@ public sealed class Question : AggregateRoot
     /// </summary>
     /// <param name="answers">The answers that should be accepted, as the author wrote them; they replace the current list.</param>
     /// <param name="nowUtc">The current instant.</param>
-    /// <returns><see langword="true"/> when the accepted answers changed; <see langword="false"/> when they already matched.</returns>
+    /// <param name="matchRule">How strictly a typed answer should be compared from now on, or null to keep the question's rule. A stricter or looser rule changes who is right, so it is a correction like a changed list.</param>
+    /// <returns><see langword="true"/> when the accepted answers or the rule changed; <see langword="false"/> when they already matched.</returns>
     /// <exception cref="InvalidQuestionError">The question is not a text question, or the answers break the rules of <see cref="Create"/>.</exception>
-    public bool CorrectAcceptedAnswers(IReadOnlyList<string?> answers, DateTime nowUtc)
+    public bool CorrectAcceptedAnswers(IReadOnlyList<string?> answers, DateTime nowUtc, TextMatchRule? matchRule = null)
     {
         if (!IsTextAnswer)
             throw new InvalidQuestionError("Only a text-answer question has accepted answers to correct.");
 
-        var corrected = RequireAcceptedAnswers(answers);
-        if (SameAnswers(corrected, AcceptedAnswers))
+        var rule = matchRule ?? MatchRule;
+        RequireKnownRule(rule);
+        var corrected = RequireAcceptedAnswers(answers, rule);
+        if (rule == MatchRule && SameAnswers(corrected, AcceptedAnswers, rule))
             return false;
 
         AcceptedAnswers = corrected;
+        MatchRule = rule;
         AnswerKeyCorrectedAtUtc = nowUtc;
         Snapshot(nowUtc);
         return true;
@@ -576,13 +596,13 @@ public sealed class Question : AggregateRoot
         var options = _options.OrderBy(o => o.Order)
             .Select(o => new QuestionVersionOption(o.Id, o.Text, o.IsCorrect, o.Order, o.IsPinned))
             .ToList();
-        _versions.Add(new QuestionVersion(Id, _versions.Count + 1, Text, AllowsMultiple, options, nowUtc, IsTextAnswer, AcceptedAnswers, Explanation));
+        _versions.Add(new QuestionVersion(Id, _versions.Count + 1, Text, AllowsMultiple, options, nowUtc, IsTextAnswer, AcceptedAnswers, Explanation, MatchRule));
     }
 
     // Once candidates have answered, the key and the list of options are part of their results. Wording is the one thing
     // that can still be corrected without touching any of that: the same options, in the same order, with the same one correct and
     // the same ones pinned (a pin decides where an option lands in each candidate's shuffled order, which a review must reproduce).
-    private void EnsureOnlyWordingChanges(IReadOnlyList<QuestionOptionEdit> edits, bool allowsMultiple, bool isTextAnswer, string[] answers)
+    private void EnsureOnlyWordingChanges(IReadOnlyList<QuestionOptionEdit> edits, bool allowsMultiple, bool isTextAnswer, string[] answers, TextMatchRule matchRule)
     {
         var current = _options.OrderBy(o => o.Order).ToList();
 
@@ -590,16 +610,23 @@ public sealed class Question : AggregateRoot
         var unchanged = allowsMultiple == AllowsMultiple && edits.Count == current.Count
             && current.Select((option, i) => edits[i].Id == option.Id && edits[i].IsCorrect == option.IsCorrect && edits[i].IsPinned == option.IsPinned).All(same => same);
 
-        // So is whether the candidate types the answer, and which answers are accepted: those decide what counts as right.
-        var sameKind = isTextAnswer == IsTextAnswer && SameAnswers(answers, AcceptedAnswers);
+        // So is whether the candidate types the answer, which answers are accepted, and how strictly they are compared: those decide what counts as right.
+        var sameKind = isTextAnswer == IsTextAnswer && matchRule == MatchRule && SameAnswers(answers, AcceptedAnswers, MatchRule);
 
         if (!unchanged || !sameKind)
             throw new QuestionLockedError();
     }
 
-    /// <summary>Whether two lists of accepted answers accept the same answers, comparing each in the form a typed answer is matched in.</summary>
-    private static bool SameAnswers(IEnumerable<string> first, IEnumerable<string> second) =>
-        first.Select(TypedAnswer.Normalize).ToHashSet().SetEquals(second.Select(TypedAnswer.Normalize));
+    /// <summary>Whether two lists of accepted answers accept the same answers, comparing each in the form a typed answer is matched in under the rule.</summary>
+    private static bool SameAnswers(IEnumerable<string> first, IEnumerable<string> second, TextMatchRule rule) =>
+        first.Select(a => TypedAnswer.Normalize(a, rule)).ToHashSet().SetEquals(second.Select(a => TypedAnswer.Normalize(a, rule)));
+
+    // The rule is stored by name and arrives from a client, so an unknown number is refused rather than stored as a rule nobody can read.
+    private static void RequireKnownRule(TextMatchRule rule)
+    {
+        if (!Enum.IsDefined(rule))
+            throw new InvalidQuestionError("The matching rule must be exact or lenient.");
+    }
 
     private static string RequireText(string? text)
     {
@@ -635,8 +662,9 @@ public sealed class Question : AggregateRoot
     /// accepted answers to store, which is empty for a multiple-choice question.
     /// </summary>
     private static string[] RequireAnswerShape(
-        int? optionCount, int correctCount, bool allowsMultiple, bool isTextAnswer, IReadOnlyList<string?>? acceptedAnswers)
+        int? optionCount, int correctCount, bool allowsMultiple, bool isTextAnswer, IReadOnlyList<string?>? acceptedAnswers, TextMatchRule matchRule)
     {
+        RequireKnownRule(matchRule);
         if (isTextAnswer)
         {
             if (optionCount is > 0)
@@ -644,11 +672,13 @@ public sealed class Question : AggregateRoot
             if (allowsMultiple)
                 throw new InvalidQuestionError("A text-answer question takes one typed answer, so it cannot allow several correct answers.");
 
-            return RequireAcceptedAnswers(acceptedAnswers);
+            return RequireAcceptedAnswers(acceptedAnswers, matchRule);
         }
 
         if (acceptedAnswers is { Count: > 0 })
             throw new InvalidQuestionError("Accepted answers belong to a text-answer question only.");
+        if (matchRule != TextMatchRule.Exact)
+            throw new InvalidQuestionError("A matching rule belongs to a text-answer question only.");
 
         RequireOptionShape(optionCount, correctCount, allowsMultiple);
         return [];
@@ -657,9 +687,9 @@ public sealed class Question : AggregateRoot
     /// <summary>
     /// The accepted answers of a text question, trimmed, with blank ones ignored. There must be at least one, no more than
     /// <see cref="MaxAcceptedAnswers"/>, none longer than <see cref="MaxAcceptedAnswerLength"/>, and no two that mean the same
-    /// (see <see cref="TypedAnswer.Normalize"/>).
+    /// (see <see cref="TypedAnswer.Normalize(string?, TextMatchRule)"/>, which is the stricter or looser, as the rule says).
     /// </summary>
-    private static string[] RequireAcceptedAnswers(IReadOnlyList<string?>? answers)
+    private static string[] RequireAcceptedAnswers(IReadOnlyList<string?>? answers, TextMatchRule rule)
     {
         var trimmed = (answers ?? []).Select(answer => answer?.Trim() ?? string.Empty).Where(answer => answer.Length > 0).ToArray();
         if (trimmed.Length == 0)
@@ -668,7 +698,7 @@ public sealed class Question : AggregateRoot
             throw new InvalidQuestionError($"A text-answer question can have at most {MaxAcceptedAnswers} accepted answers.");
         if (trimmed.Any(answer => answer.Length > MaxAcceptedAnswerLength))
             throw new InvalidQuestionError($"An accepted answer must be at most {MaxAcceptedAnswerLength} characters.");
-        if (trimmed.Select(TypedAnswer.Normalize).Distinct().Count() != trimmed.Length)
+        if (trimmed.Select(answer => TypedAnswer.Normalize(answer, rule)).Distinct().Count() != trimmed.Length)
             throw new InvalidQuestionError("The same answer is listed more than once.");
 
         return trimmed;

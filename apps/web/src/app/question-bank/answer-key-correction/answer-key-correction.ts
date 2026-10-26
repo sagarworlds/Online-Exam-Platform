@@ -35,6 +35,8 @@ export class AnswerKeyCorrection implements OnInit {
   protected readonly chosen = signal<ReadonlySet<string>>(new Set());
   /** The accepted answers of a text question, as the author edits them; blank rows are left out when sent. */
   protected readonly answers = signal<readonly string[]>([]);
+  /** Whether a typed answer may differ from an accepted one in punctuation or accents, from now on; starts as the question's own rule. */
+  protected readonly lenient = signal(false);
   protected readonly reason = signal('');
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -90,6 +92,7 @@ export class AnswerKeyCorrection implements OnInit {
         this.question.set(question);
         this.chosen.set(new Set(question.options.filter((option) => option.isCorrect).map((option) => option.id)));
         this.answers.set(question.acceptedAnswers ?? []);
+        this.lenient.set(question.matchRule === 'Lenient');
       },
       error: (error: unknown) => this.loadError.set(extractErrorMessage(error, this.i18n.t('qb.key.loadError'))),
     });
@@ -145,7 +148,13 @@ export class AnswerKeyCorrection implements OnInit {
     const reason = this.reason().trim();
     // A text question's key is its accepted answers, sent with no option ids; a multiple-choice one's is its options, in the question's own order.
     const request = question.isTextAnswer
-      ? this.api.correctAnswerKey(question.id, [], reason, this.answers().map((answer) => answer.trim()).filter((answer) => answer.length > 0))
+      ? this.api.correctAnswerKey(
+          question.id,
+          [],
+          reason,
+          this.answers().map((answer) => answer.trim()).filter((answer) => answer.length > 0),
+          this.lenient() ? 'Lenient' : 'Exact',
+        )
       : this.api.correctAnswerKey(question.id, question.options.filter((option) => this.chosen().has(option.id)).map((option) => option.id), reason);
     request.subscribe({
       next: (result) => {

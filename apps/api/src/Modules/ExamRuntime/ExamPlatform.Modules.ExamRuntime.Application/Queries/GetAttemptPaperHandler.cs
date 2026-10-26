@@ -61,7 +61,7 @@ public sealed class GetAttemptPaperHandler(
     {
         if (!question.IsTextAnswer || answer is null || string.IsNullOrWhiteSpace(answer.AnswerText))
             return null;
-        if (TypedAnswer.Matches(answer.AnswerText, question.AcceptedAnswers ?? []))
+        if (TypedAnswer.Matches(answer.AnswerText, question.AcceptedAnswers ?? [], question.MatchRule))
             return null;
 
         var state = answer.IsAwaitingEvaluation ? AiCheckState.Waiting

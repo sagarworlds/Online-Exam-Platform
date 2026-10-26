@@ -20,6 +20,7 @@ import {
   toExplanation,
   toIsTextAnswer,
   toLabels,
+  toMatchRule,
   toNewOptions,
 } from '../question-form';
 import { CreateQuestionRequest, DuplicateQuestion, QuestionDto, QuestionLanguage } from '../question.models';
@@ -212,6 +213,7 @@ export class QuestionPanel implements OnInit {
       language: this.form.getRawValue().language,
       isTextAnswer: toIsTextAnswer(this.form),
       acceptedAnswers: toAcceptedAnswers(this.form),
+      matchRule: toMatchRule(this.form),
       explanation: toExplanation(this.form),
     };
   }
@@ -256,6 +258,7 @@ export class QuestionPanel implements OnInit {
         allowsMultiple: toAllowsMultiple(this.form),
         isTextAnswer: toIsTextAnswer(this.form),
         acceptedAnswers: toAcceptedAnswers(this.form),
+        matchRule: toMatchRule(this.form),
         explanation: toExplanation(this.form),
       })
       .subscribe({
