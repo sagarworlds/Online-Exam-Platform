@@ -125,8 +125,24 @@
 }
 
 /* A displayed formula wider than a phone scrolls inside its own line instead of pushing the whole page sideways (WCAG 1.4.10). */
-.rich-text .katex-display {
+.rich-text .katex-display,
+.option-choice__text .katex-display,
+.review-option__text .katex-display,
+.review-explanation__text .katex-display {
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
+}
+
+/* In an option a displayed formula is part of the answer, not a break in the text: it keeps to the option's left edge and its
+   own height, rather than the tall centred block it is in a question. */
+.option-choice__text .katex-display,
+.review-option__text .katex-display {
+  margin: 0.15em 0;
+  text-align: left;
+}
+
+.option-choice__text .katex-display > .katex,
+.review-option__text .katex-display > .katex {
+  text-align: left;
 }
