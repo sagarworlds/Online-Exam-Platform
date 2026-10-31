@@ -46,11 +46,25 @@
               <!-- The first of the exams to take now is the one to do next: it gets the most room and a full-width button. -->
               <article class="card exam-card" [class.exam-card--past]="section.collapsible" [class.exam-card--next]="section.id === 'available' && first">
                 <h3 class="card__title" [attr.id]="'exam-title-' + exam.examId" tabindex="-1">
-                  {{ exam.name }}
-                  <span class="badge" [class.badge--active]="exam.state === 'Open'" [class.badge--inactive]="exam.state !== 'Open'">
-                    {{ exam.state === 'NotOpen' ? ('myExams.state.notOpen' | t) : exam.state === 'Open' ? ('myExams.state.open' | t) : ('myExams.state.closed' | t) }}
-                  </span>
+                  <button
+                    type="button"
+                    class="exam-card__toggle"
+                    [attr.aria-expanded]="isOpen(exam)"
+                    [attr.aria-controls]="'exam-body-' + exam.examId"
+                    (click)="toggleCard(exam)"
+                  >
+                    <span class="exam-card__name">{{ exam.name }}</span>
+                    <span class="badge" [class.badge--active]="exam.state === 'Open'" [class.badge--inactive]="exam.state !== 'Open'">
+                      {{ exam.state === 'NotOpen' ? ('myExams.state.notOpen' | t) : exam.state === 'Open' ? ('myExams.state.open' | t) : ('myExams.state.closed' | t) }}
+                    </span>
+                    <span class="exam-card__chevron" aria-hidden="true">{{ isOpen(exam) ? '▴' : '▾' }}</span>
+                    @if (!isOpen(exam) && cardSummary(exam); as summary) {
+                      <span class="exam-card__summary">{{ summary }}</span>
+                    }
+                  </button>
                 </h3>
+                <!-- Hidden, not removed: a folded card keeps its form and its place, so opening it again finds it as it was left. -->
+                <div class="exam-card__body" [attr.id]="'exam-body-' + exam.examId" [hidden]="!isOpen(exam)">
                 @if (exam.description) {
                   <p>{{ exam.description }}</p>
                 }
@@ -146,6 +160,7 @@
                     }
                   </ul>
                 }
+                </div>
               </article>
             } @empty {
               <p class="card empty-state">{{ 'myExams.nothingAvailable' | t }}</p>
