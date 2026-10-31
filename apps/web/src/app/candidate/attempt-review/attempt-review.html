@@ -138,7 +138,7 @@
                 [class.review-option--wrong]="option.wasChosen && !option.isCorrect"
               >
                 <span class="review-option__marker" aria-hidden="true">{{ optionLetter(i) }}</span>
-                <span class="review-option__text">{{ option.text }}</span>
+                <span class="review-option__text" [appMathText]="option.text"></span>
                 @if (option.wasChosen && option.isCorrect) {
                   <span class="review-option__tag">{{ 'review.tag.yourCorrect' | t }}</span>
                 } @else if (option.wasChosen) {
@@ -172,7 +172,7 @@
           @if (question.explanation) {
             <section class="review-explanation" [attr.aria-label]="'review.explanation.label' | t">
               <p class="review-explanation__head"><strong>{{ 'review.explanation.label' | t }}</strong></p>
-              <p class="review-explanation__text">{{ question.explanation }}</p>
+              <p class="review-explanation__text" [appMathText]="question.explanation"></p>
             </section>
           }
 

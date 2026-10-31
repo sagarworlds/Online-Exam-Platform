@@ -220,7 +220,7 @@
                       (change)="choose(question, option.id)"
                     />
                     <span class="option-choice__marker" aria-hidden="true">{{ optionLetter(i) }}</span>
-                    <span class="option-choice__text">{{ option.text }}</span>
+                    <span class="option-choice__text" [appMathText]="option.text"></span>
                   </label>
                 }
                 @if (question.isTextAnswer) {

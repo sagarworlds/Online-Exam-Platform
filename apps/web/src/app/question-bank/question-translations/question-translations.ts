@@ -8,6 +8,7 @@ import { RichTextEditor } from '../../shared/rich-text/rich-text-editor';
 import { QuestionApiService } from '../question-api.service';
 import { QUESTION_LANGUAGES, QUESTION_LIMITS, QuestionDto, QuestionLanguage, QuestionTranslation } from '../question.models';
 import { STATUS_KEYS } from '../question-review/question-review';
+import { MathTextDirective } from '../../shared/rich-text/math-text.directive';
 
 /**
  * The versions of one question in other languages (FR-10), under its card: which languages it has, each one a link to
@@ -16,7 +17,7 @@ import { STATUS_KEYS } from '../question-review/question-review';
  */
 @Component({
   selector: 'app-question-translations',
-  imports: [ReactiveFormsModule, RouterLink, RichTextEditor, TranslatePipe],
+  imports: [ReactiveFormsModule, RouterLink, RichTextEditor, TranslatePipe, MathTextDirective],
   templateUrl: './question-translations.html',
 })
 export class QuestionTranslations implements OnInit {

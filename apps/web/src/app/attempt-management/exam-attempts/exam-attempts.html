@@ -301,7 +301,7 @@
                                     [class.review-option--wrong]="option.wasChosen && !option.isCorrect"
                                   >
                                     <span class="review-option__marker" aria-hidden="true">{{ optionLetter(i) }}</span>
-                                    <span class="review-option__text">{{ option.text }}</span>
+                                    <span class="review-option__text" [appMathText]="option.text"></span>
                                     @if (option.wasChosen && option.isCorrect) {
                                       <span class="review-option__tag">Chosen · Correct</span>
                                     } @else if (option.wasChosen) {

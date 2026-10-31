@@ -115,6 +115,27 @@ describe('ExamAttempt', () => {
     vi.useRealTimers();
   });
 
+  it('renders the formulas in the question and in its options, and leaves plain options as they are', async () => {
+    const withMaths = attempt();
+    const first = withMaths.sections[0].questions[0];
+    withMaths.sections[0].questions[0] = {
+      ...first,
+      text: '<p>What is $\\sqrt{16}$?</p>',
+      options: [
+        { id: 'o1', text: '$4$' },
+        { id: 'o2', text: '\\(\\frac{1}{2}\\)' },
+        { id: 'o3', text: 'Five' },
+      ],
+    };
+    const fixture = await open(withMaths);
+
+    expect(root(fixture).querySelector('.question__text .katex')).not.toBeNull();
+    const options = Array.from(root(fixture).querySelectorAll('.option-choice__text'));
+    expect(options.map((o) => o.querySelector('.katex') !== null)).toEqual([true, true, false]);
+    expect(options[2].textContent).toBe('Five');
+    expect(options.map((o) => o.textContent).join('')).not.toContain('$');
+  });
+
   it('shows the first question with the answers saved so far, and no hint of which option is right', async () => {
     const fixture = await open(attempt());
 

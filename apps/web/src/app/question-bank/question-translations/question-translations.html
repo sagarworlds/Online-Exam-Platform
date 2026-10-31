@@ -36,7 +36,7 @@
         <legend>{{ 'qb.tr.optionsIn' | t: { language: labelOf(language) } }}</legend>
         @for (control of options.controls; track control; let i = $index) {
           <div class="option-row option-row--stacked">
-            <span class="hint">{{ question().options[i].text }}@if (question().options[i].isCorrect) { {{ 'qb.tr.correctMark' | t }}}</span>
+            <span class="hint"><span [appMathText]="question().options[i].text"></span>@if (question().options[i].isCorrect) { {{ 'qb.tr.correctMark' | t }}}</span>
             <textarea
               rows="3"
               [formControl]="control"
