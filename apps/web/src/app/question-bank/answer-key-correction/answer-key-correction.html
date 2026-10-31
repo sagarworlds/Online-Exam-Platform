@@ -41,12 +41,12 @@
         @if (q.allowsMultiple) {
           <label class="inline-check">
             <input type="checkbox" [checked]="chosen().has(option.id)" (change)="choose(option.id, $any($event.target).checked, true)" [disabled]="busy()" />
-            <span>{{ optionLetter(i) }}. {{ option.text }}</span>
+            <span>{{ optionLetter(i) }}. <span [appMathText]="option.text"></span></span>
           </label>
         } @else {
           <label class="inline-check">
             <input type="radio" [name]="'key-' + q.id" [checked]="chosen().has(option.id)" (change)="choose(option.id, true, false)" [disabled]="busy()" />
-            <span>{{ optionLetter(i) }}. {{ option.text }}</span>
+            <span>{{ optionLetter(i) }}. <span [appMathText]="option.text"></span></span>
           </label>
         }
       }

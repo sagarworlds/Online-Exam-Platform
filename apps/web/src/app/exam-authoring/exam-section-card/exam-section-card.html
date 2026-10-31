@@ -16,7 +16,7 @@
       @for (question of section().questions; track question.id; let place = $index) {
         <li>
           <div class="section-card__row">
-            <span class="section-card__text">{{ question.text ? (question.text | plainText: 160) : ('exams.section.questionGone' | t) }}</span>
+            <span class="section-card__text" [appMathText]="question.text ? (question.text | plainText: 160) : ('exams.section.questionGone' | t)"></span>
             @if (editable()) {
               <span class="section-card__tools">
                 @if (section().questions.length > 1) {

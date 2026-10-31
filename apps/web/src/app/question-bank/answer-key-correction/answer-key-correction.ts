@@ -5,6 +5,7 @@ import { extractErrorMessage } from '../../shared/problem-details';
 import { QuestionApiService } from '../question-api.service';
 import { acceptedAnswersErrors } from '../question-form';
 import { AnswerKeyCorrectionResult, MAX_KEY_CORRECTION_REASON, QUESTION_LIMITS, QuestionDto } from '../question.models';
+import { MathTextDirective } from '../../shared/rich-text/math-text.directive';
 
 /**
  * Where staff correct the answer key of a question once candidates have answered it (FR-31), the one change such a question allows. It
@@ -15,7 +16,7 @@ import { AnswerKeyCorrectionResult, MAX_KEY_CORRECTION_REASON, QUESTION_LIMITS, 
  */
 @Component({
   selector: 'app-answer-key-correction',
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, MathTextDirective],
   templateUrl: './answer-key-correction.html',
 })
 export class AnswerKeyCorrection implements OnInit {

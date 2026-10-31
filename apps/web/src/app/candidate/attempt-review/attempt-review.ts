@@ -8,6 +8,7 @@ import { CandidateApiService } from '../candidate-api.service';
 import { AnswerVerdict, AttemptReviewDto, DisputeStatus, MAX_DISPUTE_REASON, MyDisputeDto, ReviewQuestionDto } from '../candidate.models';
 import { MathDirective } from '../../shared/rich-text/math.directive';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
+import { MathTextDirective } from '../../shared/rich-text/math-text.directive';
 
 /** A question with its place in the exam, so the page can number it across sections. */
 interface NumberedQuestion extends ReviewQuestionDto {
@@ -25,7 +26,7 @@ interface NumberedQuestion extends ReviewQuestionDto {
  */
 @Component({
   selector: 'app-attempt-review',
-  imports: [RouterLink, LocaleDatePipe, MathDirective, TranslatePipe],
+  imports: [RouterLink, LocaleDatePipe, MathDirective, TranslatePipe, MathTextDirective],
   templateUrl: './attempt-review.html',
   styleUrl: './attempt-review.css',
 })

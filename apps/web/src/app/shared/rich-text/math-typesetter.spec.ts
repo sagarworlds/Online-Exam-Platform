@@ -17,6 +17,29 @@ describe('typesetMath', () => {
     expect(root.textContent).not.toContain('$');
   });
 
+  it('renders the LaTeX brackets too: \\( ... \\) inline and \\[ ... \\] as a block', () => {
+    const inline = run('<p>Solve \\(x^2 + 1\\) now</p>');
+    const block = run('<p>\\[\\frac{1}{2}\\]</p>');
+
+    expect(inline.querySelector('p .katex')).not.toBeNull();
+    expect(inline.querySelector('.katex-display')).toBeNull();
+    expect(inline.textContent).not.toContain('\\(');
+    expect(block.querySelector('div .katex-display')).not.toBeNull();
+  });
+
+  it('renders several formulas of mixed kinds in one paragraph', () => {
+    const root = run('<p>Let $a$ and \\(b\\) give \\[c\\] and $$d$$.</p>');
+
+    expect(root.querySelectorAll('.katex').length).toBe(4);
+  });
+
+  it('leaves a bracket that is not a formula alone', () => {
+    const root = run('<p>Path C:\\Users and a \\(lone bracket</p>');
+
+    expect(root.querySelector('.katex')).toBeNull();
+    expect(root.textContent).toBe('Path C:\\Users and a \\(lone bracket');
+  });
+
   it('renders a display formula as a block', () => {
     const root = run('<p>$$\\frac{1}{2}$$</p>');
 

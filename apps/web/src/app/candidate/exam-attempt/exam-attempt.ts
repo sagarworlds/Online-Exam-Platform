@@ -22,6 +22,7 @@ import { MathDirective } from '../../shared/rich-text/math.directive';
 import { ExamMode } from '../../shared/exam-mode/exam-mode';
 import { ModalDialog } from '../../shared/modal-dialog/modal-dialog';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
+import { MathTextDirective } from '../../shared/rich-text/math-text.directive';
 
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
@@ -147,7 +148,7 @@ function paletteStatus(answered: boolean, marked: boolean, seen: boolean, t: Tra
  */
 @Component({
   selector: 'app-exam-attempt',
-  imports: [RouterLink, LocaleDatePipe, DecimalPipe, NgTemplateOutlet, MathDirective, ModalDialog, TranslatePipe, ReportIssue],
+  imports: [RouterLink, LocaleDatePipe, DecimalPipe, NgTemplateOutlet, MathDirective, ModalDialog, TranslatePipe, ReportIssue, MathTextDirective],
   templateUrl: './exam-attempt.html',
 })
 export class ExamAttempt {

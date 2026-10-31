@@ -307,6 +307,33 @@ describe('AttemptReview', () => {
       expect(card(fixture, 2).querySelector('.review-explanation')).toBeNull();
     });
 
+    it('renders the formulas in the question, its options and its explanation, and leaves plain text alone', async () => {
+      const body = review();
+      const first = body.sections[0].questions[0];
+      body.sections[0].questions[0] = {
+        ...first,
+        text: '<p>Solve $x^2 = 4$</p>',
+        options: [
+          { ...first.options[0], text: '$x = \\pm 2$' },
+          { ...first.options[1], text: '\\(x = 3\\)' },
+        ],
+        explanation: 'Because $$x^2 = 4$$ gives two roots, and 5 < 6.',
+      };
+      const fixture = await open(body);
+
+      const q = card(fixture, 1);
+      expect(q.querySelector('.question__text .katex')).not.toBeNull();
+      const optionTexts = Array.from(q.querySelectorAll('.review-option__text'));
+      expect(optionTexts.map((o) => o.querySelector('.katex') !== null)).toEqual([true, true]);
+      expect(optionTexts.map((o) => o.textContent)).not.toContain('$x = \\pm 2$');
+      const explanation = q.querySelector('.review-explanation__text') as HTMLElement;
+      expect(explanation.querySelector('.katex-display')).not.toBeNull();
+      expect(explanation.textContent).toContain('gives two roots, and 5 < 6.');
+      // A question with plain options is untouched.
+      expect(card(fixture, 2).querySelectorAll('.katex').length).toBe(0);
+      expect(card(fixture, 2).textContent).toContain('Paris');
+    });
+
     it('offers a retry when the review cannot be read, and reads it again', async () => {
       const fixture = await open({ status: 500, error: { title: 'internal', detail: 'The server had a problem.' } });
 

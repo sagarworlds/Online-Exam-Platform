@@ -25,6 +25,7 @@ import { RowAction, RowActions } from '../../shared/row-actions/row-actions';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { AnswerVerdict } from '../../candidate/candidate.models';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
+import { MathTextDirective } from '../../shared/rich-text/math-text.directive';
 
 /** The longest reason the API accepts. */
 const MAX_REASON_LENGTH = 500;
@@ -76,7 +77,7 @@ const ACTIONS: Record<ActionKind, { label: string; hint: string; button: string;
  */
 @Component({
   selector: 'app-exam-attempts',
-  imports: [RouterLink, LocaleDatePipe, MathDirective, CandidateAccommodation, ListToolbar, LoadMore, RefreshButton, RowActions, TranslatePipe],
+  imports: [RouterLink, LocaleDatePipe, MathDirective, CandidateAccommodation, ListToolbar, LoadMore, RefreshButton, RowActions, TranslatePipe, MathTextDirective],
   templateUrl: './exam-attempts.html',
 })
 export class ExamAttempts {
