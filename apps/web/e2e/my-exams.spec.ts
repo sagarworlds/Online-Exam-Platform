@@ -74,6 +74,29 @@ test.describe('the exams page', () => {
     expect(await toggle(page).boundingBox()).toEqual(before);
   });
 
+  test('opens only the first exam, the one to do next, and folds the others until they are opened', async ({ page }) => {
+    const card = (name: RegExp) => page.locator('article', { has: page.getByRole('heading', { name }) });
+    const fold = (name: RegExp) => card(name).getByRole('button', { name });
+    const next = /Chemistry Mock 2/;
+    const later = /Biology Quiz/;
+
+    await expect(fold(next)).toHaveAttribute('aria-expanded', 'true');
+    await expect(card(next).getByRole('link', { name: text('myExams.start') })).toBeVisible();
+    await expect(fold(later)).toHaveAttribute('aria-expanded', 'false');
+    await expect(card(later).locator('.exam-card__body')).toBeHidden();
+
+    await fold(later).click();
+    await expect(fold(later)).toHaveAttribute('aria-expanded', 'true');
+    await expect(card(later).locator('.exam-card__body')).toBeVisible();
+    // Opening one leaves the other as it was.
+    await expect(fold(next)).toHaveAttribute('aria-expanded', 'true');
+
+    await fold(next).click();
+    await expect(card(next).locator('.exam-card__body')).toBeHidden();
+    // A folded card still says how long is left, so folding it does not hide what matters.
+    await expect(card(next).locator('.exam-card__summary')).toBeVisible();
+  });
+
   test('keeps the choice to open the attempted exams when the page is read again', async ({ page }) => {
     await toggle(page).click();
     await page.reload();
@@ -94,7 +117,8 @@ test.describe('the exams page on a phone', () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, 'the page is no wider than the screen').toBeLessThanOrEqual(0);
 
-    const controls = page.locator('article a.btn, article button, .exam-section__toggle');
+    // A control inside a folded card cannot be hit, so it has no size to measure; the button that unfolds it is measured instead.
+    const controls = page.locator('article a.btn, article button, .exam-section__toggle').filter({ visible: true });
     const heights = await controls.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height));
     expect(heights.length).toBeGreaterThan(3);
     for (const height of heights) {

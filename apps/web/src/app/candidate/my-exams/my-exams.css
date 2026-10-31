@@ -1,3 +1,38 @@
+/* The exam's name is a button across the card, so the whole line is easy to hit and says whether the card is open. */
+.exam-card__toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.exam-card__chevron {
+  margin-inline-start: auto;
+  color: var(--text-muted);
+}
+
+/* What a folded card still says: on a line of its own under the name, quieter than it. */
+.exam-card__summary {
+  flex-basis: 100%;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+/* The body sits under the name with a little room; the browser's own [hidden] folds it. */
+.exam-card__body {
+  margin-top: 0.5rem;
+}
+
 /* The window and the facts sit under the exam's name, in the order a candidate needs them, before the one action they can take. */
 .exam-card__window {
   margin: 0 0 0.5rem;

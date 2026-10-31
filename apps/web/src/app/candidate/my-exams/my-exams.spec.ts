@@ -87,7 +87,7 @@ describe('MyExams', () => {
   }
 
   /** The titles of the exams on the page, in the order they are shown. */
-  const titlesIn = (root: HTMLElement) => Array.from(root.querySelectorAll('article .card__title')).map((title) => title.childNodes[0].textContent?.trim());
+  const titlesIn = (root: HTMLElement) => Array.from(root.querySelectorAll('article .exam-card__name')).map((name) => name.textContent?.trim());
 
   it('lists the exams with their state, size and duration', () => {
     const fixture = TestBed.createComponent(MyExams);
@@ -199,7 +199,8 @@ describe('MyExams', () => {
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.querySelector('button')).toBeNull();
+    // The card's own fold button is there; what is not is an action to press (the one thing to do is a link).
+    expect(root.querySelector('button:not(.exam-card__toggle)')).toBeNull();
     const link = Array.from(root.querySelectorAll('a')).find((a) => a.textContent?.includes('Resume exam'));
     expect(link?.getAttribute('href')).toBe('/attempt/a1');
   });
@@ -216,7 +217,7 @@ describe('MyExams', () => {
 
     const root = fixture.nativeElement as HTMLElement;
     expect(root.textContent).toContain('14 / 20');
-    expect(root.querySelector('article button')).toBeNull();
+    expect(root.querySelector('article button:not(.exam-card__toggle)')).toBeNull();
     const link = Array.from(root.querySelectorAll('a')).find((a) => a.textContent?.includes('View result'));
     expect(link?.getAttribute('href')).toBe('/attempt/a1');
   });
@@ -346,7 +347,7 @@ describe('MyExams', () => {
 
       const next = Array.from(root.querySelectorAll('article')).filter((card) => card.classList.contains('exam-card--next'));
       expect(next).toHaveLength(1);
-      expect(next[0].querySelector('.card__title')?.childNodes[0].textContent?.trim()).toBe('Soon');
+      expect(next[0].querySelector('.exam-card__name')?.textContent?.trim()).toBe('Soon');
     });
   });
 
@@ -693,6 +694,132 @@ describe('MyExams', () => {
       expect(attemptedToggle(root)?.textContent).toContain('दी हुई और बंद परीक्षाएँ (1)');
       expect(attemptedToggle(root)?.textContent).toContain('दिखाएँ');
       await TestBed.inject(I18nService).setLanguage('en');
+    });
+  });
+
+  describe('folding a card', () => {
+    const card = (root: HTMLElement, id: string) => root.querySelector(`#exam-title-${id}`)?.closest('article') as HTMLElement;
+    const toggle = (root: HTMLElement, id: string) => root.querySelector(`#exam-title-${id} .exam-card__toggle`) as HTMLButtonElement;
+    const body = (root: HTMLElement, id: string) => root.querySelector(`[id="exam-body-${id}"]`) as HTMLElement;
+    const press = (root: HTMLElement, fixture: { detectChanges(): void }, id: string) => {
+      toggle(root, id).click();
+      fixture.detectChanges();
+    };
+
+    const several = () => [
+      exam({ examId: 'e1', name: 'Closes last', endUtc: '2099-01-03T00:00:00Z' }),
+      exam({ examId: 'e2', name: 'Closes soonest', endUtc: '2099-01-01T00:00:00Z' }),
+      exam({ examId: 'e3', name: 'In progress', attemptsUsed: 1, canStartAttempt: false, attempts: [attempt(1, 'InProgress')] }),
+    ];
+
+    it('opens only the first exam on the page, the one to do next, and folds the rest', () => {
+      const { root } = openWith(several());
+
+      expect(titlesIn(root)).toEqual(['In progress', 'Closes soonest', 'Closes last']);
+      expect(['e3', 'e2', 'e1'].map((id) => toggle(root, id).getAttribute('aria-expanded'))).toEqual(['true', 'false', 'false']);
+      expect(body(root, 'e3').hidden).toBe(false);
+      expect(body(root, 'e2').hidden).toBe(true);
+      expect(body(root, 'e1').hidden).toBe(true);
+    });
+
+    it('names the body each button controls, so a screen reader can follow it', () => {
+      const { root } = openWith(several());
+
+      expect(toggle(root, 'e2').getAttribute('aria-controls')).toBe('exam-body-e2');
+      expect(body(root, 'e2')).not.toBeNull();
+    });
+
+    it('opens and folds a card from its heading, leaving the others as they are', () => {
+      const { root, fixture } = openWith(several());
+
+      press(root, fixture, 'e2');
+      expect(body(root, 'e2').hidden).toBe(false);
+      expect(body(root, 'e3').hidden).toBe(false);
+      expect(toggle(root, 'e2').getAttribute('aria-expanded')).toBe('true');
+
+      press(root, fixture, 'e3');
+      expect(body(root, 'e3').hidden).toBe(true);
+      expect(body(root, 'e2').hidden).toBe(false);
+    });
+
+    it('keeps the fold button as the name of the heading, so the title is still a heading', () => {
+      const { root } = openWith(several());
+
+      const title = root.querySelector('#exam-title-e2') as HTMLElement;
+      expect(title.tagName).toBe('H3');
+      expect(title.querySelector('button')).not.toBeNull();
+    });
+
+    it('says what matters on a folded card: an attempt in progress, how long is left, or the score', () => {
+      const { root, fixture } = openWith([
+        exam({ examId: 'a', name: 'Closing', endUtc: '2099-01-02T00:00:00Z' }),
+        exam({ examId: 'b', name: 'Running', attemptsUsed: 1, canStartAttempt: false, attempts: [attempt(1, 'InProgress')], endUtc: '2099-01-03T00:00:00Z' }),
+        exam({ examId: 'c', name: 'Done', state: 'Closed', canStartAttempt: false, attemptsUsed: 1, attempts: [attempt(1, 'Submitted', 14)] }),
+      ]);
+      toggleAttempted(root, fixture);
+      press(root, fixture, 'b'); // the exam in progress comes first and starts open: fold it to see what it still says
+
+      const summary = (id: string) => toggle(root, id).querySelector('.exam-card__summary')?.textContent?.trim();
+      expect(summary('b')).toBe('In progress');
+      expect(summary('a')).toContain('Closes in');
+      expect(summary('c')).toContain('Your score:');
+      expect(summary('c')).toContain('14 / 20');
+    });
+
+    it('shows no summary line on an open card, which has the whole card to say it', () => {
+      const { root } = openWith(several());
+
+      expect(toggle(root, 'e3').querySelector('.exam-card__summary')).toBeNull();
+    });
+
+    it('keeps a folded card in the page, with its form, so opening it again finds it as it was left', () => {
+      const { root, fixture } = openWith(several());
+
+      expect(card(root, 'e2').querySelector('.exam-card__body')).not.toBeNull();
+      press(root, fixture, 'e2');
+      press(root, fixture, 'e2');
+      expect(body(root, 'e2').hidden).toBe(true);
+    });
+
+    it('opens the most recent exam when there is nothing to do, so the page is not a column of closed cards', () => {
+      const { root, fixture } = openWith([
+        exam({ examId: 'old', name: 'Old result', state: 'Closed', canStartAttempt: false, attemptsUsed: 1, attempts: [{ ...attempt(1, 'Submitted', 9), submittedAtUtc: '2026-01-01T00:00:00Z' }] }),
+        exam({ examId: 'new', name: 'New result', state: 'Closed', canStartAttempt: false, attemptsUsed: 1, attempts: [{ ...attempt(2, 'Submitted', 12), submittedAtUtc: '2026-03-01T00:00:00Z' }] }),
+      ]);
+
+      // With nothing else on the page the attempted exams are shown, newest first.
+      expect(titlesIn(root)).toEqual(['New result', 'Old result']);
+      expect(toggle(root, 'new').getAttribute('aria-expanded')).toBe('true');
+      expect(toggle(root, 'old').getAttribute('aria-expanded')).toBe('false');
+      fixture.detectChanges();
+    });
+
+    it('opens the exam to do next even when an upcoming one is earlier in the list than any attempted', () => {
+      const { root } = openWith([
+        exam({ examId: 'soon', name: 'Soon', state: 'NotOpen', canStartAttempt: false, startUtc: '2099-02-01T00:00:00Z', endUtc: '2099-02-02T00:00:00Z' }),
+        exam({ examId: 'now', name: 'Now' }),
+      ]);
+
+      expect(toggle(root, 'now').getAttribute('aria-expanded')).toBe('true');
+      expect(toggle(root, 'soon').getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('leaves cards as they were when the list is read again, even if the order moved', () => {
+      const { root, fixture } = openWith(several());
+      press(root, fixture, 'e1'); // the candidate opens the last one
+
+      (fixture.componentInstance as unknown as { reload(): void }).reload();
+      httpMock.expectOne(isMyExams).flush([
+        // The exam that was open has been submitted, so the one that closes soonest is now first on the page.
+        exam({ examId: 'e1', name: 'Closes last', endUtc: '2099-01-03T00:00:00Z' }),
+        exam({ examId: 'e2', name: 'Closes soonest', endUtc: '2099-01-01T00:00:00Z' }),
+        exam({ examId: 'e3', name: 'In progress', state: 'Closed', canStartAttempt: false, attemptsUsed: 1, attempts: [attempt(1, 'Submitted', 10)] }),
+      ]);
+      fixture.detectChanges();
+
+      expect(toggle(root, 'e1').getAttribute('aria-expanded')).toBe('true');
+      // Reading the list again does not pick a new card to open, so the one now first stays folded rather than jumping open.
+      expect(toggle(root, 'e2').getAttribute('aria-expanded')).toBe('false');
     });
   });
 });
