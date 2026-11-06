@@ -55,6 +55,10 @@ namespace ExamPlatform.Modules.ExamAuthoring.Contracts;
 /// Whether the exam asks the candidate to share their screen and takes a picture of it at intervals (FR-25). The runtime still never does so for a
 /// candidate under 18.
 /// </param>
+/// <param name="CreatedAtUtc">
+/// When the exam was created. The candidate's exams page lists the newest exam first, so it needs this and not the window, which an author
+/// may set well before or after the day they made the exam.
+/// </param>
 public sealed record ExamSnapshot(
     Guid Id,
     string Name,
@@ -82,7 +86,8 @@ public sealed record ExamSnapshot(
     int? PassingPercentage = null,
     int? FocusWarnAt = null,
     bool WebcamSnapshots = false,
-    bool ScreenCapture = false);
+    bool ScreenCapture = false,
+    DateTime CreatedAtUtc = default);
 
 /// <summary>One section of an <see cref="ExamSnapshot"/>.</summary>
 /// <param name="Id">The section's id.</param>

@@ -9,16 +9,46 @@ import { bestAttemptId } from '../best-attempt';
 import { MAX_ATTEMPT_REQUEST_TEXT, MyExamDto } from '../candidate.models';
 import { Skeleton } from '../../shared/skeleton/skeleton';
 import { rememberAttemptedOpen, rememberedAttemptedOpen } from './attempted-section-memory';
-import { groupExams } from './exam-groups';
+import { EXAM_FILTERS, ExamFilter, countByFilter, matchesFilter, matchesQuery } from './exam-filters';
+import { DEFAULT_EXAM_SORT, ExamSort, groupExams } from './exam-groups';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
-/** One block of the page: a heading and the exams under it. Only the attempted exams can be hidden. */
+/** One block of the page: a heading and the exams under it. Only the attempted exams can be hidden, and not while the candidate is searching. */
 interface ExamSection {
   id: 'available' | 'upcoming' | 'attempted';
   titleKey: MessageKey;
   exams: MyExamDto[];
   collapsible: boolean;
 }
+
+/** One of the buttons that narrows the list: which filter it is, its words, and how many exams it would show. */
+interface FilterChip {
+  id: ExamFilter;
+  labelKey: MessageKey;
+  count: number;
+}
+
+/**
+ * How many exams it takes before the page offers to search, filter and sort them. A handful fit on a screen, where the controls would only
+ * be something more to read; from here a candidate is scrolling to find one.
+ */
+const CONTROLS_MIN_EXAMS = 6;
+
+/** The words of each filter. "In progress" and "Not open yet" are the words the cards already use for the same things. */
+const FILTER_LABELS: Record<ExamFilter, MessageKey> = {
+  all: 'myExams.filter.all',
+  inProgress: 'myExams.inProgress',
+  closingSoon: 'myExams.filter.closingSoon',
+  notOpen: 'myExams.state.notOpen',
+  done: 'myExams.filter.done',
+};
+
+/** The orders the candidate can choose from, with the newest first at the top because it is what the page opens with. */
+const SORT_OPTIONS: readonly { value: ExamSort; labelKey: MessageKey }[] = [
+  { value: 'newest', labelKey: 'myExams.sort.newest' },
+  { value: 'soonest', labelKey: 'myExams.sort.soonest' },
+  { value: 'name', labelKey: 'myExams.sort.name' },
+];
 
 /** How often the countdowns are worked out again. They are in minutes, so a finer beat would only redraw the same words. */
 const COUNTDOWN_TICK_MS = 30_000;
@@ -36,6 +66,10 @@ const WINDOW_FORMAT = 'MMM d, y, h:mm a';
  *
  * Each exam is a card the candidate can fold: only the first one on the page starts open, so a candidate with several exams sees the one
  * to do next in full and the rest as a name, a state and one line, and opens whichever they want.
+ *
+ * The newest exam is first in each group, and an exam in progress is always above the others that can be done. A candidate with a long
+ * list (see {@link CONTROLS_MIN_EXAMS}) can also type to search, press a filter ("Closing soon", "Done"), or choose another order. While
+ * they do, the sections that match are all shown open, because a result hidden under a folded heading is a result not found.
  */
 @Component({
   selector: 'app-my-exams',
@@ -61,29 +95,85 @@ export class MyExams {
   /** The candidate's own choice to show or hide the attempted exams, remembered on this device; null until they make one. */
   private readonly attemptedChoice = signal<boolean | null>(rememberedAttemptedOpen());
 
-  private readonly groups = computed(() => groupExams(this.exams()));
+  /** What the candidate has typed to search for, as typed. Not remembered: a search is for now, and an old one would hide exams on the next visit. */
+  protected readonly query = signal('');
+
+  /** The filter the candidate pressed; every exam until they press one. Not remembered, for the same reason as the search. */
+  protected readonly filter = signal<ExamFilter>('all');
+
+  /** How the exams are ordered inside each section; the newest first until the candidate chooses another. */
+  protected readonly sort = signal<ExamSort>(DEFAULT_EXAM_SORT);
+
+  protected readonly sortOptions = SORT_OPTIONS;
+
+  /** Whether the list is long enough to offer the controls. */
+  protected readonly showControls = computed(() => this.exams().length >= CONTROLS_MIN_EXAMS);
+
+  /**
+   * Whether the candidate is narrowing the list. Never true without the controls, so a list that shrank below their threshold (it can, when
+   * it is read again) cannot be left filtered by something the candidate can no longer see or clear.
+   */
+  protected readonly filtering = computed(() => this.showControls() && (this.query().trim() !== '' || this.filter() !== 'all'));
+
+  /** The exams that fit what was typed, before any filter is applied: what the filter buttons count, so each says what pressing it would show. */
+  private readonly searched = computed(() => {
+    const query = this.query();
+    return this.showControls() ? this.exams().filter((exam) => matchesQuery(exam, query)) : this.exams();
+  });
+
+  /** The exams that fit both what was typed and the filter pressed; all of them when the candidate is not narrowing the list. */
+  protected readonly matching = computed(() => {
+    const filter = this.filter();
+    const now = this.now();
+    return this.showControls() ? this.searched().filter((exam) => matchesFilter(exam, filter, now)) : this.exams();
+  });
+
+  /**
+   * The filter buttons, each with its count. A filter with nothing to show is left out so the row is only what can be pressed, except
+   * "All" and the one that is pressed, which would otherwise vanish under the candidate's finger.
+   */
+  protected readonly chips = computed<FilterChip[]>(() => {
+    const counts = countByFilter(this.searched(), this.now());
+    const pressed = this.filter();
+    return EXAM_FILTERS.filter((id) => id === 'all' || id === pressed || counts[id] > 0).map((id) => ({
+      id,
+      labelKey: FILTER_LABELS[id],
+      count: counts[id],
+    }));
+  });
+
+  private readonly groups = computed(() => groupExams(this.matching(), this.sort()));
 
   /**
    * The blocks of the page, in order. "Available now" is always there, so a candidate with nothing to take is told so rather than left to
-   * wonder where the new exams are; the other two appear when they have exams.
+   * wonder where the new exams are; the other two appear when they have exams. While the candidate is narrowing the list, only the blocks
+   * with a match appear, and the attempted exams are an ordinary block: a match must not wait behind a folded heading.
    */
   protected readonly sections = computed<ExamSection[]>(() => {
     const { available, upcoming, attempted } = this.groups();
-    const sections: ExamSection[] = [{ id: 'available', titleKey: 'myExams.section.available', exams: available, collapsible: false }];
+    const filtering = this.filtering();
+    const sections: ExamSection[] = [];
+    if (!filtering || available.length > 0) {
+      sections.push({ id: 'available', titleKey: 'myExams.section.available', exams: available, collapsible: false });
+    }
     if (upcoming.length > 0) {
       sections.push({ id: 'upcoming', titleKey: 'myExams.section.upcoming', exams: upcoming, collapsible: false });
     }
     if (attempted.length > 0) {
-      sections.push({ id: 'attempted', titleKey: 'myExams.section.attempted', exams: attempted, collapsible: true });
+      sections.push({ id: 'attempted', titleKey: 'myExams.section.attempted', exams: attempted, collapsible: !filtering });
     }
     return sections;
   });
 
   /**
    * Whether the attempted exams are shown. Hidden unless the candidate chose otherwise, so the new exams are what they see first; but when
-   * there is nothing else on the page, they are shown, because a page with only a closed heading would look empty.
+   * there is nothing else on the page, they are shown, because a page with only a closed heading would look empty. Always shown while the
+   * candidate is narrowing the list, without touching the choice they made, which comes back when they stop.
    */
   protected readonly attemptedOpen = computed(() => {
+    if (this.filtering()) {
+      return true;
+    }
     const choice = this.attemptedChoice();
     const { available, upcoming } = this.groups();
     return choice ?? (available.length === 0 && upcoming.length === 0);
@@ -205,6 +295,30 @@ export class MyExams {
     }
     const scored = [...exam.attempts].reverse().find((attempt) => attempt.status === 'Submitted' && attempt.score !== null);
     return scored ? `${this.i18n.t('myExams.yourScore')} ${scored.score} / ${scored.maxScore}` : null;
+  }
+
+  /** The line that says how many exams the search and filter left, read out as it changes; empty when the candidate is not narrowing the list. */
+  protected resultsText(): string {
+    return this.filtering() ? this.i18n.t('myExams.results', { shown: this.matching().length, total: this.exams().length }) : '';
+  }
+
+  /** Chooses the order from the value of the sort list, ignoring a value that is not one of its options. */
+  protected chooseSort(value: string): void {
+    const option = SORT_OPTIONS.find((candidate) => candidate.value === value);
+    if (option) {
+      this.sort.set(option.value);
+    }
+  }
+
+  /**
+   * Clears what was typed and the filter pressed, so every exam is listed again. The order stays as the candidate chose it, since an order
+   * hides nothing. The button that asks for this goes with the "nothing matches" message, so focus is put in the search box, where they
+   * would type next.
+   */
+  protected showAll(): void {
+    this.query.set('');
+    this.filter.set('all');
+    afterNextRender(() => this.element('exam-search')?.focus(), { injector: this.injector });
   }
 
   /** Shows or hides the attempted exams, and remembers the choice for the next visit. */

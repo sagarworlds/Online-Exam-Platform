@@ -65,6 +65,7 @@ public sealed class MyExamsHandler(
                     // The window is open, nothing is in progress (that one is resumed, not followed by another), and one is left.
                     state == MyExamState.Open && latest is not { Status: AttemptStatus.InProgress } && AttemptAllowance.CanStartAnother(e.MaxAttempts, made.Count, granted),
                     made.Select(ExamCandidateRows.Summary).ToList(),
+                    e.CreatedAtUtc,
                     // The same moment an administrator could grant one, and not while a request of theirs already waits for an answer.
                     state == MyExamState.Open
                         && latest is not { Status: AttemptStatus.InProgress }
