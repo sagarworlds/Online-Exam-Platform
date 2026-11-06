@@ -93,11 +93,14 @@ public sealed record ExamRulesDto(
 /// <param name="AttemptsUsed">How many they have started.</param>
 /// <param name="CanStartAttempt">Whether they may start a new attempt now: the window is open, none is in progress, and one is left.</param>
 /// <param name="Attempts">Every attempt they have made, oldest first.</param>
+/// <param name="CreatedAtUtc">
+/// When the exam was created, so the page can list the newest exam first. Required, with no default: a defaulted <see cref="DateTime"/>
+/// cannot be written into the OpenAPI document, which then fails to build.
+/// </param>
 /// <param name="CanRequestAttempt">Whether they may ask for another attempt now: the window is open, they have used every attempt they hold, none is in progress and no earlier request is waiting.</param>
 /// <param name="AttemptRequest">The latest request they made for another attempt at this exam, if any.</param>
 /// <param name="Rules">The exam's marking and navigation rules, for the instructions page.</param>
 /// <param name="Accommodation">What the candidate is allowed at this exam because of a disability or other need (FR-49), or null when nothing is. Never the staff note.</param>
-/// <param name="CreatedAtUtc">When the exam was created, so the page can list the newest exam first.</param>
 public sealed record MyExamDto(
     Guid ExamId,
     string Name,
@@ -116,8 +119,8 @@ public sealed record MyExamDto(
     int AttemptsUsed,
     bool CanStartAttempt,
     IReadOnlyList<AttemptSummaryDto> Attempts,
+    DateTime CreatedAtUtc,
     bool CanRequestAttempt = false,
     MyAttemptRequestDto? AttemptRequest = null,
     ExamRulesDto? Rules = null,
-    CandidateAccommodationDto? Accommodation = null,
-    DateTime CreatedAtUtc = default);
+    CandidateAccommodationDto? Accommodation = null);
