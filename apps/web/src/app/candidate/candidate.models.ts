@@ -109,6 +109,8 @@ export interface MyExamDto {
   rules: ExamRulesDto | null;
   /** What they are allowed at this exam because of a disability or another need (FR-49); null or absent when nothing is. Never the staff note. */
   accommodation?: CandidateAccommodation | null;
+  /** When the exam was created, which orders the page newest first; absent from an older API, so those exams are ordered by their window. */
+  createdAtUtc?: string | null;
 }
 
 /** An alternate format of the exam page an accommodation can give (FR-49). */

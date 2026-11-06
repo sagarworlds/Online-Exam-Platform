@@ -72,7 +72,8 @@ public sealed class MyExamsHandler(
                         && request is not { Status: AttemptRequestStatus.Pending },
                     request is null ? null : AttemptRequestDtoFactory.ForCandidate(request),
                     new ExamRulesDto(e.CorrectMarks, e.IncorrectMarks, e.UnattemptedMarks, e.PartialCredit, e.SectionLockEnabled, e.Sections.Count, e.ContentProtection, theirRules.FocusViolationLimit, e.ProctoringNotice, e.Instructions),
-                    accommodation is null ? null : AccommodationPolicy.ForCandidate(accommodation));
+                    accommodation is null ? null : AccommodationPolicy.ForCandidate(accommodation),
+                    e.CreatedAtUtc);
             })
             .ToList();
     }

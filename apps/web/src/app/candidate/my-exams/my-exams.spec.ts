@@ -338,16 +338,16 @@ describe('MyExams', () => {
   });
 
   describe('the exam to do next', () => {
-    it('is the first of those available now, and only that one', () => {
+    it('is the first of those available now, the newest, and only that one', () => {
       const { root } = openWith([
-        exam({ examId: 'e1', name: 'Soon', endUtc: '2026-10-05T06:00:00Z' }),
-        exam({ examId: 'e2', name: 'Later', endUtc: '2026-10-06T06:00:00Z' }),
+        exam({ examId: 'e1', name: 'Older', endUtc: '2026-10-05T06:00:00Z', createdAtUtc: '2026-09-01T05:00:00Z' }),
+        exam({ examId: 'e2', name: 'Newer', endUtc: '2026-10-06T06:00:00Z', createdAtUtc: '2026-10-01T05:00:00Z' }),
         exam({ examId: 'e3', name: 'Not yet', state: 'NotOpen', canStartAttempt: false }),
       ]);
 
       const next = Array.from(root.querySelectorAll('article')).filter((card) => card.classList.contains('exam-card--next'));
       expect(next).toHaveLength(1);
-      expect(next[0].querySelector('.exam-card__name')?.textContent?.trim()).toBe('Soon');
+      expect(next[0].querySelector('.exam-card__name')?.textContent?.trim()).toBe('Newer');
     });
   });
 
@@ -645,14 +645,14 @@ describe('MyExams', () => {
       expect(root.textContent).not.toContain('Nothing to take right now.');
     });
 
-    it('lists an exam in progress first, then the one that closes soonest, then the one that closes last', () => {
+    it('lists an exam in progress first, then the exam made most recently, then the one made before it', () => {
       const { root } = openWith([
-        exam({ examId: 'late', name: 'Closes last', endUtc: '2026-10-09T07:30:00Z' }),
-        exam({ examId: 'soon', name: 'Closes soonest', endUtc: '2026-10-06T07:30:00Z' }),
-        exam({ examId: 'busy', name: 'In progress', endUtc: '2026-10-12T07:30:00Z', canStartAttempt: false, attemptsUsed: 1, attempts: [attempt(1, 'InProgress')] }),
+        exam({ examId: 'first', name: 'Made first', endUtc: '2026-10-06T07:30:00Z', createdAtUtc: '2026-08-01T05:00:00Z' }),
+        exam({ examId: 'last', name: 'Made last', endUtc: '2026-10-09T07:30:00Z', createdAtUtc: '2026-10-01T05:00:00Z' }),
+        exam({ examId: 'busy', name: 'In progress', endUtc: '2026-10-12T07:30:00Z', createdAtUtc: '2026-07-01T05:00:00Z', canStartAttempt: false, attemptsUsed: 1, attempts: [attempt(1, 'InProgress')] }),
       ]);
 
-      expect(titlesIn(root)).toEqual(['In progress', 'Closes soonest', 'Closes last']);
+      expect(titlesIn(root)).toEqual(['In progress', 'Made last', 'Made first']);
     });
 
     it('keeps an exam the candidate can ask for another attempt at among the ones to act on', () => {
@@ -707,8 +707,8 @@ describe('MyExams', () => {
     };
 
     const several = () => [
-      exam({ examId: 'e1', name: 'Closes last', endUtc: '2099-01-03T00:00:00Z' }),
-      exam({ examId: 'e2', name: 'Closes soonest', endUtc: '2099-01-01T00:00:00Z' }),
+      exam({ examId: 'e1', name: 'Closes last', endUtc: '2099-01-03T00:00:00Z', createdAtUtc: '2026-08-01T05:00:00Z' }),
+      exam({ examId: 'e2', name: 'Closes soonest', endUtc: '2099-01-01T00:00:00Z', createdAtUtc: '2026-09-01T05:00:00Z' }),
       exam({ examId: 'e3', name: 'In progress', attemptsUsed: 1, canStartAttempt: false, attempts: [attempt(1, 'InProgress')] }),
     ];
 
@@ -820,6 +820,248 @@ describe('MyExams', () => {
       expect(toggle(root, 'e1').getAttribute('aria-expanded')).toBe('true');
       // Reading the list again does not pick a new card to open, so the one now first stays folded rather than jumping open.
       expect(toggle(root, 'e2').getAttribute('aria-expanded')).toBe('false');
+    });
+  });
+
+  describe('finding an exam in a long list', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-10-05T05:00:00Z'));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    const done = (examId: string, name: string, createdAtUtc: string) =>
+      exam({
+        examId, name, state: 'Closed', canStartAttempt: false, attemptsUsed: 1, createdAtUtc,
+        attempts: [{ ...attempt(1, 'Submitted', 15), id: `a-${examId}`, submittedAtUtc: '2026-10-01T05:00:00Z' }],
+      });
+
+    /** Six exams, which is when the page offers its controls: three to take (one closing within the day), one coming, two done. */
+    const many = () => [
+      exam({ examId: 'm1', name: 'Maths Unit 1', description: 'Class 4 mathematics', createdAtUtc: '2026-08-01T05:00:00Z', endUtc: '2026-10-09T05:00:00Z' }),
+      exam({ examId: 'm2', name: 'Science Quiz', createdAtUtc: '2026-10-01T05:00:00Z', endUtc: '2026-10-06T07:00:00Z' }),
+      exam({ examId: 'm3', name: 'English Grammar', createdAtUtc: '2026-09-01T05:00:00Z', endUtc: '2026-10-05T09:00:00Z' }),
+      exam({ examId: 'm4', name: 'History Next Week', state: 'NotOpen', canStartAttempt: false, createdAtUtc: '2026-09-15T05:00:00Z', startUtc: '2026-10-12T05:00:00Z', endUtc: '2026-10-12T08:00:00Z' }),
+      done('d1', 'Old Maths Paper', '2026-06-01T05:00:00Z'),
+      done('d2', 'Geography Test', '2026-07-01T05:00:00Z'),
+    ];
+
+    const searchBox = (root: HTMLElement) => root.querySelector<HTMLInputElement>('#exam-search');
+    const chipLabels = (root: HTMLElement) =>
+      Array.from(root.querySelectorAll('.exam-controls__chip')).map((chip) => (chip.textContent ?? '').replace(/\s+/g, ' ').trim());
+    const chipNamed = (root: HTMLElement, label: string) =>
+      Array.from(root.querySelectorAll<HTMLButtonElement>('.exam-controls__chip')).find((chip) => (chip.textContent ?? '').trim().startsWith(label));
+    const resultsLine = (root: HTMLElement) => root.querySelector('.exam-controls__results')?.textContent?.trim();
+
+    function typeInto(root: HTMLElement, fixture: { detectChanges(): void }, text: string) {
+      const input = searchBox(root) as HTMLInputElement;
+      input.value = text;
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    }
+
+    function pressChip(root: HTMLElement, fixture: { detectChanges(): void }, label: string) {
+      chipNamed(root, label)?.click();
+      fixture.detectChanges();
+    }
+
+    function chooseOrder(root: HTMLElement, fixture: { detectChanges(): void }, value: string) {
+      const select = root.querySelector('#exam-sort') as HTMLSelectElement;
+      select.value = value;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    }
+
+    it('offers nothing to search for a short list, which fits on a screen', () => {
+      const { root } = openWith(many().slice(0, 5));
+
+      expect(root.querySelector('.exam-controls')).toBeNull();
+      expect(searchBox(root)).toBeNull();
+    });
+
+    it('offers a search, an order and the filters once the list is long', () => {
+      const { root } = openWith(many());
+
+      expect(searchBox(root)).not.toBeNull();
+      expect(root.querySelector('#exam-sort')).not.toBeNull();
+      expect(chipLabels(root).length).toBeGreaterThan(1);
+      // Each field has its name for a screen reader, though the page shows only the search's placeholder.
+      expect(root.querySelector('label[for="exam-search"]')?.textContent).toContain('Search your exams');
+      expect(root.querySelector('label[for="exam-sort"]')?.textContent).toContain('Order the exams');
+    });
+
+    it('lists the exam made most recently first, until the candidate chooses another order', () => {
+      const { root } = openWith(many());
+
+      expect(titlesIn(root)).toEqual(['Science Quiz', 'English Grammar', 'Maths Unit 1', 'History Next Week']);
+      expect((root.querySelector('#exam-sort') as HTMLSelectElement).value).toBe('newest');
+    });
+
+    it('lists the exam that closes soonest first when asked, and keeps the coming exams below those to take', () => {
+      const { root, fixture } = openWith(many());
+
+      chooseOrder(root, fixture, 'soonest');
+
+      expect(titlesIn(root)).toEqual(['English Grammar', 'Science Quiz', 'Maths Unit 1', 'History Next Week']);
+    });
+
+    it('lists the exams by name when asked', () => {
+      const { root, fixture } = openWith(many());
+
+      chooseOrder(root, fixture, 'name');
+
+      expect(titlesIn(root)).toEqual(['English Grammar', 'Maths Unit 1', 'Science Quiz', 'History Next Week']);
+    });
+
+    it('shows how many exams each filter holds, and leaves out a filter that holds none', () => {
+      const { root } = openWith(many());
+
+      // Nothing is in progress, so there is no "In progress" button to press.
+      expect(chipLabels(root)).toEqual(['All, 6', 'Closing soon, 1', 'Not open yet, 1', 'Done, 2']);
+      expect(chipNamed(root, 'All')?.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('narrows the list to a filter, says how many are left, and marks the filter pressed', () => {
+      const { root, fixture } = openWith(many());
+
+      pressChip(root, fixture, 'Closing soon');
+
+      expect(titlesIn(root)).toEqual(['English Grammar']);
+      expect(chipNamed(root, 'Closing soon')?.getAttribute('aria-pressed')).toBe('true');
+      expect(chipNamed(root, 'All')?.getAttribute('aria-pressed')).toBe('false');
+      expect(resultsLine(root)).toBe('Showing 1 of 6 exams');
+    });
+
+    it('finds exams by a word of their name, in any case, and says how many were found', () => {
+      const { root, fixture } = openWith(many());
+
+      typeInto(root, fixture, 'MATHS');
+
+      expect(titlesIn(root)).toEqual(['Maths Unit 1', 'Old Maths Paper']);
+      expect(resultsLine(root)).toBe('Showing 2 of 6 exams');
+    });
+
+    it('finds an exam by its description when its name does not say', () => {
+      const { root, fixture } = openWith(many());
+
+      typeInto(root, fixture, 'mathematics');
+
+      expect(titlesIn(root)).toEqual(['Maths Unit 1']);
+    });
+
+    it('counts on each filter only what the search found', () => {
+      const { root, fixture } = openWith(many());
+
+      typeInto(root, fixture, 'maths');
+
+      expect(chipLabels(root)).toEqual(['All, 2', 'Done, 1']);
+    });
+
+    it('shows the exams that match even when they are attempted, without making the candidate open anything', () => {
+      const { root, fixture } = openWith(many());
+      expect(attemptedToggle(root)?.getAttribute('aria-expanded')).toBe('false');
+
+      typeInto(root, fixture, 'old');
+
+      expect(titlesIn(root)).toEqual(['Old Maths Paper']);
+      // The heading is a plain heading while searching: a button that folds the very result looked for would be a trap.
+      expect(attemptedToggle(root)).toBeUndefined();
+      expect(root.querySelector('#exams-attempted-heading')?.textContent?.trim()).toBe('Attempted and closed exams (1)');
+      expect(root.querySelector('.exam-card--past')).not.toBeNull();
+      // And the section that has no match is not on the page saying "Nothing to take right now".
+      expect(root.querySelector('#exams-available-heading')).toBeNull();
+      expect(root.textContent).not.toContain('Nothing to take right now.');
+    });
+
+    it('gives the attempted exams back the way the candidate left them when the filter goes', () => {
+      localStorage.setItem('exam-platform.my-exams.attempted-open', '0');
+      const { root, fixture } = openWith(many());
+
+      pressChip(root, fixture, 'Done');
+      expect(titlesIn(root)).toEqual(['Geography Test', 'Old Maths Paper']);
+      expect(localStorage.getItem('exam-platform.my-exams.attempted-open')).toBe('0');
+
+      pressChip(root, fixture, 'All');
+      expect(titlesIn(root)).not.toContain('Old Maths Paper');
+      expect(attemptedToggle(root)?.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('keeps the pressed filter on the page when nothing is left for it, so the candidate can see what is narrowing the list', () => {
+      const { root, fixture } = openWith(many());
+
+      pressChip(root, fixture, 'Done');
+      typeInto(root, fixture, 'zzz');
+
+      expect(chipLabels(root)).toEqual(['All, 0', 'Done, 0']);
+      expect(chipNamed(root, 'Done')?.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('says so when nothing matches, and offers to show every exam again', () => {
+      const { root, fixture } = openWith(many());
+
+      typeInto(root, fixture, 'zzz');
+
+      expect(titlesIn(root)).toEqual([]);
+      expect(root.querySelector('.empty-state')?.textContent).toContain('No exam matches.');
+      expect(resultsLine(root)).toBe('Showing 0 of 6 exams');
+
+      buttonIn(root, 'Show all exams')?.click();
+      fixture.detectChanges();
+
+      expect(searchBox(root)?.value).toBe('');
+      expect(titlesIn(root)).toEqual(['Science Quiz', 'English Grammar', 'Maths Unit 1', 'History Next Week']);
+      expect(root.querySelector('.empty-state')).toBeNull();
+    });
+
+    it('keeps the order the candidate chose when they clear the search', () => {
+      const { root, fixture } = openWith(many());
+      chooseOrder(root, fixture, 'name');
+
+      typeInto(root, fixture, 'zzz');
+      buttonIn(root, 'Show all exams')?.click();
+      fixture.detectChanges();
+
+      expect(titlesIn(root)).toEqual(['English Grammar', 'Maths Unit 1', 'Science Quiz', 'History Next Week']);
+    });
+
+    it('puts focus in the search box when "Show all exams" takes itself off the page', async () => {
+      // The wait for the page to settle does not finish under the fake clock the other tests use.
+      vi.useRealTimers();
+      const { root, fixture } = openWith(many());
+      typeInto(root, fixture, 'zzz');
+
+      buttonIn(root, 'Show all exams')?.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(searchBox(root));
+    });
+
+    it('has no search when the list shrinks below what is long, so nothing hidden is left narrowing it', () => {
+      const { root, fixture } = openWith(many());
+      typeInto(root, fixture, 'zzz');
+
+      (fixture.componentInstance as unknown as { reload(): void }).reload();
+      httpMock.expectOne(isMyExams).flush(many().slice(0, 3));
+      fixture.detectChanges();
+
+      expect(root.querySelector('.exam-controls')).toBeNull();
+      expect(titlesIn(root).length).toBe(3);
+    });
+
+    it('is in the language the candidate chose', async () => {
+      const { fixture, root } = openWith(many());
+
+      await TestBed.inject(I18nService).setLanguage('hi');
+      fixture.detectChanges();
+
+      expect(searchBox(root)?.getAttribute('placeholder')).toBe('परीक्षा खोजें');
+      expect(chipLabels(root)[0]).toBe('सभी, 6');
+      expect(root.querySelector('#exam-sort option')?.textContent?.trim()).toBe('सबसे नई पहले');
+
+      typeInto(root, fixture, 'zzz');
+      expect(resultsLine(root)).toBe('6 में से 0 परीक्षाएँ दिख रही हैं');
+      await TestBed.inject(I18nService).setLanguage('en');
     });
   });
 });

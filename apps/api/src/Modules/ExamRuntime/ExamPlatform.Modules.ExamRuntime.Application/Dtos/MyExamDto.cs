@@ -97,6 +97,7 @@ public sealed record ExamRulesDto(
 /// <param name="AttemptRequest">The latest request they made for another attempt at this exam, if any.</param>
 /// <param name="Rules">The exam's marking and navigation rules, for the instructions page.</param>
 /// <param name="Accommodation">What the candidate is allowed at this exam because of a disability or other need (FR-49), or null when nothing is. Never the staff note.</param>
+/// <param name="CreatedAtUtc">When the exam was created, so the page can list the newest exam first.</param>
 public sealed record MyExamDto(
     Guid ExamId,
     string Name,
@@ -118,4 +119,5 @@ public sealed record MyExamDto(
     bool CanRequestAttempt = false,
     MyAttemptRequestDto? AttemptRequest = null,
     ExamRulesDto? Rules = null,
-    CandidateAccommodationDto? Accommodation = null);
+    CandidateAccommodationDto? Accommodation = null,
+    DateTime CreatedAtUtc = default);

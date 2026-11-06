@@ -18,6 +18,55 @@
       {{ 'myExams.empty' | t }}
     </div>
   } @else if (exams().length > 0) {
+    @if (showControls()) {
+      <!-- Only for a long list: a handful of exams fit on a screen, where these would be one more thing to read. -->
+      <div class="exam-controls">
+        <div class="list-filter exam-controls__row">
+          <label class="visually-hidden" for="exam-search">{{ 'myExams.search.label' | t }}</label>
+          <input
+            id="exam-search"
+            class="exam-controls__search"
+            type="search"
+            autocomplete="off"
+            [placeholder]="'myExams.search.placeholder' | t"
+            [value]="query()"
+            (input)="query.set($any($event.target).value)"
+          />
+          <label class="visually-hidden" for="exam-sort">{{ 'myExams.sort.label' | t }}</label>
+          <select id="exam-sort" (change)="chooseSort($any($event.target).value)">
+            @for (option of sortOptions; track option.value) {
+              <option [value]="option.value" [selected]="option.value === sort()">{{ option.labelKey | t }}</option>
+            }
+          </select>
+        </div>
+        <div class="exam-controls__chips" role="group" [attr.aria-label]="'myExams.filter.label' | t">
+          @for (chip of chips(); track chip.id) {
+            <button
+              type="button"
+              class="exam-controls__chip"
+              [class.active]="filter() === chip.id"
+              [attr.aria-pressed]="filter() === chip.id"
+              (click)="filter.set(chip.id)"
+            >
+              {{ chip.labelKey | t }}<span class="visually-hidden">, </span>
+              <span class="exam-controls__count">{{ chip.count }}</span>
+            </button>
+          }
+        </div>
+        <!-- Always on the page, so a screen reader hears the text arrive; empty, and so no taller than nothing, when the list is not narrowed. -->
+        <p class="exam-controls__results" role="status">{{ resultsText() }}</p>
+      </div>
+    }
+
+    @if (filtering() && matching().length === 0) {
+      <div class="card empty-state">
+        <p>{{ 'myExams.noMatches' | t }}</p>
+        <div class="actions">
+          <button type="button" (click)="showAll()">{{ 'myExams.clearFilters' | t }}</button>
+        </div>
+      </div>
+    }
+
     @for (section of sections(); track section.id) {
       <section class="exam-section" [attr.aria-labelledby]="'exams-' + section.id + '-heading'">
         @if (section.collapsible) {
@@ -37,14 +86,14 @@
             </button>
           </h2>
         } @else {
-          <h2 class="exam-section__title" [attr.id]="'exams-' + section.id + '-heading'">{{ section.titleKey | t }}</h2>
+          <h2 class="exam-section__title" [attr.id]="'exams-' + section.id + '-heading'">{{ section.titleKey | t: { count: section.exams.length } }}</h2>
         }
 
         @if (!section.collapsible || attemptedOpen()) {
           <div [attr.id]="'exams-' + section.id">
             @for (exam of section.exams; track exam.examId; let first = $first) {
               <!-- The first of the exams to take now is the one to do next: it gets the most room and a full-width button. -->
-              <article class="card exam-card" [class.exam-card--past]="section.collapsible" [class.exam-card--next]="section.id === 'available' && first">
+              <article class="card exam-card" [class.exam-card--past]="section.id === 'attempted'" [class.exam-card--next]="section.id === 'available' && first">
                 <h3 class="card__title" [attr.id]="'exam-title-' + exam.examId" tabindex="-1">
                   <button
                     type="button"
@@ -68,7 +117,7 @@
                 @if (exam.description) {
                   <p>{{ exam.description }}</p>
                 }
-                @if (!section.collapsible && countdown(exam); as countdown) {
+                @if (section.id !== 'attempted' && countdown(exam); as countdown) {
                   <p class="exam-card__countdown">{{ countdown }}</p>
                 }
                 <p class="exam-card__window">
