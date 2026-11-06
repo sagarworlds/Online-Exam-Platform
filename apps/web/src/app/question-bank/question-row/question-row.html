@@ -145,7 +145,7 @@
         <ol>
           @for (option of question().options; track option.id) {
             <li [class.correct-option]="option.isCorrect">
-              {{ option.text }}@if (option.isCorrect) {
+              <span [appMathText]="option.text"></span>@if (option.isCorrect) {
                 <span class="badge badge--active">{{ 'qb.row.correct' | t }}</span>
               }
               @if (option.isPinned) {

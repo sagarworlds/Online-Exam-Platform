@@ -1,6 +1,7 @@
-import { Component, inject, signal } from '@angular/core';
+import { Location } from '@angular/common';
+import { Component, ElementRef, Injector, afterNextRender, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { AuthApiService } from '../auth-api.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
@@ -17,7 +18,17 @@ export class PasswordResetConfirm {
   private readonly formBuilder = inject(FormBuilder);
   private readonly authApi = inject(AuthApiService);
   private readonly i18n = inject(I18nService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly location = inject(Location);
+  private readonly injector = inject(Injector);
+  /** The code box, which only exists while the code was not filled in from the link; focus goes back to it when it reappears. */
+  private readonly codeInput = viewChild<ElementRef<HTMLInputElement>>('codeInput');
 
+  /**
+   * Whether the reset code was filled in from the link in the e-mail, so the page asks only for the new password. The code is a
+   * 100-character string nobody should have to read, and the box is brought back by "Enter the code by hand instead".
+   */
+  protected readonly codeFromLink = signal(false);
   protected readonly submitting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly submitted = signal(false);
@@ -37,6 +48,34 @@ export class PasswordResetConfirm {
       [Validators.required, Validators.minLength(MIN_PASSWORD_LENGTH), Validators.maxLength(MAX_PASSWORD_LENGTH)],
     ],
   });
+
+  constructor() {
+    this.takeCodeFromLink();
+  }
+
+  /** Shows the code box again, empty, for a person whose link carried a code they want to replace by typing one. */
+  protected enterCodeByHand(): void {
+    this.form.controls.resetCode.reset('');
+    this.codeFromLink.set(false);
+    afterNextRender(() => this.codeInput()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /**
+   * Reads the code from the link's fragment (`#code=…`), as the e-mail carries it. A fragment is used, not a query string, because a
+   * browser never sends it to a server: the code stays out of access logs and `Referer` headers. Once it is read the fragment is
+   * taken off the address, so the credential is not left in the address bar or the browser history entry.
+   */
+  private takeCodeFromLink(): void {
+    const code = new URLSearchParams(this.route.snapshot.fragment ?? '').get('code')?.trim();
+    // Only a code with both of its parts is taken; anything else is left for the person to see and fix by hand.
+    if (!code?.includes(':')) {
+      return;
+    }
+
+    this.form.controls.resetCode.setValue(code);
+    this.codeFromLink.set(true);
+    this.location.replaceState(this.location.path());
+  }
 
   protected codeError(): MessageKey | null {
     return this.attempted() && this.form.controls.resetCode.invalid ? 'reset.codeRequired' : null;

@@ -292,4 +292,65 @@ describe('AttemptResult', () => {
       expect(root(fixture).querySelector('[role="alert"]')?.textContent).toContain('Latin letters');
     });
   });
+
+  describe('sharing the score', () => {
+    const shareButton = (fixture: ComponentFixture<AttemptResult>) =>
+      [...root(fixture).querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.includes('Share my score'))!;
+    const withNavigator = (share: unknown, clipboard: unknown) => {
+      Object.defineProperty(navigator, 'share', { value: share, configurable: true });
+      Object.defineProperty(navigator, 'clipboard', { value: clipboard, configurable: true });
+    };
+
+    afterEach(() => withNavigator(undefined, undefined));
+
+    it('hands the sentence, with the exam and the score only, to the device’s share sheet', async () => {
+      const share = vi.fn().mockResolvedValue(undefined);
+      withNavigator(share, undefined);
+      const fixture = await open(result());
+
+      shareButton(fixture).click();
+      await fixture.whenStable();
+
+      expect(share).toHaveBeenCalledWith({ text: 'I scored 2.75 / 12 in Maths Final.' });
+    });
+
+    it('starts one share at a time: a second tap while the sheet is open does not copy under it', async () => {
+      let finish: () => void = () => undefined;
+      const share = vi.fn().mockReturnValue(new Promise<void>((resolve) => (finish = resolve)));
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      withNavigator(share, { writeText });
+      const fixture = await open(result());
+
+      shareButton(fixture).click();
+      shareButton(fixture).click();
+      finish();
+      await fixture.whenStable();
+
+      expect(share).toHaveBeenCalledTimes(1);
+      expect(writeText).not.toHaveBeenCalled();
+    });
+
+    it('does nothing more when the share sheet is closed without sharing', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      withNavigator(vi.fn().mockRejectedValue(new DOMException('closed', 'AbortError')), { writeText });
+      const fixture = await open(result());
+
+      shareButton(fixture).click();
+      await fixture.whenStable();
+
+      expect(writeText).not.toHaveBeenCalled();
+    });
+
+    it('copies the sentence when the device has no share sheet, and says so', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      withNavigator(undefined, { writeText });
+      const fixture = await open(result());
+
+      shareButton(fixture).click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(writeText).toHaveBeenCalledWith('I scored 2.75 / 12 in Maths Final.');
+    });
+  });
 });

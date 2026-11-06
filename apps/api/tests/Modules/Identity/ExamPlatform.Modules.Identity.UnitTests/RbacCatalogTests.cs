@@ -75,6 +75,9 @@ public class RbacCatalogTests
             RbacCatalog.PermissionCodes.RoleAssign,
             RbacCatalog.PermissionCodes.OtpRead,
             RbacCatalog.PermissionCodes.WhatsAppTest,
+
+            // Signs in as whoever owns the invited address, so a role that can only manage invites must not be able to make one.
+            RbacCatalog.PermissionCodes.InviteDirectLink,
         ];
 
         var holders = RbacCatalog.Roles

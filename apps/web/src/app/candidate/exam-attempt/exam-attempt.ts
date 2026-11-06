@@ -22,9 +22,13 @@ import { MathDirective } from '../../shared/rich-text/math.directive';
 import { ExamMode } from '../../shared/exam-mode/exam-mode';
 import { ModalDialog } from '../../shared/modal-dialog/modal-dialog';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
+import { MathTextDirective } from '../../shared/rich-text/math-text.directive';
 
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
+
+/** How often an attempt that is being graded is asked whether its score is there yet. Shorter than the heartbeat: the candidate is waiting for it. */
+const GRADING_POLL_MS = 4000;
 
 /** The times left at which a candidate is warned, once each, that time is short. Matches the countdown turning red at one minute. */
 const FIVE_MINUTE_WARNING_SECONDS = 300;
@@ -144,7 +148,7 @@ function paletteStatus(answered: boolean, marked: boolean, seen: boolean, t: Tra
  */
 @Component({
   selector: 'app-exam-attempt',
-  imports: [RouterLink, LocaleDatePipe, DecimalPipe, NgTemplateOutlet, MathDirective, ModalDialog, TranslatePipe, ReportIssue],
+  imports: [RouterLink, LocaleDatePipe, DecimalPipe, NgTemplateOutlet, MathDirective, ModalDialog, TranslatePipe, ReportIssue, MathTextDirective],
   templateUrl: './exam-attempt.html',
 })
 export class ExamAttempt {
@@ -1170,7 +1174,28 @@ export class ExamAttempt {
       this.sync?.discard();
       this.webcam.stop();
       this.screen.stop();
+      // Over but not yet scored: the platform is checking the typed answers, so the page asks until the score is there. A low-bandwidth
+      // connection asks less often.
+      if (attempt.status === 'Grading' && !this.preview) {
+        this.heartbeat = setInterval(() => this.checkGrading(), this.lowBandwidth.enabled() ? this.lowBandwidth.heartbeatMs() : GRADING_POLL_MS);
+      }
     }
+  }
+
+  /** Asks for the attempt again while it is being graded; the result replaces the waiting message once the score is there. A failed ask is tried again at the next one. */
+  private checkGrading(): void {
+    if (this.attemptId === null) {
+      return;
+    }
+
+    this.api.getAttempt(this.attemptId, this.lowBandwidth.enabled()).subscribe({
+      next: (attempt) => {
+        if (attempt.status !== 'Grading') {
+          this.show(attempt);
+        }
+      },
+      error: () => undefined,
+    });
   }
 
   /**

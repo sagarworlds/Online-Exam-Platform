@@ -17,6 +17,32 @@
   font-size: 0.875rem;
 }
 
+/* "Select all" at the left, the count of ticked questions after it, and "Add selected" at the right; they wrap on a narrow screen. */
+.picker__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  margin: 0 0 var(--space-2, 0.5rem);
+}
+
+.picker__selected {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.picker__add-selected {
+  margin-inline-start: auto;
+}
+
+/* The tick sits before the question, in a box big enough to hit with a finger, and does not shrink when the stem is long. */
+.picker__check {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+}
+
 .picker__list {
   display: flex;
   flex-direction: column;

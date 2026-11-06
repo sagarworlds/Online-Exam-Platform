@@ -1047,4 +1047,82 @@ describe('QuestionPanel', () => {
       expect(buttons().some((b) => b.textContent?.trim() === 'Cancel')).toBe(true);
     });
   });
+
+  describe('how strictly a typed answer is compared', () => {
+    const lenientBox = (root: HTMLElement) => root.querySelector('#question-lenient') as HTMLInputElement;
+    const textQuestion = (overrides: Partial<QuestionDto> = {}) =>
+      question({ isTextAnswer: true, options: [], acceptedAnswers: ['Paris'], ...overrides });
+
+    it('offers the setting for a text question only, and on by default for a new one', () => {
+      const { root, choose } = show();
+      expect(lenientBox(root)).toBeNull();
+
+      choose('question-type', 'text');
+
+      expect(lenientBox(root).checked).toBe(true);
+      expect(root.querySelector('#question-lenient-hint')?.textContent).toContain('"Paris." and "paris" count as "Paris"');
+    });
+
+    it('sends the lenient rule with a new text question, and no rule with a multiple-choice one', () => {
+      const { fixture, form, choose, type, submit } = show();
+      form().controls['text'].setValue('Capital of France?');
+      choose('question-type', 'text');
+      type(0, 'Paris');
+
+      submit();
+
+      const post = httpMock.expectOne(isCreate);
+      expect(post.request.body).toMatchObject({ isTextAnswer: true, acceptedAnswers: ['Paris'], matchRule: 'Lenient', options: [] });
+      post.flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
+      fixture.detectChanges();
+    });
+
+    it('sends the exact rule when the author turns the setting off', () => {
+      const { fixture, root, form, choose, type, submit } = show();
+      form().controls['text'].setValue('Capital of France?');
+      choose('question-type', 'text');
+      type(0, 'Paris');
+      lenientBox(root).checked = false;
+      lenientBox(root).dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      submit();
+
+      const post = httpMock.expectOne(isCreate);
+      expect(post.request.body).toMatchObject({ matchRule: 'Exact' });
+      post.flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
+      fixture.detectChanges();
+    });
+
+    it('shows an older text question as exact, because it was marked that way, and saves it as exact', () => {
+      const { root, submit } = show({ edit: textQuestion() });
+
+      expect(lenientBox(root).checked).toBe(false);
+
+      submit();
+
+      const put = httpMock.expectOne(isPut);
+      expect(put.request.body).toMatchObject({ isTextAnswer: true, matchRule: 'Exact' });
+      put.flush(textQuestion());
+    });
+
+    it('shows a lenient question as lenient and saves it as lenient', () => {
+      const { root, submit } = show({ edit: textQuestion({ matchRule: 'Lenient' }) });
+
+      expect(lenientBox(root).checked).toBe(true);
+
+      submit();
+
+      const put = httpMock.expectOne(isPut);
+      expect(put.request.body).toMatchObject({ matchRule: 'Lenient' });
+      put.flush(textQuestion({ matchRule: 'Lenient' }));
+    });
+
+    it('locks the setting once candidates have answered, and says a correction changes it', () => {
+      const { root } = show({ edit: textQuestion({ matchRule: 'Lenient', usage: { examCount: 1, examNames: ['Maths mock'], answered: true } }) });
+
+      expect(lenientBox(root).disabled).toBe(true);
+      expect(root.querySelector('#question-lenient-hint')?.textContent).toContain('correct the answer key');
+    });
+  });
 });

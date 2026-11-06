@@ -21,5 +21,6 @@ internal static class InviteMapping
             invite.AcceptedAt,
             invite.DeclinedAt,
             invite.CreatedAt,
-            invite.UpdatedAt);
+            invite.UpdatedAt,
+            HasDirectLink: invite.Codes.Any(c => c.AllowsDirectSignIn));
 }

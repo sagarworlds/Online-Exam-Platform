@@ -87,6 +87,9 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddSingleton<IPasswordPolicy, PasswordPolicy>();
         services.AddScoped<OtpChallengeIssuer>();
         services.AddScoped<LoginSessionIssuer>();
+
+        // How the Invite module signs a student in from an e-mailed link; Identity keeps the accounts and sessions to itself.
+        services.AddScoped<IDirectSignIn, StudentDirectSignIn>();
         services.AddScoped<RequestOtpHandler>();
         services.AddScoped<VerifyOtpHandler>();
         services.AddScoped<RegisterCandidateHandler>();
@@ -177,6 +180,23 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
             return delivery.PhoneProvider == OtpDeliveryOptions.WhatsApp
                 ? new ChannelRoutingOtpSender(sender, ActivatorUtilities.CreateInstance<WhatsAppOtpSender>(sp))
                 : sender;
+        });
+
+        // A reset is mailed as a link, so it has its own sender and the address of the web app to build the link from. Which adapter
+        // delivers it follows the same provider setting as the codes: a host that logs codes logs the reset link too.
+        services.AddSingleton<IPasswordResetLinkBuilder, ConfigurationPasswordResetLinkBuilder>();
+        services.AddScoped<IPasswordResetSender>(sp =>
+        {
+            var delivery = sp.GetRequiredService<IOptions<OtpDeliveryOptions>>().Value;
+            return delivery.Provider switch
+            {
+                OtpDeliveryOptions.DevelopmentLog => ActivatorUtilities.CreateInstance<LoggingPasswordResetSender>(sp),
+                OtpDeliveryOptions.Smtp => ActivatorUtilities.CreateInstance<SmtpPasswordResetSender>(sp),
+
+                // Unreachable once the host has started: OtpDeliveryOptionsValidator refuses any other provider at startup.
+                var provider => throw new InvalidOperationException(
+                    $"No IPasswordResetSender adapter exists for {OtpDeliveryOptions.SectionName}:Provider '{provider}'."),
+            };
         });
     }
 

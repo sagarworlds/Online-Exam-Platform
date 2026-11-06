@@ -52,7 +52,11 @@ public class InviteDbContext(DbContextOptions<InviteDbContext> options) : DbCont
             c.HasKey(x => x.Id);
             c.Property(x => x.Id).ValueGeneratedNever();
             c.Property(x => x.InviteId).IsRequired();
-            c.Property(x => x.Code).HasMaxLength(8).IsRequired();
+            // 8 characters for an ordinary code, 16 for a direct sign-in code; 32 leaves room without another migration.
+            c.Property(x => x.Code).HasMaxLength(32).IsRequired();
+
+            // False for every code made before direct sign-in existed, so none of them can sign anyone in.
+            c.Property(x => x.AllowsDirectSignIn).HasDefaultValue(false);
 
             // A code identifies its invite on its own (the link carries nothing else), so two invites
             // can never share one.

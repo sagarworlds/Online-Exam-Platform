@@ -7,6 +7,7 @@ using ExamPlatform.Modules.Invite.Domain;
 using ExamPlatform.Modules.Invite.Domain.Exceptions;
 using ExamPlatform.Modules.Notifications.Contracts;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using InviteAggregate = ExamPlatform.Modules.Invite.Domain.Invite;
@@ -27,6 +28,7 @@ public class CreateInviteHandlerTests
     private readonly IInAppNotifier _inApp = Substitute.For<IInAppNotifier>();
     private readonly IInviteLinkBuilder _links = Substitute.For<IInviteLinkBuilder>();
     private readonly Guid _examId = Guid.NewGuid();
+    private readonly DirectSignInOptions _directSignIn = new();
     private readonly CreateInviteHandler _handler;
 
     public CreateInviteHandlerTests()
@@ -34,9 +36,11 @@ public class CreateInviteHandlerTests
         _catalog.FindAsync(_examId, Arg.Any<CancellationToken>()).Returns(new ExamSnapshot(
             _examId, "Maths Final", null, false, Now, Now.AddHours(3), null, null, 1, 0, 0, []));
         _links.Build(Arg.Any<string>()).Returns(call => "https://app.example/invite?code=" + call.Arg<string>());
+        _links.BuildDirect(Arg.Any<string>()).Returns(call => "https://app.example/invite/direct#code=" + call.Arg<string>());
         _inApp.NotifyAsync(Arg.Any<InAppNotice>(), Arg.Any<CancellationToken>()).Returns(true);
         _handler = new CreateInviteHandler(
-            _repository, _unitOfWork, _catalog, _notifier, _whatsApp, _contacts, _inApp, _links, new FakeClock(Now), NullLogger<CreateInviteHandler>.Instance);
+            _repository, _unitOfWork, _catalog, _notifier, _whatsApp, _contacts, _inApp, _links, Options.Create(_directSignIn), new FakeClock(Now),
+            NullLogger<CreateInviteHandler>.Instance);
     }
 
     [Fact]
@@ -64,8 +68,8 @@ public class CreateInviteHandlerTests
         await _inApp.DidNotReceive().NotifyAsync(Arg.Any<InAppNotice>(), Arg.Any<CancellationToken>());
     }
 
-    private CreateInviteCommand Command(string email = Email, Guid? examId = null) =>
-        new(examId ?? _examId, null, email, Guid.NewGuid());
+    private CreateInviteCommand Command(string email = Email, Guid? examId = null, bool directSignIn = false) =>
+        new(examId ?? _examId, null, email, Guid.NewGuid(), directSignIn);
 
     [Fact]
     public async Task HandleAsync_StoresTheInviteWithOneCode_ThenEmailsTheLink()
@@ -311,5 +315,78 @@ public class CreateInviteHandlerTests
         await Assert.ThrowsAsync<InvalidInviteEmailError>(() => _handler.HandleAsync(Command("not-an-email"), CancellationToken.None));
 
         await _contacts.DidNotReceiveWithAnyArgs().FindPhoneNumberByEmailAsync(default!, default);
+    }
+
+    // ---- direct sign-in links --------------------------------------------------------------------
+
+    [Fact]
+    public async Task DirectSignIn_MakesADirectCode_AndSendsTheDirectLinkInTheEmail()
+    {
+        InviteEmail? sent = null;
+        _notifier.SendAsync(Arg.Do<InviteEmail>(email => sent = email), Arg.Any<CancellationToken>()).Returns(true);
+        InviteAggregate? stored = null;
+        _repository.When(r => r.Add(Arg.Any<InviteAggregate>())).Do(call => stored = call.Arg<InviteAggregate>());
+
+        await _handler.HandleAsync(Command(directSignIn: true), CancellationToken.None);
+
+        var code = Assert.Single(stored!.Codes);
+        Assert.True(code.AllowsDirectSignIn);
+        Assert.Equal(16, code.Code.Length);
+        Assert.NotNull(sent);
+        Assert.True(sent.DirectSignIn);
+        Assert.Equal("https://app.example/invite/direct#code=" + code.Code, sent.Link);
+    }
+
+    [Fact]
+    public async Task DirectSignIn_GivesTheInviterTheDirectLink_EvenWhenTheEmailWentOut()
+    {
+        _notifier.SendAsync(Arg.Any<InviteEmail>(), Arg.Any<CancellationToken>()).Returns(true);
+
+        var result = await _handler.HandleAsync(Command(directSignIn: true), CancellationToken.None);
+
+        // The inviter asked for it to pass on by hand; an ordinary link is withheld once delivered, this one is not.
+        Assert.True(result.EmailSent);
+        Assert.NotNull(result.InviteLink);
+        Assert.StartsWith("https://app.example/invite/direct#code=", result.InviteLink);
+        Assert.Null(result.InviteCode);
+        Assert.True(result.HasDirectLink);
+    }
+
+    [Fact]
+    public async Task AnOrdinaryInvite_IsUnchanged_NoDirectCode_AndTheLinkIsStillWithheldOnceDelivered()
+    {
+        _notifier.SendAsync(Arg.Any<InviteEmail>(), Arg.Any<CancellationToken>()).Returns(true);
+        InviteAggregate? stored = null;
+        _repository.When(r => r.Add(Arg.Any<InviteAggregate>())).Do(call => stored = call.Arg<InviteAggregate>());
+
+        var result = await _handler.HandleAsync(Command(), CancellationToken.None);
+
+        Assert.False(Assert.Single(stored!.Codes).AllowsDirectSignIn);
+        Assert.Null(result.InviteLink);
+        Assert.False(result.HasDirectLink);
+        _links.DidNotReceive().BuildDirect(Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task DirectSignIn_WhenSwitchedOff_IsRefused_AndNothingIsStoredOrSent()
+    {
+        _directSignIn.Enabled = false;
+
+        var error = await Assert.ThrowsAsync<DirectSignInDisabledError>(() => _handler.HandleAsync(Command(directSignIn: true), CancellationToken.None));
+
+        Assert.Equal(403, error.HttpStatusCode);
+        _repository.DidNotReceive().Add(Arg.Any<InviteAggregate>());
+        await _notifier.DidNotReceiveWithAnyArgs().SendAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task AnOrdinaryInvite_StillWorks_WhenDirectSignInIsSwitchedOff()
+    {
+        _directSignIn.Enabled = false;
+        _notifier.SendAsync(Arg.Any<InviteEmail>(), Arg.Any<CancellationToken>()).Returns(true);
+
+        var result = await _handler.HandleAsync(Command(), CancellationToken.None);
+
+        Assert.True(result.EmailSent);
     }
 }

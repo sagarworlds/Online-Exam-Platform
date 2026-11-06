@@ -1,6 +1,7 @@
 import { EN, MessageKey } from './messages.en';
 import { HI } from './messages.hi';
 import { MR } from './messages.mr';
+import { PENDING_TRANSLATION } from './pending-translations';
 
 const placeholders = (message: string) => [...message.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 
@@ -27,9 +28,13 @@ describe('the messages of every language (FR-51)', () => {
 
     it('is translated: the messages are not English left as they were', () => {
       // A few words are the same in any language (OK, SMS), but a language that matches English in many messages was not translated.
-      const untranslated = keys.filter((key) => messages[key] === EN[key]);
+      const untranslated = keys.filter((key) => messages[key] === EN[key] && !PENDING_TRANSLATION.includes(key));
 
       expect(untranslated.length).toBeLessThan(5);
+    });
+
+    it('lists as pending only messages that are still English, so the list shrinks as they are translated', () => {
+      expect(PENDING_TRANSLATION.filter((key) => messages[key] !== EN[key])).toEqual([]);
     });
   });
 

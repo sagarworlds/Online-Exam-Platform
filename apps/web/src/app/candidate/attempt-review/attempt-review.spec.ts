@@ -307,6 +307,33 @@ describe('AttemptReview', () => {
       expect(card(fixture, 2).querySelector('.review-explanation')).toBeNull();
     });
 
+    it('renders the formulas in the question, its options and its explanation, and leaves plain text alone', async () => {
+      const body = review();
+      const first = body.sections[0].questions[0];
+      body.sections[0].questions[0] = {
+        ...first,
+        text: '<p>Solve $x^2 = 4$</p>',
+        options: [
+          { ...first.options[0], text: '$x = \\pm 2$' },
+          { ...first.options[1], text: '\\(x = 3\\)' },
+        ],
+        explanation: 'Because $$x^2 = 4$$ gives two roots, and 5 < 6.',
+      };
+      const fixture = await open(body);
+
+      const q = card(fixture, 1);
+      expect(q.querySelector('.question__text .katex')).not.toBeNull();
+      const optionTexts = Array.from(q.querySelectorAll('.review-option__text'));
+      expect(optionTexts.map((o) => o.querySelector('.katex') !== null)).toEqual([true, true]);
+      expect(optionTexts.map((o) => o.textContent)).not.toContain('$x = \\pm 2$');
+      const explanation = q.querySelector('.review-explanation__text') as HTMLElement;
+      expect(explanation.querySelector('.katex-display')).not.toBeNull();
+      expect(explanation.textContent).toContain('gives two roots, and 5 < 6.');
+      // A question with plain options is untouched.
+      expect(card(fixture, 2).querySelectorAll('.katex').length).toBe(0);
+      expect(card(fixture, 2).textContent).toContain('Paris');
+    });
+
     it('offers a retry when the review cannot be read, and reads it again', async () => {
       const fixture = await open({ status: 500, error: { title: 'internal', detail: 'The server had a problem.' } });
 
@@ -747,6 +774,71 @@ describe('AttemptReview', () => {
       expect(summary.contains(strip)).toBe(false);
       expect(summary.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(note.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+  });
+
+  describe('only the questions that were missed', () => {
+    const button = (fixture: ComponentFixture<AttemptReview>, text: string) =>
+      [...root(fixture).querySelectorAll<HTMLButtonElement>('.review-filter button')].find((b) => b.textContent?.includes(text))!;
+    const listed = (fixture: ComponentFixture<AttemptReview>) => [...root(fixture).querySelectorAll('.review-question')].map((q) => q.id);
+    const headings = (fixture: ComponentFixture<AttemptReview>) => [...root(fixture).querySelectorAll('h2.palette__section')].map((h) => h.textContent?.trim());
+
+    it('offers the two choices with how many each holds, on all questions at first', async () => {
+      const fixture = await open(review());
+
+      expect(button(fixture, 'All questions').textContent).toContain('(3)');
+      expect(button(fixture, 'missed').textContent).toContain('(2)');
+      expect(button(fixture, 'All questions').getAttribute('aria-pressed')).toBe('true');
+      expect(button(fixture, 'missed').getAttribute('aria-pressed')).toBe('false');
+      expect(listed(fixture)).toEqual(['review-question-1', 'review-question-2', 'review-question-3']);
+    });
+
+    it('lists the wrong and the skipped ones only, with their numbers from the whole exam, in the strip as well', async () => {
+      const fixture = await open(review());
+
+      button(fixture, 'missed').click();
+      fixture.detectChanges();
+
+      expect(listed(fixture)).toEqual(['review-question-2', 'review-question-3']);
+      expect([...root(fixture).querySelectorAll('.review-strip__item')].map((b) => b.textContent?.trim())).toEqual(['2', '3']);
+      expect(button(fixture, 'missed').getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('leaves out a section with nothing missed, and brings everything back on All questions', async () => {
+      const fixture = await open(
+        review({
+          sections: [
+            { id: 's1', name: 'Section A', questions: review().sections[0].questions.slice(0, 1) },
+            { id: 's2', name: 'Section B', questions: review().sections[1].questions },
+          ],
+        }),
+      );
+
+      button(fixture, 'missed').click();
+      fixture.detectChanges();
+      expect(headings(fixture)).toEqual(['Section B']);
+
+      button(fixture, 'All questions').click();
+      fixture.detectChanges();
+      expect(headings(fixture)).toEqual(['Section A', 'Section B']);
+    });
+
+    it('says how many questions are shown, politely, so a screen reader hears what the choice did', async () => {
+      const fixture = await open(review());
+      const status = () => root(fixture).querySelector('.review-filter ~ [role="status"], p.visually-hidden[role="status"]')?.textContent?.trim();
+      expect(status()).toBe('Questions shown: 3');
+
+      button(fixture, 'missed').click();
+      fixture.detectChanges();
+
+      expect(status()).toBe('Questions shown: 2');
+    });
+
+    it('is not offered when every answer was right', async () => {
+      const all = review().sections[0].questions.slice(0, 1);
+      const fixture = await open(review({ sections: [{ id: 's1', name: 'Section A', questions: all }] }));
+
+      expect(root(fixture).querySelector('.review-filter')).toBeNull();
     });
   });
 });

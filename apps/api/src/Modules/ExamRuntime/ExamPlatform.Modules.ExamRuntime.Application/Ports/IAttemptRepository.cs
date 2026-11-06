@@ -16,6 +16,15 @@ public sealed record SubmittedAnswer(
 /// <param name="Score">The marks it scored, as the latest version of its result says.</param>
 public sealed record SubmittedScore(Guid AttemptId, Guid CandidateId, decimal Score);
 
+/// <summary>One typed answer a worker has taken from the queue for the AI evaluator.</summary>
+/// <param name="AttemptId">The attempt the answer is in.</param>
+/// <param name="QuestionId">The question it answers.</param>
+/// <param name="RequestedAtUtc">
+/// When the answer was queued. A verdict is saved only while the answer is still waiting from this instant, so one asked for against an
+/// answer key that was corrected meanwhile (which queues the answer again) is never kept.
+/// </param>
+public sealed record GradingClaim(Guid AttemptId, Guid QuestionId, DateTime RequestedAtUtc);
+
 /// <summary>Persistence port for <see cref="Attempt"/>.</summary>
 public interface IAttemptRepository
 {
@@ -97,7 +106,8 @@ public interface IAttemptRepository
     /// Loads every submitted attempt that included a question, whether the candidate answered it or it was only on
     /// their drawn paper, tracked with their answers and paper so each can be rescored. For
     /// <see cref="ExamPlatform.Modules.QuestionBank.Contracts.IAttemptRescorer"/>: an open attempt is excluded,
-    /// since it has no score yet to revise.
+    /// since it has no score yet to revise. An attempt still in <see cref="AttemptStatus.Grading"/> is included, though it has no score
+    /// yet, because it is to be scored under the corrected key and its typed answers judged against it.
     /// </summary>
     /// <param name="questionId">The question.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -113,6 +123,16 @@ public interface IAttemptRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The submitted attempts in order of <see cref="Attempt.Number"/>; empty when none has been submitted.</returns>
     Task<IReadOnlyList<Attempt>> ListFinishedForExamAsync(Guid examId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists the ids of the attempts at an exam that are over and still count, whether scored or still being graded, for a bulk recheck by the
+    /// AI evaluator. Ids only: each attempt is then loaded, locked and saved on its own.
+    /// </summary>
+    /// <remarks>An attempt still open has no typed answers to judge yet, and an invalidated one has no score for a verdict to change, so both are left out.</remarks>
+    /// <param name="examId">The exam.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The attempt ids, oldest submission first; empty when none qualifies.</returns>
+    Task<IReadOnlyList<Guid>> ListOverIdsForExamAsync(Guid examId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Lists the named submitted attempts at an exam with their answers, focus departures and client sightings, for the risk review (FR-27).
@@ -145,4 +165,30 @@ public interface IAttemptRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The attempts that exist, in no particular order.</returns>
     Task<IReadOnlyList<Attempt>> ListWithAnswersAsync(IReadOnlyCollection<Guid> attemptIds, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Takes typed answers off the queue for the AI evaluator, oldest first: the ones that are waiting for a verdict, whose wait after a failure
+    /// is over, and that no other worker holds. Each one taken is held for the worker until <paramref name="leaseUntilUtc"/>, so two hosts
+    /// never ask about the same answer; a worker that dies lets go when that instant passes.
+    /// </summary>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <param name="leaseUntilUtc">How long the answers taken are held.</param>
+    /// <param name="limit">The most to take.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The answers taken; fewer than <paramref name="limit"/>, or none, when fewer are due.</returns>
+    Task<IReadOnlyList<GradingClaim>> ClaimAnswersAwaitingEvaluationAsync(DateTime nowUtc, DateTime leaseUntilUtc, int limit, CancellationToken cancellationToken);
+
+    /// <summary>How many typed answers are queued for a verdict, whether a worker holds one now or it waits for its next try.</summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<int> CountAnswersAwaitingEvaluationAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists the ids of attempts still in <see cref="AttemptStatus.Grading"/> with a typed answer that was queued at or before
+    /// <paramref name="queuedBeforeUtc"/> and is still without a verdict and not held by a worker: the attempts that have waited too long.
+    /// </summary>
+    /// <param name="queuedBeforeUtc">The cut-off: an answer queued at this instant or earlier has waited long enough.</param>
+    /// <param name="nowUtc">The current instant, to tell a held answer from one whose hold has lapsed.</param>
+    /// <param name="limit">The most to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<Guid>> ListGradingOverdueAsync(DateTime queuedBeforeUtc, DateTime nowUtc, int limit, CancellationToken cancellationToken);
 }

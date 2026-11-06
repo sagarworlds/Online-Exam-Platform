@@ -64,6 +64,12 @@ public static class RbacCatalog
         /// <summary>Create invites, generate and revoke their codes (FR-50a).</summary>
         public const string InviteManage = "invite.manage";
 
+        /// <summary>
+        /// Make an invitation link that signs the invited person in. Such a link signs in as whoever owns the invited address, so it is held
+        /// by few: without this, anyone who can create invites could sign in as any student.
+        /// </summary>
+        public const string InviteDirectLink = "invite.direct-link";
+
         /// <summary>See the students: their accounts and invitations, with the contact details staff need to reach them.</summary>
         public const string StudentRead = "student.read";
 
@@ -135,6 +141,7 @@ public static class RbacCatalog
         new(PermissionCodes.BatchManage, "Create batches and manage their rosters"),
         new(PermissionCodes.BatchRead, "View batches and their rosters"),
         new(PermissionCodes.InviteManage, "Create invites and manage their codes"),
+        new(PermissionCodes.InviteDirectLink, "Make invitation links that sign the invited student in"),
         new(PermissionCodes.StudentRead, "See students' accounts, contact details and invitations"),
         new(PermissionCodes.StudentManage, "Change a student's name, e-mail address, mobile number and date of birth"),
         new(PermissionCodes.GuardianLinkManage, "Link guardians to candidates and revoke those links"),

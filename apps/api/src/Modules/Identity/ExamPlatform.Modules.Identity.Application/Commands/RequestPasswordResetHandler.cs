@@ -9,16 +9,16 @@ namespace ExamPlatform.Modules.Identity.Application.Commands;
 public sealed class RequestPasswordResetHandler(
     IUserRepository userRepository,
     IPasswordResetTokenRepository tokenRepository,
-    IOtpSender sender,
+    IPasswordResetSender sender,
     IIdentityUnitOfWork unitOfWork,
     Clock clock)
 {
     private static readonly TimeSpan Validity = TimeSpan.FromMinutes(30);
 
     /// <summary>
-    /// Issues and sends a reset token if the email matches an account that signs in with a
-    /// password, and revokes that account's earlier unused reset links, so only the newest
-    /// one works (FR-3).
+    /// Issues a reset token and e-mails it as a link if the email matches an account that signs
+    /// in with a password, and revokes that account's earlier unused reset links, so only the
+    /// newest one works (FR-3).
     /// Intentionally does not reveal whether such an account exists — the response
     /// is the same either way, so this endpoint cannot be used to enumerate
     /// registered email addresses.
@@ -50,9 +50,10 @@ public sealed class RequestPasswordResetHandler(
         var resetToken = PasswordResetToken.Issue(user.Id, tokenHash, nowUtc, Validity);
         await tokenRepository.AddAsync(resetToken, cancellationToken);
 
-        // The reset link the user receives encodes both resetToken.Id and rawToken;
-        // ResetPasswordCommand takes them back apart the same way OTP verify does.
-        await sender.SendAsync(OtpChannel.Email, command.Email, $"{resetToken.Id}:{rawToken}", cancellationToken);
+        // The code encodes both resetToken.Id and rawToken: the e-mail carries it in a link that opens the reset page with it filled
+        // in, and as plain text for pasting; ResetPasswordCommand takes the two parts back apart. The lifetime is passed along so the
+        // message states the real one, not a figure of its own.
+        await sender.SendAsync(command.Email, $"{resetToken.Id}:{rawToken}", Validity, cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }

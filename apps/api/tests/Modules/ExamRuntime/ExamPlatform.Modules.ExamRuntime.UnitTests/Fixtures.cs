@@ -1,5 +1,6 @@
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.QuestionBank.Contracts;
+using ExamPlatform.SharedKernel.Domain;
 
 namespace ExamPlatform.Modules.ExamRuntime.UnitTests;
 
@@ -30,6 +31,10 @@ internal static class Fixtures
     /// <summary>A text question: it has no options, and a typed answer is right when it matches one of the accepted answers.</summary>
     public static QuestionSnapshot TextQuestion(params string[] acceptedAnswers) =>
         new(Guid.NewGuid(), "Capital of France?", [], IsTextAnswer: true, AcceptedAnswers: acceptedAnswers);
+
+    /// <summary>A text question marked under the given matching rule.</summary>
+    public static QuestionSnapshot TextQuestion(TextMatchRule rule, params string[] acceptedAnswers) =>
+        TextQuestion(acceptedAnswers) with { MatchRule = rule };
 
     /// <summary>Every correct option of the question, for a multiple-answer one.</summary>
     public static Guid[] CorrectSet(this QuestionSnapshot question) => question.Options.Where(o => o.IsCorrect).Select(o => o.Id).ToArray();

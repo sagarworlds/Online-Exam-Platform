@@ -151,7 +151,8 @@ describe('App', () => {
 
       expect(root.querySelector('header.nav nav')).not.toBeNull();
       expect(root.querySelector('header.nav--exam')).toBeNull();
-      expect(root.querySelector('.health-widget')).not.toBeNull();
+      // Staff see the API's state; this visitor is not signed in.
+      expect(root.querySelector('.health-widget')).toBeNull();
     });
 
     it('puts the header down to the name and the language, with no links, no Log out and no status dot', () => {
@@ -185,43 +186,57 @@ describe('App', () => {
     });
   });
 
-  describe('API status dot', () => {
-    function dot(fixture: { nativeElement: unknown }): HTMLElement {
-      return (fixture.nativeElement as HTMLElement).querySelector('.health-dot') as HTMLElement;
-    }
+  describe('API status footer', () => {
+    const signInAs = (permissions: string[]) =>
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, buildFakeJwt({ sub: 'user-1', exp: Math.floor(Date.now() / 1000) + 3600, perm: permissions }));
+    const dot = (fixture: { nativeElement: unknown }) => (fixture.nativeElement as HTMLElement).querySelector('.health-dot') as HTMLElement;
+    const words = (fixture: { nativeElement: unknown }) => (fixture.nativeElement as HTMLElement).querySelector('.health-widget')?.textContent?.trim();
 
-    it('is a neutral dot while the API is being checked', () => {
+    it('is for staff only: a candidate, and someone not signed in, see nothing of it', () => {
+      signInAs([]);
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      answerStartupRequests();
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).querySelector('.health-widget')).toBeNull();
+    });
+
+    it('is a neutral dot with "Checking API…" beside it while the API is being checked', () => {
+      signInAs(['exam.read']);
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
 
       expect(dot(fixture).classList).toContain('health-dot--checking');
-      expect(dot(fixture).title).toBe('Checking API…');
-      httpMock.expectOne(() => true).flush('Healthy');
+      expect(words(fixture)).toBe('Checking API…');
+      answerStartupRequests();
     });
 
-    it('is a green dot, with the words on hover, once the API responds', async () => {
+    it('is a green dot with the words beside it, once the API responds, with no need to hover', async () => {
+      signInAs(['exam.read']);
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
-      httpMock.expectOne(() => true).flush('Healthy');
+      answerStartupRequests();
       await fixture.whenStable();
       fixture.detectChanges();
 
       expect(dot(fixture).classList).toContain('health-dot--healthy');
-      expect(dot(fixture).title).toBe('API is healthy.');
-      expect(dot(fixture).getAttribute('aria-label')).toBe('API is healthy.');
-      expect((fixture.nativeElement as HTMLElement).querySelector('.health-widget')?.textContent?.trim()).toBe('');
+      expect(words(fixture)).toBe('API is healthy');
+      expect(dot(fixture).getAttribute('aria-hidden')).toBe('true');
     });
 
-    it('is a red dot, with the reason on hover, when the API cannot be reached', async () => {
+    it('is a red dot saying the API is unreachable, with the reason on hover, when it cannot be reached', async () => {
+      signInAs(['exam.read']);
       const fixture = TestBed.createComponent(App);
       fixture.detectChanges();
-      httpMock.expectOne(() => true).error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+      httpMock.match((request) => request.url.endsWith('/v1/health')).forEach((request) => request.error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' }));
+      httpMock.match(() => true).forEach((request) => request.flush([]));
       await fixture.whenStable();
       fixture.detectChanges();
 
       expect(dot(fixture).classList).toContain('health-dot--unhealthy');
-      expect(dot(fixture).title).toMatch(/^API is unreachable: .+/);
-      expect(dot(fixture).getAttribute('aria-label')).toBe(dot(fixture).title);
+      expect(words(fixture)).toBe('API is unreachable');
+      expect((fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.health-text')?.title).not.toBe('');
     });
   });
 

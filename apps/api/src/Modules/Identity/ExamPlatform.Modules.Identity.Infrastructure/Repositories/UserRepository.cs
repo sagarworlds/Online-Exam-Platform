@@ -27,6 +27,14 @@ public sealed class UserRepository(IdentityDbContext context) : IUserRepository
     public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken) =>
         Loaded().FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
+    // lower() on both sides and not ILIKE: an address may hold "_", which ILIKE reads as a wildcard.
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<User>> ListByEmailIgnoreCaseAsync(string email, CancellationToken cancellationToken)
+    {
+        var wanted = email.Trim().ToLowerInvariant();
+        return await Loaded().Where(u => u.Email != null && u.Email.ToLower() == wanted).ToListAsync(cancellationToken);
+    }
+
     /// <inheritdoc />
     public Task<bool> AnyInRoleAsync(string roleName, CancellationToken cancellationToken) =>
         context.Users.AnyAsync(u => u.Roles.Any(r => r.Name == roleName), cancellationToken);

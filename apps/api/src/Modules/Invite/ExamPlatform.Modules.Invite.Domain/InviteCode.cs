@@ -13,15 +13,22 @@ public class InviteCode
     public DateTime? RevokedAt { get; set; }
     public DateTime CreatedAt { get; set; }
 
+    /// <summary>
+    /// Whether opening the link of this code signs the invited person in, as well as accepting the invitation. Only a code made for that
+    /// purpose may do it: an ordinary code (typed in, or opened by someone who is already signed in) never signs anyone in.
+    /// </summary>
+    public bool AllowsDirectSignIn { get; set; }
+
     private InviteCode() { }
 
-    public InviteCode(Guid inviteId, string code, int expiryHours, DateTime nowUtc)
+    public InviteCode(Guid inviteId, string code, int expiryHours, DateTime nowUtc, bool allowsDirectSignIn = false)
     {
         Id = Guid.NewGuid();
         InviteId = inviteId;
         Code = code;
         ExpiresAt = nowUtc.AddHours(expiryHours);
         CreatedAt = nowUtc;
+        AllowsDirectSignIn = allowsDirectSignIn;
     }
 
     /// <summary>Whether the code can still be redeemed at <paramref name="nowUtc"/>: unused, not revoked, not past its expiry.</summary>

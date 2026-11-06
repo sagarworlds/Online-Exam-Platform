@@ -146,7 +146,7 @@
               @for (row of rows(); track row.questionId) {
                 <tr>
                   <td [attr.data-label]="'admin.items.col.position' | t">{{ row.position }}</td>
-                  <td [attr.data-label]="'admin.items.col.question' | t" class="item-table__question">{{ row.text }}</td>
+                  <td [attr.data-label]="'admin.items.col.question' | t" class="item-table__question" [appMathText]="row.text"></td>
                   <td [attr.data-label]="'admin.items.col.attempts' | t">{{ row.attempts }}</td>
                   <td [attr.data-label]="'admin.items.col.correct' | t">{{ row.correctCount }}</td>
                   <td [attr.data-label]="'admin.items.col.difficulty' | t">{{ difficultyText(row) }}</td>

@@ -38,9 +38,10 @@ public sealed class ProvisionFirstAdministratorHandler(
 
     /// <summary>
     /// The date of birth stored for the administrator. The account model requires one (it drives the age band used for
-    /// guardian consent) but a staff account has no meaningful value, so this is a fixed adult placeholder.
+    /// guardian consent) but a staff account has no meaningful value, so this is a fixed adult placeholder, shared with the
+    /// accounts an invitation link creates (<see cref="User.PlaceholderAdultDateOfBirth"/>).
     /// </summary>
-    public static readonly DateOnly PlaceholderDateOfBirth = new(1980, 1, 1);
+    public static readonly DateOnly PlaceholderDateOfBirth = User.PlaceholderAdultDateOfBirth;
 
     /// <summary>
     /// Creates an active Super Admin, records it in the audit trail, and e-mails the address a link to set a password.

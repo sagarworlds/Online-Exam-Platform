@@ -44,3 +44,17 @@
   min-width: 44px;
   min-height: 44px;
 }
+
+/* The two choices of what to list: pressed is the one in force, shown by its fill as well as aria-pressed. */
+.review-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.review-filter .btn[aria-pressed='true'] {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  font-weight: 600;
+}

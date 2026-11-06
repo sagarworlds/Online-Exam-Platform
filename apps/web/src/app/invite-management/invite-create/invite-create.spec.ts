@@ -5,6 +5,8 @@ import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 import { ClipboardService } from '../../shared/clipboard/clipboard.service';
 import { InviteCreate } from './invite-create';
+import { AUTH_TOKEN_STORAGE_KEY } from '../../auth/auth-session.service';
+import { buildFakeJwt } from '../../auth/testing/fake-jwt';
 
 describe('InviteCreate', () => {
   let httpMock: HttpTestingController;
@@ -249,5 +251,98 @@ describe('InviteCreate', () => {
     fixture.detectChanges();
 
     expect(root.textContent).toContain('Exam does not exist.');
+  });
+
+  describe('direct sign-in link', () => {
+    const permitted = () =>
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, buildFakeJwt({ sub: 'staff-1', exp: Math.floor(Date.now() / 1000) + 3600, perm: ['invite.manage', 'invite.direct-link'] }));
+
+    beforeEach(() => localStorage.clear());
+    afterEach(() => localStorage.clear());
+
+    const directLink = 'http://localhost:4200/invite/direct#code=ABCD1234EFGH5678';
+
+    it('offers the box only to staff who hold the permission', () => {
+      const without = open();
+      expect(without.root.querySelector('#invite-direct')).toBeNull();
+      TestBed.resetTestingModule();
+
+      localStorage.clear();
+      permitted();
+      TestBed.configureTestingModule({
+        imports: [InviteCreate],
+        providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      });
+      httpMock = TestBed.inject(HttpTestingController);
+      const withIt = open();
+
+      expect(withIt.root.querySelector('#invite-direct')).not.toBeNull();
+      expect(withIt.root.textContent).toContain('Send a direct sign-in link instead');
+    });
+
+    function openPermitted() {
+      TestBed.resetTestingModule();
+      permitted();
+      TestBed.configureTestingModule({
+        imports: [InviteCreate],
+        providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      });
+      httpMock = TestBed.inject(HttpTestingController);
+      return open();
+    }
+
+    it('sends the flag only when the box is ticked, so an ordinary invitation is unchanged', () => {
+      const { fixture, root } = openPermitted();
+      fill(fixture, root);
+
+      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+
+      const ordinary = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites'));
+      expect(ordinary.request.body).toEqual({ examId: 'e1', email: 'student@example.com' });
+      ordinary.flush({ id: 'i1', email: 'student@example.com', emailSent: true, inviteLink: null }, { status: 201, statusText: 'Created' });
+      fixture.detectChanges();
+
+      (root.querySelector('#invite-direct') as HTMLInputElement).click();
+      const email = root.querySelector('#invite-email') as HTMLInputElement;
+      email.value = 'second@example.com';
+      email.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+
+      const direct = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites'));
+      expect(direct.request.body).toEqual({ examId: 'e1', email: 'second@example.com', directSignIn: true });
+      direct.flush({ id: 'i2', email: 'second@example.com', emailSent: true, inviteLink: directLink, hasDirectLink: true }, { status: 201, statusText: 'Created' });
+    });
+
+    it('shows the direct link for the staff member to pass on, even though the email went out', () => {
+      const { fixture, root } = openPermitted();
+      fill(fixture, root);
+      (root.querySelector('#invite-direct') as HTMLInputElement).click();
+      fixture.detectChanges();
+
+      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites'))
+        .flush({ id: 'i1', email: 'student@example.com', emailSent: true, inviteLink: directLink, hasDirectLink: true }, { status: 201, statusText: 'Created' });
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('Direct sign-in link for student@example.com');
+      expect(root.textContent).toContain(directLink);
+      expect(root.textContent).toContain('ABCD1234EFGH5678');
+      expect(root.textContent).toContain('signs student@example.com in and takes them to the exam');
+    });
+
+    it('does not show a direct link for an ordinary invitation that was delivered', () => {
+      const { fixture, root } = openPermitted();
+      fill(fixture, root);
+
+      (root.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites'))
+        .flush({ id: 'i1', email: 'student@example.com', emailSent: true, inviteLink: null, hasDirectLink: false }, { status: 201, statusText: 'Created' });
+      fixture.detectChanges();
+
+      expect(root.textContent).not.toContain('Direct sign-in link for');
+    });
   });
 });

@@ -8,6 +8,7 @@ import {
   toAllowsMultiple,
   toEditedOptions,
   toIsTextAnswer,
+  toMatchRule,
   toNewOptions,
 } from './question-form';
 import { CreateQuestionRequest, QUESTION_LIMITS, QuestionDto } from './question.models';
@@ -192,5 +193,51 @@ describe('question form: loading a question for editing', () => {
     it('are none for a text question that sent no accepted answers', () => {
       expect(answersToCompare(request({ isTextAnswer: true }))).toEqual([]);
     });
+  });
+});
+
+describe('question form: how strictly a typed answer is compared', () => {
+  it('is lenient by default for a new text question, and sends no rule for a multiple-choice one', () => {
+    const form = createQuestionForm(new FormBuilder());
+    expect(toMatchRule(form)).toBeUndefined();
+
+    form.controls.questionType.setValue('text');
+
+    expect(toMatchRule(form)).toBe('Lenient');
+  });
+
+  it('is exact once the author turns the setting off', () => {
+    const form = textForm(['Paris']);
+
+    form.controls.lenient.setValue(false);
+
+    expect(toMatchRule(form)).toBe('Exact');
+  });
+
+  it('shows an older text question, which has no rule, as exact, because that is how it was marked', () => {
+    const formBuilder = new FormBuilder();
+    const form = createQuestionForm(formBuilder);
+
+    fillQuestionForm(form, formBuilder, textQuestion(['Paris']));
+
+    expect(form.controls.lenient.value).toBe(false);
+    expect(toMatchRule(form)).toBe('Exact');
+  });
+
+  it('shows a lenient question as lenient', () => {
+    const formBuilder = new FormBuilder();
+    const form = createQuestionForm(formBuilder);
+
+    fillQuestionForm(form, formBuilder, { ...textQuestion(['Paris']), matchRule: 'Lenient' });
+
+    expect(toMatchRule(form)).toBe('Lenient');
+  });
+
+  it('sends no rule for a question that was a text question and is now multiple-choice', () => {
+    const form = textForm(['Paris']);
+
+    form.controls.questionType.setValue('choice');
+
+    expect(toMatchRule(form)).toBeUndefined();
   });
 });

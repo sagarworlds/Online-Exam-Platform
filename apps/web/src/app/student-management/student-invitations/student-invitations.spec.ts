@@ -6,6 +6,8 @@ import { InviteDto } from '../../invite-management/invite.models';
 import { ClipboardService } from '../../shared/clipboard/clipboard.service';
 import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 import { StudentInvitations } from './student-invitations';
+import { AUTH_TOKEN_STORAGE_KEY } from '../../auth/auth-session.service';
+import { buildFakeJwt } from '../../auth/testing/fake-jwt';
 
 describe('StudentInvitations', () => {
   let httpMock: HttpTestingController;
@@ -212,6 +214,63 @@ describe('StudentInvitations', () => {
       expect(root.textContent).toContain('Only a pending invitation can be given another code.');
       expect(copy).not.toHaveBeenCalled();
       expect(root.querySelector('app-invite-handover')).toBeNull();
+    });
+  });
+
+  describe('direct sign-in links', () => {
+    const permit = () =>
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, buildFakeJwt({ sub: 'staff-1', exp: Math.floor(Date.now() / 1000) + 3600, perm: ['invite.direct-link'] }));
+
+    beforeEach(() => localStorage.clear());
+    afterEach(() => localStorage.clear());
+
+    function openAs(permitted: boolean, invites: InviteDto[]) {
+      TestBed.resetTestingModule();
+      if (permitted) permit();
+      TestBed.configureTestingModule({ imports: [StudentInvitations], providers: [provideHttpClient(), provideHttpClientTesting()] });
+      httpMock = TestBed.inject(HttpTestingController);
+      return open(invites);
+    }
+
+    it('marks an invitation that has a direct link', () => {
+      const { root } = openAs(false, [invite('i1', 'Maths', { hasDirectLink: true }), invite('i2', 'Physics')]);
+
+      const rows = Array.from(root.querySelectorAll('.invite-row'));
+      expect(rows[0].textContent).toContain('Direct link');
+      expect(rows[1].textContent).not.toContain('Direct link');
+    });
+
+    it('offers "Copy direct link" only to staff who hold the permission', () => {
+      expect(button(openAs(false, [invite('i1', 'Maths')]).root, 'Copy direct link')).toBeUndefined();
+
+      expect(button(openAs(true, [invite('i1', 'Maths')]).root, 'Copy direct link')).toBeDefined();
+    });
+
+    it('asks the API for a new direct code, and shows its link as one that signs the student in', async () => {
+      const { fixture, root } = openAs(true, [invite('i1', 'Maths')]);
+
+      button(root, 'Copy direct link')!.click();
+      const request = httpMock.expectOne(isCodeFor('i1'));
+      expect(request.request.body).toEqual({ directSignIn: true });
+      request.flush(
+        { ...code('ABCD1234EFGH5678'), link: 'http://localhost:4200/invite/direct#code=ABCD1234EFGH5678', directSignIn: true },
+        { status: 201, statusText: 'Created' },
+      );
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(root.textContent).toContain('http://localhost:4200/invite/direct#code=ABCD1234EFGH5678');
+      expect(root.textContent).toContain('signs a@example.com in');
+    });
+
+    it('does not ask for a direct code when the ordinary copy button is used', () => {
+      const { root } = openAs(true, [invite('i1', 'Maths')]);
+
+      button(root, 'Copy invite code')!.click();
+
+      const ordinary = httpMock.expectOne(isCodeFor('i1'));
+      expect(ordinary.request.body).toEqual({});
+      ordinary.flush(code('AB12CD34'), { status: 201, statusText: 'Created' });
     });
   });
 });

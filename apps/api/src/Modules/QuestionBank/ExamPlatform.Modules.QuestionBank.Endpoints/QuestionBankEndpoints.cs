@@ -5,6 +5,7 @@ using ExamPlatform.Modules.QuestionBank.Application.Ports;
 using ExamPlatform.Modules.QuestionBank.Application.Queries;
 using ExamPlatform.Modules.QuestionBank.Domain;
 using ExamPlatform.SharedKernel.Application.Security;
+using ExamPlatform.SharedKernel.Domain;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -203,7 +204,7 @@ public static class QuestionBankEndpoints
     {
         var options = request.Options?.Select(o => new QuestionOptionEdit(o?.Id, o?.Text, o?.IsCorrect ?? false, o?.IsPinned ?? false)).ToList();
         return Results.Ok(await handler.HandleAsync(
-            new EditQuestionCommand(questionId, request.Text, options, request.Difficulty, request.Topics, request.AllowsMultiple, request.IsTextAnswer, request.AcceptedAnswers, request.Explanation), ct));
+            new EditQuestionCommand(questionId, request.Text, options, request.Difficulty, request.Topics, request.AllowsMultiple, request.IsTextAnswer, request.AcceptedAnswers, request.Explanation, request.MatchRule), ct));
     }
 
     private static async Task<IResult> CreateQuestion(
@@ -213,7 +214,7 @@ public static class QuestionBankEndpoints
         var result = await handler.HandleAsync(
             new CreateQuestionCommand(
                 request.Text, options, user.GetUserId(), request.ChapterId, request.Difficulty, request.Topics, request.AllowsMultiple,
-                request.AllowDuplicate, request.Language, request.IsTextAnswer, request.AcceptedAnswers, request.Explanation), ct);
+                request.AllowDuplicate, request.Language, request.IsTextAnswer, request.AcceptedAnswers, request.Explanation, request.MatchRule), ct);
         return Results.Created($"/v1/questions/{result.Id}", result);
     }
 
@@ -268,7 +269,7 @@ public static class QuestionBankEndpoints
         Guid questionId, CorrectAnswerKeyRequest request, ClaimsPrincipal user, CorrectAnswerKeyHandler handler, CancellationToken ct)
     {
         var command = new CorrectAnswerKeyCommand(
-            questionId, request.CorrectOptionIds ?? [], request.Reason ?? string.Empty, user.GetUserId(), user.GetPrimaryRole(), request.AcceptedAnswers);
+            questionId, request.CorrectOptionIds ?? [], request.Reason ?? string.Empty, user.GetUserId(), user.GetPrimaryRole(), request.AcceptedAnswers, request.MatchRule);
         return Results.Ok(await handler.HandleAsync(command, ct));
     }
 
@@ -303,10 +304,12 @@ public static class QuestionBankEndpoints
 /// <param name="IsTextAnswer">True for a text question, where the candidate types the answer; omit it for a multiple-choice question.</param>
 /// <param name="AcceptedAnswers">For a text question, the answers a typed answer may be (at least one); omit it for a multiple-choice question.</param>
 /// <param name="Explanation">Why the correct answer is correct, as plain text, at most 2000 characters; omit it for none (FR-33).</param>
+/// <param name="MatchRule">For a text question, "Exact" (capitals and spaces do not matter; the default) or "Lenient" (punctuation and accents on Latin letters do not matter either); omit it for a multiple-choice question.</param>
 public sealed record CreateQuestionRequest(
     string? Text, IReadOnlyList<CreateQuestionOptionRequest?>? Options, Guid? ChapterId = null,
     string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false, bool AllowDuplicate = false,
-    string? Language = null, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null, string? Explanation = null);
+    string? Language = null, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null, string? Explanation = null,
+    TextMatchRule MatchRule = TextMatchRule.Exact);
 
 /// <summary>Request body for adding a translation of a question (FR-10).</summary>
 /// <param name="Language">The language of the translation, "en", "hi" or "mr"; required, and not one the question's group already has.</param>
@@ -336,9 +339,11 @@ public sealed record FileQuestionsRequest(IReadOnlyList<Guid>? QuestionIds, Guid
 /// <param name="IsTextAnswer">True for a text question; omit it for a multiple-choice one. Like the answer key it is locked once candidates have answered.</param>
 /// <param name="AcceptedAnswers">For a text question, the accepted answers after the edit (at least one); omit it for a multiple-choice one.</param>
 /// <param name="Explanation">The explanation after the edit, as plain text; omitting it clears the explanation, as the body is the whole new content (FR-33).</param>
+/// <param name="MatchRule">For a text question, "Exact" or "Lenient"; omitting it keeps the question's current rule, unlike the rest of the body. Locked once candidates have answered; correct the answer key to change it then.</param>
 public sealed record EditQuestionRequest(
     string? Text, IReadOnlyList<EditQuestionOptionRequest?>? Options, string? Difficulty = null, IReadOnlyList<string?>? Topics = null,
-    bool AllowsMultiple = false, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null, string? Explanation = null);
+    bool AllowsMultiple = false, bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null, string? Explanation = null,
+    TextMatchRule? MatchRule = null);
 
 /// <summary>One option in an <see cref="EditQuestionRequest"/>.</summary>
 /// <param name="Id">The id of the existing option being edited; omit it for a new option.</param>
@@ -357,8 +362,9 @@ public sealed record CreateQuestionOptionRequest(string? Text, bool IsCorrect, b
 /// <param name="CorrectOptionIds">The ids of the options that are actually correct, replacing the current key.</param>
 /// <param name="Reason">Why the key is being corrected; shown to a candidate whose score moves because of it.</param>
 /// <param name="AcceptedAnswers">For a text question, the answers that should be accepted, replacing the current list; leave it out for a multiple-choice question.</param>
+/// <param name="MatchRule">For a text question, "Exact" or "Lenient" from now on; leave it out to keep the question's rule. Everyone's score is revised under the new rule.</param>
 public sealed record CorrectAnswerKeyRequest(
-    IReadOnlyCollection<Guid>? CorrectOptionIds, string? Reason, IReadOnlyList<string?>? AcceptedAnswers = null);
+    IReadOnlyCollection<Guid>? CorrectOptionIds, string? Reason, IReadOnlyList<string?>? AcceptedAnswers = null, TextMatchRule? MatchRule = null);
 
 /// <summary>Request body for a review step or comment (FR-8).</summary>
 /// <param name="Comment">The comment: required to send a question back or to comment, optional for the other steps.</param>

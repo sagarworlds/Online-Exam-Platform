@@ -11,4 +11,11 @@ internal static class InvitePermissions
 {
     /// <summary>Create invites and generate, revoke, accept or decline them (<c>invite.manage</c>).</summary>
     public const string Manage = "permission:invite.manage";
+
+    /// <summary>
+    /// The permission code (<c>invite.direct-link</c>) needed to make a link that signs the invited person in. It is a code, not a policy:
+    /// the routes that make links need only <see cref="Manage"/>, and only a request that ticks the box needs this one, so it is checked
+    /// inside the request.
+    /// </summary>
+    public const string DirectLinkCode = "invite.direct-link";
 }

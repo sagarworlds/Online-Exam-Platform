@@ -48,7 +48,14 @@ export class Register {
     destination: ['', Validators.required],
     displayName: ['', [Validators.required, notBlankValidator, maxTrimmedLengthValidator(MAX_DISPLAY_NAME_LENGTH)]],
     dateOfBirth: ['', dateOfBirthValidator()],
+    // Reading the privacy policy and agreeing to details being used to run exams: ticked by the person, never ready-ticked.
+    agree: [false, Validators.requiredTrue],
   });
+
+  /** Message key for the privacy box, once the user has tried to submit it unticked. */
+  protected agreeError(): MessageKey | null {
+    return this.attempted() && this.form.controls.agree.invalid ? 'register.agreeRequired' : null;
+  }
 
   /** Inline message for the display name field, once the user has interacted with it or tried to submit. */
   protected displayNameError(): string | null {

@@ -2,6 +2,7 @@ using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.Modules.Invite.Application;
 using ExamPlatform.Modules.Invite.Application.Commands;
 using ExamPlatform.Modules.Invite.Endpoints.Operations;
+using ExamPlatform.Modules.Invite.Endpoints.RateLimiting;
 using ExamPlatform.Modules.Invite.Application.Ports;
 using ExamPlatform.Modules.Invite.Application.Queries;
 using ExamPlatform.Modules.Invite.Contracts;
@@ -11,6 +12,7 @@ using ExamPlatform.Modules.Invite.Infrastructure.WhatsApp;
 using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Application.LoadTest;
 using ExamPlatform.SharedKernel.Infrastructure;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -61,12 +63,35 @@ public sealed class InviteModuleInstaller : IModuleInstaller
         services.AddScoped<ListInvitesHandler>();
         services.AddScoped<GenerateInviteCodeHandler>();
         services.AddScoped<AcceptInviteHandler>();
+
+        // Opening a direct sign-in link (Invite:DirectSignIn:Enabled switches it off). Anonymous, so it has its own per-client limit.
+        services.AddOptions<DirectSignInOptions>().Bind(configuration.GetSection(DirectSignInOptions.SectionName));
+        services.AddScoped<DirectSignInHandler>();
+        AddRateLimitPolicies(services, configuration);
         services.AddScoped<DeclineInviteHandler>();
         services.AddScoped<RevokeInviteHandler>();
         // The one place invitations are moved to a new address: staff reach it through the handler, Identity through the contract.
         services.AddScoped<IInviteAddressChanger, InviteAddressChanger>();
         services.AddScoped<ChangeInviteEmailHandler>();
         services.AddDomainEventHandlers(typeof(InviteAuditTrail).Assembly);
+    }
+
+    // Adds the Invite module's named rate-limit policy onto the Host's rate limiter, which owns only the global limit. The limit is read when
+    // RateLimiterOptions is first materialized, not captured here: a test's WebApplicationFactory layers configuration on after AddModule runs.
+    private static void AddRateLimitPolicies(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<InviteRateLimitOptions>()
+            .Bind(configuration.GetSection(InviteRateLimitOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<InviteRateLimitOptions>, InviteRateLimitOptionsValidator>();
+
+        services.AddOptions<RateLimiterOptions>()
+            .Configure<IOptions<InviteRateLimitOptions>>((rateLimiter, inviteLimits) =>
+            {
+                var limit = inviteLimits.Value.DirectSignIn;
+                rateLimiter.AddPolicy(InviteRateLimitPolicies.DirectSignIn, httpContext => ClientRateLimitPartition.FixedWindow(
+                    httpContext, limit.PermitLimit, TimeSpan.FromSeconds(limit.WindowSeconds)));
+            });
     }
 
     /// <inheritdoc />

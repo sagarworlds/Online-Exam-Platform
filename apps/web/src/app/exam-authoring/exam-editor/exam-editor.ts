@@ -10,6 +10,7 @@ import { TranslatePipe } from '../../i18n/translate.pipe';
 import { QuestionApiService } from '../../question-bank/question-api.service';
 import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 import { Disclosure, DisclosureGroup } from '../../shared/disclosure/disclosure';
+import { HttpErrorResponse } from '@angular/common/http';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { ToastService } from '../../shared/toast/toast.service';
 import { RefreshButton } from '../../shared/refresh-button/refresh-button';
@@ -400,6 +401,18 @@ export class ExamEditor {
     this.run(this.examApi.addQuestion(this.examId, sectionId, questionId));
   }
 
+  /**
+   * Adds the questions the author ticked, all in one request. The exam is read again after a refusal too: one question that could not go in
+   * (another tab added it, it was retired meanwhile) refuses the lot, and the list must then show what the exam really holds.
+   */
+  protected addQuestions(sectionId: string, questionIds: readonly string[]): void {
+    if (this.busy() || questionIds.length === 0) {
+      return;
+    }
+
+    this.run(this.examApi.addQuestions(this.examId, sectionId, questionIds), undefined, 'exams.editor.saved', true);
+  }
+
   protected addDrawRule(sectionId: string, request: DrawQuestionsRequest): void {
     if (!this.busy()) {
       this.run(this.examApi.addDrawRule(this.examId, sectionId, request));
@@ -524,7 +537,11 @@ export class ExamEditor {
       },
       error: (error: unknown) => {
         this.busy.set(false);
-        this.errorMessage.set(extractErrorMessage(error));
+        // The server limits how many changes one person may make a minute, and a long move is one change a place. Its refusal has no
+        // words of its own, so the author is told what happened and that the moves already made are kept.
+        this.errorMessage.set(
+          error instanceof HttpErrorResponse && error.status === 429 ? this.i18n.t('exams.editor.tooFast') : extractErrorMessage(error),
+        );
         if (readAgainOnRefusal) {
           this.reload();
         }

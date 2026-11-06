@@ -49,7 +49,8 @@ public static class AttemptScorer
 
     /// <summary>
     /// Marks one question against what the candidate answered: the options they chose, or, for a text question, the answer they typed.
-    /// A typed answer is right when it matches one of the question's accepted answers (<see cref="TypedAnswer.Matches"/>), or, when it does
+    /// A typed answer is right when it matches one of the question's accepted answers (<see cref="TypedAnswer.Matches(string?, IEnumerable{string}, TextMatchRule)"/>,
+    /// under the question's own rule), or, when it does
     /// not, when the AI evaluator judged it right (<paramref name="textVerdict"/>). There is no partial credit for it: it is right or wrong,
     /// and a blank one is unanswered.
     /// </summary>
@@ -105,7 +106,7 @@ public static class AttemptScorer
         if (string.IsNullOrWhiteSpace(answerText))
             return new QuestionMark(AnswerVerdict.Unanswered, exam.UnattemptedMarks);
 
-        return TypedAnswer.Matches(answerText, question.AcceptedAnswers ?? []) || textVerdict == TypedAnswerVerdict.Correct
+        return TypedAnswer.Matches(answerText, question.AcceptedAnswers ?? [], question.MatchRule) || textVerdict == TypedAnswerVerdict.Correct
             ? new QuestionMark(AnswerVerdict.Correct, exam.CorrectMarks)
             : new QuestionMark(AnswerVerdict.Wrong, exam.IncorrectMarks);
     }

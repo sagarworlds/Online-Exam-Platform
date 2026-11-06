@@ -110,6 +110,8 @@ export class FakeApi {
     { method: 'PUT', path: /^\/api\/v1\/me\/attempts\/([^/]+)\/answers\/([^/]+)$/, reply: (call) => this.saveAnswer(call) },
     { method: 'PUT', path: /^\/api\/v1\/me\/attempts\/([^/]+)\/questions\/([^/]+)\/time$/, reply: () => ({ status: 204 }) },
     { method: 'POST', path: /^\/api\/v1\/me\/attempts\/([^/]+)\/submit$/, reply: () => this.submit() },
+    // The consent the exam asks for before it starts: already given, so the journey is not stopped at the box.
+    { method: 'GET', path: /^\/api\/v1\/consent\/status$/, reply: () => ({ status: 200, body: { subjectId: 'u1', purpose: 'ProctoringDataProcessing', isActive: true, consentRecordId: 'c1', currentNoticeVersionId: 'n1' } }) },
   ];
 
   /** Starts answering the page's `/api` requests. Call once, before the page loads. */

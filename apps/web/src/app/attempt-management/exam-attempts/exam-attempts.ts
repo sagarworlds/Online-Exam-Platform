@@ -1,11 +1,19 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable, Subscription } from 'rxjs';
 import { extractErrorMessage } from '../../shared/problem-details';
+import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 import { AttemptAdminApiService } from '../attempt-admin-api.service';
 import { CandidateAccommodation } from '../candidate-accommodation/candidate-accommodation';
 import { AttemptSummaryDto } from '../../candidate/candidate.models';
-import { AttemptClientDto, AttemptPaperDto, ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
+import {
+  AiRecheckResultDto,
+  AttemptClientDto,
+  AttemptPaperDto,
+  AttemptPaperQuestionDto,
+  ExamAttemptsDto,
+  ExamCandidateDto,
+} from '../attempt-admin.models';
 import { MathDirective } from '../../shared/rich-text/math.directive';
 import { ListChip, ListToolbar } from '../../shared/list-shell/list-toolbar';
 import { LoadMore } from '../../shared/list-shell/load-more';
@@ -17,12 +25,16 @@ import { RowAction, RowActions } from '../../shared/row-actions/row-actions';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { AnswerVerdict } from '../../candidate/candidate.models';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
+import { MathTextDirective } from '../../shared/rich-text/math-text.directive';
 
 /** The longest reason the API accepts. */
 const MAX_REASON_LENGTH = 500;
 
 /** How many candidates are drawn before "Load more". */
 const PAGE_SIZE = 20;
+
+/** How often an open paper is read again while a typed answer waits for the AI evaluator, so its verdict shows as soon as it is in. */
+const AI_CHECK_POLL_MS = 4000;
 
 /** Where a candidate stands, for the filter: no attempt yet, one still running, or every attempt over. */
 type CandidateState = 'notStarted' | 'inProgress' | 'submitted';
@@ -65,7 +77,7 @@ const ACTIONS: Record<ActionKind, { label: string; hint: string; button: string;
  */
 @Component({
   selector: 'app-exam-attempts',
-  imports: [RouterLink, LocaleDatePipe, MathDirective, CandidateAccommodation, ListToolbar, LoadMore, RefreshButton, RowActions, TranslatePipe],
+  imports: [RouterLink, LocaleDatePipe, MathDirective, CandidateAccommodation, ListToolbar, LoadMore, RefreshButton, RowActions, TranslatePipe, MathTextDirective],
   templateUrl: './exam-attempts.html',
 })
 export class ExamAttempts {
@@ -74,6 +86,7 @@ export class ExamAttempts {
   protected readonly maxReasonLength = MAX_REASON_LENGTH;
 
   private readonly i18n = inject(I18nService);
+  private readonly confirm = inject(ConfirmService);
 
   protected readonly data = signal<ExamAttemptsDto | null>(null);
 
@@ -115,7 +128,8 @@ export class ExamAttempts {
           : { id: 'pause', label: 'Pause', icon: 'pause', disabled: busy, disabledReason: reason },
       );
       actions.push({ id: 'terminate', label: 'End attempt', icon: 'stop', danger: true, disabled: busy, disabledReason: reason });
-    } else if (!attempt.invalidated) {
+    } else if (!attempt.invalidated && attempt.status !== 'Grading') {
+      // An attempt still being graded has no result yet to invalidate; the server refuses it until the score is there.
       actions.push({ id: 'invalidate', label: 'Invalidate result', icon: 'ban', danger: true, disabled: busy, disabledReason: reason });
     }
     if (attempt.status === 'Submitted') {
@@ -167,6 +181,19 @@ export class ExamAttempts {
   protected readonly paperFor = signal<string | null>(null);
   protected readonly paper = signal<AttemptPaperDto | null>(null);
 
+  /** The question whose AI check is being asked for, so a second click cannot queue it twice while the request is on its way. */
+  protected readonly aiChecking = signal<string | null>(null);
+
+  /** Whether the server has an AI evaluator set up; the page's "Recheck with AI" button is shown only once it says so. */
+  protected readonly aiEnabled = signal(false);
+
+  /** Whether a recheck is on its way, so a second press cannot send the same answers twice. */
+  protected readonly rechecking = signal(false);
+
+  /** The wait before the open paper is read again, while an answer on it waits for the AI evaluator; and whether one was waiting at the last read. */
+  private paperPoll: ReturnType<typeof setTimeout> | null = null;
+  private answerWasWaiting = false;
+
   protected optionLetter(index: number): string {
     return String.fromCharCode(65 + index);
   }
@@ -197,7 +224,20 @@ export class ExamAttempts {
   constructor() {
     syncQueryParam('q', this.search);
     syncQueryParam('state', this.state, { allowed: this.states });
+    inject(DestroyRef).onDestroy(() => this.stopWatchingPaper());
     this.read();
+    this.readAiStatus();
+  }
+
+  /**
+   * Reads whether an AI evaluator is set up. A failed read leaves the recheck button hidden rather than the page in error: the button is a
+   * convenience, and an opened paper says on its own when the AI cannot be used.
+   */
+  private readAiStatus(): void {
+    this.api.getAiGradingStatus().subscribe({
+      next: (status) => this.aiEnabled.set(status.enabled),
+      error: () => this.aiEnabled.set(false),
+    });
   }
 
   /**
@@ -262,12 +302,129 @@ export class ExamAttempts {
       next: (paper) => {
         if (this.paperFor() === attemptId) {
           this.paper.set(paper);
+          this.watchPaper(attemptId, paper);
         }
       },
     });
   }
 
+  /**
+   * While a typed answer on the open paper waits for the AI evaluator, reads the paper again every few seconds so its verdict shows as soon as
+   * it is in. When the last one is in the attempt's score may have moved, so the candidates are read again too.
+   */
+  private watchPaper(attemptId: string, paper: AttemptPaperDto): void {
+    this.stopWatchingPaper();
+    const waiting = paper.sections.some((section) => section.questions.some((question) => question.aiCheck?.state === 'Waiting'));
+    if (waiting) {
+      this.answerWasWaiting = true;
+      this.paperPoll = setTimeout(() => this.refreshPaper(attemptId), AI_CHECK_POLL_MS);
+    } else if (this.answerWasWaiting) {
+      this.answerWasWaiting = false;
+      this.read();
+    }
+  }
+
+  private stopWatchingPaper(): void {
+    if (this.paperPoll !== null) {
+      clearTimeout(this.paperPoll);
+      this.paperPoll = null;
+    }
+  }
+
+  /**
+   * Has the AI evaluator check a typed answer from the open paper. The check is queued and made in the background; the paper is read again
+   * to show it waiting, and then to show the verdict, and the attempt's row to show a score that moved.
+   */
+  protected requestAiCheck(candidate: ExamCandidateDto, attempt: AttemptSummaryDto, question: AttemptPaperQuestionDto): void {
+    if (this.aiChecking() !== null || this.busy()) {
+      return;
+    }
+
+    this.errorMessage.set(null);
+    this.notice.set(null);
+    this.aiChecking.set(question.id);
+    this.api.requestAiCheck(this.examId, attempt.id, question.id).subscribe({
+      next: (updated) => {
+        this.aiChecking.set(null);
+        this.data.update((data) =>
+          data === null
+            ? data
+            : { ...data, candidates: data.candidates.map((c) => ({ ...c, attempts: c.attempts.map((a) => (a.id === updated.id ? updated : a)) })) },
+        );
+        this.notice.set(`The answer of ${candidate.email} was sent to the AI check. Its verdict shows here in a moment; the score changes only if the verdict does.`);
+        this.refreshPaper(attempt.id);
+      },
+      error: (error: unknown) => {
+        this.aiChecking.set(null);
+        this.errorMessage.set(extractErrorMessage(error, 'The answer could not be sent to the AI check. Please try again.'));
+      },
+    });
+  }
+
+  /** How many typed answers on the paper have no AI verdict: never asked about, or given up on. What a recheck of the paper would send. */
+  protected withoutVerdict(paper: AttemptPaperDto): number {
+    return paper.sections.reduce(
+      (n, section) => n + section.questions.filter((q) => q.aiCheck?.state === 'NotChecked' || q.aiCheck?.state === 'GaveUp').length,
+      0,
+    );
+  }
+
+  /**
+   * Asks first, then sends every typed answer in the exam that has no AI verdict to the AI evaluator. The question is asked because the
+   * answers go to the AI service, and because a candidate's score may move when a verdict comes in.
+   */
+  protected async recheckExam(): Promise<void> {
+    if (this.rechecking() || this.busy()) {
+      return;
+    }
+
+    const confirmed = await this.confirm.ask({
+      title: 'Send the unchecked typed answers to the AI?',
+      message:
+        'Every typed answer in this exam that the AI has not judged is sent to the AI service to be checked: the ones marked by the accepted answers alone because the AI was off, out of quota or gave up. Answers it already judged are left alone.',
+      consequences: [
+        'A score changes only if the AI’s verdict changes it. The candidate is then shown the change and why.',
+        'It takes a few minutes: the AI service is asked at its own pace.',
+      ],
+      confirmLabel: 'Recheck with AI',
+    });
+    if (confirmed) {
+      this.sendRecheck(null);
+    }
+  }
+
+  /** Sends every typed answer on one attempt's open paper that has no AI verdict to the AI evaluator. */
+  protected recheckPaper(attempt: AttemptSummaryDto): void {
+    if (this.rechecking() || this.aiChecking() !== null || this.busy()) {
+      return;
+    }
+
+    this.sendRecheck(attempt.id);
+  }
+
+  // One attempt when an id is given, otherwise the whole exam. Either way the checks are queued and made in the background, so the page is
+  // read again (which reads an open paper again too) to show the answers waiting and, as they come in, their verdicts.
+  private sendRecheck(attemptId: string | null): void {
+    this.errorMessage.set(null);
+    this.notice.set(null);
+    this.rechecking.set(true);
+    this.api.requestAiRecheck(this.examId, attemptId).subscribe({
+      next: (result) => {
+        this.rechecking.set(false);
+        this.notice.set(recheckNotice(result));
+        this.cancelReading();
+        this.read();
+      },
+      error: (error: unknown) => {
+        this.rechecking.set(false);
+        this.errorMessage.set(extractErrorMessage(error, 'The answers could not be sent to the AI. Please try again.'));
+      },
+    });
+  }
+
   protected togglePaper(attemptId: string): void {
+    this.stopWatchingPaper();
+    this.answerWasWaiting = false;
     if (this.paperFor() === attemptId) {
       this.paperFor.set(null);
       this.paper.set(null);
@@ -282,6 +439,7 @@ export class ExamAttempts {
         // A reply for a paper staff has since closed, or replaced by another attempt's, is ignored.
         if (this.paperFor() === attemptId) {
           this.paper.set(paper);
+          this.watchPaper(attemptId, paper);
         }
       },
       error: (error: unknown) => {
@@ -478,4 +636,15 @@ function stateOf(candidate: ExamCandidateDto): CandidateState {
     return 'notStarted';
   }
   return candidate.attempts.some((attempt) => attempt.status === 'InProgress') ? 'inProgress' : 'submitted';
+}
+
+/** What staff are told after a recheck: how much was sent, or that there was nothing to send. */
+function recheckNotice(result: AiRecheckResultDto): string {
+  if (result.answersQueued === 0) {
+    return 'Nothing to recheck: every typed answer already has a verdict or is waiting for one.';
+  }
+
+  const answers = result.answersQueued === 1 ? '1 typed answer' : `${result.answersQueued} typed answers`;
+  const attempts = result.attemptsQueued === 1 ? '1 attempt' : `${result.attemptsQueued} attempts`;
+  return `${answers} in ${attempts} ${result.answersQueued === 1 ? 'was' : 'were'} sent to the AI. Verdicts show on each paper in a moment; a score changes only if its verdict does.`;
 }

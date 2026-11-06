@@ -1,3 +1,5 @@
+using ExamPlatform.SharedKernel.Domain;
+
 namespace ExamPlatform.Modules.QuestionBank.Application.Dtos;
 
 /// <summary>One version in a question's history (FR-7): its text, options and answer key as they were at the time.</summary>
@@ -8,6 +10,7 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Dtos;
 /// <param name="CreatedAtUtc">When this became the current version.</param>
 /// <param name="IsTextAnswer">Whether the candidate typed the answer at the time, rather than choosing an option.</param>
 /// <param name="AcceptedAnswers">The accepted answers at the time, for a text question; empty for a multiple-choice one.</param>
+/// <param name="MatchRule">How strictly a typed answer was compared with the accepted answers at the time: "Exact" or "Lenient".</param>
 public sealed record QuestionVersionDto(
     int VersionNumber,
     string Text,
@@ -15,4 +18,5 @@ public sealed record QuestionVersionDto(
     bool AllowsMultiple,
     DateTime CreatedAtUtc,
     bool IsTextAnswer = false,
-    IReadOnlyList<string>? AcceptedAnswers = null);
+    IReadOnlyList<string>? AcceptedAnswers = null,
+    TextMatchRule MatchRule = TextMatchRule.Exact);

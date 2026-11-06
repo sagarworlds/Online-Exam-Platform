@@ -15,6 +15,15 @@ public interface IUserRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Loads, tracked, every user whose e-mail address equals the given one without regard to case. Sign-in matches an address exactly
+    /// (<see cref="GetByEmailAsync"/>), so more than one account can hold what is the same address to a person; a caller that signs
+    /// someone in from an address they were sent must see all of them and refuse when it is not exactly one.
+    /// </summary>
+    /// <param name="email">The address to search for.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<User>> ListByEmailIgnoreCaseAsync(string email, CancellationToken cancellationToken);
+
     /// <summary>Whether any user, active or not, holds the named role.</summary>
     /// <param name="roleName">The role's unique name, such as <c>SuperAdmin</c>.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

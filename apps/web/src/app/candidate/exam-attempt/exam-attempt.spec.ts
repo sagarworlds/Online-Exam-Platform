@@ -115,6 +115,27 @@ describe('ExamAttempt', () => {
     vi.useRealTimers();
   });
 
+  it('renders the formulas in the question and in its options, and leaves plain options as they are', async () => {
+    const withMaths = attempt();
+    const first = withMaths.sections[0].questions[0];
+    withMaths.sections[0].questions[0] = {
+      ...first,
+      text: '<p>What is $\\sqrt{16}$?</p>',
+      options: [
+        { id: 'o1', text: '$4$' },
+        { id: 'o2', text: '\\(\\frac{1}{2}\\)' },
+        { id: 'o3', text: 'Five' },
+      ],
+    };
+    const fixture = await open(withMaths);
+
+    expect(root(fixture).querySelector('.question__text .katex')).not.toBeNull();
+    const options = Array.from(root(fixture).querySelectorAll('.option-choice__text'));
+    expect(options.map((o) => o.querySelector('.katex') !== null)).toEqual([true, true, false]);
+    expect(options[2].textContent).toBe('Five');
+    expect(options.map((o) => o.textContent).join('')).not.toContain('$');
+  });
+
   it('shows the first question with the answers saved so far, and no hint of which option is right', async () => {
     const fixture = await open(attempt());
 
@@ -1080,6 +1101,54 @@ describe('ExamAttempt', () => {
     await fixture.whenStable();
 
     expect(document.activeElement).toBe(root(fixture).querySelector('.result h1'));
+  });
+
+  it('says the typed answers are being checked while the attempt is graded, and shows the score as soon as it is there', async () => {
+    const grading = attempt({ status: 'Grading', score: null, maxScore: null, sections: [], submittedAtUtc: '2026-10-05T04:40:00Z' });
+    const fixture = await open(grading);
+
+    // No score to show yet: the page says so instead of printing an empty one.
+    expect(textOf(fixture)).toContain('being checked');
+    expect(textOf(fixture)).not.toContain('null');
+    expect(root(fixture).querySelector('.score')).toBeNull();
+
+    // Still being checked at the first ask: nothing changes, and it asks again.
+    vi.advanceTimersByTime(4000);
+    httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET').flush(grading);
+    fixture.detectChanges();
+    expect(textOf(fixture)).toContain('being checked');
+
+    vi.advanceTimersByTime(4000);
+    httpMock
+      .expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET')
+      .flush(attempt({ status: 'Submitted', score: 3, maxScore: 4, sections: [], submittedAtUtc: '2026-10-05T04:40:00Z' }));
+    fixture.detectChanges();
+
+    expect(textOf(fixture)).toContain('3 / 4');
+    expect(textOf(fixture)).not.toContain('being checked');
+
+    // Nothing is asked once the score is there.
+    vi.advanceTimersByTime(20000);
+    httpMock.expectNone((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET');
+  });
+
+  it('carries on asking for a graded attempt when one ask fails', async () => {
+    const grading = attempt({ status: 'Grading', score: null, maxScore: null, sections: [], submittedAtUtc: '2026-10-05T04:40:00Z' });
+    const fixture = await open(grading);
+
+    vi.advanceTimersByTime(4000);
+    httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET').flush(null, { status: 503, statusText: 'Unavailable' });
+    fixture.detectChanges();
+    // The waiting message stays: one failed ask is not an error worth showing.
+    expect(textOf(fixture)).toContain('being checked');
+
+    vi.advanceTimersByTime(4000);
+    httpMock
+      .expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET')
+      .flush(attempt({ status: 'Submitted', score: 1, maxScore: 4, sections: [] }));
+    fixture.detectChanges();
+
+    expect(textOf(fixture)).toContain('1 / 4');
   });
 
   it('waits for an answer still being saved before it submits, so the answer is in the score', async () => {

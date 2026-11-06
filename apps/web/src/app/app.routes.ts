@@ -61,6 +61,11 @@ export const routes: Routes = [
     loadComponent: () => import('./candidate/invite-accept/invite-accept').then((m) => m.InviteAccept),
   },
   {
+    // Public: the link signs the student in, so nobody is signed in when it opens.
+    path: 'invite/direct',
+    loadComponent: () => import('./candidate/invite-direct/invite-direct').then((m) => m.InviteDirect),
+  },
+  {
     path: 'my-exams',
     canActivate: [authGuard],
     loadComponent: () => import('./candidate/my-exams/my-exams').then((m) => m.MyExams),

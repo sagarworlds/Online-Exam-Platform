@@ -28,9 +28,32 @@
     <p class="hint" role="status">{{ hasMore() ? ('exams.picker.noneHere' | t) : emptyText() }}</p>
   } @else {
     <p class="picker__count" role="status">{{ countText() }}</p>
+    <div class="picker__toolbar" role="group" [attr.aria-label]="'exams.picker.toolbar' | t">
+      <button type="button" class="btn btn--link" (click)="toggleAll()">
+        {{ (allSelected() ? 'exams.picker.clearSelection' : 'exams.picker.selectAll') | t }}
+      </button>
+      <span class="picker__selected" role="status">{{ selectedText() }}</span>
+      <button
+        type="button"
+        class="btn--small picker__add-selected"
+        [disabled]="busy() || selectedIds().length === 0"
+        [attr.aria-label]="addSelectedLabel()"
+        (click)="addSelected()"
+      >
+        {{ 'exams.picker.addSelected' | t: { count: selectedIds().length } }}
+      </button>
+    </div>
     <ul class="picker__list">
       @for (question of choices(); track question.id) {
         <li class="picker__row">
+          <input
+            type="checkbox"
+            class="picker__check"
+            [checked]="isSelected(question)"
+            [disabled]="!isSelected(question) && selectedIds().length >= maxSelected"
+            [attr.aria-label]="selectLabel(question)"
+            (change)="toggle(question, $any($event.target).checked)"
+          />
           <div class="picker__text">
             <span class="picker__stem">{{ stem(question) }}</span>
             @if (meta(question); as detail) {
