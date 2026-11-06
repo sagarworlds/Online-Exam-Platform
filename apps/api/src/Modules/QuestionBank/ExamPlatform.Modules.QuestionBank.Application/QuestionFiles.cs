@@ -165,6 +165,8 @@ public static class QuestionFiles
         if (element.TryGetProperty("acceptedAnswers", out var accepted) && accepted.ValueKind == JsonValueKind.Array)
             fields[17] = string.Join('|', accepted.EnumerateArray().Where(a => a.ValueKind == JsonValueKind.String).Select(a => a.GetString()));
 
+        fields[18] = Text(element, "explanation");
+
         return new(line, fields);
     }
 
@@ -177,6 +179,7 @@ public static class QuestionFiles
         topics = question.Topics,
         isTextAnswer = question.IsTextAnswer,
         acceptedAnswers = question.AcceptedAnswers,
+        explanation = question.Explanation,
     };
 
     private static string Text(JsonElement element, string name) =>
