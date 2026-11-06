@@ -76,6 +76,19 @@ public sealed class UserRepository(IdentityDbContext context) : IUserRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, string>> ListPhoneNumbersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
+    {
+        // The numbers are stored as they were entered, with spaces and dashes in any place, so the digits are compared by the caller and not by
+        // a database pattern. The caller passes one exam's roster, so this is never every account.
+        var rows = await context.Users.AsNoTracking()
+            .Where(u => userIds.Contains(u.Id) && u.PhoneNumber != null)
+            .Select(u => new { u.Id, u.PhoneNumber })
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(r => r.Id, r => r.PhoneNumber!);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyDictionary<Guid, DateOnly>> ListDatesOfBirthAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
     {
         // A projection rather than Loaded(): an age check needs one column, and loading roles and sessions for every attempt would be wasted.

@@ -53,6 +53,7 @@ public sealed class IdentityModuleInstaller : IModuleInstaller
         services.AddScoped<ISessionLookup, SessionLookup>();
         services.AddScoped<IStaffDirectory, StaffDirectory>();
         services.AddScoped<IContactDirectory, ContactDirectory>();
+        services.AddScoped<IAccountPhoneSearch, AccountPhoneSearch>();
         services.AddScoped<ICandidateAgeDirectory, CandidateAgeDirectory>();
         services.AddScoped<IDisplayNameDirectory, DisplayNameDirectory>();
         services.AddScoped<IIdentityUnitOfWork, IdentityUnitOfWork>();

@@ -172,9 +172,12 @@ export class RealApi {
     return { id: exam.id, name, questions };
   }
 
-  /** Registers a new candidate (with the code the API logs) and has them accept an invitation to the exam. */
-  async enrolNewCandidate(exam: PublishedExam): Promise<EnrolledCandidate> {
-    const candidate = await this.registerCandidate();
+  /**
+   * Registers a new candidate (with the code the API logs) and has them accept an invitation to the exam. A phone number, when given, is
+   * stored on the account exactly as it is written here.
+   */
+  async enrolNewCandidate(exam: PublishedExam, phoneNumber: string | null = null): Promise<EnrolledCandidate> {
+    const candidate = await this.registerCandidate(phoneNumber);
     const invite = await this.send<{ inviteLink: string }>('POST', '/v1/invites', await this.administrator(), { examId: exam.id, email: candidate.email });
     const code = decodeURIComponent(invite.inviteLink.slice(invite.inviteLink.indexOf('code=') + 'code='.length));
     await this.send('POST', '/v1/invites/accept', candidate.accessToken, { code });
@@ -196,13 +199,13 @@ export class RealApi {
   }
 
   /** Registers a new candidate with the code the API logs, and signs them in. They have no invitation and sit no exam. */
-  async registerCandidate(): Promise<EnrolledCandidate> {
+  async registerCandidate(phoneNumber: string | null = null): Promise<EnrolledCandidate> {
     const email = `candidate-${randomUUID().replaceAll('-', '')}@e2e.test`;
 
     const mark = this.codes.mark();
     const registered = await this.send<RegisterCandidateResponse>('POST', '/v1/auth/register', null, {
       email,
-      phoneNumber: null,
+      phoneNumber,
       dateOfBirth: '1990-01-01',
       displayName: 'Browser Test Candidate',
       otpChannel: 'Email',
@@ -224,6 +227,12 @@ export class RealApi {
   /** Invites an address to the exam, as an administrator does on the Invite a candidate page. The invitation stays pending: nobody accepts it. */
   async invite(exam: PublishedExam, email: string): Promise<void> {
     await this.send('POST', '/v1/invites', await this.administrator(), { examId: exam.id, email });
+  }
+
+  /** The invitations the API holds for the exam, as an administrator lists them. */
+  async invitesFor(exam: PublishedExam): Promise<{ email: string; status: string }[]> {
+    const all = await this.send<{ examId: string; email: string; status: string }[]>('GET', '/v1/invites', await this.administrator());
+    return all.filter((invite) => invite.examId === exam.id);
   }
 
   // The two reads below take the token the browser holds, not the one registration returned: an account has one session at a time, so

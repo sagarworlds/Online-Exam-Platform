@@ -24,3 +24,7 @@ public sealed record ExamCandidateDto(
 /// <param name="AttemptsPerCandidate">How many attempts every candidate has before any extra is granted, as the exam's author set it.</param>
 /// <param name="Candidates">The enrolled candidates, by e-mail address.</param>
 public sealed record ExamAttemptsDto(Guid ExamId, string ExamName, bool WindowClosed, int AttemptsPerCandidate, IReadOnlyList<ExamCandidateDto> Candidates);
+
+/// <summary>The candidates of an exam whose phone number matched a search. It holds ids only: no number leaves the platform's account records.</summary>
+/// <param name="CandidateIds">The matching candidates' account ids, in the order of the exam's candidate list.</param>
+public sealed record ExamCandidateMatchesDto(IReadOnlyList<Guid> CandidateIds);

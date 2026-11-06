@@ -6,51 +6,7 @@
   }
 
   @if (created(); as invite) {
-    <!-- A direct link is shown even when it was delivered: the staff member asked for it, to pass on by hand. -->
-    @if ((invite.emailSent || invite.whatsAppSent) && invite.hasDirectLink && invite.inviteLink; as directLink) {
-      <div class="card">
-        <p>{{ 'invites.create.directLinkReady' | t: { email: invite.email } }}</p>
-        <app-invite-handover [code]="codeOf(directLink)" [link]="directLink" [email]="invite.email" [directSignIn]="true" />
-      </div>
-    }
-
-    @if (invite.emailSent || invite.whatsAppSent) {
-      @if (invite.emailSent) {
-        <p class="success-message">
-          {{ 'invites.create.emailed' | t: { email: invite.email } }}
-          @if (invite.whatsAppSent) {
-            {{ 'invites.create.alsoWhatsApp' | t }}
-          }
-        </p>
-      } @else {
-        <p class="success-message">
-          {{ 'invites.create.whatsAppOnly' | t: { email: invite.email } }}
-        </p>
-      }
-
-      <div class="card">
-        <p>{{ 'invites.create.handOver' | t }}</p>
-        <button type="button" (click)="copyCode(invite)" [disabled]="generating()">{{ 'invites.create.copyForHandOver' | t }}</button>
-        <p class="hint">{{ 'invites.create.anotherCodeHint' | t }}</p>
-        @if (handover(); as code) {
-          <app-invite-handover
-            [code]="code.code"
-            [link]="code.link"
-            [email]="invite.email"
-            [expiresAt]="code.expiresAt"
-            [autoCopy]="true"
-          />
-        }
-      </div>
-    } @else {
-      <div class="card">
-        <p class="success-message">{{ 'invites.create.noEmail' | t: { email: invite.email } }}</p>
-        <p>{{ 'invites.create.sendYourself' | t }}</p>
-        @if (invite.inviteCode; as inviteCode) {
-          <app-invite-handover [code]="inviteCode" [link]="invite.inviteLink" [email]="invite.email" [directSignIn]="invite.hasDirectLink === true" />
-        }
-      </div>
-    }
+    <app-invite-sent [invite]="invite" />
   }
 
   @if (loading()) {

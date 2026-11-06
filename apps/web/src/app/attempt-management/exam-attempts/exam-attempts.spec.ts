@@ -6,6 +6,8 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { vi } from 'vitest';
 import { AttemptSummaryDto } from '../../candidate/candidate.models';
 import { ExamAttemptsDto, ExamCandidateDto } from '../attempt-admin.models';
+import { AuthSessionService } from '../../auth/auth-session.service';
+import { buildFakeJwt } from '../../auth/testing/fake-jwt';
 import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 import { ExamAttempts } from './exam-attempts';
 
@@ -1127,6 +1129,260 @@ describe('ExamAttempts', () => {
       expect(textOf(fixture)).toContain('Nothing matches');
 
       expect(root(open(exam([]))).querySelector('app-list-toolbar')).toBeNull();
+    });
+  });
+
+  describe('finding a candidate by phone number', () => {
+    const emails = (fixture: ComponentFixture<ExamAttempts>) => Array.from(root(fixture).querySelectorAll('.card__title')).map((t) => t.firstChild?.textContent?.trim());
+    const people = [
+      candidate({ candidateId: 'c1', email: 'amy@example.com', attempts: [attempt(1, 'Submitted', 4)] }),
+      candidate({ candidateId: 'c2', email: 'bob@example.com', attemptsUsed: 0, canGrant: false, attempts: [] }),
+      candidate({ candidateId: 'c3', email: 'user987@example.com', attempts: [attempt(1, 'InProgress')] }),
+    ];
+    const isPhoneSearch = (r: { method: string; url: string }) => r.method === 'POST' && r.url.endsWith('/v1/exams/exam-1/candidates/phone-search');
+    const box = (fixture: ComponentFixture<ExamAttempts>) => root(fixture).querySelector<HTMLInputElement>('input[type="search"]')!;
+
+    function type(fixture: ComponentFixture<ExamAttempts>, text: string) {
+      box(fixture).value = text;
+      box(fixture).dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    }
+
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it('says in its label and placeholder that it takes an email address or a phone number', () => {
+      const fixture = open(exam(people));
+
+      expect(root(fixture).querySelector('label[for="candidate-search"]')?.textContent).toContain('email or phone number');
+      expect(box(fixture).placeholder).toBe('Email or phone number');
+    });
+
+    it('asks the API about a number once typing pauses, and shows the candidates it names, without a phone number anywhere', () => {
+      const fixture = open(exam(people));
+
+      type(fixture, '+91 98765-43210');
+      vi.advanceTimersByTime(299);
+      httpMock.expectNone(isPhoneSearch);
+      vi.advanceTimersByTime(1);
+
+      const ask = httpMock.expectOne(isPhoneSearch);
+      expect(ask.request.body).toEqual({ phone: '+91 98765-43210' });
+      // Sent in the body: a number in an address would be kept by logs and browser history.
+      expect(ask.request.urlWithParams).not.toContain('98765');
+      ask.flush({ candidateIds: ['c2'] });
+      fixture.detectChanges();
+
+      expect(emails(fixture)).toEqual(['bob@example.com']);
+      expect(textOf(fixture)).not.toContain('98765');
+    });
+
+    it('asks once for a number typed digit by digit', () => {
+      const fixture = open(exam(people));
+
+      type(fixture, '987');
+      vi.advanceTimersByTime(100);
+      type(fixture, '9876');
+      vi.advanceTimersByTime(100);
+      type(fixture, '98765');
+      vi.advanceTimersByTime(300);
+
+      const ask = httpMock.expectOne(isPhoneSearch);
+      expect(ask.request.body).toEqual({ phone: '98765' });
+      ask.flush({ candidateIds: [] });
+    });
+
+    it('says it is looking, rather than that nobody matches, until the answer is in', () => {
+      const fixture = open(exam(people));
+
+      type(fixture, '98765');
+      expect(textOf(fixture)).toContain('Looking for that phone number');
+      expect(textOf(fixture)).not.toContain('Nothing matches');
+
+      vi.advanceTimersByTime(300);
+      expect(textOf(fixture)).toContain('Looking for that phone number');
+      httpMock.expectOne(isPhoneSearch).flush({ candidateIds: [] });
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).not.toContain('Looking for that phone number');
+      expect(textOf(fixture)).toContain('Nothing matches');
+    });
+
+    it('shows a candidate whose email matches as well as those found by number', () => {
+      const fixture = open(exam(people));
+
+      // "987" is in c3's address and, as far as the API says, in c2's number.
+      type(fixture, '987');
+      vi.advanceTimersByTime(300);
+      httpMock.expectOne(isPhoneSearch).flush({ candidateIds: ['c2'] });
+      fixture.detectChanges();
+
+      expect(emails(fixture)).toEqual(['bob@example.com', 'user987@example.com']);
+    });
+
+    it('does not ask about an email address, a name, or too few digits', () => {
+      const fixture = open(exam(people));
+
+      for (const text of ['bob', 'bob@example.com', '98', 'bob98765']) {
+        type(fixture, text);
+        vi.advanceTimersByTime(1000);
+      }
+
+      httpMock.expectNone(isPhoneSearch);
+      expect(textOf(fixture)).not.toContain('Looking for that phone number');
+    });
+
+    it('drops an ask that is still on its way when the search changes, so an old answer cannot replace the new one', () => {
+      const fixture = open(exam(people));
+      type(fixture, '11111');
+      vi.advanceTimersByTime(300);
+      const first = httpMock.expectOne(isPhoneSearch);
+
+      type(fixture, '22222');
+      expect(first.cancelled).toBe(true);
+      vi.advanceTimersByTime(300);
+      httpMock.expectOne(isPhoneSearch).flush({ candidateIds: ['c1'] });
+      fixture.detectChanges();
+
+      expect(emails(fixture)).toEqual(['amy@example.com']);
+    });
+
+    it('stops asking, and shows everyone again, once the box is cleared', () => {
+      const fixture = open(exam(people));
+      type(fixture, '98765');
+      vi.advanceTimersByTime(300);
+      httpMock.expectOne(isPhoneSearch).flush({ candidateIds: ['c2'] });
+      fixture.detectChanges();
+      expect(emails(fixture)).toEqual(['bob@example.com']);
+
+      type(fixture, '');
+
+      expect(emails(fixture)).toEqual(['amy@example.com', 'bob@example.com', 'user987@example.com']);
+      vi.advanceTimersByTime(1000);
+      httpMock.expectNone(isPhoneSearch);
+    });
+
+    it('asks again after the candidates are read again, so someone who has joined since is found', () => {
+      const fixture = open(exam(people));
+      type(fixture, '98765');
+      vi.advanceTimersByTime(300);
+      httpMock.expectOne(isPhoneSearch).flush({ candidateIds: ['c2'] });
+      fixture.detectChanges();
+
+      root(fixture).querySelector<HTMLButtonElement>('app-refresh-button button')!.click();
+      httpMock.expectOne((r) => r.method === 'GET' && r.url.endsWith('/v1/exams/exam-1/attempts')).flush(exam([...people, candidate({ candidateId: 'c4', email: 'dee@example.com' })]));
+      fixture.detectChanges();
+      // What was found stays on screen while the new answer is on its way.
+      expect(emails(fixture)).toEqual(['bob@example.com']);
+      vi.advanceTimersByTime(300);
+      httpMock.expectOne(isPhoneSearch).flush({ candidateIds: ['c2', 'c4'] });
+      fixture.detectChanges();
+
+      expect(emails(fixture)).toEqual(['bob@example.com', 'dee@example.com']);
+    });
+
+    it('says why a number could not be searched, and the search by email goes on working', () => {
+      const fixture = open(exam(people));
+      type(fixture, '98765');
+      vi.advanceTimersByTime(300);
+      httpMock.expectOne(isPhoneSearch).flush({ title: 'exam_not_found', detail: 'No exam matches the given id.' }, { status: 404, statusText: 'Not Found' });
+      fixture.detectChanges();
+
+      expect(root(fixture).querySelector('[role="alert"]')?.textContent).toContain('No exam matches the given id.');
+      expect(textOf(fixture)).not.toContain('Looking for that phone number');
+
+      type(fixture, 'amy');
+      fixture.detectChanges();
+      expect(emails(fixture)).toEqual(['amy@example.com']);
+      expect(root(fixture).querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('falls back to its own words when the API gives no reason', () => {
+      const fixture = open(exam(people));
+      type(fixture, '98765');
+      vi.advanceTimersByTime(300);
+      httpMock.expectOne(isPhoneSearch).flush(null, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Phone numbers could not be searched just now');
+    });
+  });
+
+  describe('inviting a candidate to the exam', () => {
+    function signIn(permissions: string[]) {
+      TestBed.inject(AuthSessionService).login(buildFakeJwt({ sub: 'staff-1', exp: Math.floor(Date.now() / 1000) + 3600, perm: permissions }));
+    }
+
+    afterEach(() => localStorage.clear());
+
+    const inviteButton = (fixture: ComponentFixture<ExamAttempts>) => buttonLabelled(fixture, 'Invite a candidate')[0];
+    const dialog = (fixture: ComponentFixture<ExamAttempts>) => root(fixture).querySelector('app-invite-to-exam');
+
+    it('is offered to staff who may invite, in the page header', () => {
+      signIn(['exam.manage', 'invite.manage']);
+      const fixture = open(exam([candidate()]));
+
+      expect(inviteButton(fixture)).toBeDefined();
+      expect(inviteButton(fixture).closest('.page-header__actions')).not.toBeNull();
+      expect(dialog(fixture)).toBeNull();
+    });
+
+    it('is not offered to staff who may not invite', () => {
+      signIn(['exam.manage']);
+      const fixture = open(exam([candidate()]));
+
+      expect(inviteButton(fixture)).toBeUndefined();
+    });
+
+    it('is not offered before the exam has been read, when there is no exam to invite to', () => {
+      signIn(['exam.manage', 'invite.manage']);
+      const fixture = open('error');
+
+      expect(inviteButton(fixture)).toBeUndefined();
+    });
+
+    it('is offered even when nobody has accepted an invitation yet, which is when it is most needed', () => {
+      signIn(['exam.manage', 'invite.manage']);
+      const fixture = open(exam([]));
+
+      expect(textOf(fixture)).toContain('Nobody has accepted an invitation to this exam yet.');
+      expect(inviteButton(fixture)).toBeDefined();
+    });
+
+    it('opens a popup for this exam, sends the invitation to it, and says what happened', () => {
+      signIn(['exam.manage', 'invite.manage']);
+      const fixture = open(exam([candidate()]));
+
+      inviteButton(fixture).click();
+      fixture.detectChanges();
+      expect(dialog(fixture)?.textContent).toContain('Invite a candidate to Maths Final');
+
+      const email = root(fixture).querySelector<HTMLInputElement>('#invite-to-exam-email')!;
+      email.value = ' new.person@example.com ';
+      email.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      root(fixture).querySelector('app-invite-to-exam form')!.dispatchEvent(new Event('submit'));
+
+      const post = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/v1/invites'));
+      expect(post.request.body).toEqual({ examId: 'exam-1', email: 'new.person@example.com' });
+      post.flush({ id: 'i1', email: 'new.person@example.com', emailSent: true, inviteLink: null }, { status: 201, statusText: 'Created' });
+      fixture.detectChanges();
+
+      expect(dialog(fixture)?.textContent).toContain('Invitation emailed to new.person@example.com');
+      expect(dialog(fixture)?.textContent).toContain('appear here once they accept');
+    });
+
+    it('closes with its Close button, leaving the page as it was', () => {
+      signIn(['exam.manage', 'invite.manage']);
+      const fixture = open(exam([candidate()]));
+      inviteButton(fixture).click();
+      fixture.detectChanges();
+
+      root(fixture).querySelector<HTMLButtonElement>('app-invite-to-exam .modal__close')!.click();
+      fixture.detectChanges();
+
+      expect(dialog(fixture)).toBeNull();
+      expect(textOf(fixture)).toContain('amy@example.com');
     });
   });
 

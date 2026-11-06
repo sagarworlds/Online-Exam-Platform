@@ -5,6 +5,9 @@
   <div class="page-header">
     <h1>Candidates and attempts</h1>
     <div class="page-header__actions">
+      @if (canInvite && data()) {
+        <button type="button" class="btn btn--primary" (click)="inviting.set(true)">{{ 'attempts.invite' | t }}</button>
+      }
       <a [routerLink]="['/exams', examId, 'risk-flags']" class="risk-link">{{ 'proctoring.exam.link' | t }}</a>
       <a [routerLink]="['/exams', examId, 'item-analysis']" class="btn">Item analysis</a>
       @if (aiEnabled() && data()) {
@@ -36,7 +39,9 @@
     @if (d.candidates.length > 0) {
       <app-list-toolbar
         [search]="search()"
+        inputId="candidate-search"
         [searchLabel]="'attempts.search' | t"
+        [placeholder]="'attempts.searchPlaceholder' | t"
         [liveSearch]="true"
         [filterable]="true"
         [chips]="chips()"
@@ -55,6 +60,13 @@
           </select>
         </div>
       </app-list-toolbar>
+
+      @if (phoneSearching()) {
+        <p class="hint" role="status">{{ 'attempts.searchingPhone' | t }}</p>
+      }
+      @if (phoneSearchError()) {
+        <p class="error-message" role="alert">{{ phoneSearchError() }}</p>
+      }
     }
 
     @for (candidate of shownCandidates(); track candidate.candidateId) {
@@ -354,8 +366,15 @@
         }
       </div>
     } @empty {
-      <div class="card empty-state">{{ d.candidates.length === 0 ? 'Nobody has accepted an invitation to this exam yet.' : ('list.noMatch' | t) }}</div>
+      <!-- A number is still being looked up: saying that nobody matches now would be wrong if the answer then finds someone. -->
+      @if (!phoneSearching()) {
+        <div class="card empty-state">{{ d.candidates.length === 0 ? 'Nobody has accepted an invitation to this exam yet.' : ('list.noMatch' | t) }}</div>
+      }
     }
     <app-load-more [hasMore]="shownCandidates().length < matchingCandidates().length" (more)="showMore()" />
+
+    @if (inviting()) {
+      <app-invite-to-exam [examId]="examId" [examName]="d.examName" (closed)="inviting.set(false)" />
+    }
   }
 </div>

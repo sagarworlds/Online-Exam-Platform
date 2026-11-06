@@ -61,6 +61,18 @@ export function candidateAccessToken(userId: string, sessionId: string): string 
   return `${encodeSegment({ alg: 'none', typ: 'JWT' })}.${encodeSegment(payload)}.signature`;
 }
 
+/** An access token for signed-in staff holding the given permissions, valid for an hour, in the shape the API issues. */
+export function staffAccessToken(userId: string, sessionId: string, permissions: readonly string[]): string {
+  const payload = {
+    sub: userId,
+    sid: sessionId,
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    'http://schemas.microsoft.com/ws/2008/06/identity/claims/role': 'ExamAdmin',
+    perm: permissions,
+  };
+  return `${encodeSegment({ alg: 'none', typ: 'JWT' })}.${encodeSegment(payload)}.signature`;
+}
+
 /**
  * The API, replaced inside the browser: every request the app makes to `/api` is answered here and recorded, so a test needs no server
  * or database and runs the same on every browser engine. It holds one exam and keeps the rules that matter to the page: an answer is

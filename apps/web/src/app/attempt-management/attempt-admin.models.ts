@@ -82,6 +82,11 @@ export interface SetAccommodationRequest {
   notes: string | null;
 }
 
+/** The candidates of an exam whose phone number matched a search: ids only, so the page never holds a number. */
+export interface ExamCandidateMatchesDto {
+  candidateIds: string[];
+}
+
 /** An exam's enrolled candidates and how each has got on. */
 export interface ExamAttemptsDto {
   examId: string;

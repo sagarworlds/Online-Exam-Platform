@@ -14,6 +14,7 @@ import {
   DisputeRow,
   ExamAttemptsDto,
   ExamCandidateDto,
+  ExamCandidateMatchesDto,
   IssueReportFilterStatus,
   IssueReportRow,
   SetAccommodationRequest,
@@ -30,6 +31,14 @@ export class AttemptAdminApiService {
 
   getExamAttempts(examId: string): Observable<ExamAttemptsDto> {
     return this.http.get<ExamAttemptsDto>(`${this.examsUrl}/${examId}/attempts`);
+  }
+
+  /**
+   * Which of the exam's candidates hold a phone number that matches what was typed. The number goes in the body, not in an address, where a
+   * log or a browser's history would keep it, and the answer is candidate ids, never a number.
+   */
+  searchCandidatesByPhone(examId: string, phone: string): Observable<ExamCandidateMatchesDto> {
+    return this.http.post<ExamCandidateMatchesDto>(`${this.examsUrl}/${examId}/candidates/phone-search`, { phone });
   }
 
   /** The questions one attempt consisted of, with those drawn for the candidate marked. */

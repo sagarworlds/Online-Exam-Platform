@@ -444,6 +444,18 @@ A save that timed out in the browser, or whose reply was lost, can still be aliv
 | Two writes at the same moment | The number's row is unique per attempt and question and has a row version, so two writes to one question at the same moment cannot both be applied. The second gets `409 concurrency_conflict`, which the page treats as "send again", not as a refusal. |
 | Load test | `tests/load/answer-save.js` sends a number with each save, so the run measures the check and the extra write. |
 
+#### Finding a candidate, and inviting one, on Candidates and attempts
+
+The page for one exam (`/exams/:id/attempts`) lists the candidates who have accepted an invitation to it. The search box above the list takes an **email address or a phone number**, and the choice is kept in the address (`?q=`).
+
+| What | Rule |
+|------|------|
+| Email address | Part of the address, without regard to case. This is matched in the page, over the candidates it already holds. |
+| Phone number | Part of the number, by its digits: spaces, dashes, dots and brackets, a trunk `0` and a country code (`+91`, `0091`) in front do not stop a match, so `98765 43210`, `+91 98765-43210` and `09876543210` find the same candidate, and so does `65432`. A search with fewer than three digits, or with a letter or an `@` in it, is not a phone search. Phone numbers are stored as entered, in plain text, in `identity.Users` (the encryption at rest in this codebase covers question content, not accounts), so there is no hash to search and the digits are compared in the application. |
+| How the page asks | The page never holds a phone number. For a search that reads as one it asks `POST /v1/exams/{examId}/candidates/phone-search` (`ManageAttempts`) with `{ "phone": "…" }` in the body, so the number is in no address and no access log, and gets `{ "candidateIds": [...] }` back. The ask is made once typing pauses for 300 ms, again after the candidates are read again, and an answer to an older number is dropped. |
+| Who can be found | Only candidates enrolled in that exam: the exam's roster is what is looked through, so the call cannot be used to find who holds a number among accounts the exam does not have. An exam that does not exist is a `404`. Neither the number searched for nor any stored number is logged. |
+| Inviting | **Invite a candidate** in the page header (shown to staff with `invite.manage`) opens a popup for this exam: the candidate's email, and for staff with `invite.direct-link` the direct sign-in tick. It sends `POST /v1/invites` as the invitation page does and says what happened in the same words, with the link and code to pass on by hand when nothing could be sent. The list holds only candidates who have accepted, so someone just invited appears in it once they accept. |
+
 #### Extra attempts
 
 Every candidate has **one attempt** at an exam unless its author allows more (see [Attempts allowed](#attempts-allowed) below). When a candidate asks for another (a power cut, a dropped connection), an administrator gives them one on **Candidates and attempts** (`/exams/:id/attempts`, linked from a published exam; needs `exam.manage`). The candidate then sees "Start attempt 2" on My exams, and each attempt is numbered, scored and reviewed on its own. My exams lists every attempt and marks the highest-scoring submitted one as **Best** once there are two to compare (the earlier one on a tie); nothing is stored as the exam's official score.

@@ -1,0 +1,37 @@
+<app-modal-dialog [heading]="'attempts.invite.title' | t: { exam: examName() }" (closed)="closed.emit()">
+  @if (created(); as invite) {
+    <!-- The form this replaces had the focus; it goes to what was done, so a screen reader reads it out instead of being left on nothing. -->
+    <div #result tabindex="-1" role="group" [attr.aria-label]="'attempts.invite.resultLabel' | t">
+      <app-invite-sent [invite]="invite" />
+      <p class="hint">{{ 'attempts.invite.appearsHint' | t }}</p>
+      <div class="actions">
+        <button type="button" class="primary" (click)="inviteAnother()">{{ 'attempts.invite.another' | t }}</button>
+      </div>
+    </div>
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-label]="'invites.create.form' | t">
+      @if (errorMessage()) {
+        <p class="error-message" role="alert">{{ errorMessage() }}</p>
+      }
+
+      <div class="field">
+        <label for="invite-to-exam-email">{{ 'invites.create.email' | t }}</label>
+        <input #emailInput id="invite-to-exam-email" type="email" inputmode="email" autocomplete="off" autocapitalize="off" formControlName="email" />
+      </div>
+
+      @if (canDirectLink()) {
+        <div class="field field--check">
+          <label for="invite-to-exam-direct">
+            <input id="invite-to-exam-direct" type="checkbox" formControlName="directSignIn" aria-describedby="invite-to-exam-direct-hint" />
+            {{ 'invites.create.direct' | t }}
+          </label>
+          <p id="invite-to-exam-direct-hint" class="field-hint">{{ 'invites.create.directHint' | t }}</p>
+        </div>
+      }
+
+      <div class="actions">
+        <button type="submit" class="primary" [disabled]="form.invalid || saving()">{{ 'invites.create.send' | t }}</button>
+      </div>
+    </form>
+  }
+</app-modal-dialog>
