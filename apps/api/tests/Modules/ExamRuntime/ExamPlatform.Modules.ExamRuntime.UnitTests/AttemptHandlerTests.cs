@@ -776,6 +776,19 @@ public class AttemptHandlerTests
         Assert.Null(item.Score);
     }
 
+    [Fact]
+    public async Task MyExams_ReportsWhenEachExamWasCreated_SoThePageCanListTheNewestFirst()
+    {
+        var created = Fixtures.Now.AddDays(-3);
+        _enrollments.GetEnrolledExamIdsAsync(_candidate, Arg.Any<CancellationToken>()).Returns([_exam.Id]);
+        _catalog.FindPublishedAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns([_exam with { CreatedAtUtc = created }]);
+        _attempts.ListForCandidateAsync(_candidate, Arg.Any<CancellationToken>()).Returns([]);
+
+        var exams = await new MyExamsHandler(_enrollments, _catalog, _attempts, _grants, Substitute.For<IAttemptRequestRepository>(), _accommodations, _clock, new ProctorPolicy()).HandleAsync(_candidate, CancellationToken.None);
+
+        Assert.Equal(created, Assert.Single(exams).CreatedAtUtc);
+    }
+
     // ---- section lock ------------------------------------------------------------------------------------------
 
     /// <summary>Makes the exam two sections, the first question in A and the second in B, with the lock on.</summary>
