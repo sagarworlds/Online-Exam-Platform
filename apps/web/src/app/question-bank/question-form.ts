@@ -1,5 +1,5 @@
 import { AbstractControl, FormArray, FormBuilder, FormControl, ValidationErrors, Validators } from '@angular/forms';
-import { CreateQuestionRequest, QUESTION_LIMITS, QuestionDifficulty, QuestionDto, QuestionLanguage, QuestionType } from './question.models';
+import { CreateQuestionRequest, QUESTION_LIMITS, QuestionDifficulty, QuestionDto, QuestionLanguage, QuestionType, TextMatchRule } from './question.models';
 
 /** One option row of the question form. `id` is the existing option's id when editing, and '' for a new option. */
 function newOptionGroup(formBuilder: FormBuilder, id = '', text = '', pinned = false, correct = false) {
@@ -34,6 +34,9 @@ export function createQuestionForm(formBuilder: FormBuilder) {
       topics: ['', topicsValidator],
       // Why the correct answer is correct, shown to candidates in the answer review after release (FR-33); blank means none.
       explanation: ['', Validators.maxLength(QUESTION_LIMITS.maxExplanationLength)],
+      // Whether a typed answer may differ from an accepted one in punctuation or accents (the lenient rule). On for a new question, since a
+      // stray full stop should not cost a mark; an edit shows the rule the question already has, so an older question stays as it was.
+      lenient: [true],
       options: formBuilder.array([newOptionGroup(formBuilder), newOptionGroup(formBuilder)]),
       acceptedAnswers: formBuilder.array([newAcceptedAnswer(formBuilder)]),
     },
@@ -171,6 +174,7 @@ export function fillQuestionForm(form: QuestionForm, formBuilder: FormBuilder, q
   form.controls.language.setValue(question.language ?? 'en');
   form.controls.topics.setValue(question.topics.join(', '));
   form.controls.explanation.setValue(question.explanation ?? '');
+  form.controls.lenient.setValue(question.matchRule === 'Lenient');
   applyQuestionType(form);
 }
 
@@ -183,6 +187,14 @@ export function toLabels(form: QuestionForm): { difficulty: QuestionDifficulty |
 /** Whether the question is a text question, which the candidate answers by typing rather than by choosing options. */
 export function toIsTextAnswer(form: QuestionForm): boolean {
   return form.getRawValue().questionType === 'text';
+}
+
+/** The matching rule as a request sends it: for a text question the one the author chose, and nothing for a multiple-choice one, which has none. */
+export function toMatchRule(form: QuestionForm): TextMatchRule | undefined {
+  if (!toIsTextAnswer(form)) {
+    return undefined;
+  }
+  return form.getRawValue().lenient ? 'Lenient' : 'Exact';
 }
 
 /** The explanation as a request sends it: trimmed, or null when the author wrote none. */

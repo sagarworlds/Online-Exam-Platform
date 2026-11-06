@@ -35,4 +35,33 @@ public sealed class SmtpInviteNotifierTests
 
         Assert.Equal(delivered, await Notifier.SendAsync(Email, CancellationToken.None));
     }
+
+    [Fact]
+    public async Task Send_ForAnOrdinaryInvitation_AsksThePersonToSignInAndAccept()
+    {
+        await Notifier.SendAsync(Email, CancellationToken.None);
+
+        var body = Assert.Single(_sender.Sent).Body;
+        Assert.Contains("sign in with this e-mail address, and accept the invitation", body);
+        Assert.DoesNotContain("do not forward", body);
+    }
+
+    [Fact]
+    public async Task Send_ForADirectSignInLink_SaysTheLinkSignsThemInAndIsForThemOnly()
+    {
+        var direct = Email with { Link = "https://app.example/invite/direct#code=ABCD1234EFGH5678", DirectSignIn = true };
+
+        await Notifier.SendAsync(direct, CancellationToken.None);
+
+        var sent = Assert.Single(_sender.Sent);
+        Assert.Equal("You are invited to take Maths Final", sent.Subject);
+        Assert.Contains("https://app.example/invite/direct#code=ABCD1234EFGH5678", sent.Body);
+        Assert.Contains("no code to enter", sent.Body);
+        Assert.Contains("do not forward it", sent.Body);
+        Assert.Contains("works once", sent.Body);
+        Assert.Contains("2026-10-05", sent.Body);
+
+        // It must not tell a signed-in-by-link student to do what the ordinary message asks.
+        Assert.DoesNotContain("sign in with this e-mail address", sent.Body);
+    }
 }

@@ -3,25 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import type { ContentEncryptionStatus } from './question.models';
-import {
-  AddTranslationRequest,
-  AnswerKeyCorrectionResult,
-  CreateQuestionRequest,
-  DuplicateQuestion,
-  ExportedFile,
-  ImportQuestionsResult,
-  QuestionFileFormat,
-  ReviewEntry,
-  ReviewResult,
-  ReviewStep,
-  FileQuestionsRequest,
-  FileQuestionsResult,
-  QuestionDto,
-  QuestionFilter,
-  QuestionStatistics,
-  QuestionTranslation,
-  UpdateQuestionRequest,
-} from './question.models';
+import { AddTranslationRequest, AnswerKeyCorrectionResult, CreateQuestionRequest, DuplicateQuestion, ExportedFile, FileQuestionsRequest, FileQuestionsResult, ImportQuestionsResult, QuestionDto, QuestionFileFormat, QuestionFilter, QuestionStatistics, QuestionTranslation, ReviewEntry, ReviewResult, ReviewStep, TextMatchRule, UpdateQuestionRequest } from './question.models';
 
 /** Thin HTTP wrapper over the QuestionBank module's /v1/questions endpoints. */
 @Injectable({ providedIn: 'root' })
@@ -77,10 +59,17 @@ export class QuestionApiService {
    * Corrects which options are right in a question candidates may already have answered (FR-31): the one change an answered question
    * allows. Every submitted attempt that held the question is scored again under the corrected key and its candidate is shown the reason,
    * and the open disputes of the question are accepted. Naming the options the key already has changes nothing.
-   * A text question has no options to name: its key is `acceptedAnswers`, which replaces the accepted answers it has.
+   * A text question has no options to name: its key is `acceptedAnswers`, which replaces the accepted answers it has, and `matchRule`
+   * says how strictly a typed answer is compared from now on (leave it out to keep the question's rule).
    */
-  correctAnswerKey(id: string, correctOptionIds: string[], reason: string, acceptedAnswers?: string[]): Observable<AnswerKeyCorrectionResult> {
-    return this.http.post<AnswerKeyCorrectionResult>(`${this.baseUrl}/${id}/correct-answer-key`, { correctOptionIds, reason, acceptedAnswers });
+  correctAnswerKey(
+    id: string,
+    correctOptionIds: string[],
+    reason: string,
+    acceptedAnswers?: string[],
+    matchRule?: TextMatchRule,
+  ): Observable<AnswerKeyCorrectionResult> {
+    return this.http.post<AnswerKeyCorrectionResult>(`${this.baseUrl}/${id}/correct-answer-key`, { correctOptionIds, reason, acceptedAnswers, matchRule });
   }
 
   /** Deletes a question that no exam holds; the API refuses one that is in use. */

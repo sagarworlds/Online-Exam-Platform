@@ -227,6 +227,13 @@ public static class ExamAuthoringEndpoints
             .WithName("AddExamQuestion")
             .WithDescription("Add a question from the bank to a section of a draft exam");
 
+        exams.MapPost("/{examId:guid}/sections/{sectionId:guid}/questions/batch", AddQuestions)
+            .RequireAuthorization(ExamAuthoringPermissions.Manage)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("AddExamQuestions")
+            .WithDescription("Add several questions from the bank to a section of a draft exam, in the order given; all or none");
+
         exams.MapPost("/{examId:guid}/sections/{sectionId:guid}/questions/draw", DrawQuestions)
             .RequireAuthorization(ExamAuthoringPermissions.Manage)
             .Produces(StatusCodes.Status401Unauthorized)
@@ -404,6 +411,10 @@ public static class ExamAuthoringEndpoints
         return Results.Created($"/v1/exams/{examId}/sections/{sectionId}/questions/{result.Id}", result);
     }
 
+    private static async Task<IResult> AddQuestions(
+        Guid examId, Guid sectionId, AddQuestionsRequest request, AddExamQuestionsHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new AddExamQuestionsCommand(examId, sectionId, request.QuestionIds), ct));
+
     private static async Task<IResult> DrawQuestions(
         Guid examId, Guid sectionId, DrawQuestionsRequest request, DrawExamQuestionsHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(
@@ -544,3 +555,7 @@ public record ReorderQuestionsRequest(IReadOnlyList<Guid>? QuestionIds);
 /// <summary>Request body for adding a bank question to a section.</summary>
 /// <param name="QuestionId">The question's id in the question bank.</param>
 public record AddQuestionRequest(Guid QuestionId);
+
+/// <summary>Request body for adding several bank questions to a section at once.</summary>
+/// <param name="QuestionIds">The questions' ids in the question bank, from 1 to 100, in the order wanted.</param>
+public record AddQuestionsRequest(IReadOnlyList<Guid>? QuestionIds);

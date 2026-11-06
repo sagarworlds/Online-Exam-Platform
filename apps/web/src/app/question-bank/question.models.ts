@@ -87,9 +87,17 @@ export interface QuestionDto {
   isTextAnswer?: boolean;
   /** The answers a typed answer may be, as the author wrote them; empty for a multiple-choice question. Absent from an API that predates it. */
   acceptedAnswers?: string[];
+  /** How strictly a typed answer is compared with the accepted answers; absent from an API that predates it, which compares exactly. */
+  matchRule?: TextMatchRule;
   /** Why the correct answer is correct, as plain text; a candidate sees it only in the answer review, once released (FR-33). Absent or null means none. */
   explanation?: string | null;
 }
+
+/**
+ * How strictly a typed answer is compared with a text question's accepted answers. `Exact` ignores capital letters and extra spaces;
+ * `Lenient` also ignores stray punctuation and accents on Latin letters, and keeps signs and decimal points that can change an answer.
+ */
+export type TextMatchRule = 'Exact' | 'Lenient';
 
 /** The body of POST /v1/questions. The author is the caller, so it carries no user id. */
 export interface CreateQuestionRequest {
@@ -111,6 +119,8 @@ export interface CreateQuestionRequest {
   isTextAnswer?: boolean;
   /** The answers a typed answer may be, for a text question; empty for a multiple-choice one. */
   acceptedAnswers?: string[];
+  /** For a text question, how strictly a typed answer is compared with the accepted answers; left out for a multiple-choice one. */
+  matchRule?: TextMatchRule;
   /** Why the correct answer is correct, as plain text; a candidate sees it only in the answer review, once released (FR-33). Absent or null means none. */
   explanation?: string | null;
 }
@@ -161,6 +171,8 @@ export interface UpdateQuestionRequest {
   isTextAnswer?: boolean;
   /** The accepted answers of a text question, which are part of its answer key like the options of another. */
   acceptedAnswers?: string[];
+  /** How strictly a typed answer is compared; part of the answer key too, so it cannot change once candidates have answered (a correction does that). */
+  matchRule?: TextMatchRule;
   /** Why the correct answer is correct, as plain text; a candidate sees it only in the answer review, once released (FR-33). Absent or null means none. */
   explanation?: string | null;
 }

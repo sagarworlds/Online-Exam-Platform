@@ -1,0 +1,96 @@
+name: CI (all browsers)
+
+# NFR-8, D19: what a pull request does not run. A pull request tests the API, the web app and Chromium (ci.yml). This runs the
+# other engines, and the candidate journey against the real API and a real Postgres, on every push to main, every night and on demand
+# (Actions > CI (all browsers) > Run workflow). `scripts/verify.sh` runs the same on a developer's machine before a push.
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 03:00 in India. GitHub runs a schedule on the default branch only, and a few minutes late at busy times.
+    - cron: "30 21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancelled: each merge to main, and each night, keeps its own result.
+concurrency:
+  group: ci-extended-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  browser-tests:
+    uses: ./.github/workflows/browser-tests.yml
+    with:
+      browsers: '["chromium","firefox","webkit"]'
+
+  # NFR-8, D19: the candidate journey on each browser engine against the real API and a real Postgres. The jobs above stub the API in the
+  # browser and so show that each engine runs the screens; this one shows that the page and the API agree. The API starts the way a
+  # developer runs it (Development: it migrates its own database, and writes sign-in codes to its log, which the tests read), against the
+  # database below, whose name and login are the ones the Development settings already name.
+  browser-tests-real-api:
+    name: Browser tests against the real API
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: examplatform
+          POSTGRES_PASSWORD: examplatform
+          POSTGRES_DB: examplatform
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U examplatform"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Build the API
+        run: dotnet build src/Host/ExamPlatform.Api -c Release
+        working-directory: apps/api
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: apps/web
+
+      - name: Build the web app
+        run: npm run build
+        working-directory: apps/web
+
+      - name: Install the browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+        working-directory: apps/web
+
+      - name: Run the browser tests
+        run: npm run e2e:fullstack
+        working-directory: apps/web
+
+      # The API's log holds the sign-in codes of the test accounts only. It is a hidden folder, which the upload skips unless told not to.
+      - name: Upload the report, traces and API log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-real-api
+          include-hidden-files: true
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+            apps/web/e2e/.run/api.log
+          retention-days: 7

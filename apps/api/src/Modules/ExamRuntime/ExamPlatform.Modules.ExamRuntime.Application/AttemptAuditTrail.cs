@@ -15,6 +15,7 @@ public sealed class AttemptAuditTrail(IAuditLogger auditLogger, IRequestContext 
         IDomainEventHandler<AttemptResumedEvent>,
         IDomainEventHandler<AttemptTerminatedEvent>,
         IDomainEventHandler<AttemptInvalidatedEvent>,
+        IDomainEventHandler<AttemptAiCheckRequestedEvent>,
         IDomainEventHandler<AttemptClientChangedEvent>,
         IDomainEventHandler<DisputeRaisedEvent>,
         IDomainEventHandler<DisputeResolvedEvent>,
@@ -45,6 +46,12 @@ public sealed class AttemptAuditTrail(IAuditLogger auditLogger, IRequestContext 
     public Task HandleAsync(AttemptInvalidatedEvent domainEvent, CancellationToken cancellationToken) =>
         RecordAsync("ExamRuntime.AttemptInvalidated", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
             new Dictionary<string, string> { ["reason"] = domainEvent.Reason }, cancellationToken);
+
+    /// <inheritdoc />
+    public Task HandleAsync(AttemptAiCheckRequestedEvent domainEvent, CancellationToken cancellationToken) =>
+        // Which question was sent to the evaluator again; what the candidate typed is not copied into the trail.
+        RecordAsync("ExamRuntime.AttemptAiCheckRequested", domainEvent.AttemptId, domainEvent.ExamId, domainEvent.CandidateId,
+            new Dictionary<string, string> { ["questionId"] = domainEvent.QuestionId.ToString() }, cancellationToken);
 
     /// <inheritdoc />
     public Task HandleAsync(AttemptClientChangedEvent domainEvent, CancellationToken cancellationToken)

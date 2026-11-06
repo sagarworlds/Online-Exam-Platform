@@ -1,4 +1,6 @@
-import { Component, inject, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Permission } from '../../auth/admin-sections';
+import { AuthSessionService } from '../../auth/auth-session.service';
 import { InviteApiService } from '../../invite-management/invite-api.service';
 import { InviteHandover } from '../../invite-management/invite-handover/invite-handover';
 import { InviteCodeDto, InviteDto, InviteStatus } from '../../invite-management/invite.models';
@@ -25,6 +27,10 @@ export class StudentInvitations {
   private readonly i18n = inject(I18nService);
   private readonly inviteApi = inject(InviteApiService);
   private readonly confirm = inject(ConfirmService);
+  private readonly authSession = inject(AuthSessionService);
+
+  /** Whether the staff member may make a link that signs the student in; the API checks again, this only decides whether it is offered. */
+  protected readonly canDirectLink = computed(() => this.authSession.hasPermission(Permission.InviteDirectLink));
 
   /** The student's invitations, newest first. */
   readonly invites = input.required<readonly InviteDto[]>();
@@ -54,6 +60,15 @@ export class StudentInvitations {
   }
 
   protected copyCode(invite: InviteDto): void {
+    this.makeCode(invite, false);
+  }
+
+  /** Makes a new code whose link signs the student in. Each one is audited, and the list never shows one that was sent before. */
+  protected copyDirectLink(invite: InviteDto): void {
+    this.makeCode(invite, true);
+  }
+
+  private makeCode(invite: InviteDto, directSignIn: boolean): void {
     if (this.generatingFor() !== null) {
       return;
     }
@@ -62,7 +77,7 @@ export class StudentInvitations {
     this.generatingFor.set(invite.id);
     // The old code goes while the new one is made, so a panel never shows a code the staff member did not just ask for.
     this.hide(invite.id);
-    this.inviteApi.generateCode(invite.id).subscribe({
+    this.inviteApi.generateCode(invite.id, undefined, directSignIn).subscribe({
       next: (code) => {
         this.generatingFor.set(null);
         this.handovers.update((all) => ({ ...all, [invite.id]: code }));

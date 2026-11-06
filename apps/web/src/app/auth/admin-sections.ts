@@ -11,6 +11,7 @@ export const Permission = {
   ExamManage: 'exam.manage',
   BatchManage: 'batch.manage',
   InviteManage: 'invite.manage',
+  InviteDirectLink: 'invite.direct-link',
   StudentRead: 'student.read',
   StudentManage: 'student.manage',
   GuardianLinkManage: 'guardian.link.manage',

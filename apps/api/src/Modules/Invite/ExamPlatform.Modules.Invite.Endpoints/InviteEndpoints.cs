@@ -1,9 +1,14 @@
 using System.Security.Claims;
 using ExamPlatform.Modules.Invite.Application.Commands;
+using ExamPlatform.Modules.Invite.Application.Dtos;
 using ExamPlatform.Modules.Invite.Application.Queries;
+using ExamPlatform.Modules.Invite.Domain.Exceptions;
+using ExamPlatform.Modules.Invite.Endpoints.RateLimiting;
+using ExamPlatform.SharedKernel.Application;
 using ExamPlatform.SharedKernel.Application.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 
 namespace ExamPlatform.Modules.Invite.Endpoints;
@@ -70,6 +75,20 @@ public static class InviteEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .WithName("RevokeInvite")
             .WithDescription("Revoke an invite and all its codes");
+
+        // Outside the group above, which needs a signed-in caller: nobody is signed in yet, and the one-time code in the link is the only
+        // proof. It signs the invited student in, so it is rate limited per client and only a code made for it is accepted.
+        endpoints.MapPost("/v1/invites/direct-sign-in", DirectSignIn)
+            .AllowAnonymous()
+            .RequireRateLimiting(InviteRateLimitPolicies.DirectSignIn)
+            .WithTags("Invite")
+            .Produces<DirectSignInResultDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .WithName("DirectSignIn")
+            .WithDescription("Sign the invited student in with the code of a direct sign-in link, accept the invitation, and name the exam to open");
     }
 
     private static async Task<IResult> CreateInvite(
@@ -78,8 +97,10 @@ public static class InviteEndpoints
         CreateInviteHandler handler,
         CancellationToken ct)
     {
+        EnsureMayMakeDirectLink(user, request.DirectSignIn);
+
         // The creator is the authenticated caller, never a value from the body (FR-2, NFR-5).
-        var command = new CreateInviteCommand(request.ExamId, request.BatchMemberId, request.Email, user.GetUserId());
+        var command = new CreateInviteCommand(request.ExamId, request.BatchMemberId, request.Email, user.GetUserId(), request.DirectSignIn);
 
         var result = await handler.HandleAsync(command, ct);
         return Results.Created($"/v1/invites/{result.Id}", result);
@@ -91,12 +112,26 @@ public static class InviteEndpoints
     private static async Task<IResult> GenerateInviteCode(
         Guid inviteId,
         GenerateInviteCodeRequest request,
+        ClaimsPrincipal user,
         GenerateInviteCodeHandler handler,
         CancellationToken ct)
     {
-        var result = await handler.HandleAsync(new GenerateInviteCodeCommand(inviteId, request.ExpiryHours ?? 72), ct);
+        EnsureMayMakeDirectLink(user, request.DirectSignIn);
+
+        var result = await handler.HandleAsync(new GenerateInviteCodeCommand(inviteId, request.ExpiryHours ?? 72, request.DirectSignIn), ct);
         return Results.Created($"/v1/invites/{inviteId}/codes", result);
     }
+
+    // A direct link signs in as whoever owns the invited address, so holding invite.manage is not enough to make one: it is the
+    // permission that stops a role which only manages invitations from signing in as any student.
+    private static void EnsureMayMakeDirectLink(ClaimsPrincipal user, bool directSignIn)
+    {
+        if (directSignIn && !user.HasPermission(InvitePermissions.DirectLinkCode))
+            throw new DirectLinkNotPermittedError();
+    }
+
+    private static async Task<IResult> DirectSignIn(DirectSignInRequest request, IClientInfo client, DirectSignInHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(new DirectSignInCommand(request.Code, client.DeviceFingerprint, client.IpAddress), ct));
 
     private static async Task<IResult> AcceptInvite(
         AcceptInviteRequest request,
@@ -128,15 +163,27 @@ public static class InviteEndpoints
 /// <param name="ExamId">The exam the address is invited to.</param>
 /// <param name="Email">E-mail address the invitation is sent to.</param>
 /// <param name="BatchMemberId">The roster entry it came from, if any.</param>
+/// <param name="DirectSignIn">
+/// Whether the link sent to the invited person signs them in and takes them to the exam. It needs the <c>invite.direct-link</c>
+/// permission; leaving it out gives the ordinary invitation.
+/// </param>
 public record CreateInviteRequest(
     Guid ExamId,
     string Email,
-    Guid? BatchMemberId = null);
+    Guid? BatchMemberId = null,
+    bool DirectSignIn = false);
 
 /// <summary>Request DTO for generating an invite code.</summary>
 /// <param name="ExpiryHours">How long the code stays valid, in hours; 72 when omitted.</param>
+/// <param name="DirectSignIn">Whether the code's link signs the invited person in; it needs the <c>invite.direct-link</c> permission.</param>
 public record GenerateInviteCodeRequest(
-    int? ExpiryHours = null);
+    int? ExpiryHours = null,
+    bool DirectSignIn = false);
+
+/// <summary>Request DTO for opening a direct sign-in link.</summary>
+/// <param name="Code">The code the link carries.</param>
+public record DirectSignInRequest(
+    string? Code);
 
 /// <summary>Request DTO for accepting an invitation.</summary>
 /// <param name="Code">The code from the invitation link.</param>

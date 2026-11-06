@@ -69,6 +69,8 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
             new { name = "Section" }),
         new("POST", "/v1/exams/{examId:guid}/sections/{sectionId:guid}/questions", RbacCatalog.PermissionCodes.ExamManage,
             new { questionId = Guid.NewGuid() }),
+        new("POST", "/v1/exams/{examId:guid}/sections/{sectionId:guid}/questions/batch", RbacCatalog.PermissionCodes.ExamManage,
+            new { questionIds = new[] { Guid.NewGuid() } }),
         new("POST", "/v1/exams/{examId:guid}/sections/{sectionId:guid}/questions/draw", RbacCatalog.PermissionCodes.ExamManage,
             new { count = 1 }),
         new("POST", "/v1/exams/{examId:guid}/sections/{sectionId:guid}/draw-rules", RbacCatalog.PermissionCodes.ExamManage,
@@ -87,6 +89,9 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
         new("GET", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/webcam-photos", RbacCatalog.PermissionCodes.ExamManage, null),
         new("GET", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/webcam-photos/{photoId:guid}", RbacCatalog.PermissionCodes.ExamManage, null),
         new("POST", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/rescore", RbacCatalog.PermissionCodes.ExamManage, new { reason = "Authorization test" }),
+        new("POST", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/questions/{questionId:guid}/ai-check", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("POST", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/ai-recheck", RbacCatalog.PermissionCodes.ExamManage, null),
+        new("POST", "/v1/exams/{examId:guid}/ai-recheck", RbacCatalog.PermissionCodes.ExamManage, null),
         new("POST", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/warn", RbacCatalog.PermissionCodes.ExamManage, new { message = "Authorization test" }),
         new("POST", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/pause", RbacCatalog.PermissionCodes.ExamManage, null),
         new("POST", "/v1/exams/{examId:guid}/attempts/{attemptId:guid}/resume", RbacCatalog.PermissionCodes.ExamManage, null),
@@ -243,7 +248,8 @@ public sealed partial class M3AuthorizationTests(ApiFactory factory) : IClassFix
 
     // Routes that need no sign-in at all: a guardian has no account, so the one-time code e-mailed to them is the only proof.
     // They are listed here so that adding one is a decision, and the test checks that they really are open.
-    private static readonly string[] PublicRoutes = ["POST /v1/guardian-links/verify", "GET /v1/branding", "GET /v1/branding/logo"];
+    private static readonly string[] PublicRoutes =
+        ["POST /v1/guardian-links/verify", "POST /v1/invites/direct-sign-in", "GET /v1/branding", "GET /v1/branding/logo"];
 
     private static readonly string[] ModulePrefixes = ["/v1/exams", "/v1/batches", "/v1/invites", "/v1/guardians", "/v1/guardian-links", "/v1/questions", "/v1/books", "/v1/classes", "/v1/attempt-requests", "/v1/disputes", "/v1/issue-reports", "/v1/proctoring-profiles", "/v1/proctoring", "/v1/me/notifications", "/v1/me/analytics", "/v1/me/data-requests", "/v1/data-requests", "/v1/branding", "/v1/instruction-templates", "/v1/incidents", "/v1/admin/students"];
 

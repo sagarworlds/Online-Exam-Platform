@@ -134,6 +134,7 @@ describe('Register', () => {
       displayName: 'Ada',
       destination: 'ada@example.com',
       dateOfBirth: '2000-01-01',
+      agree: true,
     });
     fixture.detectChanges();
     submitButton.click();
@@ -151,6 +152,7 @@ describe('Register', () => {
       displayName: 'Ada',
       destination: 'ada@example.com',
       dateOfBirth: '2000-01-01',
+      agree: true,
     });
     fixture.detectChanges();
 
@@ -174,6 +176,7 @@ describe('Register', () => {
       displayName: 'Ada',
       destination: 'ada@example.com',
       dateOfBirth: '2000-01-01',
+      agree: true,
     });
     fixture.detectChanges();
     expect(submitButton.disabled).toBe(false);
@@ -190,5 +193,28 @@ describe('Register', () => {
     expect(compiled.querySelector('.error-message')?.textContent).toContain(
       'Date of birth must be a real date in the past.',
     );
+  });
+
+  describe('the privacy box', () => {
+    it('is there, unticked, with a link to the privacy policy', () => {
+      const { compiled } = render();
+
+      const box = compiled.querySelector<HTMLInputElement>('#register-agree')!;
+      expect(box.checked).toBe(false);
+      expect(compiled.querySelector('.check-row a')?.getAttribute('href')).toBe('/privacy.html');
+    });
+
+    it('stops the registration when it is not ticked, says so, and sends nothing', () => {
+      const { fixture, compiled, submitButton } = render();
+      fixture.componentInstance['form'].patchValue({ displayName: 'Ada', destination: 'ada@example.com', dateOfBirth: '2000-01-01' });
+      fixture.detectChanges();
+
+      submitButton.click();
+      fixture.detectChanges();
+
+      httpMock.expectNone(`${environment.apiBaseUrl}/v1/auth/register`);
+      expect(compiled.querySelector('#register-agree-error')?.textContent).toContain('Tick the box to agree');
+      expect(compiled.querySelector('#register-agree')?.getAttribute('aria-invalid')).toBe('true');
+    });
   });
 });

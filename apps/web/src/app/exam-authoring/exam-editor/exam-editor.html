@@ -86,6 +86,7 @@
           (renameRequested)="renameSection($event)"
           (removeConfirmed)="removeSection($event)"
           (addRequested)="addQuestion($event.sectionId, $event.questionId)"
+          (addManyRequested)="addQuestions($event.sectionId, $event.questionIds)"
           (drawRequested)="drawQuestions($event.sectionId, $event.request)"
           (drawRuleRequested)="addDrawRule($event.sectionId, $event.request)"
           (drawRuleRemoveRequested)="removeDrawRule($event)"

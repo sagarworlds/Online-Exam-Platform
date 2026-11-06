@@ -8,6 +8,7 @@ import { CandidateApiService } from '../candidate-api.service';
 import { AnswerVerdict, AttemptReviewDto, DisputeStatus, MAX_DISPUTE_REASON, MyDisputeDto, ReviewQuestionDto } from '../candidate.models';
 import { MathDirective } from '../../shared/rich-text/math.directive';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
+import { MathTextDirective } from '../../shared/rich-text/math-text.directive';
 
 /** A question with its place in the exam, so the page can number it across sections. */
 interface NumberedQuestion extends ReviewQuestionDto {
@@ -25,7 +26,7 @@ interface NumberedQuestion extends ReviewQuestionDto {
  */
 @Component({
   selector: 'app-attempt-review',
-  imports: [RouterLink, LocaleDatePipe, MathDirective, TranslatePipe],
+  imports: [RouterLink, LocaleDatePipe, MathDirective, TranslatePipe, MathTextDirective],
   templateUrl: './attempt-review.html',
   styleUrl: './attempt-review.css',
 })
@@ -118,14 +119,40 @@ export class AttemptReview {
     });
   }
 
-  /** The review's questions numbered across sections, each section keeping its own heading. */
+  /** Whether only the questions that were not fully right are listed, so a candidate can go straight to what to learn from. */
+  protected readonly onlyMissed = signal(false);
+
+  /** How many questions the review holds, and how many of them were not fully right (wrong, partly right or left unanswered). */
+  protected totalCount(review: AttemptReviewDto): number {
+    return review.sections.reduce((sum, section) => sum + section.questions.length, 0);
+  }
+
+  /** How many questions the list shows now, for the live region that tells a screen reader what the filter did. */
+  protected shownCount(review: AttemptReviewDto): number {
+    return this.sections(review).reduce((sum, section) => sum + section.questions.length, 0);
+  }
+
+  protected missedCount(review: AttemptReviewDto): number {
+    return review.sections.reduce((sum, section) => sum + section.questions.filter((question) => question.verdict !== 'Correct').length, 0);
+  }
+
+  /**
+   * The review's questions numbered across sections, each section keeping its own heading. A question keeps its number from the whole
+   * exam when only the missed ones are shown, so "Question 7" is the same question either way; a section with none left is not listed.
+   */
   protected sections(review: AttemptReviewDto): { id: string; name: string; questions: NumberedQuestion[] }[] {
     let number = 0;
-    return review.sections.map((section) => ({
+    const numbered = review.sections.map((section) => ({
       id: section.id,
       name: section.name,
       questions: section.questions.map((question) => ({ ...question, number: ++number })),
     }));
+    if (!this.onlyMissed()) {
+      return numbered;
+    }
+    return numbered
+      .map((section) => ({ ...section, questions: section.questions.filter((question) => question.verdict !== 'Correct') }))
+      .filter((section) => section.questions.length > 0);
   }
 
   protected optionLetter(index: number): string {

@@ -133,6 +133,13 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
                         .HasMaxLength(8)
                         .HasColumnType("character varying(8)");
 
+                    b.Property<string>("MatchRule")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("Exact");
+
                     b.Property<string>("SearchText")
                         .IsRequired()
                         .HasColumnType("text");
@@ -268,6 +275,13 @@ namespace ExamPlatform.Modules.QuestionBank.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
+
+                    b.Property<string>("MatchRule")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("Exact");
 
                     b.Property<string>("Options")
                         .IsRequired()

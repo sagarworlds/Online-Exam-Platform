@@ -1514,3 +1514,15 @@ label:has(> input[type='radio']) {
   align-items: center;
   gap: 0.5rem;
 }
+
+/* A checkbox with its sentence beside it, the box lined up with the first line of the words. */
+.check-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.check-row input {
+  margin-top: 0.25rem;
+}

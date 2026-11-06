@@ -17,8 +17,15 @@ public class Invite : AggregateRoot
     /// <summary>The most hours a code may live (30 days).</summary>
     public const int MaxCodeExpiryHours = 720;
 
+    /// <summary>The most hours a direct sign-in code may live (7 days): it is a login, so it is kept shorter than an ordinary code.</summary>
+    public const int MaxDirectCodeExpiryHours = 168;
+
     private const string CodeAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private const int CodeLength = 8;
+
+    // A direct sign-in code is a bearer credential for a whole account, not a code a person types in next to a signed-in session,
+    // so it is longer: 36^16 is about 8e24 possibilities against about 3e12 for 8 characters.
+    private const int DirectCodeLength = 16;
 
     public new Guid Id => base.Id;
     public Guid ExamId { get; set; }
@@ -64,17 +71,29 @@ public class Invite : AggregateRoot
     }
 
     /// <summary>Adds a new single-use code to the invite.</summary>
-    /// <param name="expiryHours">How long the code lives, from <see cref="MinCodeExpiryHours"/> to <see cref="MaxCodeExpiryHours"/>.</param>
+    /// <param name="expiryHours">
+    /// How long the code lives, from <see cref="MinCodeExpiryHours"/> to <see cref="MaxCodeExpiryHours"/>, or to
+    /// <see cref="MaxDirectCodeExpiryHours"/> for a direct sign-in code.
+    /// </param>
     /// <param name="nowUtc">The current instant.</param>
+    /// <param name="allowsDirectSignIn">
+    /// Whether opening this code's link signs the invited person in (see <see cref="InviteCode.AllowsDirectSignIn"/>). Such a code is
+    /// longer and is announced to the audit trail.
+    /// </param>
     /// <exception cref="InvalidInviteExpiryError">The lifetime is outside the allowed range.</exception>
-    public InviteCode GenerateCode(int expiryHours, DateTime nowUtc)
+    public InviteCode GenerateCode(int expiryHours, DateTime nowUtc, bool allowsDirectSignIn = false)
     {
-        EnsureCodeLifetime(expiryHours);
+        EnsureCodeLifetime(expiryHours, allowsDirectSignIn);
 
         // A cryptographic generator: the code is the credential that lets someone take the exam.
-        var code = new InviteCode(Id, RandomNumberGenerator.GetString(CodeAlphabet, CodeLength), expiryHours, nowUtc);
+        var text = RandomNumberGenerator.GetString(CodeAlphabet, allowsDirectSignIn ? DirectCodeLength : CodeLength);
+        var code = new InviteCode(Id, text, expiryHours, nowUtc, allowsDirectSignIn);
         _codes.Add(code);
         UpdatedAt = nowUtc;
+
+        if (allowsDirectSignIn)
+            AddDomainEvent(new InviteDirectLinkIssuedEvent(Id, ExamId, code.Id));
+
         return code;
     }
 
@@ -82,29 +101,38 @@ public class Invite : AggregateRoot
     /// Adds another single-use code to a pending invite, for staff to hand to the invited person themselves (read out, pasted into a chat,
     /// printed), and records that they did. The invite's first code, made with it, is not announced this way.
     /// </summary>
-    /// <param name="expiryHours">How long the code lives, from <see cref="MinCodeExpiryHours"/> to <see cref="MaxCodeExpiryHours"/>.</param>
+    /// <param name="expiryHours">
+    /// How long the code lives, from <see cref="MinCodeExpiryHours"/> to <see cref="MaxCodeExpiryHours"/>, or to
+    /// <see cref="MaxDirectCodeExpiryHours"/> for a direct sign-in code.
+    /// </param>
     /// <param name="nowUtc">The current instant.</param>
+    /// <param name="allowsDirectSignIn">Whether the code's link signs the invited person in; see <see cref="GenerateCode"/>.</param>
     /// <exception cref="InvalidInviteExpiryError">The lifetime is outside the allowed range.</exception>
     /// <exception cref="InviteStateError">
     /// The invite is no longer pending: a code for an accepted, declined, revoked or expired invite could never be redeemed, so none is made.
     /// </exception>
-    public InviteCode AddCode(int expiryHours, DateTime nowUtc)
+    public InviteCode AddCode(int expiryHours, DateTime nowUtc, bool allowsDirectSignIn = false)
     {
         // The lifetime first: a bad one is refused the same way whatever state the invite is in.
-        EnsureCodeLifetime(expiryHours);
+        EnsureCodeLifetime(expiryHours, allowsDirectSignIn);
 
         if (Status != InviteStatus.Pending)
             throw new InviteStateError("Only a pending invitation can be given another code.");
 
-        var code = GenerateCode(expiryHours, nowUtc);
-        AddDomainEvent(new InviteCodeGeneratedEvent(Id, ExamId, code.Id));
+        var code = GenerateCode(expiryHours, nowUtc, allowsDirectSignIn);
+
+        // A direct code is announced by its own event (made by GenerateCode), so the trail has one row for it, not two.
+        if (!allowsDirectSignIn)
+            AddDomainEvent(new InviteCodeGeneratedEvent(Id, ExamId, code.Id));
+
         return code;
     }
 
-    private static void EnsureCodeLifetime(int expiryHours)
+    private static void EnsureCodeLifetime(int expiryHours, bool allowsDirectSignIn = false)
     {
-        if (expiryHours is < MinCodeExpiryHours or > MaxCodeExpiryHours)
-            throw new InvalidInviteExpiryError(MinCodeExpiryHours, MaxCodeExpiryHours);
+        var max = allowsDirectSignIn ? MaxDirectCodeExpiryHours : MaxCodeExpiryHours;
+        if (expiryHours < MinCodeExpiryHours || expiryHours > max)
+            throw new InvalidInviteExpiryError(MinCodeExpiryHours, max);
     }
 
     /// <summary>
@@ -139,6 +167,56 @@ public class Invite : AggregateRoot
         UpdatedAt = nowUtc;
 
         AddDomainEvent(new InviteAcceptedEvent(Id, ExamId, Email));
+    }
+
+    /// <summary>
+    /// Checks, without changing anything, that a code may sign the invited person in: it must be one of this invite's, unused, unrevoked,
+    /// unexpired and made for direct sign-in, and the invite must still be pending. Callers run it before they look up or create an
+    /// account, so a refusal never burns the code.
+    /// </summary>
+    /// <param name="code">The code as it came in the link; case is ignored.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <returns>The code, so the caller can name it.</returns>
+    /// <exception cref="InvalidInviteCodeError">
+    /// The code is not one of this invite's, or is used, revoked, expired, or an ordinary code. They all look the same to a caller who guesses.
+    /// </exception>
+    /// <exception cref="InviteStateError">The invite is no longer pending.</exception>
+    public InviteCode EnsureDirectSignInPossible(string? code, DateTime nowUtc)
+    {
+        var normalized = code?.Trim().ToUpperInvariant();
+        var match = _codes.FirstOrDefault(c => c.Code == normalized);
+        if (match is null || !match.IsValid(nowUtc) || !match.AllowsDirectSignIn)
+            throw new InvalidInviteCodeError("the code is not valid");
+
+        if (Status != InviteStatus.Pending)
+            throw new InviteStateError("This invitation is no longer open.");
+
+        return match;
+    }
+
+    /// <summary>
+    /// Redeems a direct sign-in code on behalf of the account that holds the invited address, which the caller has just found or made.
+    /// Unlike <see cref="Accept"/> it does not compare addresses: the link was sent to the invited address, and opening it is the proof.
+    /// </summary>
+    /// <param name="code">The code as it came in the link; case is ignored.</param>
+    /// <param name="userId">The account that is being signed in.</param>
+    /// <param name="accountCreated">Whether that account was made by this link.</param>
+    /// <param name="nowUtc">The current instant.</param>
+    /// <exception cref="InvalidInviteCodeError">The code is not a valid direct sign-in code of this invite.</exception>
+    /// <exception cref="InviteStateError">The invite is no longer pending.</exception>
+    public void AcceptByDirectLink(string? code, Guid userId, bool accountCreated, DateTime nowUtc)
+    {
+        var match = EnsureDirectSignInPossible(code, nowUtc);
+
+        match.MarkAsUsed(nowUtc);
+        Status = InviteStatus.Accepted;
+        AcceptedAt = nowUtc;
+        AcceptedByUserId = userId;
+        UpdatedAt = nowUtc;
+
+        // Instead of InviteAcceptedEvent, not as well: the audit trail takes the actor from the event here, because the request that
+        // opened the link is anonymous, and nothing else listens for acceptance.
+        AddDomainEvent(new InviteDirectLinkUsedEvent(Id, ExamId, match.Id, userId, accountCreated));
     }
 
     /// <summary>Declines a pending invite. Only the invited address may decline it, as only it may accept.</summary>
@@ -183,7 +261,9 @@ public class Invite : AggregateRoot
     /// Changes the address the invite is for, to correct a mistake or to follow a person who moved to another address. It works in
     /// every status: for a pending invite, only the account holding the new address can accept it from now on (<see cref="Accept"/>
     /// compares against this address); for any other it changes the address staff see. Nobody is enrolled or un-enrolled by it,
-    /// since an accepted invite is tied to the account that accepted it. The invite's codes are untouched.
+    /// since an accepted invite is tied to the account that accepted it. The invite's ordinary codes are untouched, but its unused direct
+    /// sign-in codes are revoked: such a code signs in whoever owns the invite's address, so one sent to the old address must not sign in
+    /// the owner of the new one. Staff make a new one for the new address.
     /// </summary>
     /// <param name="newEmail">The new address, already checked to be a valid e-mail address.</param>
     /// <param name="nowUtc">The current instant.</param>
@@ -192,6 +272,9 @@ public class Invite : AggregateRoot
     {
         if (string.IsNullOrWhiteSpace(newEmail))
             throw new InvalidInviteEmailError();
+
+        foreach (var code in _codes.Where(c => c.AllowsDirectSignIn && c.RevokedAt is null && c.UsedAt is null))
+            code.Revoke(nowUtc);
 
         Email = newEmail.Trim();
         UpdatedAt = nowUtc;

@@ -22,6 +22,7 @@ export const PAGE_TITLE_KEYS: Readonly<Record<string, MessageKey>> = {
   forbidden: 'forbidden.title',
   admin: 'admin.title',
   invite: 'invite.title',
+  'invite/direct': 'inviteDirect.title',
   'my-exams': 'myExams.title',
   'my-exams/:examId/start': 'instructions.heading',
   'attempt/:attemptId': 'pageTitle.exam',

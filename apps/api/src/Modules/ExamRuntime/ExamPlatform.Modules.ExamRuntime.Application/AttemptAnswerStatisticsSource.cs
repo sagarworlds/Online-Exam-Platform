@@ -29,14 +29,14 @@ public sealed class AttemptAnswerStatisticsSource(IAttemptRepository attempts, I
 
         // Two requests can come back as the same version (the current one asked for by number and as "current"), so keep the first.
         var correctByVersion = new Dictionary<int, HashSet<Guid>>();
-        var acceptedByVersion = new Dictionary<int, string[]>();
+        var acceptedByVersion = new Dictionary<int, (string[] Answers, TextMatchRule Rule)>();
         foreach (var v in versions)
         {
             correctByVersion.TryAdd(v.VersionNumber, v.Options.Where(o => o.IsCorrect).Select(o => o.Id).ToHashSet());
-            acceptedByVersion.TryAdd(v.VersionNumber, (v.AcceptedAnswers ?? []).ToArray());
+            acceptedByVersion.TryAdd(v.VersionNumber, ((v.AcceptedAnswers ?? []).ToArray(), v.MatchRule));
         }
         var correctNow = current?.Options.Where(o => o.IsCorrect).Select(o => o.Id).ToHashSet();
-        var acceptedNow = (current?.AcceptedAnswers ?? []).ToArray();
+        var acceptedNow = ((current?.AcceptedAnswers ?? []).ToArray(), current?.MatchRule ?? TextMatchRule.Exact);
 
         var correct = 0;
         var chosen = new Dictionary<Guid, int>();
@@ -45,12 +45,12 @@ public sealed class AttemptAnswerStatisticsSource(IAttemptRepository attempts, I
             // An attempt made before versions were recorded read the question as it was then; the current key is all that is left of it.
             var version = answer.VersionNumber;
 
-            // A typed answer is right when it matches an accepted answer of the version it was given against, or when the AI evaluator judged
-            // it right against that key. It has no option to count.
+            // A typed answer is right when it matches an accepted answer of the version it was given against, under the rule that version set,
+            // or when the AI evaluator judged it right against that key. It has no option to count.
             if (answer.AnswerText is { } typed)
             {
-                var accepted = version is { } acceptedVersion && acceptedByVersion.TryGetValue(acceptedVersion, out var known) ? known : acceptedNow;
-                if (TypedAnswer.Matches(typed, accepted) || answer.TextVerdict == TypedAnswerVerdict.Correct)
+                var (accepted, rule) = version is { } acceptedVersion && acceptedByVersion.TryGetValue(acceptedVersion, out var known) ? known : acceptedNow;
+                if (TypedAnswer.Matches(typed, accepted, rule) || answer.TextVerdict == TypedAnswerVerdict.Correct)
                     correct++;
                 continue;
             }

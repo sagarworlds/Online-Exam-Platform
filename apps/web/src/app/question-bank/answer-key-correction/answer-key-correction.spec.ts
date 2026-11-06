@@ -161,6 +161,68 @@ describe('AnswerKeyCorrection', () => {
     expect(corrected).toEqual([{ keyChanged: true, attemptsRescored: 3 }]);
   });
 
+  describe('for a text question', () => {
+    const textQuestion = (overrides: Partial<QuestionDto> = {}) =>
+      question({ isTextAnswer: true, options: [], acceptedAnswers: ['Paris'], ...overrides });
+    const lenientBox = () => root.querySelector('#key-lenient-hint')?.previousElementSibling?.querySelector('input') as HTMLInputElement;
+    // The first textarea of a text question holds an accepted answer; the reason is the one with its own id.
+    const typeKeyReason = (value: string) => {
+      const box = root.querySelector('textarea[id^="key-reason"]') as HTMLTextAreaElement;
+      box.value = value;
+      box.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    };
+
+    it('offers the setting only for a text question, starting from the question\'s own rule', () => {
+      show(question());
+      expect(root.querySelector('#key-lenient-hint')).toBeNull();
+
+      show(textQuestion({ matchRule: 'Lenient' }));
+
+      expect(lenientBox().checked).toBe(true);
+      expect(text()).toContain('everyone who answered is scored again');
+    });
+
+    it('starts an older question, which has no rule, as exact', () => {
+      show(textQuestion());
+
+      expect(lenientBox().checked).toBe(false);
+    });
+
+    it('sends the accepted answers with the rule the staff member chose, and the reason', () => {
+      show(textQuestion());
+      lenientBox().click();
+      fixture.detectChanges();
+      typeKeyReason('Stray punctuation should not cost a mark');
+
+      button('Correct the answer key').click();
+      fixture.detectChanges();
+
+      const post = httpMock.expectOne(isCorrection);
+      expect(post.request.body).toEqual({
+        correctOptionIds: [],
+        reason: 'Stray punctuation should not cost a mark',
+        acceptedAnswers: ['Paris'],
+        matchRule: 'Lenient',
+      });
+      post.flush({ keyChanged: true, attemptsRescored: 4 });
+      expect(corrected).toEqual([{ keyChanged: true, attemptsRescored: 4 }]);
+    });
+
+    it('sends the exact rule when the staff member turns the setting off', () => {
+      show(textQuestion({ matchRule: 'Lenient' }));
+      lenientBox().click();
+      fixture.detectChanges();
+      typeKeyReason('The punctuation is part of the answer');
+
+      button('Correct the answer key').click();
+
+      const post = httpMock.expectOne(isCorrection);
+      expect(post.request.body).toMatchObject({ matchRule: 'Exact' });
+      post.flush({ keyChanged: true, attemptsRescored: 0 });
+    });
+  });
+
   it('reports a key that was already as asked, which changed nothing', () => {
     show();
     typeReason('Checked again');

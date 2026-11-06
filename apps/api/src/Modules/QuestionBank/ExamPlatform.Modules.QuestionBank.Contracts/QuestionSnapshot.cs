@@ -1,3 +1,5 @@
+using ExamPlatform.SharedKernel.Domain;
+
 namespace ExamPlatform.Modules.QuestionBank.Contracts;
 
 /// <summary>A question as another module sees it.</summary>
@@ -15,6 +17,10 @@ namespace ExamPlatform.Modules.QuestionBank.Contracts;
 /// Why the correct answer is correct, as plain text, or null when none was written. Only the answer review may show it, and only once the
 /// exam's author has released the results (FR-33); a question shown during the exam never carries it to the candidate.
 /// </param>
+/// <param name="MatchRule">
+/// For a text question, how strictly a typed answer is compared with <paramref name="AcceptedAnswers"/>, as it was in the version read. Marking
+/// must use it, so that an answer is judged the way the author set the question and a result never changes because the rule did.
+/// </param>
 public sealed record QuestionSnapshot(
     Guid Id,
     string Text,
@@ -26,7 +32,8 @@ public sealed record QuestionSnapshot(
     string? UnusableReason = null,
     bool IsTextAnswer = false,
     IReadOnlyList<string>? AcceptedAnswers = null,
-    string? Explanation = null);
+    string? Explanation = null,
+    TextMatchRule MatchRule = TextMatchRule.Exact);
 
 /// <summary>One question, and which version of it to read.</summary>
 /// <param name="QuestionId">The question's id.</param>

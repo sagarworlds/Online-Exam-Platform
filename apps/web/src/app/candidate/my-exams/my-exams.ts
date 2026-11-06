@@ -33,6 +33,9 @@ const WINDOW_FORMAT = 'MMM d, y, h:mm a';
  * The exams are grouped by what the candidate can do with them: the ones they can take now come first, then the ones still to open, and
  * the ones already attempted or closed come last under a heading that can be folded away. The attempted exams are at the bottom so that
  * showing or hiding them never moves the new exams, and a new exam is never found by scrolling past old results.
+ *
+ * Each exam is a card the candidate can fold: only the first one on the page starts open, so a candidate with several exams sees the one
+ * to do next in full and the rest as a name, a state and one line, and opens whichever they want.
  */
 @Component({
   selector: 'app-my-exams',
@@ -86,6 +89,16 @@ export class MyExams {
     return choice ?? (available.length === 0 && upcoming.length === 0);
   });
 
+  /**
+   * The exam whose card is open until the candidate chooses otherwise: the first one on the page, which is the exam to do next, or
+   * the most recent one when there is nothing to do. Worked out once, when the list is first read, so reading it again (after a request
+   * for another attempt, say) can never fold a card the candidate is looking at because the order moved.
+   */
+  private readonly openByDefault = signal<string | null>(null);
+
+  /** The cards the candidate has opened or folded themselves, by exam id; a card with no entry follows the default. */
+  private readonly cardChoices = signal<ReadonlyMap<string, boolean>>(new Map());
+
   /** The exam whose "ask for another attempt" form is open; one at a time. */
   protected readonly requestingFor = signal<string | null>(null);
   protected readonly requestMessage = signal('');
@@ -106,6 +119,9 @@ export class MyExams {
     this.api.listMyExams().subscribe({
       next: (exams) => {
         this.exams.set(exams);
+        if (this.openByDefault() === null) {
+          this.openByDefault.set(this.firstExamId(exams));
+        }
         this.loading.set(false);
       },
       error: (error: unknown) => {
@@ -155,6 +171,40 @@ export class MyExams {
       parts.push(this.i18n.plural('time.minutes', minutes));
     }
     return parts.join(' ');
+  }
+
+  /** The id of the exam shown first on the page, whichever section it is in; null when there are none. */
+  private firstExamId(exams: readonly MyExamDto[]): string | null {
+    const { available, upcoming, attempted } = groupExams(exams);
+    return (available[0] ?? upcoming[0] ?? attempted[0])?.examId ?? null;
+  }
+
+  /** Whether an exam's card is open: as the candidate left it, or, if they have not touched it, only the first exam's. */
+  protected isOpen(exam: MyExamDto): boolean {
+    return this.cardChoices().get(exam.examId) ?? exam.examId === this.openByDefault();
+  }
+
+  /** Opens an exam's card, or folds it. Each card is its own: opening one leaves the others as they are. */
+  protected toggleCard(exam: MyExamDto): void {
+    const choices = new Map(this.cardChoices());
+    choices.set(exam.examId, !this.isOpen(exam));
+    this.cardChoices.set(choices);
+  }
+
+  /**
+   * The one line a folded card still says, so closing it does not hide what matters: that the candidate has an attempt in progress, how
+   * long they have, or, for an exam that is over, what they scored. Null when there is nothing to add.
+   */
+  protected cardSummary(exam: MyExamDto): string | null {
+    if (this.resumableAttemptId(exam) !== null) {
+      return this.i18n.t('myExams.inProgress');
+    }
+    const countdown = this.countdown(exam);
+    if (countdown !== null) {
+      return countdown;
+    }
+    const scored = [...exam.attempts].reverse().find((attempt) => attempt.status === 'Submitted' && attempt.score !== null);
+    return scored ? `${this.i18n.t('myExams.yourScore')} ${scored.score} / ${scored.maxScore}` : null;
   }
 
   /** Shows or hides the attempted exams, and remembers the choice for the next visit. */

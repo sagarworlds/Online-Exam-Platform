@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
+using ExamPlatform.Modules.ExamRuntime.Application.Grading;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.Modules.Notifications.Contracts;
@@ -22,7 +23,8 @@ public sealed class AttemptRescorer(
     IRequestContext requestContext,
     Clock clock,
     IInAppNotifier inAppNotifier,
-    IProctorPolicy proctorPolicy)
+    IProctorPolicy proctorPolicy,
+    ITextAnswerEvaluator? evaluator = null)
     : IAttemptRescorer
 {
     /// <inheritdoc />
@@ -35,6 +37,7 @@ public sealed class AttemptRescorer(
         var nowUtc = clock.UtcNow;
         var changed = 0;
         var repinned = false;
+        var queued = false;
 
         // Grouped by exam, so an exam with many affected attempts reads its questions from the bank once, not once per attempt.
         foreach (var group in affected.GroupBy(a => a.ExamId))
@@ -58,6 +61,23 @@ public sealed class AttemptRescorer(
                 }
                 var questionIds = examForAttempt.Sections.SelectMany(s => s.QuestionIds).ToList();
                 var questions = await questionBank.ReadAsync(attempt, questionIds, cancellationToken);
+
+                // A typed answer the evaluator judged, or would judge, is judged against the key, and the key has just changed: ask again.
+                // The attempt keeps its score (or, still in grading, waits for it) until the new verdict is in, and then the worker revises it.
+                if (evaluator is { IsEnabled: true } && TypedAnswerChecks.QuestionsToCheck(attempt, questions).Contains(questionId))
+                {
+                    if (attempt.Status == AttemptStatus.Grading)
+                        attempt.RestartEvaluation(questionId, nowUtc);
+                    else
+                        attempt.RequestReevaluation([questionId], reason, nowUtc);
+                    queued = true;
+                    continue;
+                }
+
+                // Still being graded: it has no score to revise, and is scored under the corrected key (it was moved to it above) when it is done.
+                if (attempt.Status == AttemptStatus.Grading)
+                    continue;
+
                 var result = AttemptScorer.Score(examForAttempt, questions, attempt.Answers.ToList());
                 if (attempt.ReviseScore(result.Score, result.MaxScore, reason, nowUtc))
                     changed++;
@@ -73,9 +93,9 @@ public sealed class AttemptRescorer(
             accepted.Add(dispute);
         }
 
-        // Saved when a score moved, when an attempt was only moved to the corrected version (which is part of what it shows), or when a
-        // dispute was settled.
-        if (changed > 0 || repinned || accepted.Count > 0)
+        // Saved when a score moved, when an attempt was only moved to the corrected version (which is part of what it shows), when typed answers
+        // were queued to be judged again, or when a dispute was settled.
+        if (changed > 0 || repinned || queued || accepted.Count > 0)
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
         // After the save, so the feed never announces an acceptance that was not stored. A failure to write the feed is logged by the

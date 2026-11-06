@@ -11,6 +11,7 @@ import { ConfirmRemove } from '../confirm-remove/confirm-remove';
 import { DrawQuestionsRequest, DrawRuleDto, ExamQuestionDto, ExamScopeDto, ExamSectionDto, MAX_DRAW_COUNT } from '../exam.models';
 import { QuestionPicker } from '../question-picker/question-picker';
 import { MoveDirection } from '../reorder';
+import { MathTextDirective } from '../../shared/rich-text/math-text.directive';
 
 /**
  * One section of an exam in the editor (FR-11): its name, its questions in order, and, while the exam is a draft, what the
@@ -19,7 +20,7 @@ import { MoveDirection } from '../reorder';
  */
 @Component({
   selector: 'app-exam-section-card',
-  imports: [ConfirmRemove, Disclosure, Icon, PlainTextPipe, QuestionPicker, Tooltip, TranslatePipe],
+  imports: [ConfirmRemove, Disclosure, Icon, PlainTextPipe, QuestionPicker, Tooltip, TranslatePipe, MathTextDirective],
   templateUrl: './exam-section-card.html',
   styleUrl: './exam-section-card.css',
 })
@@ -58,6 +59,8 @@ export class ExamSectionCard {
   readonly removeConfirmed = output<string>();
   /** The author chose a question from the bank to add; `questionId` is its id there. */
   readonly addRequested = output<{ sectionId: string; questionId: string }>();
+  /** The author chose several questions from the bank to add at once; `questionIds` are their ids there, in the order they are listed. */
+  readonly addManyRequested = output<{ sectionId: string; questionIds: readonly string[] }>();
   /** The author asked to move this section a place up or down among the exam's sections. */
   readonly moveSectionRequested = output<{ sectionId: string; direction: MoveDirection }>();
   /** The author asked to move a question a place up or down in this section; `questionId` is its id in the question bank. */

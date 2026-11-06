@@ -151,7 +151,9 @@
 /* The API dot sits at the foot of the page, in the flow, so it never covers a form, a button or a question. */
 .health-widget {
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 0.25rem;
   padding: 0 1rem 1rem;
   font-size: 0.8rem;
 }
@@ -165,7 +167,10 @@
   padding: 0.35rem;
   border-radius: 50%;
   background-clip: content-box;
-  cursor: help;
+}
+
+.health-text {
+  color: var(--text-muted);
 }
 
 .health-dot--checking {

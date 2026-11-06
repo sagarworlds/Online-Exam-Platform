@@ -65,6 +65,22 @@
       }
     </div>
 
+    <div class="field">
+      <label class="check-row">
+        <input
+          id="register-agree"
+          type="checkbox"
+          formControlName="agree"
+          [attr.aria-invalid]="agreeError() ? 'true' : null"
+          [attr.aria-describedby]="agreeError() ? 'register-agree-error' : null"
+        />
+        <span>{{ 'register.agree' | t }} <a href="/privacy.html" target="_blank" rel="noopener">{{ 'common.privacy' | t }}</a></span>
+      </label>
+      @if (agreeError(); as key) {
+        <p id="register-agree-error" class="field-error">{{ key | t }}</p>
+      }
+    </div>
+
     @if (errorMessage()) {
       <p class="error-message" role="alert">{{ errorMessage() }}</p>
     }

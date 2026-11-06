@@ -10,6 +10,7 @@ import { BookChapterPicker, NO_PLACEMENT, Placement } from '../book-chapter-pick
 import { QUESTION_DIFFICULTIES, QUESTION_LANGUAGES, QuestionDto, OptionStatistics, QuestionStatistics, QuestionStatus } from '../question.models';
 import { QuestionTranslations } from '../question-translations/question-translations';
 import { QuestionReview, STATUS_KEYS } from '../question-review/question-review';
+import { MathTextDirective } from '../../shared/rich-text/math-text.directive';
 
 /**
  * One question in the question bank list (FR-5), as a line: its text (two lines of it), where it is filed, its language, review status and
@@ -21,7 +22,7 @@ import { QuestionReview, STATUS_KEYS } from '../question-review/question-review'
  */
 @Component({
   selector: 'app-question-row',
-  imports: [RouterLink, Icon, BookChapterPicker, MathDirective, QuestionReview, QuestionTranslations, Tooltip, TranslatePipe],
+  imports: [RouterLink, Icon, BookChapterPicker, MathDirective, QuestionReview, QuestionTranslations, Tooltip, TranslatePipe, MathTextDirective],
   templateUrl: './question-row.html',
   styleUrl: './question-row.css',
   host: { role: 'listitem' },

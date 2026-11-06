@@ -1,11 +1,14 @@
 using ExamPlatform.Modules.ExamRuntime.Application;
 using ExamPlatform.Modules.ExamRuntime.Application.Commands;
+using ExamPlatform.Modules.ExamRuntime.Application.Grading;
 using ExamPlatform.Modules.ExamRuntime.Application.Ports;
 using ExamPlatform.Modules.ExamRuntime.Application.Queries;
 using ExamPlatform.Modules.ExamRuntime.Contracts;
 using ExamPlatform.Modules.ExamRuntime.Domain;
+using ExamPlatform.Modules.ExamRuntime.Endpoints.Grading;
 using ExamPlatform.Modules.ExamRuntime.Endpoints.Notifications;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure;
+using ExamPlatform.Modules.ExamRuntime.Infrastructure.AiEvaluation;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure.Email;
 using ExamPlatform.Modules.ExamRuntime.Infrastructure.Repositories;
 using ExamPlatform.Modules.ExamRuntime.Contracts;
@@ -17,6 +20,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ExamPlatform.Modules.ExamRuntime.Application.Retention;
 using ExamPlatform.Modules.ExamRuntime.Endpoints.Retention;
@@ -118,6 +122,9 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<StaffAttemptAccess>();
         services.AddScoped<WarnAttemptHandler>();
         services.AddScoped<RescoreAttemptHandler>();
+        services.AddScoped<RequestAiCheckHandler>();
+        services.AddScoped<RequestAiRecheckHandler>();
+        services.AddScoped<GetAiGradingStatusHandler>();
         services.AddScoped<PauseAttemptHandler>();
         services.AddScoped<ResumeAttemptHandler>();
         services.AddScoped<TerminateAttemptHandler>();
@@ -156,6 +163,65 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<NotificationRun>();
         services.AddSingleton<NotificationRunner>();
         services.AddHostedService<NotificationBackgroundService>();
+
+        // Typed answers that match no accepted answer under the question's matching rule are judged by Google's Gemini service (FR-5), but only when Gemini:ApiKey is
+        // set: with no key the evaluator reports itself off, nothing waits, and typed answers are marked by the accepted answers alone. Bound as
+        // options and validated when the host starts, so a mistyped model or address stops it starting instead of failing the first answer.
+        services.AddOptions<GeminiOptions>()
+            .Bind(configuration.GetSection(GeminiOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<GeminiOptions>, GeminiOptionsValidator>();
+        // The same for any service that speaks the OpenAI chat-completions protocol (Groq by default), judged the same way; with no key it is off.
+        services.AddOptions<OpenAiCompatibleOptions>()
+            .Bind(configuration.GetSection(OpenAiCompatibleOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<OpenAiCompatibleOptions>, OpenAiCompatibleOptionsValidator>();
+
+        // Each provider's own time limit per request is the evaluator's; the client's default of 100 seconds would cut a longer one short. The
+        // clients live as long as the host, so their connections are renewed now and then to follow a change of address.
+        foreach (var client in new[] { nameof(GeminiTextAnswerEvaluator), nameof(OpenAiCompatibleTextAnswerEvaluator) })
+        {
+            services.AddHttpClient(client, http => http.Timeout = Timeout.InfiniteTimeSpan)
+                .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5) });
+        }
+
+        // One chain for the whole host, so that the pacing and the pause of each provider are shared by every worker: the OpenAI-compatible models
+        // first (each model has its own allowance, so each has its own gate), then Gemini. A provider with no key is skipped.
+        services.AddSingleton(sp =>
+        {
+            var clients = sp.GetRequiredService<IHttpClientFactory>();
+            var loggers = sp.GetRequiredService<ILoggerFactory>();
+            var clock = sp.GetRequiredService<Clock>();
+            var providers = new List<IGatedTextAnswerEvaluator>();
+
+            var openAi = sp.GetRequiredService<IOptions<OpenAiCompatibleOptions>>();
+            var openAiLogger = loggers.CreateLogger<OpenAiCompatibleTextAnswerEvaluator>();
+            foreach (var model in openAi.Value.Models)
+            {
+                providers.Add(new OpenAiCompatibleTextAnswerEvaluator(
+                    clients.CreateClient(nameof(OpenAiCompatibleTextAnswerEvaluator)), openAi, model, openAiLogger,
+                    gate: new EvaluatorGate(openAi.Value.ProviderName, model, openAi.Value.RequestsPerMinute, clock, openAiLogger)));
+            }
+
+            var gemini = sp.GetRequiredService<IOptions<GeminiOptions>>();
+            var geminiLogger = loggers.CreateLogger<GeminiTextAnswerEvaluator>();
+            providers.Add(new GeminiTextAnswerEvaluator(
+                clients.CreateClient(nameof(GeminiTextAnswerEvaluator)), gemini, geminiLogger,
+                gate: new EvaluatorGate("Gemini", gemini.Value.ModelId, gemini.Value.RequestsPerMinute, clock, geminiLogger)));
+
+            return new FallbackTextAnswerEvaluator(providers, loggers.CreateLogger<FallbackTextAnswerEvaluator>());
+        });
+        services.AddSingleton<ITextAnswerEvaluator>(sp => sp.GetRequiredService<FallbackTextAnswerEvaluator>());
+        services.AddSingleton<IEvaluatorHealth>(sp => sp.GetRequiredService<FallbackTextAnswerEvaluator>());
+
+        // An attempt with such an answer waits in grading, with no score, until a worker has the verdicts; the host's timer runs the worker.
+        services.AddOptions<AiGradingOptions>()
+            .Bind(configuration.GetSection(AiGradingOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddScoped<TypedAnswerGrading>();
+        services.AddSingleton<TypedAnswerGradingRunner>();
+        services.AddHostedService<TypedAnswerGradingBackgroundService>();
 
         services.AddScoped<ReportIssueHandler>();
         services.AddScoped<ListIssueReportsHandler>();

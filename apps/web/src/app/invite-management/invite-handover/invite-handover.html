@@ -14,7 +14,7 @@
   }
 
   <p class="hint">
-    {{ 'invites.handover.once' | t: { email: email() } }}
+    {{ (directSignIn() ? 'invites.handover.directOnce' : 'invites.handover.once') | t: { email: email() } }}
     @if (expiresAt()) {
       {{ 'invites.handover.expires' | t: { time: (expiresAt() | date: 'medium') ?? '' } }}
     }

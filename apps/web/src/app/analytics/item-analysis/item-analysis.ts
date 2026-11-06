@@ -10,6 +10,7 @@ import { AnalyticsApiService } from '../analytics-api.service';
 import { ExamItemAnalysisDto, ItemRowDto, ScoreBandDto } from '../analytics.models';
 import { ReportFormat, saveDownload } from '../report-download';
 import { ItemSortKey, SortDirection, sortItemRows } from './item-analysis-sort';
+import { MathTextDirective } from '../../shared/rich-text/math-text.directive';
 
 /** What the page shows at any moment: being read, the questions, the results held, nothing to show, or a failed read. */
 export type ItemAnalysisView = 'loading' | 'ready' | 'held' | 'empty' | 'error';
@@ -34,7 +35,7 @@ const SORT_LABEL_KEYS = {
  */
 @Component({
   selector: 'app-item-analysis',
-  imports: [RouterLink, RefreshButton, TranslatePipe],
+  imports: [RouterLink, RefreshButton, TranslatePipe, MathTextDirective],
   templateUrl: './item-analysis.html',
   styleUrl: './item-analysis.css',
 })

@@ -32,8 +32,9 @@ public interface IInviteRepository
     Task<IReadOnlyList<InviteAggregate>> ListNewestAsync(int take, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Loads every invite sent to an e-mail address, in any status, tracked so changes to them are saved. Addresses are compared without
-    /// regard to case. An invite that has been deleted is not included.
+    /// Loads every invite sent to an e-mail address, in any status, tracked so changes to them are saved, with their codes loaded so the
+    /// caller can act on them (a changed address revokes the links sent to the old one). Addresses are compared without regard to case.
+    /// An invite that has been deleted is not included.
     /// </summary>
     /// <param name="email">The address, already trimmed.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

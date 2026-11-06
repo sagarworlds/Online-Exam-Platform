@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ExamPlatform.Modules.QuestionBank.Domain;
 using ExamPlatform.Modules.QuestionBank.Infrastructure.Encryption;
+using ExamPlatform.SharedKernel.Domain;
 using ExamPlatform.SharedKernel.Infrastructure;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -69,6 +70,8 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
             b.Property(q => q.AcceptedAnswers)
                 .HasConversion(ContentConverters.Strings(cipher), ContentConverters.StringsComparer())
                 .HasColumnType("text");
+            // How strictly a typed answer is compared. Stored by name; every question that existed before the choice is Exact, so it marks as it did.
+            b.Property(q => q.MatchRule).HasConversion<string>().HasMaxLength(10).HasDefaultValue(TextMatchRule.Exact);
             b.Ignore(q => q.DomainEvents);
             b.HasIndex(q => q.CreatedAtUtc);
             b.HasIndex(q => q.ChapterId);
@@ -146,6 +149,7 @@ public sealed class QuestionBankDbContext(DbContextOptions<QuestionBankDbContext
             b.Property(v => v.AcceptedAnswers)
                 .HasConversion(ContentConverters.Strings(cipher), ContentConverters.StringsComparer())
                 .HasColumnType("text");
+            b.Property(v => v.MatchRule).HasConversion<string>().HasMaxLength(10).HasDefaultValue(TextMatchRule.Exact);
             // A question's versions are always listed in order, and never looked up any other way.
             b.HasIndex(v => new { v.QuestionId, v.VersionNumber }).IsUnique();
         });

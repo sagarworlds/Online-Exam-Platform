@@ -1,3 +1,5 @@
+using ExamPlatform.SharedKernel.Domain;
+
 namespace ExamPlatform.Modules.QuestionBank.Application.Dtos;
 
 /// <summary>A question as the authoring side sees it, answer key included.</summary>
@@ -21,6 +23,7 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Dtos;
 /// <param name="ClassName">That class's name, or null.</param>
 /// <param name="IsTextAnswer">Whether the candidate types the answer instead of choosing an option (a text question).</param>
 /// <param name="AcceptedAnswers">The answers a typed answer may be, for a text question; empty for a multiple-choice one.</param>
+/// <param name="MatchRule">For a text question, how strictly a typed answer is compared with the accepted answers: "Exact" or "Lenient".</param>
 /// <param name="Explanation">Why the correct answer is correct, as plain text, or null when none was written. Staff see it here; a candidate sees it only in the review, once released (FR-33).</param>
 public sealed record QuestionDto(
     Guid Id,
@@ -43,7 +46,8 @@ public sealed record QuestionDto(
     string? ClassName = null,
     bool IsTextAnswer = false,
     IReadOnlyList<string>? AcceptedAnswers = null,
-    string? Explanation = null);
+    string? Explanation = null,
+    TextMatchRule MatchRule = TextMatchRule.Exact);
 
 /// <summary>One option of a <see cref="QuestionDto"/>.</summary>
 /// <param name="Id">The option's id.</param>

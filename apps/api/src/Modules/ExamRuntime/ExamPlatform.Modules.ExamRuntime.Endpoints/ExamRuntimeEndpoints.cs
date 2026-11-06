@@ -336,6 +336,36 @@ public static class ExamRuntimeEndpoints
             .WithName("RescoreAttempt")
             .WithDescription("Score a submitted attempt again from the answers stored; a change in the score is kept as a revision with the reason");
 
+        exams.MapPost("/{examId:guid}/attempts/{attemptId:guid}/questions/{questionId:guid}/ai-check", RequestAiCheck)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AttemptSummaryDto>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("RequestAiCheck")
+            .WithDescription("Have a candidate's typed answer checked by the AI evaluator; the check is queued, and the score is revised when the verdict is in");
+
+        exams.MapPost("/{examId:guid}/attempts/{attemptId:guid}/ai-recheck", RequestAiRecheckForAttempt)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AiRecheckResultDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("RequestAiRecheckForAttempt")
+            .WithDescription("Have every typed answer of one attempt that has no AI verdict checked by the AI evaluator; the checks are queued, and the score is revised when the verdicts are in");
+
+        exams.MapPost("/{examId:guid}/ai-recheck", RequestAiRecheckForExam)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AiRecheckResultDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status409Conflict)
+            .WithName("RequestAiRecheckForExam")
+            .WithDescription("Have every typed answer at an exam that has no AI verdict checked by the AI evaluator; the checks are queued, and scores are revised when the verdicts are in");
+
         exams.MapPost("/{examId:guid}/attempts/{attemptId:guid}/warn", WarnAttempt)
             .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
             .Produces<AttemptSummaryDto>()
@@ -524,7 +554,20 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status409Conflict)
             .WithName("DeclineAttemptRequest")
             .WithDescription("Turn a request down, optionally saying why");
+
+        var aiGrading = endpoints.MapGroup("/v1/ai-grading").WithTags("ExamRuntime").RequireAuthorization();
+
+        aiGrading.MapGet("/status", GetAiGradingStatus)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<AiGradingStatusDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .WithName("GetAiGradingStatus")
+            .WithDescription("Where judging typed answers with an AI provider stands: each provider's state, pause and last error, and how many answers wait");
     }
+
+    private static async Task<IResult> GetAiGradingStatus(GetAiGradingStatusHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(ct));
 
     private static async Task<IResult> RequestAttempt(
         Guid examId, RequestAttemptRequest? request, ClaimsPrincipal user, RequestAttemptHandler handler, CancellationToken ct)
@@ -613,6 +656,17 @@ public static class ExamRuntimeEndpoints
     private static async Task<IResult> RescoreAttempt(
         Guid examId, Guid attemptId, RescoreAttemptRequest? request, RescoreAttemptHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(examId, attemptId, request?.Reason, ct));
+
+    private static async Task<IResult> RequestAiCheck(
+        Guid examId, Guid attemptId, Guid questionId, RequestAiCheckHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, attemptId, questionId, ct));
+
+    private static async Task<IResult> RequestAiRecheckForAttempt(
+        Guid examId, Guid attemptId, RequestAiRecheckHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleForAttemptAsync(examId, attemptId, ct));
+
+    private static async Task<IResult> RequestAiRecheckForExam(Guid examId, RequestAiRecheckHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleForExamAsync(examId, ct));
 
     private static async Task<IResult> WarnAttempt(
         Guid examId, Guid attemptId, WarnAttemptRequest? request, ClaimsPrincipal user, WarnAttemptHandler handler, CancellationToken ct) =>

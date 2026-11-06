@@ -3,6 +3,7 @@ using ExamPlatform.Modules.QuestionBank.Application.Ports;
 using ExamPlatform.Modules.QuestionBank.Domain;
 using ExamPlatform.Modules.QuestionBank.Domain.Exceptions;
 using ExamPlatform.SharedKernel.Application;
+using ExamPlatform.SharedKernel.Domain;
 
 namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 
@@ -15,10 +16,12 @@ namespace ExamPlatform.Modules.QuestionBank.Application.Commands;
 /// <param name="AllowsMultiple">Whether more than one option may be correct after the edit; like the answer key it cannot change once candidates have answered.</param>
 /// <param name="IsTextAnswer">Whether the question is a text question after the edit; like the answer key it cannot change once candidates have answered.</param>
 /// <param name="AcceptedAnswers">The accepted answers after the edit, for a text question; null or empty for a multiple-choice one.</param>
+/// <param name="MatchRule">How strictly a typed answer is compared after the edit; null keeps the question's current rule. Like the accepted answers it cannot change once candidates have answered.</param>
 public sealed record EditQuestionCommand(
     Guid QuestionId, string? Text, IReadOnlyList<QuestionOptionEdit>? Options,
     string? Difficulty = null, IReadOnlyList<string?>? Topics = null, bool AllowsMultiple = false,
-    bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null, string? Explanation = null);
+    bool IsTextAnswer = false, IReadOnlyList<string?>? AcceptedAnswers = null, string? Explanation = null,
+    TextMatchRule? MatchRule = null);
 
 /// <summary>Handles <see cref="EditQuestionCommand"/>.</summary>
 public sealed class EditQuestionHandler(
@@ -46,7 +49,7 @@ public sealed class EditQuestionHandler(
         var usage = await usageReader.ReadOneAsync(question.Id, cancellationToken);
         question.Revise(
             cleaned.Html, command.Options, usage.Answered, command.AllowsMultiple, clock.UtcNow, command.IsTextAnswer, command.AcceptedAnswers,
-            command.Explanation);
+            command.Explanation, command.MatchRule);
         question.IndexText(cleaned.PlainText);
         // Labels never reach a candidate, so they are not covered by the lock Revise applies to an answered question.
         question.Classify(QuestionDifficultyText.Parse(command.Difficulty), command.Topics);

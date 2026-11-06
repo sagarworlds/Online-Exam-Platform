@@ -7,6 +7,8 @@ import {
   ChangeInviteEmailRequest,
   ChangeInviteEmailResult,
   CreateInviteRequest,
+  DirectSignInRequest,
+  DirectSignInResult,
   GenerateInviteCodeRequest,
   InviteCodeDto,
   InviteDto,
@@ -28,9 +30,19 @@ export class InviteApiService {
     return this.http.get<InviteDto[]>(this.apiUrl);
   }
 
-  generateCode(inviteId: string, expiryHours?: number): Observable<InviteCodeDto> {
-    const request: GenerateInviteCodeRequest = { expiryHours };
+  /** Makes another single-use code; with `directSignIn` its link signs the invited person in, which needs the `invite.direct-link` permission. */
+  generateCode(inviteId: string, expiryHours?: number, directSignIn = false): Observable<InviteCodeDto> {
+    const request: GenerateInviteCodeRequest = directSignIn ? { expiryHours, directSignIn } : { expiryHours };
     return this.http.post<InviteCodeDto>(`${this.apiUrl}/${inviteId}/codes`, request);
+  }
+
+  /**
+   * Opens a direct sign-in link: no one is signed in yet, so the code is the only proof. The API accepts the invitation, signs the invited
+   * student in and names the exam to open. It works once.
+   */
+  directSignIn(code: string): Observable<DirectSignInResult> {
+    const request: DirectSignInRequest = { code };
+    return this.http.post<DirectSignInResult>(`${this.apiUrl}/direct-sign-in`, request);
   }
 
   /** The signed-in candidate redeems the code from their invitation link; the API checks it is their address. */

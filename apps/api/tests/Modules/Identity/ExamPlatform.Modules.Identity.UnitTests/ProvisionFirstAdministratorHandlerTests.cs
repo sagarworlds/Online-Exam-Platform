@@ -24,7 +24,7 @@ public class ProvisionFirstAdministratorHandlerTests
     private readonly IRoleRepository _roles = Substitute.For<IRoleRepository>();
     private readonly IPasswordHasher _hasher = Substitute.For<IPasswordHasher>();
     private readonly IPasswordResetTokenRepository _tokens = Substitute.For<IPasswordResetTokenRepository>();
-    private readonly IOtpSender _sender = Substitute.For<IOtpSender>();
+    private readonly IPasswordResetSender _sender = Substitute.For<IPasswordResetSender>();
     private readonly IAuditLogger _audit = Substitute.For<IAuditLogger>();
     private readonly IIdentityUnitOfWork _unitOfWork = Substitute.For<IIdentityUnitOfWork>();
     private readonly List<string> _hashedPasswords = [];
@@ -98,7 +98,7 @@ public class ProvisionFirstAdministratorHandlerTests
 
         await _tokens.Received(1).AddAsync(
             Arg.Is<PasswordResetToken>(t => t.UserId == _added!.Id && t.IsUsable(Now)), Arg.Any<CancellationToken>());
-        await _sender.Received(1).SendAsync(OtpChannel.Email, Email, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _sender.Received(1).SendAsync(Email, Arg.Any<string>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public class ProvisionFirstAdministratorHandlerTests
         var steps = new List<string>();
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(_ => { steps.Add("save"); return Task.FromResult(1); });
         _audit.RecordAsync(Arg.Any<AuditEntry>(), Arg.Any<CancellationToken>()).Returns(_ => { steps.Add("audit"); return Task.CompletedTask; });
-        _sender.SendAsync(Arg.Any<OtpChannel>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _sender.SendAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
             .Returns(_ => { steps.Add("mail"); return Task.CompletedTask; });
 
         await ProvisionAsync();
