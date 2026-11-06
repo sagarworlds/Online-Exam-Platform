@@ -1,6 +1,10 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Observable, Subscription } from 'rxjs';
+import { Observable, Subscription, catchError, distinctUntilChanged, filter, map, of, switchMap, tap, timer } from 'rxjs';
+import { Permission } from '../../auth/admin-sections';
+import { AuthSessionService } from '../../auth/auth-session.service';
+import { InviteToExam } from '../../invite-management/invite-to-exam/invite-to-exam';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 import { AttemptAdminApiService } from '../attempt-admin-api.service';
@@ -26,12 +30,19 @@ import { TranslatePipe } from '../../i18n/translate.pipe';
 import { AnswerVerdict } from '../../candidate/candidate.models';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 import { MathTextDirective } from '../../shared/rich-text/math-text.directive';
+import { matchesSearch, phoneSearchOf } from './candidate-search';
 
 /** The longest reason the API accepts. */
 const MAX_REASON_LENGTH = 500;
 
 /** How many candidates are drawn before "Load more". */
 const PAGE_SIZE = 20;
+
+/** How long after the last key press a phone number is looked up, so a number being typed is asked about once and not at every digit. */
+const PHONE_SEARCH_DELAY_MS = 300;
+
+/** No candidates: what a search by phone number has found until the API has answered. */
+const NO_CANDIDATES: ReadonlySet<string> = new Set();
 
 /** How often an open paper is read again while a typed answer waits for the AI evaluator, so its verdict shows as soon as it is in. */
 const AI_CHECK_POLL_MS = 4000;
@@ -77,7 +88,7 @@ const ACTIONS: Record<ActionKind, { label: string; hint: string; button: string;
  */
 @Component({
   selector: 'app-exam-attempts',
-  imports: [RouterLink, LocaleDatePipe, MathDirective, CandidateAccommodation, ListToolbar, LoadMore, RefreshButton, RowActions, TranslatePipe, MathTextDirective],
+  imports: [RouterLink, LocaleDatePipe, MathDirective, CandidateAccommodation, InviteToExam, ListToolbar, LoadMore, RefreshButton, RowActions, TranslatePipe, MathTextDirective],
   templateUrl: './exam-attempts.html',
 })
 export class ExamAttempts {
@@ -88,18 +99,43 @@ export class ExamAttempts {
   private readonly i18n = inject(I18nService);
   private readonly confirm = inject(ConfirmService);
 
+  /** Whether the staff member may invite candidates, which decides only whether the invite button is offered; the API checks it on every request. */
+  protected readonly canInvite = inject(AuthSessionService).hasPermission(Permission.InviteManage);
+
+  /** Whether the invite popup is open. */
+  protected readonly inviting = signal(false);
+
   protected readonly data = signal<ExamAttemptsDto | null>(null);
 
-  /** The search (by email address) and the state filter, kept in the address (`?q=&state=`) so a filtered list can be shared. */
+  /** The search (by email address or phone number) and the state filter, kept in the address (`?q=&state=`) so a filtered list can be shared. */
   protected readonly search = signal('');
   protected readonly state = signal<CandidateState | ''>('');
   protected readonly states: readonly CandidateState[] = ['notStarted', 'inProgress', 'submitted'];
   private readonly pages = signal(1);
 
+  /**
+   * What the API found for a search by phone number, with the search it was for. The page never holds the numbers: it is told which candidates
+   * hold one that matches, and an answer for an older search is not used for the current one.
+   */
+  private readonly phoneFound = signal<{ readonly search: string; readonly ids: ReadonlySet<string> } | null>(null);
+  private readonly phoneSearch = computed(() => phoneSearchOf(this.search()));
+  private readonly phoneMatches = computed(() => {
+    const found = this.phoneFound();
+    return found !== null && found.search === this.phoneSearch() ? found.ids : NO_CANDIDATES;
+  });
+
+  /** Whether a phone number is being looked up, so the list does not say nobody matches before the answer is in. */
+  protected readonly phoneSearching = signal(false);
+  protected readonly phoneSearchError = signal<string | null>(null);
+
+  /** How many times the candidates have been read: a search by phone number is asked again after a read, so it covers who has joined since. */
+  private readonly reads = signal(0);
+
   protected readonly matchingCandidates = computed(() => {
-    const text = this.search().trim().toLowerCase();
+    const text = this.search();
     const state = this.state();
-    return (this.data()?.candidates ?? []).filter((candidate) => (state === '' || stateOf(candidate) === state) && (text === '' || candidate.email.toLowerCase().includes(text)));
+    const phoneMatches = this.phoneMatches();
+    return (this.data()?.candidates ?? []).filter((candidate) => (state === '' || stateOf(candidate) === state) && matchesSearch(candidate, text, phoneMatches));
   });
   protected readonly shownCandidates = computed(() => this.matchingCandidates().slice(0, this.pages() * PAGE_SIZE));
   protected readonly chips = computed<ListChip[]>(() =>
@@ -225,8 +261,46 @@ export class ExamAttempts {
     syncQueryParam('q', this.search);
     syncQueryParam('state', this.state, { allowed: this.states });
     inject(DestroyRef).onDestroy(() => this.stopWatchingPaper());
+    this.watchPhoneSearch();
     this.read();
     this.readAiStatus();
+  }
+
+  /**
+   * Looks up a search that reads as a phone number: after a pause in typing, and again after each read of the candidates. The page matches
+   * email addresses itself, and for a number it asks the API, which holds the numbers and answers with candidate ids only. A newer search
+   * replaces one still on its way, so a slow answer to an old number can never overwrite the answer to the current one. A failed lookup says so
+   * and leaves the email search working.
+   */
+  private watchPhoneSearch(): void {
+    toObservable(computed(() => ({ search: this.phoneSearch(), reads: this.reads() })))
+      .pipe(
+        // Nothing to look through before the first read, and the first read counts as one: a number from the address is not asked about twice.
+        filter(({ reads }) => reads > 0),
+        distinctUntilChanged((a, b) => a.search === b.search && a.reads === b.reads),
+        switchMap(({ search }) => {
+          this.phoneSearchError.set(null);
+          this.phoneSearching.set(search !== null);
+          if (search === null) {
+            return of(null);
+          }
+
+          return timer(PHONE_SEARCH_DELAY_MS).pipe(
+            switchMap(() => this.api.searchCandidatesByPhone(this.examId, search)),
+            map((result) => ({ search, ids: new Set(result.candidateIds) as ReadonlySet<string> })),
+            catchError((error: unknown) => {
+              this.phoneSearchError.set(extractErrorMessage(error, this.i18n.t('attempts.phoneSearchFailed')));
+              return of(null);
+            }),
+          );
+        }),
+        tap((found) => {
+          this.phoneFound.set(found);
+          this.phoneSearching.set(false);
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe();
   }
 
   /**
@@ -260,6 +334,7 @@ export class ExamAttempts {
       next: (data) => {
         this.reading = null;
         this.data.set(data);
+        this.reads.update((reads) => reads + 1);
         this.loading.set(false);
         this.refreshing.set(false);
         const paperFor = this.paperFor();

@@ -138,6 +138,7 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddScoped<SetAccommodationHandler>();
         services.AddScoped<RemoveAccommodationHandler>();
         services.AddScoped<ListExamAttemptsHandler>();
+        services.AddScoped<SearchExamCandidatesByPhoneHandler>();
         services.AddScoped<GetAttemptPaperHandler>();
         services.AddScoped<RequestAttemptHandler>();
         services.AddScoped<ListAttemptRequestsHandler>();

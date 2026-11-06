@@ -37,6 +37,10 @@ public sealed record RecordQuestionTimeRequest(int Seconds);
 /// <param name="Reason">Why the candidate is being given another attempt; optional, at most 500 characters.</param>
 public sealed record GrantExtraAttemptRequest(string? Reason);
 
+/// <summary>Body of <c>POST /v1/exams/{examId}/candidates/phone-search</c>.</summary>
+/// <param name="Phone">Part of a phone number as staff typed it; spaces, dashes, brackets, a trunk 0 and a country code do not matter. At least three digits.</param>
+public sealed record SearchCandidatesByPhoneRequest(string? Phone);
+
 /// <summary>Body of <c>PUT /v1/exams/{examId}/candidates/{candidateId}/accommodation</c> (FR-49): the whole accommodation, not a patch.</summary>
 /// <param name="ExtraTimeMinutes">Minutes added to the candidate's deadline, 0 to 720; omitted means none.</param>
 /// <param name="ReaderScribe">Whether the candidate may use a reader or scribe; omitted means no.</param>
@@ -304,6 +308,17 @@ public static class ExamRuntimeEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .WithName("ListExamAttempts")
             .WithDescription("List an exam's enrolled candidates with their attempts and whether another can be granted");
+
+        // A POST so the number being looked for is in the body and not in a URL, where a log or a browser history would keep it. It reads and
+        // changes nothing. The answer is candidate ids only.
+        exams.MapPost("/{examId:guid}/candidates/phone-search", SearchExamCandidatesByPhone)
+            .RequireAuthorization(ExamRuntimePermissions.ManageAttempts)
+            .Produces<ExamCandidateMatchesDto>()
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .WithName("SearchExamCandidatesByPhone")
+            .WithDescription("Find which of an exam's enrolled candidates hold a phone number that matches what was typed; answers with candidate ids, never numbers");
 
         // What an administrator can do to an attempt in progress or just finished (FR-29). Each route names the exam as well as the
         // attempt, so an attempt of another exam is a 404, and each is audited by the events the attempt raises.
@@ -700,6 +715,10 @@ public static class ExamRuntimeEndpoints
 
     private static async Task<IResult> ListExamAttempts(Guid examId, ListExamAttemptsHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(examId, ct));
+
+    private static async Task<IResult> SearchExamCandidatesByPhone(
+        Guid examId, SearchCandidatesByPhoneRequest request, SearchExamCandidatesByPhoneHandler handler, CancellationToken ct) =>
+        Results.Ok(await handler.HandleAsync(examId, request.Phone, ct));
 
     private static async Task<IResult> GrantExtraAttempt(
         Guid examId, Guid candidateId, GrantExtraAttemptRequest? request, ClaimsPrincipal user, GrantExtraAttemptHandler handler, CancellationToken ct)

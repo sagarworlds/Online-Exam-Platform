@@ -58,6 +58,12 @@ public interface IUserRepository
     /// <returns>The date of birth of each user found; an id that matches no user is left out.</returns>
     Task<IReadOnlyDictionary<Guid, DateOnly>> ListDatesOfBirthAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
 
+    /// <summary>Reads the phone numbers of the given users, as they were entered, without loading their roles or sessions.</summary>
+    /// <param name="userIds">The users.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The phone number of each user who has one; an id that matches no user, or a user with no number, is left out.</returns>
+    Task<IReadOnlyDictionary<Guid, string>> ListPhoneNumbersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
+
     /// <summary>Lists the student accounts (see <see cref="User.IsStudent"/>), without tracking, for staff to browse.</summary>
     /// <param name="search">Part of the name, e-mail address or phone number to look for, without regard to case; null or blank lists everyone.</param>
     /// <param name="take">How many to return at most.</param>
