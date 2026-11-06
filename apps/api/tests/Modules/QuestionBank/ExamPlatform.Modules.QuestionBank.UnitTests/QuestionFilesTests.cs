@@ -85,6 +85,65 @@ public class QuestionFilesTests
         Assert.Equal(new[] { "Paris", "City of Paris" }, question.AcceptedAnswers);
     }
 
+    [Theory]
+    [InlineData(QuestionFileFormat.Csv)]
+    [InlineData(QuestionFileFormat.Json)]
+    [InlineData(QuestionFileFormat.Xlsx)]
+    public async Task AQuestionWithAnExplanation_ExportsAndImportsBackWithIt(QuestionFileFormat format)
+    {
+        const string explanation = "Add the ones first: 9 + 5 = 14, write 4 and carry 1.\nThen the tens: 9 + 8 + 1 = 18.";
+        var explained = Question.Create("<p>Capital of France?</p>", [new NewQuestionOption("Paris", true), new NewQuestionOption("Rome", false)],
+            Author, Now, explanation: explanation);
+        var file = QuestionFiles.Write(format, [explained, Sample()]);
+        var content = format == QuestionFileFormat.Xlsx ? Convert.ToBase64String(file.Bytes) : Encoding.UTF8.GetString(file.Bytes);
+        var (handler, added) = Importer();
+
+        var result = await handler.HandleAsync(new ImportQuestionsCommand(content, Author, format, AllowDuplicates: true), CancellationToken.None);
+
+        Assert.Empty(result.Rejected);
+        Assert.Equal(2, added.Count);
+        Assert.Equal(explanation, added[0].Explanation);
+        Assert.Null(added[1].Explanation);
+    }
+
+    [Fact]
+    public async Task AFileFromBeforeExplanations_StillImports_WithNoExplanation()
+    {
+        var typed = Question.Create("<p>Capital of France?</p>", null, Author, Now, isTextAnswer: true, acceptedAnswers: ["Paris"]);
+        var current = Csv.Parse(Encoding.UTF8.GetString(QuestionFiles.Write(QuestionFileFormat.Csv, [typed]).Bytes));
+        Assert.Equal(19, current[0].Count);
+        var file = string.Concat(current.Select(row => Csv.WriteRow(row.Take(18))));
+        var (handler, added) = Importer();
+
+        var result = await handler.HandleAsync(new ImportQuestionsCommand(file, Author), CancellationToken.None);
+
+        Assert.Empty(result.Rejected);
+        var question = Assert.Single(added);
+        Assert.True(question.IsTextAnswer);
+        Assert.Equal(["Paris"], question.AcceptedAnswers);
+        Assert.Null(question.Explanation);
+    }
+
+    [Fact]
+    public async Task AnExplanationLongerThanTheLimit_RejectsOnlyItsRow()
+    {
+        var tooLong = new string('x', Question.MaxExplanationLength + 1);
+        var json = $$"""
+            [
+              {"text":"Good one","options":[{"text":"A","isCorrect":true},{"text":"B"}],"explanation":"Because A."},
+              {"text":"Too wordy","options":[{"text":"A","isCorrect":true},{"text":"B"}],"explanation":"{{tooLong}}"}
+            ]
+            """;
+        var (handler, added) = Importer();
+
+        var result = await handler.HandleAsync(new ImportQuestionsCommand(json, Author, QuestionFileFormat.Json), CancellationToken.None);
+
+        Assert.Equal([1], result.Created.Select(c => c.Row));
+        Assert.Equal([2], result.Rejected.Select(r => r.Row));
+        Assert.Contains("explanation", result.Rejected[0].Errors[0]);
+        Assert.Equal("Because A.", Assert.Single(added).Explanation);
+    }
+
     [Fact]
     public void Write_ReportsTheContentTypeAndFileNameOfEachFormat()
     {

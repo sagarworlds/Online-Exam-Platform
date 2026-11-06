@@ -50,7 +50,7 @@ public sealed class ImportQuestionsHandler(
                 if (fields is null)
                     throw new InvalidQuestionError(error ?? "The row could not be read.");
 
-                var (text, options, allowsMultiple, difficulty, topics, isTextAnswer, acceptedAnswers) = QuestionCsvRow.Parse(fields);
+                var (text, options, allowsMultiple, difficulty, topics, isTextAnswer, acceptedAnswers, explanation) = QuestionCsvRow.Parse(fields);
                 var cleaned = QuestionText.Clean(sanitizer, text);
 
                 // A text question is a repeat of another when its accepted answers are, so those stand in for its options here.
@@ -67,7 +67,7 @@ public sealed class ImportQuestionsHandler(
                 var question = Question.Create(
                     cleaned.Html, options, command.CreatedBy, clock.UtcNow,
                     chapterId: null, QuestionDifficultyText.Parse(difficulty), topics, allowsMultiple,
-                    isTextAnswer: isTextAnswer, acceptedAnswers: acceptedAnswers);
+                    isTextAnswer: isTextAnswer, acceptedAnswers: acceptedAnswers, explanation: explanation);
                 question.IndexText(cleaned.PlainText);
 
                 repository.Add(question);
