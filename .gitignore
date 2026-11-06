@@ -23,3 +23,21 @@ npm-debug.log*
 # Env
 .env
 .env.local
+docs/question-banks/class-4-maths-questions-with-explanations.csv
+docs/question-banks/class-4-maths-questions.csv
+docs/question-banks/imo-class-4/imo-class-4-2025-paper-with-explanations.csv
+docs/question-banks/imo-class-4/imo-class-4-2025-paper.csv
+docs/question-banks/imo-class-4/imo-class-4-chapter-1-number-sense-with-explanations.csv
+docs/question-banks/imo-class-4/imo-class-4-chapter-1-number-sense.csv
+docs/question-banks/imo-class-4/imo-class-4-chapter-2-computation-operations-with-explanations.csv
+docs/question-banks/imo-class-4/imo-class-4-chapter-2-computation-operations.csv
+docs/question-banks/imo-class-4/imo-class-4-chapter-3-fractions-with-explanations.csv
+docs/question-banks/imo-class-4/imo-class-4-chapter-3-fractions.csv
+docs/question-banks/imo-class-4/imo-class-4-chapter-4-length-weight-capacity-time-and-money-with-explanations.csv
+docs/question-banks/imo-class-4/imo-class-4-chapter-4-length-weight-capacity-time-and-money.csv
+docs/question-banks/imo-class-4/imo-class-4-chapter-5-geometry-with-explanations.csv
+docs/question-banks/imo-class-4/imo-class-4-chapter-5-geometry.csv
+docs/question-banks/imo-class-4/imo-class-4-chapter-6-data-handling-with-explanations.csv
+docs/question-banks/imo-class-4/imo-class-4-chapter-6-data-handling.csv
+docs/question-banks/imo-class-4/imo-class-4-chapter-7-logical-reasoning-with-explanations.csv
+docs/question-banks/imo-class-4/imo-class-4-chapter-7-logical-reasoning.csv
