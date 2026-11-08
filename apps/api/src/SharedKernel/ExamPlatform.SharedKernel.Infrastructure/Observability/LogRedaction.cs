@@ -14,7 +14,7 @@ namespace ExamPlatform.SharedKernel.Infrastructure.Observability;
 /// Masked contact details, such as <c>a***@example.com</c> or <c>**********10</c>, are left alone: they are what the platform
 /// writes on purpose.
 /// </remarks>
-public static class LogRedaction
+public static partial class LogRedaction
 {
     /// <summary>What a sensitive property's value becomes.</summary>
     public const string Redacted = "[redacted]";
@@ -23,37 +23,47 @@ public static class LogRedaction
     /// Each rule is linear and has a timeout. A log line is never allowed to stall the request that wrote it, and when a rule
     /// does time out the text is withheld rather than written unchecked (see <see cref="RedactText"/>).
     /// </summary>
-    private static readonly TimeSpan MatchTimeout = TimeSpan.FromSeconds(1);
+    private const int MatchTimeoutMilliseconds = 1000;
 
-    private static readonly (Regex Pattern, string Replacement)[] TextRules =
-    [
-        // E-mail addresses: a complete one. Masked forms ("a***@x.com") have no plain local part and do not match.
-        (Rule(@"[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+"), "[redacted-email]"),
+    private const RegexOptions Options = RegexOptions.CultureInvariant;
 
-        // A JSON Web Token, as used for access and refresh tokens: three base64url segments, the first starting "eyJ" ({"...).
-        (Rule(@"\beyJ[A-Za-z0-9_\-]{4,}\.[A-Za-z0-9_\-]{4,}\.[A-Za-z0-9_\-]{4,}"), "[redacted-token]"),
+    // The rules are source-generated: the same patterns the interpreter ran before, compiled at build time. Every log line goes through
+    // them, one pass per string, so the cost of a rule is paid on every request the API serves. RedactText also skips a rule whose
+    // match needs a character the text does not hold; the rules apply in this order, each to the output of the one before.
 
-        // A bearer credential in an Authorization header or a message that quotes one.
-        (Rule(@"\bBearer\s+[A-Za-z0-9._~+/=\-]{8,}", RegexOptions.IgnoreCase), "Bearer [redacted-token]"),
+    // E-mail addresses: a complete one. Masked forms ("a***@x.com") have no plain local part and do not match.
+    [GeneratedRegex(@"[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+", Options, MatchTimeoutMilliseconds)]
+    private static partial Regex EmailRule();
 
-        // A labelled secret: "password=...", "token: ..." or "hub.verify_token=...". The label is kept so the line still says what was
-        // withheld. The label may follow an underscore, a dot or a hyphen (a query parameter such as hub.verify_token), but not a letter
-        // or digit, so a longer word that merely ends in a label is left alone.
-        (Rule(
-                @"(?<![A-Za-z0-9])(password|passwd|pwd|secret|token|access[_-]?token|refresh[_-]?token|api[_-]?key|authorization|otp|answer|cookie)(\s*[:=]\s*)(""[^""]*""|'[^']*'|[^\s,;&}\]]+)",
-                RegexOptions.IgnoreCase),
-            "$1$2" + Redacted),
+    // A JSON Web Token, as used for access and refresh tokens: three base64url segments, the first starting "eyJ" ({"...).
+    [GeneratedRegex(@"\beyJ[A-Za-z0-9_\-]{4,}\.[A-Za-z0-9_\-]{4,}\.[A-Za-z0-9_\-]{4,}", Options, MatchTimeoutMilliseconds)]
+    private static partial Regex JwtRule();
 
-        // International format: a plus sign, then digits, with optional spaces or hyphens.
-        (Rule(@"\+\d[\d\s\-]{7,}\d"), "[redacted-phone]"),
+    // A bearer credential in an Authorization header or a message that quotes one.
+    [GeneratedRegex(@"\bBearer\s+[A-Za-z0-9._~+/=\-]{8,}", Options | RegexOptions.IgnoreCase, MatchTimeoutMilliseconds)]
+    private static partial Regex BearerRule();
 
-        // Indian mobile grouping, "98765 43210" or "98765-43210".
-        (Rule(@"(?<!\d)\d{5}[\s\-]\d{5}(?!\d)"), "[redacted-phone]"),
+    // A labelled secret: "password=...", "token: ..." or "hub.verify_token=...". The label is kept so the line still says what was
+    // withheld. The label may follow an underscore, a dot or a hyphen (a query parameter such as hub.verify_token), but not a letter
+    // or digit, so a longer word that merely ends in a label is left alone.
+    [GeneratedRegex(
+        @"(?<![A-Za-z0-9])(password|passwd|pwd|secret|token|access[_-]?token|refresh[_-]?token|api[_-]?key|authorization|otp|answer|cookie)(\s*[:=]\s*)(""[^""]*""|'[^']*'|[^\s,;&}\]]+)",
+        Options | RegexOptions.IgnoreCase,
+        MatchTimeoutMilliseconds)]
+    private static partial Regex LabelledSecretRule();
 
-        // A bare run of 10 to 15 digits: a phone number written without separators, or an account number. Dates, durations and
-        // counts are shorter, so they are left readable.
-        (Rule(@"(?<![\w.\-])\d{10,15}(?![\w.\-])"), "[redacted-number]"),
-    ];
+    // International format: a plus sign, then digits, with optional spaces or hyphens.
+    [GeneratedRegex(@"\+\d[\d\s\-]{7,}\d", Options, MatchTimeoutMilliseconds)]
+    private static partial Regex InternationalPhoneRule();
+
+    // Indian mobile grouping, "98765 43210" or "98765-43210".
+    [GeneratedRegex(@"(?<!\d)\d{5}[\s\-]\d{5}(?!\d)", Options, MatchTimeoutMilliseconds)]
+    private static partial Regex GroupedPhoneRule();
+
+    // A bare run of 10 to 15 digits: a phone number written without separators, or an account number. Dates, durations and
+    // counts are shorter, so they are left readable.
+    [GeneratedRegex(@"(?<![\w.\-])\d{10,15}(?![\w.\-])", Options, MatchTimeoutMilliseconds)]
+    private static partial Regex BareNumberRule();
 
     /// <summary>Structured property names that always hold personal data or a secret, normalised to lower case without separators.</summary>
     private static readonly HashSet<string> SensitiveNames = new(StringComparer.Ordinal)
@@ -79,10 +89,29 @@ public static class LogRedaction
         try
         {
             var result = text;
-            foreach (var (pattern, replacement) in TextRules)
-            {
-                result = pattern.Replace(result, replacement);
-            }
+
+            // Each check below holds for every text its rule can match, and is made on what the earlier rules left, so skipping a rule
+            // never changes the output; it only avoids running a pattern over text that cannot hold its match.
+            if (result.Contains('@'))
+                result = EmailRule().Replace(result, "[redacted-email]");
+
+            if (result.Contains("eyJ", StringComparison.Ordinal))
+                result = JwtRule().Replace(result, "[redacted-token]");
+
+            if (result.Contains("Bearer", StringComparison.OrdinalIgnoreCase))
+                result = BearerRule().Replace(result, "Bearer [redacted-token]");
+
+            if (result.AsSpan().IndexOfAny(':', '=') >= 0)
+                result = LabelledSecretRule().Replace(result, "$1$2" + Redacted);
+
+            if (result.Contains('+'))
+                result = InternationalPhoneRule().Replace(result, "[redacted-phone]");
+
+            if (HasDigitRun(result, 5))
+                result = GroupedPhoneRule().Replace(result, "[redacted-phone]");
+
+            if (HasDigitRun(result, 10))
+                result = BareNumberRule().Replace(result, "[redacted-number]");
 
             return result;
         }
@@ -107,6 +136,23 @@ public static class LogRedaction
             .Replace("-", string.Empty, StringComparison.Ordinal)
             .ToLowerInvariant();
 
-    private static Regex Rule(string pattern, RegexOptions options = RegexOptions.None) =>
-        new(pattern, options | RegexOptions.CultureInvariant, MatchTimeout);
+    /// <summary>Whether the text holds a run of at least <paramref name="length"/> digits, counted as the patterns' <c>\d</c> counts them.</summary>
+    private static bool HasDigitRun(string text, int length)
+    {
+        var run = 0;
+        foreach (var c in text)
+        {
+            if (char.IsDigit(c))
+            {
+                if (++run >= length)
+                    return true;
+            }
+            else
+            {
+                run = 0;
+            }
+        }
+
+        return false;
+    }
 }
