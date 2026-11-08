@@ -84,10 +84,29 @@ public interface IQuestionRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Question>> FindByTextKeyAsync(string textKey, Guid? excludeQuestionId, int take, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// <see cref="FindByTextKeyAsync"/> for many keys at once, so an import checks a whole file against the bank in one round trip instead
+    /// of one per row. What each key gets is what the single lookup gives it with no question left out: the questions with that wording,
+    /// with their options, oldest first, at most <paramref name="takePerKey"/> of them.
+    /// </summary>
+    /// <param name="textKeys">The keys of the wordings, see <see cref="QuestionFingerprint"/>; an empty key matches nothing.</param>
+    /// <param name="takePerKey">How many to return at most for each key.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The matches by key; a key nothing matches is absent.</returns>
+    Task<IReadOnlyDictionary<string, IReadOnlyList<Question>>> FindByTextKeysAsync(IReadOnlyCollection<string> textKeys, int takePerKey, CancellationToken cancellationToken);
+
     /// <summary>Lists the questions of one translation group (FR-10), without their options.</summary>
     /// <param name="translationGroupId">The group, see <see cref="Question.TranslationGroupId"/>.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Question>> ListTranslationGroupAsync(Guid translationGroupId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads, for some questions, only what finding their translations needs (FR-51): the question, its translation group and its language.
+    /// These are plain columns, so nothing is decrypted and no options are read, which is what <see cref="GetManyAsync"/> would cost for a whole paper.
+    /// </summary>
+    /// <param name="questionIds">The questions.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<(Guid Id, Guid TranslationGroupId, string Language)>> GetTranslationSourcesAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken);
 
     /// <summary>Finds the questions of some translation groups that are written in one of some languages and in one of some statuses (FR-51), with their options.</summary>
     /// <param name="translationGroupIds">The groups, see <see cref="Question.TranslationGroupId"/>.</param>

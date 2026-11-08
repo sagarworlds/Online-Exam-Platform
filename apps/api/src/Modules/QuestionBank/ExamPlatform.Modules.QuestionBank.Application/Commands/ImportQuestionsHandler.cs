@@ -43,31 +43,38 @@ public sealed class ImportQuestionsHandler(
         var skipped = new List<DuplicateRowDto>();
         var seenInFile = new Dictionary<string, int>();
 
-        foreach (var (line, fields, error) in dataRows)
+        // Every row is read and cleaned first, so the bank is asked about all of their wordings at once: one lookup for the file, and not one
+        // round trip per row, which on a hosted database was most of an import's time. A row that cannot be read keeps its message and is reported
+        // in its own place in the loop below, so each list of the report is in row order, as it always was.
+        var rows = dataRows.Select(row => Prepare(row.Line, row.Fields, row.Error)).ToList();
+
+        // What is stored does not change during the loop (the one save is at the end), so the answer for a wording is the same whenever it is asked.
+        var checkStored = duplicatePolicy.Refuse && !command.AllowDuplicates;
+        var stored = checkStored
+            ? await duplicates.LookUpAsync(rows.Where(r => r.Candidate is not null).Select(r => r.Candidate!.Cleaned.PlainText), cancellationToken)
+            : null;
+
+        foreach (var (line, candidate, problem) in rows)
         {
             try
             {
-                if (fields is null)
-                    throw new InvalidQuestionError(error ?? "The row could not be read.");
+                if (candidate is null)
+                    throw new InvalidQuestionError(problem ?? "The row could not be read.");
 
-                var (text, options, allowsMultiple, difficulty, topics, isTextAnswer, acceptedAnswers, explanation) = QuestionCsvRow.Parse(fields);
-                var cleaned = QuestionText.Clean(sanitizer, text);
-
-                // A text question is a repeat of another when its accepted answers are, so those stand in for its options here.
-                var answersForRepeats = isTextAnswer ? acceptedAnswers.Select(answer => new NewQuestionOption(answer, true)).ToList() : options;
+                var cleaned = candidate.Cleaned;
 
                 // A repeat is left out rather than rejected: nothing is wrong with the row, the bank just has it. Rows that repeat an
                 // earlier row of the same file are caught here, since that row is not stored until the end.
-                if (duplicatePolicy.Refuse && !command.AllowDuplicates && (RepeatOfEarlierRow(cleaned.PlainText, answersForRepeats, seenInFile, line) ?? await FindStoredAsync(cleaned.PlainText, answersForRepeats, cancellationToken)) is { } reason)
+                if (checkStored && (RepeatOfEarlierRow(cleaned.PlainText, candidate.AnswersForRepeats, seenInFile, line) ?? FindStored(stored!, cleaned.PlainText, candidate.AnswersForRepeats)) is { } reason)
                 {
                     skipped.Add(new DuplicateRowDto(line, reason));
                     continue;
                 }
 
                 var question = Question.Create(
-                    cleaned.Html, options, command.CreatedBy, clock.UtcNow,
-                    chapterId: null, QuestionDifficultyText.Parse(difficulty), topics, allowsMultiple,
-                    isTextAnswer: isTextAnswer, acceptedAnswers: acceptedAnswers, explanation: explanation);
+                    cleaned.Html, candidate.Options, command.CreatedBy, clock.UtcNow,
+                    chapterId: null, QuestionDifficultyText.Parse(candidate.Difficulty), candidate.Topics, candidate.AllowsMultiple,
+                    isTextAnswer: candidate.IsTextAnswer, acceptedAnswers: candidate.AcceptedAnswers, explanation: candidate.Explanation);
                 question.IndexText(cleaned.PlainText);
 
                 repository.Add(question);
@@ -87,9 +94,37 @@ public sealed class ImportQuestionsHandler(
         return new ImportQuestionsResultDto(created, rejected, skipped);
     }
 
-    private async Task<string?> FindStoredAsync(string plainText, IReadOnlyList<NewQuestionOption> options, CancellationToken cancellationToken)
+    /// <summary>One row, read and cleaned: what <see cref="Question.Create"/> needs, or the reason the row could not be read.</summary>
+    private sealed record Candidate(
+        SanitizedRichText Cleaned, List<NewQuestionOption> Options, bool AllowsMultiple, string? Difficulty, List<string?> Topics,
+        bool IsTextAnswer, List<string?> AcceptedAnswers, string? Explanation, List<NewQuestionOption> AnswersForRepeats);
+
+    private sealed record PreparedRow(int Line, Candidate? Candidate, string? Problem);
+
+    private PreparedRow Prepare(int line, IReadOnlyList<string>? fields, string? error)
     {
-        var same = (await duplicates.FindAsync(plainText, options.Select(o => o?.Text ?? string.Empty).ToList(), null, cancellationToken)).FirstOrDefault(m => m.SameOptions);
+        try
+        {
+            if (fields is null)
+                throw new InvalidQuestionError(error ?? "The row could not be read.");
+
+            var (text, options, allowsMultiple, difficulty, topics, isTextAnswer, acceptedAnswers, explanation) = QuestionCsvRow.Parse(fields);
+            var cleaned = QuestionText.Clean(sanitizer, text);
+
+            // A text question is a repeat of another when its accepted answers are, so those stand in for its options here.
+            var answersForRepeats = isTextAnswer ? acceptedAnswers.Select(answer => new NewQuestionOption(answer, true)).ToList() : options;
+
+            return new PreparedRow(line, new Candidate(cleaned, options, allowsMultiple, difficulty, topics, isTextAnswer, acceptedAnswers, explanation, answersForRepeats), null);
+        }
+        catch (InvalidQuestionError ex)
+        {
+            return new PreparedRow(line, null, ex.Message);
+        }
+    }
+
+    private static string? FindStored(DuplicateLookup stored, string plainText, IReadOnlyList<NewQuestionOption> options)
+    {
+        var same = stored.Find(plainText, options.Select(o => o?.Text ?? string.Empty).ToList()).FirstOrDefault(m => m.SameOptions);
         return same is null ? null : $"The bank already has this question ({same.Question.Id}).";
     }
 

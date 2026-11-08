@@ -21,10 +21,13 @@ public sealed record ContentEncryptionScan(int ContentValues, int PlaintextValue
 /// on read; a row that predates the encryption must be read to be encrypted.
 /// </summary>
 /// <remarks>
-/// It runs from the migrate-and-seed step, before any replica serves questions (ADR 0002), inside one transaction per run. Each value is
-/// checked against the key ring before it is touched: a value that already opens is left alone, so a run on an encrypted bank changes
-/// nothing. The columns of a text array or of the version options are held as JSON text by the migration that precedes this, so every value
-/// here is text, and encrypting it is the same operation for all of them.
+/// It runs from the migrate-and-seed step, before any replica serves questions (ADR 0002), inside one transaction per run. A run that
+/// encrypts asks the database only for the values that do not carry the cipher's prefix, because the entities encrypt every value they
+/// write, so a value with the prefix was written by them and is left alone: a run on an encrypted bank reads and changes nothing, however
+/// large the bank is, and it is not the whole bank decrypted on every start of the host. The status check is the full verification: it reads
+/// every value and opens each one with the key ring, so a value that has the prefix but does not open is counted as plaintext there. A
+/// value like that is never served, since reading it fails. The columns of a text array or of the version options are held as JSON text by
+/// the migration that precedes this, so every value here is text, and encrypting it is the same operation for all of them.
 /// </remarks>
 public sealed class QuestionContentBackfill(QuestionBankDbContext context, QuestionContentCipher cipher, ILogger<QuestionContentBackfill> logger)
 {
@@ -101,7 +104,14 @@ public sealed class QuestionContentBackfill(QuestionBankDbContext context, Quest
         await using (var select = connection.CreateCommand())
         {
             select.Transaction = transaction;
-            select.CommandText = $"SELECT \"Id\", \"{column}\" FROM \"questionBank\".\"{table}\" WHERE \"{column}\" IS NOT NULL";
+
+            // The run that encrypts has no use for a value that carries the prefix, so the database leaves those out and never sends them: the
+            // first characters are compared there. The status run reads all of them, to open each one. The length is a constant, not input.
+            var withoutPrefix = apply ? $" AND substr(\"{column}\", 1, {QuestionContentCipher.Prefix.Length}) <> @prefix" : string.Empty;
+            select.CommandText = $"SELECT \"Id\", \"{column}\" FROM \"questionBank\".\"{table}\" WHERE \"{column}\" IS NOT NULL{withoutPrefix}";
+            if (apply)
+                AddParameter(select, "prefix", QuestionContentCipher.Prefix);
+
             await using var reader = await select.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
                 rows.Add((reader.GetGuid(0), reader.GetString(1)));

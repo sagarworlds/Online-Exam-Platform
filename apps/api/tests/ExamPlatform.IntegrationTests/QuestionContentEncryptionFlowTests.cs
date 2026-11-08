@@ -73,6 +73,37 @@ public sealed class QuestionContentEncryptionFlowTests(ApiFactory factory) : ICl
     }
 
     [Fact]
+    public async Task TheStartupRun_LeavesAValueWithThePrefixAlone_WhileTheStatusStillCountsOneThatDoesNotOpen()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var questionId = await CreateQuestionAsync(admin, "Stem for the prefix check", "A", "B");
+        var original = await StoredTextAsync(questionId);
+        const string notCiphertext = QuestionContentCipher.Prefix + "this-does-not-open";
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<QuestionBankDbContext>();
+        var backfill = scope.ServiceProvider.GetRequiredService<QuestionContentBackfill>();
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync("UPDATE \"questionBank\".\"Questions\" SET \"Text\" = {0} WHERE \"Id\" = {1}", notCiphertext, questionId);
+
+            // The run that starts the host asks only for values without the prefix, so this one is not read, opened or rewritten...
+            await backfill.RunAsync(CancellationToken.None);
+            Assert.Equal(notCiphertext, await StoredTextAsync(questionId));
+
+            // ...and the status, which opens every value with the key ring, still reports it, so the full check is there when it is asked for.
+            Assert.True((await backfill.ReadStatusAsync(CancellationToken.None)).PlaintextValues >= 1);
+        }
+        finally
+        {
+            // The other tests of this class expect a bank that is completely encrypted.
+            await db.Database.ExecuteSqlRawAsync("UPDATE \"questionBank\".\"Questions\" SET \"Text\" = {0} WHERE \"Id\" = {1}", original, questionId);
+        }
+
+        Assert.True((await backfill.ReadStatusAsync(CancellationToken.None)).IsComplete);
+    }
+
+    [Fact]
     public async Task TheAdminStatus_ReportsEverythingEncrypted_AfterTheBackfill()
     {
         using var admin = await factory.AdminClientAsync();

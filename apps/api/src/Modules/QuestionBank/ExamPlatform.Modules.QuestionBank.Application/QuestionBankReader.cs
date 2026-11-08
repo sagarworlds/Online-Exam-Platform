@@ -97,12 +97,21 @@ public sealed class QuestionBankReader(IQuestionRepository repository, IBookRepo
         if (questionIds.Count == 0 || wanted.Count == 0)
             return [];
 
-        var sources = await repository.GetManyAsync(questionIds, cancellationToken);
+        // Only the question's group and language are needed to find its translation, so only those are read: loading the questions themselves
+        // would decrypt the whole paper once more, for a candidate whose language is usually the one the exam was written in.
+        var sources = await repository.GetTranslationSourcesAsync(questionIds, cancellationToken);
+
+        // A question already in the language wanted most is shown as it is, whatever else the bank holds for it, so only the others need
+        // their translations looked for; when there are none, there is nothing more to read.
+        var toTranslate = sources.Where(s => s.Language != wanted[0]).ToList();
+        if (toTranslate.Count == 0)
+            return [];
+
         var candidates = await repository.ListTranslationCandidatesAsync(
-            sources.Select(s => s.TranslationGroupId).Distinct().ToList(), wanted, _approval.UsableStatuses, cancellationToken);
+            toTranslate.Select(s => s.TranslationGroupId).Distinct().ToList(), wanted, _approval.UsableStatuses, cancellationToken);
 
         var found = new List<QuestionTranslationSnapshot>();
-        foreach (var source in sources)
+        foreach (var source in toTranslate)
         {
             foreach (var language in wanted)
             {

@@ -32,6 +32,27 @@ public sealed class QuestionDuplicateFinder(IQuestionRepository repository)
         string? plainText, IReadOnlyCollection<string> optionTexts, Guid? excludeQuestionId, CancellationToken cancellationToken)
     {
         var sameWording = await repository.FindByTextKeyAsync(QuestionFingerprint.KeyOf(plainText), excludeQuestionId, MaxMatches, cancellationToken);
+        return Match(sameWording, optionTexts);
+    }
+
+    /// <summary>
+    /// Reads, in one round trip, the questions the bank holds that say the same as each of some wordings, so a file of rows can be checked
+    /// without a lookup per row. The answers come from <see cref="DuplicateLookup.Find"/>, by the same rule as <see cref="FindAsync"/>.
+    /// </summary>
+    /// <param name="plainTexts">The wordings of the questions about to be added, with the markup removed.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<DuplicateLookup> LookUpAsync(IEnumerable<string?> plainTexts, CancellationToken cancellationToken)
+    {
+        var keys = plainTexts.Select(QuestionFingerprint.KeyOf).Where(key => key.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+        if (keys.Count == 0)
+            return new DuplicateLookup(new Dictionary<string, IReadOnlyList<Question>>());
+
+        return new DuplicateLookup(await repository.FindByTextKeysAsync(keys, MaxMatches, cancellationToken));
+    }
+
+    /// <summary>The one rule for what counts as a match: the questions found by wording, those with the same options first.</summary>
+    internal static IReadOnlyList<DuplicateMatch> Match(IReadOnlyList<Question> sameWording, IReadOnlyCollection<string> optionTexts)
+    {
         if (sameWording.Count == 0)
             return [];
 
@@ -42,4 +63,20 @@ public sealed class QuestionDuplicateFinder(IQuestionRepository repository)
             .OrderByDescending(m => m.SameOptions)
             .ToList();
     }
+}
+
+/// <summary>What <see cref="QuestionDuplicateFinder.LookUpAsync"/> read: the stored questions for a set of wordings, ready to be asked about one at a time.</summary>
+public sealed class DuplicateLookup
+{
+    private readonly IReadOnlyDictionary<string, IReadOnlyList<Question>> sameWordingByKey;
+
+    internal DuplicateLookup(IReadOnlyDictionary<string, IReadOnlyList<Question>> sameWordingByKey) => this.sameWordingByKey = sameWordingByKey;
+
+    /// <summary>Looks for stored questions that repeat the given one; what <see cref="QuestionDuplicateFinder.FindAsync"/> returns, without a database call.</summary>
+    /// <param name="plainText">The question's wording with the markup removed; it must be one of the wordings the lookup was made for.</param>
+    /// <param name="optionTexts">The texts of its options.</param>
+    public IReadOnlyList<DuplicateMatch> Find(string? plainText, IReadOnlyCollection<string> optionTexts) =>
+        sameWordingByKey.TryGetValue(QuestionFingerprint.KeyOf(plainText), out var sameWording)
+            ? QuestionDuplicateFinder.Match(sameWording, optionTexts)
+            : [];
 }
