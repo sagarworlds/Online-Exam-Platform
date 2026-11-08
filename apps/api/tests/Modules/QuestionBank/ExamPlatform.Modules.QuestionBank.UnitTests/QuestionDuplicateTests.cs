@@ -39,10 +39,25 @@ public class QuestionDuplicateTests
         return question;
     }
 
-    private void BankHolds(params Question[] questions) =>
+    private void BankHolds(params Question[] questions)
+    {
         repository.FindByTextKeyAsync(Arg.Any<string>(), Arg.Any<Guid?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult<IReadOnlyList<Question>>(
                 questions.Where(q => q.TextKey == (string)call.Args()[0] && q.Id != (Guid?)call.Args()[1]).ToList()));
+
+        // The same bank, asked for many wordings at once the way the repository answers: each key's matches, at most the given number, and no
+        // entry for a key nothing matches.
+        repository.FindByTextKeysAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var keys = (IReadOnlyCollection<string>)call.Args()[0];
+                var take = (int)call.Args()[1];
+                return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<Question>>>(keys.Distinct()
+                    .Select(key => (Key: key, Found: (IReadOnlyList<Question>)questions.Where(q => q.TextKey == key).Take(take).ToList()))
+                    .Where(entry => entry.Found.Count > 0)
+                    .ToDictionary(entry => entry.Key, entry => entry.Found));
+            });
+    }
 
     private static List<NewQuestionOption> Paris() => [new("Paris", true), new("Rome", false)];
 
@@ -143,6 +158,75 @@ public class QuestionDuplicateTests
         Assert.Equal(2, skipped.Row);
         Assert.Contains(existing.Id.ToString(), skipped.Reason);
         Assert.Empty(result.Rejected);
+    }
+
+    [Fact]
+    public async Task Import_AsksTheBankOnce_WhateverTheNumberOfRows()
+    {
+        BankHolds(Stored("Capital of France?", ("Paris", true), ("Rome", false)));
+        var file = FileOf(Row("Capital of France?"), Row("Capital of Italy?", "Rome", "Paris"), Row("Capital of Spain?", "Madrid", "Lisbon"), Row("Capital of Peru?", "Lima", "Quito"), Row("Capital of Chad?", "N'Djamena", "Abuja"));
+
+        var result = await Importer().HandleAsync(new ImportQuestionsCommand(file, Author), CancellationToken.None);
+
+        Assert.Equal(4, result.Created.Count);
+        await repository.Received(1).FindByTextKeysAsync(Arg.Any<IReadOnlyCollection<string>>(), QuestionDuplicateFinder.MaxMatches, Arg.Any<CancellationToken>());
+        await repository.DidNotReceiveWithAnyArgs().FindByTextKeyAsync(default!, default, default, default);
+    }
+
+    [Fact]
+    public async Task Import_LooksUpEachWordingOnce_EvenWhenManyRowsShareIt()
+    {
+        BankHolds();
+
+        await Importer().HandleAsync(new ImportQuestionsCommand(FileOf(Row("Capital of France?"), Row("capital of  France"), Row("Capital of France?", "Lyon", "Nice")), Author), CancellationToken.None);
+
+        await repository.Received(1).FindByTextKeysAsync(
+            Arg.Is<IReadOnlyCollection<string>>(keys => keys.Count == 1 && keys.Single() == QuestionFingerprint.KeyOf("Capital of France?")),
+            Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Import_DoesNotAskTheBank_WhenRepeatsAreAllowedOrNoRowCanBeRead()
+    {
+        BankHolds(Stored("Capital of France?", ("Paris", true), ("Rome", false)));
+
+        await Importer().HandleAsync(new ImportQuestionsCommand(FileOf(Row("Capital of France?")), Author, AllowDuplicates: true), CancellationToken.None);
+        await Importer(refuse: false).HandleAsync(new ImportQuestionsCommand(FileOf(Row("Capital of France?")), Author), CancellationToken.None);
+        await Importer().HandleAsync(new ImportQuestionsCommand(FileOf(Row(""), Row("")), Author), CancellationToken.None);
+
+        await repository.DidNotReceiveWithAnyArgs().FindByTextKeysAsync(default!, default, default);
+        await repository.DidNotReceiveWithAnyArgs().FindByTextKeyAsync(default!, default, default, default);
+    }
+
+    [Fact]
+    public async Task Import_CreatesARowWithTheSameWordingAndOtherOptions()
+    {
+        BankHolds(Stored("Capital of France?", ("Paris", true), ("Rome", false)));
+
+        var result = await Importer().HandleAsync(new ImportQuestionsCommand(FileOf(Row("Capital of France?", "Lyon", "Nice")), Author), CancellationToken.None);
+
+        Assert.Equal([2], result.Created.Select(c => c.Row));
+        Assert.Empty(result.Duplicates);
+    }
+
+    [Fact]
+    public async Task Import_ReportsEachKindOfRowInRowOrder_WhenTheyAreMixed()
+    {
+        var existing = Stored("Capital of France?", ("Paris", true), ("Rome", false));
+        BankHolds(existing);
+        var file = FileOf(
+            Row("Capital of France?"),
+            Row(""),
+            Row("Capital of Italy?", "Rome", "Paris"),
+            Row("capital of italy", "Rome", "Paris"),
+            Row(""),
+            Row("Capital of Spain?", "Madrid", "Lisbon"));
+
+        var result = await Importer().HandleAsync(new ImportQuestionsCommand(file, Author), CancellationToken.None);
+
+        Assert.Equal([4, 7], result.Created.Select(c => c.Row));
+        Assert.Equal([(2, $"The bank already has this question ({existing.Id})."), (5, "Same as row 4 of this file.")], result.Duplicates.Select(d => (d.Row, d.Reason)));
+        Assert.Equal([3, 6], result.Rejected.Select(r => r.Row));
     }
 
     [Fact]

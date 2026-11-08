@@ -134,11 +134,53 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
                 .OrderBy(q => q.CreatedAtUtc).ThenBy(q => q.Id).Take(take).ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<string, IReadOnlyList<Question>>> FindByTextKeysAsync(
+        IReadOnlyCollection<string> textKeys, int takePerKey, CancellationToken cancellationToken)
+    {
+        var keys = textKeys.Where(key => !string.IsNullOrEmpty(key)).Distinct(StringComparer.Ordinal).ToList();
+        if (keys.Count == 0)
+            return new Dictionary<string, IReadOnlyList<Question>>();
+
+        // The ids first, from plain columns only and in the order the single lookup uses (the database's, not .NET's: two questions made in the same
+        // instant must fall the same way here), so that a wording a bank holds many copies of costs ten rows and not all of them to read.
+        var heads = await context.Questions.AsNoTracking()
+            .Where(q => keys.Contains(q.TextKey))
+            .OrderBy(q => q.CreatedAtUtc).ThenBy(q => q.Id)
+            .Select(q => new { q.Id, q.TextKey })
+            .ToListAsync(cancellationToken);
+
+        var wanted = heads.GroupBy(h => h.TextKey, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Take(takePerKey).Select(h => h.Id).ToList(), StringComparer.Ordinal);
+        var ids = wanted.Values.SelectMany(list => list).ToList();
+        var byId = (await context.Questions.AsNoTracking().Include(q => q.Options)
+                .Where(q => ids.Contains(q.Id))
+                .ToListAsync(cancellationToken))
+            .ToDictionary(q => q.Id);
+
+        return wanted.ToDictionary(
+            entry => entry.Key,
+            entry => (IReadOnlyList<Question>)entry.Value.Where(byId.ContainsKey).Select(id => byId[id]).ToList(),
+            StringComparer.Ordinal);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Question>> ListTranslationGroupAsync(Guid translationGroupId, CancellationToken cancellationToken) =>
         await context.Questions.AsNoTracking()
             .Where(q => q.TranslationGroupId == translationGroupId)
             .OrderBy(q => q.CreatedAtUtc).ThenBy(q => q.Id)
             .ToListAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<(Guid Id, Guid TranslationGroupId, string Language)>> GetTranslationSourcesAsync(
+        IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken)
+    {
+        var found = await context.Questions.AsNoTracking()
+            .Where(q => questionIds.Contains(q.Id))
+            .Select(q => new { q.Id, q.TranslationGroupId, q.Language })
+            .ToListAsync(cancellationToken);
+
+        return found.Select(q => (q.Id, q.TranslationGroupId, q.Language)).ToList();
+    }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Question>> ListTranslationCandidatesAsync(

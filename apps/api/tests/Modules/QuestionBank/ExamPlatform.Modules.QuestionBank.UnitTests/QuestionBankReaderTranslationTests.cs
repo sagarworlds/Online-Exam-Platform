@@ -32,6 +32,10 @@ public class QuestionBankReaderTranslationTests
     {
         _questions.GetManyAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult<IReadOnlyList<Question>>(bankHolds.Where(q => call.Arg<IReadOnlyCollection<Guid>>().Contains(q.Id)).ToList()));
+        _questions.GetTranslationSourcesAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult<IReadOnlyList<(Guid Id, Guid TranslationGroupId, string Language)>>(bankHolds
+                .Where(q => call.Arg<IReadOnlyCollection<Guid>>().Contains(q.Id))
+                .Select(q => (q.Id, q.TranslationGroupId, q.Language)).ToList()));
         _questions.ListTranslationCandidatesAsync(
                 Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<IReadOnlyCollection<QuestionStatus>>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult<IReadOnlyList<Question>>(bankHolds
@@ -61,6 +65,30 @@ public class QuestionBankReaderTranslationTests
 
         // English is wanted before Hindi, and the question is English: Hindi is only a fallback for questions that lack English.
         Assert.Empty(await Reader(false, _english, hindi).GetTranslationsAsync([_english.Id], ["en", "hi"], CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task AQuestionAlreadyInTheLanguageWantedMost_CostsNoReadOfTheBankBeyondItsLanguage()
+    {
+        var hindi = Translate("hi", "<p>फ्रांस की राजधानी?</p>", "पेरिस", "रोम");
+        var reader = Reader(false, _english, hindi);
+
+        Assert.Empty(await reader.GetTranslationsAsync([_english.Id], ["en", "hi"], CancellationToken.None));
+
+        await _questions.DidNotReceiveWithAnyArgs().ListTranslationCandidatesAsync(default!, default!, default!, default);
+        await _questions.DidNotReceiveWithAnyArgs().GetManyAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task TheQuestionsThemselvesAreNeverLoaded_ToFindTheirTranslations()
+    {
+        var hindi = Translate("hi", "<p>फ्रांस की राजधानी?</p>", "पेरिस", "रोम");
+        var reader = Reader(false, _english, hindi);
+
+        var found = Assert.Single(await reader.GetTranslationsAsync([_english.Id], ["hi"], CancellationToken.None));
+
+        Assert.Equal("hi", found.Language);
+        await _questions.DidNotReceiveWithAnyArgs().GetManyAsync(default!, default);
     }
 
     [Fact]
