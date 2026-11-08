@@ -743,9 +743,10 @@ public static class ExamRuntimeEndpoints
         Results.Ok(await handler.HandleAsync(user.GetUserId(), ct));
 
     private static async Task<IResult> StartAttempt(
-        Guid examId, StartAttemptRequest? request, ClaimsPrincipal user, StartAttemptHandler handler, CancellationToken ct) =>
-        // No body means "not acknowledged": resuming needs none, but a new attempt is then refused.
-        Results.Ok(await handler.HandleAsync(examId, user.GetUserId(), request?.InstructionsAcknowledged ?? false, ct));
+        Guid examId, StartAttemptRequest? request, bool? lite, ClaimsPrincipal user, StartAttemptHandler handler, CancellationToken ct) =>
+        // No body means "not acknowledged": resuming needs none, but a new attempt is then refused. "lite" is the same switch the read has: the
+        // page that starts an attempt goes straight on to show it, so it asks for the attempt the way it would read it (FR-53).
+        Results.Ok(await handler.HandleAsync(examId, user.GetUserId(), request?.InstructionsAcknowledged ?? false, ct, lite == true));
 
     private static async Task<IResult> GetAttempt(Guid attemptId, bool? lite, ClaimsPrincipal user, GetAttemptHandler handler, CancellationToken ct) =>
         Results.Ok(await handler.HandleAsync(attemptId, user.GetUserId(), ct, lite == true));

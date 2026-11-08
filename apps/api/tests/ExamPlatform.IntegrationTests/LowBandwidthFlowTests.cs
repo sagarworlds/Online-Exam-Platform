@@ -63,6 +63,29 @@ public sealed class LowBandwidthFlowTests(ApiFactory factory) : IClassFixture<Ap
     }
 
     [Fact]
+    public async Task StartingWithLiteTrue_SendsTheAttemptWithoutPictureData_AndResumingTheOrdinaryWayStillCarriesThem()
+    {
+        using var admin = await factory.AdminClientAsync();
+        var questionId = await CreateQuestionAsync(admin, $"<p>Which city is marked?</p>{PngTag}", "Paris", "Rome");
+        var examId = await CreateExamAsync(admin, $"Geography {Guid.NewGuid():N}", [questionId], TimeSpan.FromMinutes(-5));
+        var (candidate, _) = await factory.EnrollNewCandidateAsync(admin, examId);
+        using var _c = candidate;
+        var body = new { instructionsAcknowledged = true };
+
+        // The page that starts the attempt goes straight on to show it, so it asks for it the way it would read it: no second download.
+        var started = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts?lite=true", body);
+        var liteText = QuestionText(await JsonAsync(started.EnsureSuccessStatusCode()));
+        Assert.DoesNotContain("base64", liteText);
+        Assert.Contains($"lazy-media--q-0 lazy-bytes--{Png.Length}", liteText);
+
+        // Resuming without the switch is as it always was, and resuming with it is lite again.
+        var resumed = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts", body);
+        Assert.Contains("data:image/png;base64", QuestionText(await JsonAsync(resumed.EnsureSuccessStatusCode())));
+        var resumedLite = await candidate.PostAsJsonAsync($"/v1/me/exams/{examId}/attempts?lite=true", body);
+        Assert.DoesNotContain("base64", QuestionText(await JsonAsync(resumedLite.EnsureSuccessStatusCode())));
+    }
+
+    [Fact]
     public async Task APictureIsServedToItsCandidate_AsTheBytesTheQuestionHolds_AndMayBeKept()
     {
         var s = await SittingAsync();

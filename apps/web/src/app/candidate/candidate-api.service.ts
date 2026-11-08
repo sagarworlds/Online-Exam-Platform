@@ -40,10 +40,16 @@ export class CandidateApiService {
 
   /**
    * Starts the candidate's attempt at an exam, or returns the one they already have (resume). A new attempt is refused unless the
-   * candidate acknowledged the instructions, which the instructions page asks for; resuming needs no acknowledgment.
+   * candidate acknowledged the instructions, which the instructions page asks for; resuming needs no acknowledgment. With `lowBandwidth`
+   * the questions come without their pictures, as `getAttempt` sends them, so the page that starts an attempt can show it as it is
+   * without asking for it a second time (FR-53).
    */
-  startAttempt(examId: string, instructionsAcknowledged = false): Observable<AttemptDto> {
-    return this.http.post<AttemptDto>(`${this.baseUrl}/exams/${examId}/attempts`, { instructionsAcknowledged });
+  startAttempt(examId: string, instructionsAcknowledged = false, lowBandwidth = false): Observable<AttemptDto> {
+    return this.http.post<AttemptDto>(
+      `${this.baseUrl}/exams/${examId}/attempts`,
+      { instructionsAcknowledged },
+      lowBandwidth ? { params: { lite: true } } : {},
+    );
   }
 
   /** Asks an administrator for one more attempt at an exam; they decide, and the answer shows on the exams page. */

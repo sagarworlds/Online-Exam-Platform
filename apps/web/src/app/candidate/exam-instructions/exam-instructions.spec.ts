@@ -5,7 +5,9 @@ import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angul
 import { vi } from 'vitest';
 import { AUTH_TOKEN_STORAGE_KEY } from '../../auth/auth-session.service';
 import { buildFakeJwt } from '../../auth/testing/fake-jwt';
+import { OnDemandPreload } from '../../shared/preload/on-demand-preload';
 import { MyExamDto } from '../candidate.models';
+import { AttemptHandoff } from '../exam-attempt/attempt-handoff';
 import { CheckResult, SystemCheckService } from '../system-check/system-check';
 import { ExamInstructions } from './exam-instructions';
 
@@ -196,6 +198,90 @@ describe('ExamInstructions', () => {
     start.flush({ id: 'attempt-9' });
 
     expect(navigate).toHaveBeenCalledWith(['/attempt', 'attempt-9']);
+  });
+
+  describe('handing the started attempt to the exam page', () => {
+    afterEach(() => localStorage.clear());
+
+    async function startFrom(exams: MyExamDto[] = [exam()]) {
+      vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      const fixture = await open(exams);
+      await tick(fixture, () => checkbox(fixture).click());
+      startButton(fixture).click();
+      return httpMock.expectOne((r) => r.url.endsWith('/v1/me/exams/e1/attempts'));
+    }
+
+    it('holds the attempt that starting returned, so the exam page does not ask for it again', async () => {
+      const start = await startFrom();
+      start.flush({ id: 'attempt-9', status: 'InProgress', serverTimeUtc: '2026-10-05T04:30:00Z' });
+
+      const handed = TestBed.inject(AttemptHandoff).take('attempt-9', false);
+      expect(handed?.attempt.id).toBe('attempt-9');
+    });
+
+    it('starts the attempt whole by default', async () => {
+      const whole = await startFrom();
+      expect(whole.request.params.keys()).toEqual([]);
+      whole.flush({ id: 'attempt-9', status: 'InProgress' });
+    });
+
+    it('asks for the pictures to be left out in low-bandwidth mode, and holds the attempt for a page in that mode', async () => {
+      localStorage.setItem('exam.lowBandwidth', 'on');
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [ExamInstructions],
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideRouter([]),
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ examId: 'e1' }) } } },
+          { provide: SystemCheckService, useValue: { run } },
+        ],
+      });
+      httpMock = TestBed.inject(HttpTestingController);
+
+      const start = await startFrom();
+      expect(start.request.params.get('lite')).toBe('true');
+      start.flush({ id: 'attempt-9', status: 'InProgress' });
+
+      expect(TestBed.inject(AttemptHandoff).take('attempt-9', true)?.attempt.id).toBe('attempt-9');
+    });
+
+    it('holds nothing when the start fails', async () => {
+      const start = await startFrom();
+      start.flush({ title: 'exam_closed' }, { status: 409, statusText: 'Conflict' });
+
+      expect(TestBed.inject(AttemptHandoff).take('attempt-9', false)).toBeNull();
+    });
+  });
+
+  describe('loading the exam page ahead of time', () => {
+    afterEach(() => localStorage.clear());
+
+    it('asks for it while the candidate reads, once it is known they can start', async () => {
+      const request = vi.spyOn(TestBed.inject(OnDemandPreload), 'request');
+
+      await open([exam({ canStartAttempt: true })]);
+
+      expect(request).toHaveBeenCalledWith('exam');
+    });
+
+    it('does not ask for it when the candidate cannot start, since they will not reach it from here', async () => {
+      const request = vi.spyOn(TestBed.inject(OnDemandPreload), 'request');
+
+      await open([exam({ state: 'NotOpen', canStartAttempt: false })]);
+
+      expect(request).not.toHaveBeenCalled();
+    });
+
+    it('does not ask for it in low-bandwidth mode, where a screen they may not reach is not worth the data', async () => {
+      localStorage.setItem('exam.lowBandwidth', 'on');
+      const request = vi.spyOn(TestBed.inject(OnDemandPreload), 'request');
+
+      await open([exam({ canStartAttempt: true })]);
+
+      expect(request).not.toHaveBeenCalled();
+    });
   });
 
   it('shows why the exam could not be started and lets the candidate try again', async () => {

@@ -1,8 +1,9 @@
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { ApplicationConfig, inject, isDevMode, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { TitleStrategy, provideRouter } from '@angular/router';
+import { TitleStrategy, provideRouter, withPreloading } from '@angular/router';
 import { provideServiceWorker } from '@angular/service-worker';
 import { PageTitleStrategy } from './shared/page-title/page-title.strategy';
+import { OnDemandPreload } from './shared/preload/on-demand-preload';
 import { AppUpdateService } from './shared/pwa/app-update.service';
 import { authInterceptor } from './auth/auth.interceptor';
 import { I18nService } from './i18n/i18n.service';
@@ -19,7 +20,8 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => inject(I18nService).ready()),
     // The institute's branding is read once at start-up and applied to the page (FR-41). It does not hold up the first screen.
     provideAppInitializer(() => inject(BrandingService).load()),
-    provideRouter(routes),
+    // A screen is loaded ahead of time only when a page that knows it is next asks for it (see OnDemandPreload): the exam page, from the instructions.
+    provideRouter(routes, withPreloading(OnDemandPreload)),
     // Names each page in the browser tab (WCAG 2.4.2); see PageTitleStrategy.
     { provide: TitleStrategy, useClass: PageTitleStrategy },
     provideHttpClient(withFetch(), withInterceptors([apiActivityInterceptor, deviceSignatureInterceptor, languageInterceptor, authInterceptor])),

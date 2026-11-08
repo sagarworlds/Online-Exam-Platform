@@ -101,6 +101,27 @@ describe('CandidateApiService', () => {
     });
   });
 
+  describe('startAttempt', () => {
+    it('starts the attempt with the acknowledgment, asking for it as it is by default', () => {
+      service.startAttempt('e1', true).subscribe();
+
+      const request = httpMock.expectOne(`${environment.apiBaseUrl}/v1/me/exams/e1/attempts`);
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({ instructionsAcknowledged: true });
+      expect(request.request.params.keys()).toEqual([]);
+      request.flush({});
+    });
+
+    it('asks for the attempt without its pictures in low-bandwidth mode, as a read of it would (FR-53)', () => {
+      service.startAttempt('e1', true, true).subscribe();
+
+      const request = httpMock.expectOne((r) => r.url === `${environment.apiBaseUrl}/v1/me/exams/e1/attempts`);
+      expect(request.request.params.get('lite')).toBe('true');
+      expect(request.request.body).toEqual({ instructionsAcknowledged: true });
+      request.flush({});
+    });
+  });
+
   describe('getAttempt', () => {
     it('reads the attempt as it is by default', () => {
       service.getAttempt('a1').subscribe();

@@ -42,6 +42,7 @@ public sealed class StartAttemptHandler(
     /// there is none left, does not.
     /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="lowBandwidth">Whether to leave the pictures out of the questions' text, as <see cref="Queries.GetAttemptHandler"/> does, to be fetched one at a time when wanted (FR-53).</param>
     /// <exception cref="InstructionsNotAcknowledgedError">A new attempt would begin but the instructions were not acknowledged.</exception>
     /// <exception cref="ExamNotAvailableError">The exam does not exist, is not published, or the candidate is not enrolled in it.</exception>
     /// <exception cref="ExamNotOpenError">The window has not opened yet.</exception>
@@ -49,7 +50,7 @@ public sealed class StartAttemptHandler(
     /// <exception cref="PaperCannotBeDrawnError">A draw rule of the exam finds fewer questions than it needs.</exception>
     /// <exception cref="GuardianConsentRequiredError">The candidate is under 18 and no guardian has confirmed the link to them.</exception>
     /// <exception cref="ConcurrencyConflictError">Another request started the same attempt at the same moment.</exception>
-    public async Task<AttemptDto> HandleAsync(Guid examId, Guid candidateId, bool instructionsAcknowledged, CancellationToken cancellationToken)
+    public async Task<AttemptDto> HandleAsync(Guid examId, Guid candidateId, bool instructionsAcknowledged, CancellationToken cancellationToken, bool lowBandwidth = false)
     {
         var exam = await catalog.FindAsync(examId, cancellationToken);
 
@@ -71,12 +72,12 @@ public sealed class StartAttemptHandler(
             if (latest.NoteClient(clientInfo.IpAddress, clientInfo.DeviceFingerprint, clock.UtcNow))
                 await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            return await views.BuildAsync(latest, theirExam, cancellationToken);
+            return await views.BuildAsync(latest, theirExam, cancellationToken, lowBandwidth);
         }
 
         var granted = await grants.CountAsync(examId, candidateId, cancellationToken);
         if (!AttemptAllowance.CanStartAnother(exam.MaxAttempts, theirs.Count, granted))
-            return await views.BuildAsync(latest!, exam.For(latest!, proctorPolicy), cancellationToken);
+            return await views.BuildAsync(latest!, exam.For(latest!, proctorPolicy), cancellationToken, lowBandwidth);
 
         // Checked after the allowance, so "nothing left" is still answered first, and before the instructions and the time checks, so a
         // minor without a guardian is told why they cannot start.
@@ -106,7 +107,7 @@ public sealed class StartAttemptHandler(
         attempts.Add(attempt);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return await views.BuildAsync(attempt, exam.For(attempt, proctorPolicy), cancellationToken);
+        return await views.BuildAsync(attempt, exam.For(attempt, proctorPolicy), cancellationToken, lowBandwidth);
     }
 
     /// <summary>
