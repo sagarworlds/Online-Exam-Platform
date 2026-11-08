@@ -78,6 +78,8 @@ export const routes: Routes = [
   {
     path: 'attempt/:attemptId',
     canActivate: [authGuard],
+    // The heaviest screen a candidate opens: the instructions page asks for it to be loaded while the candidate reads (see OnDemandPreload).
+    data: { preloadOn: 'exam' },
     loadComponent: () => import('./candidate/exam-attempt/exam-attempt').then((m) => m.ExamAttempt),
   },
   {

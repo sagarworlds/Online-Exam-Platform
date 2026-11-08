@@ -15,6 +15,7 @@ import { ScreenSnapshotter, ScreenState } from './screen-snapshotter';
 import { WebcamSnapshotter, WebcamState } from './webcam-snapshotter';
 import { ReportIssue } from './report-issue';
 import { AnswerSync, isEmptyAnswer, PendingAnswer } from './answer-sync';
+import { AttemptHandoff } from './attempt-handoff';
 import { loadVisitedQuestions, saveVisitedQuestions } from './visited-questions-store';
 import { QuestionTimeTracker } from './question-time';
 import { PictureLoader } from '../../shared/rich-text/lazy-pictures';
@@ -214,6 +215,7 @@ export class ExamAttempt {
 
   /** Low-bandwidth mode (FR-53): the attempt is read without its pictures, which are fetched when asked for, and checked on less often. */
   protected readonly lowBandwidth = inject(LowBandwidthService);
+  private readonly handoff = inject(AttemptHandoff);
 
   /**
    * Sends the candidate's answers and keeps them if the connection fails (FR-53): a choice shows at once and is sent in the background, again
@@ -555,6 +557,14 @@ export class ExamAttempt {
     if (this.attemptId === null) {
       this.loading.set(false);
       this.errorMessage.set('No attempt was given.');
+      return;
+    }
+
+    // Coming from Start, the attempt is already here: asking the server for it again would send the same questions and pictures a second time,
+    // while the clock runs. It is taken once, and only if it is open, fresh and in this page's own bandwidth mode; anything else is read as ever.
+    const started = this.handoff.take(this.attemptId, this.lowBandwidth.enabled());
+    if (started !== null) {
+      this.show(started.attempt, started.receivedAt);
       return;
     }
 
@@ -1139,7 +1149,13 @@ export class ExamAttempt {
     }
   }
 
-  private show(attempt: AttemptDto): void {
+  /**
+   * Shows an attempt the server returned.
+   * @param attempt The attempt.
+   * @param receivedAt When it arrived, by this device's clock, when it did not arrive just now: the countdown is the server's own clock reading
+   * measured from that moment, not from whenever the page got round to drawing it.
+   */
+  private show(attempt: AttemptDto, receivedAt: number = Date.now()): void {
     this.loading.set(false);
     if (this.loadFailed()) {
       this.loadFailed.set(false);
@@ -1161,7 +1177,7 @@ export class ExamAttempt {
     if (attempt.status === 'InProgress') {
       this.applyWaitingAnswers();
       this.markCurrentVisited();
-      this.clockOffsetMs = Date.parse(attempt.serverTimeUtc) - Date.now();
+      this.clockOffsetMs = Date.parse(attempt.serverTimeUtc) - receivedAt;
       this.tick();
       this.timer = setInterval(() => this.tick(), TICK_MS);
       // A preview has no attempt on the server to pause, warn or end.

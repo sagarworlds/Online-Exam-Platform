@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { AttemptDto, AttemptStatusDto } from '../candidate.models';
+import { AttemptHandoff } from './attempt-handoff';
 import { ExamAttempt } from './exam-attempt';
 import { ExamMode } from '../../shared/exam-mode/exam-mode';
 import { FakeResizeObserver } from './fake-resize-observer';
@@ -1727,6 +1728,103 @@ describe('ExamAttempt', () => {
     fixture.detectChanges();
 
     expect(textOf(fixture)).toContain('No attempt matches the given id.');
+  });
+
+  describe('an attempt handed over from Start', () => {
+    const countdown = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector('.countdown')?.textContent?.trim();
+
+    async function openHanded(handed: AttemptDto | null, lowBandwidth = false, receivedAt = NOW) {
+      await TestBed.configureTestingModule({
+        imports: [ExamAttempt],
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideRouter([]),
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ attemptId: 'a1' }) } } },
+        ],
+      }).compileComponents();
+      httpMock = TestBed.inject(HttpTestingController);
+      if (handed !== null) {
+        TestBed.inject(AttemptHandoff).put(handed, lowBandwidth, receivedAt);
+      }
+
+      const fixture = TestBed.createComponent(ExamAttempt);
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    it('shows the attempt it was handed without asking the server for it again', async () => {
+      const fixture = await openHanded(attempt());
+
+      httpMock.expectNone((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET');
+      expect(textOf(fixture)).toContain('What is 2 + 2?');
+      expect(radios(fixture)).toHaveLength(2);
+      answerWebcamPolicy(false);
+    });
+
+    it('counts down from the moment the attempt arrived, not from the moment the page drew it', async () => {
+      // The attempt arrived at 04:30:00 by the device clock, and the exam page, waiting for its code to load, drew it five seconds later.
+      vi.setSystemTime(NOW + 5_000);
+      const fixture = await openHanded(attempt(), false, NOW);
+
+      expect(countdown(fixture)).toBe('29:55');
+      answerWebcamPolicy(false);
+    });
+
+    it('still uses the server clock rather than the candidate clock', async () => {
+      vi.setSystemTime(NOW - 10 * 60_000);
+      const fixture = await openHanded(attempt(), false, NOW - 10 * 60_000);
+
+      expect(countdown(fixture)).toBe('30:00');
+      vi.advanceTimersByTime(65_000);
+      fixture.detectChanges();
+      expect(countdown(fixture)).toBe('28:55');
+      answerWebcamPolicy(false);
+    });
+
+    it('numbers the next save above the sequence the server holds, as for an attempt it read itself (NFR-4)', async () => {
+      const held = attempt();
+      held.sections[0].questions[0] = { ...held.sections[0].questions[0], answerSequence: 7 };
+      const fixture = await openHanded(held);
+      answerWebcamPolicy(false);
+
+      radios(fixture)[1].click();
+
+      const save = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/answers/q1'));
+      expect(save.request.body).toEqual({ optionId: 'o2', sequence: 8 });
+      save.flush(null);
+    });
+
+    it('reads the attempt from the server when nothing was handed over, as a reload does', async () => {
+      const fixture = await openHanded(null);
+
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET').flush(attempt());
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('What is 2 + 2?');
+      answerWebcamPolicy(false);
+    });
+
+    it('reads it from the server when what was handed over has waited too long to be trusted for the clock', async () => {
+      vi.setSystemTime(NOW + 60_000);
+      const fixture = await openHanded(attempt(), false, NOW);
+
+      httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET').flush(attempt({ serverTimeUtc: '2026-10-05T04:31:00Z' }));
+      fixture.detectChanges();
+
+      expect(countdown(fixture)).toBe('29:00');
+      answerWebcamPolicy(false);
+    });
+
+    it('reads it from the server when it was started in the other bandwidth mode than this page is in', async () => {
+      const fixture = await openHanded(attempt(), true);
+
+      const read = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1') && r.method === 'GET');
+      expect(read.request.params.has('lite')).toBe(false);
+      read.flush(attempt());
+      fixture.detectChanges();
+      answerWebcamPolicy(false);
+    });
   });
 
   describe('when the attempt cannot be read from the server', () => {

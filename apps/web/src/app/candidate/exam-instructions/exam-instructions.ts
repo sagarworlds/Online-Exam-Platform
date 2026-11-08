@@ -5,8 +5,11 @@ import { TranslatePipe } from '../../i18n/translate.pipe';
 import { AuthSessionService } from '../../auth/auth-session.service';
 import { ConsentApiService } from '../../consent/consent-api.service';
 import { extractErrorMessage } from '../../shared/problem-details';
+import { OnDemandPreload } from '../../shared/preload/on-demand-preload';
 import { CandidateApiService } from '../candidate-api.service';
 import { MyExamDto } from '../candidate.models';
+import { LowBandwidthService } from '../low-bandwidth.service';
+import { AttemptHandoff } from '../exam-attempt/attempt-handoff';
 import { CheckResult, CheckStatus, SystemCheckService } from '../system-check/system-check';
 import { instructionLines, timeAllowed } from './exam-rules-text';
 import { switchMap, tap } from 'rxjs';
@@ -37,6 +40,9 @@ export class ExamInstructions {
   private readonly router = inject(Router);
   private readonly systemCheck = inject(SystemCheckService);
   private readonly consentApi = inject(ConsentApiService);
+  private readonly lowBandwidth = inject(LowBandwidthService);
+  private readonly handoff = inject(AttemptHandoff);
+  private readonly preload = inject(OnDemandPreload);
   private readonly userId = inject(AuthSessionService).session()?.userId ?? null;
   private readonly examId = inject(ActivatedRoute).snapshot.paramMap.get('examId') ?? '';
 
@@ -158,8 +164,14 @@ export class ExamInstructions {
   constructor() {
     this.api.listMyExams().subscribe({
       next: (exams) => {
-        this.exam.set(exams.find((e) => e.examId === this.examId) ?? null);
+        const exam = exams.find((e) => e.examId === this.examId) ?? null;
+        this.exam.set(exam);
         this.loading.set(false);
+        // The exam page is the heaviest screen there is, and this candidate can start: it is fetched while they read, not after Start with the
+        // clock running. Not on a slow or data-saving connection, where a screen they may not reach is not worth the data.
+        if (exam?.canStartAttempt === true && !this.lowBandwidth.enabled()) {
+          this.preload.request('exam');
+        }
       },
       error: (error: unknown) => {
         this.loading.set(false);
@@ -212,7 +224,9 @@ export class ExamInstructions {
     // The consent is recorded first, so this page never begins an attempt on a consent it could not record. Once recorded it is done: a start
     // that then fails (the exam closed meanwhile, say) and is tried again must not record it a second time.
     const consent = this.consent();
-    const begin = this.api.startAttempt(this.examId, true);
+    // The attempt that comes back is handed to the exam page, which would otherwise ask for the same questions and pictures again.
+    const lowBandwidth = this.lowBandwidth.enabled();
+    const begin = this.api.startAttempt(this.examId, true, lowBandwidth).pipe(tap((attempt) => this.handoff.put(attempt, lowBandwidth)));
     const call =
       consent.state === 'needed' && this.userId !== null
         ? this.consentApi.grant({ subjectId: this.userId, purpose: 'ProctoringDataProcessing', noticeVersionId: consent.noticeVersionId }).pipe(
