@@ -23,14 +23,18 @@ export class MathDirective {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly i18n = inject(I18nService);
 
-  /** The pictures fetched so far, as object URLs, so showing the same text again does not fetch them again. */
-  private readonly shown = new Map<string, string>();
+  /**
+   * The pictures fetched so far, as object URLs, kept apart for each loader, so showing the same text again does not fetch them again.
+   * A key only names a picture within one text (the API numbers each question's pictures from 0, so two questions both hold a `q-0`), and
+   * a loader is what fetches for one text, so a key is looked up in its own loader's pictures and never in another's.
+   */
+  private readonly shown = new Map<PictureLoader, Map<string, string>>();
   private stopFetching: (() => void) | null = null;
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
       this.stopFetching?.();
-      this.shown.forEach((url) => URL.revokeObjectURL(url));
+      this.shown.forEach((pictures) => pictures.forEach((url) => URL.revokeObjectURL(url)));
       this.shown.clear();
     });
 
@@ -50,9 +54,19 @@ export class MathDirective {
             loading: this.i18n.t('attempt.picture.loading'),
             failed: (size) => this.i18n.t('attempt.picture.failed', { size }),
           },
-          this.shown,
+          this.picturesOf(load),
         );
       }
     });
+  }
+
+  /** The pictures already fetched through one loader, which is all of one text's; empty the first time the loader is seen. */
+  private picturesOf(load: PictureLoader): Map<string, string> {
+    let pictures = this.shown.get(load);
+    if (pictures === undefined) {
+      pictures = new Map<string, string>();
+      this.shown.set(load, pictures);
+    }
+    return pictures;
   }
 }
