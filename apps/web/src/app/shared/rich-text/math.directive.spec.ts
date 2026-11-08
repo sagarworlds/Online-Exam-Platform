@@ -104,3 +104,87 @@ describe('MathDirective with a picture loader (FR-53)', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:fetched');
   });
 });
+
+/** One element that is given a different question as the candidate moves on: the markers of two questions can carry the same key. */
+@Component({ imports: [MathDirective], template: '<div class="t" [appMath]="html()" [appMathPicture]="loader()"></div>' })
+class MovingHost {
+  readonly html = signal(MARKED);
+  readonly loader = signal<PictureLoader | null>(null);
+}
+
+describe('MathDirective moving from one question to the next (FR-53)', () => {
+  const SECOND = '<p>Which flag?</p><img class="lazy-media lazy-media--q-0 lazy-bytes--2048" alt="A flag">';
+  let created = 0;
+
+  beforeEach(() => {
+    created = 0;
+    URL.createObjectURL = vi.fn(() => `blob:picture-${++created}`);
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  const open = () => {
+    const first: PictureLoader = vi.fn(() => of(new Blob(['first'])));
+    const second: PictureLoader = vi.fn(() => of(new Blob(['second'])));
+    const fixture = TestBed.createComponent(MovingHost);
+    fixture.componentInstance.loader.set(first);
+    fixture.detectChanges();
+    const el = (fixture.nativeElement as HTMLElement).querySelector('.t') as HTMLElement;
+    const press = () => {
+      (el.querySelector('button.lazy-picture') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    };
+    const moveTo = (html: string, loader: PictureLoader) => {
+      fixture.componentInstance.html.set(html);
+      fixture.componentInstance.loader.set(loader);
+      fixture.detectChanges();
+    };
+    return { fixture, el, first, second, press, moveTo };
+  };
+
+  it('offers the picture of the next question, though its marker has the same key as the one just shown', () => {
+    const { el, first, second, press, moveTo } = open();
+    press();
+    expect(el.querySelector('img')?.getAttribute('src')).toBe('blob:picture-1');
+
+    moveTo(SECOND, second);
+
+    expect(el.querySelector('img')).toBeNull();
+    expect(el.querySelector('button.lazy-picture')?.textContent).toBe('Show picture: A flag (2.0 KB)');
+    press();
+    expect(second).toHaveBeenCalledWith('q-0');
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(el.querySelector('img')?.getAttribute('src')).toBe('blob:picture-2');
+    expect(el.querySelector('img')?.getAttribute('alt')).toBe('A flag');
+  });
+
+  it('puts a picture straight back, without fetching it again, when its question is shown again', () => {
+    const { el, first, second, press, moveTo } = open();
+    press();
+    moveTo(SECOND, second);
+    press();
+
+    moveTo(MARKED, first);
+
+    expect(el.querySelector('button')).toBeNull();
+    expect(el.querySelector('img')?.getAttribute('src')).toBe('blob:picture-1');
+    expect(first).toHaveBeenCalledTimes(1);
+
+    moveTo(SECOND, second);
+    expect(el.querySelector('img')?.getAttribute('src')).toBe('blob:picture-2');
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives every picture it fetched back to the browser when the page is left', () => {
+    const { fixture, second, press, moveTo } = open();
+    press();
+    moveTo(SECOND, second);
+    press();
+
+    fixture.destroy();
+
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:picture-1');
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:picture-2');
+  });
+});
