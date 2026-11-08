@@ -36,7 +36,8 @@ export function formatBytes(bytes: number): string {
  * @param root The element holding the question's sanitized HTML.
  * @param load Fetches a picture by its key.
  * @param labels What the buttons say.
- * @param shown The pictures already fetched, by key, as object URLs; this adds to it.
+ * @param shown The pictures already fetched, by key, as object URLs; this adds to it. A key is only unique within one question's text, so
+ *   this must hold the pictures of one question (one loader) and no other's.
  * @returns A function that stops any fetch still on its way, for when the text is replaced or the page is left.
  */
 export function attachLazyPictures(

@@ -2434,6 +2434,85 @@ describe('ExamAttempt', () => {
       expect(root(fixture).querySelector('.question__text img')?.getAttribute('src')).toBe('blob:fetched');
     });
 
+    /**
+     * Two questions that each hold one picture. The API numbers a question's pictures from 0, so both markers carry the same key (q-0):
+     * only the question they belong to tells them apart.
+     */
+    const withTwoMarkers = () => {
+      const base = attempt();
+      return attempt({
+        sections: base.sections.map((section) => ({
+          ...section,
+          questions: section.questions.map((question) => ({
+            ...question,
+            text: `<p>${question.id === 'q1' ? 'Which city?' : 'Which flag?'}</p><img class="lazy-media lazy-media--q-0 lazy-bytes--45000" alt="${question.id === 'q1' ? 'A map' : 'A flag'}">`,
+          })),
+        })),
+      });
+    };
+    const pictureOf = (questionId: string) => (r: { url: string }) => r.url.endsWith(`/v1/me/attempts/a1/questions/${questionId}/pictures/q-0`);
+    const showPicture = (fixture: ComponentFixture<ExamAttempt>, questionId: string, blobUrl: string) => {
+      let n = 0;
+      URL.createObjectURL = vi.fn(() => `${blobUrl}-${++n}`);
+      (root(fixture).querySelector('button.lazy-picture') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      httpMock.expectOne(pictureOf(questionId)).flush(new Blob(['x'], { type: 'image/png' }));
+      fixture.detectChanges();
+    };
+
+    it('offers the next question its own picture instead of showing the one fetched for the question before', async () => {
+      localStorage.setItem('exam.lowBandwidth', 'on');
+      const fixture = await open(withTwoMarkers());
+      showPicture(fixture, 'q1', 'blob:first');
+      expect(root(fixture).querySelector('.question__text img')?.getAttribute('src')).toBe('blob:first-1');
+
+      buttonLabelled(fixture, 'Next')?.click();
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Which flag?');
+      expect(root(fixture).querySelector('.question__text img')).toBeNull();
+      expect((root(fixture).querySelector('button.lazy-picture') as HTMLButtonElement).textContent).toBe('Show picture: A flag (44 KB)');
+
+      showPicture(fixture, 'q2', 'blob:second');
+      expect(root(fixture).querySelector('.question__text img')?.getAttribute('src')).toBe('blob:second-1');
+      expect(root(fixture).querySelector('.question__text img')?.getAttribute('alt')).toBe('A flag');
+    });
+
+    it('does not fetch a question’s picture again when the candidate comes back to it', async () => {
+      localStorage.setItem('exam.lowBandwidth', 'on');
+      const fixture = await open(withTwoMarkers());
+      showPicture(fixture, 'q1', 'blob:first');
+      buttonLabelled(fixture, 'Next')?.click();
+      fixture.detectChanges();
+      showPicture(fixture, 'q2', 'blob:second');
+
+      buttonLabelled(fixture, 'Previous')?.click();
+      fixture.detectChanges();
+
+      expect(root(fixture).querySelector('button.lazy-picture')).toBeNull();
+      expect(root(fixture).querySelector('.question__text img')?.getAttribute('src')).toBe('blob:first-1');
+      httpMock.expectNone(pictureOf('q1'));
+
+      buttonLabelled(fixture, 'Next')?.click();
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('.question__text img')?.getAttribute('src')).toBe('blob:second-1');
+      httpMock.expectNone(pictureOf('q2'));
+    });
+
+    it('gives every picture it fetched back to the browser when the page is left', async () => {
+      localStorage.setItem('exam.lowBandwidth', 'on');
+      const fixture = await open(withTwoMarkers());
+      showPicture(fixture, 'q1', 'blob:first');
+      buttonLabelled(fixture, 'Next')?.click();
+      fixture.detectChanges();
+      showPicture(fixture, 'q2', 'blob:second');
+
+      fixture.destroy();
+
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:first-1');
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:second-1');
+    });
+
     it('reads the attempt in full again when it is switched off', async () => {
       localStorage.setItem('exam.lowBandwidth', 'on');
       const fixture = await open(withMarker());
