@@ -6,6 +6,7 @@ Covers NFR-9 (observability) and NFR-13 (CERT-In-aligned logging, 180-day retent
 
 - The API writes **one JSON object per line to stdout**. It writes no log file.
 - The hosting collects stdout. On Render that is the service's log stream (see `docs/deploy-render.md`).
+- **SQL statements are not logged outside Development.** EF Core writes one `Executed DbCommand` line for every statement it runs, and a candidate's request can run a dozen or more, so `appsettings.json` holds that category (`Microsoft.EntityFrameworkCore.Database.Command`) at `Warning`: failures and timeouts still appear. To see the statements while chasing a fault, set the environment variable `Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command` to `Information` and restart. Development keeps them on.
 - **The application does not keep or delete logs.** How long they are kept is set in the log store, which is the owner's hosting decision (see "Decisions for the owner" below).
 
 ## What a log line holds

@@ -116,7 +116,11 @@ builder.Services.AddCors(options =>
     var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
         ?? ["http://localhost:4200"];
     // The correlation id is exposed so the web client can show it to someone reporting a failure (NFR-9).
+    // The site and the API are on different origins in production, and the Authorization header and a JSON body both make the browser ask
+    // first (a preflight). Without a max age it asks again every 5 s, so most answer saves and heartbeats would cost two round trips.
+    // Two hours is the longest Chromium keeps one, and the policy only lists origins, headers and methods that do not change while the API runs.
     options.AddDefaultPolicy(policy => policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()
+        .SetPreflightMaxAge(TimeSpan.FromHours(2))
         .WithExposedHeaders(CorrelationId.HeaderName));
 });
 
