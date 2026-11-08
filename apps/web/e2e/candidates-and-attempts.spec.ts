@@ -185,9 +185,11 @@ test.describe('the page on a phone', () => {
   });
 
   test('keeps a candidate card inside the screen when the address and the status do not fit side by side, whatever the font', async ({ page }) => {
-    // An address that fits a phone card alone, in any font, but not beside "0 of 1 attempt used": the status has to go below it. A machine whose
-    // font is narrower hides the fault by fitting both on one line, which is how this reached the main branch; this address does not let it.
-    const long = candidate('c9', 'candidate.name@school.example.org');
+    // An address that fits a phone card alone, in the widest font a run is likely to have (CI's draws this one about 275px wide in a card about
+    // 315px wide), but not beside "0 of 1 attempt used": the status has to go below it. A machine whose font is narrower hides the fault by
+    // fitting both on one line, which is how this reached the main branch; this address does not let it. An address cannot be broken across
+    // lines, so one too long for the card alone would overflow whatever the styles do, and say nothing about them.
+    const long = candidate('c9', 'candidate.name@school.org');
     await openPage(page, ['exam.manage', 'invite.manage'], { ...roster, candidates: [long] });
     await expect(cards(page)).toHaveCount(1);
 
