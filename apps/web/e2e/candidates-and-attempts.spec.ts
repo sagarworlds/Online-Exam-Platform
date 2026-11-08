@@ -40,9 +40,9 @@ function phoneMatches(typed: string): string[] {
 
 const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 
-async function openPage(page: Page, permissions: readonly string[] = ['exam.manage', 'invite.manage']) {
+async function openPage(page: Page, permissions: readonly string[] = ['exam.manage', 'invite.manage'], shown: ExamAttemptsDto = roster) {
   await page.addInitScript(([key, value]) => localStorage.setItem(key, value), ['exam-platform.auth-token', staffAccessToken('staff-1', 'session-1', permissions)] as [string, string]);
-  await page.route(`**/api/v1/exams/${EXAM}/attempts`, (route) => json(route, roster));
+  await page.route(`**/api/v1/exams/${EXAM}/attempts`, (route) => json(route, shown));
   await page.route('**/api/v1/ai-grading/status', (route) => json(route, { enabled: false, waitingAnswers: 0 }));
   await page.goto(`/exams/${EXAM}/attempts`);
   await expect(page.getByRole('heading', { name: 'Candidates and attempts', level: 1 })).toBeVisible();
@@ -182,6 +182,19 @@ test.describe('the page on a phone', () => {
     expect(await scrollsSideways(page), 'the page is no wider than the screen').toBe(false);
     await expectEasyToHit(search(page), 'the search box');
     await expectEasyToHit(inviteButton(page), 'the invite button');
+  });
+
+  test('keeps a candidate card inside the screen when the address and the status do not fit side by side, whatever the font', async ({ page }) => {
+    // An address that fits a phone card alone, in any font, but not beside "0 of 1 attempt used": the status has to go below it. A machine whose
+    // font is narrower hides the fault by fitting both on one line, which is how this reached the main branch; this address does not let it.
+    const long = candidate('c9', 'candidate.name@school.example.org');
+    await openPage(page, ['exam.manage', 'invite.manage'], { ...roster, candidates: [long] });
+    await expect(cards(page)).toHaveCount(1);
+
+    expect(await scrollsSideways(page), 'the page is no wider than the screen').toBe(false);
+    const card = (await page.locator('.card').first().boundingBox())!;
+    const badge = (await page.locator('.card__title .badge').first().boundingBox())!;
+    expect(badge.x + badge.width, 'the status stays inside its card').toBeLessThanOrEqual(card.x + card.width);
   });
 
   test('has an invite popup that fits the width, with every control easy to hit', async ({ page }) => {

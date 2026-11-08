@@ -1434,7 +1434,9 @@ export class ExamAttempt {
 
   /**
    * What fetches the pictures of one question when the candidate asks for them; null when the page was sent them with the questions (a
-   * preview, which reads the exam itself). One for each question and always the same one, so the text is not redrawn.
+   * preview, which reads the exam itself). One for each question and always the same one, so the text is not redrawn, and so the text
+   * directive can keep the pictures it fetched for a question apart from another's: every question's pictures are keyed from `q-0`, and
+   * the loader is all that tells them apart.
    */
   protected pictureLoader(questionId: string): PictureLoader | null {
     const attemptId = this.attemptId;
