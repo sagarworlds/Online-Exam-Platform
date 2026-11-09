@@ -24,8 +24,23 @@ public sealed class UserRepository(IdentityDbContext context) : IUserRepository
         Loaded().FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
 
     /// <inheritdoc />
-    public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken) =>
-        Loaded().FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+    public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken)
+    {
+        var typed = email.Trim();
+
+        // An account that holds exactly this text wins, which is what the unique index serves and what every caller got before.
+        var exact = await Loaded().FirstOrDefaultAsync(u => u.Email == typed, cancellationToken);
+        if (exact is not null || typed.Length == 0)
+            return exact;
+
+        // Addresses are stored as they were entered, so a person who types theirs in another case than that (a staff member who entered
+        // "Priya.Sharma@School.edu" for them, and they sign in as "priya.sharma@school.edu") would be told "no account", or, where the answer is
+        // the same for every address, nothing at all. The one account that holds the address without regard to case is theirs. Two or
+        // more that differ only by case, with none exactly as typed, is ambiguous, and no account is better than the wrong one.
+        var wanted = typed.ToLowerInvariant();
+        var holders = await Loaded().Where(u => u.Email != null && u.Email.ToLower() == wanted).Take(2).ToListAsync(cancellationToken);
+        return holders.Count == 1 ? holders[0] : null;
+    }
 
     // lower() on both sides and not ILIKE: an address may hold "_", which ILIKE reads as a wildcard.
     /// <inheritdoc />

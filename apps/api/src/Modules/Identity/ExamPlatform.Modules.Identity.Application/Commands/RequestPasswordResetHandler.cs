@@ -53,7 +53,9 @@ public sealed class RequestPasswordResetHandler(
         // The code encodes both resetToken.Id and rawToken: the e-mail carries it in a link that opens the reset page with it filled
         // in, and as plain text for pasting; ResetPasswordCommand takes the two parts back apart. The lifetime is passed along so the
         // message states the real one, not a figure of its own.
-        await sender.SendAsync(command.Email, $"{resetToken.Id}:{rawToken}", Validity, cancellationToken);
+        // To the address the account holds, not the text that was typed: the lookup ignores case, and a mail host that does not would
+        // otherwise deliver a variant of the address to a different mailbox than the account's own.
+        await sender.SendAsync(user.Email ?? command.Email, $"{resetToken.Id}:{rawToken}", Validity, cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }

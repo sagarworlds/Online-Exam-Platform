@@ -93,4 +93,19 @@ public class RequestPasswordResetHandlerTests
         Assert.Empty(_sender.ReceivedCalls());
         Assert.Empty(_unitOfWork.ReceivedCalls());
     }
+
+    [Fact]
+    public async Task HandleAsync_AddressTypedInAnotherCase_SendsTheLinkToTheAddressTheAccountHolds()
+    {
+        // The repository finds the account for what was typed, ignoring case; the link must still go to the address the account holds, so a
+        // mail host that tells "Staff@" from "staff@" cannot hand it to another mailbox.
+        _user.SetPasswordHash("hashed-password");
+        const string typed = "STAFF@EXAMPLE.COM";
+        _userRepository.GetByEmailAsync(typed, Arg.Any<CancellationToken>()).Returns(_user);
+
+        await _handler.HandleAsync(new RequestPasswordResetCommand(typed), CancellationToken.None);
+
+        await _sender.Received(1).SendAsync(Email, Arg.Any<string>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+        await _sender.DidNotReceive().SendAsync(typed, Arg.Any<string>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+    }
 }

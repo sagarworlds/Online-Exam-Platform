@@ -177,4 +177,18 @@ public class RequestOtpHandlerTests
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         _diagnostics.DidNotReceiveWithAnyArgs().Explain(default, default, default!);
     }
+
+    [Fact]
+    public async Task HandleAsync_AddressTypedInAnotherCase_SendsTheCodeToTheAddressTheAccountHolds()
+    {
+        // The repository finds the account for what was typed, ignoring case; the code must still go to the address the account holds, so a
+        // mail host that tells "Candidate@" from "candidate@" cannot hand it to another mailbox.
+        var user = ArrangeUser();
+        _userRepository.GetByEmailAsync("CANDIDATE@Example.com", Arg.Any<CancellationToken>()).Returns(user);
+
+        await _handler.HandleAsync(new RequestOtpCommand(OtpChannel.Email, "CANDIDATE@Example.com"), CancellationToken.None);
+
+        await _sender.Received(1).SendAsync(OtpChannel.Email, Destination, Code, Arg.Any<CancellationToken>());
+        await _sender.DidNotReceive().SendAsync(OtpChannel.Email, "CANDIDATE@Example.com", Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
 }

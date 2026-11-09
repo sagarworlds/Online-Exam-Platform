@@ -51,7 +51,10 @@ public sealed class RequestOtpHandler(
         Guid challengeId;
         if (user is not null && withheld is null)
         {
-            challengeId = await otpChallengeIssuer.IssueAsync(user.Id, command.Channel, command.Destination, purpose, cancellationToken);
+            // A code for an e-mail address goes to the address the account holds, not the text that was typed: the lookup ignores case, and
+            // a mail host that does not would otherwise deliver a variant of the address to a different mailbox than the account's own.
+            var destination = command.Channel == OtpChannel.Email ? user.Email ?? command.Destination : command.Destination;
+            challengeId = await otpChallengeIssuer.IssueAsync(user.Id, command.Channel, destination, purpose, cancellationToken);
         }
         else
         {

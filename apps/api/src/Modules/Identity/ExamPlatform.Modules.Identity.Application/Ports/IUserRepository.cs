@@ -10,15 +10,20 @@ public interface IUserRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
-    /// <summary>Loads a user by email address, or null if none exists.</summary>
+    /// <summary>
+    /// Loads a user by email address, or null if none exists. An account that holds exactly this text wins; otherwise the one account that
+    /// holds it without regard to case, so a person who types their address in another case than it was entered in still reaches their
+    /// account. When more than one account holds it without regard to case and none is exactly as typed, the answer is null: it is
+    /// ambiguous. A message must go to the address the account holds (<c>User.Email</c>), not to the text that was typed.
+    /// </summary>
     /// <param name="email">The email address to search for.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Loads, tracked, every user whose e-mail address equals the given one without regard to case. Sign-in matches an address exactly
-    /// (<see cref="GetByEmailAsync"/>), so more than one account can hold what is the same address to a person; a caller that signs
-    /// someone in from an address they were sent must see all of them and refuse when it is not exactly one.
+    /// Loads, tracked, every user whose e-mail address equals the given one without regard to case. <see cref="GetByEmailAsync"/> prefers
+    /// an exact match, and an address is unique only exactly as entered, so more than one account can hold what is the same address to
+    /// a person; a caller that signs someone in from an address they were sent must see all of them and refuse when it is not exactly one.
     /// </summary>
     /// <param name="email">The address to search for.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
