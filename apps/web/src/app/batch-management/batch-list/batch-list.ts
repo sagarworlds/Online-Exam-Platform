@@ -2,7 +2,6 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ExamApiService } from '../../exam-authoring/exam-api.service';
 import { I18nService } from '../../i18n/i18n.service';
-import { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { EmptyState } from '../../shared/empty-state/empty-state';
 import { ListChip, ListToolbar } from '../../shared/list-shell/list-toolbar';
@@ -15,7 +14,7 @@ import { BatchDto, BatchStatus } from '../batch.models';
 import { LocaleDatePipe } from '../../i18n/locale-date.pipe';
 
 /** What each state of a batch means to the person reading the list: one that is taking candidates is good, one that is over is only a fact. */
-const STATUS_TONES: Record<BatchStatus, StatusTone> = { Draft: 'neutral', Active: 'success', Closed: 'info', Archived: 'neutral' };
+const STATUS_TONES: Record<BatchStatus, StatusTone> = { Pending: 'neutral', Active: 'success', Closed: 'info', Archived: 'neutral' };
 
 /** How many batches are drawn before "Load more". */
 const PAGE_SIZE = 20;
@@ -129,7 +128,7 @@ export class BatchList implements OnInit {
   /** The search and the status filter, kept in the address (`?q=&status=`) so a filtered list can be shared. */
   protected readonly search = signal('');
   protected readonly status = signal<BatchStatus | ''>('');
-  protected readonly statuses: readonly BatchStatus[] = ['Draft', 'Active', 'Closed', 'Archived'];
+  protected readonly statuses: readonly BatchStatus[] = ['Pending', 'Active', 'Closed', 'Archived'];
   private readonly pages = signal(1);
 
   protected readonly matching = computed(() => {
@@ -190,8 +189,10 @@ export class BatchList implements OnInit {
     return STATUS_TONES[status] ?? 'neutral';
   }
 
+  /** The words for a status; a status the API adds later shows as it is named, not as an empty badge. */
   protected statusLabel(status: BatchStatus): string {
-    return this.i18n.t(`batches.status.${status}` as MessageKey);
+    const key = `batches.status.${status}`;
+    return this.i18n.has(key) ? this.i18n.t(key) : status;
   }
 
   loadBatches() {

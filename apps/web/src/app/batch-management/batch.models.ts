@@ -1,5 +1,15 @@
-export type BatchStatus = 'Draft' | 'Active' | 'Closed' | 'Archived';
-export type MemberRegistrationStatus = 'Pending' | 'Registered' | 'Verified' | 'Inactive';
+/**
+ * Where a batch stands, exactly as the API names it (`BatchStatus` in the Batch module): Pending, then Active, then Closed. The page says "Draft"
+ * for Pending. Nothing archives a batch yet, so Archived is a name the API reserves, not one a batch reaches.
+ * docs/state-machines.md lists the moves, and a test in the API's architecture tests fails when these names and the API's drift apart.
+ */
+export type BatchStatus = 'Pending' | 'Active' | 'Closed' | 'Archived';
+
+/**
+ * Where a batch member stands, exactly as the API names it (`MemberRegistrationStatus`): Invited, then Registered; Withdrawn when taken off.
+ * Completed is reserved: nothing sets it yet. The page says "Pending" for Invited, "Verified" for Completed and "Inactive" for Withdrawn.
+ */
+export type MemberRegistrationStatus = 'Invited' | 'Registered' | 'Completed' | 'Withdrawn';
 
 export interface BatchDto {
   id: string;
