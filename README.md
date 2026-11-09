@@ -1433,6 +1433,7 @@ What the platform does that the requirements do not ask for, or ask for more nar
 
 - 📖 **Product Requirements**: See [`exam-platform-requirements.md`](./exam-platform-requirements.md)
 - 🏗️ **Architecture Decisions**: See [`docs/adr/`](./docs/adr/) (start with [ADR 0001](./docs/adr/0001-stack.md))
+- 🔁 **Lifecycles (state machines)**: every status, its allowed moves and where each is enforced are in [`docs/state-machines.md`](./docs/state-machines.md) ([ADR 0007](./docs/adr/0007-explicit-lifecycles.md))
 - 🐛 **Issues & Bugs**: [GitHub Issues](https://github.com/sagarworlds/Online-Exam-Platform/issues)
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/sagarworlds/Online-Exam-Platform/discussions)
 
