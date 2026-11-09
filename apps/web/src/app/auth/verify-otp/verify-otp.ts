@@ -108,7 +108,8 @@ export class VerifyOtp {
    */
   protected resend(): void {
     const destination = this.destination;
-    if (!this.canResend || destination === null || this.resendIn() > 0 || this.resending()) {
+    // Not while a code is being checked: the answer to that would arrive after this one had swapped the challenge and emptied the boxes.
+    if (!this.canResend || destination === null || this.resendIn() > 0 || this.resending() || this.submitting()) {
       return;
     }
 
@@ -179,7 +180,8 @@ export class VerifyOtp {
 
   protected submit(): void {
     this.attempted.set(true);
-    if (this.form.invalid || this.submitting() || !this.challengeId) {
+    // Not while a new code is being asked for either: the code typed belongs to the challenge that is about to be replaced.
+    if (this.form.invalid || this.submitting() || this.resending() || !this.challengeId) {
       return;
     }
 

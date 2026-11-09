@@ -49,12 +49,12 @@
       @if (resentNotice()) {
         <p class="info-message" role="status">{{ 'verify.resent' | t }}</p>
       }
-      <button type="submit" class="primary auth-submit" [disabled]="submitting()">{{ 'verify.submit' | t }}</button>
+      <button type="submit" class="primary auth-submit" [disabled]="submitting() || resending()">{{ 'verify.submit' | t }}</button>
     </form>
 
     @if (canResend) {
       <p class="verify-resend">
-        <button type="button" [disabled]="resendIn() > 0 || resending()" (click)="resend()">
+        <button type="button" [disabled]="resendIn() > 0 || resending() || submitting()" (click)="resend()">
           {{ resendIn() > 0 ? ('verify.resendIn' | t: { time: resendTime() }) : ('verify.resend' | t) }}
         </button>
       </p>
