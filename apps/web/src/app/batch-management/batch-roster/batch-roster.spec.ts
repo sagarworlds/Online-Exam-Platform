@@ -67,11 +67,28 @@ describe('BatchRoster', () => {
     await importFile();
     httpMock.expectOne(isImport).flush({ added: [{ row: 1, memberId: 'm1' }], skipped: [], ignoredColumns: [] });
 
-    httpMock.expectOne(isMembersRead).flush([{ id: 'm1', email: 'amy@example.com', status: 'Pending' }]);
+    httpMock.expectOne(isMembersRead).flush([{ id: 'm1', email: 'amy@example.com', status: 'Invited' }]);
     fixture.detectChanges();
 
     expect(root.textContent).toContain('amy@example.com');
     expect(root.textContent).toContain('Members (1)');
+  });
+
+  // The names are the API's (`MemberRegistrationStatus`). The page once knew Pending, Verified and Inactive, which the API never sends, so
+  // a member who had only been invited showed an empty badge.
+  it('words each member status the way the API names it, and an unknown one as it is named', () => {
+    (root.querySelector('app-refresh-button button') as HTMLButtonElement).click();
+    httpMock.expectOne(isMembersRead).flush([
+      { id: 'm1', email: 'a@example.com', status: 'Invited' },
+      { id: 'm2', email: 'b@example.com', status: 'Registered' },
+      { id: 'm3', email: 'c@example.com', status: 'Completed' },
+      { id: 'm4', email: 'd@example.com', status: 'Withdrawn' },
+      { id: 'm5', email: 'e@example.com', status: 'Suspended' },
+    ]);
+    fixture.detectChanges();
+
+    const badges = Array.from(root.querySelectorAll('tbody app-status-badge')).map((b) => b.textContent?.replace(/\s+/g, ' ').trim());
+    expect(badges).toEqual(['Pending', 'Registered', 'Verified', 'Inactive', 'Suspended'].map((words) => expect.stringContaining(words)));
   });
 
   describe('the refresh icon', () => {
@@ -145,8 +162,8 @@ describe('BatchRoster', () => {
   describe('searching the members', () => {
     const members = [
       { id: 'm1', email: 'amy@example.com', phone: '98200 11111', status: 'Registered' },
-      { id: 'm2', email: 'ben@example.com', status: 'Pending' },
-      { id: 'm3', email: 'cara@school.org', phone: '98200 22222', status: 'Verified' },
+      { id: 'm2', email: 'ben@example.com', status: 'Invited' },
+      { id: 'm3', email: 'cara@school.org', phone: '98200 22222', status: 'Completed' },
     ];
     const search = (value: string) => {
       const input = root.querySelector('input[type="search"]') as HTMLInputElement;
@@ -199,8 +216,8 @@ describe('BatchRoster', () => {
   describe('removing a member', () => {
     const members = [
       { id: 'm1', email: 'amy@example.com', phone: '98200 11111', status: 'Registered' },
-      { id: 'm2', email: 'ben@example.com', status: 'Pending' },
-      { id: 'm3', email: 'cara@school.org', status: 'Verified' },
+      { id: 'm2', email: 'ben@example.com', status: 'Invited' },
+      { id: 'm3', email: 'cara@school.org', status: 'Completed' },
     ];
     const isRemove = (id: string) => (r: { method: string; url: string }) => r.method === 'DELETE' && r.url.endsWith(`/v1/batches/batch-1/members/${id}`);
     const removeButton = (email: string) => root.querySelector<HTMLButtonElement>(`button[aria-label="Remove ${email} from the batch"]`)!;
@@ -377,7 +394,7 @@ describe('BatchRoster', () => {
       submit();
 
       httpMock.expectOne(isAdd).flush(null);
-      httpMock.expectOne(isMembersRead).flush([{ id: 'm1', email: 'amy@example.com', status: 'Pending' }]);
+      httpMock.expectOne(isMembersRead).flush([{ id: 'm1', email: 'amy@example.com', status: 'Invited' }]);
       fixture.detectChanges();
 
       expect(TestBed.inject(ToastService).toasts().map((t) => t.message)).toEqual(['The member is added.']);

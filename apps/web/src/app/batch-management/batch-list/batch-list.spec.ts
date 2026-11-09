@@ -63,6 +63,37 @@ describe('BatchList', () => {
     expect(cells.slice(0, 4)).toEqual(['Morning batch', 'Maths Final', '✓ Active', '12 / 30']);
   });
 
+  // The names are the API's (`BatchStatus`). The page once knew a batch that had not been opened as "Draft", which the API never sends, so
+  // every new batch showed an empty badge and the status filter could not find it.
+  it.each([
+    ['Pending', 'Draft'],
+    ['Active', 'Active'],
+    ['Closed', 'Closed'],
+    ['Archived', 'Archived'],
+  ])('words a %s batch as "%s"', (status, words) => {
+    const { root } = open([{ ...batch('b1', 'Morning batch'), status }]);
+
+    expect(root.querySelector('tbody app-status-badge')?.textContent).toContain(words);
+  });
+
+  it('names a status it has no words for as the API names it, rather than showing an empty badge', () => {
+    const { root } = open([{ ...batch('b1', 'Morning batch'), status: 'Paused' }]);
+
+    expect(root.querySelector('tbody app-status-badge')?.textContent).toContain('Paused');
+  });
+
+  it('finds a batch that has not been opened by filtering on its status', () => {
+    const { fixture, root } = open([{ ...batch('b1', 'New batch'), status: 'Pending' }, batch('b2', 'Running batch')]);
+
+    const select = root.querySelector<HTMLSelectElement>('#filter-batch-status')!;
+    select.value = 'Pending';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(Array.from(root.querySelectorAll('tbody th a')).map((a) => a.textContent?.trim())).toEqual(['New batch']);
+    expect(root.querySelector('.list-chip')?.textContent).toContain('Status: Draft');
+  });
+
   it('shows a dash for the exam when the exams could not be read, and still lists the batches', () => {
     const { root } = open([batch('b1', 'Morning batch')], 'error');
 

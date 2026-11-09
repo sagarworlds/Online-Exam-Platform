@@ -244,6 +244,50 @@ describe('VerifyOtp', () => {
       expect(resendButton(compiled)?.disabled).toBe(false);
     });
 
+    // A code and a new challenge cannot both be in flight: whichever answer came second would find the page changed under it (the new
+    // challenge swaps the one being checked and empties the boxes; a check that finished first has already moved the page on).
+    it('does not send a code while a new one is being asked for, and holds the Verify button until it is here', async () => {
+      const { compiled } = await navigateWithDestination('Login', 'jane@example.com');
+      const httpMock = TestBed.inject(HttpTestingController);
+      await vi.advanceTimersByTimeAsync(30_000);
+      TestBed.inject(ApplicationRef).tick();
+
+      resendButton(compiled)!.click();
+      const asked = httpMock.expectOne(requestUrl);
+      TestBed.inject(ApplicationRef).tick();
+      expect(compiled.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
+
+      const input = compiled.querySelector('#verify-otp-code') as HTMLInputElement;
+      input.value = '111222';
+      input.dispatchEvent(new Event('input'));
+      httpMock.expectNone(verifyUrl);
+
+      asked.flush({ otpChallengeId: 'challenge-2' });
+      TestBed.inject(ApplicationRef).tick();
+      expect(compiled.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(false);
+    });
+
+    it('does not ask for a new code while a code is being checked', async () => {
+      const { compiled } = await navigateWithDestination('Login', 'jane@example.com');
+      const httpMock = TestBed.inject(HttpTestingController);
+      await vi.advanceTimersByTimeAsync(30_000);
+      TestBed.inject(ApplicationRef).tick();
+
+      const input = compiled.querySelector('#verify-otp-code') as HTMLInputElement;
+      input.value = '111222';
+      input.dispatchEvent(new Event('input'));
+      const checking = httpMock.expectOne(verifyUrl);
+      TestBed.inject(ApplicationRef).tick();
+
+      expect(resendButton(compiled)?.disabled).toBe(true);
+      resendButton(compiled)!.click();
+      httpMock.expectNone(requestUrl);
+
+      checking.flush({ detail: 'That code is not right.' }, { status: 400, statusText: 'Bad Request' });
+      TestBed.inject(ApplicationRef).tick();
+      expect(resendButton(compiled)?.disabled).toBe(false);
+    });
+
     it.each(['Registration', 'TwoFactor'])('is not offered for a %s code, which the login page is the way back from', async (purpose) => {
       const { compiled } = await navigateWithDestination(purpose, 'jane@example.com');
 

@@ -2,7 +2,6 @@ import { Component, ElementRef, Injector, OnInit, afterNextRender, computed, inj
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
-import { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { ConfirmService } from '../../shared/confirm-dialog/confirm.service';
 import { focusFirstInvalidFieldAfterRender } from '../../shared/focus-first-invalid-field';
@@ -16,7 +15,7 @@ import { BatchMemberDto, MemberRegistrationStatus } from '../batch.models';
 import { RosterImport } from './roster-import/roster-import';
 
 /** A member who has not registered yet is waiting on them; one who has is a fact; one whose address is confirmed is good. */
-const MEMBER_TONES: Record<MemberRegistrationStatus, StatusTone> = { Pending: 'neutral', Registered: 'info', Verified: 'success', Inactive: 'neutral' };
+const MEMBER_TONES: Record<MemberRegistrationStatus, StatusTone> = { Invited: 'neutral', Registered: 'info', Completed: 'success', Withdrawn: 'neutral' };
 
 @Component({
   selector: 'app-batch-roster',
@@ -202,8 +201,10 @@ export class BatchRoster implements OnInit {
     return MEMBER_TONES[status] ?? 'neutral';
   }
 
+  /** The words for a status; a status the API adds later shows as it is named, not as an empty badge. */
   protected statusLabel(status: MemberRegistrationStatus): string {
-    return this.i18n.t(`batches.member.status.${status}` as MessageKey);
+    const key = `batches.member.status.${status}`;
+    return this.i18n.has(key) ? this.i18n.t(key) : status;
   }
 
   /** Reads the members again, so one who registered since shows without reloading the tab. A failed read leaves the list and says why. */
