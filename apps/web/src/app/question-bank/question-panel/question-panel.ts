@@ -155,8 +155,15 @@ export class QuestionPanel implements OnInit {
     this.save(true);
   }
 
-  /** Asks to close: at once when there is nothing to lose, otherwise after asking whether the changes may go. */
+  /**
+   * Asks to close: at once when there is nothing to lose, otherwise after asking whether the changes may go. Not while a save is on its way:
+   * it cannot be taken back, so closing then would tell the author their work was thrown away while it was still saved.
+   */
   protected requestClose(): void {
+    if (this.saving()) {
+      return;
+    }
+
     if (this.changed) {
       this.askToDiscard();
     } else {
@@ -165,6 +172,11 @@ export class QuestionPanel implements OnInit {
   }
 
   protected askToDiscard(): void {
+    // Escape and the Close button come here too. A save on its way is not asked about: it finishes, and the panel closes with it.
+    if (this.saving()) {
+      return;
+    }
+
     this.confirmingDiscard.set(true);
     this.focusOnceRendered(this.discardAsk);
   }
@@ -175,6 +187,10 @@ export class QuestionPanel implements OnInit {
   }
 
   protected discard(): void {
+    if (this.saving()) {
+      return;
+    }
+
     this.dialog()?.close();
   }
 
