@@ -242,7 +242,7 @@ in the files below, which are the precedents to copy.
 Already explicit (copy these): `ConsentState` (`exam-instructions.ts`), `AttentionState` (`admin-attention.service.ts`), `BrandingState`,
 `ResultView` (`attempt-result.ts`), `ScreenState` and `WebcamState` (the snapshotters, with a `generation` guard against a stale answer),
 `CopyState` (`invite-handover.ts`), `saveState` ('saved' | 'saving' | 'offline') on the attempt page, `AttemptRead` ('loading' | 'failed' | 'idle')
-and `SubmitFlow` ('closed' | 'confirming' | 'sending') on the same page, `STEPS_BY_STATUS` (a declared transition table), `groupOf`
+and `SubmitFlow` ('closed' | 'confirming' | 'sending') on the same page, `SyncPhase` ('idle' | 'sending' | 'backoff' | 'disposed') in `answer-sync.ts`, `STEPS_BY_STATUS` (a declared transition table), `groupOf`
 (`exam-groups.ts`, pure).
 
 Implicit and worth making explicit, ranked by how much a wrong state costs a candidate. None of these is a known bug; each can show a state
@@ -252,7 +252,7 @@ existing spec, and write specs for the states first.
 | # | Where | What is implicit |
 | --- | --- | --- |
 | 1 | `candidate/exam-attempt/exam-attempt.ts` | **Reading and submitting are explicit** (`AttemptRead`, `SubmitFlow`, with the moves written beside them and pinned by specs). Left: the page's phase (open, paused, time up, grading, finished) is still read from `attempt().status`, `pausedAtUtc` and `timeUpNotice`; one `errorMessage` serves a failed load and a failed save; `reload()` can overlap itself, harmlessly today, because every read it makes is of an attempt the server has already ended. No impossible combination of the old flags was reachable, so this was a change in clarity, not a fix. |
-| 2 | `candidate/exam-attempt/answer-sync.ts` | idle, sending, backing off, disposed, held in `running`, `disposed`, `failures`, `retryTimer`; `waiting` is derived but stored. The page detects edges with an effect to set `lastSavedAt`. |
+| 2 | `candidate/exam-attempt/answer-sync.ts` | **The queue's states are explicit** (`SyncPhase`: idle, sending, backoff, disposed, with the moves beside it; `waiting` is now computed from the failure count, not stored beside it). Left: the page still infers "the queue emptied" and "the connection came back" from two signals in an effect (`hadPendingAnswers`, `wasWaitingForConnection`); that only sets a display time and a screen-reader line, and no edge is missed in practice because a save takes a network round trip. Found on the way: a write that failed after the queue was disposed scheduled a retry timer that nobody cleared; harmless (it fired once and did nothing), and gone now. |
 | 3 | `candidate/exam-instructions/exam-instructions.ts` | `canStart` and `startReason` are two encodings of one precedence (checks, problem, acknowledge, consent, starting). `runChecks()` can overlap. |
 | 4 | `attempt-management/*-queue`, `proctoring/risk-flag-queue` | The same row machine copied four times: pending, composing, submitting, failed, decided (`busyId`, `rowErrors`, a shared `note`). |
 | 5 | `question-bank/question-panel` | new, loading, load failed, ready, saving, repeat warning, save failed, confirming discard: `saving` and `confirmingDiscard` can both be true. |
