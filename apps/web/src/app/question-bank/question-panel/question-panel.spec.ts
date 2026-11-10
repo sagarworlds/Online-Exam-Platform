@@ -767,6 +767,70 @@ describe('QuestionPanel', () => {
       expect(root.querySelector('app-question-panel')).not.toBeNull();
     });
 
+    // A save that has been sent cannot be taken back, so while it is on its way the panel cannot be thrown away: choosing Discard then would
+    // close the panel and tell the author their work was gone, while the question was still saved (or added) a moment later.
+    describe('while a save is on its way', () => {
+      it('holds Cancel and does not ask about throwing work away when Escape is pressed, for a new question, and closes once it is saved', () => {
+        const { fixture, host, root, fill, button, submit } = show();
+        fill();
+        submit();
+        const post = httpMock.expectOne(isCreate);
+        fixture.detectChanges();
+
+        expect(button('Cancel').disabled).toBe(true);
+        const cancel = escape();
+        (root.querySelector('dialog') as HTMLDialogElement).dispatchEvent(cancel);
+        fixture.detectChanges();
+
+        expect(cancel.defaultPrevented).toBe(true);
+        expect(root.querySelector('[role="alertdialog"]')).toBeNull();
+        expect(root.querySelector('app-question-panel')).not.toBeNull();
+
+        post.flush({ id: 'q9' }, { status: 201, statusText: 'Created' });
+        fixture.detectChanges();
+
+        expect(host.made).toEqual([{ another: false }]);
+        expect(root.querySelector('app-question-panel')).toBeNull();
+      });
+
+      it('does the same for the edit of a question', () => {
+        const { fixture, host, root, type, button, submit } = show({ edit: question() });
+        type(0, 'Paris, France');
+        submit();
+        const put = httpMock.expectOne(isPut);
+        fixture.detectChanges();
+
+        expect(button('Cancel').disabled).toBe(true);
+        (root.querySelector('dialog') as HTMLDialogElement).dispatchEvent(escape());
+        (root.querySelector('.modal__close') as HTMLButtonElement).click();
+        fixture.detectChanges();
+
+        expect(root.querySelector('[role="alertdialog"]')).toBeNull();
+        expect(root.querySelector('app-question-panel')).not.toBeNull();
+
+        put.flush(question({ options: [{ id: 'o1', text: 'Paris, France', isCorrect: true, isPinned: false }, { id: 'o2', text: 'Rome', isCorrect: false, isPinned: false }] }));
+        fixture.detectChanges();
+
+        expect(host.edited).toHaveLength(1);
+        expect(root.querySelector('app-question-panel')).toBeNull();
+      });
+
+      it('lets the author cancel again, and asks first, once the save has failed', () => {
+        const { fixture, root, fill, button, submit } = show();
+        fill();
+        submit();
+        httpMock.expectOne(isCreate).flush({ title: 'invalid_question', detail: 'Try again.' }, { status: 400, statusText: 'Bad Request' });
+        fixture.detectChanges();
+
+        expect(button('Cancel').disabled).toBe(false);
+        button('Cancel').click();
+        fixture.detectChanges();
+
+        expect(root.querySelector('[role="alertdialog"]')).not.toBeNull();
+        expect(root.querySelector('app-question-panel')).not.toBeNull();
+      });
+    });
+
     it('lets Escape close it when nothing has been typed', () => {
       const { fixture, root } = show();
       const cancel = escape();
