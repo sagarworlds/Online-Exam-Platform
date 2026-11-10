@@ -564,6 +564,106 @@ describe('AnswerSync (FR-53 resumable autosave)', () => {
     });
   });
 
+  // Where the queue stands: idle, sending one write, waiting to try again, or stopped. These pin the edges between them, so that the flags
+  // behind them can be held as one state without changing when anything is sent.
+  describe('the states of the queue', () => {
+    it('says it is waiting from the first failure until a try gets through, including while that try is on its way', async () => {
+      const sync = create();
+      sync.enqueue(change('q1', ['o1']));
+      expect(sync.waiting()).toBe(false);
+
+      await fail(api.calls[0]);
+      expect(sync.waiting()).toBe(true);
+
+      await settle(RETRY_DELAYS_MS[0]);
+      expect(api.calls).toHaveLength(2);
+      expect(sync.waiting()).toBe(true);
+
+      await succeed(api.calls[1]);
+      expect(sync.waiting()).toBe(false);
+    });
+
+    it('does not say it is waiting for a refusal, which is not a wait for a connection', async () => {
+      const sync = create();
+      sync.enqueue(change('q1', ['o1']));
+
+      await fail(api.calls[0], 403);
+
+      expect(sync.waiting()).toBe(false);
+      expect(api.calls).toHaveLength(1);
+    });
+
+    it('sends nothing more when told to send while a write is on its way, and sends the next one only once it is answered', async () => {
+      const sync = create();
+      sync.enqueue(change('q1', ['o1']));
+      sync.enqueue(change('q2', ['o2']));
+
+      sync.flush();
+      sync.flush();
+      await settle();
+      expect(api.calls).toHaveLength(1);
+
+      await succeed(api.calls[0]);
+      expect(api.calls.map((c) => c.questionId)).toEqual(['q1', 'q2']);
+    });
+
+    it('does not send twice when told to send during a wait, and puts the wait back if that try fails', async () => {
+      const sync = create();
+      sync.enqueue(change('q1', ['o1']));
+      await fail(api.calls[0]);
+
+      sync.flush();
+      sync.flush();
+      await settle();
+      expect(api.calls).toHaveLength(2);
+
+      await fail(api.calls[1]);
+      // The wait before the third try is the second delay, as it would have been without the early try.
+      await settle(RETRY_DELAYS_MS[1] - 1);
+      expect(api.calls).toHaveLength(2);
+      await settle(1);
+      expect(api.calls).toHaveLength(3);
+    });
+
+    it('has nothing left to send, and stops saying it is waiting at the next try, when the answers are discarded during a wait', async () => {
+      const sync = create();
+      sync.enqueue(change('q1', ['o1']));
+      await fail(api.calls[0]);
+
+      sync.discard();
+      expect(sync.pendingCount()).toBe(0);
+
+      await settle(RETRY_DELAYS_MS[0]);
+      expect(api.calls).toHaveLength(1);
+      expect(sync.waiting()).toBe(false);
+    });
+
+    it('sends nothing after it is disposed, even when the write that was on its way fails afterwards', async () => {
+      const sync = create(true);
+      sync.enqueue(change('q1', ['o1']));
+
+      sync.dispose();
+      await fail(api.calls[0]);
+      // Nothing is scheduled to try again, so no timer is left running after the page is gone.
+      expect(vi.getTimerCount()).toBe(0);
+      await settle(60_000);
+
+      expect(api.calls).toHaveLength(1);
+      expect(localStorage.getItem('exam.pendingAnswers.a1')).not.toBeNull();
+    });
+
+    it('still drops from storage a write the server confirmed after it was disposed', async () => {
+      const sync = create(true);
+      sync.enqueue(change('q1', ['o1']));
+
+      sync.dispose();
+      await succeed(api.calls[0]);
+
+      expect(api.calls).toHaveLength(1);
+      expect(localStorage.getItem('exam.pendingAnswers.a1')).toBeNull();
+    });
+  });
+
   describe('whenSettled, for a submit that must not leave an answer behind', () => {
     it('answers true at once when nothing is waiting', () => {
       const done = vi.fn();
