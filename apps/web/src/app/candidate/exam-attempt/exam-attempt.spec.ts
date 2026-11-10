@@ -1730,6 +1730,173 @@ describe('ExamAttempt', () => {
     expect(textOf(fixture)).toContain('No attempt matches the given id.');
   });
 
+  // How the page reads the attempt: loading, failed (with a way to try again or to leave), and the read that happens again at time-up. These pin the
+  // page's behaviour in each state, so that the flags behind them can be held as one state without changing what a candidate sees.
+  describe('reading the attempt', () => {
+    const isRead = (r: { method: string; url: string }) => r.method === 'GET' && r.url.endsWith('/v1/me/attempts/a1');
+    const down = (detail: string) => ({ title: 'server_error', detail });
+    const serverError = { status: 500, statusText: 'Server Error' };
+    const backLink = (fixture: ComponentFixture<ExamAttempt>) =>
+      Array.from(root(fixture).querySelectorAll('a')).find((a) => a.textContent?.includes('Back to my exams'));
+
+    async function create(params: Record<string, string> = { attemptId: 'a1' }) {
+      await TestBed.configureTestingModule({
+        imports: [ExamAttempt],
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideRouter([]),
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(params) } } },
+        ],
+      }).compileComponents();
+      httpMock = TestBed.inject(HttpTestingController);
+      const fixture = TestBed.createComponent(ExamAttempt);
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    it('says it is loading until the attempt arrives', async () => {
+      const fixture = await create();
+      expect(textOf(fixture)).toContain('Loading…');
+      expect(textOf(fixture)).not.toContain('Maths Final');
+
+      httpMock.expectOne(isRead).flush(attempt());
+      fixture.detectChanges();
+      answerWebcamPolicy(false);
+
+      expect(textOf(fixture)).toContain('Maths Final');
+      expect(textOf(fixture)).not.toContain('Loading…');
+      expect(buttonLabelled(fixture, 'Try again')).toBeUndefined();
+    });
+
+    it('says why the attempt could not be read, and offers to try again or to go back', async () => {
+      const fixture = await create();
+      httpMock.expectOne(isRead).flush(down('The server is down.'), serverError);
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('The server is down.');
+      expect(textOf(fixture)).not.toContain('Loading…');
+      expect(buttonLabelled(fixture, 'Try again')).toBeDefined();
+      expect(backLink(fixture)?.getAttribute('href')).toBe('/my-exams');
+    });
+
+    it('reads it again on Try again, showing that it is loading and clearing the error, and then shows the attempt', async () => {
+      const fixture = await create();
+      httpMock.expectOne(isRead).flush(down('The server is down.'), serverError);
+      fixture.detectChanges();
+
+      buttonLabelled(fixture, 'Try again')?.click();
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('Loading…');
+      expect(textOf(fixture)).not.toContain('The server is down.');
+      expect(buttonLabelled(fixture, 'Try again')).toBeUndefined();
+
+      httpMock.expectOne(isRead).flush(attempt());
+      fixture.detectChanges();
+      answerWebcamPolicy(false);
+
+      expect(textOf(fixture)).toContain('Maths Final');
+      expect(textOf(fixture)).not.toContain('Loading…');
+      expect(textOf(fixture)).not.toContain('The server is down.');
+      expect(buttonLabelled(fixture, 'Try again')).toBeUndefined();
+    });
+
+    it('keeps the error and the way out when the second read fails too', async () => {
+      const fixture = await create();
+      httpMock.expectOne(isRead).flush(down('The server is down.'), serverError);
+      fixture.detectChanges();
+
+      buttonLabelled(fixture, 'Try again')?.click();
+      httpMock.expectOne(isRead).flush(down('Still down.'), serverError);
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Still down.');
+      expect(textOf(fixture)).not.toContain('Loading…');
+      expect(buttonLabelled(fixture, 'Try again')).toBeDefined();
+      expect(backLink(fixture)).toBeDefined();
+    });
+
+    it('has nothing to read without an attempt id, and offers only the way back', async () => {
+      const fixture = await create({});
+
+      expect(textOf(fixture)).toContain('No attempt was given.');
+      expect(textOf(fixture)).not.toContain('Loading…');
+      expect(buttonLabelled(fixture, 'Try again')).toBeUndefined();
+      expect(backLink(fixture)?.getAttribute('href')).toBe('/my-exams');
+    });
+
+    it('keeps the exam on screen, with a way to try again, when the read at time-up fails, and shows the result once it works', async () => {
+      const fixture = await open(attempt());
+
+      vi.advanceTimersByTime(30 * 60_000 + 1_000);
+      httpMock.expectOne(isRead).flush(down('The server is down.'), serverError);
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('What is 2 + 2?');
+      expect(textOf(fixture)).toContain('The server is down.');
+      expect(textOf(fixture)).not.toContain('Loading…');
+
+      buttonLabelled(fixture, 'Try again')?.click();
+      fixture.detectChanges();
+      // Something is already on screen, so it stays: the read is not announced as a first load.
+      expect(textOf(fixture)).not.toContain('Loading…');
+      expect(textOf(fixture)).not.toContain('The server is down.');
+
+      httpMock.expectOne(isRead).flush(attempt({ status: 'Submitted', autoSubmitted: true, score: 1, maxScore: 2, sections: [] }));
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('1 / 2');
+      expect(buttonLabelled(fixture, 'Try again')).toBeUndefined();
+    });
+  });
+
+  // The submit confirmation: closed, open, and being sent. Pinned for the same reason as the reads above.
+  describe('the submit confirmation', () => {
+    const confirmButtons = (fixture: ComponentFixture<ExamAttempt>) =>
+      [buttonLabelled(fixture, 'Yes, submit'), buttonLabelled(fixture, 'Keep working')] as HTMLButtonElement[];
+
+    it('holds both of its buttons while the submit is being sent, and keeps the confirmation open when Keep working is pressed then', async () => {
+      const fixture = await open(attempt());
+      buttonLabelled(fixture, 'Submit exam')?.click();
+      fixture.detectChanges();
+      expect(confirmButtons(fixture).map((b) => b.disabled)).toEqual([false, false]);
+
+      buttonLabelled(fixture, 'Yes, submit')?.click();
+      fixture.detectChanges();
+      const submit = httpMock.expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/submit'));
+      expect(confirmButtons(fixture).map((b) => b.disabled)).toEqual([true, true]);
+
+      buttonLabelled(fixture, 'Keep working')?.click();
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('Submit now?');
+
+      submit.flush(attempt({ status: 'Submitted', score: 1, maxScore: 2, sections: [] }));
+      fixture.detectChanges();
+      expect(textOf(fixture)).toContain('1 / 2');
+      expect(textOf(fixture)).not.toContain('Submit now?');
+    });
+
+    it('keeps the confirmation open, with its buttons free again and the reason shown, when the submit fails', async () => {
+      const fixture = await open(attempt());
+      buttonLabelled(fixture, 'Submit exam')?.click();
+      fixture.detectChanges();
+      buttonLabelled(fixture, 'Yes, submit')?.click();
+
+      httpMock
+        .expectOne((r) => r.url.endsWith('/v1/me/attempts/a1/submit'))
+        .flush({ title: 'server_error', detail: 'Could not submit.' }, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(textOf(fixture)).toContain('Could not submit.');
+      expect(textOf(fixture)).toContain('Submit now?');
+      expect(confirmButtons(fixture).map((b) => b.disabled)).toEqual([false, false]);
+
+      buttonLabelled(fixture, 'Keep working')?.click();
+      fixture.detectChanges();
+      expect(textOf(fixture)).not.toContain('Submit now?');
+    });
+  });
+
   describe('an attempt handed over from Start', () => {
     const countdown = (fixture: ComponentFixture<ExamAttempt>) => root(fixture).querySelector('.countdown')?.textContent?.trim();
 
