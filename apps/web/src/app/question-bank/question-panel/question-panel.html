@@ -73,7 +73,7 @@
           <button type="submit" form="question-panel-form" class="primary" [disabled]="!canSave">{{ 'common.save' | t }}</button>
           <button type="button" (click)="saveAndAddAnother()" [disabled]="!canSave">{{ 'qb.panel.saveAnother' | t }}</button>
         }
-        <button type="button" (click)="requestClose()">{{ 'common.cancel' | t }}</button>
+        <button type="button" [disabled]="saving()" (click)="requestClose()">{{ 'common.cancel' | t }}</button>
       </div>
     }
   </div>
