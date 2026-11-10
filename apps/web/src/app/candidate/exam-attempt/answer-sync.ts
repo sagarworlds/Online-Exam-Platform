@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { signal } from '@angular/core';
+import { computed, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 
 /**
@@ -111,6 +111,21 @@ export function isRefusal(error: unknown): boolean {
 }
 
 /**
+ * Where the queue stands in sending. One state, so it cannot be sending and waiting to try again at once.
+ * - `idle`: nothing is on its way and no try is scheduled. Whatever is waiting is sent by the next `flush`.
+ * - `sending`: one write is on its way; the next is sent when it is answered.
+ * - `backoff`: a write could not be delivered (no connection, a busy server, or another writer kept getting there first), and a try is
+ *   scheduled after a growing delay.
+ * - `disposed`: stopped, for good. What is waiting stays on this device. A write that was already on its way is still recorded when it is
+ *   answered, but nothing new is sent and nothing is scheduled.
+ *
+ * The moves: `idle` or `backoff` to `sending` on `flush`, which ends the wait; `sending` to `idle` when nothing is left to send; `sending` to
+ * `backoff` when a write could not be delivered; any state to `disposed` on `dispose`. A refusal, and a write the server already holds a newer
+ * one for, do not change the state: the queue goes on to the next write. See docs/state-machines.md.
+ */
+type SyncPhase = 'idle' | 'sending' | 'backoff' | 'disposed';
+
+/**
  * Saves a candidate's answers without losing them to a bad connection (FR-53, resumable autosave). A choice shows at once and joins a
  * queue that holds only the latest choice for each question; the queue sends them one at a time, and when the connection is down or the
  * server is not answering it keeps them, tries again with a growing delay and as soon as the browser says it is online again, and
@@ -123,8 +138,14 @@ export class AnswerSync {
   /** How many choices are waiting to reach the server. */
   readonly pendingCount = signal(0);
 
-  /** Whether the last try could not reach the server, so what is waiting is waiting for a connection. */
-  readonly waiting = signal(false);
+  /** How many tries in a row have not got through; 0 once one has, or once nothing is left to send. */
+  private readonly failures = signal(0);
+
+  /**
+   * Whether the last try could not reach the server, so what is waiting is waiting for a connection. True from the first failure until a try
+   * gets through, including while that try is on its way.
+   */
+  readonly waiting = computed(() => this.failures() > 0);
 
   private readonly pending = new Map<string, PendingAnswer>();
   /** The highest number the server is known to hold for each question, or this queue has given a write: the next write goes above it. */
@@ -133,9 +154,7 @@ export class AnswerSync {
   private readonly reissued = new WeakMap<PendingAnswer, number>();
   private readonly settledWaiters: ((ok: boolean) => void)[] = [];
   private readonly onOnline = () => this.flush();
-  private running = false;
-  private disposed = false;
-  private failures = 0;
+  private phase: SyncPhase = 'idle';
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly options: AnswerSyncOptions) {
@@ -177,12 +196,12 @@ export class AnswerSync {
 
   /** Sends what is waiting now, without waiting for the next retry. */
   flush(): void {
-    if (this.running || this.disposed) {
+    if (this.phase === 'sending' || this.phase === 'disposed') {
       return;
     }
 
     this.clearRetry();
-    this.running = true;
+    this.phase = 'sending';
     this.sendNext();
   }
 
@@ -192,7 +211,7 @@ export class AnswerSync {
    *   answers kept for later.
    */
   whenSettled(done: (saved: boolean) => void): void {
-    if (this.pending.size === 0 && !this.running) {
+    if (this.pending.size === 0 && this.phase !== 'sending') {
       done(true);
       return;
     }
@@ -209,23 +228,21 @@ export class AnswerSync {
 
   /** Stops trying; what is waiting stays on this device for the next time the attempt is opened. */
   dispose(): void {
-    this.disposed = true;
+    this.phase = 'disposed';
     this.clearRetry();
     globalThis.removeEventListener?.('online', this.onOnline);
     this.settle(false);
   }
 
   private sendNext(): void {
-    if (this.disposed) {
-      this.running = false;
+    if (this.phase === 'disposed') {
       return;
     }
 
     const next = this.pending.values().next().value;
     if (next === undefined) {
-      this.running = false;
-      this.failures = 0;
-      this.waiting.set(false);
+      this.phase = 'idle';
+      this.failures.set(0);
       this.settle(true);
       return;
     }
@@ -238,8 +255,7 @@ export class AnswerSync {
   }
 
   private succeeded(answer: PendingAnswer): void {
-    this.failures = 0;
-    this.waiting.set(false);
+    this.failures.set(0);
     const current = this.pending.get(answer.questionId);
     if (current === answer) {
       this.pending.delete(answer.questionId);
@@ -289,9 +305,14 @@ export class AnswerSync {
 
   /** Stops sending for now and tries again after a growing delay: the server was not reached, or could not take the write yet. */
   private retryLater(): void {
-    this.running = false;
-    this.waiting.set(true);
-    this.failures++;
+    // Stopped while this write was on its way: nothing is tried again, and no timer is left running.
+    if (this.phase === 'disposed') {
+      this.settle(false);
+      return;
+    }
+
+    this.phase = 'backoff';
+    this.failures.update((count) => count + 1);
     this.scheduleRetry();
     this.settle(false);
   }
@@ -331,7 +352,7 @@ export class AnswerSync {
   }
 
   private scheduleRetry(): void {
-    const delay = RETRY_DELAYS_MS[Math.min(this.failures, RETRY_DELAYS_MS.length) - 1];
+    const delay = RETRY_DELAYS_MS[Math.min(this.failures(), RETRY_DELAYS_MS.length) - 1];
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
       this.flush();
