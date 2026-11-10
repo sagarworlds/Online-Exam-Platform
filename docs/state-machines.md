@@ -241,15 +241,17 @@ in the files below, which are the precedents to copy.
 
 Already explicit (copy these): `ConsentState` (`exam-instructions.ts`), `AttentionState` (`admin-attention.service.ts`), `BrandingState`,
 `ResultView` (`attempt-result.ts`), `ScreenState` and `WebcamState` (the snapshotters, with a `generation` guard against a stale answer),
-`CopyState` (`invite-handover.ts`), `saveState` ('saved' | 'saving' | 'offline') on the attempt page, `STEPS_BY_STATUS` (a declared
-transition table), `groupOf` (`exam-groups.ts`, pure).
+`CopyState` (`invite-handover.ts`), `saveState` ('saved' | 'saving' | 'offline') on the attempt page, `AttemptRead` ('loading' | 'failed' | 'idle')
+and `SubmitFlow` ('closed' | 'confirming' | 'sending') on the same page, `STEPS_BY_STATUS` (a declared transition table), `groupOf`
+(`exam-groups.ts`, pure).
 
 Implicit and worth making explicit, ranked by how much a wrong state costs a candidate. None of these is a known bug; each can show a state
-that should be impossible. Do one at a time, behind its existing spec.
+that should be impossible, though on a close reading of the first two no impossible state is reachable today. Do one at a time, behind its
+existing spec, and write specs for the states first.
 
 | # | Where | What is implicit |
 | --- | --- | --- |
-| 1 | `candidate/exam-attempt/exam-attempt.ts` | loading, load failed, open, paused, confirming submit, submitting, time up, grading, finished, held in `loading`, `loadFailed`, `errorMessage`, `confirmingSubmit`, `submitting`, `timeUpNotice`. One `errorMessage` serves a failed load and a failed save. `reload()` can overlap itself. |
+| 1 | `candidate/exam-attempt/exam-attempt.ts` | **Reading and submitting are explicit** (`AttemptRead`, `SubmitFlow`, with the moves written beside them and pinned by specs). Left: the page's phase (open, paused, time up, grading, finished) is still read from `attempt().status`, `pausedAtUtc` and `timeUpNotice`; one `errorMessage` serves a failed load and a failed save; `reload()` can overlap itself, harmlessly today, because every read it makes is of an attempt the server has already ended. No impossible combination of the old flags was reachable, so this was a change in clarity, not a fix. |
 | 2 | `candidate/exam-attempt/answer-sync.ts` | idle, sending, backing off, disposed, held in `running`, `disposed`, `failures`, `retryTimer`; `waiting` is derived but stored. The page detects edges with an effect to set `lastSavedAt`. |
 | 3 | `candidate/exam-instructions/exam-instructions.ts` | `canStart` and `startReason` are two encodings of one precedence (checks, problem, acknowledge, consent, starting). `runChecks()` can overlap. |
 | 4 | `attempt-management/*-queue`, `proctoring/risk-flag-queue` | The same row machine copied four times: pending, composing, submitting, failed, decided (`busyId`, `rowErrors`, a shared `note`). |
