@@ -28,6 +28,29 @@ import { MathTextDirective } from '../../shared/rich-text/math-text.directive';
 /** How often the countdown is redrawn. */
 const TICK_MS = 1000;
 
+/**
+ * Where the page stands in reading the attempt from the server. One state, so the page cannot be loading and failed at once.
+ * - `loading`: the first read is on its way and nothing is on screen yet.
+ * - `failed`: the last read did not work. The page says why and offers to try again; an attempt already on screen stays.
+ * - `idle`: nothing is being read. An attempt is on screen, or there was nothing to read (no attempt id; the message says so).
+ *
+ * The moves: `loading` to `idle` when the attempt arrives (`show`); `loading` or `idle` to `failed` when a read fails (`fail`); `failed` to
+ * `loading` on Try again when nothing is on screen, or to `idle` when something is (`retryLoad`); `failed` to `idle` when a read works (`show`).
+ * See docs/state-machines.md.
+ */
+type AttemptRead = 'loading' | 'failed' | 'idle';
+
+/**
+ * The submit confirmation under the time bar. One state, so the buttons cannot disagree with the panel.
+ * - `closed`: not asked.
+ * - `confirming`: open, waiting for the candidate to say yes or keep working.
+ * - `sending`: they said yes. The answers are being settled and the submit sent, and both buttons are held until it is answered.
+ *
+ * The moves: `closed` to `confirming` (`askToSubmit`); `confirming` to `closed` (`cancelSubmit`, not while `sending`); `confirming` to `sending`
+ * (`submit`); `sending` to `closed` when the attempt is submitted, or back to `confirming`, with the reason shown, when it could not be.
+ */
+type SubmitFlow = 'closed' | 'confirming' | 'sending';
+
 /** How often an attempt that is being graded is asked whether its score is there yet. Shorter than the heartbeat: the candidate is waiting for it. */
 const GRADING_POLL_MS = 4000;
 
@@ -172,12 +195,17 @@ export class ExamAttempt {
   private readonly attemptId = this.route.paramMap.get(this.preview ? 'id' : 'attemptId');
 
   protected readonly attempt = signal<AttemptDto | null>(null);
-  protected readonly loading = signal(true);
   protected readonly errorMessage = signal<string | null>(null);
-  /** Whether the attempt could not be read from the server (on opening, or when the time ran out and it was read again), so the page offers to try again. */
-  protected readonly loadFailed = signal(false);
-  protected readonly confirmingSubmit = signal(false);
-  protected readonly submitting = signal(false);
+
+  /** Where the page stands in reading the attempt: on opening, and again when the time ran out or a save found the attempt over. */
+  private readonly read = signal<AttemptRead>('loading');
+  protected readonly loading = computed(() => this.read() === 'loading');
+  /** Whether the attempt could not be read from the server, so the page offers to try again. */
+  protected readonly loadFailed = computed(() => this.read() === 'failed');
+
+  private readonly submitFlow = signal<SubmitFlow>('closed');
+  protected readonly confirmingSubmit = computed(() => this.submitFlow() !== 'closed');
+  protected readonly submitting = computed(() => this.submitFlow() === 'sending');
 
   /** The bar's Submit button: where focus returns when the candidate chooses to keep working. */
   private readonly submitButton = viewChild<ElementRef<HTMLButtonElement>>('submitButton');
@@ -555,7 +583,7 @@ export class ExamAttempt {
           });
 
     if (this.attemptId === null) {
-      this.loading.set(false);
+      this.read.set('idle');
       this.errorMessage.set('No attempt was given.');
       return;
     }
@@ -1060,13 +1088,18 @@ export class ExamAttempt {
 
   /** Opens the submit confirmation under the bar. Focus moves to it once it is rendered, so the candidate hears the question. */
   protected askToSubmit(): void {
-    this.confirmingSubmit.set(true);
+    this.submitFlow.update((flow) => (flow === 'closed' ? 'confirming' : flow));
     afterNextRender(() => this.confirmText()?.nativeElement.focus(), { injector: this.injector });
   }
 
   /** Closes the confirmation without submitting, and gives focus back to the button that opened it. */
   protected cancelSubmit(): void {
-    this.confirmingSubmit.set(false);
+    // Not while the submit is being sent: it cannot be taken back, and the button is held for the same reason.
+    if (this.submitFlow() === 'sending') {
+      return;
+    }
+
+    this.submitFlow.set('closed');
     afterNextRender(() => this.submitButton()?.nativeElement.focus(), { injector: this.injector });
   }
 
@@ -1084,7 +1117,7 @@ export class ExamAttempt {
 
     // What is still in the field is saved first, so the last words are in the attempt that is scored.
     this.flushTyped();
-    this.submitting.set(true);
+    this.submitFlow.set('sending');
     this.errorMessage.set(null);
     // The time on the question on screen is reported as the attempt closes. It may land after the submit, which then refuses it: that loses only
     // the last stretch of time, never an answer, so nothing waits on it.
@@ -1095,7 +1128,7 @@ export class ExamAttempt {
       if (saved) {
         this.sendSubmit(attempt.id, true);
       } else {
-        this.submitting.set(false);
+        this.submitFlow.set('confirming');
         this.errorMessage.set(this.i18n.t('attempt.failure.offlineSubmit'));
       }
     };
@@ -1110,8 +1143,7 @@ export class ExamAttempt {
   private sendSubmit(attemptId: string, mayRetry: boolean): void {
     this.api.submitAttempt(attemptId).subscribe({
       next: (submitted) => {
-        this.submitting.set(false);
-        this.confirmingSubmit.set(false);
+        this.submitFlow.set('closed');
         this.show(submitted);
         // The confirmation's buttons are removed with the attempt, so focus would otherwise fall back to the top of the page.
         afterNextRender(() => this.resultTitle()?.nativeElement.focus(), { injector: this.injector });
@@ -1121,7 +1153,7 @@ export class ExamAttempt {
           this.sendSubmit(attemptId, false);
           return;
         }
-        this.submitting.set(false);
+        this.submitFlow.set('confirming');
         this.errorMessage.set(extractErrorMessage(error));
       },
     });
@@ -1156,11 +1188,10 @@ export class ExamAttempt {
    * measured from that moment, not from whenever the page got round to drawing it.
    */
   private show(attempt: AttemptDto, receivedAt: number = Date.now()): void {
-    this.loading.set(false);
-    if (this.loadFailed()) {
-      this.loadFailed.set(false);
+    if (this.read() === 'failed') {
       this.errorMessage.set(null);
     }
+    this.read.set('idle');
     this.attempt.set(attempt);
     this.applyAccommodationFormats(attempt);
     this.focusViolations.set(attempt.focusViolations ?? 0);
@@ -1497,16 +1528,15 @@ export class ExamAttempt {
   }
 
   private fail(error: unknown): void {
-    this.loading.set(false);
-    this.loadFailed.set(true);
+    this.read.set('failed');
     this.errorMessage.set(extractErrorMessage(error));
   }
 
   /** Reads the attempt again after it could not be read. The clock and the answers are the server's, so nothing is lost by waiting. */
   protected retryLoad(): void {
     this.errorMessage.set(null);
-    this.loadFailed.set(false);
-    this.loading.set(this.attempt() === null);
+    // With something already on screen the read is not announced as a first load.
+    this.read.set(this.attempt() === null ? 'loading' : 'idle');
     this.reload();
   }
 
