@@ -141,7 +141,7 @@ Without this, a candidate who signs in with a phone number gets no code (e-mail 
 
 The platform e-mails its candidates when an exam is about to start (once within a day, once within the hour), when their result can be seen, and when a score they saw is revised. This needs working e-mail (step 3): with none, nothing is sent and nothing is lost, and the e-mails that are due go out once e-mail works.
 
-The API has a timer that sends these every five minutes, **but a free Render service sleeps when it has had no traffic for about 15 minutes**, and the hours before an exam are usually quiet. So a GitHub workflow wakes the API and starts a pass every ten minutes:
+The API has a timer that sends these (every 60 minutes as deployed, `Notifications__PollMinutes` in `render.yaml`), **but a free Render service sleeps when it has had no traffic for about 15 minutes**, and the hours before an exam are usually quiet. So a GitHub workflow wakes the API and starts a pass every thirty minutes. Do not make it, or the timer, much more frequent: each call keeps the Neon database awake for about five minutes, and a call every ten minutes used up Neon's free compute allowance (about 100 CU-hours a month) in under three weeks.
 
 1. Make up a long random key (at least 24 characters). It is the password for starting a pass; nothing else can use it.
 2. On `exam-platform-api` > **Environment**, set `Notifications__RunKey` to that key and save. Until it is set, the route answers 404 as if it were not there.

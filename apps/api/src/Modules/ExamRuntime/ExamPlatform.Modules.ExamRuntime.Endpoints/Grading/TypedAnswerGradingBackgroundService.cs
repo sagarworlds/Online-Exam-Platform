@@ -6,14 +6,22 @@ using Microsoft.Extensions.Options;
 namespace ExamPlatform.Modules.ExamRuntime.Endpoints.Grading;
 
 /// <summary>
-/// The host's timer for judging typed answers with the AI evaluator: a look at the queue every <see cref="AiGradingOptions.PollSeconds"/> seconds
-/// while the host is awake. A pass that fails is logged and the timer carries on; whatever is still waiting is taken at the next one.
+/// The host's worker for judging typed answers with the AI evaluator. It looks at the queue when it is woken (typed answers were queued: a
+/// submission, an answer-key correction, a check staff asked for), once after start-up for anything left from before a restart, and when something
+/// it is waiting for falls due (a retry, the end of a provider's pause, the give-up deadline). With nothing queued it sleeps and does not touch
+/// the database, which lets a free Neon database suspend. A pass that fails is logged and tried again a minute later.
 /// </summary>
 public sealed class TypedAnswerGradingBackgroundService(
-    TypedAnswerGradingRunner runner, IOptions<AiGradingOptions> options, ILogger<TypedAnswerGradingBackgroundService> logger) : BackgroundService
+    TypedAnswerGradingRunner runner,
+    GradingWakeUp wakeUp,
+    IOptions<AiGradingOptions> options,
+    ILogger<TypedAnswerGradingBackgroundService> logger) : BackgroundService
 {
     // Long enough for start-up (migrations run before the host starts, but the database may still be waking) to be over.
     private static readonly TimeSpan StartDelay = TimeSpan.FromSeconds(20);
+
+    // Between a pass that failed (the database or the evaluator unreachable) and the next try; long enough not to hammer a database that is down.
+    private static readonly TimeSpan RetryAfterFailure = TimeSpan.FromMinutes(1);
 
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -21,7 +29,7 @@ public sealed class TypedAnswerGradingBackgroundService(
         var settings = options.Value;
         if (!settings.Enabled)
         {
-            logger.LogInformation("The AI grading timer is off ({Section}:Enabled).", AiGradingOptions.SectionName);
+            logger.LogInformation("The AI grading worker is off ({Section}:Enabled).", AiGradingOptions.SectionName);
             return;
         }
 
@@ -31,19 +39,23 @@ public sealed class TypedAnswerGradingBackgroundService(
             if (!await runner.IsEvaluatorOnAsync(stoppingToken))
                 logger.LogInformation("Typed answers are marked by the accepted answers alone: no AI evaluator is set up (Gemini:ApiKey).");
 
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(settings.PollSeconds));
-            do
+            // The first pass is the start-up look; each later one follows a nudge or the time something fell due.
+            while (!stoppingToken.IsCancellationRequested)
             {
+                TimeSpan? sleep;
                 try
                 {
                     await runner.RunOnceAsync(stoppingToken);
+                    sleep = await runner.NextWakeAsync(stoppingToken);
                 }
                 catch (Exception exception) when (!stoppingToken.IsCancellationRequested)
                 {
-                    logger.LogError(exception, "An AI grading pass failed; the next one will try again.");
+                    logger.LogError(exception, "An AI grading pass failed; the next one will try again in a minute.");
+                    sleep = RetryAfterFailure;
                 }
+
+                await wakeUp.WaitAsync(sleep, stoppingToken);
             }
-            while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {

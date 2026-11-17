@@ -171,6 +171,38 @@ public sealed class AttemptRepository(ExamRuntimeDbContext context) : IAttemptRe
             .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
+    public async Task<GradingSchedule> GetGradingScheduleAsync(CancellationToken cancellationToken)
+    {
+        // The oldest waiting answers, which is where the next one to fall due is in practice. The queue is a handful of rows, so this reads little.
+        var waiting = await context.Set<AttemptAnswer>().AsNoTracking()
+            .Where(a => a.EvaluationRequestedAtUtc != null)
+            .OrderBy(a => a.EvaluationRequestedAtUtc)
+            .Select(a => new { a.EvaluationNextAttemptAtUtc, a.EvaluationLeaseUntilUtc })
+            .Take(200)
+            .ToListAsync(cancellationToken);
+
+        // An answer can be taken once its wait after a failure is over and its hold has lapsed: the later of the two. With neither it can be taken now.
+        DateTime? claimable = null;
+        foreach (var row in waiting)
+        {
+            var next = row.EvaluationNextAttemptAtUtc;
+            var lease = row.EvaluationLeaseUntilUtc;
+            var at = next is { } n && lease is { } l ? (n > l ? n : l) : next ?? lease ?? DateTime.MinValue;
+            if (claimable is null || at < claimable)
+                claimable = at;
+        }
+
+        // Only attempts still in grading are given up on, the same as ListGradingOverdueAsync.
+        var oldestGrading = await context.Attempts.AsNoTracking()
+            .Where(a => a.Status == AttemptStatus.Grading)
+            .SelectMany(a => a.Answers)
+            .Where(x => x.EvaluationRequestedAtUtc != null)
+            .MinAsync(x => x.EvaluationRequestedAtUtc, cancellationToken);
+
+        return new GradingSchedule(claimable, oldestGrading);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Attempt>> ListSubmittedByQuestionIdAsync(Guid questionId, CancellationToken cancellationToken)
     {
         // Attempts that answered the question, union attempts that only drew it onto their paper (unanswered but

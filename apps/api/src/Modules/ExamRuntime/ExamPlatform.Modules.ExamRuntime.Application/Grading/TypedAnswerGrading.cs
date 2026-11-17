@@ -143,6 +143,47 @@ public sealed class TypedAnswerGrading(
     }
 
     /// <summary>
+    /// Says how long the worker may sleep before the queue needs a look again: until the next waiting answer can be taken (its wait after a failure
+    /// is over, its hold has lapsed, or the providers' pause has ended), or until the oldest attempt in grading is due to be given up on, whichever
+    /// is first. Nothing waiting means the worker sleeps until it is nudged, and the database is not asked again until then.
+    /// </summary>
+    /// <param name="evaluatorOn">Whether an evaluator is set up. Without one no answer can be taken, so only the give-up deadline counts.</param>
+    /// <param name="pausedFor">How long the providers have said to leave them alone, or null.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// How long to sleep, never less than <see cref="AiGradingOptions.PollSeconds"/> so that an answer another host is holding cannot make the
+    /// worker spin; null when nothing is waiting.
+    /// </returns>
+    public async Task<TimeSpan?> NextWakeAsync(bool evaluatorOn, TimeSpan? pausedFor, CancellationToken cancellationToken)
+    {
+        var settings = options.Value;
+        var schedule = await attempts.GetGradingScheduleAsync(cancellationToken);
+        var now = clock.UtcNow;
+
+        DateTime? due = null;
+        if (evaluatorOn && schedule.NextClaimableAtUtc is { } claimable)
+        {
+            due = claimable;
+            if (pausedFor is { } paused && now + paused > due)
+                due = now + paused;
+        }
+
+        if (settings.MaxWaitMinutes > 0 && schedule.OldestGradingRequestedAtUtc is { } oldest)
+        {
+            var giveUpAt = oldest.AddMinutes(settings.MaxWaitMinutes);
+            if (due is null || giveUpAt < due)
+                due = giveUpAt;
+        }
+
+        if (due is null)
+            return null;
+
+        var wait = due.Value - now;
+        var shortest = TimeSpan.FromSeconds(settings.PollSeconds);
+        return wait < shortest ? shortest : wait;
+    }
+
+    /// <summary>
     /// Stops waiting for the evaluator on an attempt's typed answers that have waited too long: each is marked by the accepted answers alone, with a
     /// note on the answer saying so, and the attempt is scored. Answers queued more recently, or held by a worker right now, are left to it.
     /// </summary>

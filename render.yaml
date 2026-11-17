@@ -72,10 +72,15 @@ services:
       - key: Sms__SenderId
         sync: false
       # Scheduled e-mails (exam reminders, released results, revised scores). The API sends them on a timer of its own while awake, and a
-      # free service sleeps when idle, so a GitHub workflow calls POST /v1/notifications/run with this key every ten minutes (docs/deploy-render.md,
+      # free service sleeps when idle, so a GitHub workflow calls POST /v1/notifications/run with this key every thirty minutes (docs/deploy-render.md,
       # step 9). Unset, that route answers 404 and only the timer sends. At least 24 characters, random.
       - key: Notifications__RunKey
         sync: false
+      # Minutes between the API's own notification passes while it is awake. Left at its default of 5, the timer queried the database more often
+      # than Neon's idle suspend (about 5 minutes), so the database never slept and used up the free compute allowance. The workflow above is
+      # what makes passes happen on time; this timer only backs it up.
+      - key: Notifications__PollMinutes
+        value: "60"
       # Google Gemini, which judges a typed answer worded differently from the accepted answers (README, "Typed answers judged by Google
       # Gemini"). A secret from Google AI Studio. Unset, nothing is sent to Google and typed answers are marked by the accepted answers
       # alone. Do not set it before docs/compliance/dpdp-data-map.md, OP13, is settled.

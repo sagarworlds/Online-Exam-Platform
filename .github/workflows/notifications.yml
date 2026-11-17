@@ -1,15 +1,19 @@
 name: Scheduled notifications
 
 # Starts a pass of the platform's scheduled e-mails (FR-39: exam reminders, released results, revised scores) by calling the API's
-# key-protected route every ten minutes. The API's own timer cannot be relied on where the host sleeps when idle (a free Render service
+# key-protected route every thirty minutes. The API's own timer cannot be relied on where the host sleeps when idle (a free Render service
 # does), and this call also wakes it. A pass sends only what is due and records it, so an extra or overlapping call is harmless.
+#
+# Why not more often: each call wakes Render and, with it, the Neon database, which then stays on for its idle period (about five minutes).
+# A call every ten minutes kept both on nearly all the time and used up Neon's free compute allowance (about 100 CU-hours a month).
+# Thirty minutes keeps the database on roughly a fifth of the time, and the one-hour reminder goes out at most half an hour late.
 #
 # Does nothing until both secrets are set (see docs/deploy-render.md, step 9), so it is safe to have in the repository before then.
 
 on:
   schedule:
     # GitHub runs these on a best-effort basis, so a pass can be a few minutes late; reminders are worded with the real start time.
-    - cron: "*/10 * * * *"
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions: {}
