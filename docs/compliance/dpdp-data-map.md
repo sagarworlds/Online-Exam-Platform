@@ -159,7 +159,7 @@ Source: `ExamRuntime/ExamPlatform.Modules.ExamRuntime.Domain/` and `ExamRuntime/
 | `Accommodations` | Candidate id, exam id, extra time, reader or scribe flag, alternate formats (for example, large text, high contrast, screen reader), notes (free text), updated-by staff id and time | Candidates with an accommodation | Meeting RPwD Act duties (section 7.3; FR-49) | To be decided by the owner | Kept. Notes can reveal a disability or other need. Sensitive | Hosting |
 | `NotificationDeliveries` | Kind of e-mail, subject id (exam, attempt or revision), recipient (candidate user id), tries, last try time, sent time. No address is stored | Candidates | Sending each e-mail once (FR-39) | To be decided by the owner | Kept; no removal | Hosting |
 
-**E-mails sent by ExamRuntime.** Each one goes through Brevo or SMTP (section 4). The scheduled run is started by the API timer and by a GitHub workflow that calls `POST /v1/notifications/run` every ten minutes with a key. The workflow sends no personal data.
+**E-mails sent by ExamRuntime.** Each one goes through Brevo or SMTP (section 4). The scheduled run is started by the API timer and by a GitHub workflow that calls `POST /v1/notifications/run` every thirty minutes with a key. The workflow sends no personal data.
 
 | E-mail | Personal data in it | Recipient |
 |---|---|---|
