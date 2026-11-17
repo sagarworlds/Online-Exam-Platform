@@ -81,10 +81,6 @@ services:
       # what makes passes happen on time; this timer only backs it up.
       - key: Notifications__PollMinutes
         value: "60"
-      # Seconds between the API's looks at the typed-answer queue while awake. Only reaches the database when an AI key (Gemini or
-      # OpenAI-compatible) is set. Short enough that a candidate waiting on a verdict barely notices, long enough to let an idle database sleep.
-      - key: ExamRuntime__AiGrading__PollSeconds
-        value: "30"
       # Google Gemini, which judges a typed answer worded differently from the accepted answers (README, "Typed answers judged by Google
       # Gemini"). A secret from Google AI Studio. Unset, nothing is sent to Google and typed answers are marked by the accepted answers
       # alone. Do not set it before docs/compliance/dpdp-data-map.md, OP13, is settled.

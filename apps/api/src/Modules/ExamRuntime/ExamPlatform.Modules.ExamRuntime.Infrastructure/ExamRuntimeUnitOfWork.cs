@@ -1,4 +1,6 @@
 using ExamPlatform.Modules.ExamRuntime.Application;
+using ExamPlatform.Modules.ExamRuntime.Application.Grading;
+using ExamPlatform.Modules.ExamRuntime.Domain;
 using ExamPlatform.SharedKernel.Domain.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -7,10 +9,14 @@ using Npgsql;
 namespace ExamPlatform.Modules.ExamRuntime.Infrastructure;
 
 /// <summary>EF Core-backed <see cref="IExamRuntimeUnitOfWork"/>, wrapping <see cref="ExamRuntimeDbContext"/>.</summary>
-public sealed class ExamRuntimeUnitOfWork(ExamRuntimeDbContext context) : IExamRuntimeUnitOfWork
+public sealed class ExamRuntimeUnitOfWork(ExamRuntimeDbContext context, GradingWakeUp gradingWakeUp) : IExamRuntimeUnitOfWork
 {
     /// <summary>Postgres's SQLSTATE for a unique-constraint violation.</summary>
     private const string UniqueViolation = "23505";
+
+    // Typed answers were queued inside a transaction that has not committed yet: the grading worker is nudged when it does, not before, or it
+    // would look, find nothing, and go back to sleep with the answers still waiting.
+    private bool _wakeWorkerAfterCommit;
 
     /// <inheritdoc />
     public async Task<IAttemptLock> LockAttemptAsync(Guid attemptId, bool exclusive, CancellationToken cancellationToken)
@@ -32,14 +38,35 @@ public sealed class ExamRuntimeUnitOfWork(ExamRuntimeDbContext context) : IExamR
             throw;
         }
 
-        return new AttemptLock(transaction);
+        return new AttemptLock(transaction, this);
     }
 
-    private sealed class AttemptLock(IDbContextTransaction transaction) : IAttemptLock
+    private sealed class AttemptLock(IDbContextTransaction transaction, ExamRuntimeUnitOfWork owner) : IAttemptLock
     {
-        public Task CompleteAsync(CancellationToken cancellationToken) => transaction.CommitAsync(cancellationToken);
+        public async Task CompleteAsync(CancellationToken cancellationToken)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            owner.WakeWorkerIfAnswersWereQueued();
+        }
 
         public ValueTask DisposeAsync() => transaction.DisposeAsync();
+    }
+
+    // Typed answers newly queued for the AI evaluator in this save. A worker saving a verdict or a failure changes the same rows but not when they
+    // were queued, so it never wakes itself, and a failed answer waits out its backoff instead of being tried again at once.
+    private bool QueuesAnswersForEvaluation() =>
+        context.ChangeTracker.Entries<AttemptAnswer>().Any(entry =>
+            entry.Entity.EvaluationRequestedAtUtc is not null
+            && (entry.State == EntityState.Added
+                || (entry.State == EntityState.Modified && entry.Property(answer => answer.EvaluationRequestedAtUtc).IsModified)));
+
+    private void WakeWorkerIfAnswersWereQueued()
+    {
+        if (!_wakeWorkerAfterCommit)
+            return;
+
+        _wakeWorkerAfterCommit = false;
+        gradingWakeUp.Notify();
     }
 
     /// <inheritdoc />
@@ -51,7 +78,19 @@ public sealed class ExamRuntimeUnitOfWork(ExamRuntimeDbContext context) : IExamR
     {
         try
         {
-            return await context.SaveChangesAsync(cancellationToken);
+            // Asked before the save, which resets what the change tracker knows about each row.
+            var queuesAnswers = QueuesAnswersForEvaluation();
+            var saved = await context.SaveChangesAsync(cancellationToken);
+            if (queuesAnswers)
+            {
+                // Inside a transaction the answers are not visible to the worker until it commits (see LockAttemptAsync), so it is nudged then.
+                if (context.Database.CurrentTransaction is null)
+                    gradingWakeUp.Notify();
+                else
+                    _wakeWorkerAfterCommit = true;
+            }
+
+            return saved;
         }
         catch (DbUpdateConcurrencyException ex)
         {

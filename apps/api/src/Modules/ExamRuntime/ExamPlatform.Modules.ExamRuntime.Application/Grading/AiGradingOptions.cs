@@ -14,7 +14,10 @@ public sealed class AiGradingOptions
     /// <summary>Whether this host works through the queue. Off, the answers wait for a host that does, and no result is lost.</summary>
     public bool Enabled { get; set; } = true;
 
-    /// <summary>Seconds between two looks at the queue while the host is awake.</summary>
+    /// <summary>
+    /// The fewest seconds between two looks at the queue while answers are waiting. The worker does not look on a timer: it is woken when answers are
+    /// queued, and otherwise sleeps until the next one falls due (a retry, or the give-up deadline), so with nothing queued it never queries the database.
+    /// </summary>
     [Range(1, 3600)]
     public int PollSeconds { get; set; } = 10;
 

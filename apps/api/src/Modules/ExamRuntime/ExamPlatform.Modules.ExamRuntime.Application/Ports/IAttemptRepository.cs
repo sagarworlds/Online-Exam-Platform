@@ -25,6 +25,17 @@ public sealed record SubmittedScore(Guid AttemptId, Guid CandidateId, decimal Sc
 /// </param>
 public sealed record GradingClaim(Guid AttemptId, Guid QuestionId, DateTime RequestedAtUtc);
 
+/// <summary>When the grading worker next has something to do, as far as the queue says.</summary>
+/// <param name="NextClaimableAtUtc">
+/// The earliest instant a waiting typed answer can be taken (its wait after a failure is over and no worker holds it); a long-past instant for
+/// one that can be taken now; null when no answer is waiting.
+/// </param>
+/// <param name="OldestGradingRequestedAtUtc">
+/// When the oldest answer still waiting in an attempt that is in <see cref="AttemptStatus.Grading"/> was queued, which is what the give-up
+/// deadline counts from; null when no such answer is waiting.
+/// </param>
+public sealed record GradingSchedule(DateTime? NextClaimableAtUtc, DateTime? OldestGradingRequestedAtUtc);
+
 /// <summary>Persistence port for <see cref="Attempt"/>.</summary>
 public interface IAttemptRepository
 {
@@ -191,4 +202,11 @@ public interface IAttemptRepository
     /// <param name="limit">The most to return.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<Guid>> ListGradingOverdueAsync(DateTime queuedBeforeUtc, DateTime nowUtc, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Says when the grading queue next needs a look, so the worker can sleep until then: the earliest instant a waiting answer can be taken, and
+    /// when the oldest answer of an attempt in grading was queued. Two small reads on the index of waiting answers.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<GradingSchedule> GetGradingScheduleAsync(CancellationToken cancellationToken);
 }

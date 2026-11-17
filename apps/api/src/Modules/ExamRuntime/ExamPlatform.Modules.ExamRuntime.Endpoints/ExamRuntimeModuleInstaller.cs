@@ -215,7 +215,9 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddSingleton<ITextAnswerEvaluator>(sp => sp.GetRequiredService<FallbackTextAnswerEvaluator>());
         services.AddSingleton<IEvaluatorHealth>(sp => sp.GetRequiredService<FallbackTextAnswerEvaluator>());
 
-        // An attempt with such an answer waits in grading, with no score, until a worker has the verdicts; the host's timer runs the worker.
+        // An attempt with such an answer waits in grading, with no score, until a worker has the verdicts. The worker is woken when answers are queued
+        // (the unit of work nudges it) and otherwise sleeps, so an idle host leaves the database alone.
+        services.AddSingleton<GradingWakeUp>();
         services.AddOptions<AiGradingOptions>()
             .Bind(configuration.GetSection(AiGradingOptions.SectionName))
             .ValidateDataAnnotations()

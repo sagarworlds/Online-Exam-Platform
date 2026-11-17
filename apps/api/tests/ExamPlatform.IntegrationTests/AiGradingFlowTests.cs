@@ -137,6 +137,47 @@ public sealed class AiGradingFlowTests(AiGradingApiFactory factory) : IClassFixt
             "UPDATE \"examRuntime\".\"AttemptAnswers\" SET \"EvaluationNextAttemptAtUtc\" = NULL WHERE \"AttemptId\" = {0}", attemptId);
     }
 
+    // The wake-up is shared by every test in the class, so a nudge left over from an earlier one is taken off before this one starts.
+    private async Task<GradingWakeUp> DrainedWakeUpAsync()
+    {
+        var wakeUp = factory.Services.GetRequiredService<GradingWakeUp>();
+        while (await wakeUp.WaitAsync(TimeSpan.Zero, CancellationToken.None))
+        {
+        }
+
+        return wakeUp;
+    }
+
+    [Fact]
+    public async Task SubmittingAnAnswerWordedDifferently_WakesTheWorker_WithNoTimerNeeded()
+    {
+        var s = await TypedAsync("The French capital is Paris.", "Paris");
+        using var _a = s.Admin;
+        using var _c = s.Candidate;
+        var wakeUp = await DrainedWakeUpAsync();
+
+        await SubmitAsync(s);
+
+        // Nudged once the submission has committed, so the worker finds the answer when it looks.
+        Assert.True(await wakeUp.WaitAsync(TimeSpan.FromSeconds(10), CancellationToken.None));
+        Assert.Equal(1, await RunWorkerAsync());
+    }
+
+    [Fact]
+    public async Task AWorkerSavingAVerdict_DoesNotWakeItself()
+    {
+        var s = await TypedAsync("The French capital is Paris.", "Paris");
+        using var _a = s.Admin;
+        using var _c = s.Candidate;
+        await SubmitAsync(s);
+        var wakeUp = await DrainedWakeUpAsync();
+
+        Assert.Equal(1, await RunWorkerAsync());
+
+        // The verdict and the score are saved, but nothing was queued, so there is nothing for the worker to wake for.
+        Assert.False(await wakeUp.WaitAsync(TimeSpan.FromMilliseconds(200), CancellationToken.None));
+    }
+
     [Fact]
     public async Task AnAnswerWordedDifferently_KeepsTheAttemptInGradingWithNoScore_UntilTheWorkerHasTheVerdict()
     {

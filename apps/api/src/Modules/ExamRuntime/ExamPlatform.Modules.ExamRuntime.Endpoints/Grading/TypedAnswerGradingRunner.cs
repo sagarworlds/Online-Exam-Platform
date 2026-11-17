@@ -47,10 +47,7 @@ public sealed class TypedAnswerGradingRunner(
     public async Task<int> RunOnceAsync(CancellationToken cancellationToken)
     {
         var evaluatorOn = await IsEvaluatorOnAsync(cancellationToken);
-        // With no evaluator nothing new is queued, so only attempts left over from before need this, and a look every few minutes is enough.
-        // That also keeps a host with no key from touching the database on every tick.
-        if (evaluatorOn || OffSweepIsDue())
-            await GiveUpOverdueAsync(cancellationToken);
+        await GiveUpOverdueAsync(cancellationToken);
 
         if (!evaluatorOn)
             return 0;
@@ -71,23 +68,17 @@ public sealed class TypedAnswerGradingRunner(
         return handled;
     }
 
-    // How often a host with no evaluator looks for attempts that have waited too long.
-    private static readonly long OffSweepEveryMilliseconds = (long)TimeSpan.FromMinutes(5).TotalMilliseconds;
-
-    // The tick count at which a host with no evaluator next looks. Only the one timer calls RunOnceAsync, so it needs no lock.
-    private long _nextOffSweepAt;
-
-    private bool OffSweepIsDue()
+    /// <summary>
+    /// Says how long the worker may sleep before the queue needs a look again; see <see cref="TypedAnswerGrading.NextWakeAsync"/>. Asked after
+    /// each pass, so the sleep ends when the next retry or give-up deadline falls due.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>How long to sleep; null when nothing is waiting, and the worker then sleeps until it is nudged.</returns>
+    public async Task<TimeSpan?> NextWakeAsync(CancellationToken cancellationToken)
     {
-        if (options.Value.MaxWaitMinutes == 0)
-            return false;
-
-        var now = Environment.TickCount64;
-        if (now < _nextOffSweepAt)
-            return false;
-
-        _nextOffSweepAt = now + OffSweepEveryMilliseconds;
-        return true;
+        var evaluatorOn = await IsEvaluatorOnAsync(cancellationToken);
+        await using var scope = scopes.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<TypedAnswerGrading>().NextWakeAsync(evaluatorOn, health.PausedFor, cancellationToken);
     }
 
     private async Task GiveUpOverdueAsync(CancellationToken cancellationToken)
