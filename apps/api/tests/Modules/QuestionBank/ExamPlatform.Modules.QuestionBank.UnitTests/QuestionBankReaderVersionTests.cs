@@ -28,6 +28,8 @@ public class QuestionBankReaderVersionTests
         _questions.GetManyAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns([_question]);
         _questions.GetCurrentVersionNumbersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(new Dictionary<Guid, int> { [_question.Id] = 2 });
+        _questions.GetFactsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([new QuestionFacts(_question.Id, null, _question.Status, 2)]);
         _questions.GetVersionsAsync(Arg.Any<IReadOnlyCollection<(Guid, int)>>(), Arg.Any<CancellationToken>())
             .Returns(call => call.Arg<IReadOnlyCollection<(Guid QuestionId, int VersionNumber)>>()
                 .SelectMany(w => _question.Versions.Where(v => v.QuestionId == w.QuestionId && v.VersionNumber == w.VersionNumber)).ToList());
@@ -55,15 +57,19 @@ public class QuestionBankReaderVersionTests
     }
 
     [Fact]
-    public async Task TheCurrentVersion_OrNone_IsReadFromTheQuestionItself_WithoutLookingUpVersions()
+    public async Task TheCurrentVersion_OrNone_IsReadFromItsStoredVersion_WithoutLoadingTheQuestion()
     {
         var current = Assert.Single(await _reader.GetVersionsAsync([new QuestionVersionRef(_question.Id, 2)], CancellationToken.None));
         var unsaid = Assert.Single(await _reader.GetVersionsAsync([new QuestionVersionRef(_question.Id, null)], CancellationToken.None));
 
         Assert.Contains("New wording", current.Text);
         Assert.Contains("New wording", unsaid.Text);
+        Assert.Equal(2, current.VersionNumber);
         Assert.Equal(2, unsaid.VersionNumber);
-        await _questions.DidNotReceiveWithAnyArgs().GetVersionsAsync(default!, default);
+
+        // The stored version cannot change while it is being read; the question itself could be edited between learning the number and
+        // reading the text, and what is kept under a version number must be that version's content.
+        await _questions.DidNotReceiveWithAnyArgs().GetManyAsync(default!, default);
     }
 
     [Fact]
@@ -73,6 +79,29 @@ public class QuestionBankReaderVersionTests
 
         Assert.Contains("New wording", read.Text);
         Assert.Equal(2, read.VersionNumber);
+    }
+
+    [Fact]
+    public async Task AQuestionWithNoStoredVersionAtAll_ReadsAsItIsNow_AtVersionOne()
+    {
+        _questions.GetFactsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns([new QuestionFacts(_question.Id, null, _question.Status, null)]);
+        _questions.GetCurrentVersionNumbersAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, int>());
+
+        var read = Assert.Single(await _reader.GetVersionsAsync([new QuestionVersionRef(_question.Id, 1)], CancellationToken.None));
+
+        Assert.Contains("New wording", read.Text);
+        Assert.Equal(1, read.VersionNumber);
+        await _questions.DidNotReceiveWithAnyArgs().GetVersionsAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task AQuestionThatIsNotInTheBank_IsAbsent()
+    {
+        _questions.GetFactsAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns([]);
+
+        Assert.Empty(await _reader.GetVersionsAsync([new QuestionVersionRef(_question.Id, 2)], CancellationToken.None));
     }
 
     [Fact]

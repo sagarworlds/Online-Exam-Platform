@@ -44,6 +44,8 @@ public sealed class ExamRuntimeModuleInstaller : IModuleInstaller
         services.AddDomainEventHandlers(typeof(AttemptAuditTrail).Assembly);
 
         services.AddScoped<IAttemptRepository, AttemptRepository>();
+        // The slim load a saved or cleared answer uses instead of the whole attempt (see AttemptAccess.LoadOwnedForAnswerAsync).
+        services.AddScoped<IAnswerAttemptLoader, AnswerAttemptLoader>();
         services.AddScoped<IExtraAttemptGrantRepository, ExtraAttemptGrantRepository>();
         services.AddScoped<IAccommodationRepository, AccommodationRepository>();
         services.AddScoped<IAttemptRequestRepository, AttemptRequestRepository>();

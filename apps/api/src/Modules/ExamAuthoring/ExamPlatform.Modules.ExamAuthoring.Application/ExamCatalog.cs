@@ -5,13 +5,25 @@ using ExamPlatform.Modules.ExamAuthoring.Domain;
 namespace ExamPlatform.Modules.ExamAuthoring.Application;
 
 /// <summary>The <see cref="IExamCatalog"/> other modules read exams through.</summary>
-public sealed class ExamCatalog(IExamRepository repository) : IExamCatalog
+public sealed class ExamCatalog(IExamRepository repository, ExamSnapshotCache? cache = null) : IExamCatalog
 {
     /// <inheritdoc />
+    /// <remarks>
+    /// Served from <see cref="ExamSnapshotCache"/> when the host has one, which every call a candidate makes during an exam would otherwise
+    /// pay four queries for. The generation is taken before the read so a change made while it runs is never overwritten by the stale result.
+    /// </remarks>
     public async Task<ExamSnapshot?> FindAsync(Guid examId, CancellationToken cancellationToken)
     {
+        if (cache is not null && cache.TryGet(examId, out var kept))
+            return kept;
+
+        var generation = cache?.Generation ?? 0;
         var exams = await repository.ListByIdsAsync([examId], cancellationToken);
-        return exams.Select(ToSnapshot).FirstOrDefault();
+        var snapshot = exams.Select(ToSnapshot).FirstOrDefault();
+        if (snapshot is not null)
+            cache?.Set(examId, snapshot, generation);
+
+        return snapshot;
     }
 
     /// <inheritdoc />
