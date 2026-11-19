@@ -218,6 +218,35 @@ public sealed class ExamBuilderFlowTests(ApiFactory factory) : IClassFixture<Api
             HttpStatusCode.BadRequest, "invalid_exam_config");
     }
 
+    [Theory]
+    [InlineData(35791395)]     // the first whole number of minutes whose seconds no longer fit in a 32-bit integer
+    [InlineData(int.MaxValue)]
+    [InlineData(-35791395)]
+    [InlineData(int.MinValue)]
+    public async Task Schedule_WithADurationTooLargeToCount_Returns400InvalidExamConfig_NotAServerError(int durationMinutes)
+    {
+        using var client = await AdminAsync();
+        var examId = await CreateExamAsync(client);
+
+        var response = await ScheduleAsync(client, examId, new { scheduledStartTime = Start, scheduledEndTime = End, durationMinutes });
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "invalid_exam_config");
+    }
+
+    [Fact]
+    public async Task Schedule_WithTheLongestDurationThatCounts_IsRefusedAsLongerThanTheWindow_NotAsATooLargeNumber()
+    {
+        using var client = await AdminAsync();
+        var examId = await CreateExamAsync(client);
+
+        var response = await ScheduleAsync(client, examId, new { scheduledStartTime = Start, scheduledEndTime = End, durationMinutes = 35791394 });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await ReadAsync(response);
+        Assert.Equal("invalid_exam_config", problem.GetProperty("title").GetString());
+        Assert.Contains("longer than the window", problem.GetProperty("detail").GetString());
+    }
+
     [Fact]
     public async Task Publish_BeforeSchedulingOrWithoutQuestions_Returns400()
     {

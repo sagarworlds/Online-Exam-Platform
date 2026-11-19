@@ -84,9 +84,14 @@ public class Exam : AggregateRoot
         UpdatedAt = nowUtc;
     }
 
-    public void UpdateConfig(ExamConfig config, DateTime nowUtc)
+    // The one way the exam's config changes. Callers pass the config they want (usually `Config with { ... }`).
+    //
+    // The nested MarkingScheme is copied here, so no setting can forget it: handing the same MarkingScheme instance to the new config makes
+    // EF Core treat it as moved between owners and write NULL for its columns, which silently wipes the exam's marking scheme. A unit
+    // test cannot see that write, so ExamConfigChangeFlowTests checks every setting against a real database.
+    private void ChangeConfig(ExamConfig changed, DateTime nowUtc)
     {
-        Config = config;
+        Config = changed with { MarkingScheme = changed.MarkingScheme with { } };
         UpdatedAt = nowUtc;
     }
 
@@ -160,10 +165,7 @@ public class Exam : AggregateRoot
         LateEntryDeadline = lateEntryDeadlineUtc;
         if (!string.IsNullOrEmpty(zone))
             TimeZone = zone;
-        // The nested MarkingScheme is copied as well: handing the same instance to the new config makes
-        // EF Core treat it as moved between owners and write NULL for its columns.
-        Config = Config with { TotalTimeSeconds = durationSeconds, MarkingScheme = Config.MarkingScheme with { } };
-        UpdatedAt = nowUtc;
+        ChangeConfig(Config with { TotalTimeSeconds = durationSeconds }, nowUtc);
     }
 
     /// <summary>Appends a section to the exam.</summary>
@@ -442,14 +444,13 @@ public class Exam : AggregateRoot
         if (mode == ResultReleaseMode.Scheduled && releaseTimeUtc is null)
             throw new InvalidExamConfigError("Choose the time from which the answers are shown.");
 
-        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
-        Config = Config with
-        {
-            ResultReleaseMode = mode,
-            ResultReleaseTime = mode == ResultReleaseMode.Scheduled ? releaseTimeUtc : null,
-            MarkingScheme = Config.MarkingScheme with { },
-        };
-        UpdatedAt = nowUtc;
+        ChangeConfig(
+            Config with
+            {
+                ResultReleaseMode = mode,
+                ResultReleaseTime = mode == ResultReleaseMode.Scheduled ? releaseTimeUtc : null,
+            },
+            nowUtc);
     }
 
     /// <summary>
@@ -467,9 +468,7 @@ public class Exam : AggregateRoot
         EnsureDraft();
         scheme.EnsureValid();
 
-        // A fresh copy, for the reason given in Schedule.
-        Config = Config with { MarkingScheme = scheme with { } };
-        UpdatedAt = nowUtc;
+        ChangeConfig(Config with { MarkingScheme = scheme }, nowUtc);
     }
 
     /// <summary>
@@ -487,9 +486,7 @@ public class Exam : AggregateRoot
         EnsureNotArchived();
         EnsureDraft();
 
-        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
-        Config = Config with { ShuffleQuestions = shuffleQuestions, ShuffleOptions = shuffleOptions, MarkingScheme = Config.MarkingScheme with { } };
-        UpdatedAt = nowUtc;
+        ChangeConfig(Config with { ShuffleQuestions = shuffleQuestions, ShuffleOptions = shuffleOptions }, nowUtc);
     }
 
     /// <summary>
@@ -508,9 +505,7 @@ public class Exam : AggregateRoot
         if (attempts is < ExamConfig.FewestAttempts or > ExamConfig.MostAttempts)
             throw new InvalidExamConfigError($"Choose a number of attempts from {ExamConfig.FewestAttempts} to {ExamConfig.MostAttempts}.");
 
-        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
-        Config = Config with { MaxAttempts = attempts, MarkingScheme = Config.MarkingScheme with { } };
-        UpdatedAt = nowUtc;
+        ChangeConfig(Config with { MaxAttempts = attempts }, nowUtc);
     }
 
     /// <summary>
@@ -525,9 +520,7 @@ public class Exam : AggregateRoot
     {
         EnsureNotArchived();
 
-        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
-        Config = Config with { ContentProtection = enabled, MarkingScheme = Config.MarkingScheme with { } };
-        UpdatedAt = nowUtc;
+        ChangeConfig(Config with { ContentProtection = enabled }, nowUtc);
     }
 
     /// <summary>
@@ -547,9 +540,7 @@ public class Exam : AggregateRoot
             throw new InvalidExamConfigError($"The violation limit is from {ExamConfig.NoViolationLimit} (not watched) to {ExamConfig.MostViolations}.");
 
         // The warning point goes back to its default: one the author chose for the old limit may be too late for this one.
-        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
-        Config = Config with { FocusViolationLimit = limit, FocusWarnAt = null, MarkingScheme = Config.MarkingScheme with { } };
-        UpdatedAt = nowUtc;
+        ChangeConfig(Config with { FocusViolationLimit = limit, FocusWarnAt = null }, nowUtc);
     }
 
     /// <summary>
@@ -570,9 +561,7 @@ public class Exam : AggregateRoot
         if (!FocusWarningPoint.IsAllowed(warnAt, limit))
             throw new InvalidExamConfigError($"The warning point must be from 1 to {FocusWarningPoint.LatestWarnAt(limit)} for a limit of {limit}.");
 
-        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
-        Config = Config with { FocusWarnAt = warnAt, MarkingScheme = Config.MarkingScheme with { } };
-        UpdatedAt = nowUtc;
+        ChangeConfig(Config with { FocusWarnAt = warnAt }, nowUtc);
     }
 
     /// <summary>
@@ -591,9 +580,7 @@ public class Exam : AggregateRoot
             throw new InvalidExamConfigError(
                 $"The passing mark is a percentage from {ExamConfig.LowestPassingPercentage} to {ExamConfig.HighestPassingPercentage}.");
 
-        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
-        Config = Config with { PassingPercentage = percent, MarkingScheme = Config.MarkingScheme with { } };
-        UpdatedAt = nowUtc;
+        ChangeConfig(Config with { PassingPercentage = percent }, nowUtc);
     }
 
     /// <summary>
@@ -605,8 +592,7 @@ public class Exam : AggregateRoot
     {
         EnsureNotArchived();
 
-        Config = Config with { PassingPercentage = null, MarkingScheme = Config.MarkingScheme with { } };
-        UpdatedAt = nowUtc;
+        ChangeConfig(Config with { PassingPercentage = null }, nowUtc);
     }
 
     /// <summary>
@@ -627,17 +613,16 @@ public class Exam : AggregateRoot
         if (!profile.Available)
             throw new InvalidExamConfigError(profile.UnavailableReason ?? "This proctoring profile cannot be chosen yet.");
 
-        // The nested MarkingScheme is copied as well, for the reason given in Schedule.
-        Config = Config with
-        {
-            ContentProtection = profile.ContentProtection,
-            FocusViolationLimit = profile.FocusViolationLimit,
-            FocusWarnAt = profile.FocusWarnAt,
-            WebcamSnapshots = profile.Webcam,
-            ScreenCapture = profile.Screen,
-            MarkingScheme = Config.MarkingScheme with { },
-        };
-        UpdatedAt = nowUtc;
+        ChangeConfig(
+            Config with
+            {
+                ContentProtection = profile.ContentProtection,
+                FocusViolationLimit = profile.FocusViolationLimit,
+                FocusWarnAt = profile.FocusWarnAt,
+                WebcamSnapshots = profile.Webcam,
+                ScreenCapture = profile.Screen,
+            },
+            nowUtc);
     }
 
     /// <summary>
@@ -657,8 +642,7 @@ public class Exam : AggregateRoot
         if (Config.ResultReleaseTime is not null)
             return;
 
-        Config = Config with { ResultReleaseTime = nowUtc, MarkingScheme = Config.MarkingScheme with { } };
-        UpdatedAt = nowUtc;
+        ChangeConfig(Config with { ResultReleaseTime = nowUtc }, nowUtc);
     }
 
     /// <summary>

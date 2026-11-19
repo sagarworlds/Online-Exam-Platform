@@ -1,5 +1,5 @@
-using System.ComponentModel.DataAnnotations;
 using ExamPlatform.Modules.Invite.Domain.Exceptions;
+using ExamPlatform.SharedKernel.Domain;
 
 namespace ExamPlatform.Modules.Invite.Application;
 
@@ -14,9 +14,8 @@ internal static class InviteEmailAddress
     {
         var trimmed = raw?.Trim();
 
-        // EmailAddressAttribute treats null as valid, so a missing address is refused here before it can reach it. It also accepts spaces
-        // inside the address ("a b@x.in"), which no mail server delivers to, so those are refused too.
-        if (string.IsNullOrEmpty(trimmed) || trimmed.Any(char.IsWhiteSpace) || !new EmailAddressAttribute().IsValid(trimmed))
+        // A missing address, one with white space inside ("a b@x.in") and one that is not shaped like an address are all refused.
+        if (!EmailAddressRule.IsDeliverable(trimmed))
             throw new InvalidInviteEmailError();
 
         return trimmed;

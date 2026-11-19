@@ -71,8 +71,10 @@ public sealed class ExamRuntimeUnitOfWork(ExamRuntimeDbContext context, GradingW
 
     /// <inheritdoc />
     /// <exception cref="ConcurrencyConflictError">
-    /// Another request changed the same attempt first, started the same attempt, saved the same answer, or granted the same
-    /// extra attempt at the same moment; the caller reloads and carries on from what is stored.
+    /// Another request changed the same attempt first, or did the same thing at the same moment: started the same attempt, saved the same
+    /// answer, mark, answer sequence or question time, asked for or granted another attempt, raised the same dispute, set the same
+    /// accommodation, or recorded the same notification (see <see cref="ExamRuntimeRaceGuards"/>). The caller reloads and carries on from
+    /// what is stored. A unique violation on any other constraint is not a race and surfaces unchanged, as a <see cref="DbUpdateException"/>.
     /// </exception>
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken)
     {
@@ -96,11 +98,12 @@ public sealed class ExamRuntimeUnitOfWork(ExamRuntimeDbContext context, GradingW
         {
             throw new ConcurrencyConflictError(ex);
         }
-        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: UniqueViolation })
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: UniqueViolation } violation
+                                           && ExamRuntimeRaceGuards.IsRaceGuard(violation.ConstraintName))
         {
-            // Only the unique indexes on (exam, candidate, attempt number), (attempt, question) and (exam, candidate,
-            // grant number) can raise this here, and all mean "another request got there first", an expected race and not
-            // a server fault.
+            // One of the unique indexes that settle a race (see ExamRuntimeRaceGuards): "another request got there first", an expected
+            // outcome and not a server fault. A violation of any other unique constraint is not caught here, so it reaches the caller as
+            // the failure it is rather than as a "try again" that can never succeed.
             throw new ConcurrencyConflictError(ex);
         }
     }

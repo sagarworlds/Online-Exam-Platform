@@ -9,17 +9,19 @@ namespace ExamPlatform.Modules.Guardian.UnitTests;
 
 public class GuardianQueryHandlerTests
 {
+    private static readonly DateTime Now = new(2026, 10, 10, 9, 0, 0, DateTimeKind.Utc);
+
     [Fact]
     public async Task ListGuardianLinks_KeepsARevokedLink_AndLeavesOutAnUnlinkedOne()
     {
-        var guardian = new GuardianAggregate("guardian@example.com", "Asha Rao");
+        var guardian = new GuardianAggregate("guardian@example.com", "Asha Rao", null, Now);
         var revokedCandidate = Guid.NewGuid();
         var unlinkedCandidate = Guid.NewGuid();
-        var expiry = DateTime.UtcNow.Add(GuardianLinkToken.Lifetime);
-        guardian.LinkCandidate(revokedCandidate, "revoked@example.com", GuardianLinkToken.Hash("code-1"), expiry);
-        guardian.LinkCandidate(unlinkedCandidate, "unlinked@example.com", GuardianLinkToken.Hash("code-2"), expiry);
-        guardian.RevokeCandidateLink(revokedCandidate);
-        guardian.UnlinkCandidate(unlinkedCandidate);
+        var expiry = Now.Add(GuardianLinkToken.Lifetime);
+        guardian.LinkCandidate(revokedCandidate, "revoked@example.com", GuardianLinkToken.Hash("code-1"), expiry, Now);
+        guardian.LinkCandidate(unlinkedCandidate, "unlinked@example.com", GuardianLinkToken.Hash("code-2"), expiry, Now);
+        guardian.RevokeCandidateLink(revokedCandidate, Now);
+        guardian.UnlinkCandidate(unlinkedCandidate, Now);
         var repository = Substitute.For<IGuardianRepository>();
         repository.GetByIdAsync(guardian.Id, Arg.Any<CancellationToken>()).Returns(guardian);
 

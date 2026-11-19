@@ -310,7 +310,7 @@ public static class ExamAuthoringEndpoints
     private static async Task<IResult> ScheduleExam(
         Guid examId, ScheduleExamRequest request, ScheduleExamHandler handler, CancellationToken ct)
     {
-        var durationSeconds = request.DurationMinutes is { } minutes ? checked(minutes * 60) : (int?)null;
+        var durationSeconds = ScheduleExamCommand.SecondsFromMinutes(request.DurationMinutes);
         var command = new ScheduleExamCommand(
             examId,
             request.ScheduledStartTime,
