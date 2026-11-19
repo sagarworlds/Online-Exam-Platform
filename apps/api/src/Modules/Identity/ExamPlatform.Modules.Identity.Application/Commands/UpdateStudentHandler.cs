@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 using ExamPlatform.Modules.Admin.Contracts;
 using ExamPlatform.Modules.Identity.Application.Dtos;
@@ -8,6 +7,7 @@ using ExamPlatform.Modules.Identity.Domain;
 using ExamPlatform.Modules.Identity.Domain.Exceptions;
 using ExamPlatform.Modules.Invite.Contracts;
 using ExamPlatform.SharedKernel.Application;
+using ExamPlatform.SharedKernel.Domain;
 using Microsoft.Extensions.Logging;
 
 namespace ExamPlatform.Modules.Identity.Application.Commands;
@@ -73,7 +73,8 @@ public sealed class UpdateStudentHandler(
         var before = new Snapshot(student.DisplayName, student.Email, student.PhoneNumber, student.DateOfBirth, student.GetAgeBand(nowUtc));
 
         var email = Trimmed(command.Email);
-        if (email is not null && !IsDeliverable(email))
+        // A sign-in code sent to an address with a space in it is lost, so those are refused as well as malformed ones.
+        if (email is not null && !EmailAddressRule.IsDeliverable(email))
             throw new InvalidEmailAddressError();
 
         var phone = Trimmed(command.PhoneNumber);
@@ -117,9 +118,6 @@ public sealed class UpdateStudentHandler(
     }
 
     private static string? Trimmed(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    // EmailAddressAttribute accepts spaces inside an address ("a b@x.in"), which no mail server delivers to; a sign-in code sent there is lost.
-    private static bool IsDeliverable(string email) => !email.Any(char.IsWhiteSpace) && new EmailAddressAttribute().IsValid(email);
 
     private static List<string> ChangedFields(Snapshot before, User student)
     {

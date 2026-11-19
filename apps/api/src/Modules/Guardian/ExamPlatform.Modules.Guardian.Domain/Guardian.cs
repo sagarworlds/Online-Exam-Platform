@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using ExamPlatform.SharedKernel.Domain;
 using ExamPlatform.Modules.Guardian.Domain.Events;
 using ExamPlatform.Modules.Guardian.Domain.Exceptions;
@@ -31,8 +30,14 @@ public class Guardian : AggregateRoot
     public Guardian(string email, string fullName, string? phone, DateTime nowUtc)
         : base(Guid.NewGuid())
     {
-        // The rules live on the aggregate, so no caller can build a guardian that breaks them.
-        if (!new EmailAddressAttribute().IsValid(email))
+        // The rules live on the aggregate, so no caller can build a guardian that breaks them. This is the shared e-mail rule's
+
+        // framework check, which is what a guardian was always held to: it lets an address with a space in it through, so the other
+
+        // modules' stricter IsDeliverable is not used here without a decision to turn those addresses away.
+
+        if (!EmailAddressRule.IsWellFormed(email))
+
             throw new InvalidGuardianDetailsError("Email must be a valid email address.");
 
         if (string.IsNullOrWhiteSpace(fullName))
