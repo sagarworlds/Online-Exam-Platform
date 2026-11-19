@@ -1,4 +1,5 @@
 using ExamPlatform.Modules.ExamAuthoring.Domain;
+using ExamPlatform.Modules.ExamAuthoring.Domain.Exceptions;
 
 namespace ExamPlatform.Modules.ExamAuthoring.Application.Commands;
 
@@ -15,7 +16,28 @@ public sealed record ScheduleExamCommand(
     DateTime? EndUtc,
     string? TimeZone,
     DateTime? LateEntryDeadlineUtc,
-    int? DurationSeconds);
+    int? DurationSeconds)
+{
+    /// <summary>The seconds the exam stores for a duration the author gave in minutes.</summary>
+    /// <param name="minutes">The duration in minutes, or null for "until the window closes".</param>
+    /// <returns>
+    /// The duration in seconds, or null for none. A negative duration stays negative, so the exam refuses it as not positive; one so far
+    /// below zero that its seconds cannot be counted is held at the smallest whole number, for the same refusal.
+    /// </returns>
+    /// <exception cref="InvalidExamConfigError">The duration is too long to count in whole seconds.</exception>
+    public static int? SecondsFromMinutes(int? minutes)
+    {
+        if (minutes is not { } value)
+            return null;
+
+        // Worked out in 64 bits, so a request for billions of minutes is a refusal here and not an OverflowException that nothing maps.
+        var seconds = (long)value * 60;
+        if (seconds > int.MaxValue)
+            throw new InvalidExamConfigError("The duration is too long.");
+
+        return (int)Math.Max(seconds, int.MinValue);
+    }
+}
 
 /// <summary>Appends a section to an exam.</summary>
 /// <param name="ExamId">The exam to add it to.</param>
