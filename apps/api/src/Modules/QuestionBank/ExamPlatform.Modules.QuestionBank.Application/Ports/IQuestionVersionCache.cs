@@ -22,17 +22,7 @@ public sealed record QuestionVersionContent(
     bool IsTextAnswer,
     IReadOnlyList<string> AcceptedAnswers,
     string? Explanation,
-    TextMatchRule MatchRule)
-{
-    /// <summary>
-    /// About how much memory the content holds, for a cache that is limited by size. A string costs two bytes a character; the rest is a flat
-    /// allowance for the objects around it. An estimate: it only has to be in proportion, so one question with pictures counts for far more than
-    /// a hundred without.
-    /// </summary>
-    public long ApproximateBytes =>
-        2L * (Text.Length + Options.Sum(o => o.Text.Length) + AcceptedAnswers.Sum(a => a.Length) + (Explanation?.Length ?? 0))
-        + 64L * (Options.Count + AcceptedAnswers.Count + 2) + 128;
-}
+    TextMatchRule MatchRule);
 
 /// <summary>
 /// Keeps the content of stored question versions in memory. A version is never edited once it is stored (FR-7), so what is kept under a

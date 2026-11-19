@@ -1,5 +1,3 @@
-using ExamPlatform.Modules.QuestionBank.Application.Ports;
-
 namespace ExamPlatform.Modules.QuestionBank.Infrastructure;
 
 /// <summary>How much of the bank's stored question versions the API keeps in memory (<c>QuestionBank:VersionCache</c>).</summary>
@@ -8,7 +6,7 @@ public sealed class QuestionVersionCacheOptions
     /// <summary>The configuration section these settings are read from.</summary>
     public const string SectionName = "QuestionBank:VersionCache";
 
-    /// <summary>The most memory the cache may use for question content, in bytes, as <see cref="QuestionVersionContent.ApproximateBytes"/> counts it. 0 turns the cache off.</summary>
+    /// <summary>The most memory the cache may use for question content, in bytes, as <see cref="MemoryQuestionVersionCache.ApproximateBytesOf"/> counts it. 0 turns the cache off.</summary>
     public long MaxBytes { get; set; } = 64L * 1024 * 1024;
 
     /// <summary>How many minutes a version stays after it was last read, so an exam that is over stops holding memory.</summary>

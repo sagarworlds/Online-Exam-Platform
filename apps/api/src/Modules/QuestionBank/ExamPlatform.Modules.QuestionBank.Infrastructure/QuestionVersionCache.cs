@@ -33,7 +33,7 @@ public sealed class MemoryQuestionVersionCache : IQuestionVersionCache, IDisposa
     /// <inheritdoc />
     public void Set(Guid questionId, int versionNumber, QuestionVersionContent content)
     {
-        var size = content.ApproximateBytes;
+        var size = ApproximateBytesOf(content);
         if (size > _maxBytes)
             return; // Larger than the whole cache: keeping it would push everything else out.
 
@@ -42,6 +42,17 @@ public sealed class MemoryQuestionVersionCache : IQuestionVersionCache, IDisposa
             content,
             new MemoryCacheEntryOptions { Size = size, SlidingExpiration = _sliding, AbsoluteExpirationRelativeToNow = _absolute });
     }
+
+    /// <summary>
+    /// About how much memory the content holds, for a cache that is limited by size. A string costs two bytes a character; the rest is a flat
+    /// allowance for the objects around it. An estimate: it only has to be in proportion, so one question with pictures counts for far more than
+    /// a hundred without.
+    /// </summary>
+    /// <param name="content">The content to size.</param>
+    /// <returns>The estimate, in bytes.</returns>
+    public static long ApproximateBytesOf(QuestionVersionContent content) =>
+        2L * (content.Text.Length + content.Options.Sum(o => o.Text.Length) + content.AcceptedAnswers.Sum(a => a.Length) + (content.Explanation?.Length ?? 0))
+        + 64L * (content.Options.Count + content.AcceptedAnswers.Count + 2) + 128;
 
     /// <inheritdoc />
     public void Dispose() => _cache.Dispose();
