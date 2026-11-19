@@ -8,7 +8,7 @@ using GuardianAggregate = ExamPlatform.Modules.Guardian.Domain.Guardian;
 namespace ExamPlatform.Modules.Guardian.Application.Commands;
 
 /// <summary>Handles <see cref="CreateGuardianCommand"/>: registers a new guardian aggregate.</summary>
-public sealed class CreateGuardianHandler(IGuardianRepository repository, IGuardianUnitOfWork unitOfWork)
+public sealed class CreateGuardianHandler(IGuardianRepository repository, IGuardianUnitOfWork unitOfWork, Clock clock)
 {
     /// <summary>Creates the guardian and persists it.</summary>
     /// <param name="command">The guardian to register.</param>
@@ -17,7 +17,7 @@ public sealed class CreateGuardianHandler(IGuardianRepository repository, IGuard
     /// <exception cref="InvalidGuardianDetailsError">The e-mail address is invalid or the full name is blank.</exception>
     public async Task<GuardianDto> HandleAsync(CreateGuardianCommand command, CancellationToken cancellationToken)
     {
-        var guardian = new GuardianAggregate(command.Email, command.FullName, command.Phone);
+        var guardian = new GuardianAggregate(command.Email, command.FullName, command.Phone, clock.UtcNow);
         repository.Add(guardian);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return GuardianDto.From(guardian);
@@ -53,8 +53,9 @@ public sealed class LinkCandidateHandler(
     {
         var guardian = await repository.GetByIdAsync(command.GuardianId, cancellationToken)
             ?? throw new GuardianNotFoundError(command.GuardianId);
-        var token = GuardianLinkToken.Issue(clock.UtcNow);
-        var link = guardian.LinkCandidate(command.CandidateId, command.CandidateEmail, token.Hash, token.ExpiresAtUtc);
+        var nowUtc = clock.UtcNow;
+        var token = GuardianLinkToken.Issue(nowUtc);
+        var link = guardian.LinkCandidate(command.CandidateId, command.CandidateEmail, token.Hash, token.ExpiresAtUtc, nowUtc);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         var confirmLink = linkBuilder.Build(token.Raw);
@@ -68,7 +69,7 @@ public sealed class LinkCandidateHandler(
 }
 
 /// <summary>Handles <see cref="RevokeGuardianLinkCommand"/>: revokes a guardian link to a candidate.</summary>
-public sealed class RevokeGuardianLinkHandler(IGuardianRepository repository, IGuardianUnitOfWork unitOfWork)
+public sealed class RevokeGuardianLinkHandler(IGuardianRepository repository, IGuardianUnitOfWork unitOfWork, Clock clock)
 {
     /// <summary>Revokes the link and persists the change.</summary>
     /// <param name="command">The guardian and the candidate whose link is revoked.</param>
@@ -80,13 +81,13 @@ public sealed class RevokeGuardianLinkHandler(IGuardianRepository repository, IG
     {
         var guardian = await repository.GetByIdAsync(command.GuardianId, cancellationToken)
             ?? throw new GuardianNotFoundError(command.GuardianId);
-        guardian.RevokeCandidateLink(command.CandidateId);
+        guardian.RevokeCandidateLink(command.CandidateId, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
 
 /// <summary>Handles <see cref="UnlinkCandidateCommand"/>: soft-deletes a guardian-candidate link.</summary>
-public sealed class UnlinkCandidateHandler(IGuardianRepository repository, IGuardianUnitOfWork unitOfWork)
+public sealed class UnlinkCandidateHandler(IGuardianRepository repository, IGuardianUnitOfWork unitOfWork, Clock clock)
 {
     /// <summary>Unlinks the candidate and persists the change.</summary>
     /// <param name="command">The guardian and the candidate to unlink.</param>
@@ -97,7 +98,7 @@ public sealed class UnlinkCandidateHandler(IGuardianRepository repository, IGuar
     {
         var guardian = await repository.GetByIdAsync(command.GuardianId, cancellationToken)
             ?? throw new GuardianNotFoundError(command.GuardianId);
-        guardian.UnlinkCandidate(command.CandidateId);
+        guardian.UnlinkCandidate(command.CandidateId, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

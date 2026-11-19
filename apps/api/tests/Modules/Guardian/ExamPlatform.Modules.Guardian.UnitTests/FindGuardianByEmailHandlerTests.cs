@@ -8,6 +8,8 @@ namespace ExamPlatform.Modules.Guardian.UnitTests;
 
 public class FindGuardianByEmailHandlerTests
 {
+    private static readonly DateTime Now = new(2026, 10, 10, 9, 0, 0, DateTimeKind.Utc);
+
     private readonly IGuardianRepository repository = Substitute.For<IGuardianRepository>();
 
     private FindGuardianByEmailHandler Handler => new(repository);
@@ -15,7 +17,7 @@ public class FindGuardianByEmailHandlerTests
     [Fact]
     public async Task Find_OneMatch_ReturnsThatGuardian()
     {
-        var guardian = new GuardianAggregate("guardian@example.com", "Gia Guardian");
+        var guardian = new GuardianAggregate("guardian@example.com", "Gia Guardian", null, Now);
         IReadOnlyList<GuardianAggregate> matches = [guardian];
         repository.ListByEmailAsync("guardian@example.com", Arg.Any<CancellationToken>()).Returns(matches);
 
@@ -40,8 +42,8 @@ public class FindGuardianByEmailHandlerTests
     {
         IReadOnlyList<GuardianAggregate> duplicates =
         [
-            new GuardianAggregate("dup@example.com", "First Record"),
-            new GuardianAggregate("dup@example.com", "Second Record"),
+            new GuardianAggregate("dup@example.com", "First Record", null, Now),
+            new GuardianAggregate("dup@example.com", "Second Record", null, Now),
         ];
         repository.ListByEmailAsync("dup@example.com", Arg.Any<CancellationToken>()).Returns(duplicates);
 

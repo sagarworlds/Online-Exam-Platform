@@ -22,9 +22,9 @@ public class VerifyGuardianLinkHandlerTests
     private (GuardianAggregate Guardian, string Code, Guid CandidateId) PendingLink(DateTime expiresAt)
     {
         var issued = GuardianLinkToken.Issue(Now);
-        var guardian = new GuardianAggregate("guardian@example.com", "Gia Guardian");
+        var guardian = new GuardianAggregate("guardian@example.com", "Gia Guardian", null, Now);
         var candidateId = Guid.NewGuid();
-        guardian.LinkCandidate(candidateId, "c@example.com", GuardianLinkToken.Hash(issued.Raw), expiresAt);
+        guardian.LinkCandidate(candidateId, "c@example.com", GuardianLinkToken.Hash(issued.Raw), expiresAt, Now);
         return (guardian, issued.Raw, candidateId);
     }
 

@@ -26,7 +26,8 @@ public class GuardianLink
 
     private GuardianLink() { }
 
-    public GuardianLink(Guid guardianId, Guid candidateId, string candidateEmail, string verificationTokenHash, DateTime verificationExpiresAt)
+    public GuardianLink(
+        Guid guardianId, Guid candidateId, string candidateEmail, string verificationTokenHash, DateTime verificationExpiresAt, DateTime nowUtc)
     {
         Id = Guid.NewGuid();
         GuardianId = guardianId;
@@ -34,8 +35,8 @@ public class GuardianLink
         CandidateEmail = candidateEmail;
         VerificationTokenHash = verificationTokenHash;
         VerificationExpiresAt = verificationExpiresAt;
-        CreatedAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+        CreatedAt = nowUtc;
+        UpdatedAt = nowUtc;
     }
 
     /// <summary>Confirms the link with the guardian's code. A link is confirmed once; a second use is refused.</summary>
@@ -56,21 +57,26 @@ public class GuardianLink
         UpdatedAt = nowUtc;
     }
 
-    public void Revoke()
+    /// <summary>Revokes the link, keeping it on record as revoked.</summary>
+    /// <param name="nowUtc">The moment of revocation.</param>
+    /// <exception cref="GuardianLinkAlreadyRevokedError">The link was already revoked.</exception>
+    public void Revoke(DateTime nowUtc)
     {
         if (Status == GuardianLinkStatus.Revoked)
             throw new GuardianLinkAlreadyRevokedError();
 
         Status = GuardianLinkStatus.Revoked;
-        RevokedAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+        RevokedAt = nowUtc;
+        UpdatedAt = nowUtc;
     }
 
     public bool IsVerified() => Status == GuardianLinkStatus.Verified && !IsDeleted;
 
-    public void SoftDelete()
+    /// <summary>Removes the link: it is marked deleted and kept on record.</summary>
+    /// <param name="nowUtc">The moment of removal.</param>
+    public void SoftDelete(DateTime nowUtc)
     {
         IsDeleted = true;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = nowUtc;
     }
 }

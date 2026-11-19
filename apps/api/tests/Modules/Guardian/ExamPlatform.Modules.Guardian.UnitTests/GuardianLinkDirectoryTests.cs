@@ -21,8 +21,8 @@ public class GuardianLinkDirectoryTests
     /// <summary>A guardian with a link to the candidate; the link is confirmed when asked, and otherwise still pending.</summary>
     private GuardianAggregate GuardianWithLink(bool confirmed, Guid? linkedTo = null)
     {
-        var guardian = new GuardianAggregate("guardian@example.com", "Gia Guardian");
-        guardian.LinkCandidate(linkedTo ?? candidateId, "candidate@example.com", "hash", Now.AddDays(1));
+        var guardian = new GuardianAggregate("guardian@example.com", "Gia Guardian", null, Now);
+        guardian.LinkCandidate(linkedTo ?? candidateId, "candidate@example.com", "hash", Now.AddDays(1), Now);
         if (confirmed)
             guardian.VerifyCandidateLink("hash", Now);
         return guardian;
@@ -48,7 +48,7 @@ public class GuardianLinkDirectoryTests
     public async Task ARevokedLink_IsNotEnough()
     {
         var guardian = GuardianWithLink(confirmed: true);
-        guardian.RevokeCandidateLink(candidateId);
+        guardian.RevokeCandidateLink(candidateId, Now);
         GuardiansOfTheCandidate(guardian);
 
         Assert.False(await Directory.HasConfirmedGuardianAsync(candidateId, CancellationToken.None));
@@ -58,7 +58,7 @@ public class GuardianLinkDirectoryTests
     public async Task AnUnlinkedLink_IsNotEnough()
     {
         var guardian = GuardianWithLink(confirmed: true);
-        guardian.UnlinkCandidate(candidateId);
+        guardian.UnlinkCandidate(candidateId, Now);
         GuardiansOfTheCandidate(guardian);
 
         Assert.False(await Directory.HasConfirmedGuardianAsync(candidateId, CancellationToken.None));

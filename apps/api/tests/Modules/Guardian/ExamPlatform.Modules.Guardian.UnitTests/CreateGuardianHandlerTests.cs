@@ -10,12 +10,17 @@ namespace ExamPlatform.Modules.Guardian.UnitTests;
 
 public class CreateGuardianHandlerTests
 {
+    private static readonly DateTime Now = new(2026, 10, 10, 9, 0, 0, DateTimeKind.Utc);
+
+    private static CreateGuardianHandler HandlerFor(IGuardianRepository repository, IGuardianUnitOfWork unitOfWork) =>
+        new(repository, unitOfWork, new FakeClock(Now));
+
     [Fact]
     public async Task HandleAsync_WithValidCommand_CreatesGuardianAndReturnsDto()
     {
         var repository = Substitute.For<IGuardianRepository>();
         var unitOfWork = Substitute.For<IGuardianUnitOfWork>();
-        var handler = new CreateGuardianHandler(repository, unitOfWork);
+        var handler = HandlerFor(repository, unitOfWork);
 
         var email = "guardian@example.com";
         var fullName = "John Guardian";
@@ -37,9 +42,20 @@ public class CreateGuardianHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_StampsTheGuardianWithTheClock_NotTheWallClock()
+    {
+        var repository = Substitute.For<IGuardianRepository>();
+        var handler = HandlerFor(repository, Substitute.For<IGuardianUnitOfWork>());
+
+        await handler.HandleAsync(new CreateGuardianCommand("guardian@example.com", "John Guardian", null), CancellationToken.None);
+
+        repository.Received(1).Add(Arg.Is<GuardianAggregate>(g => g.CreatedAt == Now && g.UpdatedAt == Now));
+    }
+
+    [Fact]
     public async Task HandleAsync_WithInvalidEmail_ThrowsInvalidGuardianDetailsError()
     {
-        var handler = new CreateGuardianHandler(
+        var handler = HandlerFor(
             Substitute.For<IGuardianRepository>(),
             Substitute.For<IGuardianUnitOfWork>());
 
@@ -53,7 +69,7 @@ public class CreateGuardianHandlerTests
     [InlineData("   ")]
     public async Task HandleAsync_WithEmptyFullName_ThrowsInvalidGuardianDetailsError(string fullName)
     {
-        var handler = new CreateGuardianHandler(
+        var handler = HandlerFor(
             Substitute.For<IGuardianRepository>(),
             Substitute.For<IGuardianUnitOfWork>());
 

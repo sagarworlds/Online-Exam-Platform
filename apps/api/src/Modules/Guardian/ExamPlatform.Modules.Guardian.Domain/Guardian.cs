@@ -26,8 +26,9 @@ public class Guardian : AggregateRoot
     /// <param name="email">A valid e-mail address.</param>
     /// <param name="fullName">The guardian's name; must not be blank.</param>
     /// <param name="phone">Optional phone number.</param>
+    /// <param name="nowUtc">The current instant.</param>
     /// <exception cref="InvalidGuardianDetailsError">The e-mail address is invalid or the name is blank.</exception>
-    public Guardian(string email, string fullName, string? phone = null)
+    public Guardian(string email, string fullName, string? phone, DateTime nowUtc)
         : base(Guid.NewGuid())
     {
         // The rules live on the aggregate, so no caller can build a guardian that breaks them.
@@ -40,8 +41,8 @@ public class Guardian : AggregateRoot
         Email = email;
         FullName = fullName;
         Phone = phone;
-        CreatedAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+        CreatedAt = nowUtc;
+        UpdatedAt = nowUtc;
 
         AddDomainEvent(new GuardianCreatedEvent(Id, Email, FullName));
     }
@@ -51,16 +52,18 @@ public class Guardian : AggregateRoot
     /// <param name="candidateEmail">The candidate's address, as staff entered it.</param>
     /// <param name="verificationTokenHash">The hash of the one-time code e-mailed to the guardian; the code itself is not kept.</param>
     /// <param name="verificationExpiresAt">When that code stops working.</param>
+    /// <param name="nowUtc">The current instant.</param>
     /// <exception cref="GuardianAlreadyLinkedError">The guardian already has a link to the candidate.</exception>
-    public GuardianLink LinkCandidate(Guid candidateId, string candidateEmail, string verificationTokenHash, DateTime verificationExpiresAt)
+    public GuardianLink LinkCandidate(
+        Guid candidateId, string candidateEmail, string verificationTokenHash, DateTime verificationExpiresAt, DateTime nowUtc)
     {
         var existingLink = _candidateLinks.FirstOrDefault(l => l.CandidateId == candidateId && !l.IsDeleted);
         if (existingLink != null)
             throw new GuardianAlreadyLinkedError();
 
-        var link = new GuardianLink(Id, candidateId, candidateEmail, verificationTokenHash, verificationExpiresAt);
+        var link = new GuardianLink(Id, candidateId, candidateEmail, verificationTokenHash, verificationExpiresAt, nowUtc);
         _candidateLinks.Add(link);
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = nowUtc;
 
         return link;
     }
@@ -86,28 +89,34 @@ public class Guardian : AggregateRoot
     }
 
     /// <summary>Revokes the link to a candidate, keeping it on record as revoked.</summary>
+    /// <param name="candidateId">The candidate whose link is revoked.</param>
+    /// <param name="nowUtc">The current instant.</param>
     /// <exception cref="GuardianLinkNotFoundError">The guardian has no link to the candidate.</exception>
     /// <exception cref="GuardianLinkAlreadyRevokedError">The link was already revoked.</exception>
-    public void RevokeCandidateLink(Guid candidateId)
+    public void RevokeCandidateLink(Guid candidateId, DateTime nowUtc)
     {
         // A missing link is an error, not a quiet success: a caller who revokes the wrong pair must be told.
         var link = GetCandidateLink(candidateId) ?? throw new GuardianLinkNotFoundError();
-        link.Revoke();
-        UpdatedAt = DateTime.UtcNow;
+        link.Revoke(nowUtc);
+        UpdatedAt = nowUtc;
     }
 
     /// <summary>Removes the link to a candidate.</summary>
+    /// <param name="candidateId">The candidate to unlink.</param>
+    /// <param name="nowUtc">The current instant.</param>
     /// <exception cref="GuardianLinkNotFoundError">The guardian has no link to the candidate.</exception>
-    public void UnlinkCandidate(Guid candidateId)
+    public void UnlinkCandidate(Guid candidateId, DateTime nowUtc)
     {
         var link = GetCandidateLink(candidateId) ?? throw new GuardianLinkNotFoundError();
-        link.SoftDelete();
-        UpdatedAt = DateTime.UtcNow;
+        link.SoftDelete(nowUtc);
+        UpdatedAt = nowUtc;
     }
 
-    public void SoftDelete()
+    /// <summary>Marks the guardian deleted.</summary>
+    /// <param name="nowUtc">The current instant.</param>
+    public void SoftDelete(DateTime nowUtc)
     {
         IsDeleted = true;
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = nowUtc;
     }
 }
