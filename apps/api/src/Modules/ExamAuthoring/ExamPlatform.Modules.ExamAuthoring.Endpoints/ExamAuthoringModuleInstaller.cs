@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace ExamPlatform.Modules.ExamAuthoring.Endpoints;
 
@@ -29,6 +30,18 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
             .UseNpgsql(configuration.GetConnectionString("Postgres"))
             .AddInterceptors(sp.GetRequiredService<DomainEventsSaveChangesInterceptor>()));
 
+        // An exam's snapshot is kept for a few seconds so every call a candidate makes during an exam does not rebuild it from four queries.
+        // Saving any change through the unit of work below clears it; the lifetime only bounds how long another host can miss a change.
+        // Bound as options so a host that adds its settings after registration is honoured.
+        services.AddOptions<ExamSnapshotCacheOptions>()
+            .Bind(configuration.GetSection(ExamSnapshotCacheOptions.SectionName))
+            .Validate(options => options.IsValid, "ExamAuthoring:SnapshotCache needs LifetimeSeconds from 0 to 3600 and MaxEntries of 1 or more.")
+            .ValidateOnStart();
+        services.AddSingleton(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<ExamSnapshotCacheOptions>>().Value;
+            return new ExamSnapshotCache(sp.GetRequiredService<Clock>(), TimeSpan.FromSeconds(options.LifetimeSeconds), options.MaxEntries);
+        });
         services.AddScoped<IExamRepository, EFExamRepository>();
         services.AddScoped<IExamAuthoringUnitOfWork, ExamAuthoringUnitOfWork>();
         services.AddScoped<IExamCatalog, ExamCatalog>();
