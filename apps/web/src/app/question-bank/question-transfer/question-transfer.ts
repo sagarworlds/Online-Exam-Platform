@@ -1,6 +1,7 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
+import { FileDownloadService } from '../../shared/file-download/file-download.service';
 import { extractErrorMessage } from '../../shared/problem-details';
 import { QuestionApiService } from '../question-api.service';
 import { ImportQuestionsResult, QuestionFileFormat, QuestionFilter } from '../question.models';
@@ -62,6 +63,7 @@ export class QuestionTransfer {
 
   private readonly api = inject(QuestionApiService);
   private readonly i18n = inject(I18nService);
+  private readonly fileDownload = inject(FileDownloadService);
 
   /** What an import did, in a sentence: how many questions it created, and how many rows it left out if any. */
   protected reportText(report: ImportQuestionsResult): string {
@@ -80,12 +82,7 @@ export class QuestionTransfer {
     const format = this.exportFormat();
     this.api.export(this.filter(), format).subscribe({
       next: (file) => {
-        const url = URL.createObjectURL(file.blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = file.fileName;
-        link.click();
-        URL.revokeObjectURL(url);
+        this.fileDownload.save(file.blob, file.fileName);
         if (file.skipped > 0) {
           this.exportNote.set(this.i18n.plural('qb.transfer.skipped', file.skipped));
         }
