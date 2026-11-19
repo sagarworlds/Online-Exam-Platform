@@ -1161,6 +1161,8 @@ dotnet ef migrations add AddNewTable \
 
 A step-by-step guide for hosting the API and site on Render's free plan, with a Neon database, including moving an existing local database, is in [docs/deploy-render.md](docs/deploy-render.md).
 
+What the API keeps in memory to hold an answer save and an attempt read to a few database round trips (a stored question version, an exam's snapshot), how long, how to turn each off, and how to check a change against the statement budget, is in [docs/performance.md](docs/performance.md).
+
 #### Migrate and Seed a Deployed Environment
 
 Roles, permissions and consent notice versions are reference data written by each module's idempotent seeder, not by EF migrations. Applying only the migrations (for example with an EF migration bundle) therefore leaves a database where registration fails because the `Candidate` role does not exist. Outside Development nothing migrates or seeds on its own, so a deployment runs the Host once with `--migrate-and-seed` before the web replicas start:
