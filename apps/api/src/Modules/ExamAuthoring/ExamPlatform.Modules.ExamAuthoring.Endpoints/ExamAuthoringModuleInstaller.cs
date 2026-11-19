@@ -31,20 +31,23 @@ public sealed class ExamAuthoringModuleInstaller : IModuleInstaller
             .AddInterceptors(sp.GetRequiredService<DomainEventsSaveChangesInterceptor>()));
 
         // An exam's snapshot is kept for a few seconds so every call a candidate makes during an exam does not rebuild it from four queries.
-        // Saving any change through the unit of work below clears it; the lifetime only bounds how long another host can miss a change.
-        // Bound as options so a host that adds its settings after registration is honoured.
+        // The catalog is wrapped to read through the cache and the unit of work to clear it after every save; the lifetime only bounds how
+        // long another host can miss a change. Bound as options so a host that adds its settings after registration is honoured.
         services.AddOptions<ExamSnapshotCacheOptions>()
             .Bind(configuration.GetSection(ExamSnapshotCacheOptions.SectionName))
             .Validate(options => options.IsValid, "ExamAuthoring:SnapshotCache needs LifetimeSeconds from 0 to 3600 and MaxEntries of 1 or more.")
             .ValidateOnStart();
-        services.AddSingleton(sp =>
+        services.AddSingleton<IExamSnapshotCache>(sp =>
         {
             var options = sp.GetRequiredService<IOptions<ExamSnapshotCacheOptions>>().Value;
             return new ExamSnapshotCache(sp.GetRequiredService<Clock>(), TimeSpan.FromSeconds(options.LifetimeSeconds), options.MaxEntries);
         });
         services.AddScoped<IExamRepository, EFExamRepository>();
-        services.AddScoped<IExamAuthoringUnitOfWork, ExamAuthoringUnitOfWork>();
-        services.AddScoped<IExamCatalog, ExamCatalog>();
+        services.AddScoped<ExamAuthoringUnitOfWork>();
+        services.AddScoped<IExamAuthoringUnitOfWork>(sp => new SnapshotInvalidatingUnitOfWork(
+            sp.GetRequiredService<ExamAuthoringUnitOfWork>(), sp.GetRequiredService<IExamSnapshotCache>()));
+        services.AddScoped<ExamCatalog>();
+        services.AddScoped<IExamCatalog>(sp => new CachedExamCatalog(sp.GetRequiredService<ExamCatalog>(), sp.GetRequiredService<IExamSnapshotCache>()));
         services.AddScoped<IQuestionUsageSource, ExamQuestionUsageSource>();
         services.AddScoped<IQuestionPlacementGuard, ExamScopePlacementGuard>();
 

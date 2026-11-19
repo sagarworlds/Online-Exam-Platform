@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using ExamPlatform.Modules.ExamAuthoring.Application.Ports;
 using ExamPlatform.Modules.ExamAuthoring.Contracts;
 using ExamPlatform.SharedKernel.Application;
 
@@ -11,7 +12,7 @@ namespace ExamPlatform.Modules.ExamAuthoring.Application;
 /// <remarks>
 /// <para>
 /// A snapshot is an immutable record, so sharing one between requests is safe. It goes stale only when an exam is changed, and every change
-/// goes through <see cref="IExamAuthoringUnitOfWork.SaveChangesAsync"/>, which calls <see cref="Clear"/> when it is done: on the host that
+/// goes through an <see cref="IExamAuthoringUnitOfWork"/>, which <see cref="SnapshotInvalidatingUnitOfWork"/> wraps to call <see cref="Clear"/> when it is done: on the host that
 /// made the change the next read sees it at once. Another host has its own cache and sees the change when its entry expires, so the lifetime
 /// is the longest a change can be unseen there.
 /// </para>
@@ -20,23 +21,20 @@ namespace ExamPlatform.Modules.ExamAuthoring.Application;
 /// generation, so what it stores is never served: the clear cannot be undone by a slow reader.
 /// </para>
 /// </remarks>
-public sealed class ExamSnapshotCache(Clock clock, TimeSpan lifetime, int maxEntries)
+public sealed class ExamSnapshotCache(Clock clock, TimeSpan lifetime, int maxEntries) : IExamSnapshotCache
 {
     private readonly ConcurrentDictionary<Guid, Entry> _entries = new();
     private long _generation;
 
     private sealed record Entry(ExamSnapshot Snapshot, DateTime ExpiresAtUtc, long Generation);
 
-    /// <summary>The generation now. A reader takes it before it reads the exam and hands it back to <see cref="Set"/>.</summary>
+    /// <inheritdoc />
     public long Generation => Volatile.Read(ref _generation);
 
     /// <summary>Whether snapshots are kept at all: a lifetime of zero turns the cache off.</summary>
     public bool IsEnabled => lifetime > TimeSpan.Zero && maxEntries > 0;
 
-    /// <summary>Looks up an exam's snapshot.</summary>
-    /// <param name="examId">The exam.</param>
-    /// <param name="snapshot">The snapshot, when one is held that is still fresh and was read after the last change.</param>
-    /// <returns><see langword="true"/> when a snapshot is returned.</returns>
+    /// <inheritdoc />
     public bool TryGet(Guid examId, out ExamSnapshot? snapshot)
     {
         if (IsEnabled
@@ -52,10 +50,7 @@ public sealed class ExamSnapshotCache(Clock clock, TimeSpan lifetime, int maxEnt
         return false;
     }
 
-    /// <summary>Keeps a snapshot that was read while the cache was at <paramref name="generation"/>.</summary>
-    /// <param name="examId">The exam.</param>
-    /// <param name="snapshot">What was read.</param>
-    /// <param name="generation">The value of <see cref="Generation"/> from before the read began.</param>
+    /// <inheritdoc />
     public void Set(Guid examId, ExamSnapshot snapshot, long generation)
     {
         if (!IsEnabled || generation != Generation)
@@ -69,7 +64,7 @@ public sealed class ExamSnapshotCache(Clock clock, TimeSpan lifetime, int maxEnt
         _entries[examId] = new Entry(snapshot, clock.UtcNow + lifetime, generation);
     }
 
-    /// <summary>Forgets every snapshot, because an exam has been changed.</summary>
+    /// <inheritdoc />
     public void Clear()
     {
         Interlocked.Increment(ref _generation);
