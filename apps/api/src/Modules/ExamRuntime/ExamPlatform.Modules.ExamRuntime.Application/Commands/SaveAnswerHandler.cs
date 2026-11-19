@@ -130,7 +130,7 @@ public sealed class SaveAnswerHandler(
         await using var hold = await unitOfWork.LockAttemptAsync(attemptId, exclusive: false, cancellationToken);
         try
         {
-            var (attempt, exam) = await access.LoadOwnedAsync(attemptId, candidateId, cancellationToken);
+            var (attempt, exam) = await access.LoadOwnedForAnswerAsync(attemptId, candidateId, questionId, cancellationToken);
 
             // The question must be in this exam, or an answer could be filed against anything.
             if (!exam.Includes(questionId))

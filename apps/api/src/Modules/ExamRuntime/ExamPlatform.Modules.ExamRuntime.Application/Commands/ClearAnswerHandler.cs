@@ -41,7 +41,7 @@ public sealed class ClearAnswerHandler(AttemptAccess access, IExamRuntimeUnitOfW
         await using var hold = await unitOfWork.LockAttemptAsync(attemptId, exclusive: false, cancellationToken);
         try
         {
-            var (attempt, exam) = await access.LoadOwnedAsync(attemptId, candidateId, cancellationToken);
+            var (attempt, exam) = await access.LoadOwnedForAnswerAsync(attemptId, candidateId, questionId, cancellationToken);
 
             if (!exam.Includes(questionId))
                 throw new QuestionNotInAttemptError();
