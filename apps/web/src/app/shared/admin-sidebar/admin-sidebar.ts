@@ -2,8 +2,7 @@ import { Component, Signal, computed, inject, input, signal } from '@angular/cor
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, isActive } from '@angular/router';
 import { filter } from 'rxjs';
-import type { AttentionState } from '../../admin/admin-attention/admin-attention.service';
-import { AdminSection, AdminSectionGroup, AttentionKey } from '../../auth/admin-sections';
+import { AdminSection, AdminSectionGroup, AttentionKey, AttentionState } from '../../auth/admin-sections';
 import { I18nService } from '../../i18n/i18n.service';
 import { MessageKey } from '../../i18n/messages.en';
 import { TranslatePipe } from '../../i18n/translate.pipe';

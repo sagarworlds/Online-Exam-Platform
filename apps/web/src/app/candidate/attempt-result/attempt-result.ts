@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { ClipboardService } from '../../shared/clipboard/clipboard.service';
+import { FileDownloadService } from '../../shared/file-download/file-download.service';
 import { extractErrorMessage, extractProblemCode } from '../../shared/problem-details';
 import { ToastService } from '../../shared/toast/toast.service';
 import { CandidateApiService } from '../candidate-api.service';
@@ -34,6 +35,7 @@ export class AttemptResult {
   private readonly i18n = inject(I18nService);
   private readonly document = inject(DOCUMENT);
   private readonly clipboard = inject(ClipboardService);
+  private readonly fileDownload = inject(FileDownloadService);
   private readonly toast = inject(ToastService);
   protected readonly attemptId = inject(ActivatedRoute).snapshot.paramMap.get('attemptId');
 
@@ -114,7 +116,7 @@ export class AttemptResult {
     this.api.getCertificate(attemptId).subscribe({
       next: (file) => {
         this.certificateBusy.set(false);
-        this.saveFile(file, `certificate-${attemptId}.pdf`);
+        this.fileDownload.save(file, `certificate-${attemptId}.pdf`);
       },
       error: (error: unknown) => {
         this.certificateBusy.set(false);
@@ -212,16 +214,6 @@ export class AttemptResult {
       }
     }
     return extractProblemCode(error);
-  }
-
-  /** Saves a file the candidate asked for, through a temporary link, so it goes to their downloads. */
-  private saveFile(file: Blob, name: string): void {
-    const url = URL.createObjectURL(file);
-    const link = this.document.createElement('a');
-    link.href = url;
-    link.download = name;
-    link.click();
-    URL.revokeObjectURL(url);
   }
 
   /** `+4`, `0` or `-1`: the sign is always shown so a gain and a loss cannot be mistaken for each other. */

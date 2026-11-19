@@ -9,7 +9,7 @@ import {
   viewChildren,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AdminAttentionService } from '../../admin/admin-attention/admin-attention.service';
+import { AdminAttentionService } from '../admin-attention/admin-attention.service';
 import { Subscription } from 'rxjs';
 import { Permission } from '../../auth/admin-sections';
 import { AuthSessionService } from '../../auth/auth-session.service';

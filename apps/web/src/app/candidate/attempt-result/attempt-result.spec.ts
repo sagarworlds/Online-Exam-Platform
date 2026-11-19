@@ -213,6 +213,8 @@ describe('AttemptResult', () => {
       URL.revokeObjectURL = revoke;
       const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
       const fixture = await open(result());
+      // The temporary address is released a moment after the click, so the test moves the clock instead of waiting for it.
+      vi.useFakeTimers({ toFake: ['setTimeout'] });
 
       const button = certificateButton(fixture);
       expect(button?.disabled).toBe(false);
@@ -224,7 +226,10 @@ describe('AttemptResult', () => {
 
       expect(createUrl).toHaveBeenCalled();
       expect(click).toHaveBeenCalled();
+      expect(revoke).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1000);
       expect(revoke).toHaveBeenCalledWith('blob:certificate');
+      vi.useRealTimers();
       click.mockRestore();
       URL.createObjectURL = originalCreate;
       URL.revokeObjectURL = originalRevoke;

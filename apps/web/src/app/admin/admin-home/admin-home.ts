@@ -8,7 +8,7 @@ import { TranslatePipe } from '../../i18n/translate.pipe';
 import { Icon } from '../../shared/icon/icon';
 import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { AdminAreaList } from '../admin-area-list/admin-area-list';
-import { AdminAttentionService, AttentionItem } from '../admin-attention/admin-attention.service';
+import { AdminAttentionService, AttentionItem } from '../../attempt-management/admin-attention/admin-attention.service';
 
 /** One tile of "Needs attention": what it counts, in words, and the page that deals with it. */
 interface TileDefinition {

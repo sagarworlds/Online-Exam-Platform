@@ -1,9 +1,9 @@
-import { DOCUMENT } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import type { MessageKey } from '../../i18n/messages.en';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
+import { FileDownloadService } from '../../shared/file-download/file-download.service';
 import { extractBlobErrorMessage, extractErrorMessage } from '../../shared/problem-details';
 import { RefreshButton } from '../../shared/refresh-button/refresh-button';
 import { AnalyticsApiService } from '../analytics-api.service';
@@ -42,7 +42,7 @@ const SORT_LABEL_KEYS = {
 export class ItemAnalysis {
   private readonly api = inject(AnalyticsApiService);
   private readonly i18n = inject(I18nService);
-  private readonly document = inject(DOCUMENT);
+  private readonly fileDownload = inject(FileDownloadService);
   protected readonly examId = inject(ActivatedRoute).snapshot.paramMap.get('id');
 
   /** The format whose download is in flight, or null. While one runs, every download button is disabled, so no second export can start. */
@@ -103,7 +103,7 @@ export class ItemAnalysis {
     request.subscribe({
       next: (response) => {
         this.exporting.set(null);
-        if (!saveDownload(response, `item-analysis.${format}`, this.document)) {
+        if (!saveDownload(response, `item-analysis.${format}`, this.fileDownload)) {
           this.exportError.set(this.i18n.t('exports.failed'));
         }
       },

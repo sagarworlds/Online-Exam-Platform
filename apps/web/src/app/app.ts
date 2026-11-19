@@ -2,7 +2,7 @@ import { Component, ElementRef, HostListener, computed, effect, inject, signal, 
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
-import { AdminAttentionService } from './admin/admin-attention/admin-attention.service';
+import { AdminAttentionService } from './attempt-management/admin-attention/admin-attention.service';
 import { openAdminGroups } from './auth/admin-sections';
 import { AuthSessionService } from './auth/auth-session.service';
 import { BrandingService } from './branding/branding.service';

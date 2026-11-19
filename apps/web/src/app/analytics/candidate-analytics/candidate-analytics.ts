@@ -1,8 +1,8 @@
-import { DOCUMENT } from '@angular/common';
 import { Component, computed, HostListener, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
+import { FileDownloadService } from '../../shared/file-download/file-download.service';
 import { extractBlobErrorMessage, extractErrorMessage } from '../../shared/problem-details';
 import { AnalyticsApiService } from '../analytics-api.service';
 import { CandidateAnalyticsDto, ScorePointDto } from '../analytics.models';
@@ -33,7 +33,7 @@ export interface DrawnResult {
 export class CandidateAnalytics {
   private readonly api = inject(AnalyticsApiService);
   private readonly i18n = inject(I18nService);
-  private readonly document = inject(DOCUMENT);
+  private readonly fileDownload = inject(FileDownloadService);
 
   protected readonly size = TREND_SIZE;
   protected readonly margins = TREND_MARGINS;
@@ -144,7 +144,7 @@ export class CandidateAnalytics {
     request.subscribe({
       next: (response) => {
         this.exporting.set(null);
-        if (!saveDownload(response, `candidate-analytics.${format}`, this.document)) {
+        if (!saveDownload(response, `candidate-analytics.${format}`, this.fileDownload)) {
           this.exportError.set(this.i18n.t('exports.failed'));
         }
       },
