@@ -54,6 +54,11 @@ public interface IQuestionRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyDictionary<Guid, int>> GetCurrentVersionNumbersAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken);
 
+    /// <summary>Reads where each question is filed, its review status and its current version number, without loading or decrypting any content.</summary>
+    /// <param name="questionIds">The questions to look up; ids that match no question are simply absent from the result.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<QuestionFacts>> GetFactsAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken);
+
     /// <summary>The stored versions with the given question and number; one that was never stored is simply absent.</summary>
     /// <param name="versions">The question and version number of each wanted version.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

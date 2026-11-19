@@ -45,6 +45,14 @@ public sealed class QuestionRepository(QuestionBankDbContext context) : IQuestio
             .Select(g => new { QuestionId = g.Key, Number = g.Max(v => v.VersionNumber) })
             .ToDictionaryAsync(x => x.QuestionId, x => x.Number, cancellationToken);
 
+    // Plain columns and one correlated subquery: nothing here is encrypted, so no content is read or decrypted.
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<QuestionFacts>> GetFactsAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken) =>
+        await context.Questions.AsNoTracking()
+            .Where(q => questionIds.Contains(q.Id))
+            .Select(q => new QuestionFacts(q.Id, q.ChapterId, q.Status, q.Versions.Max(v => (int?)v.VersionNumber)))
+            .ToListAsync(cancellationToken);
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<QuestionVersion>> GetVersionsAsync(IReadOnlyCollection<(Guid QuestionId, int VersionNumber)> versions, CancellationToken cancellationToken)
     {

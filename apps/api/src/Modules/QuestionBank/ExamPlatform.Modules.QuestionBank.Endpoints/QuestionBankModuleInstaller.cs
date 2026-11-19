@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace ExamPlatform.Modules.QuestionBank.Endpoints;
 
@@ -56,6 +57,17 @@ public sealed class QuestionBankModuleInstaller : IModuleInstaller
         // Whether an exam may only hold approved questions (FR-8). Off unless the deployment asks for it.
         // Read when first needed, not now, so a host that adds its settings after registration (as the tests do) is honoured.
         services.AddSingleton(sp => new QuestionApprovalPolicy(sp.GetRequiredService<IConfiguration>().GetValue<bool>("QuestionBank:RequireApproval")));
+        // A stored question version never changes (FR-7), so the content of one is kept in memory once it has been read and decrypted; the
+        // settings only bound how much memory that may use. Bound as options so a host that adds its settings after registration is honoured.
+        services.AddOptions<QuestionVersionCacheOptions>()
+            .Bind(configuration.GetSection(QuestionVersionCacheOptions.SectionName))
+            .Validate(options => options.IsValid, "QuestionBank:VersionCache needs MaxBytes of 0 or more, and SlidingMinutes and AbsoluteMinutes of 1 or more.")
+            .ValidateOnStart();
+        services.AddSingleton<IQuestionVersionCache>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<QuestionVersionCacheOptions>>();
+            return options.Value.MaxBytes == 0 ? NoQuestionVersionCache.Instance : new MemoryQuestionVersionCache(options);
+        });
         services.AddScoped<IQuestionBank, QuestionBankReader>();
         services.AddScoped<IQuestionSubjects, QuestionSubjects>();
         services.AddScoped<IQuestionTopics, QuestionTopics>();
