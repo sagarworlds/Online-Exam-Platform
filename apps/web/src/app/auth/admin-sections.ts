@@ -23,6 +23,9 @@ export const Permission = {
 /** A count of things waiting for staff, shown as a tile on the admin home page and, for a queue, as a badge on its sidebar entry. */
 export type AttentionKey = 'attemptRequests' | 'disputes' | 'issues' | 'riskFlags' | 'liveExams';
 
+/** How one count stands: not yet read, read, or not readable. */
+export type AttentionState = { status: 'loading' } | { status: 'ready'; count: number; atLimit: boolean } | { status: 'failed' };
+
 /**
  * One area of the admin section: where it lives and which permissions open it. The name and the description are message keys, so
  * the nav, the sidebar and the admin home page show them in the language the staff member chose.

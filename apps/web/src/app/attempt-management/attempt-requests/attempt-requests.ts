@@ -9,7 +9,7 @@ import {
   viewChildren,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AdminAttentionService } from '../../admin/admin-attention/admin-attention.service';
+import { AdminAttentionService } from '../admin-attention/admin-attention.service';
 import { MAX_ATTEMPT_REQUEST_TEXT } from '../../candidate/candidate.models';
 import { I18nService } from '../../i18n/i18n.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';

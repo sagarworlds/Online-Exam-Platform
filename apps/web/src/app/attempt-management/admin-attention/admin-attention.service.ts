@@ -1,11 +1,11 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of } from 'rxjs';
-import { AttemptAdminApiService } from '../../attempt-management/attempt-admin-api.service';
-import { AttentionKey, Permission } from '../../auth/admin-sections';
+import { AttentionKey, AttentionState, Permission } from '../../auth/admin-sections';
 import { AuthSessionService } from '../../auth/auth-session.service';
 import { ExamApiService } from '../../exam-authoring/exam-api.service';
 import { I18nService } from '../../i18n/i18n.service';
 import { ProctoringApiService } from '../../proctoring/proctoring-api.service';
+import { AttemptAdminApiService } from '../attempt-admin-api.service';
 
 /** How many rows a queue's list holds at most (the API stops there), so a count that reaches it is "at least". */
 export const QUEUE_LIMIT = 200;
@@ -22,9 +22,6 @@ export interface AttentionItem {
   /** The page that deals with it: its queue, or its exam's own page. */
   path: string;
 }
-
-/** How one count stands: not yet read, read, or not readable. */
-export type AttentionState = { status: 'loading' } | { status: 'ready'; count: number; atLimit: boolean } | { status: 'failed' };
 
 /** How old a count may be before moving to another page reads it again. */
 const STALE_AFTER_MS = 60_000;
