@@ -34,17 +34,10 @@ public sealed class AttemptAccess(
         if (answerLoader is null)
             return await LoadOwnedAsync(attemptId, candidateId, cancellationToken);
 
-        var attempt = await answerLoader.LoadForAnswerAsync(attemptId, questionId, cancellationToken);
+        var loaded = await answerLoader.LoadForAnswerAsync(attemptId, questionId, cancellationToken);
+        var (attempt, exam) = await WithItsExamAsync(loaded, candidateId, cancellationToken);
 
-        // Someone else's attempt answers exactly like a missing one, so ids cannot be probed.
-        if (attempt is null || attempt.CandidateId != candidateId)
-            throw new AttemptNotFoundError();
-
-        var exam = await catalog.FindAsync(attempt.ExamId, cancellationToken)
-            ?? throw new ExamContentUnavailableError();
-        exam = exam.For(attempt, proctorPolicy);
-
-        if (attempt.Status == AttemptStatus.InProgress && attempt.IsExpired(clock.UtcNow))
+        if (IsOverdue(attempt))
         {
             // Closing scores every answer, so read the attempt in full: it is the object already tracked, now with all its collections.
             attempt = await attempts.GetByIdAsync(attemptId, cancellationToken) ?? throw new AttemptNotFoundError();
@@ -62,17 +55,8 @@ public sealed class AttemptAccess(
     /// <exception cref="ExamContentUnavailableError">The attempt's exam can no longer be read.</exception>
     public async Task<(Attempt Attempt, ExamSnapshot Exam)> LoadOwnedAsync(Guid attemptId, Guid candidateId, CancellationToken cancellationToken)
     {
-        var attempt = await attempts.GetByIdAsync(attemptId, cancellationToken);
-
-        // Someone else's attempt answers exactly like a missing one, so ids cannot be probed.
-        if (attempt is null || attempt.CandidateId != candidateId)
-            throw new AttemptNotFoundError();
-
-        var exam = await catalog.FindAsync(attempt.ExamId, cancellationToken)
-            ?? throw new ExamContentUnavailableError();
-
-        // The exam as this attempt sees it: its drawn paper, if the exam draws one.
-        exam = exam.For(attempt, proctorPolicy);
+        var loaded = await attempts.GetByIdAsync(attemptId, cancellationToken);
+        var (attempt, exam) = await WithItsExamAsync(loaded, candidateId, cancellationToken);
         await CloseIfExpiredAsync(attempt, exam, cancellationToken);
         return (attempt, exam);
     }
@@ -83,7 +67,23 @@ public sealed class AttemptAccess(
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task CloseIfExpiredAsync(Attempt attempt, ExamSnapshot exam, CancellationToken cancellationToken)
     {
-        if (attempt.Status == AttemptStatus.InProgress && attempt.IsExpired(clock.UtcNow))
+        if (IsOverdue(attempt))
             await closer.CloseAsync(attempt, exam, cancellationToken);
     }
+
+    // The steps both loads share once the attempt is read, however much of it was: it must be the candidate's own, and its exam must still be
+    // readable. The exam comes back as this attempt sees it: its drawn paper, if the exam draws one.
+    private async Task<(Attempt Attempt, ExamSnapshot Exam)> WithItsExamAsync(Attempt? attempt, Guid candidateId, CancellationToken cancellationToken)
+    {
+        // Someone else's attempt answers exactly like a missing one, so ids cannot be probed.
+        if (attempt is null || attempt.CandidateId != candidateId)
+            throw new AttemptNotFoundError();
+
+        var exam = await catalog.FindAsync(attempt.ExamId, cancellationToken)
+            ?? throw new ExamContentUnavailableError();
+
+        return (attempt, exam.For(attempt, proctorPolicy));
+    }
+
+    private bool IsOverdue(Attempt attempt) => attempt.Status == AttemptStatus.InProgress && attempt.IsExpired(clock.UtcNow);
 }

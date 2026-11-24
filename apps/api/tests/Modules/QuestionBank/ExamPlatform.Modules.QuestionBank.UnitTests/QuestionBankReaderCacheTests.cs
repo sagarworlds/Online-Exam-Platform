@@ -266,8 +266,8 @@ public class MemoryQuestionVersionCacheTests
     [Fact]
     public void AnImageHeavyQuestion_CountsForFarMoreThanAPlainOne()
     {
-        var plain = Content().ApproximateBytes;
-        var heavy = Content("<p><img src=\"data:image/png;base64," + new string('A', 400_000) + "\"></p>").ApproximateBytes;
+        var plain = MemoryQuestionVersionCache.ApproximateBytesOf(Content());
+        var heavy = MemoryQuestionVersionCache.ApproximateBytesOf(Content("<p><img src=\"data:image/png;base64," + new string('A', 400_000) + "\"></p>"));
 
         Assert.True(heavy > 100 * plain);
     }

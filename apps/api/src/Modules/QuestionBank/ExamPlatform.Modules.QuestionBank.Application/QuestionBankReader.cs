@@ -14,7 +14,7 @@ public sealed class QuestionBankReader(
     IQuestionRepository repository, IBookRepository books, QuestionApprovalPolicy? approval = null, IQuestionVersionCache? versionCache = null) : IQuestionBank
 {
     private readonly QuestionApprovalPolicy _approval = approval ?? new QuestionApprovalPolicy(RequireApproval: false);
-    private readonly IQuestionVersionCache _versions = versionCache ?? NoQuestionVersionCache.Instance;
+    private readonly QuestionVersionResolver _resolver = new(repository, versionCache ?? NoQuestionVersionCache.Instance);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<QuestionSnapshot>> GetAsync(IReadOnlyCollection<Guid> questionIds, CancellationToken cancellationToken)
@@ -42,55 +42,16 @@ public sealed class QuestionBankReader(
         var facts = (await repository.GetFactsAsync(wanted.Select(v => v.QuestionId).ToList(), cancellationToken)).ToDictionary(f => f.Id);
         var chapters = await ChaptersOfAsync(facts.Values.Select(f => f.ChapterId), cancellationToken);
 
-        var found = new Dictionary<Guid, (int Number, QuestionVersionContent Content)>();
-        var missed = new List<(Guid QuestionId, int VersionNumber)>();
-        var asItIsNow = new List<Guid>();
-        foreach (var reference in wanted)
-        {
-            if (!facts.TryGetValue(reference.QuestionId, out var fact))
-                continue;
+        var resolved = await _resolver.ResolveAsync(wanted, facts, cancellationToken);
 
-            // No version was ever stored (a question from before versions were kept), or the one asked for never was: it reads as it is now.
-            var number = reference.VersionNumber ?? fact.CurrentVersion;
-            if (fact.CurrentVersion is null || number is null || number < 1 || number > fact.CurrentVersion)
-            {
-                asItIsNow.Add(reference.QuestionId);
-                continue;
-            }
-
-            if (_versions.TryGet(reference.QuestionId, number.Value, out var kept))
-                found[reference.QuestionId] = (number.Value, kept);
-            else
-                missed.Add((reference.QuestionId, number.Value));
-        }
-
-        if (missed.Count > 0)
-        {
-            // Read from the stored version, which cannot change under the read, and not from the question, which an edit could change between
-            // learning the number and reading the text: what is kept under a number must be the content of that number.
-            var stored = (await repository.GetVersionsAsync(missed, cancellationToken)).ToDictionary(v => (v.QuestionId, v.VersionNumber));
-            foreach (var (questionId, number) in missed)
-            {
-                if (!stored.TryGetValue((questionId, number), out var version))
-                {
-                    asItIsNow.Add(questionId);
-                    continue;
-                }
-
-                var content = ContentOf(version);
-                _versions.Set(questionId, number, content);
-                found[questionId] = (number, content);
-            }
-        }
-
-        var now = asItIsNow.Count == 0
+        var now = resolved.AsItIsNow.Count == 0
             ? new Dictionary<Guid, QuestionSnapshot>()
-            : await ReadAsItIsNowAsync(asItIsNow, facts, chapters, cancellationToken);
+            : await ReadAsItIsNowAsync(resolved.AsItIsNow, facts, chapters, cancellationToken);
 
-        var snapshots = new List<QuestionSnapshot>(found.Count + now.Count);
+        var snapshots = new List<QuestionSnapshot>(resolved.Found.Count + now.Count);
         foreach (var reference in wanted)
         {
-            if (found.TryGetValue(reference.QuestionId, out var read))
+            if (resolved.Found.TryGetValue(reference.QuestionId, out var read))
             {
                 var fact = facts[reference.QuestionId];
                 var c = read.Content;
@@ -110,24 +71,12 @@ public sealed class QuestionBankReader(
     }
 
     private async Task<Dictionary<Guid, QuestionSnapshot>> ReadAsItIsNowAsync(
-        List<Guid> ids, IReadOnlyDictionary<Guid, QuestionFacts> facts, IReadOnlyDictionary<Guid, ChapterRef> chapters, CancellationToken cancellationToken)
+        IReadOnlyList<Guid> ids, IReadOnlyDictionary<Guid, QuestionFacts> facts, IReadOnlyDictionary<Guid, ChapterRef> chapters, CancellationToken cancellationToken)
     {
         var current = facts.Where(f => f.Value.CurrentVersion is not null).ToDictionary(f => f.Key, f => f.Value.CurrentVersion!.Value);
         var questions = await repository.GetManyAsync(ids, cancellationToken);
         return questions.ToDictionary(q => q.Id, q => Current(q, current, chapters, _approval));
     }
-
-    // The lists are handed to every reader of the cached content, so they are read-only wrappers: a list or an array that a caller could cast
-    // back and sort or edit in place would change the content for everyone after it.
-    private static QuestionVersionContent ContentOf(QuestionVersion v) =>
-        new(
-            v.Text,
-            v.Options.OrderBy(o => o.Order).Select(o => new QuestionOptionSnapshot(o.OptionId, o.Text, o.IsCorrect, o.IsPinned)).ToList().AsReadOnly(),
-            v.AllowsMultiple,
-            v.IsTextAnswer,
-            Array.AsReadOnly(v.AcceptedAnswers),
-            v.Explanation,
-            v.MatchRule);
 
     private async Task<IReadOnlyDictionary<Guid, ChapterRef>> ChaptersOfAsync(IEnumerable<Guid?> chapterIds, CancellationToken cancellationToken) =>
         await books.GetChapterRefsAsync(chapterIds.Where(c => c is not null).Select(c => c!.Value).Distinct().ToList(), cancellationToken);
